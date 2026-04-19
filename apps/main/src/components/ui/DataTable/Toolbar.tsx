@@ -12,6 +12,7 @@
  * Ref: https://design.gitlab.com/patterns/filtering
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search, LayoutList, LayoutGrid, CreditCard, Zap,
   Columns3, Download, Upload,
@@ -186,6 +187,7 @@ export function DataTableToolbar({
   toolbarLeft,
   toolbarRight,
 }: ToolbarProps) {
+  const { t } = useTranslation()
   const [dropdown, setDropdown] = useState<DropdownState>({ type: 'closed' })
   const [filterSearch, setFilterSearch] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -411,7 +413,7 @@ export function DataTableToolbar({
                         ? 'bg-primary/15 text-primary hover:bg-primary/25'
                         : 'text-primary/60 hover:bg-accent hover:text-primary/80',
                     )}
-                    title="Cliquer pour basculer ET ↔ OU"
+                    title={t('ui.cliquer_pour_basculer_et_ou')}
                   >
                     {FILTER_COMBINATOR_LABELS[filterCombinators?.[i - 1] ?? 'and']}
                   </button>
@@ -473,7 +475,7 @@ export function DataTableToolbar({
             <button
               onClick={(e) => { e.stopPropagation(); handleClearAll() }}
               className="shrink-0 text-muted-foreground/60 hover:text-foreground transition-colors"
-              title="Effacer tout"
+              title={t('ui.effacer_tout')}
             >
               <X size={13} />
             </button>
@@ -613,7 +615,7 @@ export function DataTableToolbar({
                           ? { type: 'closed' }
                           : { type: 'action', id: '_batch' }
                       )}
-                      className="gl-button-sm gl-button-confirm flex items-center gap-1 text-[11px] px-2 py-0.5"
+                      className="gl-button-sm gl-button-confirm items-center gap-1 text-[11px] px-2 py-0.5"
                     >
                       Actions <ChevronDown size={10} />
                     </button>
@@ -763,7 +765,7 @@ export function DataTableToolbar({
                       className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent text-left text-primary font-medium"
                     >
                       <Settings2 size={12} />
-                      <span>Export avancé…</span>
+                      <span>{t('ui.export_avance')}</span>
                     </button>
                   </>
                 )}
@@ -803,7 +805,7 @@ export function DataTableToolbar({
                   className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent text-left text-foreground"
                 >
                   <Upload size={12} className="text-muted-foreground" />
-                  <span>Importer un fichier CSV</span>
+                  <span>{t('ui.importer_un_fichier_csv')}</span>
                 </button>
                 {importExport?.importTemplate && (
                   <button
@@ -811,7 +813,7 @@ export function DataTableToolbar({
                     className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent text-left text-foreground"
                   >
                     <FileDown size={12} className="text-muted-foreground" />
-                    <span>Télécharger le modèle</span>
+                    <span>{t('ui.telecharger_le_modele')}</span>
                   </button>
                 )}
               </div>

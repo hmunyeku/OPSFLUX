@@ -393,7 +393,7 @@ function CreateEntityPanel() {
       }
     >
       <form id="create-entity-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title="Identité">
+        <FormSection title={t('assets.identity')}>
           <FormGrid>
             <DynamicPanelField label="Code" required>
               <input type="text" required maxLength={50} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="PER_CMR" />
@@ -403,7 +403,7 @@ function CreateEntityPanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Nom commercial">
+            <DynamicPanelField label={t('entities.columns.trade_name')}>
               <input type="text" value={form.trade_name || ''} onChange={(e) => set({ trade_name: e.target.value || null })} className={panelInputClass} placeholder="Perenco Cameroun S.A." />
             </DynamicPanelField>
             <DynamicPanelField label="Pays">
@@ -439,10 +439,10 @@ function CreateEntityPanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Début exercice fiscal">
+            <DynamicPanelField label={t('entities.debut_exercice_fiscal')}>
               <TagSelector options={FISCAL_MONTH_OPTIONS} value={String(form.fiscal_year_start ?? 1)} onChange={(v) => set({ fiscal_year_start: Number(v) })} />
             </DynamicPanelField>
-            <DynamicPanelField label="Date de fondation">
+            <DynamicPanelField label={t('entities.date_de_fondation')}>
               <input type="date" value={form.founded_date || ''} onChange={(e) => set({ founded_date: e.target.value || null })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -618,7 +618,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                 <input
                   type="url"
                   className={cn(panelInputClass, 'flex-1 text-xs')}
-                  placeholder="URL du logo..."
+                  placeholder={t('entities.url_du_logo')}
                   value={logoInput}
                   onChange={(e) => setLogoInput(e.target.value)}
                   autoFocus
@@ -667,23 +667,23 @@ function EntityDetailPanel({ id }: { id: string }) {
           <SectionColumns>
             {/* ─── Column 1: Identity + Coordonnées + Réseaux ─── */}
             <div className="@container space-y-5">
-              <FormSection title="Identité">
+              <FormSection title={t('assets.identity')}>
                 <InlineEditableRow label="Code" value={entity.code} onSave={(v) => save('code', v)} disabled={!canUpdate} />
                 <InlineEditableRow label="Raison sociale" value={entity.name} onSave={(v) => save('name', v)} disabled={!canUpdate} />
-                <InlineEditableRow label="Nom commercial" value={entity.trade_name || ''} onSave={(v) => save('trade_name', v || null)} disabled={!canUpdate} />
+                <InlineEditableRow label={t('entities.columns.trade_name')} value={entity.trade_name || ''} onSave={(v) => save('trade_name', v || null)} disabled={!canUpdate} />
                 {dictIndustries.length > 0 ? (
-                  <InlineEditableCombobox label="Secteur d'activité" value={entity.industry || ''} options={dictIndustries} onSave={(v) => save('industry', v || null)} placeholder="Rechercher un secteur..." />
+                  <InlineEditableCombobox label="Secteur d'activité" value={entity.industry || ''} options={dictIndustries} onSave={(v) => save('industry', v || null)} placeholder={t('entities.rechercher_un_secteur')} />
                 ) : (
                   <InlineEditableRow label="Secteur d'activité" value={entity.industry || ''} onSave={(v) => save('industry', v || null)} disabled={!canUpdate} />
                 )}
                 <InlineEditableRow label="Site web" value={entity.website || ''} onSave={(v) => save('website', v || null)} disabled={!canUpdate} />
-                <InlineEditableRow label="Date de fondation" value={entity.founded_date || ''} onSave={(v) => save('founded_date', v || null)} disabled={!canUpdate} type="date" />
+                <InlineEditableRow label={t('entities.date_de_fondation')} value={entity.founded_date || ''} onSave={(v) => save('founded_date', v || null)} disabled={!canUpdate} type="date" />
               </FormSection>
 
               {/* Coordonnées — polymorphic managers */}
-              <FormSection title="Coordonnées" collapsible defaultExpanded storageKey="panel.entity.sections" id="entity-contact">
+              <FormSection title={t('geo.coordinates')} collapsible defaultExpanded storageKey="panel.entity.sections" id="entity-contact">
                 <div className="space-y-3 border-t border-border/40 pt-3 mt-2">
-                  <SubSectionLabel icon={Phone} label="Téléphones" count={phones?.length ?? 0} />
+                  <SubSectionLabel icon={Phone} label={t('shared.phones.title')} count={phones?.length ?? 0} />
                   <PhoneManager ownerType="entity" ownerId={id} compact />
 
                   <SubSectionLabel icon={Mail} label="Emails" count={contactEmails?.length ?? 0} />
@@ -695,9 +695,9 @@ function EntityDetailPanel({ id }: { id: string }) {
               </FormSection>
 
               {/* Réseaux sociaux — polymorphic manager */}
-              <FormSection title="Réseaux sociaux" collapsible storageKey="panel.entity.sections" id="entity-social">
+              <FormSection title={t('tiers.ui.social_networks')} collapsible storageKey="panel.entity.sections" id="entity-social">
                 <div className="border-t border-border/40 pt-3 mt-2">
-                  <SubSectionLabel icon={Share2} label="Réseaux" count={socialNetworks?.length ?? 0} />
+                  <SubSectionLabel icon={Share2} label={t('entities.reseaux')} count={socialNetworks?.length ?? 0} />
                   <SocialNetworkManager ownerType="entity" ownerId={id} compact />
                 </div>
               </FormSection>
@@ -721,7 +721,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                 <InlineEditableTags label="Exercice fiscal" value={String(entity.fiscal_year_start)} options={FISCAL_MONTH_OPTIONS} onSave={(v) => save('fiscal_year_start', Number(v))} disabled={!canUpdate} />
               </FormSection>
 
-              <FormSection title="Activité">
+              <FormSection title={t('paxlog.create_avm.program.activity')}>
                 <ReadOnlyRow
                   label="Utilisateurs"
                   value={
@@ -734,13 +734,13 @@ function EntityDetailPanel({ id }: { id: string }) {
                   }
                 />
                 {entity.parent_name && (
-                  <ReadOnlyRow label="Entité parente" value={<span className="text-sm">{entity.parent_name}</span>} />
+                  <ReadOnlyRow label={t('entities.entite_parente')} value={<span className="text-sm">{entity.parent_name}</span>} />
                 )}
                 {entity.children_count > 0 && (
-                  <ReadOnlyRow label="Sous-entités" value={<span className="text-sm">{entity.children_count}</span>} />
+                  <ReadOnlyRow label={t('entities.sous_entites')} value={<span className="text-sm">{entity.children_count}</span>} />
                 )}
                 <ReadOnlyRow
-                  label="Créé le"
+                  label={t('common.created_at')}
                   value={
                     <span className="flex items-center gap-1.5 text-sm">
                       <Clock size={12} className="text-muted-foreground" />
@@ -750,7 +750,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                 />
                 {entity.updated_at && (
                   <ReadOnlyRow
-                    label="Modifié le"
+                    label={t('common.updated_at')}
                     value={<span className="text-sm">{new Date(entity.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
                   />
                 )}
@@ -800,7 +800,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                   <input
                     type="text"
                     className={cn(panelInputClass, 'w-full')}
-                    placeholder="Rechercher un utilisateur..."
+                    placeholder={t('paxlog.search_user')}
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                     autoFocus
@@ -808,7 +808,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                 </div>
                 <div className="max-h-[200px] overflow-y-auto">
                   {availableUsers.length === 0 ? (
-                    <p className="p-3 text-xs text-muted-foreground text-center">Aucun utilisateur disponible</p>
+                    <p className="p-3 text-xs text-muted-foreground text-center">{t('entities.aucun_utilisateur_disponible')}</p>
                   ) : (
                     availableUsers.map((user) => (
                       <button

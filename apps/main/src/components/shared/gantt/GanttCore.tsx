@@ -18,6 +18,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronCollapsed,
   Loader2, ZoomIn, ZoomOut, Maximize, Download,
@@ -106,6 +107,7 @@ function EditableCell({ rowId, col, value, renderContent, onEdit }: {
 // ── Main Component ──────────────────────────────────────────────
 
 export function GanttCore(props: GanttCoreProps) {
+  const { t } = useTranslation()
   const {
     rows, bars, dependencies = [], markers = [], columns: rawColumns = [],
     initialScale, initialStart, initialEnd, initialSettings,
@@ -952,7 +954,7 @@ export function GanttCore(props: GanttCoreProps) {
     return (
       <div className="flex items-center justify-center text-muted-foreground gap-2" style={{ minHeight }}>
         <Loader2 className="h-5 w-5 animate-spin" />
-        <span className="text-sm">Chargement du Gantt...</span>
+        <span className="text-sm">{t('shared.chargement_du_gantt')}</span>
       </div>
     )
   }
@@ -971,7 +973,7 @@ export function GanttCore(props: GanttCoreProps) {
       {showToolbar && (
         <div data-gantt-toolbar className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30 shrink-0">
           {/* Navigation */}
-          <button onClick={() => shift(-1)} className="p-1 rounded hover:bg-muted" title="Précédent">
+          <button onClick={() => shift(-1)} className="p-1 rounded hover:bg-muted" title={t('common.previous')}>
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button onClick={() => shift(1)} className="p-1 rounded hover:bg-muted" title="Suivant">
@@ -981,7 +983,7 @@ export function GanttCore(props: GanttCoreProps) {
           {/* Undo/Redo */}
           {(onUndo || onRedo) && (
             <div className="flex items-center gap-0.5 ml-1 border-l border-border/40 pl-1">
-              <button onClick={onUndo} disabled={!onUndo} className="p-1 rounded hover:bg-muted disabled:opacity-30" title="Annuler (Ctrl+Z)">
+              <button onClick={onUndo} disabled={!onUndo} className="p-1 rounded hover:bg-muted disabled:opacity-30" title={t('common.undo')}>
                 <Undo2 className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
               <button onClick={onRedo} disabled={!onRedo} className="p-1 rounded hover:bg-muted disabled:opacity-30" title="Refaire (Ctrl+Y)">
@@ -1012,12 +1014,12 @@ export function GanttCore(props: GanttCoreProps) {
           {showActions && (
             <div className="flex items-center gap-0.5 ml-2 border-l border-border/40 pl-2">
               {onAddTask && (
-                <button onClick={onAddTask} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title="Ajouter une tâche">
+                <button onClick={onAddTask} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title={t('projets.add_task')}>
                   <Plus className="h-3 w-3" /> Tâche
                 </button>
               )}
               {onAddMilestone && (
-                <button onClick={onAddMilestone} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title="Ajouter un jalon">
+                <button onClick={onAddMilestone} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title={t('projets.add_milestone')}>
                   <Diamond className="h-3 w-3" /> Jalon
                 </button>
               )}
@@ -1027,7 +1029,7 @@ export function GanttCore(props: GanttCoreProps) {
                 </button>
               )}
               {selectedRowId && onOutdent && (
-                <button onClick={() => onOutdent(selectedRowId)} className="p-1 rounded hover:bg-muted" title="Désindenter">
+                <button onClick={() => onOutdent(selectedRowId)} className="p-1 rounded hover:bg-muted" title={t('shared.desindenter')}>
                   <IndentDecrease className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               )}
@@ -1058,7 +1060,7 @@ export function GanttCore(props: GanttCoreProps) {
               type="button"
               onClick={() => setRangeMenuOpen((v) => !v)}
               className="gl-button gl-button-default text-foreground/80 tabular-nums border-transparent"
-              title="Changer la période"
+              title={t('shared.changer_la_periode')}
             >
               <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
               <span className="whitespace-nowrap">

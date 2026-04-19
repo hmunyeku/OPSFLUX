@@ -505,7 +505,7 @@ function CreateUserPanel() {
               <tbody>
                 <tr>
                   <td colSpan={2} className="pt-2 pb-1.5 px-3">
-                    <SectionHeader><span className="flex items-center gap-1.5"><Users size={12} /> Identité</span></SectionHeader>
+                    <SectionHeader><span className="flex items-center gap-1.5"><Users size={12} /> {t('assets.identity')}</span></SectionHeader>
                   </td>
                 </tr>
                 <tr className="border-b border-border/40">
@@ -558,7 +558,7 @@ function CreateUserPanel() {
               <tbody>
                 <tr>
                   <td colSpan={2} className="pt-2 pb-1.5 px-3">
-                    <SectionHeader><span className="flex items-center gap-1.5"><Building2 size={12} /> Entité & Accès</span></SectionHeader>
+                    <SectionHeader><span className="flex items-center gap-1.5"><Building2 size={12} /> {t('users.entite_acces')}</span></SectionHeader>
                   </td>
                 </tr>
                 <tr className="border-b border-border/40">
@@ -572,7 +572,7 @@ function CreateUserPanel() {
                   </td>
                 </tr>
                 <tr className="border-b border-border/40">
-                  <td className="py-2 px-3 text-muted-foreground font-medium align-top whitespace-nowrap">Entité par défaut</td>
+                  <td className="py-2 px-3 text-muted-foreground font-medium align-top whitespace-nowrap">{t('users.entite_par_defaut')}</td>
                   <td className="py-2 px-3">
                     <select
                       value={form.default_entity_id || ''}
@@ -595,13 +595,13 @@ function CreateUserPanel() {
                       onChange={(e) => setForm({ ...form, account_expires_at: e.target.value || undefined })}
                       className={cn(panelInputClass, 'max-w-[200px]')}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Vide = pas d'expiration.</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t('users.vide_pas_d_expiration')}</p>
                   </td>
                 </tr>
                 <tr className="border-b border-border/40">
-                  <td className="py-2 px-3 text-muted-foreground font-medium align-top whitespace-nowrap">Rôles & Groupes</td>
+                  <td className="py-2 px-3 text-muted-foreground font-medium align-top whitespace-nowrap">{t('users.roles_groupes')}</td>
                   <td className="py-2 px-3">
-                    <p className="text-xs text-muted-foreground italic">Configurable après création.</p>
+                    <p className="text-xs text-muted-foreground italic">{t('users.configurable_apres_creation')}</p>
                   </td>
                 </tr>
 
@@ -620,9 +620,9 @@ function CreateUserPanel() {
                       value={form.password || ''}
                       onChange={(e) => setForm({ ...form, password: e.target.value })}
                       className={panelInputClass}
-                      placeholder="Min. 8 caractères"
+                      placeholder={t('users.min_8_caracteres')}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Vide = mot de passe temporaire auto-généré.</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t('users.vide_mot_de_passe_temporaire_auto_genere')}</p>
                   </td>
                 </tr>
                 <tr className="border-b border-border/40">
@@ -631,8 +631,8 @@ function CreateUserPanel() {
                     <label className="flex items-center gap-2.5 cursor-pointer group">
                       <input type="checkbox" checked={sendInvite} onChange={(e) => setSendInvite(e.target.checked)} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
                       <div>
-                        <span className="text-sm text-foreground group-hover:text-primary transition-colors">Envoyer un email d'invitation</span>
-                        <p className="text-xs text-muted-foreground mt-0.5">Lien pour définir son mot de passe.</p>
+                        <span className="text-sm text-foreground group-hover:text-primary transition-colors">{t('users.envoyer_un_email_d_invitation')}</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">{t('users.lien_pour_definir_son_mot_de_passe')}</p>
                       </div>
                     </label>
                   </td>
@@ -649,6 +649,7 @@ function CreateUserPanel() {
 // ── User Entities Tab ───────────────────────────────────────
 
 function UserEntitiesTab({ userId }: { userId: string }) {
+  const { t } = useTranslation()
   const { data: entities, isLoading } = useUserEntities(userId)
   const assignToEntity = useAssignUserToEntity()
   const removeFromEntity = useRemoveUserFromEntity()
@@ -712,7 +713,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
       {showPicker ? (
         <div className="border border-border rounded-lg bg-muted/30 p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-foreground">Ajouter à une entité</span>
+            <span className="text-xs font-medium text-foreground">{t('users.add_to_entity')}</span>
             <button
               className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => { setShowPicker(false); setPickerSearch('') }}
@@ -725,7 +726,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
             value={pickerSearch}
             onChange={(e) => setPickerSearch(e.target.value)}
             className={panelInputClass}
-            placeholder="Rechercher une entité..."
+            placeholder={t('users.search_entity')}
             autoFocus
           />
           <div className="max-h-40 overflow-y-auto space-y-1">
@@ -765,7 +766,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
       {!entities || entities.length === 0 ? (
         <div className="text-center py-6">
           <Building2 size={24} className="mx-auto text-muted-foreground/40 mb-2" />
-          <p className="text-sm text-muted-foreground">Aucune entité assignée</p>
+          <p className="text-sm text-muted-foreground">{t('users.no_entity')}</p>
           <p className="text-xs text-muted-foreground mt-1">
             Ajoutez cet utilisateur à une entité pour lui donner accès.
           </p>
@@ -784,7 +785,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
               </div>
               <button
                 className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title="Retirer de cette entité"
+                title={t('users.retirer_de_cette_entite')}
                 onClick={() => handleRemove(entity.entity_id, entity.entity_name)}
               >
                 <Trash2 size={13} />
@@ -795,7 +796,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
             <div className="space-y-1.5">
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Groupes & Roles</span>
               {entity.groups.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Aucun groupe</p>
+                <p className="text-xs text-muted-foreground">{t('users.no_group')}</p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {entity.groups.map((g) => (
@@ -822,7 +823,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
       {/* ── Entreprises liées (Tier Links) ── */}
       <div className="border-t border-border pt-3 mt-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Entreprises liées</span>
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{t('users.entreprises_liees')}</span>
           {!showTierPicker && (
             <button
               className="gl-button-sm gl-button-default items-center gap-1"
@@ -836,7 +837,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
         {showTierPicker && (
           <div className="border border-border rounded-lg bg-muted/30 p-3 space-y-2 mb-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-foreground">Rechercher une entreprise</span>
+              <span className="text-xs font-medium text-foreground">{t('users.rechercher_une_entreprise')}</span>
               <button
                 className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => { setShowTierPicker(false); setTierSearch('') }}
@@ -849,7 +850,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
               value={tierSearch}
               onChange={(e) => setTierSearch(e.target.value)}
               className={panelInputClass}
-              placeholder="Rechercher par nom ou code…"
+              placeholder={t('users.rechercher_par_nom_ou_code')}
               autoFocus
             />
             <div className="max-h-40 overflow-y-auto space-y-1">
@@ -884,7 +885,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
         )}
 
         {!tierLinks || tierLinks.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-3">Aucune entreprise liée</p>
+          <p className="text-xs text-muted-foreground text-center py-3">{t('users.external_identity_no_company')}</p>
         ) : (
           <div className="space-y-1.5">
             {tierLinks.map((link) => (
@@ -900,7 +901,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
                 </div>
                 <button
                   className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                  title="Retirer le lien"
+                  title={t('users.retirer_le_lien')}
                   onClick={async () => {
                     const ok = await confirm({
                       title: 'Retirer le lien ?',
@@ -961,6 +962,7 @@ const SHOE_SIZE_CHART = [
 ]
 
 function PPESizeRow({ label, value, onSave, chartType }: { label: string; value: string; onSave: (v: string) => void; chartType: 'clothing' | 'shoe' }) {
+  const { t } = useTranslation()
   const [showChart, setShowChart] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
 
@@ -984,7 +986,7 @@ function PPESizeRow({ label, value, onSave, chartType }: { label: string; value:
           type="button"
           onClick={() => setShowChart(!showChart)}
           className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground text-[9px] font-bold transition-colors shrink-0"
-          title="Tableau de correspondance des tailles"
+          title={t('users.tableau_de_correspondance_des_tailles')}
         >
           i
         </button>
@@ -1198,7 +1200,7 @@ function UserDetailPanel({ id }: { id: string }) {
             disabled={updateUser.isPending}
           >
             {user.active ? (
-              <><UserX size={12} className="mr-1" /> Désactiver</>
+              <><UserX size={12} className="mr-1" /> {t('common.deactivate')}</>
             ) : (
               <><UserCheck size={12} className="mr-1" /> Activer</>
             )}
@@ -1266,7 +1268,7 @@ function UserDetailPanel({ id }: { id: string }) {
           {/* URL input overlay */}
           {showUrlInput && (
             <div className="absolute left-0 right-0 top-0 z-50 bg-card border border-border rounded-lg shadow-lg p-3 mx-4">
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">URL de l&apos;image</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('users.url_de_l_apos_image')}</label>
               <div className="flex gap-2">
                 <input
                   className="gl-form-input flex-1 text-xs"
@@ -1290,9 +1292,9 @@ function UserDetailPanel({ id }: { id: string }) {
             <p className="text-sm text-muted-foreground truncate">{user.email}</p>
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               {isLocked ? (
-                <span className="gl-badge gl-badge-warning"><Lock size={9} className="mr-0.5" />Verrouillé</span>
+                <span className="gl-badge gl-badge-warning"><Lock size={9} className="mr-0.5" />{t('users.verrouille')}</span>
               ) : isExpired ? (
-                <span className="gl-badge gl-badge-neutral"><AlertTriangle size={9} className="mr-0.5" />Expiré</span>
+                <span className="gl-badge gl-badge-neutral"><AlertTriangle size={9} className="mr-0.5" />{t('conformite.records.expired')}</span>
               ) : (
                 <span className={cn('gl-badge', user.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
                   {user.active ? 'Actif' : 'Archivé'}
@@ -1331,8 +1333,8 @@ function UserDetailPanel({ id }: { id: string }) {
         <div className="-mx-4">
           <TabBar>
             <TabButton icon={Users} label="Fiche" active={detailTab === 'fiche'} onClick={() => setDetailTab('fiche')} />
-            <TabButton icon={Building2} label="Entités & Rôles" active={detailTab === 'entities'} badge={entitiesCount || undefined} onClick={() => setDetailTab('entities')} />
-            <TabButton icon={Shield} label="Sécurité" active={detailTab === 'securite'} onClick={() => setDetailTab('securite')} />
+            <TabButton icon={Building2} label={t('users.entites_roles')} active={detailTab === 'entities'} badge={entitiesCount || undefined} onClick={() => setDetailTab('entities')} />
+            <TabButton icon={Shield} label={t('users.securite')} active={detailTab === 'securite'} onClick={() => setDetailTab('securite')} />
             <TabButton icon={Clock} label="Journal" active={detailTab === 'journal'} onClick={() => setDetailTab('journal')} />
             <TabButton icon={ShieldCheck} label="Permissions" active={detailTab === 'permissions'} onClick={() => setDetailTab('permissions')} />
           </TabBar>
@@ -1342,10 +1344,10 @@ function UserDetailPanel({ id }: { id: string }) {
           <SectionColumns>
             {/* Column 1: Identity + Coordonnées */}
             <div className="@container space-y-5">
-                <FormSection title="Identité">
+                <FormSection title={t('assets.identity')}>
                   <InlineEditableRow label={t('users.last_name')} value={user.last_name} onSave={(v) => handleInlineSave('last_name', v)} />
                   <InlineEditableRow label={t('users.first_name')} value={user.first_name} onSave={(v) => handleInlineSave('first_name', v)} />
-                  <InlineEditableRow label="Nom passeport" value={user.passport_name || ''} onSave={(v) => updateUser.mutate({ id, payload: { passport_name: v || null } })} />
+                  <InlineEditableRow label={t('users.columns.passport_name')} value={user.passport_name || ''} onSave={(v) => updateUser.mutate({ id, payload: { passport_name: v || null } })} />
                   <InlineEditableRow label="Email" value={user.email} onSave={(v) => handleInlineSave('email', v)} type="email" />
                   {genderOptions.length > 0 ? (
                     <InlineEditableTags label="Genre" value={user.gender || ''} options={genderOptions} onSave={(v) => updateUser.mutate({ id, payload: { gender: v || null } })} />
@@ -1353,17 +1355,17 @@ function UserDetailPanel({ id }: { id: string }) {
                     <InlineEditableRow label="Genre" value={user.gender || ''} onSave={(v) => updateUser.mutate({ id, payload: { gender: v || null } })} />
                   )}
                 {nationalityOptions.length > 0 ? (
-                  <InlineEditableCombobox label="Nationalité" value={user.nationality || ''} options={nationalityOptions} onSave={(v) => updateUser.mutate({ id, payload: { nationality: v || null } })} placeholder="Rechercher une nationalité..." />
+                  <InlineEditableCombobox label={t('users.columns.nationality')} value={user.nationality || ''} options={nationalityOptions} onSave={(v) => updateUser.mutate({ id, payload: { nationality: v || null } })} placeholder={t('users.rechercher_une_nationalite')} />
                 ) : (
-                  <InlineEditableRow label="Nationalité" value={user.nationality || ''} onSave={(v) => updateUser.mutate({ id, payload: { nationality: v || null } })} />
+                  <InlineEditableRow label={t('users.columns.nationality')} value={user.nationality || ''} onSave={(v) => updateUser.mutate({ id, payload: { nationality: v || null } })} />
                 )}
                 {countryOptions.length > 0 ? (
-                  <InlineEditableCombobox label="Pays de naissance" value={user.birth_country || ''} options={countryOptions} onSave={(v) => updateUser.mutate({ id, payload: { birth_country: v || null } })} placeholder="Rechercher un pays..." />
+                  <InlineEditableCombobox label={t('users.columns.birth_country')} value={user.birth_country || ''} options={countryOptions} onSave={(v) => updateUser.mutate({ id, payload: { birth_country: v || null } })} placeholder={t('users.rechercher_un_pays')} />
                 ) : (
-                  <InlineEditableRow label="Pays de naissance" value={user.birth_country || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_country: v || null } })} />
+                  <InlineEditableRow label={t('users.columns.birth_country')} value={user.birth_country || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_country: v || null } })} />
                 )}
-                <InlineEditableRow label="Ville de naissance" value={user.birth_city || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_city: v || null } })} />
-                <InlineEditableRow label="Date de naissance" value={user.birth_date || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_date: v || null } })} type="date" />
+                <InlineEditableRow label={t('users.columns.birth_city')} value={user.birth_city || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_city: v || null } })} />
+                <InlineEditableRow label={t('users.columns.birth_date')} value={user.birth_date || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_date: v || null } })} type="date" />
                 <InlineEditableRow label="ID Intranet" value={user.intranet_id || ''} onSave={(v) => updateUser.mutate({ id, payload: { intranet_id: v || undefined } })} />
                   {detailLanguageOptions.length > 0 ? (
                     <InlineEditableTags label={t('settings.language')} value={user.language} options={detailLanguageOptions} onSave={(v) => handleInlineSave('language', v)} />
@@ -1376,9 +1378,9 @@ function UserDetailPanel({ id }: { id: string }) {
                     <InlineEditableRow label="Type" value={user.user_type || 'internal'} onSave={(v) => updateUser.mutate({ id, payload: { user_type: v || 'internal' } })} />
                   )}
                 {jobPositionOptions.length > 0 ? (
-                  <InlineEditableCombobox label="Poste / Fonction" value={user.job_position_id || ''} options={jobPositionOptions} onSave={(v) => updateUser.mutate({ id, payload: { job_position_id: v || null } })} placeholder="Sélectionner un poste..." />
+                  <InlineEditableCombobox label="Poste / Fonction" value={user.job_position_id || ''} options={jobPositionOptions} onSave={(v) => updateUser.mutate({ id, payload: { job_position_id: v || null } })} placeholder={t('users.selectionner_un_poste')} />
                   ) : (
-                    <ReadOnlyRow label="Poste / Fonction" value={<span className="text-xs text-muted-foreground">Aucun poste défini</span>} />
+                    <ReadOnlyRow label="Poste / Fonction" value={<span className="text-xs text-muted-foreground">{t('users.aucun_poste_defini')}</span>} />
                   )}
                 </FormSection>
 
@@ -1437,9 +1439,9 @@ function UserDetailPanel({ id }: { id: string }) {
                 )}
 
                 {/* Coordonnées: phones, emails, addresses */}
-                <FormSection title="Coordonnées" collapsible defaultExpanded storageKey="panel.user.sections" id="user-contact">
+                <FormSection title={t('geo.coordinates')} collapsible defaultExpanded storageKey="panel.user.sections" id="user-contact">
                 <div className="space-y-3 border-t border-border/40 pt-3 mt-2">
-                  <SubSectionLabel icon={Phone} label="Téléphones" count={phones?.length ?? 0} />
+                  <SubSectionLabel icon={Phone} label={t('shared.phones.title')} count={phones?.length ?? 0} />
                   <PhoneManager ownerType="user" ownerId={id} compact />
 
                   <SubSectionLabel icon={Mail} label="Emails" count={contactEmails?.length ?? 0} />
@@ -1462,7 +1464,7 @@ function UserDetailPanel({ id }: { id: string }) {
                   <SubSectionLabel icon={Stamp} label="Visas" count={0} />
                   <VisaManager userId={id} compact />
 
-                  <SubSectionLabel icon={CreditCard} label="Sécurité sociale" count={0} />
+                  <SubSectionLabel icon={CreditCard} label={t('users.securite_sociale')} count={0} />
                   <SocialSecurityManager userId={id} compact />
                 </div>
               </FormSection>
@@ -1470,26 +1472,26 @@ function UserDetailPanel({ id }: { id: string }) {
               {/* Voyage & Transport */}
               <FormSection title="Voyage & Transport" collapsible storageKey="panel.user.sections" id="user-travel">
                 {airportOptions.length > 0 ? (
-                  <InlineEditableCombobox label="Aéroport contractuel" value={user.contractual_airport || ''} options={airportOptions} onSave={(v) => updateUser.mutate({ id, payload: { contractual_airport: v || null } })} placeholder="Rechercher un aéroport..." />
+                  <InlineEditableCombobox label={t('users.columns.contractual_airport')} value={user.contractual_airport || ''} options={airportOptions} onSave={(v) => updateUser.mutate({ id, payload: { contractual_airport: v || null } })} placeholder={t('users.rechercher_un_aeroport')} />
                 ) : (
-                  <InlineEditableRow label="Aéroport contractuel" value={user.contractual_airport || ''} onSave={(v) => updateUser.mutate({ id, payload: { contractual_airport: v || null } })} />
+                  <InlineEditableRow label={t('users.columns.contractual_airport')} value={user.contractual_airport || ''} onSave={(v) => updateUser.mutate({ id, payload: { contractual_airport: v || null } })} />
                 )}
                 {airportOptions.length > 0 ? (
-                  <InlineEditableCombobox label="Aéroport le plus proche" value={user.nearest_airport || ''} options={airportOptions} onSave={(v) => updateUser.mutate({ id, payload: { nearest_airport: v || null } })} placeholder="Rechercher un aéroport..." />
+                  <InlineEditableCombobox label={t('assets.nearest_airport')} value={user.nearest_airport || ''} options={airportOptions} onSave={(v) => updateUser.mutate({ id, payload: { nearest_airport: v || null } })} placeholder={t('users.rechercher_un_aeroport')} />
                 ) : (
-                  <InlineEditableRow label="Aéroport le plus proche" value={user.nearest_airport || ''} onSave={(v) => updateUser.mutate({ id, payload: { nearest_airport: v || null } })} />
+                  <InlineEditableRow label={t('assets.nearest_airport')} value={user.nearest_airport || ''} onSave={(v) => updateUser.mutate({ id, payload: { nearest_airport: v || null } })} />
                 )}
-                <InlineEditableRow label="Gare la plus proche" value={user.nearest_station || ''} onSave={(v) => updateUser.mutate({ id, payload: { nearest_station: v || null } })} />
-                <InlineEditableRow label="Programme fidélité" value={user.loyalty_program || ''} onSave={(v) => updateUser.mutate({ id, payload: { loyalty_program: v || null } })} />
+                <InlineEditableRow label={t('users.columns.nearest_station')} value={user.nearest_station || ''} onSave={(v) => updateUser.mutate({ id, payload: { nearest_station: v || null } })} />
+                <InlineEditableRow label={t('users.columns.loyalty_program')} value={user.loyalty_program || ''} onSave={(v) => updateUser.mutate({ id, payload: { loyalty_program: v || null } })} />
               </FormSection>
             </div>
 
             {/* Column 2: Roles/Groups + Activity + Dates + Notes/Files */}
             <div className="@container space-y-5">
               {/* Roles & Groups */}
-              <FormSection title="Rôles & Groupes" collapsible defaultExpanded storageKey="panel.user.sections" id="user-roles-groups">
+              <FormSection title={t('users.roles_groupes')} collapsible defaultExpanded storageKey="panel.user.sections" id="user-roles-groups">
                 <SectionHeader>
-                  <span className="flex items-center gap-1.5"><Shield size={12} /> Rôles attribués</span>
+                  <span className="flex items-center gap-1.5"><Shield size={12} /> {t('users.roles_attribues')}</span>
                 </SectionHeader>
                 {userRoleNames.length > 0 ? (
                   <div className="flex flex-wrap gap-2 mt-1.5">
@@ -1504,7 +1506,7 @@ function UserDetailPanel({ id }: { id: string }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground mt-1">Aucun rôle attribué</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('users.no_role')}</p>
                 )}
 
                 <SectionHeader>
@@ -1523,13 +1525,13 @@ function UserDetailPanel({ id }: { id: string }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground mt-1">Aucun groupe</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('users.no_group')}</p>
                 )}
               </FormSection>
 
-              <FormSection title="Activité">
+              <FormSection title={t('paxlog.create_avm.program.activity')}>
                 <ReadOnlyRow
-                  label="Dernière connexion"
+                  label={t('users.last_login')}
                   value={
                     <span className="flex items-center gap-1.5 text-sm">
                       <Clock size={12} className="text-muted-foreground" />
@@ -1540,7 +1542,7 @@ function UserDetailPanel({ id }: { id: string }) {
                   }
                 />
                 <ReadOnlyRow
-                  label="Dernière IP"
+                  label={t('users.columns.last_ip')}
                   value={
                     user.last_login_ip ? (
                       <span className="flex flex-col gap-0.5">
@@ -1557,7 +1559,7 @@ function UserDetailPanel({ id }: { id: string }) {
                   }
                 />
                 <ReadOnlyRow
-                  label="Créé le"
+                  label={t('common.created_at')}
                   value={
                     <span className="flex items-center gap-1.5 text-sm">
                       <Calendar size={12} className="text-muted-foreground" />
@@ -1567,7 +1569,7 @@ function UserDetailPanel({ id }: { id: string }) {
                 />
                 {user.updated_at && (
                   <ReadOnlyRow
-                    label="Modifié le"
+                    label={t('common.updated_at')}
                     value={<span className="text-sm">{formatDate(user.updated_at)}</span>}
                   />
                 )}
@@ -1578,12 +1580,12 @@ function UserDetailPanel({ id }: { id: string }) {
                 <InlineEditableRow label="Taille (cm)" value={user.height != null ? String(user.height) : ''} onSave={(v) => updateUser.mutate({ id, payload: { height: v ? parseInt(v) : null } })} />
                 <InlineEditableRow label="Poids (kg)" value={user.weight != null ? String(user.weight) : ''} onSave={(v) => updateUser.mutate({ id, payload: { weight: v ? parseFloat(v) : null } })} />
                 {clothingSizeOptions.length > 0
-                  ? <InlineEditableTags label="Vêtement haut" value={user.ppe_clothing_size || ''} options={clothingSizeOptions} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size: v || null } })} />
-                  : <PPESizeRow label="Vêtement haut" value={user.ppe_clothing_size || ''} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size: v || null } })} chartType="clothing" />
+                  ? <InlineEditableTags label={t('users.vetement_haut')} value={user.ppe_clothing_size || ''} options={clothingSizeOptions} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size: v || null } })} />
+                  : <PPESizeRow label={t('users.vetement_haut')} value={user.ppe_clothing_size || ''} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size: v || null } })} chartType="clothing" />
                 }
                 {clothingSizeOptions.length > 0
-                  ? <InlineEditableTags label="Vêtement bas" value={user.ppe_clothing_size_bottom || ''} options={clothingSizeOptions} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size_bottom: v || null } })} />
-                  : <PPESizeRow label="Vêtement bas" value={user.ppe_clothing_size_bottom || ''} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size_bottom: v || null } })} chartType="clothing" />
+                  ? <InlineEditableTags label={t('users.vetement_bas')} value={user.ppe_clothing_size_bottom || ''} options={clothingSizeOptions} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size_bottom: v || null } })} />
+                  : <PPESizeRow label={t('users.vetement_bas')} value={user.ppe_clothing_size_bottom || ''} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size_bottom: v || null } })} chartType="clothing" />
                 }
                 {shoeSizeOptions.length > 0
                   ? <InlineEditableTags label="Pointure" value={user.ppe_shoe_size || ''} options={shoeSizeOptions} onSave={(v) => updateUser.mutate({ id, payload: { ppe_shoe_size: v || null } })} />
@@ -1592,9 +1594,9 @@ function UserDetailPanel({ id }: { id: string }) {
               </FormSection>
 
               {/* Santé */}
-              <FormSection title="Santé" collapsible storageKey="panel.user.sections" id="user-health">
+              <FormSection title={t('users.sante')} collapsible storageKey="panel.user.sections" id="user-health">
                 <div className="border-b border-border/40 pb-3 mb-2">
-                  <SubSectionLabel icon={Stethoscope} label="Visites médicales" count={0} />
+                  <SubSectionLabel icon={Stethoscope} label={t('users.visites_medicales')} count={0} />
                   <MedicalCheckManager ownerType="user" ownerId={id} compact />
                 </div>
                 <div className="border-t border-border/40 pt-3 mt-2">
@@ -1602,24 +1604,24 @@ function UserDetailPanel({ id }: { id: string }) {
                   <VaccineManager userId={id} compact />
                 </div>
                 <div className="border-t border-border/40 pt-3 mt-2">
-                  <SubSectionLabel icon={Heart} label="Conditions de santé" count={0} />
+                  <SubSectionLabel icon={Heart} label={t('users.conditions_de_sante')} count={0} />
                   <HealthConditionsChecklist userId={id} />
                 </div>
               </FormSection>
 
               {/* Compétences */}
-              <FormSection title="Compétences" collapsible storageKey="panel.user.sections" id="user-skills">
+              <FormSection title={t('users.competences')} collapsible storageKey="panel.user.sections" id="user-skills">
                 <div className="space-y-3 border-t border-border/40 pt-3 mt-2">
                   <SubSectionLabel icon={Languages} label="Langues" count={0} />
                   <UserLanguageManager userId={id} compact />
 
-                  <SubSectionLabel icon={Car} label="Permis de conduire" count={0} />
+                  <SubSectionLabel icon={Car} label={t('users.permis_de_conduire')} count={0} />
                   <DrivingLicenseManager userId={id} compact />
                 </div>
               </FormSection>
 
               {/* Référentiels & Conformité */}
-              <FormSection title="Référentiels & Conformité" collapsible storageKey="panel.user.sections" id="user-referentiels">
+              <FormSection title={t('users.referentiels_conformite')} collapsible storageKey="panel.user.sections" id="user-referentiels">
                 <ReferentielManager ownerType="user" ownerId={id} compact />
               </FormSection>
 
@@ -1663,12 +1665,12 @@ function UserDetailPanel({ id }: { id: string }) {
                   label="MFA (TOTP)"
                   value={
                     user.mfa_enabled
-                      ? <span className="gl-badge gl-badge-success text-[10px]"><ShieldCheck size={9} className="mr-0.5" />Activé</span>
-                      : <span className="gl-badge gl-badge-neutral text-[10px]">Désactivé</span>
+                      ? <span className="gl-badge gl-badge-success text-[10px]"><ShieldCheck size={9} className="mr-0.5" />{t('common.enabled')}</span>
+                      : <span className="gl-badge gl-badge-neutral text-[10px]">{t('common.disabled')}</span>
                   }
                 />
                 <ReadOnlyRow
-                  label="Mot de passe changé"
+                  label={t('users.mot_de_passe_change')}
                   value={<span className="text-sm">{formatDate(user.password_changed_at)}</span>}
                 />
               </FormSection>
@@ -1692,13 +1694,13 @@ function UserDetailPanel({ id }: { id: string }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Aucun fournisseur SSO lié</p>
+                  <p className="text-xs text-muted-foreground">{t('users.aucun_fournisseur_sso_lie')}</p>
                 )}
               </FormSection>
 
               <FormSection title="Verrouillage & Expiration">
                 <ReadOnlyRow
-                  label="Tentatives échouées"
+                  label={t('users.tentatives_echouees')}
                   value={
                     <span className={cn('text-sm font-medium', user.failed_login_count > 3 && 'text-destructive')}>
                       {user.failed_login_count}
@@ -1710,27 +1712,27 @@ function UserDetailPanel({ id }: { id: string }) {
                   value={
                     isLocked
                       ? <span className="text-sm text-destructive font-medium">{formatDateTime(user.locked_until)}</span>
-                      : <span className="text-sm text-muted-foreground">Non verrouillé</span>
+                      : <span className="text-sm text-muted-foreground">{t('users.non_verrouille')}</span>
                   }
                 />
                 <ReadOnlyRow
-                  label="Expiration du compte"
+                  label={t('users.expiration_du_compte')}
                   value={
                     user.account_expires_at ? (
                       <span className={cn('text-sm', isExpired && 'text-destructive font-medium')}>
                         {formatDate(user.account_expires_at)}
                         {isExpired && ' (expiré)'}
                       </span>
-                    ) : <span className="text-sm text-muted-foreground">Pas d'expiration</span>
+                    ) : <span className="text-sm text-muted-foreground">{t('users.pas_d_expiration')}</span>
                   }
                 />
               </FormSection>
             </div>
 
             <div className="@container space-y-5">
-              <FormSection title="Sessions & Dernière activité">
+              <FormSection title={t('users.sessions_derniere_activite')}>
                 <ReadOnlyRow
-                  label="Dernière connexion"
+                  label={t('users.last_login')}
                   value={
                     <span className="flex items-center gap-1.5 text-sm">
                       <Clock size={12} className="text-muted-foreground" />
@@ -1741,7 +1743,7 @@ function UserDetailPanel({ id }: { id: string }) {
                   }
                 />
                 <ReadOnlyRow
-                  label="Dernière IP"
+                  label={t('users.columns.last_ip')}
                   value={
                     user.last_login_ip ? (
                       <span className="flex items-center gap-1.5 text-sm font-mono">
@@ -2084,7 +2086,7 @@ function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: Acc
             {!recentData ? (
               <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto mt-2" />
             ) : recentData.users.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-3">Aucun utilisateur</p>
+              <p className="text-xs text-muted-foreground text-center py-3">{t('users.aucun_utilisateur')}</p>
             ) : (
               recentData.users.map((u) => (
                 <button
@@ -2120,7 +2122,7 @@ function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: Acc
             {!recentData ? (
               <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto mt-2" />
             ) : recentData.groups.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-3">Aucun groupe</p>
+              <p className="text-xs text-muted-foreground text-center py-3">{t('users.no_group')}</p>
             ) : (
               recentData.groups.map((g) => (
                 <button
@@ -2150,13 +2152,13 @@ function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: Acc
         {/* Recent roles */}
         <div className="rounded-lg border border-border bg-card p-4">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            <span className="flex items-center gap-1.5"><Shield size={11} /> Derniers rôles</span>
+            <span className="flex items-center gap-1.5"><Shield size={11} /> {t('users.derniers_roles')}</span>
           </h3>
           <div className="space-y-1">
             {!recentData ? (
               <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto mt-2" />
             ) : recentData.roles.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-3">Aucun rôle</p>
+              <p className="text-xs text-muted-foreground text-center py-3">{t('users.aucun_role')}</p>
             ) : (
               recentData.roles.map((r) => (
                 <button
@@ -2206,6 +2208,7 @@ function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending
   onSelect: (id: string) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -2240,7 +2243,7 @@ function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending
         />
         <div className="space-y-0.5 max-h-72 overflow-y-auto">
           {filtered.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">Aucun résultat</p>
+            <p className="text-xs text-muted-foreground text-center py-4">{t('common.no_results')}</p>
           ) : filtered.map((item) => (
             <button
               key={item.id}
@@ -2493,7 +2496,7 @@ export function UsersPage() {
             {activeTab === 'groups' && (
               <ToolbarButton
                 icon={Plus}
-                label="Nouveau groupe"
+                label={t('users.new_group')}
                 variant="primary"
                 onClick={() => setCreateTrigger((c) => c + 1)}
               />
@@ -2501,7 +2504,7 @@ export function UsersPage() {
             {activeTab === 'roles' && (
               <ToolbarButton
                 icon={Plus}
-                label="Nouveau rôle"
+                label={t('users.new_role')}
                 variant="primary"
                 onClick={() => setCreateTrigger((c) => c + 1)}
               />
@@ -2678,7 +2681,7 @@ export function UsersPage() {
       {/* Batch group assignment modal */}
       {batchGroupUserIds && (
         <BatchAssignModal
-          title="Affecter à un groupe"
+          title={t('users.affecter_a_un_groupe')}
           subtitle={`${batchGroupUserIds.length} utilisateur${batchGroupUserIds.length > 1 ? 's' : ''} sélectionné${batchGroupUserIds.length > 1 ? 's' : ''}`}
           searchPlaceholder="Rechercher un groupe..."
           items={(allGroupsForPicker?.items ?? []).map((g) => ({
@@ -2703,7 +2706,7 @@ export function UsersPage() {
       {/* Batch entity assignment modal */}
       {batchEntityUserIds && (
         <BatchAssignModal
-          title="Affecter à une entité"
+          title={t('users.affecter_a_une_entite')}
           subtitle={`${batchEntityUserIds.length} utilisateur${batchEntityUserIds.length > 1 ? 's' : ''} sélectionné${batchEntityUserIds.length > 1 ? 's' : ''}`}
           searchPlaceholder="Rechercher une entité..."
           items={(allEntitiesForPicker?.items ?? []).filter((e) => e.active).map((e) => ({
@@ -2728,9 +2731,10 @@ export function UsersPage() {
 
 // ── Group DynamicPanel wrappers ───────────────────────────────
 function GroupCreatePanelWrapper() {
+  const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   return (
-    <DynamicPanelShell title="Nouveau groupe" onClose={closeDynamicPanel}>
+    <DynamicPanelShell title={t('users.new_group')} onClose={closeDynamicPanel}>
       <CreateGroupForm onClose={closeDynamicPanel} />
     </DynamicPanelShell>
   )

@@ -7,6 +7,7 @@
  * so a single entry can serve both country and nationality selectors.
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, X, Loader2, Check, Pencil, Trash2, BookOpen, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -144,6 +145,7 @@ function buildTranslations(translations: Record<string, string>): Record<string,
 }
 
 export default function DictionaryTab() {
+  const { t } = useTranslation()
   const [selectedCategory, setSelectedCategory] = useState<string>(CATEGORIES[0].value)
   const { data: entries, isLoading } = useDictionary(selectedCategory)
   const createEntry = useCreateDictionaryEntry()
@@ -217,8 +219,8 @@ export default function DictionaryTab() {
           <input value={draft.code} onChange={(e) => setDraft(d => ({ ...d, code: e.target.value }))} placeholder="code_unique" className={panelInputClass + ' h-7 text-xs'} />
         </div>
         <div className="flex-1">
-          <label className="text-[10px] font-medium text-muted-foreground uppercase">Libellé</label>
-          <input value={draft.label} onChange={(e) => setDraft(d => ({ ...d, label: e.target.value }))} placeholder="Libellé affiché" className={panelInputClass + ' h-7 text-xs'} />
+          <label className="text-[10px] font-medium text-muted-foreground uppercase">{t('common.label')}</label>
+          <input value={draft.label} onChange={(e) => setDraft(d => ({ ...d, label: e.target.value }))} placeholder={t('settings.libelle_affiche')} className={panelInputClass + ' h-7 text-xs'} />
         </div>
         <div className="w-20">
           <label className="text-[10px] font-medium text-muted-foreground uppercase">Ordre</label>
@@ -258,8 +260,8 @@ export default function DictionaryTab() {
         </div>
       </div>
       <div className="flex justify-end gap-2">
-        <button onClick={handleCancel} className="gl-button-sm gl-button-default flex items-center gap-1"><X size={12} /> Annuler</button>
-        <button onClick={handleSave} disabled={createEntry.isPending || updateEntry.isPending} className="gl-button-sm gl-button-confirm flex items-center gap-1">
+        <button onClick={handleCancel} className="gl-button-sm gl-button-default items-center gap-1"><X size={12} /> Annuler</button>
+        <button onClick={handleSave} disabled={createEntry.isPending || updateEntry.isPending} className="gl-button-sm gl-button-confirm items-center gap-1">
           {(createEntry.isPending || updateEntry.isPending) ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Enregistrer
         </button>
       </div>
@@ -304,7 +306,7 @@ export default function DictionaryTab() {
             <button
               onClick={handleAdd}
               disabled={showForm}
-              className="gl-button-sm gl-button-confirm flex items-center gap-1"
+              className="gl-button-sm gl-button-confirm items-center gap-1"
             >
               <Plus size={12} /> Ajouter
             </button>
@@ -315,7 +317,7 @@ export default function DictionaryTab() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par code ou libellé…"
+              placeholder={t('settings.rechercher_par_code_ou_libelle')}
               className={panelInputClass + ' h-8 text-xs pl-8 w-full'}
             />
             {search && (
@@ -332,16 +334,16 @@ export default function DictionaryTab() {
               <Loader2 size={16} className="animate-spin text-muted-foreground" />
             </div>
           ) : !entries || entries.length === 0 ? (
-            <EmptyState icon={BookOpen} title="Aucune entrée" description={`Ajoutez des valeurs pour ${categoryLabel}.`} />
+            <EmptyState icon={BookOpen} title={t('settings.aucune_entree')} description={`Ajoutez des valeurs pour ${categoryLabel}.`} />
           ) : filteredEntries.length === 0 ? (
-            <EmptyState icon={Search} title="Aucun résultat" description={`Aucune entrée ne correspond à « ${search} ».`} />
+            <EmptyState icon={Search} title={t('common.no_results')} description={`Aucune entrée ne correspond à « ${search} ».`} />
           ) : (
             <div className="border border-border rounded-lg divide-y divide-border">
               {/* Header row for categories with metadata columns */}
               {hasMetaCols && (
                 <div className="flex items-center gap-3 py-2 px-3 bg-muted/40 text-[10px] font-medium text-muted-foreground uppercase">
                   <span className="w-24">Code</span>
-                  <span className="flex-1">Libellé</span>
+                  <span className="flex-1">{t('common.label')}</span>
                   {metaCols.map((col) => (
                     <span key={col.key} className="flex-1">{col.label}</span>
                   ))}

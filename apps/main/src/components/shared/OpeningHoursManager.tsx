@@ -10,6 +10,7 @@
  *   <OpeningHoursManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Check, Clock } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useOpeningHours, useCreateOpeningHour, useUpdateOpeningHour, useDeleteOpeningHour } from '@/hooks/useSettings'
@@ -35,6 +36,7 @@ interface OpeningHoursManagerProps {
 }
 
 export function OpeningHoursManager({ ownerType, ownerId, compact }: OpeningHoursManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useOpeningHours(ownerType, ownerId)
   const createHour = useCreateOpeningHour()
@@ -140,11 +142,11 @@ export function OpeningHoursManager({ ownerType, ownerId, compact }: OpeningHour
                         key={slot.id}
                         className="flex items-center gap-2 group"
                         onDoubleClick={() => setEditingId(slot.id)}
-                        title="Double-cliquez pour modifier"
+                        title={t('projets.double_cliquez_pour_modifier')}
                       >
                         <Clock size={10} className="text-muted-foreground shrink-0" />
                         {slot.is_closed ? (
-                          <span className="text-xs text-muted-foreground italic">Fermé</span>
+                          <span className="text-xs text-muted-foreground italic">{t('shared.ferme')}</span>
                         ) : (
                           <span className="text-foreground text-xs font-mono">
                             {slot.open_time ?? '—'} – {slot.close_time ?? '—'}
@@ -180,7 +182,7 @@ export function OpeningHoursManager({ ownerType, ownerId, compact }: OpeningHour
       )}
 
       {!isLoading && !showForm && items.length === 0 && !compact && (
-        <EmptyState icon={Clock} title="Aucun horaire" size="compact" />
+        <EmptyState icon={Clock} title={t('shared.aucun_horaire')} size="compact" />
       )}
 
       {!showForm && (
@@ -204,7 +206,7 @@ export function OpeningHoursManager({ ownerType, ownerId, compact }: OpeningHour
               onChange={(e) => setFormClosed(e.target.checked)}
               className="rounded border-border"
             />
-            <span className="text-muted-foreground">Fermé ce jour</span>
+            <span className="text-muted-foreground">{t('shared.ferme_ce_jour')}</span>
           </label>
           {!formClosed && (
             <div className="flex items-center gap-2">
@@ -248,6 +250,7 @@ function InlineHourEditor({
   onCancel: () => void
   isSaving: boolean
 }) {
+  const { t } = useTranslation()
   const [editOpen, setEditOpen] = useState(hour.open_time ?? '08:00')
   const [editClose, setEditClose] = useState(hour.close_time ?? '18:00')
   const [editClosed, setEditClosed] = useState(hour.is_closed)
@@ -278,7 +281,7 @@ function InlineHourEditor({
           onChange={(e) => setEditClosed(e.target.checked)}
           className="rounded border-border"
         />
-        <span className="text-muted-foreground">Fermé</span>
+        <span className="text-muted-foreground">{t('shared.ferme')}</span>
       </label>
       {!editClosed && (
         <>

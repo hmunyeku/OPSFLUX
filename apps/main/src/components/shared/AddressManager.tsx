@@ -11,6 +11,7 @@
  *   <AddressManager ownerType="asset" ownerId={asset.id} />
  */
 import { useState, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   MapPin, Plus, Trash2, Pencil, Loader2, Star,
   LocateFixed, ChevronsUpDown, Map, Search,
@@ -90,6 +91,7 @@ interface AddressFormProps {
 }
 
 function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: AddressFormProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createAddress = useCreateAddress()
   const updateAddress = useUpdateAddress()
@@ -237,8 +239,8 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
         {expanded && (
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
-              <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder="Ligne 2 (bâtiment...)" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
-              <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder="État / Province" value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} />
+              <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder={t('shared.ligne_2_batiment')} value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
+              <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder={t('settings.etat_province')} value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} />
             </div>
             <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder="Code postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
 
@@ -301,6 +303,7 @@ interface AddressManagerProps {
 }
 
 export function AddressManager({ ownerType, ownerId, compact, initialShowForm, hideAddButton, onAddRef }: AddressManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useAddresses(ownerType, ownerId)
   const deleteAddress = useDeleteAddress()
@@ -476,7 +479,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
 
       {/* Empty state */}
       {!isLoading && !showForm && addresses.length === 0 && (
-        <EmptyState icon={MapPin} title="Aucune adresse" description="Aucune adresse enregistrée." size="compact" />
+        <EmptyState icon={MapPin} title="Aucune adresse" description={t('shared.addresses.empty_description')} size="compact" />
       )}
     </div>
   )

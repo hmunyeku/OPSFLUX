@@ -4,12 +4,14 @@
  * API-backed: GET /api/v1/users/me/roles, /groups, /permissions
  */
 import { Shield, Users, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useUserRoles, useUserGroups } from '@/hooks/useSettings'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { PermissionMatrix } from '@/components/shared/PermissionMatrix'
 import { useAuthStore } from '@/stores/authStore'
 
 export function RolesTab() {
+  const { t } = useTranslation()
   const { user } = useAuthStore()
   const { data: roles, isLoading: rolesLoading } = useUserRoles()
   const { data: groups, isLoading: groupsLoading } = useUserGroups()
@@ -27,7 +29,7 @@ export function RolesTab() {
   return (
     <>
       {/* Section: Roles */}
-      <CollapsibleSection id="roles-list" title="Rôles" description="Les rôles attribués à votre compte déterminent vos permissions dans l'application." storageKey="settings.roles.collapse">
+      <CollapsibleSection id="roles-list" title={t('users.roles')} description="Les rôles attribués à votre compte déterminent vos permissions dans l'application." storageKey="settings.roles.collapse">
         {roles && roles.length > 0 ? (
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {roles.map((role) => (
@@ -50,12 +52,12 @@ export function RolesTab() {
             ))}
           </div>
         ) : (
-          <p className="py-4 text-sm text-muted-foreground">Aucun rôle attribué.</p>
+          <p className="py-4 text-sm text-muted-foreground">{t('settings.aucun_role_attribue')}</p>
         )}
       </CollapsibleSection>
 
       {/* Section: Groups */}
-      <CollapsibleSection id="groups-list" title="Groupes" description="Les groupes auxquels vous appartenez et votre rôle dans chacun." storageKey="settings.roles.collapse">
+      <CollapsibleSection id="groups-list" title="Groupes" description={t('settings.les_groupes_auxquels_vous_appartenez_et')} storageKey="settings.roles.collapse">
         {groups && groups.length > 0 ? (
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {groups.map((group) => (
@@ -78,12 +80,12 @@ export function RolesTab() {
             ))}
           </div>
         ) : (
-          <p className="py-4 text-sm text-muted-foreground">Vous n'appartenez à aucun groupe.</p>
+          <p className="py-4 text-sm text-muted-foreground">{t('settings.vous_n_appartenez_a_aucun_groupe')}</p>
         )}
       </CollapsibleSection>
 
       {/* Section: Permissions */}
-      <CollapsibleSection id="permissions-list" title="Permissions par module" description="Récapitulatif de vos permissions effectives par module." storageKey="settings.roles.collapse" showSeparator={false}>
+      <CollapsibleSection id="permissions-list" title="Permissions par module" description={t('settings.recapitulatif_de_vos_permissions_effecti')} storageKey="settings.roles.collapse" showSeparator={false}>
         {user && (
           <div className="mt-3">
             <PermissionMatrix userId={user.id} compact />

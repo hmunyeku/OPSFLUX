@@ -11,6 +11,7 @@
  *   <AttachmentManager ownerType="support_ticket" ownerId={ticket.id} />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Paperclip, Plus, Trash2, Download, Loader2,
   FileText, Image, FileArchive, Film, Music, File, Eye, EyeOff,
@@ -78,6 +79,7 @@ function canPreview(contentType: string): boolean {
 
 /** Authenticated media component — fetches via API and renders as blob URL */
 function AuthMediaPreview({ src, contentType, name }: { src: string; contentType: string; name: string }) {
+  const { t } = useTranslation()
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [error, setError] = useState(false)
 
@@ -95,7 +97,7 @@ function AuthMediaPreview({ src, contentType, name }: { src: string; contentType
     return () => { if (revoke) URL.revokeObjectURL(revoke) }
   }, [src])
 
-  if (error) return <p className="text-xs text-muted-foreground p-2">Impossible de charger l'aperçu.</p>
+  if (error) return <p className="text-xs text-muted-foreground p-2">{t('shared.impossible_de_charger_l_apercu')}</p>
   if (!blobUrl) return <div className="flex items-center justify-center py-6"><Loader2 size={14} className="animate-spin text-muted-foreground" /></div>
 
   const base = baseContentType(contentType)
@@ -123,6 +125,7 @@ interface AttachmentManagerProps {
 }
 
 export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm, readOnly }: AttachmentManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useAttachments(ownerType, ownerId)
   const uploadAttachment = useUploadAttachment()
@@ -239,7 +242,7 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
                 <button
                   onClick={() => downloadFile(att.id, att.original_name)}
                   className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  title="Télécharger"
+                  title={t('shared.telecharger')}
                 >
                   <Download size={11} />
                 </button>
@@ -274,7 +277,7 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
 
       {/* Empty state */}
       {!isLoading && attachments.length === 0 && (
-        <EmptyState icon={Paperclip} title="Aucun fichier" description="Aucun fichier joint." size="compact" />
+        <EmptyState icon={Paperclip} title={t('shared.attachments.empty')} description={t('shared.attachments.empty_description')} size="compact" />
       )}
     </div>
   )

@@ -186,7 +186,7 @@ export function WidgetSettingsPanel({
         <div className="border-t border-border pt-3">
           <button
             onClick={handleDelete}
-            className="gl-button-sm gl-button-danger flex items-center gap-1.5 w-full justify-center"
+            className="gl-button-sm gl-button-danger items-center gap-1.5 w-full justify-center"
           >
             <Trash2 size={12} />
             Supprimer ce widget

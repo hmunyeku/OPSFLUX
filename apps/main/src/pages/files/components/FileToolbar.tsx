@@ -1,4 +1,5 @@
 import { Search, LayoutList, LayoutGrid, RefreshCw, FolderPlus, Upload, Trash2, Filter } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import type { ViewMode, FileFilter } from '../hooks/useFileManager'
 
@@ -30,6 +31,7 @@ export function FileToolbar({
   filterType, onFilterChange, selectedCount,
   onBatchDelete, onCreateFolder, onUpload, onRefresh,
 }: FileToolbarProps) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0 flex-wrap">
       {/* Search */}
@@ -82,7 +84,7 @@ export function FileToolbar({
       <button onClick={onRefresh} className="p-1.5 rounded hover:bg-accent text-muted-foreground" title="Actualiser">
         <RefreshCw size={13} />
       </button>
-      <button onClick={onCreateFolder} className="p-1.5 rounded hover:bg-accent text-muted-foreground" title="Nouveau dossier">
+      <button onClick={onCreateFolder} className="p-1.5 rounded hover:bg-accent text-muted-foreground" title={t('files.nouveau_dossier')}>
         <FolderPlus size={13} />
       </button>
       <label className="p-1.5 rounded hover:bg-accent text-muted-foreground cursor-pointer" title="Uploader">
@@ -95,7 +97,7 @@ export function FileToolbar({
         <>
           <div className="h-5 w-px bg-border" />
           <span className="text-[10px] text-primary font-medium">{selectedCount} sélectionné(s)</span>
-          <button onClick={onBatchDelete} className="gl-button-sm gl-button-danger" title="Supprimer la sélection">
+          <button onClick={onBatchDelete} className="gl-button-sm gl-button-danger" title={t('files.supprimer_la_selection')}>
             <Trash2 size={11} /> Supprimer
           </button>
         </>

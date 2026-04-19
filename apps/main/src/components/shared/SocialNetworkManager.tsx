@@ -9,6 +9,7 @@
  *   <SocialNetworkManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Check, Linkedin, Twitter, Facebook, Instagram, Youtube, Globe, Link } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useSocialNetworks, useCreateSocialNetwork, useUpdateSocialNetwork, useDeleteSocialNetwork } from '@/hooks/useSettings'
@@ -39,6 +40,7 @@ interface SocialNetworkManagerProps {
 }
 
 export function SocialNetworkManager({ ownerType, ownerId, compact }: SocialNetworkManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useSocialNetworks(ownerType, ownerId)
   const createSocial = useCreateSocialNetwork()
@@ -123,7 +125,7 @@ export function SocialNetworkManager({ ownerType, ownerId, compact }: SocialNetw
                 key={sn.id}
                 className="flex items-center gap-2 text-sm group"
                 onDoubleClick={() => setEditingId(sn.id)}
-                title="Double-cliquez pour modifier"
+                title={t('projets.double_cliquez_pour_modifier')}
               >
                 <Icon size={12} className="text-muted-foreground shrink-0" />
                 <span className="text-[10px] font-medium text-muted-foreground uppercase w-16 shrink-0">
@@ -162,7 +164,7 @@ export function SocialNetworkManager({ ownerType, ownerId, compact }: SocialNetw
       )}
 
       {!isLoading && !showForm && items.length === 0 && !compact && (
-        <EmptyState icon={Globe} title="Aucun réseau social" size="compact" />
+        <EmptyState icon={Globe} title={t('shared.aucun_reseau_social')} size="compact" />
       )}
 
       {!showForm && (

@@ -516,7 +516,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label="Equipements" value={<span className="tabular-nums">{doc.equipment_count}</span>} />
                 <ReadOnlyRow label="Cree par" value={doc.creator_name || '--'} />
                 <ReadOnlyRow
-                  label="Cree le"
+                  label={t('papyrus.cree_le')}
                   value={new Date(doc.created_at).toLocaleDateString('fr-FR')}
                 />
               </DetailFieldGrid>
@@ -527,7 +527,7 @@ function PIDDetailPanel({ id }: { id: string }) {
               <div className="flex items-center gap-2 text-sm">
                 <Lock size={14} className="text-muted-foreground" />
                 <span className="text-muted-foreground">Statut:</span>
-                <span className="text-foreground">Non verrouille</span>
+                <span className="text-foreground">{t('pid_pfd.non_verrouille')}</span>
               </div>
               <button
                 onClick={handleAcquireLock}
@@ -539,7 +539,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 ) : (
                   <Lock size={12} />
                 )}
-                <span>Acquerir le verrou</span>
+                <span>{t('pid_pfd.acquerir_le_verrou')}</span>
               </button>
             </FormSection>
 
@@ -556,7 +556,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 </div>
               </FormSection>
             ) : doc.xml_content ? (
-              <FormSection title="Apercu du diagramme" collapsible defaultExpanded>
+              <FormSection title={t('pid_pfd.apercu_du_diagramme')} collapsible defaultExpanded>
                 <div
                   className="w-full max-h-[200px] overflow-hidden rounded border border-border bg-muted/10 flex items-center justify-center cursor-pointer hover:bg-muted/20 transition-colors"
                   onClick={() => setShowEditor(true)}
@@ -564,7 +564,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 >
                   <div className="text-xs text-muted-foreground flex items-center gap-1.5 py-8">
                     <PenTool size={14} />
-                    <span>Cliquer pour editer le diagramme</span>
+                    <span>{t('pid_pfd.cliquer_pour_editer_le_diagramme')}</span>
                   </div>
                 </div>
               </FormSection>
@@ -622,6 +622,7 @@ function PIDDetailPanel({ id }: { id: string }) {
 // -- Dashboard Tab ------------------------------------------------------------
 
 function DashboardTab() {
+  const { t } = useTranslation()
   // Fetch summary data from existing hooks
   const { data: docsData } = usePIDDocuments({ page: 1, page_size: 5 })
   const { data: equipData } = useEquipment({ page: 1, page_size: 1 })
@@ -700,7 +701,7 @@ function DashboardTab() {
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">Aucun document PID.</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t('pid_pfd.aucun_document_pid')}</p>
         )}
       </CollapsibleSection>
     </div>
@@ -710,6 +711,7 @@ function DashboardTab() {
 // -- Library Tab --------------------------------------------------------------
 
 function LibraryTab() {
+  const { t } = useTranslation()
   const [libSearch, setLibSearch] = useState('')
   const [libCategory, setLibCategory] = useState('')
   const debouncedLibSearch = useDebounce(libSearch, 300)
@@ -736,7 +738,7 @@ function LibraryTab() {
             value={libSearch}
             onChange={(e) => setLibSearch(e.target.value)}
             className="gl-form-input pl-8 w-full"
-            placeholder="Rechercher un composant..."
+            placeholder={t('pid_pfd.search_component')}
           />
         </div>
         <select
@@ -744,7 +746,7 @@ function LibraryTab() {
           onChange={(e) => setLibCategory(e.target.value)}
           className="gl-form-select"
         >
-          <option value="">Toutes categories</option>
+          <option value="">{t('pid_pfd.toutes_categories')}</option>
           {categories.map((cat) => (
             <option key={cat} value={cat}>{cat}</option>
           ))}
@@ -787,7 +789,7 @@ function LibraryTab() {
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <BookOpen size={32} className="mb-2 opacity-40" />
-          <p className="text-sm">Aucun element dans la bibliotheque.</p>
+          <p className="text-sm">{t('pid_pfd.aucun_element_dans_la_bibliotheque')}</p>
         </div>
       )}
     </div>
@@ -1140,7 +1142,7 @@ export function PidPfdPage() {
       return canCreate ? (
         <ToolbarButton
           icon={FilePlus2}
-          label="Nouveau PID"
+          label={t('pid_pfd.create_pid')}
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd' })}
         />
@@ -1160,7 +1162,7 @@ export function PidPfdPage() {
       return canCreate ? (
         <ToolbarButton
           icon={Plus}
-          label="Nouvelle ligne"
+          label={t('pid_pfd.nouvelle_ligne')}
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'line' } })}
         />
@@ -1172,7 +1174,7 @@ export function PidPfdPage() {
           {canCreate && (
             <ToolbarButton
               icon={Plus}
-              label="Nouveau tag"
+              label={t('pid_pfd.nouveau_tag')}
               variant="primary"
               onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'tag' } })}
             />
@@ -1390,13 +1392,13 @@ function CreatePIDPanel() {
   }, [form, createPID, toast, closeDynamicPanel])
 
   return (
-    <DynamicPanelShell title="Nouveau PID" icon={<FilePlus2 size={14} />} onClose={closeDynamicPanel}>
+    <DynamicPanelShell title={t('pid_pfd.create_pid')} icon={<FilePlus2 size={14} />} onClose={closeDynamicPanel}>
       <PanelContentLayout>
         <FormSection title="Informations">
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Titre *</label>
-              <input className="gl-form-input text-sm w-full" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Titre du document PID" />
+              <input className="gl-form-input text-sm w-full" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder={t('pid_pfd.titre_du_document_pid')} />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Type</label>
@@ -1415,11 +1417,11 @@ function CreatePIDPanel() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Échelle</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.echelle')}</label>
               <input className="gl-form-input text-sm w-full" value={form.scale} onChange={(e) => setForm((f) => ({ ...f, scale: e.target.value }))} placeholder="1:50" />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Numéro de dessin</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.numero_de_dessin')}</label>
               <input className="gl-form-input text-sm w-full" value={form.drawing_number} onChange={(e) => setForm((f) => ({ ...f, drawing_number: e.target.value }))} placeholder="DWG-001" />
             </div>
           </div>
@@ -1511,7 +1513,7 @@ function CreateEquipmentPanel() {
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Document PID</label>
               <select className="gl-form-select text-sm w-full" value={form.pid_document_id} onChange={(e) => set('pid_document_id', e.target.value)}>
-                <option value="">-- Aucun --</option>
+                <option value="">{t('projets.aucun')}</option>
                 {docsData?.items?.map((d) => <option key={d.id} value={d.id}>{d.number} — {d.title}</option>)}
               </select>
             </div>
@@ -1546,7 +1548,7 @@ function CreateEquipmentPanel() {
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Phase</label>
               <select className="gl-form-select text-sm w-full" value={form.fluid_phase} onChange={(e) => set('fluid_phase', e.target.value)}>
-                <option value="">-- Non specifie --</option>
+                <option value="">{t('pid_pfd.non_specifie')}</option>
                 {FLUID_PHASE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
@@ -1634,7 +1636,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* -- Design Conditions -- */}
-        <FormSection title="Conditions de conception" collapsible defaultExpanded>
+        <FormSection title={t('pid_pfd.conditions_de_conception')} collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow
               label="Pression design"
@@ -1745,18 +1747,18 @@ function CreateProcessLinePanel() {
   const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
 
   return (
-    <DynamicPanelShell title="Nouvelle ligne process" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
+    <DynamicPanelShell title={t('pid_pfd.create_process_line')} icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
       <PanelContentLayout>
         <FormSection title="Identification">
           <div className="space-y-3 p-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Numero de ligne *</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.numero_de_ligne')}</label>
               <input className="gl-form-input text-sm w-full font-mono" value={form.line_number} onChange={(e) => set('line_number', e.target.value)} placeholder="6&quot;-HC-1001-A1A-HI" />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Document PID</label>
               <select className="gl-form-select text-sm w-full" value={form.pid_document_id} onChange={(e) => set('pid_document_id', e.target.value)}>
-                <option value="">-- Aucun --</option>
+                <option value="">{t('projets.aucun')}</option>
                 {docsData?.items?.map((d) => <option key={d.id} value={d.id}>{d.number} — {d.title}</option>)}
               </select>
             </div>
@@ -1780,7 +1782,7 @@ function CreateProcessLinePanel() {
               <input className="gl-form-input text-sm w-full" value={form.pipe_schedule} onChange={(e) => set('pipe_schedule', e.target.value)} placeholder="40, 80, STD..." />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Classe de spec</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.classe_de_spec')}</label>
               <input className="gl-form-input text-sm w-full" value={form.spec_class} onChange={(e) => set('spec_class', e.target.value)} placeholder="A1A, B2B..." />
             </div>
           </div>
@@ -1799,7 +1801,7 @@ function CreateProcessLinePanel() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Materiau de construction</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.materiau_de_construction')}</label>
               <input className="gl-form-input text-sm w-full" value={form.material_of_construction} onChange={(e) => set('material_of_construction', e.target.value)} placeholder="CS, SS316L..." />
             </div>
           </div>
@@ -1860,12 +1862,12 @@ function CreateDCSTagPanel() {
   const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
 
   return (
-    <DynamicPanelShell title="Nouveau tag DCS" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
+    <DynamicPanelShell title={t('pid_pfd.create_tag')} icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
       <PanelContentLayout>
         <FormSection title="Identification">
           <div className="space-y-3 p-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Nom du tag *</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.nom_du_tag')}</label>
               <input className="gl-form-input text-sm w-full font-mono" value={form.tag_name} onChange={(e) => set('tag_name', e.target.value)} placeholder="PI-1001" />
             </div>
             <div>
@@ -1876,7 +1878,7 @@ function CreateDCSTagPanel() {
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
-              <input className="gl-form-input text-sm w-full" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Description du tag" />
+              <input className="gl-form-input text-sm w-full" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder={t('pid_pfd.description_du_tag')} />
             </div>
           </div>
         </FormSection>
@@ -1886,7 +1888,7 @@ function CreateDCSTagPanel() {
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Equipement</label>
               <select className="gl-form-select text-sm w-full" value={form.equipment_id} onChange={(e) => set('equipment_id', e.target.value)}>
-                <option value="">-- Aucun --</option>
+                <option value="">{t('projets.aucun')}</option>
                 {equipData?.items?.map((eq) => <option key={eq.id} value={eq.id}>{eq.tag} — {eq.description || eq.equipment_type}</option>)}
               </select>
             </div>

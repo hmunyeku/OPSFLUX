@@ -160,7 +160,7 @@ export function SystemHealthTab() {
           )}
         </div>
         <button
-          className="gl-button-sm gl-button-default flex items-center gap-1.5"
+          className="gl-button-sm gl-button-default items-center gap-1.5"
           onClick={handleRefresh}
         >
           <RefreshCw size={13} />
@@ -203,8 +203,8 @@ export function SystemHealthTab() {
             statusLabel={data.redis.status === 'ok' ? 'OK' : 'Error'}
           >
             <MetricRow label={t('settings.system_health.latency')} value={data.redis.latency_ms != null ? `${data.redis.latency_ms} ms` : null} />
-            <MetricRow label="Mémoire" value={(data.redis as any).memory} />
-            <MetricRow label="Clés" value={(data.redis as any).keys} />
+            <MetricRow label={t('settings.system_health.memory')} value={(data.redis as any).memory} />
+            <MetricRow label={t('settings.cles')} value={(data.redis as any).keys} />
           </StatusCard>
 
           {/* Uptime */}
@@ -242,7 +242,7 @@ export function SystemHealthTab() {
       {/* Top tables */}
       {data?.database && (data.database as any).top_tables?.length > 0 && (
         <div className="mt-4">
-          <h4 className="text-xs font-semibold text-muted-foreground mb-2">Tables les plus volumineuses</h4>
+          <h4 className="text-xs font-semibold text-muted-foreground mb-2">{t('settings.tables_les_plus_volumineuses')}</h4>
           <div className="border border-border rounded-lg overflow-hidden">
             <div className="grid grid-cols-3 gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-semibold text-muted-foreground uppercase border-b border-border">
               <span>Table</span><span>Taille</span><span>Lignes</span>

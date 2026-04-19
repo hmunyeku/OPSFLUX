@@ -877,6 +877,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
 // ════════════════════════════════════════════════════════════════
 
 function CraneSubModelSections({ equipmentId, canEdit }: { equipmentId: string; canEdit: boolean }) {
+  const { t } = useTranslation()
   const { data: configs } = useCraneConfigurations(equipmentId)
   const [selectedConfigId, setSelectedConfigId] = useState<string>('')
 
@@ -889,7 +890,7 @@ function CraneSubModelSections({ equipmentId, canEdit }: { equipmentId: string; 
       {/* Config-nested managers: load chart + lift zones */}
       {(configs?.length ?? 0) > 0 && (
         <>
-          <FormSection title="Points courbe de charge" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-lcp">
+          <FormSection title={t('asset_registry.points_courbe_de_charge')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-lcp">
             <div className="mb-3">
               <label className="block text-[10px] font-medium text-muted-foreground mb-1">Configuration</label>
               <select
@@ -897,7 +898,7 @@ function CraneSubModelSections({ equipmentId, canEdit }: { equipmentId: string; 
                 onChange={(e) => setSelectedConfigId(e.target.value)}
                 className="w-full h-7 rounded-md border border-input bg-background px-2 text-xs"
               >
-                <option value="">Sélectionner une configuration...</option>
+                <option value="">{t('asset_registry.selectionner_une_configuration')}</option>
                 {(configs ?? []).map((c) => (
                   <option key={c.id} value={c.id}>{c.config_code}{c.config_name ? ` — ${c.config_name}` : ''}</option>
                 ))}
@@ -908,7 +909,7 @@ function CraneSubModelSections({ equipmentId, canEdit }: { equipmentId: string; 
             )}
           </FormSection>
 
-          <FormSection title="Zones de levage" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-lz">
+          <FormSection title={t('asset_registry.zones_de_levage')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-lz">
             <div className="mb-3">
               <label className="block text-[10px] font-medium text-muted-foreground mb-1">Configuration</label>
               <select
@@ -916,7 +917,7 @@ function CraneSubModelSections({ equipmentId, canEdit }: { equipmentId: string; 
                 onChange={(e) => setSelectedConfigId(e.target.value)}
                 className="w-full h-7 rounded-md border border-input bg-background px-2 text-xs"
               >
-                <option value="">Sélectionner une configuration...</option>
+                <option value="">{t('asset_registry.selectionner_une_configuration')}</option>
                 {(configs ?? []).map((c) => (
                   <option key={c.id} value={c.id}>{c.config_code}{c.config_name ? ` — ${c.config_name}` : ''}</option>
                 ))}
@@ -932,7 +933,7 @@ function CraneSubModelSections({ equipmentId, canEdit }: { equipmentId: string; 
       <FormSection title="Moufles / Hook Blocks" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-hooks">
         <CraneHookBlockManager equipmentId={equipmentId} canEdit={canEdit} />
       </FormSection>
-      <FormSection title="Guide de mouflage" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-reeving">
+      <FormSection title={t('assets.sub_section.crane_reeving_guide')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-reeving">
         <CraneReevingGuideManager equipmentId={equipmentId} canEdit={canEdit} />
       </FormSection>
     </>
@@ -1188,7 +1189,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
             </>
           )}
           {equip.equipment_class === 'PUMP' && (
-            <FormSection title="Courbe de pompe" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-pump-curve">
+            <FormSection title={t('asset_registry.courbe_de_pompe')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-pump-curve">
               <PumpCurvePointManager equipmentId={id} canEdit={canUpdate} />
             </FormSection>
           )}

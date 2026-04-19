@@ -1064,7 +1064,7 @@ export function ExportWizard({
               {canPrev && (
                 <button
                   onClick={() => setStep((step - 1) as Step)}
-                  className="gl-button-sm gl-button-default flex items-center gap-1"
+                  className="gl-button-sm gl-button-default items-center gap-1"
                 >
                   <ChevronLeft size={12} />
                   {t('common.back')}
@@ -1083,7 +1083,7 @@ export function ExportWizard({
               {canNext && (
                 <button
                   onClick={() => setStep((step + 1) as Step)}
-                  className="gl-button-sm gl-button-confirm flex items-center gap-1"
+                  className="gl-button-sm gl-button-confirm items-center gap-1"
                 >
                   {t('common.next')}
                   <ChevronRight size={12} />
@@ -1094,7 +1094,7 @@ export function ExportWizard({
                 <button
                   onClick={handleExport}
                   disabled={exporting || enabledColumns.length === 0}
-                  className="gl-button-sm gl-button-confirm flex items-center gap-1"
+                  className="gl-button-sm gl-button-confirm items-center gap-1"
                 >
                   {exporting ? (
                     <>

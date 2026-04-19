@@ -9,6 +9,7 @@
  *   <ComplianceRecordManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ShieldCheck, ShieldAlert, Plus, Trash2, Check, X, Loader2, AlertTriangle, Paperclip } from 'lucide-react'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -37,6 +38,7 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 export function ComplianceRecordManager({ ownerType, ownerId, compact }: ComplianceRecordManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: records, isLoading: recordsLoading } = useComplianceRecords({ owner_type: ownerType, owner_id: ownerId, page_size: 100 })
   const { data: checkResult, isLoading: checkLoading } = useComplianceCheck(ownerType, ownerId)
@@ -163,7 +165,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
                   </span>
                 )}
                 {rec.issuer && <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{rec.issuer}</span>}
-                <button onClick={(e) => { e.stopPropagation(); setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0" title="Pièces jointes">
+                <button onClick={(e) => { e.stopPropagation(); setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0" title={t('common.attachments')}>
                   <Paperclip size={10} />
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); handleDelete(rec.id) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100"><Trash2 size={10} /></button>
@@ -177,7 +179,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
           ))}
         </div>
       ) : (
-        <EmptyState icon={ShieldCheck} title="Aucun enregistrement" variant="search" size="compact" />
+        <EmptyState icon={ShieldCheck} title={t('conformite.no_record')} variant="search" size="compact" />
       )}
 
       {/* Create form */}
@@ -192,7 +194,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
             onChange={(e) => setForm({ ...form, compliance_type_id: e.target.value })}
             className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
           >
-            <option value="">Selectionner un type...</option>
+            <option value="">{t('shared.selectionner_un_type_2')}</option>
             {typesData?.items?.map(t => (
               <option key={t.id} value={t.id}>{t.code} — {t.name}</option>
             ))}

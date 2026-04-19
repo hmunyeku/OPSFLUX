@@ -11,6 +11,7 @@
  * Always visible for authenticated users with support.ticket.create permission.
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MessageSquarePlus, X, Send, Bug, Lightbulb, HelpCircle, Loader2, Camera, Paperclip, Video, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermission } from '@/hooks/usePermission'
@@ -106,6 +107,7 @@ const TYPE_OPTIONS: { value: TicketType; label: string; icon: typeof Bug }[] = [
 ]
 
 export function FeedbackWidget() {
+  const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const canCreate = hasPermission('support.ticket.create')
   const createTicket = useCreateTicket()
@@ -317,7 +319,7 @@ export function FeedbackWidget() {
         <button
           onClick={() => setOpen(true)}
           className="hidden sm:flex fixed bottom-5 right-5 z-[80] h-11 w-11 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 items-center justify-center transition-transform hover:scale-105 active:scale-95"
-          title="Signaler un problème"
+          title={t('layout.signaler_un_probleme')}
         >
           <MessageSquarePlus size={18} />
         </button>
@@ -339,7 +341,7 @@ export function FeedbackWidget() {
         <div className="fixed bottom-5 right-5 z-[80] w-80 bg-card border border-border rounded-xl shadow-2xl animate-in slide-in-from-bottom-2 zoom-in-95 duration-200 max-h-[85vh] flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
-            <span className="text-sm font-semibold text-foreground">Signaler un problème</span>
+            <span className="text-sm font-semibold text-foreground">{t('layout.signaler_un_probleme')}</span>
             <button onClick={() => setOpen(false)} className="p-1 rounded hover:bg-muted text-muted-foreground">
               <X size={14} />
             </button>
@@ -370,7 +372,7 @@ export function FeedbackWidget() {
             <div>
               <input
                 className={cn('gl-form-input text-sm w-full', form.title.trim().length > 0 && form.title.trim().length < 10 && 'border-orange-400')}
-                placeholder="Titre clair et précis (min. 10 caractères)..."
+                placeholder={t('layout.titre_clair_et_precis_min_10_caracteres')}
                 value={form.title}
                 onChange={e => setForm({ ...form, title: e.target.value })}
                 autoFocus
@@ -404,9 +406,9 @@ export function FeedbackWidget() {
               value={form.priority}
               onChange={e => setForm({ ...form, priority: e.target.value as TicketCreate['priority'] })}
             >
-              <option value="low">Priorité basse</option>
-              <option value="medium">Priorité moyenne</option>
-              <option value="high">Priorité haute</option>
+              <option value="low">{t('layout.priorite_basse')}</option>
+              <option value="medium">{t('layout.priorite_moyenne')}</option>
+              <option value="high">{t('layout.priorite_haute')}</option>
               <option value="critical">Critique</option>
             </select>
 
@@ -441,7 +443,7 @@ export function FeedbackWidget() {
               <button
                 onClick={() => fileRef.current?.click()}
                 className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]"
-                title="Joindre un fichier"
+                title={t('layout.joindre_un_fichier')}
               >
                 <Paperclip size={10} /> Fichier
               </button>

@@ -7,6 +7,7 @@
  * - Shows title, type badge, status badge, asset name, dates
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, Loader2, X, Clock, Star, ChevronDown, ListTodo, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useActivities } from '@/hooks/usePlanner'
@@ -134,6 +135,7 @@ export function ActivityPicker({
   label,
   clearable = true,
 }: ActivityPickerProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 200)
@@ -246,7 +248,7 @@ export function ActivityPicker({
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Rechercher une activité..."
+              placeholder={t('shared.rechercher_une_activite')}
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
             />
             {search && (
@@ -269,7 +271,7 @@ export function ActivityPicker({
                   <div className="px-2 pb-1 mb-1 border-b border-border">
                     <div className="flex items-center gap-1.5 px-1 py-1">
                       <Clock size={10} className="text-muted-foreground" />
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Récents</span>
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{t('assets.recent')}</span>
                     </div>
                     {recentActivities.map(r => (
                       <button

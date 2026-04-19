@@ -1,4 +1,5 @@
 import { Loader2, Plane, QrCode, CheckCircle2, CircleDashed, AlertTriangle, Users, CalendarDays, Briefcase, Building2, UserRound } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useAdsBoardingContext, useUpdateAdsBoardingPassenger } from '@/hooks/usePaxlog'
@@ -31,6 +32,7 @@ const STATUS_TONE: Record<string, string> = {
 }
 
 export function AdsBoardingScanPage() {
+  const { t } = useTranslation()
   const { token } = useParams<{ token: string }>()
   const { data, isLoading, isError } = useAdsBoardingContext(token)
   const updatePassenger = useUpdateAdsBoardingPassenger(token)
@@ -90,7 +92,7 @@ export function AdsBoardingScanPage() {
                   <div className="mt-1 text-sm font-semibold text-foreground">{data.site_name || '--'}</div>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Séjour</div>
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.sejour')}</div>
                   <div className="mt-1 text-sm font-semibold text-foreground">{formatDate(data.start_date)} → {formatDate(data.end_date)}</div>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-3">
@@ -206,7 +208,7 @@ export function AdsBoardingScanPage() {
                     <dd className="mt-1 font-medium text-foreground">{data.visit_purpose || '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Catégorie</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.category')}</dt>
                     <dd className="mt-1 font-medium text-foreground">{data.visit_category || '--'}</dd>
                   </div>
                   <div>
@@ -214,11 +216,11 @@ export function AdsBoardingScanPage() {
                     <dd className="mt-1 font-medium text-foreground">{data.project_name || '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Activité planner</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.fields.planner_activity')}</dt>
                     <dd className="mt-1 font-medium text-foreground">{data.planner_activity_title || '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Entreprises autorisées</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.sections.allowed_companies')}</dt>
                     <dd className="mt-1 font-medium text-foreground">
                       {data.allowed_company_names.length ? data.allowed_company_names.join(', ') : '--'}
                     </dd>
@@ -236,7 +238,7 @@ export function AdsBoardingScanPage() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">QR opérationnel</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.qr_operationnel')}</dt>
                     <dd className="mt-1 break-all text-xs text-muted-foreground">{data.qr_url || '--'}</dd>
                   </div>
                 </dl>

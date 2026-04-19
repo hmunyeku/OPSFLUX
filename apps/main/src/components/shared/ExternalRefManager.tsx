@@ -8,6 +8,7 @@
  *   <ExternalRefManager ownerType="user" ownerId={user.id} />
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Link2 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useExternalRefs, useCreateExternalRef, useDeleteExternalRef } from '@/hooks/useExternalRefs'
@@ -30,6 +31,7 @@ interface ExternalRefManagerProps {
 }
 
 export function ExternalRefManager({ ownerType, ownerId, compact }: ExternalRefManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useExternalRefs(ownerType, ownerId)
   const createRef = useCreateExternalRef()
@@ -127,7 +129,7 @@ export function ExternalRefManager({ ownerType, ownerId, compact }: ExternalRefM
       )}
 
       {!isLoading && !showForm && refs.length === 0 && !compact && (
-        <EmptyState icon={Link2} title="Aucune référence" description="Aucun identifiant externe." size="compact" />
+        <EmptyState icon={Link2} title={t('shared.aucune_reference')} description={t('tiers.ui.no_external_refs')} size="compact" />
       )}
 
       {!showForm && (
@@ -143,7 +145,7 @@ export function ExternalRefManager({ ownerType, ownerId, compact }: ExternalRefM
         <div className="border border-border/60 rounded-lg bg-card p-3 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[10px] font-medium text-muted-foreground">Système *</label>
+              <label className="text-[10px] font-medium text-muted-foreground">{t('tiers.ui.system')}</label>
               <select value={system} onChange={(e) => setSystem(e.target.value)} className={`${panelInputClass} w-full`}>
                 {SYSTEM_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
@@ -162,7 +164,7 @@ export function ExternalRefManager({ ownerType, ownerId, compact }: ExternalRefM
             </div>
           </div>
           <div>
-            <label className="text-[10px] font-medium text-muted-foreground">Libellé</label>
+            <label className="text-[10px] font-medium text-muted-foreground">{t('common.label')}</label>
             <input
               type="text"
               value={label}

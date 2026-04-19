@@ -75,6 +75,7 @@ function endpointUrlForBackend(mcpBaseUrl: string, backend: Backend) {
 }
 
 function BackendCard({ backend, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: string }) {
+  const { t } = useTranslation()
   const endpointUrl = endpointUrlForBackend(mcpBaseUrl, backend)
   const { data, isLoading } = useQuery({
     queryKey: ['mcp-user-backend-tools', backend.slug],
@@ -88,7 +89,7 @@ function BackendCard({ backend, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: st
           <div className="flex items-center gap-2 flex-wrap">
             <Plug size={14} className="text-muted-foreground" />
             <span className="text-sm font-semibold text-foreground">{backend.name}</span>
-            {backend.slug === 'opsflux' && <span className="gl-badge gl-badge-info">Défaut</span>}
+            {backend.slug === 'opsflux' && <span className="gl-badge gl-badge-info">{t('imputations.tab_default')}</span>}
           </div>
           <p className="text-xs text-muted-foreground mt-1">{backend.description || backend.slug}</p>
         </div>
@@ -124,7 +125,7 @@ function BackendCard({ backend, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: st
               <Loader2 size={14} className="animate-spin" /> Chargement…
             </div>
           ) : !data?.tools.length ? (
-            <p className="text-xs text-muted-foreground">Aucun outil exposé pour ce backend avec vos permissions actuelles.</p>
+            <p className="text-xs text-muted-foreground">{t('settings.aucun_outil_expose_pour_ce_backend_avec')}</p>
           ) : (
             data.tools.map((tool) => (
               <div key={tool.name} className="border border-border/40 rounded-md px-3 py-2">
@@ -197,7 +198,7 @@ export function UserMcpTab() {
       <CollapsibleSection
         id="mcp-personal-backends"
         title="Endpoints MCP disponibles"
-        description="Vos tokens MCP personnels n’embarquent plus de liste de backends. Chaque backend décide ensuite des outils réellement accessibles selon vos permissions."
+        description={t('settings.vos_tokens_mcp_personnels_n_embarquent_p')}
         storageKey="settings.user-mcp.endpoints.collapse"
       >
         {backendsLoading ? (
@@ -205,7 +206,7 @@ export function UserMcpTab() {
             <Loader2 size={14} className="animate-spin" /> Chargement…
           </div>
         ) : backends.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun endpoint MCP disponible pour votre compte.</p>
+          <p className="text-sm text-muted-foreground">{t('settings.aucun_endpoint_mcp_disponible_pour_votre')}</p>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {backends.map((backend) => (
@@ -217,8 +218,8 @@ export function UserMcpTab() {
 
       <CollapsibleSection
         id="mcp-personal-tokens"
-        title="Mes tokens MCP"
-        description="Créez vos tokens personnels pour Claude, Cursor ou VS Code. Le contrôle d’accès passe par votre contexte utilisateur et vos permissions, pas par un scope backend saisi à la main."
+        title={t('settings.mes_tokens_mcp')}
+        description={t('settings.creez_vos_tokens_personnels_pour_claude')}
         storageKey="settings.user-mcp.tokens.collapse"
         showSeparator={false}
       >
@@ -226,7 +227,7 @@ export function UserMcpTab() {
           <div className="grid grid-cols-1 md:grid-cols-[1.5fr_180px_auto] gap-3">
             <input
               className="gl-form-input"
-              placeholder="Nom du token"
+              placeholder={t('settings.nom_du_token')}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -249,7 +250,7 @@ export function UserMcpTab() {
             <div className="border border-emerald-300 rounded-lg bg-emerald-50/60 px-4 py-3">
               <div className="flex items-center gap-2 mb-2">
                 <Shield size={14} className="text-emerald-700" />
-                <span className="text-sm font-semibold text-emerald-900">Token affiché une seule fois</span>
+                <span className="text-sm font-semibold text-emerald-900">{t('settings.token_affiche_une_seule_fois')}</span>
               </div>
               <code className="block text-xs break-all text-emerald-950">{createdToken.token}</code>
             </div>
@@ -257,7 +258,7 @@ export function UserMcpTab() {
 
           <div className="space-y-2">
             {tokens.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun token MCP personnel.</p>
+              <p className="text-sm text-muted-foreground">{t('settings.aucun_token_mcp_personnel')}</p>
             ) : tokens.map((token) => {
               const expiry = expiryLabel(token.expires_at)
               return (
@@ -279,7 +280,7 @@ export function UserMcpTab() {
                       <button
                         className="gl-button gl-button-default"
                         onClick={() => revokeToken.mutate(token.id)}
-                        title="Révoquer le token"
+                        title={t('settings.revoquer_le_token')}
                       >
                         <Ban size={14} />
                       </button>
@@ -287,7 +288,7 @@ export function UserMcpTab() {
                     <button
                       className="gl-button gl-button-danger"
                       onClick={() => deleteToken.mutate(token.id)}
-                      title="Supprimer le token"
+                      title={t('settings.supprimer_le_token')}
                     >
                       <AlertTriangle size={14} />
                     </button>

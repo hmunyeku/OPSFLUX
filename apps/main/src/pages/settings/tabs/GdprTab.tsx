@@ -63,29 +63,29 @@ export function GdprTab() {
   return (
     <>
       {/* DPO Contact */}
-      <CollapsibleSection id="gdpr-dpo" title="Delegue a la Protection des Donnees (DPO)"
-        description="Coordonnees du DPO affichees dans la politique de confidentialite et les demandes RGPD."
+      <CollapsibleSection id="gdpr-dpo" title={t('settings.delegue_a_la_protection_des_donnees_dpo')}
+        description={t('settings.coordonnees_du_dpo_affichees_dans_la_pol')}
         storageKey="settings.gdpr.collapse">
         <div className="mt-2 space-y-0">
-          <SettingRow label="Nom du DPO" description="Nom complet ou fonction du delegue.">
+          <SettingRow label={t('settings.nom_du_dpo')} description={t('settings.nom_complet_ou_fonction_du_delegue')}>
             <input type="text" className="gl-form-input w-56 text-sm"
               defaultValue={(s['gdpr.dpo_name'] as string) ?? ''}
               placeholder="Ex: Service Juridique"
               onBlur={e => save('gdpr.dpo_name', e.target.value)} />
           </SettingRow>
-          <SettingRow label="Email du DPO" description="Adresse email pour les demandes RGPD.">
+          <SettingRow label={t('settings.email_du_dpo')} description={t('settings.adresse_email_pour_les_demandes_rgpd')}>
             <input type="email" className="gl-form-input w-56 text-sm"
               defaultValue={(s['gdpr.dpo_email'] as string) ?? ''}
               placeholder="dpo@entreprise.com"
               onBlur={e => save('gdpr.dpo_email', e.target.value)} />
           </SettingRow>
-          <SettingRow label="Telephone" description="Numero de contact (optionnel).">
+          <SettingRow label="Telephone" description={t('settings.numero_de_contact_optionnel')}>
             <input type="text" className="gl-form-input w-56 text-sm"
               defaultValue={(s['gdpr.dpo_phone'] as string) ?? ''}
               placeholder="+33 1 23 45 67 89"
               onBlur={e => save('gdpr.dpo_phone', e.target.value)} />
           </SettingRow>
-          <SettingRow label="Adresse postale" description="Adresse physique du DPO ou du responsable de traitement.">
+          <SettingRow label="Adresse postale" description={t('settings.adresse_physique_du_dpo_ou_du_responsabl')}>
             <input type="text" className="gl-form-input w-56 text-sm"
               defaultValue={(s['gdpr.dpo_address'] as string) ?? ''}
               onBlur={e => save('gdpr.dpo_address', e.target.value)} />
@@ -94,8 +94,8 @@ export function GdprTab() {
       </CollapsibleSection>
 
       {/* Data Retention */}
-      <CollapsibleSection id="gdpr-retention" title="Conservation des donnees"
-        description="Durees de conservation appliquees automatiquement. Les donnees au-dela de ces delais sont supprimees ou anonymisees."
+      <CollapsibleSection id="gdpr-retention" title={t('settings.conservation_des_donnees')}
+        description={t('settings.durees_de_conservation_appliquees_automa')}
         storageKey="settings.gdpr.collapse">
         <div className="mt-2 space-y-0">
           <SettingRow label="Logs d'audit" description="Duree de conservation des logs d'audit (en mois).">
@@ -106,7 +106,7 @@ export function GdprTab() {
               <span className="text-xs text-muted-foreground">mois</span>
             </div>
           </SettingRow>
-          <SettingRow label="Sessions de connexion" description="Duree de conservation de l'historique des sessions.">
+          <SettingRow label={t('settings.sessions_de_connexion')} description="Duree de conservation de l'historique des sessions.">
             <div className="flex items-center gap-2">
               <input type="number" min={1} max={24} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_sessions_months'] as number) ?? 6}
@@ -114,7 +114,7 @@ export function GdprTab() {
               <span className="text-xs text-muted-foreground">mois</span>
             </div>
           </SettingRow>
-          <SettingRow label="Comptes inactifs" description="Delai avant anonymisation automatique des comptes inactifs.">
+          <SettingRow label="Comptes inactifs" description={t('settings.delai_avant_anonymisation_automatique_de')}>
             <div className="flex items-center gap-2">
               <input type="number" min={6} max={60} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_inactive_accounts_months'] as number) ?? 24}
@@ -122,7 +122,7 @@ export function GdprTab() {
               <span className="text-xs text-muted-foreground">mois</span>
             </div>
           </SettingRow>
-          <SettingRow label="Notifications" description="Duree de conservation des notifications utilisateur.">
+          <SettingRow label="Notifications" description={t('settings.duree_de_conservation_des_notifications')}>
             <div className="flex items-center gap-2">
               <input type="number" min={1} max={12} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_notifications_months'] as number) ?? 3}
@@ -130,7 +130,7 @@ export function GdprTab() {
               <span className="text-xs text-muted-foreground">mois</span>
             </div>
           </SettingRow>
-          <SettingRow label="Exports RGPD" description="Delai avant suppression automatique des exports ZIP de donnees personnelles.">
+          <SettingRow label="Exports RGPD" description={t('settings.delai_avant_suppression_automatique_des')}>
             <div className="flex items-center gap-2">
               <input type="number" min={1} max={90} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_exports_days'] as number) ?? 7}
@@ -143,10 +143,10 @@ export function GdprTab() {
 
       {/* Consent Configuration */}
       <CollapsibleSection id="gdpr-consent" title="Consentement"
-        description="Configuration des demandes de consentement presentees aux utilisateurs."
+        description={t('settings.configuration_des_demandes_de_consenteme')}
         storageKey="settings.gdpr.collapse">
         <div className="mt-2 space-y-0">
-          <SettingRow label="Banniere cookies" description="Afficher la banniere de consentement cookies a la premiere visite.">
+          <SettingRow label="Banniere cookies" description={t('settings.afficher_la_banniere_de_consentement_coo')}>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" className="sr-only peer"
                 checked={(s['gdpr.cookie_banner_enabled'] as boolean) ?? true}
@@ -154,7 +154,7 @@ export function GdprTab() {
               <div className="w-9 h-5 bg-border peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
             </label>
           </SettingRow>
-          <SettingRow label="Lien politique de confidentialite" description="URL de la page de politique de confidentialite.">
+          <SettingRow label={t('settings.lien_politique_de_confidentialite')} description={t('settings.url_de_la_page_de_politique_de_confident')}>
             <input type="text" className="gl-form-input w-48 text-sm"
               defaultValue={(s['gdpr.privacy_policy_url'] as string) ?? '/privacy'}
               onBlur={e => save('gdpr.privacy_policy_url', e.target.value)} />
@@ -163,8 +163,8 @@ export function GdprTab() {
       </CollapsibleSection>
 
       {/* Breach Reports */}
-      <CollapsibleSection id="gdpr-breaches" title="Violations de donnees (Art. 33/34)"
-        description="Journal des incidents de violation de donnees personnelles. Obligation de notification sous 72h."
+      <CollapsibleSection id="gdpr-breaches" title={t('settings.violations_de_donnees_art_33_34')}
+        description={t('settings.journal_des_incidents_de_violation_de_do')}
         storageKey="settings.gdpr.collapse" showSeparator={false}>
         <div className="mt-2">
           {/* Breach list */}
@@ -182,7 +182,7 @@ export function GdprTab() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground mb-4">Aucun incident enregistre.</p>
+            <p className="text-sm text-muted-foreground mb-4">{t('settings.aucun_incident_enregistre')}</p>
           )}
 
           {/* New breach form */}
@@ -195,7 +195,7 @@ export function GdprTab() {
                 value={breachForm.title} onChange={e => setBreachForm(f => ({ ...f, title: e.target.value }))} />
               <textarea className="gl-form-input text-sm w-full min-h-[60px] resize-y" placeholder="Description de l'incident"
                 value={breachForm.description} onChange={e => setBreachForm(f => ({ ...f, description: e.target.value }))} />
-              <input className="gl-form-input text-sm w-full" placeholder="Types de donnees affectees (separes par des virgules)"
+              <input className="gl-form-input text-sm w-full" placeholder={t('settings.types_de_donnees_affectees_separes_par_d')}
                 value={breachForm.affected_data_types} onChange={e => setBreachForm(f => ({ ...f, affected_data_types: e.target.value }))} />
               <textarea className="gl-form-input text-sm w-full min-h-[40px] resize-y" placeholder="Mesures correctives prises"
                 value={breachForm.measures_taken} onChange={e => setBreachForm(f => ({ ...f, measures_taken: e.target.value }))} />
@@ -215,7 +215,7 @@ export function GdprTab() {
               </div>
             </div>
           ) : (
-            <button className="gl-button-sm gl-button-default flex items-center gap-1.5"
+            <button className="gl-button-sm gl-button-default items-center gap-1.5"
               onClick={() => setShowBreachForm(true)}>
               <AlertTriangle size={12} /> Declarer un incident de violation
             </button>

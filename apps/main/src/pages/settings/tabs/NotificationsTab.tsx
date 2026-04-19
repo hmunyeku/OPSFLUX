@@ -153,10 +153,10 @@ export function NotificationsTab() {
 
   return (
     <>
-      <CollapsibleSection id="notifications-global" title="Notifications" description="Configurez le niveau de notification par groupe ou globalement." storageKey="settings.notifications.collapse">
+      <CollapsibleSection id="notifications-global" title="Notifications" description={t('settings.configurez_le_niveau_de_notification_par')} storageKey="settings.notifications.collapse">
         {/* Global notification email */}
         <div className="mt-6">
-          <label className="gl-label">Email de notification global</label>
+          <label className="gl-label">{t('settings.email_de_notification_global')}</label>
           <select
             className="gl-form-select max-w-md"
             value={notificationEmailId}
@@ -173,7 +173,7 @@ export function NotificationsTab() {
 
         {/* Global notification level */}
         <div className="mt-5">
-          <label className="gl-label">Niveau de notification global</label>
+          <label className="gl-label">{t('settings.niveau_de_notification_global')}</label>
           <p className="text-sm text-muted-foreground mb-2">
             Par défaut, tous les groupes utilisent le niveau de notification global.
           </p>
@@ -196,12 +196,12 @@ export function NotificationsTab() {
               onChange={(e) => setNotifySelf(e.target.checked)}
               className="h-4 w-4 accent-primary"
             />
-            <span className="text-sm text-foreground">Recevoir les notifications de vos propres actions</span>
+            <span className="text-sm text-foreground">{t('settings.recevoir_les_notifications_de_vos_propre')}</span>
           </label>
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection id="notifications-groups" title="Groupes & Actions" description="Personnalisez les notifications par groupe." storageKey="settings.notifications.collapse">
+      <CollapsibleSection id="notifications-groups" title="Groupes & Actions" description={t('settings.personnalisez_les_notifications_par_grou')} storageKey="settings.notifications.collapse">
         {/* Per-group overrides */}
         {groups && groups.length > 0 && (
           <div className="border border-border/60 rounded-lg bg-card">
@@ -262,7 +262,7 @@ export function NotificationsTab() {
       <CollapsibleSection
         id="notifications-matrix"
         title="Matrice par module"
-        description="Définissez les canaux autorisés par module. Les canaux in-app, email et digest sont pris en compte via les préférences utilisateur."
+        description={t('settings.definissez_les_canaux_autorises_par_modu')}
         storageKey="settings.notifications.collapse"
       >
         <div className="border border-border/60 rounded-lg bg-card overflow-hidden">
@@ -305,14 +305,14 @@ export function NotificationsTab() {
 
       <CollapsibleSection
         id="notifications-events"
-        title="Matrice par événement"
-        description="Affinez les canaux autorisés pour les événements métier majeurs. Cette matrice prime sur la matrice par module quand un événement est explicitement reconnu par le backend."
+        title={t('settings.matrice_par_evenement')}
+        description={t('settings.affinez_les_canaux_autorises_pour_les_ev')}
         storageKey="settings.notifications.collapse"
       >
         <div className="border border-border/60 rounded-lg bg-card overflow-hidden">
           <div className="grid grid-cols-[1.1fr_1.5fr_repeat(5,minmax(0,110px))] gap-0 px-4 py-3 border-b border-border/40 bg-muted/30 text-xs font-semibold text-muted-foreground">
             <span>Module</span>
-            <span>Événement</span>
+            <span>{t('settings.evenement')}</span>
             <span>In-app</span>
             <span>Email</span>
             <span>Digest</span>
@@ -353,7 +353,7 @@ export function NotificationsTab() {
 
       <CollapsibleSection
         id="notifications-display"
-        title="Affichage des notifications"
+        title={t('settings.affichage_des_notifications')}
         description="Position, durée et opacité des notifications toast. Ces réglages sont personnels et remplacent les valeurs par défaut de l'administrateur."
         storageKey="settings.notifications.collapse"
         showSeparator={false}
@@ -435,7 +435,7 @@ function ToastSettingsSection() {
 
       {/* Duration slider */}
       <div>
-        <label className="gl-label">Durée d'affichage</label>
+        <label className="gl-label">{t('settings.duree_d_affichage')}</label>
         <div className="flex items-center gap-3 mt-2">
           <input
             type="range"
@@ -459,7 +459,7 @@ function ToastSettingsSection() {
 
       {/* Opacity slider */}
       <div>
-        <label className="gl-label">Opacité</label>
+        <label className="gl-label">{t('settings.opacite')}</label>
         <div className="flex items-center gap-3 mt-2">
           <input
             type="range"

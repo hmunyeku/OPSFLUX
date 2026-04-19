@@ -119,7 +119,7 @@ interface WidgetCardProps {
 }
 
 export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _badge }: WidgetCardProps) {
-  useTranslation() // keep hook call for consistency
+  const { t } = useTranslation()
   const { filterParams } = useDashboardFilters()
   // Use config.widget_id (provider ID) for data fetching, fallback to widget.id
   const dataWidgetId = (widget.config?.widget_id as string) || widget.id
@@ -220,7 +220,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
             <button onClick={handleExport} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10" title="Exporter">
               <Download className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/40' : 'text-muted-foreground/30')} />
             </button>
-            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10" title="Plein écran">
+            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10" title={t('common.fullscreen')}>
               <Maximize2 className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/40' : 'text-muted-foreground/30')} />
             </button>
             {mode === 'edit' && onRemove && (
@@ -266,10 +266,11 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
 // ── Error State ─────────────────────────────────────────────────
 
 function WidgetError({ onRetry }: { error?: unknown; onRetry: () => void }) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
       <AlertTriangle className="h-5 w-5 text-destructive" />
-      <p className="text-xs text-muted-foreground">Erreur de chargement</p>
+      <p className="text-xs text-muted-foreground">{t('common.error_loading')}</p>
       <button
         onClick={onRetry}
         className="text-xs text-primary hover:underline"

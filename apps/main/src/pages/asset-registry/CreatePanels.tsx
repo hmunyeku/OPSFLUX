@@ -253,7 +253,7 @@ export function CreateFieldPanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Régulateur">
+            <DynamicPanelField label={t('assets.regulator')}>
               <input type="text" value={form.regulator || ''} onChange={(e) => set({ regulator: e.target.value })} className={panelInputClass} placeholder="SNH" />
             </DynamicPanelField>
           </FormGrid>
@@ -275,17 +275,17 @@ export function CreateFieldPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Géologie / Réserves" collapsible>
+        <FormSection title={t('asset_registry.geologie_reserves')} collapsible>
           <FormGrid>
-            <DynamicPanelField label="Année découverte">
+            <DynamicPanelField label={t('asset_registry.annee_decouverte')}>
               <input type="number" min={1900} max={2100} value={form.discovery_year ?? ''} onChange={numChange(set, 'discovery_year')} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Année 1ère production">
+            <DynamicPanelField label={t('asset_registry.annee_1ere_production')}>
               <input type="number" min={1900} max={2100} value={form.first_production_year ?? ''} onChange={numChange(set, 'first_production_year')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Formation réservoir">
+            <DynamicPanelField label={t('assets.reservoir_formation')}>
               <input type="text" value={form.reservoir_formation || ''} onChange={(e) => set({ reservoir_formation: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -293,7 +293,7 @@ export function CreateFieldPanel() {
             <DynamicPanelField label="OOIP (MMbbl)">
               <input type="number" step="0.01" min={0} value={form.original_oil_in_place_mmbo ?? ''} onChange={numChange(set, 'original_oil_in_place_mmbo')} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Réserves récupérables (MMbbl)">
+            <DynamicPanelField label={t('assets.recoverable_reserves')}>
               <input type="number" step="0.01" min={0} value={form.recoverable_reserves_mmbo ?? ''} onChange={numChange(set, 'recoverable_reserves_mmbo')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -406,7 +406,7 @@ export function CreateSitePanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Région">
+            <DynamicPanelField label={t('assets.region')}>
               <input type="text" value={form.region || ''} onChange={(e) => set({ region: e.target.value })} className={panelInputClass} placeholder="Littoral" />
             </DynamicPanelField>
             <DynamicPanelField label={t('common.status')}>
@@ -431,43 +431,43 @@ export function CreateSitePanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Accès" collapsible>
+        <FormSection title={t('assets.access')} collapsible>
           <FormGrid>
-            <DynamicPanelField label="Accès route">{boolSelect(form.access_road, (v) => set({ access_road: v }), panelInputClass)}</DynamicPanelField>
-            <DynamicPanelField label="Accès hélicoptère">{boolSelect(form.access_helicopter, (v) => set({ access_helicopter: v }), panelInputClass)}</DynamicPanelField>
+            <DynamicPanelField label={t('asset_registry.acces_route')}>{boolSelect(form.access_road, (v) => set({ access_road: v }), panelInputClass)}</DynamicPanelField>
+            <DynamicPanelField label={t('assets.access_helicopter')}>{boolSelect(form.access_helicopter, (v) => set({ access_helicopter: v }), panelInputClass)}</DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Accès bateau">{boolSelect(form.access_vessel, (v) => set({ access_vessel: v }), panelInputClass)}</DynamicPanelField>
-            <DynamicPanelField label="Hélipad disponible">{boolSelect(form.helideck_available, (v) => set({ helideck_available: v }), panelInputClass)}</DynamicPanelField>
+            <DynamicPanelField label={t('asset_registry.acces_bateau')}>{boolSelect(form.access_vessel, (v) => set({ access_vessel: v }), panelInputClass)}</DynamicPanelField>
+            <DynamicPanelField label={t('asset_registry.helipad_disponible')}>{boolSelect(form.helideck_available, (v) => set({ helideck_available: v }), panelInputClass)}</DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Aéroport le plus proche">
+            <DynamicPanelField label={t('assets.nearest_airport')}>
               <input type="text" value={form.nearest_airport || ''} onChange={(e) => set({ nearest_airport: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Port le plus proche">
+            <DynamicPanelField label={t('assets.nearest_port')}>
               <input type="text" value={form.nearest_port || ''} onChange={(e) => set({ nearest_port: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Opérations" collapsible>
+        <FormSection title={t('assets.operations')} collapsible>
           <FormGrid>
-            <DynamicPanelField label="Occupé (manned)">{boolSelect(form.manned, (v) => set({ manned: v }), panelInputClass)}</DynamicPanelField>
+            <DynamicPanelField label={t('asset_registry.occupe_manned')}>{boolSelect(form.manned, (v) => set({ manned: v }), panelInputClass)}</DynamicPanelField>
             <DynamicPanelField label="POB max">
               <input type="number" min={0} value={form.pob_capacity ?? ''} onChange={numChange(set, 'pob_capacity')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Source énergie">
+            <DynamicPanelField label={t('asset_registry.source_energie')}>
               <input type="text" value={form.power_source || ''} onChange={(e) => set({ power_source: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Système comms">
+            <DynamicPanelField label={t('asset_registry.systeme_comms')}>
               <input type="text" value={form.comms_system || ''} onChange={(e) => set({ comms_system: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Conditions de design" collapsible>
+        <FormSection title={t('assets.design_conditions')} collapsible>
           <FormGrid>
             <DynamicPanelField label="Vent max (m/s)">
               <input type="number" step="0.1" min={0} value={form.max_wind_speed_ms ?? ''} onChange={numChange(set, 'max_wind_speed_ms')} className={panelInputClass} />
@@ -496,7 +496,7 @@ export function CreateSitePanel() {
             <DynamicPanelField label="Date mise en service">
               <input type="date" value={form.commissioning_date || ''} onChange={(e) => set({ commissioning_date: e.target.value || undefined })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Date 1er pétrole">
+            <DynamicPanelField label={t('asset_registry.date_1er_petrole')}>
               <input type="date" value={form.first_oil_date || ''} onChange={(e) => set({ first_oil_date: e.target.value || undefined })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -621,7 +621,7 @@ export function CreateInstallationPanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Élévation (m ASL)">
+            <DynamicPanelField label={t('asset_registry.elevation_m_asl')}>
               <input type="number" step="0.1" value={form.elevation_masl ?? ''} onChange={numChange(set, 'elevation_masl')} className={panelInputClass} />
             </DynamicPanelField>
             <DynamicPanelField label="Profondeur eau (m)">
@@ -648,28 +648,28 @@ export function CreateInstallationPanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Date 1er pétrole">
+            <DynamicPanelField label={t('asset_registry.date_1er_petrole')}>
               <input type="date" value={form.first_oil_date || ''} onChange={(e) => set({ first_oil_date: e.target.value || undefined })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Durée de vie design (ans)">
+            <DynamicPanelField label={t('asset_registry.duree_de_vie_design_ans')}>
               <input type="number" min={0} value={form.design_life_years ?? ''} onChange={numChange(set, 'design_life_years')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Caractéristiques" collapsible>
+        <FormSection title={t('asset_registry.caracteristiques')} collapsible>
           <FormGrid>
-            <DynamicPanelField label="Occupé (manned)">{boolSelect(form.is_manned, (v) => set({ is_manned: v }), panelInputClass)}</DynamicPanelField>
-            <DynamicPanelField label="Normalement non occupé">{boolSelect(form.is_normally_unmanned, (v) => set({ is_normally_unmanned: v }), panelInputClass)}</DynamicPanelField>
+            <DynamicPanelField label={t('asset_registry.occupe_manned')}>{boolSelect(form.is_manned, (v) => set({ is_manned: v }), panelInputClass)}</DynamicPanelField>
+            <DynamicPanelField label={t('asset_registry.normalement_non_occupe')}>{boolSelect(form.is_normally_unmanned, (v) => set({ is_normally_unmanned: v }), panelInputClass)}</DynamicPanelField>
           </FormGrid>
           <FormGrid>
             <DynamicPanelField label="POB max">
               <input type="number" min={0} value={form.pob_capacity ?? ''} onChange={numChange(set, 'pob_capacity')} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Hélipad disponible">{boolSelect(form.helideck_available, (v) => set({ helideck_available: v }), panelInputClass)}</DynamicPanelField>
+            <DynamicPanelField label={t('asset_registry.helipad_disponible')}>{boolSelect(form.helideck_available, (v) => set({ helideck_available: v }), panelInputClass)}</DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Capacité canots (pers)">
+            <DynamicPanelField label={t('asset_registry.capacite_canots_pers')}>
               <input type="number" min={0} value={form.lifeboat_capacity ?? ''} onChange={numChange(set, 'lifeboat_capacity')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -693,15 +693,15 @@ export function CreateInstallationPanel() {
 
         <FormSection title="Classification" collapsible>
           <FormGrid>
-            <DynamicPanelField label="Code de design">
+            <DynamicPanelField label={t('assets.design_code')}>
               <input type="text" value={form.design_code || ''} onChange={(e) => set({ design_code: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Société de classification">
+            <DynamicPanelField label={t('assets.classification_society')}>
               <input type="text" value={form.classification_society || ''} onChange={(e) => set({ classification_society: e.target.value })} className={panelInputClass} placeholder="Bureau Veritas" />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Notation de classe">
+            <DynamicPanelField label={t('assets.class_notation')}>
               <input type="text" value={form.class_notation || ''} onChange={(e) => set({ class_notation: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -818,7 +818,7 @@ export function CreateEquipmentPanel() {
                 {criticalityOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
-            <DynamicPanelField label="Fonction sécurité">{boolSelect(form.safety_function, (v) => set({ safety_function: v }), panelInputClass)}</DynamicPanelField>
+            <DynamicPanelField label={t('assets.safety_function')}>{boolSelect(form.safety_function, (v) => set({ safety_function: v }), panelInputClass)}</DynamicPanelField>
           </FormGrid>
         </FormSection>
 
@@ -846,7 +846,7 @@ export function CreateEquipmentPanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Réf. grille">
+            <DynamicPanelField label={t('asset_registry.ref_grille')}>
               <input type="text" value={form.grid_reference || ''} onChange={(e) => set({ grid_reference: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
             <DynamicPanelField label="Mobile">{boolSelect(form.is_mobile, (v) => set({ is_mobile: v }), panelInputClass)}</DynamicPanelField>
@@ -860,7 +860,7 @@ export function CreateEquipmentPanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Élévation (m)">
+            <DynamicPanelField label={t('assets.elevation')}>
               <input type="number" step="0.1" value={form.elevation_m ?? ''} onChange={numChange(set, 'elevation_m')} className={panelInputClass} />
             </DynamicPanelField>
             <DynamicPanelField label="Orientation (deg)">
@@ -887,20 +887,20 @@ export function CreateEquipmentPanel() {
             <DynamicPanelField label="Fabricant">
               <input type="text" value={form.manufacturer || ''} onChange={(e) => set({ manufacturer: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Modèle">
+            <DynamicPanelField label={t('assets.model_ref')}>
               <input type="text" value={form.model || ''} onChange={(e) => set({ model: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="N° série">
+            <DynamicPanelField label={t('assets.serial_number')}>
               <input type="text" value={form.serial_number || ''} onChange={(e) => set({ serial_number: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Année fabrication">
+            <DynamicPanelField label={t('assets.year_manufactured')}>
               <input type="number" min={1900} max={2100} value={form.year_manufactured ?? ''} onChange={numChange(set, 'year_manufactured')} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Année installation">
+            <DynamicPanelField label={t('assets.year_installed')}>
               <input type="number" min={1900} max={2100} value={form.year_installed ?? ''} onChange={numChange(set, 'year_installed')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -911,18 +911,18 @@ export function CreateEquipmentPanel() {
             <DynamicPanelField label="N° certificat">
               <input type="text" value={form.cert_number || ''} onChange={(e) => set({ cert_number: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Autorité certificat">
+            <DynamicPanelField label={t('assets.cert_authority')}>
               <input type="text" value={form.cert_authority || ''} onChange={(e) => set({ cert_authority: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Documents / Références" collapsible>
+        <FormSection title={t('asset_registry.documents_references')} collapsible>
           <FormGrid>
             <DynamicPanelField label="N° plan">
               <input type="text" value={form.drawing_number || ''} onChange={(e) => set({ drawing_number: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Réf. P&ID">
+            <DynamicPanelField label={t('assets.p_and_id_ref')}>
               <input type="text" value={form.p_and_id_ref || ''} onChange={(e) => set({ p_and_id_ref: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -943,7 +943,7 @@ export function CreateEquipmentPanel() {
 
         <FormSection title={t('assets.finance')} collapsible>
           <FormGrid>
-            <DynamicPanelField label="Propriétaire">
+            <DynamicPanelField label={t('assets.owner_company')}>
               <input type="text" value={form.owner_company || ''} onChange={(e) => set({ owner_company: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
             <DynamicPanelField label="N° actif">
@@ -1119,7 +1119,7 @@ export function CreatePipelinePanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Épaisseur paroi (mm)">
+            <DynamicPanelField label={t('assets.wall_thickness')}>
               <input type="number" step="0.01" min={0} value={form.wall_thickness_mm ?? ''} onChange={numChange(set, 'wall_thickness_mm')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -1143,15 +1143,15 @@ export function CreatePipelinePanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Pression épreuve (barg)">
+            <DynamicPanelField label={t('asset_registry.pression_epreuve_barg')}>
               <input type="number" step="0.1" min={0} value={form.test_pressure_barg ?? ''} onChange={numChange(set, 'test_pressure_barg')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Matériaux / Revêtement" collapsible>
+        <FormSection title={t('asset_registry.materiaux_revetement')} collapsible>
           <FormGrid>
-            <DynamicPanelField label="Matériau tube">
+            <DynamicPanelField label={t('asset_registry.materiau_tube')}>
               <input type="text" value={form.pipe_material || ''} onChange={(e) => set({ pipe_material: e.target.value })} className={panelInputClass} placeholder="CS API 5L" />
             </DynamicPanelField>
             <DynamicPanelField label="Grade tube">
@@ -1159,15 +1159,15 @@ export function CreatePipelinePanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Revêtement ext.">
+            <DynamicPanelField label={t('asset_registry.revetement_ext')}>
               <input type="text" value={form.coating_external || ''} onChange={(e) => set({ coating_external: e.target.value })} className={panelInputClass} placeholder="3LPE" />
             </DynamicPanelField>
-            <DynamicPanelField label="Revêtement int.">
+            <DynamicPanelField label={t('asset_registry.revetement_int')}>
               <input type="text" value={form.coating_internal || ''} onChange={(e) => set({ coating_internal: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Surépaisseur corrosion (mm)">
+            <DynamicPanelField label={t('assets.corrosion_allowance')}>
               <input type="number" step="0.1" min={0} value={form.corrosion_allowance_mm ?? ''} onChange={numChange(set, 'corrosion_allowance_mm')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -1212,17 +1212,17 @@ export function CreatePipelinePanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Intégrité / Réglementaire" collapsible>
+        <FormSection title={t('asset_registry.integrite_reglementaire')} collapsible>
           <FormGrid>
-            <DynamicPanelField label="Code de design">
+            <DynamicPanelField label={t('assets.design_code')}>
               <input type="text" value={form.design_code || ''} onChange={(e) => set({ design_code: e.target.value })} className={panelInputClass} placeholder="ASME B31.8" />
             </DynamicPanelField>
-            <DynamicPanelField label="Durée de vie design (ans)">
+            <DynamicPanelField label={t('asset_registry.duree_de_vie_design_ans')}>
               <input type="number" min={0} value={form.design_life_years ?? ''} onChange={numChange(set, 'design_life_years')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Année installation">
+            <DynamicPanelField label={t('assets.year_installed')}>
               <input type="number" min={1900} max={2100} value={form.installation_year ?? ''} onChange={numChange(set, 'installation_year')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -1230,7 +1230,7 @@ export function CreatePipelinePanel() {
             <DynamicPanelField label="N° permis">
               <input type="text" value={form.permit_number || ''} onChange={(e) => set({ permit_number: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Régulateur">
+            <DynamicPanelField label={t('assets.regulator')}>
               <input type="text" value={form.regulator || ''} onChange={(e) => set({ regulator: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>

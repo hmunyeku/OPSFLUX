@@ -18,6 +18,7 @@
  * - Inset box-shadow for input borders
  */
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import {
   X, Check, Pencil, ChevronRight, ChevronLeft, ChevronDown,
@@ -120,6 +121,7 @@ export function DynamicPanelShell({
   inlineWidth = 360,
   className,
 }: DynamicPanelShellProps) {
+  const { t } = useTranslation()
   const isFloating = useIsInsideFloatingPanel()
 
   // Resolve the actions region once so the three render branches below stay
@@ -161,7 +163,7 @@ export function DynamicPanelShell({
           {onClose && (
             <button
               onClick={onClose}
-              className="gl-button-sm gl-button-default flex h-6 w-6 !p-0 shrink-0"
+              className="gl-button-sm gl-button-default h-6 w-6 !p-0 shrink-0"
               aria-label="Fermer"
             >
               <X size={14} />
@@ -302,7 +304,7 @@ export function DynamicPanelShell({
                 disabled={!hasPrev}
                 onClick={() => navigateToItem(navItems[currentIndex - 1])}
                 className={navBtn}
-                title="Précédent"
+                title={t('common.previous')}
               >
                 <ChevronLeft size={14} />
               </button>
@@ -328,10 +330,10 @@ export function DynamicPanelShell({
           {!canNavigate && <div className="ml-auto" />}
 
           <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-border/60">
-            <button onClick={toggleMode} className={hdrBtn} title="Réduire en panneau latéral">
+            <button onClick={toggleMode} className={hdrBtn} title={t('layout.reduire_en_panneau_lateral')}>
               <Minimize2 size={12} />
             </button>
-            <button onClick={detachDynamicPanel} className={hdrBtn} title="Détacher en modal flottant">
+            <button onClick={detachDynamicPanel} className={hdrBtn} title={t('layout.detacher_en_modal_flottant')}>
               <ExternalLink size={12} />
             </button>
             <button onClick={closeDynamicPanel} className={hdrBtn} aria-label="Fermer">
@@ -430,7 +432,7 @@ export function DynamicPanelShell({
                 disabled={!hasPrev}
                 onClick={() => navigateToItem(navItems[currentIndex - 1])}
                 className={navBtn}
-                title="Précédent"
+                title={t('common.previous')}
               >
                 <ChevronLeft size={13} />
               </button>
@@ -473,12 +475,12 @@ export function DynamicPanelShell({
           </button>
 
           {/* Detach */}
-          <button onClick={detachDynamicPanel} className={hdrBtn} title="Détacher en modal flottant">
+          <button onClick={detachDynamicPanel} className={hdrBtn} title={t('layout.detacher_en_modal_flottant')}>
             <ExternalLink size={12} />
           </button>
 
           {/* Close */}
-          <button onClick={closeDynamicPanel} className={hdrBtn} aria-label="Fermer le panneau">
+          <button onClick={closeDynamicPanel} className={hdrBtn} aria-label={t('layout.fermer_le_panneau')}>
             <X size={14} />
           </button>
         </div>
@@ -1081,6 +1083,7 @@ export function InlineEditableCombobox({
   onSave: (newValue: string) => void
   placeholder?: string
 }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [query, setQuery] = useState('')
   const [highlightIdx, setHighlightIdx] = useState(0)
@@ -1163,7 +1166,7 @@ export function InlineEditableCombobox({
           </div>
           <ul ref={listRef} className="absolute z-50 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-border bg-popover shadow-md py-1">
             {filtered.length === 0 && (
-              <li className="px-3 py-2 text-xs text-muted-foreground text-center">Aucun résultat</li>
+              <li className="px-3 py-2 text-xs text-muted-foreground text-center">{t('common.no_results')}</li>
             )}
             {filtered.map((o, idx) => (
               <li
@@ -1185,7 +1188,7 @@ export function InlineEditableCombobox({
     <div
       className="group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg hover:bg-accent/50 -mx-2 px-2 cursor-pointer transition-colors"
       onDoubleClick={startEdit}
-      title="Double-cliquer pour modifier"
+      title={t('layout.double_cliquer_pour_modifier')}
     >
       <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayLabel || '—'}</span>
@@ -1347,6 +1350,7 @@ function getViewLabel(view: DetachedPanel['view']): string {
 }
 
 function FloatingPanel({ panel, children }: { panel: DetachedPanel; children: React.ReactNode }) {
+  const { t } = useTranslation()
   const updateDetachedPanel = useUIStore((s) => s.updateDetachedPanel)
   const closeDetachedPanel = useUIStore((s) => s.closeDetachedPanel)
   const bringToFront = useUIStore((s) => s.bringToFront)
@@ -1557,7 +1561,7 @@ function FloatingPanel({ panel, children }: { panel: DetachedPanel; children: Re
 
         <span className="text-xs font-semibold text-foreground truncate flex-1">{label}</span>
         {panel.pinned && (
-          <span className="text-[10px] text-green-600 dark:text-green-400 font-medium shrink-0">Épinglé</span>
+          <span className="text-[10px] text-green-600 dark:text-green-400 font-medium shrink-0">{t('layout.epingle')}</span>
         )}
 
         {/* Window controls */}
@@ -1577,7 +1581,7 @@ function FloatingPanel({ panel, children }: { panel: DetachedPanel; children: Re
           <button
             onClick={() => reattachPanel(panel.id)}
             className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors"
-            title="Rattacher au panneau latéral"
+            title={t('layout.rattacher_au_panneau_lateral')}
           >
             <ExternalLink size={12} className="rotate-180" />
           </button>

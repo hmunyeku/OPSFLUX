@@ -439,7 +439,7 @@ function CreateRoleForm({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="mb-4 p-3 border border-border rounded-lg bg-accent/20">
-      <h4 className="text-xs font-semibold text-foreground mb-2">Nouveau rôle</h4>
+      <h4 className="text-xs font-semibold text-foreground mb-2">{t('users.new_role')}</h4>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-0.5">Code</label>
@@ -447,7 +447,7 @@ function CreateRoleForm({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-0.5">Nom</label>
-          <input className="gl-form-input text-xs w-full" placeholder="Chef de Site" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="gl-form-input text-xs w-full" placeholder={t('settings.chef_de_site')} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-0.5">Module</label>
@@ -455,7 +455,7 @@ function CreateRoleForm({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-0.5">Description</label>
-          <input className="gl-form-input text-xs w-full" placeholder="Responsable opérationnel du site" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <input className="gl-form-input text-xs w-full" placeholder={t('settings.responsable_operationnel_du_site')} value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
       </div>
       <div className="flex items-center gap-2 mt-3">
@@ -682,7 +682,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
           {isProtected && (
             <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-1.5 rounded mb-2">
               <Lock size={11} />
-              <span>SUPER_ADMIN dispose de toutes les permissions.</span>
+              <span>{t('settings.super_admin_dispose_de_toutes_les_permis')}</span>
             </div>
           )}
           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
@@ -701,7 +701,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
               </div>
             ))}
             {permCount === 0 && !isProtected && (
-              <p className="text-xs text-muted-foreground italic">Aucune permission attribuée.</p>
+              <p className="text-xs text-muted-foreground italic">{t('settings.aucune_permission_attribuee')}</p>
             )}
           </div>
         </FormSection>
@@ -715,12 +715,12 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
       {isProtected && (
         <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-3 py-2 rounded-lg">
           <Lock size={12} />
-          <span>SUPER_ADMIN dispose de toutes les permissions (non modifiable).</span>
+          <span>{t('settings.super_admin_dispose_de_toutes_les_permis_2')}</span>
         </div>
       )}
       {hasPendingChanges && (
         <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-          <span className="text-xs text-amber-600 dark:text-amber-400 flex-1">Modifications non sauvegardées</span>
+          <span className="text-xs text-amber-600 dark:text-amber-400 flex-1">{t('settings.modifications_non_sauvegardees')}</span>
           <button onClick={() => setPendingPerms(null)} className="gl-button-sm gl-button-default text-[11px]">Annuler</button>
           <button onClick={savePermissions} disabled={setPermsMut.isPending} className="gl-button-sm gl-button-confirm text-[11px]">
             {setPermsMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
@@ -1106,14 +1106,14 @@ export function CreateGroupForm({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="mb-4 p-3 border border-border rounded-lg bg-accent/20">
-      <h4 className="text-xs font-semibold text-foreground mb-2">Nouveau groupe</h4>
+      <h4 className="text-xs font-semibold text-foreground mb-2">{t('users.new_group')}</h4>
       <div className="space-y-2">
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-0.5">Nom</label>
-          <input className="gl-form-input text-xs w-full" placeholder="Équipe CDS — ALEN" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="gl-form-input text-xs w-full" placeholder={t('settings.equipe_cds_alen')} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
-          <label className="block text-[10px] font-medium text-muted-foreground mb-0.5">Rôles</label>
+          <label className="block text-[10px] font-medium text-muted-foreground mb-0.5">{t('users.roles')}</label>
           <div className="flex flex-wrap gap-1 p-2 border border-border rounded bg-background min-h-[32px]">
             {(roles || []).map((r) => {
               const isSelected = selectedRoleCodes.includes(r.code)
@@ -1271,6 +1271,7 @@ function PermissionMatrix({
   /** Optional source tracking for badge display (code → source) */
   permSources?: Map<string, PermSource>
 }) {
+  const { t } = useTranslation()
   const [collapsedModules, setCollapsedModules] = useState<Set<string>>(new Set())
 
   const matrix = useMemo(() => {
@@ -1307,7 +1308,7 @@ function PermissionMatrix({
           <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             className="gl-form-input text-xs pl-7 w-full h-7"
-            placeholder="Filtrer les permissions..."
+            placeholder={t('settings.filtrer_les_permissions')}
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
           />
@@ -1315,14 +1316,14 @@ function PermissionMatrix({
         <button
           onClick={() => setCollapsedModules(new Set())}
           className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-1"
-          title="Tout dérouler"
+          title={t('settings.tout_derouler')}
         >
           <ChevronDown size={12} />
         </button>
         <button
           onClick={() => setCollapsedModules(new Set(matrix.map((m) => m.module)))}
           className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-1"
-          title="Tout replier"
+          title={t('settings.tout_replier')}
         >
           <ChevronRight size={12} />
         </button>
@@ -1515,6 +1516,7 @@ function RolePicker({ values, roles, onChange, disabled }: {
   onChange: (codes: string[]) => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -1557,7 +1559,7 @@ function RolePicker({ values, roles, onChange, disabled }: {
       >
         <div className="flex items-center gap-1 min-w-0 flex-wrap">
           {values.length === 0 ? (
-            <span className="text-muted-foreground">Aucun rôle</span>
+            <span className="text-muted-foreground">{t('users.aucun_role')}</span>
           ) : (
             selectedNames.map((name, i) => (
               <span key={values[i]} className="gl-badge gl-badge-info text-[10px] shrink-0">{name}</span>
@@ -1573,7 +1575,7 @@ function RolePicker({ values, roles, onChange, disabled }: {
               <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 className="gl-form-input text-xs w-full h-7 pl-7"
-                placeholder="Rechercher un rôle..."
+                placeholder={t('settings.rechercher_un_role')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 autoFocus
@@ -1582,7 +1584,7 @@ function RolePicker({ values, roles, onChange, disabled }: {
           </div>
           <div className="max-h-[200px] overflow-y-auto p-1">
             {filtered.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-3">Aucun rôle trouvé</p>
+              <p className="text-xs text-muted-foreground text-center py-3">{t('settings.aucun_role_trouve')}</p>
             ) : (
               filtered.map((r) => (
                 <button
@@ -1907,7 +1909,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
               onSave={(v) => updateMut.mutate({ id: groupId, payload: { name: v } })}
             />
             <DetailRow
-              label="Rôles"
+              label={t('users.roles')}
               value={
                 isProtected ? (
                   <div className="flex flex-wrap gap-1">
@@ -1931,14 +1933,14 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
               }
             />
             <DetailRow
-              label="Entité"
+              label={t('settings.columns.rbac_groups.entity')}
               value={<CrossModuleLink module="entities" id={group.entity_id} label={group.entity_name || group.entity_id} showIcon={false} className="text-foreground" />}
             />
             <DetailRow
               label="Scope asset"
               value={group.asset_scope_name
                 ? <span className="gl-badge gl-badge-neutral">{group.asset_scope_name}</span>
-                : <span className="text-muted-foreground italic">Global (toute l'entité)</span>
+                : <span className="text-muted-foreground italic">{t('settings.global_toute_l_entite')}</span>
               }
             />
             <DetailRow
@@ -1979,7 +1981,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
                 <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   className="gl-form-input text-sm pl-8 w-full h-8"
-                  placeholder="Rechercher un utilisateur..."
+                  placeholder={t('paxlog.search_user')}
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                   autoFocus
@@ -1988,7 +1990,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
               {userSearch.length >= 2 && (
                 <div className="max-h-[150px] overflow-y-auto space-y-0.5">
                   {availableUsers.length === 0 ? (
-                    <p className="text-xs text-muted-foreground py-3 text-center">Aucun utilisateur trouvé</p>
+                    <p className="text-xs text-muted-foreground py-3 text-center">{t('settings.aucun_utilisateur_trouve')}</p>
                   ) : (
                     availableUsers.map((u) => (
                       <button
@@ -2012,7 +2014,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
           )}
 
           {group.members.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Aucun membre dans ce groupe.</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{t('settings.aucun_membre_dans_ce_groupe')}</p>
           ) : (
             <div className="divide-y divide-border/50">
               {group.members.map((member) => (
@@ -2100,7 +2102,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
         <div className="text-[11px] text-blue-700 dark:text-blue-300 leading-relaxed">
           <p>
             Base : {group.role_codes.length} rôle{group.role_codes.length !== 1 ? 's' : ''} (<strong>{group.role_names.join(', ') || group.role_codes.join(', ')}</strong>) — {rolePermCodes.size} perm.
-            Vous éditez les <strong>surcharges du groupe</strong>.
+            Vous éditez les <strong>{t('settings.surcharges_du_groupe')}</strong>.
           </p>
           {overrideCount > 0 && (
             <p className="mt-1">
@@ -2191,6 +2193,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
 // ══════════════════════════════════════════════════════════════════════════════
 
 export function PermissionsTab({ externalSearch }: { externalSearch?: string } = {}) {
+  const { t } = useTranslation()
   const [internalSearch, setInternalSearch] = useState('')
   const search = externalSearch ?? internalSearch
   const isControlled = externalSearch !== undefined
@@ -2226,7 +2229,7 @@ export function PermissionsTab({ externalSearch }: { externalSearch?: string } =
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               className="gl-form-input h-8 text-xs pl-8 w-full"
-              placeholder="Rechercher une permission..."
+              placeholder={t('settings.rechercher_une_permission')}
               value={internalSearch}
               onChange={(e) => setInternalSearch(e.target.value)}
             />

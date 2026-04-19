@@ -7,6 +7,7 @@ import {
   panelInputClass,
   TagSelector,
 } from '@/components/layout/DynamicPanel'
+import { useTranslation } from 'react-i18next'
 
 const CHART_TYPE_OPTIONS = [
   { value: 'bar', label: 'Barres' },
@@ -21,18 +22,19 @@ interface WidgetSettingsChartProps {
 }
 
 export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartProps) {
+  const { t } = useTranslation()
   const yFields = ((config.y_fields as string[]) || []).join(', ')
 
   return (
     <FormSection title="Configuration Graphique" collapsible defaultExpanded storageKey="widget-settings-chart">
-      <DynamicPanelField label="Type de graphique">
+      <DynamicPanelField label={t('dashboard.type_de_graphique')}>
         <TagSelector
           options={CHART_TYPE_OPTIONS}
           value={(config.chart_type as string) || 'bar'}
           onChange={(v) => onChange({ chart_type: v })}
         />
       </DynamicPanelField>
-      <DynamicPanelField label="Source de donnees">
+      <DynamicPanelField label={t('dashboard.source_de_donnees')}>
         <input
           type="text"
           className={panelInputClass}
@@ -58,7 +60,7 @@ export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartPro
           onChange={(e) => onChange({ y_fields: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
           placeholder="ex: count, total (separes par virgule)"
         />
-        <p className="text-[10px] text-muted-foreground mt-1">Separer par virgule pour plusieurs series</p>
+        <p className="text-[10px] text-muted-foreground mt-1">{t('dashboard.separer_par_virgule_pour_plusieurs_serie')}</p>
       </DynamicPanelField>
       <DynamicPanelField label="Legende">
         <label className="flex items-center gap-2 cursor-pointer">
@@ -68,7 +70,7 @@ export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartPro
             checked={config.show_legend !== false}
             onChange={(e) => onChange({ show_legend: e.target.checked })}
           />
-          <span className="text-sm text-foreground">Afficher la legende</span>
+          <span className="text-sm text-foreground">{t('dashboard.afficher_la_legende')}</span>
         </label>
       </DynamicPanelField>
       <DynamicPanelField label="Filtrage croise">
@@ -79,7 +81,7 @@ export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartPro
             checked={config.cross_filter !== false}
             onChange={(e) => onChange({ cross_filter: e.target.checked })}
           />
-          <span className="text-xs text-foreground">Clic sur element = filtre global</span>
+          <span className="text-xs text-foreground">{t('dashboard.clic_sur_element_filtre_global')}</span>
         </label>
       </DynamicPanelField>
     </FormSection>

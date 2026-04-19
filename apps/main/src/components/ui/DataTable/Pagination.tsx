@@ -2,6 +2,7 @@
  * DataTable — compact pagination footer (GitLab Pajamas style, 28px height).
  */
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import type { DataTablePagination } from './types'
 
@@ -18,6 +19,7 @@ export function DataTablePaginationBar({
   onPageSizeChange,
   pageSizeOptions = [25, 50, 100],
 }: PaginationProps) {
+  const { t } = useTranslation()
   const { page, pageSize, total, pages } = pagination
   const start = (page - 1) * pageSize + 1
   const end = Math.min(page * pageSize, total)
@@ -45,10 +47,10 @@ export function DataTablePaginationBar({
       </div>
 
       <div className="flex items-center gap-0 order-1 sm:order-2 ml-auto sm:ml-0">
-        <NavButton disabled={page <= 1} onClick={() => onPageChange(1)} title="Première page">
+        <NavButton disabled={page <= 1} onClick={() => onPageChange(1)} title={t('ui.premiere_page')}>
           <ChevronsLeft size={14} />
         </NavButton>
-        <NavButton disabled={page <= 1} onClick={() => onPageChange(page - 1)} title="Précédent">
+        <NavButton disabled={page <= 1} onClick={() => onPageChange(page - 1)} title={t('common.previous')}>
           <ChevronLeft size={14} />
         </NavButton>
 
@@ -74,7 +76,7 @@ export function DataTablePaginationBar({
         <NavButton disabled={page >= pages} onClick={() => onPageChange(page + 1)} title="Suivant">
           <ChevronRight size={14} />
         </NavButton>
-        <NavButton disabled={page >= pages} onClick={() => onPageChange(pages)} title="Dernière page">
+        <NavButton disabled={page >= pages} onClick={() => onPageChange(pages)} title={t('ui.derniere_page')}>
           <ChevronsRight size={14} />
         </NavButton>
       </div>

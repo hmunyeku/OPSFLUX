@@ -5,11 +5,13 @@
  * Calls GET /api/v1/contact-emails/verify-callback?token=xxx&id=yyy (no auth required)
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Loader2, CheckCircle, AlertTriangle, Mail } from 'lucide-react'
 import axios from 'axios'
 
 export default function VerifyEmailPage() {
+  const { t } = useTranslation()
   const [params] = useSearchParams()
   const token = params.get('token')
   const id = params.get('id')
@@ -69,12 +71,12 @@ export default function VerifyEmailPage() {
           </div>
         </div>
 
-        <h1 className="text-xl font-semibold mb-2">Vérification d'email</h1>
+        <h1 className="text-xl font-semibold mb-2">{t('auth.verification_d_email')}</h1>
 
         {status === 'loading' && (
           <div className="py-8">
             <Loader2 size={32} className="animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Vérification en cours...</p>
+            <p className="text-muted-foreground">{t('auth.verification_en_cours')}</p>
           </div>
         )}
 

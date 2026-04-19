@@ -178,6 +178,7 @@ const PROJECT_MEMBER_ROLE_LABELS_FALLBACK: Record<string, string> = {
 const GOUTI_BANNER_DISMISSED_KEY = 'opsflux:gouti-project-banner-dismissed'
 
 function GoutiProjectBanner() {
+  const { t } = useTranslation()
   const [dismissed, setDismissed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(GOUTI_BANNER_DISMISSED_KEY) === '1'
@@ -208,8 +209,8 @@ function GoutiProjectBanner() {
         type="button"
         onClick={handleDismiss}
         className="p-0.5 rounded hover:bg-orange-500/20 text-orange-700 shrink-0"
-        aria-label="Masquer ce bandeau"
-        title="Masquer (votre préférence est sauvegardée)"
+        aria-label={t('projets.masquer_ce_bandeau')}
+        title={t('projets.masquer_votre_preference_est_sauvegardee')}
       >
         <X size={12} />
       </button>
@@ -220,13 +221,14 @@ function GoutiProjectBanner() {
 // Small badge shown on projects imported from Gouti so users can
 // distinguish them from OpsFlux-native projects at a glance.
 function GoutiBadge({ className = '' }: { className?: string }) {
+  const { t } = useTranslation()
   return (
     <span
       className={cn(
         'inline-flex items-center gap-0.5 px-1 py-0 rounded text-[9px] font-semibold uppercase tracking-wide bg-orange-500/10 text-orange-600 border border-orange-500/20',
         className,
       )}
-      title="Projet importé depuis Gouti"
+      title={t('projets.projet_importe_depuis_gouti')}
     >
       <Download size={8} /> Gouti
     </span>
@@ -266,6 +268,7 @@ function GoutiTaskTree({
   selectedTaskIds: string[]
   onToggleTaskId: (taskId: string, ensureSelectedIds?: string[]) => void
 }) {
+  const { t } = useTranslation()
   // Build children map keyed by parent_ref (null for roots)
   const childrenOf = useMemo(() => {
     const map = new Map<string | null, GoutiCatalogTask[]>()
@@ -454,7 +457,7 @@ function GoutiTaskTree({
   return (
     <div
       role="tree"
-      aria-label="Hiérarchie des tâches Gouti"
+      aria-label={t('projets.hierarchie_des_taches_gouti')}
       className="max-h-[260px] overflow-y-auto border border-border/50 rounded bg-background"
     >
       {roots.length === 0 && (
@@ -481,6 +484,7 @@ function GoutiProjectRow({
   onTaskModeChange: (mode: 'all' | 'none' | 'some') => void
   onToggleTaskId: (taskId: string, ensureSelectedIds?: string[]) => void
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const included = !!selection?.include
   const taskMode = selection?.tasks.mode ?? 'all'
@@ -502,7 +506,7 @@ function GoutiProjectRow({
           type="button"
           onClick={() => setExpanded(v => !v)}
           className="shrink-0 mt-0.5 p-0.5 rounded hover:bg-muted text-muted-foreground"
-          aria-label="Déplier les tâches"
+          aria-label={t('projets.deplier_les_taches')}
         >
           <ChevronRight size={12} className={cn('transition-transform', expanded && 'rotate-90')} />
         </button>
@@ -528,7 +532,7 @@ function GoutiProjectRow({
         <div className="border-t border-border/50 bg-muted/20 px-2 py-2 space-y-1.5">
           {/* Task mode selector */}
           <div className="flex items-center gap-2">
-            <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Tâches:</span>
+            <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.taches')}</span>
             {(['all', 'some', 'none'] as const).map(mode => (
               <button
                 key={mode}
@@ -560,7 +564,7 @@ function GoutiProjectRow({
           )}
 
           {!tasksLoading && tasksData && tasksData.items.length === 0 && (
-            <div className="text-[10px] text-muted-foreground italic py-1">Aucune tâche dans ce projet</div>
+            <div className="text-[10px] text-muted-foreground italic py-1">{t('projets.aucune_tache_dans_ce_projet')}</div>
           )}
 
           {!tasksLoading && tasksData && tasksData.items.length > 0 && taskMode !== 'none' && (
@@ -799,7 +803,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                     type="text"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    placeholder="Nom ou référence..."
+                    placeholder={t('projets.nom_ou_reference')}
                     className={`${panelInputClass} pl-6 text-xs w-full`}
                   />
                 </div>
@@ -1185,6 +1189,7 @@ function InlinePickerField({
   displayValue: string
   renderPicker: (onDone: () => void) => React.ReactNode
 }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
 
   if (editing) {
@@ -1200,7 +1205,7 @@ function InlinePickerField({
     <div
       className="group cursor-pointer"
       onDoubleClick={() => setEditing(true)}
-      title="Double-cliquez pour modifier"
+      title={t('projets.double_cliquez_pour_modifier')}
     >
       <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-0.5">{label}</label>
       <span className="text-sm text-foreground group-hover:text-primary transition-colors">
@@ -1271,7 +1276,7 @@ function CreateProjectPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouveau projet"
+      title={t('projets.create')}
       subtitle="Projets"
       icon={<FolderKanban size={14} className="text-primary" />}
       actions={
@@ -1294,10 +1299,10 @@ function CreateProjectPanel() {
               <FormSection title="Identification">
                 <FormGrid>
                   <DynamicPanelField label="Code">
-                    <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
+                    <span className="text-sm font-mono text-muted-foreground italic">{t('tiers.ui.auto_generated')}</span>
                   </DynamicPanelField>
                   <DynamicPanelField label="Nom" required>
-                    <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Nom du projet" />
+                    <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder={t('projets.nom_du_projet')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Macro-projet (parent)">
                     <ProjectPicker
@@ -1305,7 +1310,7 @@ function CreateProjectPanel() {
                       onChange={(id) => setForm({ ...form, parent_id: id || null })}
                       filterStatus={['draft', 'planned', 'active', 'on_hold']}
                       clearable
-                      placeholder="Aucun (projet indépendant)"
+                      placeholder={t('projets.none_independent')}
                     />
                   </DynamicPanelField>
                   <DynamicPanelField label="Site / installation" required>
@@ -1336,7 +1341,7 @@ function CreateProjectPanel() {
                 <TagSelector options={projectStatusOptions} value={form.status || 'draft'} onChange={(v) => setForm({ ...form, status: v })} />
               </FormSection>
 
-              <FormSection title="Priorité">
+              <FormSection title={t('common.priority')}>
                 <TagSelector options={projectPriorityOptions} value={form.priority || 'medium'} onChange={(v) => setForm({ ...form, priority: v })} />
               </FormSection>
 
@@ -1344,7 +1349,7 @@ function CreateProjectPanel() {
                 <p className="text-[11px] text-muted-foreground mb-2">
                   Comment l'avancement du projet sera calculé à partir de l'avancement de chaque tâche. Laissez sur « {standardLabel} » pour utiliser le réglage entité.
                 </p>
-                <DynamicPanelField label="Méthode de calcul">
+                <DynamicPanelField label={t('projets.methode_de_calcul')}>
                   <select
                     value={form.progress_weight_method || ''}
                     onChange={(e) => setForm({ ...form, progress_weight_method: (e.target.value || null) as ProgressWeightMethod | null })}
@@ -1368,7 +1373,7 @@ function CreateProjectPanel() {
                   value={form.description ?? ''}
                   onChange={(e) => setForm({ ...form, description: e.target.value || null })}
                   className={`${panelInputClass} min-h-[60px] resize-y`}
-                  placeholder="Description du projet..."
+                  placeholder={t('projets.description_du_projet')}
                   rows={3}
                 />
               </FormSection>
@@ -1441,7 +1446,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
   return (
     <div className="border border-primary/30 rounded-md bg-primary/5 p-3 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-primary">Nouvelle tache</span>
+        <span className="text-xs font-medium text-primary">{t('projets.nouvelle_tache')}</span>
         <button onClick={onClose} className="p-0.5 rounded hover:bg-muted text-muted-foreground"><X size={12} /></button>
       </div>
 
@@ -1450,7 +1455,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
         value={form.title}
         onChange={(e) => setForm({ ...form, title: e.target.value })}
         className={`${panelInputClass} w-full text-xs`}
-        placeholder="Titre de la tache *"
+        placeholder={t('projets.titre_de_la_tache')}
         autoFocus
       />
 
@@ -1609,7 +1614,7 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
         </div>
       )}
       {predecessors.length === 0 && successors.length === 0 && !showAdd && (
-        <div className="text-[10px] text-muted-foreground italic">Aucune dépendance</div>
+        <div className="text-[10px] text-muted-foreground italic">{t('planner.no_dependency')}</div>
       )}
 
       {showAdd ? (
@@ -1619,7 +1624,7 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
             onChange={e => setDepForm(f => ({ ...f, to_task_id: e.target.value }))}
             className={`${panelInputClass} w-full text-xs`}
           >
-            <option value="">Sélectionner une tâche successeur…</option>
+            <option value="">{t('projets.selectionner_une_tache_successeur')}</option>
             {otherTasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
           </select>
           <div className="grid grid-cols-[1fr_60px] gap-1.5">
@@ -1663,6 +1668,7 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
 }
 
 function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; projectId: string }) {
+  const { t } = useTranslation()
   const { data: deliverables = [] } = useTaskDeliverables(projectId, task.id)
   const createD = useCreateDeliverable()
   const updateD = useUpdateDeliverable()
@@ -1681,7 +1687,7 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
   return (
     <div className="space-y-1.5">
       {deliverables.length === 0 && (
-        <div className="text-[10px] text-muted-foreground italic">Aucun livrable</div>
+        <div className="text-[10px] text-muted-foreground italic">{t('projets.aucun_livrable')}</div>
       )}
       {deliverables.map((d: TaskDeliverable) => {
         const statusColor = DELIVERABLE_STATUS_COLOR_MAP[d.status] ?? 'text-muted-foreground'
@@ -1716,7 +1722,7 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
           onChange={e => setNewName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
           className={`${panelInputClass} flex-1 text-[11px]`}
-          placeholder="Nouveau livrable…"
+          placeholder={t('projets.nouveau_livrable')}
         />
         <button
           onClick={handleAdd}
@@ -1731,6 +1737,7 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
 }
 
 function TaskActionsSection({ task, projectId }: { task: ProjectTask; projectId: string }) {
+  const { t } = useTranslation()
   const { data: actions = [] } = useTaskActions(projectId, task.id)
   const createA = useCreateAction()
   const updateA = useUpdateAction()
@@ -1789,7 +1796,7 @@ function TaskActionsSection({ task, projectId }: { task: ProjectTask; projectId:
           onChange={e => setNewTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
           className={`${panelInputClass} flex-1 text-[11px]`}
-          placeholder="Nouvelle action…"
+          placeholder={t('projets.nouvelle_action')}
         />
         <button
           onClick={handleAdd}
@@ -1804,9 +1811,10 @@ function TaskActionsSection({ task, projectId }: { task: ProjectTask; projectId:
 }
 
 function TaskHistorySection({ task, projectId }: { task: ProjectTask; projectId: string }) {
+  const { t } = useTranslation()
   const { data: logs = [] } = useTaskChangelog(projectId, task.id)
   if (logs.length === 0) {
-    return <div className="text-[10px] text-muted-foreground italic">Aucune modification enregistrée</div>
+    return <div className="text-[10px] text-muted-foreground italic">{t('assets.no_changes')}</div>
   }
   return (
     <div className="space-y-1 max-h-[160px] overflow-y-auto">
@@ -1880,6 +1888,7 @@ function TaskRow({
   allTasks: ProjectTask[]
   depth?: number
 }) {
+  const { t } = useTranslation()
   const updateTask = useUpdateProjectTask()
   const deleteTask = useDeleteProjectTask()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -2021,7 +2030,7 @@ function TaskRow({
               onBlur={(e) => handleFieldSave('description', e.target.value || null)}
               className={`${panelInputClass} w-full text-xs min-h-[36px] resize-y`}
               rows={2}
-              placeholder="Description de la tache..."
+              placeholder={t('projets.description_de_la_tache')}
             />
           </div>
 
@@ -2087,6 +2096,7 @@ function MilestoneRow({ ms, projectId }: { ms: ProjectMilestoneType; projectId: 
 // -- Milestone Quick Add -----------------------------------------------------
 
 function MilestoneQuickAdd({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [dueDate, setDueDate] = useState('')
@@ -2122,7 +2132,7 @@ function MilestoneQuickAdd({ projectId }: { projectId: string }) {
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') { setOpen(false); setName(''); setDueDate('') } }}
         className={`${panelInputClass} flex-1 text-xs`}
-        placeholder="Nom du jalon..."
+        placeholder={t('projets.nom_du_jalon')}
         autoFocus
       />
       <input
@@ -2172,6 +2182,7 @@ function MemberRow({ member, projectId }: { member: ProjectMemberType; projectId
 // -- Member Quick Add --------------------------------------------------------
 
 function MemberQuickAdd({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedUserId, setSelectedUserId] = useState('')
@@ -2223,7 +2234,7 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
             if (e.key === 'Escape') { setOpen(false); setSearch(''); setSelectedUserId('') }
           }}
           className={`${panelInputClass} w-full text-xs`}
-          placeholder="Rechercher un utilisateur..."
+          placeholder={t('paxlog.search_user')}
           autoFocus
         />
         {showDropdown && search.length > 0 && users.length > 0 && (
@@ -2259,6 +2270,7 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
 // -- Task Section (list + create) — like Gouti "Progression et controle" -----
 
 function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTask[] }) {
+  const { t } = useTranslation()
   const [showCreate, setShowCreate] = useState(false)
 
   const todoCount = tasks.filter(t => t.status === 'todo').length
@@ -2319,7 +2331,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
 
       {/* Task treegrid (hierarchy preserved via parent_id) */}
       {tasks.length > 0 ? (
-        <div role="tree" aria-label="Hiérarchie des tâches" className="border border-border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
+        <div role="tree" aria-label={t('projets.hierarchie_des_taches')} className="border border-border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
           {rootNodes}
           {orphanNodes}
         </div>
@@ -2386,7 +2398,7 @@ function TemplatesSection({ projectId }: { projectId: string }) {
           </button>
         ) : (
           <div className="space-y-2 border rounded p-2 bg-muted/30">
-            <input value={tplName} onChange={(e) => setTplName(e.target.value)} placeholder="Nom du template" className={panelInputClass} />
+            <input value={tplName} onChange={(e) => setTplName(e.target.value)} placeholder={t('projets.nom_du_template')} className={panelInputClass} />
             <input value={tplDesc} onChange={(e) => setTplDesc(e.target.value)} placeholder="Description (optionnel)" className={panelInputClass} />
             <div className="flex gap-2">
               <button onClick={handleSave} disabled={saveAsTemplate.isPending || !tplName.trim()} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-50">
@@ -2405,12 +2417,12 @@ function TemplatesSection({ projectId }: { projectId: string }) {
         ) : (
           <div className="space-y-2 border rounded p-2 bg-muted/30">
             <select value={selectedTpl} onChange={(e) => setSelectedTpl(e.target.value)} className={panelInputClass}>
-              <option value="">Choisir un template...</option>
+              <option value="">{t('projets.choisir_un_template')}</option>
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>{t.name} {t.category ? `(${t.category})` : ''} — {t.usage_count} utilisation(s)</option>
               ))}
             </select>
-            <input value={cloneName} onChange={(e) => setCloneName(e.target.value)} placeholder="Nom du nouveau projet" className={panelInputClass} />
+            <input value={cloneName} onChange={(e) => setCloneName(e.target.value)} placeholder={t('projets.nom_du_nouveau_projet')} className={panelInputClass} />
             <div className="flex gap-2">
               <button onClick={handleClone} disabled={cloneFromTemplate.isPending || !selectedTpl || !cloneName.trim()} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-50">
                 {cloneFromTemplate.isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} Creer
@@ -2565,7 +2577,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
     <FormSection title={`Commentaires (${rootComments.length})`} collapsible defaultExpanded={false} storageKey="project-detail-comments">
       <div className="space-y-3">
         {isLoading ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> : rootComments.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Aucun commentaire</p>
+          <p className="text-xs text-muted-foreground">{t('projets.aucun_commentaire')}</p>
         ) : (
           <div className="space-y-2">
             {rootComments.map((c) => (
@@ -2604,7 +2616,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
         <div className="space-y-1">
           {replyTo && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <span>Reponse a un commentaire</span>
+              <span>{t('projets.reponse_a_un_commentaire')}</span>
               <button onClick={() => setReplyTo(null)} className="text-destructive"><X size={10} /></button>
             </div>
           )}
@@ -2614,7 +2626,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
               value={body}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="Ajouter un commentaire... (@mention)"
+              placeholder={t('projets.ajouter_un_commentaire_mention')}
               rows={2}
               className={cn(panelInputClass, 'flex-1 resize-none')}
             />
@@ -2857,13 +2869,13 @@ function ProjectDetailPanel({ id }: { id: string }) {
                   ? <InlineEditableTags label="Statut" value={project.status} options={projectStatusOptions} onSave={(v) => handleSave('status', v)} />
                   : <ReadOnlyRow label="Statut" value={<span className="text-sm">{projectStatusLabels[project.status] || project.status}</span>} />}
                 {isProjectFieldEditable(project, 'priority', capabilities)
-                  ? <InlineEditableTags label="Priorité" value={project.priority} options={projectPriorityOptions} onSave={(v) => handleSave('priority', v)} />
-                  : <ReadOnlyRow label="Priorité" value={<span className="text-sm">{projectPriorityLabels[project.priority] || project.priority}</span>} />}
-                <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
+                  ? <InlineEditableTags label={t('common.priority')} value={project.priority} options={projectPriorityOptions} onSave={(v) => handleSave('priority', v)} />
+                  : <ReadOnlyRow label={t('common.priority')} value={<span className="text-sm">{projectPriorityLabels[project.priority] || project.priority}</span>} />}
+                <InlineEditableTags label={t('projets.columns.weather')} value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
               </DetailFieldGrid>
               <DetailFieldGrid>
                 <InlinePickerField
-                  label="Chef de projet"
+                  label={t('projets.chef_de_projet')}
                   displayValue={project.manager_name || '--'}
                   renderPicker={(onDone) => (
                     <select
@@ -2873,7 +2885,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
                       onBlur={onDone}
                       className={`${panelInputClass} w-full text-xs`}
                     >
-                      <option value="">-- Aucun --</option>
+                      <option value="">{t('projets.aucun')}</option>
                       {(allUsersData?.items ?? []).map(u => (
                         <option key={u.id} value={u.id}>
                           {`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email}
@@ -2901,7 +2913,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
                         )
                         onDone()
                       }}
-                      placeholder="Sélectionner un site..."
+                      placeholder={t('assets.select')}
                       clearable
                     />
                   )}
@@ -2911,9 +2923,9 @@ function ProjectDetailPanel({ id }: { id: string }) {
 
             <FormSection title="Planning" collapsible defaultExpanded storageKey="project-detail-planning">
               <DetailFieldGrid>
-                <InlineEditableRow label="Début" value={toDateInputValue(project.start_date)} displayValue={toDateDisplayValue(project.start_date)} onSave={(v) => handleSave('start_date', v || null)} type="date" />
-                <InlineEditableRow label="Fin prévue" value={toDateInputValue(project.end_date)} displayValue={toDateDisplayValue(project.end_date)} onSave={(v) => handleSave('end_date', v || null)} type="date" />
-                <InlineEditableRow label="Fin réelle" value={toDateInputValue(project.actual_end_date)} displayValue={toDateDisplayValue(project.actual_end_date)} onSave={(v) => handleSave('actual_end_date', v || null)} type="date" />
+                <InlineEditableRow label={t('conformite.columns.start_date')} value={toDateInputValue(project.start_date)} displayValue={toDateDisplayValue(project.start_date)} onSave={(v) => handleSave('start_date', v || null)} type="date" />
+                <InlineEditableRow label={t('projets.fin_prevue')} value={toDateInputValue(project.end_date)} displayValue={toDateDisplayValue(project.end_date)} onSave={(v) => handleSave('end_date', v || null)} type="date" />
+                <InlineEditableRow label={t('projets.fin_reelle')} value={toDateInputValue(project.actual_end_date)} displayValue={toDateDisplayValue(project.actual_end_date)} onSave={(v) => handleSave('actual_end_date', v || null)} type="date" />
               </DetailFieldGrid>
             </FormSection>
 
@@ -2923,7 +2935,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 Détermine comment l'avancement de ce projet ({project.progress}%) est calculé à partir de l'avancement de chaque tâche. La modification recalcule immédiatement l'avancement.
               </p>
               <div>
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Méthode</label>
+                <label className="text-[10px] text-muted-foreground uppercase tracking-wide">{t('projets.methode')}</label>
                 <select
                   value={project.progress_weight_method || ''}
                   onChange={(e) => handleSave('progress_weight_method', e.target.value || null)}
@@ -2942,7 +2954,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 )}
                 {!project.progress_weight_method && (
                   <p className="text-[11px] text-muted-foreground/80 italic mt-1.5">
-                    Mode <strong>{standardLabel}</strong> — utilise la méthode configurée dans <strong>Paramètres → Projets</strong>.
+                    Mode <strong>{standardLabel}</strong> {t('projets.utilise_la_methode_configuree_dans')} <strong>{t('projets.parametres_projets')}</strong>.
                   </p>
                 )}
               </div>
@@ -2976,7 +2988,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
                   {members.map((m) => <MemberRow key={m.id} member={m} projectId={id} />)}
                 </div>
               ) : (
-                <EmptyState icon={Users} title="Aucun membre" variant="search" size="compact" />
+                <EmptyState icon={Users} title={t('projets.no_member')} variant="search" size="compact" />
               )}
               <MemberQuickAdd projectId={id} />
             </FormSection>
@@ -2995,7 +3007,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
                   ))}
                 </div>
               ) : (
-                <EmptyState icon={Milestone} title="Aucun jalon" variant="search" size="compact" />
+                <EmptyState icon={Milestone} title={t('projets.no_milestone')} variant="search" size="compact" />
               )}
               <MilestoneQuickAdd projectId={id} />
             </FormSection>
@@ -3117,7 +3129,7 @@ function WbsSection({ projectId }: { projectId: string }) {
           <button
             onClick={() => deleteNode.mutate({ projectId, nodeId: node.id })}
             className="p-0.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100"
-            title="Archiver le nœud"
+            title={t('projets.archiver_le_n_ud')}
           >
             <X size={10} />
           </button>
@@ -3155,7 +3167,7 @@ function WbsSection({ projectId }: { projectId: string }) {
             onChange={e => setForm(f => ({ ...f, parent_id: e.target.value }))}
             className={`${panelInputClass} w-full text-xs`}
           >
-            <option value="">(nœud racine)</option>
+            <option value="">{t('projets.n_ud_racine')}</option>
             {nodes.map(n => <option key={n.id} value={n.id}>{n.code} — {n.name}</option>)}
           </select>
           <div className="grid grid-cols-[90px_1fr] gap-1.5">
@@ -3172,7 +3184,7 @@ function WbsSection({ projectId }: { projectId: string }) {
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               className={`${panelInputClass} text-xs`}
-              placeholder="Nom du lot *"
+              placeholder={t('projets.nom_du_lot')}
             />
           </div>
           <input
@@ -3211,6 +3223,7 @@ function WbsSection({ projectId }: { projectId: string }) {
 // -- CPM Section (Critical Path Method) --------------------------------------
 
 function CpmSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: cpm, isLoading } = useProjectCpm(projectId)
 
   return (
@@ -3234,22 +3247,22 @@ function CpmSection({ projectId }: { projectId: string }) {
         <div className="space-y-2">
           <div className="grid grid-cols-3 gap-2 text-[11px]">
             <div className="border border-primary/30 bg-primary/5 rounded p-2">
-              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Durée totale</div>
+              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('settings.system_health.uptime_raw')}</div>
               <div className="text-lg font-semibold tabular-nums text-primary">{cpm.project_duration_days} j</div>
             </div>
             <div className="border border-red-500/30 bg-red-500/5 rounded p-2">
-              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Tâches critiques</div>
+              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.taches_critiques')}</div>
               <div className="text-lg font-semibold tabular-nums text-red-600">{cpm.critical_path_task_ids.length}</div>
             </div>
             <div className="border border-border rounded p-2">
-              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Tâches totales</div>
+              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.taches_totales')}</div>
               <div className="text-lg font-semibold tabular-nums">{cpm.tasks.length}</div>
             </div>
           </div>
           {cpm.has_cycles && (
             <div className="flex items-start gap-1.5 text-[10px] p-1.5 rounded bg-red-500/10 border border-red-500/30 text-red-700">
               <Zap size={10} className="mt-0.5 shrink-0" />
-              <span>Cycle détecté dans les dépendances — CPM partiel. Vérifiez les liens.</span>
+              <span>{t('projets.cycle_detecte_dans_les_dependances_cpm_p')}</span>
             </div>
           )}
           {cpm.warnings.length > 0 && !cpm.has_cycles && (
@@ -3259,7 +3272,7 @@ function CpmSection({ projectId }: { projectId: string }) {
           )}
           <div className="border border-border rounded overflow-hidden">
             <div className="grid grid-cols-[1fr_40px_40px_40px_40px] gap-1 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground">
-              <span>Tâche</span>
+              <span>{t('projets.columns.task')}</span>
               <span className="text-right">ES</span>
               <span className="text-right">EF</span>
               <span className="text-right">Slack</span>
@@ -3399,7 +3412,7 @@ function PlanningRevisionsSection({ projectId }: { projectId: string }) {
                   onClick={() => handleApply(rev)}
                   disabled={applyRev.isPending}
                   className="p-0.5 rounded hover:bg-primary/10 text-primary disabled:opacity-30"
-                  title="Activer cette révision"
+                  title={t('projets.activer_cette_revision')}
                 >
                   <Play size={10} />
                 </button>
@@ -3429,7 +3442,7 @@ function PlanningRevisionsSection({ projectId }: { projectId: string }) {
             value={revName}
             onChange={e => setRevName(e.target.value)}
             className={`${panelInputClass} w-full text-xs`}
-            placeholder="Nom de la révision *"
+            placeholder={t('projets.nom_de_la_revision')}
             autoFocus
           />
           <textarea
@@ -3850,7 +3863,7 @@ function SpreadsheetView() {
           {isFiltered ? `${selection.projectIds.length} projet(s)` : 'Tous les projets'}
         </button>
         <span className="text-xs text-muted-foreground">{treeRows.length} lignes</span>
-        <span className="text-xs text-muted-foreground ml-auto">Double-clic sur une cellule pour éditer</span>
+        <span className="text-xs text-muted-foreground ml-auto">{t('projets.double_clic_sur_une_cellule_pour_editer')}</span>
       </div>
 
       <div className="flex-1 overflow-hidden">
@@ -3913,6 +3926,7 @@ function getBarColor(item: { status?: string; priority?: string; weather?: strin
 
 /* @ts-expect-error legacy — replaced by ProjectGanttView.tsx */
 function _MacroPlanningViewLegacy() { // eslint-disable-line
+  const { t } = useTranslation()
   const [config, setConfig] = useState<PlanningConfig>({
     showProjects: true,
     showTasks: true,
@@ -4028,7 +4042,7 @@ function _MacroPlanningViewLegacy() { // eslint-disable-line
         {isLoading ? (
           <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
         ) : projects.length === 0 ? (
-          <EmptyState icon={CalendarRange} title="Aucun projet" variant="search" />
+          <EmptyState icon={CalendarRange} title={t('projets.no_project')} variant="search" />
         ) : (
           <div className="min-w-[900px]">
             {/* Month headers */}
@@ -4156,12 +4170,13 @@ function PlanningProjectRow({
 // -- Sub-Projects Section (for detail panel) ----------------------------------
 
 function SubProjectsSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: children, isLoading } = useSubProjects(projectId)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const projectStatusLabels = useDictionaryLabels('project_status', PROJECT_STATUS_LABELS_FALLBACK)
 
   if (isLoading) return <div className="text-xs text-muted-foreground py-2"><Loader2 size={12} className="animate-spin inline mr-1" />Chargement...</div>
-  if (!children || children.length === 0) return <EmptyState icon={Layers} title="Aucun sous-projet" variant="search" size="compact" />
+  if (!children || children.length === 0) return <EmptyState icon={Layers} title={t('projets.no_sub_project')} variant="search" size="compact" />
 
   return (
     <div className="border border-border rounded-md overflow-hidden">
@@ -4268,6 +4283,7 @@ function KanbanColumn({
   tasks: ProjectTaskEnriched[]
   onTaskDrop: (taskId: string, newStatus: string) => void
 }) {
+  const { t } = useTranslation()
   const [isOver, setIsOver] = useState(false)
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -4309,7 +4325,7 @@ function KanbanColumn({
           <KanbanCard key={t.id} task={t} />
         ))}
         {tasks.length === 0 && (
-          <div className="text-[10px] text-muted-foreground text-center py-4 italic">Glissez une tâche ici</div>
+          <div className="text-[10px] text-muted-foreground text-center py-4 italic">{t('projets.glissez_une_tache_ici')}</div>
         )}
       </div>
     </div>
@@ -4372,10 +4388,10 @@ function KanbanView() {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Rechercher une tâche…"
+          placeholder={t('projets.rechercher_une_tache')}
           className="text-xs border border-border rounded px-2 py-1 bg-background flex-1 max-w-[260px]"
         />
-        <span className="text-xs text-muted-foreground ml-auto">Glisser-déposer pour changer le statut</span>
+        <span className="text-xs text-muted-foreground ml-auto">{t('projets.glisser_deposer_pour_changer_le_statut')}</span>
       </div>
       <ProjectSelectorModal open={showSelector} onClose={() => setShowSelector(false)} selection={selection} onSelectionChange={setSelection} />
       {isLoading ? (
@@ -4442,6 +4458,7 @@ export function DashboardView() {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function _OldDashboardView_REMOVED() {
+  const { t } = useTranslation()
   const { data: projectsData, isLoading: projLoading } = useProjects({ page_size: 200 })
   const { data: tasksData, isLoading: tasksLoading } = useAllProjectTasks({ page: 1, page_size: 1000 })
   const openDynamicPanel = useUIStore(s => s.openDynamicPanel)
@@ -4529,21 +4546,21 @@ function _OldDashboardView_REMOVED() {
       <ProjectSelectorModal open={showSelector} onClose={() => setShowSelector(false)} selection={selection} onSelectionChange={setSelection} />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <DashboardKpiCard icon={FolderKanban} label="Projets actifs" value={stats.active} hint={`${stats.total} au total`} tone="primary" />
-        <DashboardKpiCard icon={CheckCircle2} label="Projets terminés" value={stats.completed} tone="success" />
+        <DashboardKpiCard icon={CheckCircle2} label={t('projets.projets_termines')} value={stats.completed} tone="success" />
         <DashboardKpiCard icon={Target} label="Progression moy." value={`${stats.avgProgress}%`} />
         <DashboardKpiCard
           icon={Target}
-          label="Budget cumulé"
+          label={t('projets.budget_cumule')}
           value={`${formatCurrency(stats.totalBudget)} XAF`}
           hint={stats.goutiCount > 0 ? `${stats.goutiCount} depuis Gouti` : undefined}
         />
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <DashboardKpiCard icon={ListTodo} label="Tâches en cours" value={stats.tasksInProgress} tone="primary" />
-        <DashboardKpiCard icon={Clock} label="Tâches en retard" value={stats.tasksOverdue} tone={stats.tasksOverdue > 0 ? 'danger' : 'default'} />
-        <DashboardKpiCard icon={CircleDot} label="Tâches critiques" value={stats.tasksCritical} tone={stats.tasksCritical > 0 ? 'warning' : 'default'} />
-        <DashboardKpiCard icon={CheckCircle2} label="Tâches terminées" value={stats.tasksDone} tone="success" />
+        <DashboardKpiCard icon={ListTodo} label={t('projets.taches_en_cours')} value={stats.tasksInProgress} tone="primary" />
+        <DashboardKpiCard icon={Clock} label={t('projets.taches_en_retard')} value={stats.tasksOverdue} tone={stats.tasksOverdue > 0 ? 'danger' : 'default'} />
+        <DashboardKpiCard icon={CircleDot} label={t('projets.taches_critiques')} value={stats.tasksCritical} tone={stats.tasksCritical > 0 ? 'warning' : 'default'} />
+        <DashboardKpiCard icon={CheckCircle2} label={t('projets.taches_terminees')} value={stats.tasksDone} tone="success" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -4587,7 +4604,7 @@ function _OldDashboardView_REMOVED() {
             <Clock size={12} className="text-orange-500" /> Échéances 14 prochains jours
           </div>
           {stats.upcoming.length === 0 ? (
-            <div className="text-[11px] text-muted-foreground italic">Aucune tâche dans les 14 prochains jours</div>
+            <div className="text-[11px] text-muted-foreground italic">{t('projets.aucune_tache_dans_les_14_prochains_jours')}</div>
           ) : (
             <div className="space-y-1">
               {stats.upcoming.map(t => {
@@ -4613,7 +4630,7 @@ function _OldDashboardView_REMOVED() {
           <Layers size={12} className="text-primary" /> Projets par volume de tâches (top 5)
         </div>
         {stats.topProjects.length === 0 ? (
-          <div className="text-[11px] text-muted-foreground italic">Aucun projet</div>
+          <div className="text-[11px] text-muted-foreground italic">{t('projets.no_project')}</div>
         ) : (
           <div className="space-y-1.5">
             {stats.topProjects.map(p => (

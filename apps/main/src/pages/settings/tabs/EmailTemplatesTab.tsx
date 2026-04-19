@@ -140,8 +140,8 @@ export function EmailTemplatesTab() {
       {/* ── System templates ── */}
       <CollapsibleSection
         id="email-templates-system"
-        title="Modèles système"
-        description="Emails système : vérification, invitation, réinitialisation de mot de passe, bienvenue."
+        title={t('settings.pdf_templates.system_title')}
+        description={t('settings.emails_systeme_verification_invitation_r')}
         storageKey="settings.email-templates.collapse"
       >
         {systemTemplates.length === 0 ? (
@@ -154,7 +154,7 @@ export function EmailTemplatesTab() {
       {/* ── Custom templates ── */}
       <CollapsibleSection
         id="email-templates-custom"
-        title="Modèles personnalisés"
+        title={t('settings.modeles_personnalises')}
         description="Modèles d'emails spécifiques à votre activité : tiers, actifs, workflows, etc."
         storageKey="settings.email-templates.collapse"
         showSeparator={false}

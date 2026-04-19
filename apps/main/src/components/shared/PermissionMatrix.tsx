@@ -10,6 +10,7 @@
  * Used in: user detail panel (Comptes), profile settings, RBAC admin.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Loader2, Search, Check, X, ChevronRight, ChevronDown, FolderTree,
   Shield, Users as UsersRound, User as UserIcon,
@@ -118,6 +119,7 @@ export interface PermissionMatrixProps {
 }
 
 export function PermissionMatrix({ userId, maxHeight = '500px', compact = false, editable = false, onToggle, userOverrides }: PermissionMatrixProps) {
+  const { t } = useTranslation()
   const { data: allPermissions, isLoading: permsLoading } = usePermissions()
   const { data: effectivePerms, isLoading: effectiveLoading } = useUserEffectivePermissions(userId)
 
@@ -196,7 +198,7 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false,
             <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               className="gl-form-input text-xs pl-7 w-full h-7"
-              placeholder="Filtrer les permissions..."
+              placeholder={t('settings.filtrer_les_permissions')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -204,14 +206,14 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false,
           <button
             onClick={() => setCollapsedModules(new Set())}
             className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-1"
-            title="Tout dérouler"
+            title={t('settings.tout_derouler')}
           >
             <ChevronDown size={12} />
           </button>
           <button
             onClick={() => setCollapsedModules(new Set(matrix.map((m) => m.module)))}
             className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-1"
-            title="Tout replier"
+            title={t('settings.tout_replier')}
           >
             <ChevronRight size={12} />
           </button>
@@ -221,7 +223,7 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false,
                 type="button"
                 onClick={() => applyBulkState(allPermissions.map((p) => p.code), true)}
                 className="text-[10px] text-primary hover:text-primary/80 font-medium px-2 py-1"
-                title="Accorder toutes les permissions"
+                title={t('shared.accorder_toutes_les_permissions')}
               >
                 Tout accorder
               </button>
@@ -229,7 +231,7 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false,
                 type="button"
                 onClick={() => applyBulkState(allPermissions.map((p) => p.code), false)}
                 className="text-[10px] text-muted-foreground hover:text-foreground font-medium px-2 py-1"
-                title="Retirer toutes les permissions"
+                title={t('shared.retirer_toutes_les_permissions')}
               >
                 Tout retirer
               </button>
@@ -240,7 +242,7 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false,
 
       {/* Legend */}
       <div className="flex items-center gap-3 text-[10px] text-muted-foreground px-1">
-        <span className="flex items-center gap-1"><Shield size={8} className="text-blue-500" /> Rôle</span>
+        <span className="flex items-center gap-1"><Shield size={8} className="text-blue-500" /> {t('common.role')}</span>
         <span className="flex items-center gap-1"><UsersRound size={8} className="text-emerald-500" /> Groupe</span>
       </div>
 

@@ -62,8 +62,8 @@ export function PreferencesTab() {
 
       <CollapsibleSection
         id="datatable"
-        title="Tableaux de données"
-        description="Nombre de lignes par page dans les tableaux."
+        title={t('settings.tableaux_de_donnees')}
+        description={t('settings.nombre_de_lignes_par_page_dans_les_table')}
         storageKey="settings.preferences.collapse"
       >
         <PageSizeSection />
@@ -89,8 +89,8 @@ export function PreferencesTab() {
 
       <CollapsibleSection
         id="messaging-channel"
-        title="Canal de messagerie"
-        description="Choisissez comment recevoir les notifications, codes de vérification et alertes."
+        title={t('settings.canal_de_messagerie')}
+        description={t('settings.choisissez_comment_recevoir_les_notifica')}
         storageKey="settings.preferences.collapse"
       >
         <MessagingChannelSection />
@@ -98,7 +98,7 @@ export function PreferencesTab() {
 
       <CollapsibleSection id="language-pref" title="Langue" description="Définissez la langue de l'interface utilisateur." storageKey="settings.preferences.collapse" showSeparator={false}>
         <div className="mt-2">
-          <label className="gl-label">Langue préférée</label>
+          <label className="gl-label">{t('settings.langue_preferee')}</label>
           <div className="flex items-center gap-2 mt-2">
             {[
               { value: 'fr', label: 'Français' },

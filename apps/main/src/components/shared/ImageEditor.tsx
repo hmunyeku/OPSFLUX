@@ -19,6 +19,7 @@
  *   />
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   X,
   RotateCw,
@@ -63,6 +64,7 @@ export function ImageEditor({
   outputFormat = 'image/png',
   outputQuality = 0.92,
 }: ImageEditorProps) {
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -266,7 +268,7 @@ export function ImageEditor({
       <div className="bg-background rounded-xl border border-border shadow-2xl flex flex-col w-[90vw] max-w-3xl h-[85vh] max-h-[700px] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 h-11 border-b border-border shrink-0">
-          <h2 className="text-sm font-semibold text-foreground">Modifier l'image</h2>
+          <h2 className="text-sm font-semibold text-foreground">{t('shared.image_editor.title')}</h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground transition-colors">
             <X size={16} />
           </button>
@@ -340,7 +342,7 @@ export function ImageEditor({
             {cropRect && (
               <ToolBtn
                 icon={RotateCcwSquare}
-                title="Réinitialiser le recadrage"
+                title={t('shared.reinitialiser_le_recadrage')}
                 onClick={() => setCropRect(null)}
               />
             )}
@@ -350,7 +352,7 @@ export function ImageEditor({
             {/* Zoom */}
             <ToolBtn
               icon={ZoomOut}
-              title="Dézoomer"
+              title={t('shared.dezoomer')}
               onClick={() => setZoom((z) => Math.max(0.25, z - 0.1))}
             />
             <span className="text-xs font-mono text-muted-foreground w-10 text-center">

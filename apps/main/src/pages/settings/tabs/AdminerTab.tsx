@@ -182,8 +182,8 @@ export function AdminerTab() {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
         <AlertTriangle size={24} className="text-amber-500" />
-        <p className="text-sm font-medium">Accès refusé</p>
-        <p className="text-xs">Vous n'avez pas les droits d'accès à la base de données.</p>
+        <p className="text-sm font-medium">{t('settings.acces_refuse')}</p>
+        <p className="text-xs">{t('settings.vous_n_avez_pas_les_droits_d_acces_a_la')}</p>
       </div>
     )
   }
@@ -205,7 +205,7 @@ export function AdminerTab() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Database size={16} className="text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Base de données</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('settings.system_health.database_label')}</h3>
           <span className="gl-badge gl-badge-warning text-[8px]">Superadmin</span>
         </div>
         <a
@@ -434,7 +434,7 @@ export function AdminerTab() {
 
       {/* Quick queries */}
       <div className="border border-border rounded-lg p-4">
-        <h4 className="text-xs font-semibold text-foreground mb-3">Requêtes rapides</h4>
+        <h4 className="text-xs font-semibold text-foreground mb-3">{t('settings.requetes_rapides')}</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {QUICK_QUERIES.map(({ label, sql }) => (
             <button

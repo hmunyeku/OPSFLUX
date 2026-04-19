@@ -505,7 +505,7 @@ function _GanttTabLegacy() { // eslint-disable-line
           <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
             <GanttChart size={24} className="text-primary" />
           </div>
-          <h3 className="text-base font-semibold text-foreground mb-1">Aucune activité</h3>
+          <h3 className="text-base font-semibold text-foreground mb-1">{t('planner.no_activity')}</h3>
           <p className="text-sm text-muted-foreground max-w-sm">
             Aucune activité trouvée pour cette période. Ajustez les filtres ou la plage de dates.
           </p>
@@ -987,7 +987,7 @@ function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
             type="button"
             onClick={resetFilters}
             className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-foreground border border-border rounded"
-            title="Réinitialiser tous les filtres"
+            title={t('planner.reinitialiser_tous_les_filtres')}
           >
             Réinitialiser
           </button>
@@ -1001,7 +1001,7 @@ function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           <AssetPicker
             value={filters.assetId}
             onChange={(id) => updateFilter('assetId', id)}
-            placeholder="Tous assets"
+            placeholder={t('planner.filters.all_assets')}
             clearable
           />
         </div>
@@ -1009,18 +1009,18 @@ function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           <ProjectPicker
             value={filters.projectId}
             onChange={(id) => updateFilter('projectId', id)}
-            placeholder="Tous projets"
+            placeholder={t('planner.filters.all_projects')}
             clearable
           />
         </div>
         <div className="flex items-center gap-1.5 ml-auto shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">Période</span>
+          <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">{t('planner.filters.period')}</span>
           <input
             type="date"
             className="gl-form-input text-xs h-7 w-[130px]"
             value={filters.startDate ?? ''}
             onChange={(e) => updateFilter('startDate', e.target.value || null)}
-            title="Début"
+            title={t('conformite.columns.start_date')}
           />
           <span className="text-muted-foreground text-xs">→</span>
           <input
@@ -1423,18 +1423,18 @@ function ConflitsTab() {
           value={conflictFilters.conflictTypeFilter}
           onChange={(e) => updateConflictFilter('conflictTypeFilter', e.target.value)}
           className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          title="Filtrer par type de conflit"
+          title={t('planner.filtrer_par_type_de_conflit')}
         >
           <option value="">{t('planner.filters.all_types')}</option>
-          <option value="pax_overflow">Dépassement POB</option>
-          <option value="priority_clash">Conflit priorité</option>
+          <option value="pax_overflow">{t('planner.filters.pob_overflow')}</option>
+          <option value="priority_clash">{t('planner.filters.priority_clash')}</option>
         </select>
         {hasAdvancedConflictFilters && (
           <button
             type="button"
             onClick={resetConflictFilters}
             className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-foreground border border-border rounded"
-            title="Réinitialiser tous les filtres"
+            title={t('planner.reinitialiser_tous_les_filtres')}
           >
             Réinitialiser
           </button>
@@ -1448,18 +1448,18 @@ function ConflitsTab() {
           <AssetPicker
             value={conflictFilters.assetId}
             onChange={(id) => updateConflictFilter('assetId', id)}
-            placeholder="Tous assets"
+            placeholder={t('planner.filters.all_assets')}
             clearable
           />
         </div>
         <div className="flex items-center gap-1.5 ml-auto shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">Période</span>
+          <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">{t('planner.filters.period')}</span>
           <input
             type="date"
             className="gl-form-input text-xs h-7 w-[130px]"
             value={conflictFilters.dateFrom ?? ''}
             onChange={(e) => updateConflictFilter('dateFrom', e.target.value || null)}
-            title="Début"
+            title={t('conformite.columns.start_date')}
           />
           <span className="text-muted-foreground text-xs">→</span>
           <input
@@ -1837,7 +1837,7 @@ function ConflitsTab() {
             onClick={(e) => e.stopPropagation()}
           >
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Résolution en masse</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t('planner.resolution_en_masse')}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
                 {bulkSelection.filter((c) => c.status === 'open').length} conflit(s) ouvert(s) sélectionné(s) — la même résolution sera appliquée à tous.
               </p>
@@ -2552,7 +2552,7 @@ function CapacityTab({
             {/* Capacity history table */}
             {capacityItems.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold text-foreground mb-3">Historique des capacites</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-3">{t('planner.historique_des_capacites')}</h3>
                 <div className="border border-border rounded-lg overflow-hidden">
                   <div className="grid grid-cols-5 gap-2 px-3 py-2 bg-muted/30 text-[10px] font-medium uppercase tracking-wide text-muted-foreground border-b border-border">
                     <span>Date effective</span>
@@ -2581,7 +2581,7 @@ function CapacityTab({
       {showCapModal && (
         <div className="gl-modal-backdrop" onClick={() => setShowCapModal(false)}>
           <div className="gl-modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-foreground">Modifier la capacite</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('planner.modifier_la_capacite')}</h3>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1">Max PAX total</label>
@@ -2610,7 +2610,7 @@ function CapacityTab({
                 value={capForm.reason}
                 onChange={(e) => setCapForm({ ...capForm, reason: e.target.value })}
                 className="w-full min-h-[60px] px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Raison de la modification..."
+                placeholder={t('planner.raison_de_la_modification')}
               />
             </div>
             <div className="flex items-center gap-2 justify-end">
@@ -2729,9 +2729,9 @@ function ScenariosTab({
     <>
       {/* Stats + filter bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label="Total scénarios" value={total} icon={FlaskConical} />
+        <StatCard label={t('planner.total_scenarios')} value={total} icon={FlaskConical} />
         <StatCard label="Brouillons" value={scenarios.filter((s: Record<string, unknown>) => s.status === 'draft').length} icon={Pencil} accent="text-muted-foreground" />
-        <StatCard label="Validés" value={scenarios.filter((s: Record<string, unknown>) => s.status === 'validated').length} icon={CheckCircle2} accent="text-blue-600 dark:text-blue-400" />
+        <StatCard label={t('planner.valides')} value={scenarios.filter((s: Record<string, unknown>) => s.status === 'validated').length} icon={CheckCircle2} accent="text-blue-600 dark:text-blue-400" />
         <StatCard label="Promus" value={scenarios.filter((s: Record<string, unknown>) => s.status === 'promoted').length} icon={TrendingUp} accent="text-emerald-600 dark:text-emerald-400" />
       </div>
 
@@ -2764,8 +2764,8 @@ function ScenariosTab({
           <div className="flex items-center justify-center py-12 text-center">
             <div>
               <FlaskConical size={32} className="mx-auto mb-2 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">Aucun scénario</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Créez un scénario what-if pour tester l'impact d'activités proposées.</p>
+              <p className="text-sm text-muted-foreground">{t('planner.aucun_scenario')}</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">{t('planner.creez_un_scenario_what_if_pour_tester_l')}</p>
               <button onClick={() => setShowCreate(true)} className="gl-button-sm gl-button-confirm mt-3">
                 <Plus size={12} /> Nouveau scénario
               </button>
@@ -2791,7 +2791,7 @@ function ScenariosTab({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       {isReference && (
-                        <span title="Scénario de référence (plan actif)">
+                        <span title={t('planner.scenario_de_reference_plan_actif')}>
                           <Star size={11} className="text-amber-500 fill-amber-500 shrink-0" />
                         </span>
                       )}
@@ -2820,7 +2820,7 @@ function ScenariosTab({
                       <button
                         onClick={(e) => { e.stopPropagation(); onActivateScenario?.(null) }}
                         className="px-2 py-1 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors shrink-0"
-                        title="Revenir au plan de référence"
+                        title={t('planner.revenir_au_plan_de_reference')}
                       >
                         Désactiver
                       </button>
@@ -2828,7 +2828,7 @@ function ScenariosTab({
                       <button
                         onClick={(e) => { e.stopPropagation(); onActivateScenario?.(sid) }}
                         className="px-2 py-1 rounded text-[10px] font-medium opacity-0 group-hover:opacity-100 bg-primary/10 text-primary hover:bg-primary/20 transition-all shrink-0"
-                        title="Voir toutes les vues en mode scénario"
+                        title={t('planner.voir_toutes_les_vues_en_mode_scenario')}
                       >
                         <Play size={9} className="inline mr-0.5" />Activer
                       </button>
@@ -2848,7 +2848,7 @@ function ScenariosTab({
                         <button
                           onClick={(e) => { e.stopPropagation(); handlePromote(sid) }}
                           className="p-1.5 rounded hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-600"
-                          title="Promouvoir en activités réelles (devient référence)"
+                          title={t('planner.promouvoir_en_activites_reelles_devient')}
                         >
                           <TrendingUp size={13} />
                         </button>
@@ -2873,7 +2873,7 @@ function ScenariosTab({
       {showCreate && (
         <div className="gl-modal-backdrop" onClick={() => setShowCreate(false)}>
           <div className="gl-modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-foreground">Nouveau scénario</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('planner.actions.new_scenario')}</h3>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">Titre *</label>
               <input
@@ -2891,7 +2891,7 @@ function ScenariosTab({
                 value={createDesc}
                 onChange={(e) => setCreateDesc(e.target.value)}
                 className="w-full min-h-[60px] px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Optionnel — contexte ou objectif du scénario"
+                placeholder={t('planner.optionnel_contexte_ou_objectif_du_scenar')}
               />
             </div>
             <div className="flex items-center gap-2 justify-end">
@@ -2943,7 +2943,7 @@ function ForecastTab() {
           </select>
         </div>
         <div>
-          <label className="text-[10px] text-muted-foreground block mb-0.5">Type d'activité</label>
+          <label className="text-[10px] text-muted-foreground block mb-0.5">{t('paxlog.create_avm.program.activity_type')}</label>
           <select
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value)}
@@ -2959,7 +2959,7 @@ function ForecastTab() {
           <ProjectPicker
             value={projectFilter}
             onChange={id => setProjectFilter(id)}
-            placeholder="Tous projets"
+            placeholder={t('planner.filters.all_projects')}
             clearable
           />
         </div>
@@ -2981,11 +2981,11 @@ function ForecastTab() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <div className={cn('border rounded p-2 text-center', data.summary.at_risk_days > 0 ? 'border-orange-500/30 bg-orange-500/5' : '')}>
-              <div className="text-[9px] uppercase text-muted-foreground">Jours à risque (&gt;80%)</div>
+              <div className="text-[9px] uppercase text-muted-foreground">{t('planner.jours_a_risque_gt_80')}</div>
               <div className={cn('text-lg font-semibold tabular-nums', data.summary.at_risk_days > 0 && 'text-orange-600')}>{data.summary.at_risk_days}</div>
             </div>
             <div className="border rounded p-2 text-center">
-              <div className="text-[9px] uppercase text-muted-foreground">Charge moy. projetée</div>
+              <div className="text-[9px] uppercase text-muted-foreground">{t('planner.charge_moy_projetee')}</div>
               <div className="text-lg font-semibold tabular-nums">{data.summary.avg_projected_load}</div>
             </div>
             <div className="border rounded p-2 text-center">
@@ -2993,12 +2993,12 @@ function ForecastTab() {
               <div className="text-lg font-semibold tabular-nums">{data.summary.avg_real_pob}</div>
             </div>
             <div className="border rounded p-2 text-center">
-              <div className="text-[9px] uppercase text-muted-foreground">Pic de charge</div>
+              <div className="text-[9px] uppercase text-muted-foreground">{t('planner.pic_de_charge')}</div>
               <div className="text-lg font-semibold tabular-nums">{data.summary.peak_load}</div>
               {data.summary.peak_date && <div className="text-[9px] text-muted-foreground">{data.summary.peak_date}</div>}
             </div>
             <div className="border rounded p-2 text-center">
-              <div className="text-[9px] uppercase text-muted-foreground">Capacité max</div>
+              <div className="text-[9px] uppercase text-muted-foreground">{t('assets.spec.max_capacity_tonnes')}</div>
               <div className="text-lg font-semibold tabular-nums">{data.summary.max_capacity}</div>
             </div>
           </div>
@@ -3180,7 +3180,7 @@ function ForecastTab() {
                       ))}
                     </div>
                     <span className="text-[10px] text-muted-foreground shrink-0">100 %</span>
-                    <span className="text-[10px] text-muted-foreground ml-2 shrink-0">— Saturation capacité</span>
+                    <span className="text-[10px] text-muted-foreground ml-2 shrink-0">{t('planner.saturation_capacite')}</span>
                   </div>
                 </div>
               )
@@ -3778,11 +3778,11 @@ function ScenarioDetailPanel({ id }: { id: string }) {
                   )}
                 </div>
               } />
-              <DetailRow label="Créé par" value={scenario.created_by_name || '—'} />
-              <DetailRow label="Créé le" value={new Date(scenario.created_at).toLocaleDateString('fr-FR')} />
+              <DetailRow label={t('planner.cree_par')} value={scenario.created_by_name || '—'} />
+              <DetailRow label={t('common.created_at')} value={new Date(scenario.created_at).toLocaleDateString('fr-FR')} />
               {scenario.promoted_by_name && <DetailRow label="Promu par" value={scenario.promoted_by_name} />}
-              {scenario.promoted_at && <DetailRow label="Promu le" value={new Date(scenario.promoted_at).toLocaleDateString('fr-FR')} />}
-              {scenario.last_simulated_at && <DetailRow label="Dernière simulation" value={new Date(scenario.last_simulated_at).toLocaleString('fr-FR')} />}
+              {scenario.promoted_at && <DetailRow label={t('planner.promu_le')} value={new Date(scenario.promoted_at).toLocaleDateString('fr-FR')} />}
+              {scenario.last_simulated_at && <DetailRow label={t('planner.derniere_simulation')} value={new Date(scenario.last_simulated_at).toLocaleString('fr-FR')} />}
               {!isPromoted && !isArchived && (
                 <div className="col-span-full pt-1">
                   <button className="text-xs text-primary hover:underline" onClick={() => setEditing(true)}>Modifier</button>
@@ -3794,10 +3794,10 @@ function ScenarioDetailPanel({ id }: { id: string }) {
 
         {/* ── Simulation results ── */}
         {sim && (
-          <FormSection title="Résultat simulation" defaultExpanded>
+          <FormSection title={t('planner.resultat_simulation')} defaultExpanded>
             <DetailFieldGrid>
-              <DetailRow label="Jours de conflit" value={String(sim.conflict_days ?? '—')} />
-              <DetailRow label="Débordement max" value={String(sim.worst_overflow ?? '—')} />
+              <DetailRow label={t('planner.jours_de_conflit')} value={String(sim.conflict_days ?? '—')} />
+              <DetailRow label={t('planner.debordement_max')} value={String(sim.worst_overflow ?? '—')} />
               {sim.total_pax != null && <DetailRow label="PAX total" value={String(sim.total_pax)} />}
               {sim.avg_occupancy != null && <DetailRow label="Occupation moy." value={`${Math.round(sim.avg_occupancy * 100)}%`} />}
             </DetailFieldGrid>
@@ -3822,7 +3822,7 @@ function ScenarioDetailPanel({ id }: { id: string }) {
         >
           {showAddActivity && !isPromoted && !isArchived && (
             <div className="mb-3 rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Nouvelle activité dans le scénario</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t('planner.nouvelle_activite_dans_le_scenario')}</p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="col-span-2">
                   <label className="text-[10px] text-muted-foreground">Titre *</label>
@@ -3843,7 +3843,7 @@ function ScenarioDetailPanel({ id }: { id: string }) {
                   <input type="number" min={1} className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.pax_quota} onChange={(e) => setAddActivityForm((f) => ({ ...f, pax_quota: Math.max(1, parseInt(e.target.value) || 1) }))} />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Date début *</label>
+                  <label className="text-[10px] text-muted-foreground">{t('planner.date_debut')}</label>
                   <input type="date" className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.start_date} onChange={(e) => setAddActivityForm((f) => ({ ...f, start_date: e.target.value }))} />
                 </div>
                 <div>
@@ -3868,12 +3868,12 @@ function ScenarioDetailPanel({ id }: { id: string }) {
             <div className="rounded-md bg-muted/30 border border-border px-3 py-2 mb-2">
               <p className="text-[11px] text-muted-foreground">
                 Ce scénario hérite de <strong className="text-foreground">{scenario.activity_count ?? 0}</strong> activité(s) du plan de référence.
-                Cliquez <strong>"Activer"</strong> pour les voir dans le Gantt, ou <strong>"Ajouter"</strong> pour créer des activités spécifiques à ce scénario.
+                Cliquez <strong>"Activer"</strong> {t('planner.pour_les_voir_dans_le_gantt_ou')} <strong>"Ajouter"</strong> pour créer des activités spécifiques à ce scénario.
               </p>
             </div>
           )}
           {overlayActivities.length === 0 && !showAddActivity ? (
-            <p className="text-xs text-muted-foreground py-2 text-center">Aucune modification ou nouvelle activité dans ce scénario</p>
+            <p className="text-xs text-muted-foreground py-2 text-center">{t('planner.aucune_modification_ou_nouvelle_activite')}</p>
           ) : (
             <div className="divide-y divide-border">
               {overlayActivities.map((act: Record<string, unknown>) => (
@@ -3881,8 +3881,8 @@ function ScenarioDetailPanel({ id }: { id: string }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-medium text-foreground truncate">{(act.title as string) || (act.source_activity_title as string) || '—'}</span>
-                      {Boolean(act.is_removed) && <span className="gl-badge gl-badge-danger text-[9px]">Supprimée</span>}
-                      {Boolean(act.source_activity_id) && !act.is_removed && <span className="gl-badge gl-badge-neutral text-[9px]">Modifiée</span>}
+                      {Boolean(act.is_removed) && <span className="gl-badge gl-badge-danger text-[9px]">{t('planner.supprimee')}</span>}
+                      {Boolean(act.source_activity_id) && !act.is_removed && <span className="gl-badge gl-badge-neutral text-[9px]">{t('planner.modifiee')}</span>}
                       {!act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-info text-[9px]">Nouvelle</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
@@ -3895,7 +3895,7 @@ function ScenarioDetailPanel({ id }: { id: string }) {
                   {!isPromoted && !isArchived && (
                     <button
                       className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                      title="Retirer du scénario"
+                      title={t('planner.retirer_du_scenario')}
                       onClick={() => handleRemoveScenarioActivity(act.id as string)}
                     >
                       <Trash2 size={11} />
@@ -3908,13 +3908,13 @@ function ScenarioDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* ── How scenarios work ── */}
-        <FormSection title="Comment fonctionne un scénario ?" collapsible defaultExpanded={overlayActivities.length === 0}>
+        <FormSection title={t('planner.comment_fonctionne_un_scenario')} collapsible defaultExpanded={overlayActivities.length === 0}>
           <div className="text-xs text-muted-foreground space-y-2 leading-relaxed">
-            <p><span className="font-semibold text-foreground">1. Créer</span> — Un scénario est un plan alternatif ("et si ?"). Il ne touche pas au plan en cours.</p>
-            <p><span className="font-semibold text-foreground">2. Ajouter des activités</span> — Cliquez "Ajouter" pour créer des activités propres à ce scénario, ou depuis le Gantt, sélectionnez une activité et choisissez "Ajouter au scénario".</p>
-            <p><span className="font-semibold text-foreground">3. Simuler</span> — Lance un calcul de conflits de capacité pour évaluer la faisabilité du scénario.</p>
-            <p><span className="font-semibold text-foreground">4. Valider → Promouvoir</span> — Passer à "Validé" pour review, puis "Promouvoir" convertit les activités du scénario en activités réelles dans le plan.</p>
-            <p><span className="font-semibold text-foreground">5. Restaurer</span> — Si un scénario promu pose problème, "Restaurer" annule la promotion et revient à l'état précédent.</p>
+            <p><span className="font-semibold text-foreground">{t('planner.1_creer')}</span> {t('planner.un_scenario_est_un_plan_alternatif_et_si')}</p>
+            <p><span className="font-semibold text-foreground">{t('planner.2_ajouter_des_activites')}</span> {t('planner.cliquez_ajouter_pour_creer_des_activites')}</p>
+            <p><span className="font-semibold text-foreground">3. Simuler</span> {t('planner.lance_un_calcul_de_conflits_de_capacite')}</p>
+            <p><span className="font-semibold text-foreground">{t('planner.4_valider_promouvoir')}</span> {t('planner.passer_a_valide_pour_review_puis_promouv')}</p>
+            <p><span className="font-semibold text-foreground">5. Restaurer</span> {t('planner.si_un_scenario_promu_pose_probleme_resta')}</p>
           </div>
         </FormSection>
       </PanelContentLayout>
@@ -3954,6 +3954,7 @@ interface DependencyRowProps {
 }
 
 function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete, onUpdate, isPending }: DependencyRowProps) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
 
   // Identify the "other" activity (not the current one) — that's what the user
@@ -4017,7 +4018,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
         <div className="flex items-center gap-2">
           <Link2 size={11} className="text-primary shrink-0" />
           <span className="text-[10px] uppercase font-semibold text-primary tracking-wide">{role}</span>
-          <span className="text-[10px] text-muted-foreground">— activité liée</span>
+          <span className="text-[10px] text-muted-foreground">{t('planner.activite_liee')}</span>
         </div>
         <ActivityPicker
           value={draftOtherId || null}
@@ -4040,7 +4041,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
             </select>
           </div>
           <div className="flex flex-col">
-            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">Délai</label>
+            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">{t('paxlog.compliance_tab.delay')}</label>
             <input
               type="number"
               value={draftLagValue}
@@ -4051,7 +4052,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">Unité</label>
+            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">{t('planner.unite')}</label>
             <select
               value={draftLagUnit}
               onChange={(e) => setDraftLagUnit(e.target.value as LagUnit)}
@@ -4094,9 +4095,9 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
       <span className="font-medium text-foreground truncate flex-1" title={otherActivityTitle || otherActivityId}>
         {otherActivityTitle || otherActivityId.slice(0, 8) + '…'}
       </span>
-      <span className="gl-badge gl-badge-neutral text-[10px]" title="Type de dépendance">{dep.dependency_type}</span>
+      <span className="gl-badge gl-badge-neutral text-[10px]" title={t('planner.type_de_dependance')}>{dep.dependency_type}</span>
       {lagDisplay && (
-        <span className="text-muted-foreground text-[10px] tabular-nums" title="Délai (lag)">{lagDisplay}</span>
+        <span className="text-muted-foreground text-[10px] tabular-nums" title={t('planner.delai_lag')}>{lagDisplay}</span>
       )}
       <button
         onClick={startEdit}
@@ -4683,7 +4684,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     className={panelInputClass}
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Priorité">
+                <DynamicPanelField label={t('common.priority')}>
                   <select
                     value={editForm.priority as string}
                     onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}
@@ -4762,7 +4763,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                       className={panelInputClass}
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Nom du rig">
+                  <DynamicPanelField label={t('planner.nom_du_rig')}>
                     <input
                       type="text"
                       value={editForm.rig_name as string}
@@ -4816,7 +4817,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                       className={panelInputClass}
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Bon de travail">
+                  <DynamicPanelField label={t('planner.bon_de_travail')}>
                     <input
                       type="text"
                       value={editForm.work_order_ref as string}
@@ -4855,7 +4856,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     }
                   />
                   <DetailRow
-                    label="Priorité"
+                    label={t('common.priority')}
                     value={
                       <span className={cn('text-sm font-medium', priorityEntry?.cls || 'text-muted-foreground')}>
                         {priorityEntry?.label || activity.priority}
@@ -4998,7 +4999,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                 <FormSection title="Details Workover">
                   <DetailFieldGrid>
                     <DetailRow label="Reference puits" value={activity.well_reference || '—'} />
-                    <DetailRow label="Nom du rig" value={activity.rig_name || '—'} />
+                    <DetailRow label={t('planner.nom_du_rig')} value={activity.rig_name || '—'} />
                   </DetailFieldGrid>
                 </FormSection>
               )}
@@ -5021,7 +5022,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                 <FormSection title="Details Maintenance / Integrite">
                   <DetailFieldGrid>
                     <DetailRow label="Reference reglementaire" value={activity.regulatory_ref || '—'} />
-                    <DetailRow label="Bon de travail" value={activity.work_order_ref || '—'} />
+                    <DetailRow label={t('planner.bon_de_travail')} value={activity.work_order_ref || '—'} />
                   </DetailFieldGrid>
                 </FormSection>
               )}
@@ -5047,7 +5048,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     )}
                     {st === 'rejected' && activity.rejection_reason && (
                       <DetailRow
-                        label="Motif du rejet"
+                        label={t('conformite.verifications.reject_reason')}
                         value={<span className="text-destructive">{activity.rejection_reason}</span>}
                       />
                     )}
@@ -5073,7 +5074,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">Aucune dépendance</p>
+                <p className="text-xs text-muted-foreground">{t('planner.no_dependency')}</p>
               )}
 
               {showDepAdd ? (
@@ -5083,7 +5084,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                       value={depForm.predecessor_id || null}
                       onChange={(actId) => setDepForm({ ...depForm, predecessor_id: actId || '' })}
                       excludeId={id}
-                      label="Activité prédécesseur"
+                      label={t('planner.activite_predecesseur')}
                     />
                     <div className="grid grid-cols-2 gap-2">
                       <div>
@@ -5160,7 +5161,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     </div>
                     {recForm.frequency === 'weekly' && (
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">Jour de la semaine</label>
+                        <label className="text-xs font-medium text-muted-foreground">{t('planner.jour_de_la_semaine')}</label>
                         <select
                           value={recForm.day_of_week}
                           onChange={(e) => setRecForm({ ...recForm, day_of_week: parseInt(e.target.value) })}
@@ -5218,7 +5219,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                 <div className="space-y-2 p-2.5 rounded-lg border border-border bg-background-subtle">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-xs font-medium text-muted-foreground">Nouvelle priorite</label>
+                      <label className="text-xs font-medium text-muted-foreground">{t('planner.nouvelle_priorite')}</label>
                       <select
                         value={priorityOverrideForm.priority}
                         onChange={(e) => setPriorityOverrideForm({ ...priorityOverrideForm, priority: e.target.value })}
@@ -5236,7 +5237,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                       value={priorityOverrideForm.reason}
                       onChange={(e) => setPriorityOverrideForm({ ...priorityOverrideForm, reason: e.target.value })}
                       className={cn(panelInputClass, 'min-h-[50px] py-1.5')}
-                      placeholder="Justification du changement de priorite..."
+                      placeholder={t('planner.justification_du_changement_de_priorite')}
                     />
                   </div>
                   <div className="flex items-center gap-2">
@@ -5380,7 +5381,7 @@ function CreateActivityPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle activite"
+      title={t('planner.nouvelle_activite')}
       subtitle="Planner"
       icon={<CalendarRange size={14} className="text-primary" />}
       actions={
@@ -5429,7 +5430,7 @@ function CreateActivityPanel() {
             </FormGrid>
           </FormSection>
 
-          <FormSection title="Type et priorite">
+          <FormSection title={t('planner.type_et_priorite')}>
             <FormGrid>
               <DynamicPanelField label="Type" required>
                 <select
@@ -5451,7 +5452,7 @@ function CreateActivityPanel() {
                   placeholder="Sous-type (optionnel)"
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Priorité">
+              <DynamicPanelField label={t('common.priority')}>
                 <select
                   value={form.priority || 'medium'}
                   onChange={(e) => setForm({ ...form, priority: e.target.value })}
@@ -5468,7 +5469,7 @@ function CreateActivityPanel() {
                   onChange={(e) => setForm({ ...form, pax_quota_mode: e.target.value as 'constant' | 'variable' })}
                   className={panelInputClass}
                 >
-                  <option value="constant">Constant (meme valeur tous les jours)</option>
+                  <option value="constant">{t('planner.constant_meme_valeur_tous_les_jours')}</option>
                   <option value="variable">Variable (par jour)</option>
                 </select>
               </DynamicPanelField>
@@ -5533,13 +5534,13 @@ function CreateActivityPanel() {
                     placeholder="Ref. puits"
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Nom du rig">
+                <DynamicPanelField label={t('planner.nom_du_rig')}>
                   <input
                     type="text"
                     value={form.rig_name ?? ''}
                     onChange={(e) => setForm({ ...form, rig_name: e.target.value || null })}
                     className={panelInputClass}
-                    placeholder="Nom du rig"
+                    placeholder={t('planner.nom_du_rig')}
                   />
                 </DynamicPanelField>
               </FormGrid>
@@ -5593,13 +5594,13 @@ function CreateActivityPanel() {
                     placeholder="Ref. reglementaire"
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Bon de travail">
+                <DynamicPanelField label={t('planner.bon_de_travail')}>
                   <input
                     type="text"
                     value={form.work_order_ref ?? ''}
                     onChange={(e) => setForm({ ...form, work_order_ref: e.target.value || null })}
                     className={panelInputClass}
-                    placeholder="No. bon de travail"
+                    placeholder={t('planner.no_bon_de_travail')}
                   />
                 </DynamicPanelField>
               </FormGrid>

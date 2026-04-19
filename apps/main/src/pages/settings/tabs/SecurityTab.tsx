@@ -14,12 +14,13 @@ import { useToast } from '@/components/ui/Toast'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 
 export function SecurityTab() {
+  const { t } = useTranslation()
   return (
     <>
       <CollapsibleSection
         id="password"
-        title="Mot de passe"
-        description="Changez votre mot de passe. Après modification, les autres sessions pourront être invalidées."
+        title={t('auth.password')}
+        description={t('settings.changez_votre_mot_de_passe_apres_modific')}
         storageKey="settings.security.collapse"
       >
         <PasswordSection />
@@ -27,7 +28,7 @@ export function SecurityTab() {
 
       <CollapsibleSection
         id="mfa"
-        title="Authentification à deux facteurs"
+        title={t('settings.authentification_a_deux_facteurs')}
         description="Renforcez la sécurité de votre compte en activant l'authentification à deux facteurs (TOTP)."
         storageKey="settings.security.collapse"
         showSeparator={false}
@@ -76,24 +77,24 @@ function PasswordSection() {
     <>
       <div className="mt-2 space-y-5 max-w-md">
         <div>
-          <label className="gl-label">Mot de passe actuel</label>
-          <input type="password" className="gl-form-input" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} placeholder="Entrez votre mot de passe actuel" autoComplete="current-password" />
+          <label className="gl-label">{t('settings.mot_de_passe_actuel')}</label>
+          <input type="password" className="gl-form-input" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} placeholder={t('settings.entrez_votre_mot_de_passe_actuel')} autoComplete="current-password" />
         </div>
         <div>
-          <label className="gl-label">Nouveau mot de passe</label>
+          <label className="gl-label">{t('auth.reset_password_title')}</label>
           <div className="relative">
-            <input type={showNew ? 'text' : 'password'} className="gl-form-input pr-10" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="Min. 8 caractères" autoComplete="new-password" />
+            <input type={showNew ? 'text' : 'password'} className="gl-form-input pr-10" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder={t('users.min_8_caracteres')} autoComplete="new-password" />
             <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
               {showNew ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
           </div>
-          {tooShort && <p className="mt-1 text-sm text-destructive">Le mot de passe doit contenir au moins 8 caractères.</p>}
-          <p className="mt-1 text-sm text-muted-foreground">Minimum 8 caractères, avec au moins une majuscule et un chiffre.</p>
+          {tooShort && <p className="mt-1 text-sm text-destructive">{t('settings.le_mot_de_passe_doit_contenir_au_moins_8')}</p>}
+          <p className="mt-1 text-sm text-muted-foreground">{t('settings.minimum_8_caracteres_avec_au_moins_une_m')}</p>
         </div>
         <div>
-          <label className="gl-label">Confirmer le nouveau mot de passe</label>
-          <input type="password" className="gl-form-input" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder="Confirmez le nouveau mot de passe" autoComplete="new-password" />
-          {mismatch && <p className="mt-1 text-sm text-destructive">Les mots de passe ne correspondent pas.</p>}
+          <label className="gl-label">{t('settings.confirmer_le_nouveau_mot_de_passe')}</label>
+          <input type="password" className="gl-form-input" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder={t('settings.confirmez_le_nouveau_mot_de_passe')} autoComplete="new-password" />
+          {mismatch && <p className="mt-1 text-sm text-destructive">{t('settings.les_mots_de_passe_ne_correspondent_pas')}</p>}
         </div>
       </div>
 
@@ -225,10 +226,10 @@ function MFASection() {
           {/* Disable confirmation */}
           {showDisable && (
             <div className="p-4 rounded-lg border border-destructive/30 bg-destructive/5 space-y-3 max-w-md">
-              <p className="text-sm font-medium text-destructive">Confirmer la désactivation</p>
+              <p className="text-sm font-medium text-destructive">{t('settings.confirmer_la_desactivation')}</p>
               <div>
-                <label className="gl-label">Mot de passe actuel</label>
-                <input type="password" className="gl-form-input" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} placeholder="Entrez votre mot de passe" autoComplete="current-password" />
+                <label className="gl-label">{t('settings.mot_de_passe_actuel')}</label>
+                <input type="password" className="gl-form-input" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} placeholder={t('settings.entrez_votre_mot_de_passe')} autoComplete="current-password" />
               </div>
               <div className="flex gap-2">
                 <button className="gl-button gl-button-danger" disabled={!disablePassword || disableMutation.isPending} onClick={handleDisable}>
@@ -243,11 +244,11 @@ function MFASection() {
           {/* Regenerate codes */}
           {showRegenerate && (
             <div className="p-4 rounded-lg border border-border bg-background-subtle space-y-3 max-w-md">
-              <p className="text-sm font-medium">Régénérer les codes de secours</p>
-              <p className="text-xs text-muted-foreground">Les anciens codes seront invalidés.</p>
+              <p className="text-sm font-medium">{t('settings.regenerer_les_codes_de_secours')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.les_anciens_codes_seront_invalides')}</p>
               <div>
-                <label className="gl-label">Mot de passe actuel</label>
-                <input type="password" className="gl-form-input" value={regenPassword} onChange={(e) => setRegenPassword(e.target.value)} placeholder="Entrez votre mot de passe" autoComplete="current-password" />
+                <label className="gl-label">{t('settings.mot_de_passe_actuel')}</label>
+                <input type="password" className="gl-form-input" value={regenPassword} onChange={(e) => setRegenPassword(e.target.value)} placeholder={t('settings.entrez_votre_mot_de_passe')} autoComplete="current-password" />
               </div>
               <div className="flex gap-2">
                 <button className="gl-button gl-button-confirm" disabled={!regenPassword || regenerateMutation.isPending} onClick={handleRegenerate}>
@@ -263,7 +264,7 @@ function MFASection() {
         /* ── MFA Setup Flow: QR Code + Verify ── */
         <div className="mt-6 space-y-6 max-w-lg">
           <div className="p-4 rounded-lg border border-border bg-card">
-            <h3 className="text-sm font-semibold mb-3">1. Scannez ce QR code avec votre application d'authentification</h3>
+            <h3 className="text-sm font-semibold mb-3">{t('settings.1_scannez_ce_qr_code_avec_votre_applicat')}</h3>
             {/* QR code rendered as an image via Google Charts API — simple, no extra dependency */}
             <div className="flex justify-center p-4 bg-white rounded-md">
               <img
@@ -285,7 +286,7 @@ function MFASection() {
           </div>
 
           <div className="p-4 rounded-lg border border-border bg-card">
-            <h3 className="text-sm font-semibold mb-3">2. Entrez le code de vérification</h3>
+            <h3 className="text-sm font-semibold mb-3">{t('settings.2_entrez_le_code_de_verification')}</h3>
             <p className="text-xs text-muted-foreground mb-3">
               Saisissez le code à 6 chiffres affiché dans votre application d'authentification.
             </p>

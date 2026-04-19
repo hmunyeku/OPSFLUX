@@ -183,7 +183,7 @@ function CreateTicketPanel() {
 
   return (
     <DynamicPanelShell
-      title="Soumettre un ticket"
+      title={t('support.soumettre_un_ticket')}
       subtitle="Support & Feedback"
       icon={<LifeBuoy size={14} className="text-primary" />}
       actions={
@@ -204,7 +204,7 @@ function CreateTicketPanel() {
                 className={panelInputClass}
                 value={form.title}
                 onChange={e => setForm({ ...form, title: e.target.value })}
-                placeholder="Décrivez brièvement le problème..."
+                placeholder={t('support.decrivez_brievement_le_probleme')}
                 autoFocus
               />
             </DynamicPanelField>
@@ -213,7 +213,7 @@ function CreateTicketPanel() {
                 {(typeOptions.length ? typeOptions : Object.entries(TYPE_LABELS_FALLBACK).map(([v, l]) => ({ value: v, label: l }))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
-            <DynamicPanelField label="Priorité">
+            <DynamicPanelField label={t('common.priority')}>
               <select className={panelInputClass} value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as TicketCreate['priority'] })}>
                 {(priorityOptions.length ? priorityOptions : Object.entries(PRIORITY_LABELS_FALLBACK).map(([v, l]) => ({ value: v, label: l }))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -226,7 +226,7 @@ function CreateTicketPanel() {
             className={cn(panelInputClass, 'min-h-[120px] resize-y')}
             value={form.description || ''}
             onChange={e => setForm({ ...form, description: e.target.value })}
-            placeholder="Décrivez le problème en détail, les étapes pour le reproduire..."
+            placeholder={t('support.decrivez_le_probleme_en_detail_les_etape')}
           />
         </FormSection>
       </PanelContentLayout>
@@ -333,7 +333,7 @@ function TicketDetailPanel({ id }: { id: string }) {
           <>
             <FormSection title="Informations">
               <DetailFieldGrid>
-                <ReadOnlyRow label="Référence" value={<span className="font-mono font-semibold text-primary">{ticket.reference}</span>} />
+                <ReadOnlyRow label={t('paxlog.reference')} value={<span className="font-mono font-semibold text-primary">{ticket.reference}</span>} />
                 <InlineEditableRow label="Titre" value={ticket.title} onSave={(v) => handleSave('title', v)} />
                 <ReadOnlyRow label="Type" value={
                   <span className="flex items-center gap-1.5">
@@ -341,10 +341,10 @@ function TicketDetailPanel({ id }: { id: string }) {
                     {TYPE_LABELS_FALLBACK[ticket.ticket_type] || ticket.ticket_type}
                   </span>
                 } />
-                <ReadOnlyRow label="Priorité" value={<BadgeCell value={PRIORITY_LABELS_FALLBACK[ticket.priority] || ticket.priority} variant={PRIORITY_VARIANTS[ticket.priority] || 'neutral'} />} />
+                <ReadOnlyRow label={t('common.priority')} value={<BadgeCell value={PRIORITY_LABELS_FALLBACK[ticket.priority] || ticket.priority} variant={PRIORITY_VARIANTS[ticket.priority] || 'neutral'} />} />
                 <ReadOnlyRow label="Statut" value={<BadgeCell value={STATUS_LABELS_FALLBACK[ticket.status] || ticket.status} variant={STATUS_VARIANTS[ticket.status] || 'neutral'} />} />
-                <ReadOnlyRow label="Rapporté par" value={ticket.reporter_name || '—'} />
-                <ReadOnlyRow label="Assigné à" value={ticket.assignee_name || '—'} />
+                <ReadOnlyRow label={t('support.columns.reporter')} value={ticket.reporter_name || '—'} />
+                <ReadOnlyRow label={t('common.assignee')} value={ticket.assignee_name || '—'} />
               </DetailFieldGrid>
             </FormSection>
 
@@ -353,7 +353,7 @@ function TicketDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             {ticket.resolution_notes && (
-              <FormSection title="Notes de résolution" collapsible defaultExpanded>
+              <FormSection title={t('support.notes_de_resolution')} collapsible defaultExpanded>
                 <p className="text-sm text-foreground whitespace-pre-wrap">{ticket.resolution_notes}</p>
               </FormSection>
             )}
@@ -387,7 +387,7 @@ function TicketDetailPanel({ id }: { id: string }) {
             <div className="border border-border rounded-lg p-3 space-y-2">
               <textarea
                 className={cn(panelInputClass, 'min-h-[60px] resize-y')}
-                placeholder="Ajouter un commentaire..."
+                placeholder={t('support.ajouter_un_commentaire')}
                 value={commentText}
                 onChange={e => setCommentText(e.target.value)}
               />
@@ -440,7 +440,7 @@ function TicketDetailPanel({ id }: { id: string }) {
               </div>
             ))}
             {(!history || history.length === 0) && (
-              <p className="text-xs text-muted-foreground text-center py-4">Aucun historique</p>
+              <p className="text-xs text-muted-foreground text-center py-4">{t('support.aucun_historique')}</p>
             )}
           </div>
         )}
@@ -508,7 +508,7 @@ function TicketTodoList({ ticketId }: { ticketId: string }) {
           className={cn(panelInputClass, 'flex-1')}
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
-          placeholder="Ajouter une tâche..."
+          placeholder={t('support.ajouter_une_tache')}
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
         />
         <button onClick={handleAdd} disabled={!newTitle.trim()} className="p-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-40 hover:bg-primary/90 transition-colors">
@@ -581,7 +581,7 @@ function CreateAnnouncementPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle annonce"
+      title={t('messaging.create_announcement')}
       subtitle="Communication"
       icon={<Megaphone size={14} className="text-primary" />}
       actions={
@@ -596,7 +596,7 @@ function CreateAnnouncementPanel() {
             <DynamicPanelField label="Titre" required>
               <input className={panelInputClass} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Titre de l'annonce..." autoFocus />
             </DynamicPanelField>
-            <DynamicPanelField label="Priorité">
+            <DynamicPanelField label={t('common.priority')}>
               <select className={panelInputClass} value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
                 {(annPriorityOptions.length ? annPriorityOptions : Object.entries(ANN_PRIORITY_LABELS).map(([v, l]) => ({ value: v, label: l }))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -621,9 +621,9 @@ function CreateAnnouncementPanel() {
               </select>
             </DynamicPanelField>
             {form.target_type === 'role' && (
-              <DynamicPanelField label="Rôle">
+              <DynamicPanelField label={t('common.role')}>
                 <select className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })}>
-                  <option value="">— Sélectionner un rôle —</option>
+                  <option value="">{t('support.selectionner_un_role')}</option>
                   {(roles ?? []).map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}
                 </select>
               </DynamicPanelField>
@@ -631,7 +631,7 @@ function CreateAnnouncementPanel() {
             {form.target_type === 'user' && (
               <DynamicPanelField label="Utilisateur">
                 <select className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })}>
-                  <option value="">— Sélectionner un utilisateur —</option>
+                  <option value="">{t('support.selectionner_un_utilisateur')}</option>
                   {(usersData?.items ?? []).map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.email})</option>)}
                 </select>
               </DynamicPanelField>
@@ -639,13 +639,13 @@ function CreateAnnouncementPanel() {
             {form.target_type === 'module' && (
               <DynamicPanelField label="Module">
                 <select className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })}>
-                  <option value="">— Sélectionner un module —</option>
+                  <option value="">{t('support.selectionner_un_module')}</option>
                   {['dashboard', 'tiers', 'projets', 'planner', 'paxlog', 'packlog', 'travelwiz', 'conformite', 'asset-registry', 'support'].map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
               </DynamicPanelField>
             )}
             {form.target_type === 'entity' && (
-              <DynamicPanelField label="Entité (ID)">
+              <DynamicPanelField label={t('support.entite_id')}>
                 <input className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })} placeholder="UUID de l'entité" />
               </DynamicPanelField>
             )}
@@ -738,11 +738,11 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
         <FormSection title="Informations">
           <DetailFieldGrid>
             <InlineEditableRow label="Titre" value={ann.title} onSave={(v) => handleSave('title', v)} />
-            <ReadOnlyRow label="Priorité" value={<BadgeCell value={ANN_PRIORITY_LABELS[ann.priority] || ann.priority} variant={PRIORITY_BADGE[ann.priority] || 'neutral'} />} />
+            <ReadOnlyRow label={t('common.priority')} value={<BadgeCell value={ANN_PRIORITY_LABELS[ann.priority] || ann.priority} variant={PRIORITY_BADGE[ann.priority] || 'neutral'} />} />
             <ReadOnlyRow label="Emplacement" value={LOCATION_LABELS[ann.display_location] || ann.display_location} />
             <ReadOnlyRow label="Statut" value={ann.active ? <BadgeCell value="Actif" variant="success" /> : <BadgeCell value="Inactif" variant="neutral" />} />
-            <ReadOnlyRow label="Épinglée" value={ann.pinned ? 'Oui' : 'Non'} />
-            <ReadOnlyRow label="Email envoyé" value={ann.send_email ? (ann.email_sent_at ? `Oui (${fmtDate(ann.email_sent_at)})` : 'Prévu') : 'Non'} />
+            <ReadOnlyRow label={t('support.epinglee')} value={ann.pinned ? 'Oui' : 'Non'} />
+            <ReadOnlyRow label={t('auth.forgot_password_sent')} value={ann.send_email ? (ann.email_sent_at ? `Oui (${fmtDate(ann.email_sent_at)})` : 'Prévu') : 'Non'} />
           </DetailFieldGrid>
         </FormSection>
 
@@ -755,9 +755,9 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
 
         <FormSection title="Programmation">
           <DetailFieldGrid>
-            <ReadOnlyRow label="Publiée le" value={fmtDate(ann.published_at)} />
-            <ReadOnlyRow label="Expire le" value={fmtDate(ann.expires_at)} />
-            <ReadOnlyRow label="Créée le" value={fmtDate(ann.created_at)} />
+            <ReadOnlyRow label={t('support.publiee_le')} value={fmtDate(ann.published_at)} />
+            <ReadOnlyRow label={t('paxlog.ads_detail.external_link.expires_at')} value={fmtDate(ann.expires_at)} />
+            <ReadOnlyRow label={t('packlog.requests.columns.created_at')} value={fmtDate(ann.created_at)} />
             <ReadOnlyRow label="Par" value={ann.sender_name || '—'} />
           </DetailFieldGrid>
         </FormSection>

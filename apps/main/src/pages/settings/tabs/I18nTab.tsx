@@ -18,6 +18,7 @@
  *  - "Export JSON" → download all messages for the current language
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Check,
@@ -166,6 +167,7 @@ function useBulkUpsert() {
 /* ── Main component ──────────────────────────────────────────────────── */
 
 export default function I18nTab() {
+  const { t } = useTranslation()
   const { data: languages = [], isLoading: languagesLoading } = useLanguages()
   const activeLanguages = useMemo(
     () => languages.filter((l) => l.active).sort((a, b) => a.sort_order - b.sort_order),
@@ -244,7 +246,7 @@ export default function I18nTab() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filtrer par clé, valeur ou note..."
+            placeholder={t('settings.filtrer_par_cle_valeur_ou_note')}
             className="gl-form-input w-full pl-8"
           />
         </div>
@@ -311,7 +313,7 @@ export default function I18nTab() {
         <EmptyState
           icon={Globe}
           title="Aucune traduction"
-          description="Importez un catalogue ou ajoutez des clés manuellement."
+          description={t('settings.importez_un_catalogue_ou_ajoutez_des_cle')}
         />
       ) : (
         <div className="border border-border rounded-md overflow-hidden">
@@ -342,6 +344,7 @@ export default function I18nTab() {
 /* ── Row components ──────────────────────────────────────────────────── */
 
 function MessageRow({ message }: { message: I18nMessage }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(message.value)
   const [notes, setNotes] = useState(message.notes ?? '')
@@ -388,7 +391,7 @@ function MessageRow({ message }: { message: I18nMessage }) {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="gl-form-input w-full text-xs"
-                placeholder="Note pour les traducteurs (optionnel)"
+                placeholder={t('settings.note_pour_les_traducteurs_optionnel')}
               />
             </div>
           ) : (
@@ -460,6 +463,7 @@ function AddKeyRow({
   onCancel: () => void
   onDone: () => void
 }) {
+  const { t } = useTranslation()
   const [key, setKey] = useState('')
   const [value, setValue] = useState('')
   const [notes, setNotes] = useState('')
@@ -498,7 +502,7 @@ function AddKeyRow({
         type="text"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="Note pour les traducteurs (optionnel)"
+        placeholder={t('settings.note_pour_les_traducteurs_optionnel')}
         className="gl-form-input w-full text-xs"
       />
       <div className="flex items-center gap-2 justify-end">
@@ -691,6 +695,7 @@ function LanguagesPanel({
   languages: I18nLanguage[]
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const create = useCreateLanguage()
   const update = useUpdateLanguage()
   const remove = useDeleteLanguage()
@@ -780,7 +785,7 @@ function LanguagesPanel({
                 type="text"
                 value={newLang.code}
                 onChange={(e) => setNewLang({ ...newLang, code: e.target.value })}
-                placeholder="Code ISO (ex: de, ar)"
+                placeholder={t('settings.code_iso_ex_de_ar')}
                 maxLength={10}
                 className="gl-form-input w-full text-sm"
               />
@@ -788,14 +793,14 @@ function LanguagesPanel({
                 type="text"
                 value={newLang.label}
                 onChange={(e) => setNewLang({ ...newLang, label: e.target.value })}
-                placeholder="Nom natif (ex: Deutsch)"
+                placeholder={t('settings.nom_natif_ex_deutsch')}
                 className="gl-form-input w-full text-sm"
               />
               <input
                 type="text"
                 value={newLang.english_label}
                 onChange={(e) => setNewLang({ ...newLang, english_label: e.target.value })}
-                placeholder="Nom en anglais (ex: German)"
+                placeholder={t('settings.nom_en_anglais_ex_german')}
                 className="gl-form-input w-full text-sm"
               />
               <label className="flex items-center gap-1.5 text-xs">

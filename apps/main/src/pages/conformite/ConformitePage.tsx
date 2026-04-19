@@ -188,7 +188,7 @@ function CreateTypePanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouveau type"
+      title={t('conformite.types.create')}
       subtitle="Conformite"
       icon={<ShieldCheck size={14} className="text-primary" />}
       actions={
@@ -220,7 +220,7 @@ function CreateTypePanel() {
               <FormSection title="Informations">
                 <FormGrid>
                   <DynamicPanelField label="Code">
-                    <span className="text-sm font-mono text-muted-foreground italic">Auto-genere a la creation</span>
+                    <span className="text-sm font-mono text-muted-foreground italic">{t('conformite.auto_genere_a_la_creation')}</span>
                   </DynamicPanelField>
                   <DynamicPanelField label="Nom" required>
                     <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Formation HSE Niveau 1" />
@@ -239,7 +239,7 @@ function CreateTypePanel() {
                   value={form.description ?? ''}
                   onChange={(e) => setForm({ ...form, description: e.target.value || null })}
                   className={`${panelInputClass} min-h-[60px] resize-y`}
-                  placeholder="Description du type de conformite..."
+                  placeholder={t('conformite.description_du_type_de_conformite')}
                   rows={3}
                 />
               </FormSection>
@@ -312,7 +312,7 @@ function TypeDetailPanel({ id }: { id: string }) {
           <InlineEditableRow label="Description" value={ct.description || ''} onSave={(v) => handleSave('description', v)} />
         </FormSection>
 
-        <FormSection title="Pièces jointes" collapsible defaultExpanded={false}>
+        <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
           <AttachmentManager ownerType="compliance_type" ownerId={ct.id} compact />
         </FormSection>
       </PanelContentLayout>
@@ -587,7 +587,7 @@ function CreateExemptionPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle exemption"
+      title={t('conformite.exemptions.create')}
       subtitle="Derogation de conformite"
       icon={<ShieldOff size={14} className="text-amber-500" />}
       actions={
@@ -605,7 +605,7 @@ function CreateExemptionPanel() {
     >
       <form id="create-exemption-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Enregistrement de conformite">
+          <FormSection title={t('conformite.enregistrement_de_conformite')}>
             <DynamicPanelField label="Enregistrement" required>
               <select
                 required
@@ -630,7 +630,7 @@ function CreateExemptionPanel() {
                 value={form.reason}
                 onChange={(e) => setForm({ ...form, reason: e.target.value })}
                 className={`${panelInputClass} min-h-[80px] resize-y`}
-                placeholder="Certification expiree mais mission critique en cours..."
+                placeholder={t('conformite.certification_expiree_mais_mission_criti')}
                 rows={3}
               />
             </DynamicPanelField>
@@ -735,14 +735,14 @@ function ExemptionDetailPanel({ id }: { id: string }) {
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="Statut" value={statusBadge} />
-            <ReadOnlyRow label="Type de conformite" value={exemption.record_type_name || '--'} />
+            <ReadOnlyRow label={t('conformite.type_de_conformite')} value={exemption.record_type_name || '--'} />
             <ReadOnlyRow label="Categorie" value={exemption.record_type_category ? <span className="gl-badge gl-badge-neutral">{exemption.record_type_category}</span> : '--'} />
             <ReadOnlyRow label="Proprietaire" value={exemption.owner_name || '--'} />
-            <ReadOnlyRow label="Date de debut" value={new Date(exemption.start_date).toLocaleDateString('fr-FR')} />
-            <ReadOnlyRow label="Date de fin" value={new Date(exemption.end_date).toLocaleDateString('fr-FR')} />
+            <ReadOnlyRow label={t('conformite.date_de_debut')} value={new Date(exemption.start_date).toLocaleDateString('fr-FR')} />
+            <ReadOnlyRow label={t('conformite.date_de_fin')} value={new Date(exemption.end_date).toLocaleDateString('fr-FR')} />
             <ReadOnlyRow label="Approuve par" value={exemption.approver_name || '--'} />
             <ReadOnlyRow label="Cree par" value={exemption.creator_name || '--'} />
-            <ReadOnlyRow label="Cree le" value={new Date(exemption.created_at).toLocaleDateString('fr-FR')} />
+            <ReadOnlyRow label={t('papyrus.cree_le')} value={new Date(exemption.created_at).toLocaleDateString('fr-FR')} />
           </DetailFieldGrid>
         </FormSection>
 
@@ -757,7 +757,7 @@ function ExemptionDetailPanel({ id }: { id: string }) {
         )}
 
         {exemption.rejection_reason && (
-          <FormSection title="Motif du rejet" collapsible defaultExpanded>
+          <FormSection title={t('conformite.verifications.reject_reason')} collapsible defaultExpanded>
             <p className="text-sm text-red-600 whitespace-pre-wrap">{exemption.rejection_reason}</p>
           </FormSection>
         )}
@@ -786,7 +786,7 @@ function ExemptionDetailPanel({ id }: { id: string }) {
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   className={`${panelInputClass} min-h-[60px] resize-y`}
-                  placeholder="Motif du rejet..."
+                  placeholder={t('conformite.motif_du_rejet')}
                   rows={2}
                 />
                 <PanelActionButton
@@ -800,7 +800,7 @@ function ExemptionDetailPanel({ id }: { id: string }) {
           </FormSection>
         )}
 
-        <FormSection title="Pièces jointes" collapsible defaultExpanded={false}>
+        <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
           <AttachmentManager ownerType="compliance_exemption" ownerId={exemption.id} compact />
         </FormSection>
       </PanelContentLayout>
@@ -834,7 +834,7 @@ function CreateJobPositionPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle fiche de poste"
+      title={t('conformite.job_positions.create')}
       subtitle="Conformite HSE"
       icon={<Briefcase size={14} className="text-primary" />}
       actions={
@@ -855,10 +855,10 @@ function CreateJobPositionPanel() {
           <FormSection title="Informations">
             <FormGrid>
               <DynamicPanelField label="Code">
-                <span className="text-sm font-mono text-muted-foreground italic">Auto-genere a la creation</span>
+                <span className="text-sm font-mono text-muted-foreground italic">{t('conformite.auto_genere_a_la_creation')}</span>
               </DynamicPanelField>
-              <DynamicPanelField label="Intitule du poste" required>
-                <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Operateur de production" />
+              <DynamicPanelField label={t('conformite.intitule_du_poste')} required>
+                <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder={t('conformite.operateur_de_production')} />
               </DynamicPanelField>
               <DynamicPanelField label="Departement">
                 <input type="text" value={form.department ?? ''} onChange={(e) => setForm({ ...form, department: e.target.value || null })} className={panelInputClass} placeholder="Production, HSE, Maintenance..." />
@@ -871,7 +871,7 @@ function CreateJobPositionPanel() {
               value={form.description ?? ''}
               onChange={(e) => setForm({ ...form, description: e.target.value || null })}
               className={`${panelInputClass} min-h-[60px] resize-y`}
-              placeholder="Description du poste et exigences HSE..."
+              placeholder={t('conformite.description_du_poste_et_exigences_hse')}
               rows={3}
             />
           </FormSection>
@@ -1000,11 +1000,11 @@ function JobPositionDetailPanel({ id }: { id: string }) {
               })}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">Aucune exigence de conformité définie pour ce poste.</p>
+            <p className="text-xs text-muted-foreground">{t('conformite.aucune_exigence_de_conformite_definie_po')}</p>
           )}
         </FormSection>
 
-        <FormSection title="Pièces jointes" collapsible defaultExpanded={false}>
+        <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
           <AttachmentManager ownerType="job_position" ownerId={jp.id} compact />
         </FormSection>
       </PanelContentLayout>
@@ -2008,6 +2008,7 @@ function SearchableSelect({ value, onChange, options, placeholder, disabled }: {
   placeholder?: string
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = React.useRef<HTMLDivElement>(null)
@@ -2044,7 +2045,7 @@ function SearchableSelect({ value, onChange, options, placeholder, disabled }: {
               autoFocus
             />
           </div>
-          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Aucun résultat</div>}
+          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">{t('common.no_results')}</div>}
           {filtered.map(o => (
             <button
               key={o.value}
@@ -2071,6 +2072,7 @@ function MultiSearchableSelect({ values, onChange, options, placeholder, disable
   placeholder?: string
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = React.useRef<HTMLDivElement>(null)
@@ -2115,7 +2117,7 @@ function MultiSearchableSelect({ values, onChange, options, placeholder, disable
               autoFocus
             />
           </div>
-          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Aucun résultat</div>}
+          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">{t('common.no_results')}</div>}
           {filtered.map(o => (
             <button
               key={o.value}
@@ -2407,9 +2409,9 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
 
   return (
     <PanelContentLayout>
-      <FormSection title="Général">
+      <FormSection title={t('workflow.entity.workflow')}>
         <FormGrid>
-          <DynamicPanelField label="Type de conformité" required span="full">
+          <DynamicPanelField label={t('paxlog.records.fields.type')} required span="full">
             {typeReadOnly ? (
               <div className={cn(panelInputClass, 'bg-accent/30 cursor-default')}>
                 {ct ? `[${ct.category}] ${ct.code} — ${ct.name}` : '—'}
@@ -2419,7 +2421,7 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
                 value={form.compliance_type_id}
                 onChange={(v) => setForm({ ...form, compliance_type_id: v })}
                 options={typeOptions}
-                placeholder="Rechercher un type..."
+                placeholder={t('paxlog.records.placeholders.type')}
               />
             )}
           </DynamicPanelField>
@@ -2431,12 +2433,12 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
             />
           </DynamicPanelField>
           {form.target_type === 'job_position' && (
-            <DynamicPanelField label="Fiche(s) de poste" span="full">
+            <DynamicPanelField label={t('conformite.fiche_s_de_poste')} span="full">
               <MultiSearchableSelect
                 values={(form.target_value || '').split(',').filter(Boolean)}
                 onChange={(vs) => setForm({ ...form, target_value: vs.join(',') })}
                 options={jpOptions}
-                placeholder="Rechercher et ajouter des postes..."
+                placeholder={t('conformite.rechercher_et_ajouter_des_postes')}
               />
             </DynamicPanelField>
           )}
@@ -2453,16 +2455,16 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
             </DynamicPanelField>
           )}
           <DynamicPanelField label="Description" span="full">
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${panelInputClass} min-h-[48px] resize-y`} placeholder="Description de la règle..." rows={2} />
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${panelInputClass} min-h-[48px] resize-y`} placeholder={t('conformite.description_de_la_regle')} rows={2} />
           </DynamicPanelField>
-          <DynamicPanelField label="Priorité">
+          <DynamicPanelField label={t('common.priority')}>
             <TagSelector
               options={rulePriorityOptions}
               value={form.priority}
               onChange={(v: string) => setForm({ ...form, priority: v })}
             />
           </DynamicPanelField>
-          <DynamicPanelField label="Applicabilité">
+          <DynamicPanelField label={t('conformite.columns.applicability')}>
             <TagSelector
               options={ruleApplicabilityOptions}
               value={form.applicability ?? 'permanent'}
@@ -2472,18 +2474,18 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
         </FormGrid>
       </FormSection>
 
-      <FormSection title="Validité & Rappels" defaultExpanded={false}>
+      <FormSection title={t('conformite.validite_rappels')} defaultExpanded={false}>
         <FormGrid>
-          <DynamicPanelField label="Entrée en vigueur">
+          <DynamicPanelField label={t('conformite.entree_en_vigueur')}>
             <input type="date" value={form.effective_from ?? ''} onChange={(e) => setForm({ ...form, effective_from: e.target.value || null })} className={panelInputClass} />
           </DynamicPanelField>
-          <DynamicPanelField label="Fin de validité">
+          <DynamicPanelField label={t('conformite.fin_de_validite')}>
             <input type="date" value={form.effective_to ?? ''} onChange={(e) => setForm({ ...form, effective_to: e.target.value || null })} className={panelInputClass} />
           </DynamicPanelField>
-          <DynamicPanelField label="Validité override (jours)">
-            <input type="number" value={form.override_validity_days ?? ''} onChange={(e) => setForm({ ...form, override_validity_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="Vide = utilise la valeur du type" />
+          <DynamicPanelField label={t('conformite.validite_override_jours')}>
+            <input type="number" value={form.override_validity_days ?? ''} onChange={(e) => setForm({ ...form, override_validity_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder={t('conformite.vide_utilise_la_valeur_du_type')} />
           </DynamicPanelField>
-          <DynamicPanelField label="Période de grâce (jours)">
+          <DynamicPanelField label={t('conformite.periode_de_grace_jours')}>
             <input type="number" value={form.grace_period_days ?? ''} onChange={(e) => setForm({ ...form, grace_period_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="0" />
           </DynamicPanelField>
           <DynamicPanelField label="Rappel renouvellement (jours avant)">
@@ -2583,7 +2585,7 @@ function EditRulePanel() {
 
   return (
     <DynamicPanelShell
-      title="Modifier la règle"
+      title={t('conformite.modifier_la_regle')}
       subtitle={`v${rule.version ?? 1}`}
       icon={<Scale size={14} className="text-primary" />}
       actions={
@@ -2608,8 +2610,8 @@ function EditRulePanel() {
       {canUpdate && (
         <div className="px-4 pb-2">
           <FormSection title="Modification">
-            <DynamicPanelField label="Raison de la modification" required>
-              <input type="text" value={changeReason} onChange={(e) => setChangeReason(e.target.value)} className={panelInputClass} placeholder="Ex: Mise à jour durée de validité..." />
+            <DynamicPanelField label={t('conformite.raison_de_la_modification')} required>
+              <input type="text" value={changeReason} onChange={(e) => setChangeReason(e.target.value)} className={panelInputClass} placeholder={t('conformite.ex_mise_a_jour_duree_de_validite')} />
             </DynamicPanelField>
           </FormSection>
         </div>
@@ -2617,7 +2619,7 @@ function EditRulePanel() {
 
       {/* Attachments */}
       <div className="px-4 pb-2">
-        <FormSection title="Pièces jointes" defaultExpanded={false} collapsible>
+        <FormSection title={t('common.attachments')} defaultExpanded={false} collapsible>
           <AttachmentManager ownerType="compliance_rule" ownerId={rule.id} compact />
         </FormSection>
       </div>
@@ -2626,7 +2628,7 @@ function EditRulePanel() {
       <div className="px-4 pb-4">
         <FormSection title="Historique" defaultExpanded={false}>
           {!historyData || historyData.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">Aucun historique disponible.</p>
+            <p className="text-xs text-muted-foreground py-2">{t('conformite.aucun_historique_disponible')}</p>
           ) : (
             <div className="border-l-2 border-border ml-2 space-y-0">
               {historyData.map((h: any, i: number) => (
@@ -2708,7 +2710,7 @@ function CreateRulePanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle règle"
+      title={t('conformite.rules.create')}
       subtitle="Conformité"
       icon={<Scale size={14} className="text-primary" />}
       actions={
@@ -3109,7 +3111,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
   if (!item) {
     return (
       <DynamicPanelShell title="Verification" onClose={closeDynamicPanel}>
-        <p className="text-sm text-muted-foreground p-4">Document non trouve ou deja traite.</p>
+        <p className="text-sm text-muted-foreground p-4">{t('conformite.document_non_trouve_ou_deja_traite')}</p>
       </DynamicPanelShell>
     )
   }
@@ -3142,7 +3144,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
     >
         <PanelContentLayout>
           {/* ── Record info ── */}
-          <FormSection title="Propriétaire" collapsible defaultExpanded>
+          <FormSection title={t('assets.owner_company')} collapsible defaultExpanded>
             <VerificationOwnerSummary ownerType={item.owner_type} ownerId={item.owner_id} ownerName={item.owner_name} />
           </FormSection>
 
@@ -3154,7 +3156,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
           <ReadOnlyRow label="Reference" value={(item as any).reference_number || '—'} />
           <ReadOnlyRow label="Date emission" value={fmtDate((item as any).issued_at)} />
           <ReadOnlyRow label="Expiration" value={fmtDate((item as any).expires_at)} />
-          <ReadOnlyRow label="Soumis le" value={fmtDate(item.submitted_at)} />
+          <ReadOnlyRow label={t('paxlog.waitlist.columns.submitted_at')} value={fmtDate(item.submitted_at)} />
         </DetailFieldGrid>
 
         {/* ── Attachments ── */}
@@ -3175,11 +3177,11 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
         {/* ── Reject form (shown inline when reject button clicked) ── */}
         {showReject && (
           <div className="border border-red-200 dark:border-red-800/40 rounded-lg p-3 bg-red-50/50 dark:bg-red-900/10 space-y-2">
-            <label className="gl-label text-red-600">Motif du rejet</label>
+            <label className="gl-label text-red-600">{t('conformite.verifications.reject_reason')}</label>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Expliquez pourquoi ce document est rejete..."
+              placeholder={t('conformite.expliquez_pourquoi_ce_document_est_rejet')}
               className="gl-form-input min-h-[60px]"
               autoFocus
             />

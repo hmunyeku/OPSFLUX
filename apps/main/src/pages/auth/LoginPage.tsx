@@ -362,7 +362,7 @@ export function LoginPage() {
                       key={provider.id}
                       onClick={() => handleSsoLogin(provider.id)}
                       disabled={ssoLoading === provider.id}
-                      className="gl-button gl-button-default w-full h-9 flex items-center justify-center gap-2"
+                      className="gl-button gl-button-default w-full h-9 items-center justify-center gap-2"
                     >
                       {ssoLoading === provider.id ? (
                         <Loader2 size={14} className="animate-spin" />

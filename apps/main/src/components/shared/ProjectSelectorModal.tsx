@@ -10,6 +10,7 @@
  * - Radix Dialog for consistent OpsFlux modal pattern
  */
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
   X, Search, Filter, CheckSquare, Square,
@@ -57,6 +58,7 @@ interface Props {
 }
 
 export function ProjectSelectorModal({ open, onClose, selection, onSelectionChange, title = 'Sélection de projets' }: Props) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState<string[]>([])
@@ -143,7 +145,7 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
                 <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text" value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Rechercher par nom ou code..."
+                  placeholder={t('shared.rechercher_par_nom_ou_code')}
                   className="w-full h-7 pl-7 pr-2 text-xs border border-border rounded bg-background"
                 />
               </div>
@@ -181,7 +183,7 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
             {isLoading ? (
               <div className="flex items-center justify-center h-32"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
             ) : projects.length === 0 ? (
-              <div className="text-center py-8 text-xs text-muted-foreground italic">Aucun projet ne correspond. Essayez une recherche différente.</div>
+              <div className="text-center py-8 text-xs text-muted-foreground italic">{t('shared.aucun_projet_ne_correspond_essayez_une_r')}</div>
             ) : (
               <>
                 {/* Select all header */}

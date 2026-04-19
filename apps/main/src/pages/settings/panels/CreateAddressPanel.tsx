@@ -175,7 +175,7 @@ export function CreateAddressPanel() {
 
         <FormSection title="Informations">
           <DynamicPanelField label="Adresse ligne 1" required>
-            <input type="text" className={panelInputClass} placeholder="Numéro et nom de rue" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
+            <input type="text" className={panelInputClass} placeholder={t('settings.numero_et_nom_de_rue')} value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
           </DynamicPanelField>
 
           <DynamicPanelField label="Ville" required>
@@ -187,13 +187,13 @@ export function CreateAddressPanel() {
           </DynamicPanelField>
         </FormSection>
 
-        <FormSection title="Détails supplémentaires" collapsible defaultExpanded={false} storageKey="panel.address.sections" id="address-details">
+        <FormSection title={t('settings.details_supplementaires')} collapsible defaultExpanded={false} storageKey="panel.address.sections" id="address-details">
           <DynamicPanelField label="Adresse ligne 2">
-            <input type="text" className={panelInputClass} placeholder="Appartement, bâtiment, étage (optionnel)" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
+            <input type="text" className={panelInputClass} placeholder={t('settings.appartement_batiment_etage_optionnel')} value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
           </DynamicPanelField>
 
-          <DynamicPanelField label="État / Province">
-            <input type="text" className={panelInputClass} placeholder="Région ou province (optionnel)" value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} />
+          <DynamicPanelField label={t('settings.etat_province')}>
+            <input type="text" className={panelInputClass} placeholder={t('settings.region_ou_province_optionnel')} value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} />
           </DynamicPanelField>
 
           <DynamicPanelField label="Code postal">
@@ -201,7 +201,7 @@ export function CreateAddressPanel() {
           </DynamicPanelField>
         </FormSection>
 
-        <FormSection title="Coordonnées GPS" collapsible defaultExpanded={false} storageKey="panel.address.sections" id="address-gps">
+        <FormSection title={t('assets.location_gps')} collapsible defaultExpanded={false} storageKey="panel.address.sections" id="address-gps">
           <div className="flex items-center justify-between mb-2">
             <span className="gl-label-sm">Position</span>
             <button
@@ -232,7 +232,7 @@ export function CreateAddressPanel() {
           <label className="flex items-start gap-2.5 cursor-pointer">
             <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} className="h-4 w-4 accent-primary mt-0.5" />
             <div>
-              <span className="text-sm font-medium text-foreground">Adresse par défaut</span>
+              <span className="text-sm font-medium text-foreground">{t('settings.adresse_par_defaut')}</span>
               <p className="text-xs text-muted-foreground">
                 Cette adresse sera utilisée comme adresse principale dans les formulaires.
               </p>

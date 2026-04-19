@@ -2,6 +2,7 @@
  * Settings for Table, Map, and Text widget types.
  */
 import { Eye, EyeOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   FormSection,
   DynamicPanelField,
@@ -16,6 +17,7 @@ interface WidgetSettingsOtherProps {
 }
 
 export function WidgetSettingsOther({ widgetType, config, onChange }: WidgetSettingsOtherProps) {
+  const { t } = useTranslation()
   if (widgetType === 'table') {
     // Column visibility — stored as string[] of hidden column keys
     const hiddenColumns = (config.hidden_columns as string[]) || []
@@ -33,7 +35,7 @@ export function WidgetSettingsOther({ widgetType, config, onChange }: WidgetSett
 
     return (
       <FormSection title="Configuration Tableau" collapsible defaultExpanded storageKey="widget-settings-table">
-        <DynamicPanelField label="Source de donnees">
+        <DynamicPanelField label={t('dashboard.source_de_donnees')}>
           <input
             type="text"
             className={panelInputClass}
@@ -60,7 +62,7 @@ export function WidgetSettingsOther({ widgetType, config, onChange }: WidgetSett
               checked={config.cross_filter !== false}
               onChange={(e) => onChange({ cross_filter: e.target.checked })}
             />
-            <span className="text-xs text-foreground">Clic sur cellule = filtre global</span>
+            <span className="text-xs text-foreground">{t('dashboard.clic_sur_cellule_filtre_global')}</span>
           </label>
         </DynamicPanelField>
 
@@ -103,7 +105,7 @@ export function WidgetSettingsOther({ widgetType, config, onChange }: WidgetSett
               checked={config.fleet_map === true}
               onChange={(e) => onChange({ fleet_map: e.target.checked })}
             />
-            <span className="text-sm text-foreground">Afficher les vecteurs de transport</span>
+            <span className="text-sm text-foreground">{t('dashboard.afficher_les_vecteurs_de_transport')}</span>
           </label>
         </DynamicPanelField>
         <DynamicPanelField label="Zoom par defaut">
@@ -148,7 +150,7 @@ export function WidgetSettingsOther({ widgetType, config, onChange }: WidgetSett
           onChange={(e) => onChange({ content: e.target.value })}
           placeholder="# Titre&#10;&#10;Contenu en **markdown**..."
         />
-        <p className="text-[10px] text-muted-foreground mt-1">Supporte le Markdown (titres, listes, gras, italique)</p>
+        <p className="text-[10px] text-muted-foreground mt-1">{t('dashboard.supporte_le_markdown_titres_listes_gras')}</p>
       </DynamicPanelField>
     </FormSection>
   )

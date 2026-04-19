@@ -55,7 +55,7 @@ export function ProjetsConfigTab() {
     >
       <div className="mt-2 space-y-0">
         <SettingRow
-          label="Méthode par défaut"
+          label={t('settings.methode_par_defaut')}
           description="Appliquée aux projets dont la méthode n'est pas définie explicitement. Le calcul se fait récursivement : les tâches parents agrègent leurs sous-tâches, puis le projet agrège ses tâches racines."
         >
           <select
@@ -80,7 +80,7 @@ export function ProjetsConfigTab() {
 
       {/* Reference card listing all methods + their formulas */}
       <div className="mt-4 rounded-lg border border-border/40 bg-background px-4 py-3">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-2">Référentiel des méthodes</p>
+        <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-2">{t('settings.referentiel_des_methodes')}</p>
         <div className="space-y-2.5">
           {PROGRESS_WEIGHT_METHOD_OPTIONS.map((opt) => (
             <div key={opt.value} className="text-xs">

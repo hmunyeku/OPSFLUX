@@ -55,12 +55,12 @@ export function PlannerConfigTab() {
 
   return (
     <>
-    <CollapsibleSection id="planner-revision-flow" title="Workflow de révision"
+    <CollapsibleSection id="planner-revision-flow" title={t('settings.workflow_de_revision')}
       description="Délais et règles d'arbitrage des révisions Planner (spec 2.8 / 5.3)."
       storageKey="settings.planner.revision.collapse" showSeparator>
       <div className="mt-2 space-y-0">
         <SettingRow
-          label="Délai de réponse avant forçage (heures)"
+          label={t('settings.delai_de_reponse_avant_forcage_heures')}
           description="Au-delà de ce délai, l'arbitre peut forcer la validation d'une révision sans réponse du chef de projet."
         >
           <input
@@ -76,7 +76,7 @@ export function PlannerConfigTab() {
           />
         </SettingRow>
         <SettingRow
-          label="Horizon de génération des activités récurrentes (jours)"
+          label={t('settings.horizon_de_generation_des_activites_recu')}
           description="Combien de jours à l'avance le job APScheduler quotidien crée les instances futures d'activités récurrentes. Plus la valeur est élevée, plus le forecast et la heatmap voient loin."
         >
           <input
@@ -95,8 +95,8 @@ export function PlannerConfigTab() {
       </div>
     </CollapsibleSection>
 
-    <CollapsibleSection id="planner-capacity-heatmap" title="Heatmap capacité"
-      description="Seuils et couleurs utilisés dans la heatmap de saturation Planner."
+    <CollapsibleSection id="planner-capacity-heatmap" title={t('settings.heatmap_capacite')}
+      description={t('settings.seuils_et_couleurs_utilises_dans_la_heat')}
       storageKey="settings.planner.collapse" showSeparator={false}>
       <div className="mt-2 space-y-0">
         {[
@@ -123,7 +123,7 @@ export function PlannerConfigTab() {
           ['planner.capacity_heatmap_color_critical', 'Couleur niveau critique', '#ef4444'],
           ['planner.capacity_heatmap_color_overflow', 'Couleur dépassement', '#991b1b'],
         ].map(([key, label, def]) => (
-          <SettingRow key={key} label={label} description="Couleur affichée dans la heatmap Planner.">
+          <SettingRow key={key} label={label} description={t('settings.couleur_affichee_dans_la_heatmap_planner')}>
             <div className="flex items-center gap-2">
               <input type="color" className="h-8 w-10 rounded border border-border bg-background p-1"
                 defaultValue={(s[key] as string) ?? def} onChange={(e) => save(key, e.target.value)} />

@@ -15,6 +15,7 @@
  *   <TagManager ownerType="asset" ownerId={asset.id} compact />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Lock, Globe, Check, ChevronRight, ChevronDown, FolderTree } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useTagTree, useTags, useCreateTag, useUpdateTag, useDeleteTag } from '@/hooks/useSettings'
@@ -44,6 +45,7 @@ interface TagManagerProps {
 }
 
 export function TagManager({ ownerType, ownerId, compact }: TagManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const userId = useAuthStore((s) => s.user?.id)
   const { data: treeData, isLoading } = useTagTree(ownerType, ownerId)
@@ -136,7 +138,7 @@ export function TagManager({ ownerType, ownerId, compact }: TagManagerProps) {
       )}
 
       {!isLoading && !showForm && tree.length === 0 && !compact && (
-        <EmptyState title="Aucun tag" size="compact" />
+        <EmptyState title={t('shared.tags.empty')} size="compact" />
       )}
 
       {/* Add button */}
@@ -328,6 +330,7 @@ function InlineTagEditor({
   onCancel: () => void
   isSaving: boolean
 }) {
+  const { t } = useTranslation()
   const [editName, setEditName] = useState(tag.name)
   const [editColor, setEditColor] = useState(tag.color)
   const [editVisibility, setEditVisibility] = useState<'public' | 'private'>(tag.visibility)
@@ -391,7 +394,7 @@ function InlineTagEditor({
           onChange={(e) => setEditParentId(e.target.value || null)}
           className="flex-1 px-1 py-0.5 text-[10px] rounded border border-border/60 bg-card focus:outline-none focus:border-primary/50"
         >
-          <option value="">Aucun (racine)</option>
+          <option value="">{t('common.none_root')}</option>
           {availableParents.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
@@ -474,12 +477,13 @@ function TagForm({
   isPending: boolean
   submitLabel: string
 }) {
+  const { t } = useTranslation()
   return (
     <div className="border border-border/60 rounded-lg bg-card p-3 space-y-3">
       <input
         type="text"
         className={panelInputClass}
-        placeholder="Nom du tag"
+        placeholder={t('shared.nom_du_tag')}
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') onSubmit() }}
@@ -495,7 +499,7 @@ function TagForm({
             onChange={(e) => setParentId(e.target.value || null)}
             className="flex-1 px-2 py-1 text-xs rounded border border-border/60 bg-card focus:outline-none focus:border-primary/50"
           >
-            <option value="">Aucun (racine)</option>
+            <option value="">{t('common.none_root')}</option>
             {availableParents.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.parent_id ? '\u00A0\u00A0↳ ' : ''}{t.name}

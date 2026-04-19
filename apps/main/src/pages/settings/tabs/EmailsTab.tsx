@@ -67,14 +67,14 @@ export function EmailsTab() {
       <CollapsibleSection
         id="emails-list"
         title="Adresses email"
-        description="Gérez les adresses email liées à votre compte."
+        description={t('settings.gerez_les_adresses_email_liees_a_votre_c')}
         storageKey="settings.emails.collapse"
       >
         {/* Linked emails card */}
         <div className="mt-6 border border-border/60 rounded-lg bg-card">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-muted/30 rounded-t-lg">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-foreground">Emails liés</span>
+              <span className="text-sm font-semibold text-foreground">{t('settings.emails_lies')}</span>
               <Mail size={14} className="text-muted-foreground" />
               <span className="text-sm text-muted-foreground">{emails?.length || 0}</span>
             </div>
@@ -87,7 +87,7 @@ export function EmailsTab() {
           ) : (
             <div className="p-3">
               {(!emails || emails.length === 0) ? (
-                <EmptyState icon={Mail} title="Aucun email" description="Aucune adresse email configurée." size="compact" />
+                <EmptyState icon={Mail} title={t('shared.emails.empty')} description={t('settings.aucune_adresse_email_configuree')} size="compact" />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   {emails.map((email) => (
@@ -168,7 +168,7 @@ export function EmailsTab() {
         {/* Add email — inline within the same section */}
         <div className="mt-4 flex items-end gap-3 max-w-lg">
           <div className="flex-1">
-            <label className="gl-label">Ajouter une adresse email</label>
+            <label className="gl-label">{t('settings.ajouter_une_adresse_email')}</label>
             <input
               type="email"
               className="gl-form-input"

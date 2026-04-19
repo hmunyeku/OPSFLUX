@@ -12,6 +12,7 @@
  *   <MapPickerModal open={show} onClose={...} latitude={3.848} longitude={9.687} onSelect={...} />
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import L from 'leaflet'
 import { X, MapPin, Search, Loader2, Crosshair } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
@@ -199,6 +200,7 @@ export function MapPicker({
   height = 350,
   showSearch = true,
 }: MapPickerProps) {
+  const { t } = useTranslation()
   const { data: mapSettings } = useMapSettings()
   const containerRef = useRef<HTMLDivElement>(null)
   const [markerPos, setMarkerPos] = useState<[number, number] | null>(
@@ -292,7 +294,7 @@ export function MapPicker({
               <input
                 type="text"
                 className="gl-form-input text-sm w-full pl-8"
-                placeholder="Rechercher une adresse..."
+                placeholder={t('geo.search_address')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -333,7 +335,7 @@ export function MapPicker({
 
           {showResults && searchResults.length === 0 && !searching && (
             <div className="absolute z-[1000] top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg px-3 py-2">
-              <p className="text-xs text-muted-foreground">Aucun résultat trouvé.</p>
+              <p className="text-xs text-muted-foreground">{t('shared.aucun_resultat_trouve')}</p>
             </div>
           )}
         </div>
@@ -376,6 +378,7 @@ export function MapPickerModal({
   longitude,
   onSelect,
 }: MapPickerModalProps) {
+  const { t } = useTranslation()
   const [tempPos, setTempPos] = useState<{ lat: number; lng: number } | null>(
     latitude != null && longitude != null ? { lat: latitude, lng: longitude } : null,
   )
@@ -395,7 +398,7 @@ export function MapPickerModal({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <MapPin size={16} className="text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Choisir sur la carte</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('shared.choisir_sur_la_carte')}</h3>
           </div>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-accent text-muted-foreground">
             <X size={16} />

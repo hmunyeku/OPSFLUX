@@ -72,7 +72,7 @@ export function CreateAppPanel() {
   if (createdApp) {
     return (
       <DynamicPanelShell
-        title="Application créée"
+        title={t('settings.toast.apps.created')}
         icon={<AppWindow size={14} className="text-primary" />}
         actions={
           <PanelActionButton variant="primary" onClick={closeDynamicPanel}>
@@ -124,7 +124,7 @@ export function CreateAppPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle application"
+      title={t('settings.nouvelle_application')}
       icon={<AppWindow size={14} className="text-primary" />}
       actions={
         <>
@@ -145,24 +145,24 @@ export function CreateAppPanel() {
             <input
               type="text"
               className={panelInputClass}
-              placeholder="Mon application"
+              placeholder={t('settings.mon_application')}
               value={appName}
               onChange={(e) => setAppName(e.target.value)}
             />
           </DynamicPanelField>
 
-          <DynamicPanelField label="URI de redirection" required>
+          <DynamicPanelField label={t('settings.uri_de_redirection')} required>
             <textarea
               className={`${panelInputClass} h-20 resize-y`}
               placeholder="https://mon-app.example.com/callback"
               value={redirectUri}
               onChange={(e) => setRedirectUri(e.target.value)}
             />
-            <p className="mt-1 text-xs text-muted-foreground">Une URI par ligne.</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('settings.une_uri_par_ligne')}</p>
           </DynamicPanelField>
         </FormSection>
 
-        <FormSection title="Confidentialité" collapsible storageKey="panel.app.sections" id="app-confidentiality">
+        <FormSection title={t('settings.confidentialite')} collapsible storageKey="panel.app.sections" id="app-confidentiality">
           <div className="space-y-2">
             <label className="flex items-start gap-2.5 cursor-pointer">
               <input
@@ -187,7 +187,7 @@ export function CreateAppPanel() {
               />
               <div>
                 <span className="text-sm font-medium text-foreground">Publique</span>
-                <p className="text-xs text-muted-foreground">SPA / mobile — ne peut garder de secret.</p>
+                <p className="text-xs text-muted-foreground">{t('settings.spa_mobile_ne_peut_garder_de_secret')}</p>
               </div>
             </label>
           </div>

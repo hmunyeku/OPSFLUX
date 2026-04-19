@@ -1,4 +1,5 @@
 import { Eye, Download, Pencil, Copy, Trash2, FolderOpen } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { FSItem } from '../hooks/useFileManager'
 
 interface FileContextMenuProps {
@@ -27,6 +28,7 @@ function MenuItem({ icon: Icon, label, onClick, danger }: { icon: React.ElementT
 }
 
 export function FileContextMenu({ position, item, downloadUrl, onClose, onOpen, onRename, onDelete, onCopyPath }: FileContextMenuProps) {
+  const { t } = useTranslation()
   // Clamp position to viewport
   const menuW = 180
   const menuH = item.isDirectory ? 140 : 180
@@ -44,7 +46,7 @@ export function FileContextMenu({ position, item, downloadUrl, onClose, onOpen, 
           <MenuItem icon={FolderOpen} label="Ouvrir" onClick={() => { onClose(); onOpen(item) }} />
         ) : (
           <>
-            <MenuItem icon={Eye} label="Aperçu" onClick={() => { onClose(); onOpen(item) }} />
+            <MenuItem icon={Eye} label={t('settings.numbering.preview')} onClick={() => { onClose(); onOpen(item) }} />
             <a
               href={downloadUrl}
               target="_blank"
@@ -53,13 +55,13 @@ export function FileContextMenu({ position, item, downloadUrl, onClose, onOpen, 
               onClick={onClose}
             >
               <Download size={13} className="shrink-0" />
-              <span>Télécharger</span>
+              <span>{t('shared.telecharger')}</span>
             </a>
           </>
         )}
         <div className="h-px bg-border my-1" />
         <MenuItem icon={Pencil} label="Renommer" onClick={() => { onClose(); onRename(item) }} />
-        <MenuItem icon={Copy} label="Copier le chemin" onClick={() => { onCopyPath(item); onClose() }} />
+        <MenuItem icon={Copy} label={t('files.copier_le_chemin')} onClick={() => { onCopyPath(item); onClose() }} />
         <div className="h-px bg-border my-1" />
         <MenuItem icon={Trash2} label="Supprimer" onClick={() => { onClose(); onDelete(item) }} danger />
       </div>

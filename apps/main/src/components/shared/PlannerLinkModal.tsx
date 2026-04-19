@@ -7,6 +7,7 @@
  * On submit, batch-creates PlannerActivities via POST /send-to-planner.
  */
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
   X, Search, CheckSquare, Square, Loader2, Calendar, Send, Zap, Eye, Unlink,
@@ -37,6 +38,7 @@ interface Props {
 }
 
 export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetId }: Props) {
+  const { t } = useTranslation()
   const { data: tasks } = useProjectTasks(open ? projectId : undefined)
   const { data: links } = usePlannerLinks(open ? projectId : undefined)
   const sendToPlanner = useSendToPlanner()
@@ -211,7 +213,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
           )}
           {linked && (
             <>
-              <span className="text-green-600 text-[10px]">Déjà planifié</span>
+              <span className="text-green-600 text-[10px]">{t('shared.deja_planifie')}</span>
               {linkedEntry?.activity_id && (
                 <button
                   onClick={(e) => {
@@ -259,7 +261,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
             <div>
-              <Dialog.Title className="text-sm font-semibold">Envoyer au Planner</Dialog.Title>
+              <Dialog.Title className="text-sm font-semibold">{t('shared.envoyer_au_planner')}</Dialog.Title>
               <p className="text-xs text-muted-foreground mt-0.5">Projet {projectCode} — sélectionnez les tâches à planifier individuellement</p>
             </div>
             <Dialog.Close asChild>
@@ -272,7 +274,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une tâche..."
+                <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('shared.rechercher_une_tache')}
                   className="w-full h-7 pl-7 pr-2 text-xs border border-border rounded bg-background" />
               </div>
               <span className="text-xs text-muted-foreground">{selectableCount} planifiable{selectableCount > 1 ? 's' : ''}</span>
@@ -316,17 +318,17 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                   min="0"
                   max="999"
                   value={paxQuotaOverride ?? ''}
-                  placeholder="Tâche"
+                  placeholder={t('projets.columns.task')}
                   onChange={e => {
                     const v = e.target.value
                     setPaxQuotaOverride(v === '' ? null : Math.max(0, Number(v) || 0))
                   }}
                   className="w-16 h-6 px-1.5 text-xs border border-border rounded bg-background tabular-nums"
-                  title="Vide = utilise le POB de chaque tâche. Sinon, force la valeur saisie pour toutes."
+                  title={t('shared.vide_utilise_le_pob_de_chaque_tache_sino')}
                 />
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">Priorité:</span>
+                <span className="text-xs text-muted-foreground">{t('settings.imputations.assignment_priority')}</span>
                 <select value={priority} onChange={e => setPriority(e.target.value)}
                   className="h-6 px-1.5 text-xs border border-border rounded bg-background">
                   <option value="low">Basse</option>

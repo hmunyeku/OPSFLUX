@@ -6,6 +6,7 @@
  * Permission-gated: requires admin.fs or core.settings.manage.
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FolderOpen, Menu, X } from 'lucide-react'
 import { PanelHeader } from '@/components/layout/PanelHeader'
 import { usePermission } from '@/hooks/usePermission'
@@ -30,6 +31,7 @@ import { FileStatusBar } from './components/FileStatusBar'
 import { NameDialog } from './components/NameDialog'
 
 export default function FileManagerPage() {
+  const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const canManage = hasPermission('admin.fs') || hasPermission('core.settings.manage')
 
@@ -66,8 +68,8 @@ export default function FileManagerPage() {
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center text-muted-foreground">
           <FolderOpen size={32} className="mx-auto mb-3 opacity-40" />
-          <p className="text-sm font-medium">Accès non autorisé</p>
-          <p className="text-xs mt-1">Vous n'avez pas la permission d'accéder au gestionnaire de fichiers.</p>
+          <p className="text-sm font-medium">{t('files.acces_non_autorise')}</p>
+          <p className="text-xs mt-1">{t('files.vous_n_avez_pas_la_permission_d_acceder')}</p>
         </div>
       </div>
     )
@@ -78,7 +80,7 @@ export default function FileManagerPage() {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden" ref={keyboardRef} tabIndex={0}>
       {/* Header */}
-      <PanelHeader icon={FolderOpen} title="Gestionnaire de fichiers" subtitle="Documents, pièces jointes et médias">
+      <PanelHeader icon={FolderOpen} title={t('files.gestionnaire_de_fichiers')} subtitle="Documents, pièces jointes et médias">
         <button onClick={() => fm.setSidebarOpen(!fm.sidebarOpen)} className="p-1.5 rounded hover:bg-accent text-muted-foreground lg:hidden">
           {fm.sidebarOpen ? <X size={14} /> : <Menu size={14} />}
         </button>

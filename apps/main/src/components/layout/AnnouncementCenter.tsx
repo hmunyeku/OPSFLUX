@@ -6,6 +6,7 @@
  * Permission-gated: create/edit/delete require specific permissions.
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Megaphone, Plus, Loader2, Pin, X, Check, AlertTriangle, Info, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermission } from '@/hooks/usePermission'
@@ -182,6 +183,7 @@ function AnnouncementItem({
 // ── Create Form ──────────────────────────────────────────────
 
 function CreateAnnouncementForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+  const { t } = useTranslation()
   const create = useCreateAnnouncement()
   const [form, setForm] = useState<AnnouncementCreate>({
     title: '',
@@ -234,15 +236,15 @@ function CreateAnnouncementForm({ onCreated, onCancel }: { onCreated: () => void
           className="gl-form-select text-[10px] h-6"
         >
           <option value="all">Tous</option>
-          <option value="entity">Entité</option>
+          <option value="entity">{t('settings.columns.rbac_groups.entity')}</option>
         </select>
         <select
           value={form.display_location}
           onChange={(e) => setForm({ ...form, display_location: e.target.value })}
           className="gl-form-select text-[10px] h-6"
         >
-          <option value="dashboard">Tableau de bord</option>
-          <option value="banner">Bannière</option>
+          <option value="dashboard">{t('nav.dashboard')}</option>
+          <option value="banner">{t('layout.banniere')}</option>
           <option value="all">Partout</option>
         </select>
         <label className="flex items-center gap-1 text-[10px] text-muted-foreground">

@@ -6,6 +6,7 @@
  * with click-to-expand on row labels. Legend lives in the left label margin.
  */
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import ReactECharts from 'echarts-for-react'
 import { useThemeStore } from '@/stores/themeStore'
 import {
@@ -154,6 +155,7 @@ export function CapacityHeatmap({
   onCellClick,
   syncScrollSelector,
 }: CapacityHeatmapProps) {
+  const { t } = useTranslation()
   const isDark = useThemeStore((s) => s.resolvedTheme === 'dark')
 
   // ── Collapse-only state (default = everything expanded) ──
@@ -323,9 +325,9 @@ export function CapacityHeatmap({
                 <span style="color:${mutedColor}; font-size:10px;">${row.level < 2 ? 'pic' : 'saturation'}</span>
               </div>
               <table style="font-size:10px; color:${mutedColor}; line-height:1.6;">
-                <tr><td>Prévision PAX</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_forecast}</td></tr>
-                <tr><td>POB réel</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_real_pob}</td></tr>
-                <tr><td>Capacité</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_capacity}</td></tr>
+                <tr><td>{t('shared.prevision_pax')}</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_forecast}</td></tr>
+                <tr><td>{t('shared.pob_reel')}</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_real_pob}</td></tr>
+                <tr><td>{t('assets.capacity')}</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_capacity}</td></tr>
                 <tr><td>Restant</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_remaining}</td></tr>
               </table>
             </div>
@@ -544,7 +546,7 @@ export function CapacityHeatmap({
         className="flex items-center justify-center text-xs text-muted-foreground"
         style={{ height: 220 }}
       >
-        <span className="animate-pulse">Chargement de la heatmap…</span>
+        <span className="animate-pulse">{t('shared.chargement_de_la_heatmap')}</span>
       </div>
     )
   }

@@ -60,6 +60,7 @@ function InlineEditableTextarea({
   onSave: (newValue: string) => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -90,7 +91,7 @@ function InlineEditableTextarea({
           className="w-full text-sm bg-transparent resize-y focus:outline-none min-h-[5rem]"
         />
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
-          <span className="text-[10px] text-muted-foreground mr-auto">⌘+Entrée pour valider · Esc pour annuler</span>
+          <span className="text-[10px] text-muted-foreground mr-auto">{t('projets.entree_pour_valider_esc_pour_annuler')}</span>
           <button onClick={cancel} className="h-7 px-2 rounded text-xs text-muted-foreground hover:bg-accent inline-flex items-center gap-1">
             <X size={12} /> Annuler
           </button>
@@ -338,7 +339,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
   if (!task) {
     return (
-      <DynamicPanelShell title="Tâche" subtitle="Chargement..." icon={<CheckCircle2 size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('projets.columns.task')} subtitle="Chargement..." icon={<CheckCircle2 size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )
@@ -519,7 +520,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             </p>
             <InlineEditableTextarea
               value={task.description || ''}
-              placeholder="Aucune description — cliquer ou double-cliquer pour ajouter"
+              placeholder={t('projets.aucune_description_cliquer_ou_double_cli')}
               onSave={(v) => handleSave('description', v || null)}
             />
           </div>
@@ -533,7 +534,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
         {/* ── 2-column layout: État/Assignation | Planning/POB ── */}
         <SectionColumns>
           <div className="@container space-y-5">
-            <FormSection title="État & priorité" collapsible defaultExpanded storageKey="task-detail-state">
+            <FormSection title={t('projets.etat_priorite')} collapsible defaultExpanded storageKey="task-detail-state">
               <DetailFieldGrid>
                 <InlineEditableSelect
                   label="Statut"
@@ -543,7 +544,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   onSave={(v) => handleSave('status', v)}
                 />
                 <InlineEditableSelect
-                  label="Priorité"
+                  label={t('common.priority')}
                   value={task.priority || 'medium'}
                   displayValue={PRIORITY_MAP[task.priority || 'medium']?.label || task.priority}
                   options={PRIORITY_OPTIONS.map((p) => ({ value: p.value, label: p.label }))}
@@ -558,7 +559,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                     {isParentTask && (
                       <span
                         className="ml-1 text-[9px] font-normal text-muted-foreground/70 normal-case"
-                        title="Cette tâche est un parent — son avancement est calculé automatiquement à partir de ses sous-tâches selon la méthode de pondération du projet."
+                        title={t('projets.cette_tache_est_un_parent_son_avancement')}
                       >
                         (calculé)
                       </span>
@@ -622,7 +623,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             <FormSection title="Assignation" collapsible defaultExpanded storageKey="task-detail-assign">
               <DetailFieldGrid>
                 <InlineEditableSelect
-                  label="Assigné"
+                  label={t('projets.assigne')}
                   value={task.assignee_id || ''}
                   displayValue={
                     task.assignee_id
@@ -648,14 +649,14 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             <FormSection title="Planning" collapsible defaultExpanded storageKey="task-detail-planning">
               <DetailFieldGrid>
                 <InlineEditableRow
-                  label="Début"
+                  label={t('conformite.columns.start_date')}
                   value={task.start_date ? task.start_date.split('T')[0] : ''}
                   displayValue={task.start_date ? new Date(task.start_date).toLocaleDateString('fr-FR') : '—'}
                   onSave={(v) => handleSave('start_date', v || null)}
                   type="date"
                 />
                 <InlineEditableRow
-                  label="Échéance"
+                  label={t('projets.columns.deadline')}
                   value={task.due_date ? task.due_date.split('T')[0] : ''}
                   displayValue={task.due_date ? new Date(task.due_date).toLocaleDateString('fr-FR') : '—'}
                   onSave={(v) => handleSave('due_date', v || null)}
@@ -664,7 +665,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
               </DetailFieldGrid>
               <DetailFieldGrid>
                 <ReadOnlyRow
-                  label="Durée"
+                  label={t('common.duration')}
                   value={
                     durationDays != null
                       ? <span className="text-sm tabular-nums">{durationDays} jour{durationDays !== 1 ? 's' : ''}</span>
@@ -673,7 +674,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 />
                 {task.completed_at && (
                   <ReadOnlyRow
-                    label="Terminé le"
+                    label={t('projets.columns.completed_at')}
                     value={new Date(task.completed_at).toLocaleDateString('fr-FR')}
                   />
                 )}
@@ -683,16 +684,16 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             <FormSection title="POB & Charge" collapsible defaultExpanded storageKey="task-detail-pob">
               <DetailFieldGrid>
                 <InlineEditableRow
-                  label="POB demandé"
+                  label={t('projets.pob_demande')}
                   value={String(task.pob_quota ?? 0)}
                   displayValue={`${task.pob_quota ?? 0} pers.`}
                   onSave={(v) => handleSave('pob_quota', Math.max(0, Number(v) || 0))}
                   type="number"
                 />
-                <ReadOnlyRow label="Heures estimées" value={task.estimated_hours ? `${task.estimated_hours} h` : '—'} />
+                <ReadOnlyRow label={t('projets.tasks.estimated_hours')} value={task.estimated_hours ? `${task.estimated_hours} h` : '—'} />
               </DetailFieldGrid>
               <DetailFieldGrid>
-                <ReadOnlyRow label="Heures réelles" value={task.actual_hours ? `${task.actual_hours} h` : '—'} />
+                <ReadOnlyRow label={t('projets.heures_reelles')} value={task.actual_hours ? `${task.actual_hours} h` : '—'} />
                 <div />
               </DetailFieldGrid>
               <p className="mt-2 text-[10px] text-muted-foreground/80 italic">
@@ -873,7 +874,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           storageKey="task-detail-deps"
         >
           {incomingDeps.length === 0 && outgoingDeps.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">Aucune dépendance</p>
+            <p className="text-xs text-muted-foreground italic">{t('planner.no_dependency')}</p>
           ) : (
             <SectionColumns>
               {/* Predecessors */}
@@ -955,7 +956,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
         {/* ── Pièces jointes ──────────────────────────────── */}
         <FormSection
-          title="Pièces jointes"
+          title={t('common.attachments')}
           collapsible
           defaultExpanded={false}
           storageKey="task-detail-attachments"
@@ -985,7 +986,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
               </div>
             ))}
             {(comments as unknown[])?.length === 0 && (
-              <p className="text-xs text-muted-foreground italic px-2 py-1.5">Aucun commentaire pour le moment</p>
+              <p className="text-xs text-muted-foreground italic px-2 py-1.5">{t('projets.aucun_commentaire_pour_le_moment')}</p>
             )}
           </div>
 
@@ -996,7 +997,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
-              placeholder="Ajouter un commentaire..."
+              placeholder={t('support.ajouter_un_commentaire')}
               className="gl-form-input flex-1 h-8 px-2 text-sm"
             />
             <button

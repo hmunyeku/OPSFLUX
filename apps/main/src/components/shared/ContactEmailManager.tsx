@@ -9,6 +9,7 @@
  *   <ContactEmailManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Mail, Star, Check, ShieldCheck, Send } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useContactEmails, useCreateContactEmail, useUpdateContactEmail, useDeleteContactEmail } from '@/hooks/useSettings'
@@ -31,6 +32,7 @@ interface ContactEmailManagerProps {
 }
 
 export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmailManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useContactEmails(ownerType, ownerId)
   const createEmail = useCreateContactEmail()
@@ -125,7 +127,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                 key={ce.id}
                 className="flex items-center gap-2 text-sm group"
                 onDoubleClick={() => setEditingId(ce.id)}
-                title="Double-cliquez pour modifier"
+                title={t('projets.double_cliquez_pour_modifier')}
               >
                 <Mail size={12} className="text-muted-foreground shrink-0" />
                 <span className="text-[10px] font-medium text-muted-foreground uppercase w-16 shrink-0">
@@ -145,11 +147,11 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                   <button
                     onClick={(e) => { e.stopPropagation(); sendVerification.mutate(ce.id, { onSuccess: () => toast({ title: 'Email de vérification envoyé', variant: 'success' }), onError: () => toast({ title: 'Erreur d\'envoi', variant: 'error' }) }) }}
                     className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 shrink-0"
-                    title="Envoyer un email de vérification"
+                    title={t('shared.envoyer_un_email_de_verification')}
                     disabled={sendVerification.isPending}
                   >
                     {sendVerification.isPending ? <Loader2 size={9} className="animate-spin" /> : <Send size={9} />}
-                    <span>Vérifier</span>
+                    <span>{t('auth.mfa_verify')}</span>
                   </button>
                 )}
                 <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -157,7 +159,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                     <button
                       onClick={() => handleSetDefault(ce.id)}
                       className="p-0.5 rounded hover:bg-accent text-muted-foreground"
-                      title="Définir par défaut"
+                      title={t('shared.definir_par_defaut')}
                     >
                       <Star size={10} />
                     </button>
@@ -184,7 +186,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
       )}
 
       {!isLoading && !showForm && emails.length === 0 && !compact && (
-        <EmptyState icon={Mail} title="Aucun email" description="Aucun email de contact." size="compact" />
+        <EmptyState icon={Mail} title={t('shared.emails.empty')} description={t('shared.emails.empty_description')} size="compact" />
       )}
 
       {!showForm && (

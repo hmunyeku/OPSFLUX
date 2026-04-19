@@ -193,14 +193,14 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
     >
       <PanelContentLayout>
         {editing ? (
-          <FormSection title="Demande d’expédition">
+          <FormSection title={t('packlog.demande_d_expedition')}>
             <FormGrid>
-              <DynamicPanelField label="Intitulé">
+              <DynamicPanelField label={t('conformite.columns.title')}>
                 <input type="text" value={editForm.title ?? ''} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label="Statut">
                 <select value={editForm.status ?? ''} onChange={(e) => setEditForm({ ...editForm, status: (e.target.value || null) as CargoRequestUpdate['status'] })} className={panelInputClass}>
-                  <option value="">Sélectionner...</option>
+                  <option value="">{t('common.select_option')}</option>
                   {requestStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
@@ -209,29 +209,29 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label="Description" span="full">
                 <textarea value={editForm.description ?? ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value || null })} className={`${panelInputClass} min-h-[72px] resize-y`} rows={3} />
               </DynamicPanelField>
-              <DynamicPanelField label="Entreprise expéditrice">
-                <CompanyPicker value={editForm.sender_tier_id ?? null} onChange={(id) => setEditForm({ ...editForm, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })} placeholder="Sélectionner une entreprise..." />
+              <DynamicPanelField label={t('travelwiz.entreprise_expeditrice')}>
+                <CompanyPicker value={editForm.sender_tier_id ?? null} onChange={(id) => setEditForm({ ...editForm, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })} placeholder={t('travelwiz.selectionner_une_entreprise')} />
               </DynamicPanelField>
               <DynamicPanelField label="Contact entreprise">
-                <ContactPicker value={editForm.sender_contact_tier_contact_id ?? null} onChange={(id) => setEditForm({ ...editForm, sender_contact_tier_contact_id: id ?? null })} placeholder="Sélectionner un contact..." tierId={editForm.sender_tier_id ?? null} />
+                <ContactPicker value={editForm.sender_contact_tier_contact_id ?? null} onChange={(id) => setEditForm({ ...editForm, sender_contact_tier_contact_id: id ?? null })} placeholder={t('travelwiz.selectionner_un_contact')} tierId={editForm.sender_tier_id ?? null} />
               </DynamicPanelField>
               <DynamicPanelField label="Destinataire">
                 <input type="text" value={editForm.receiver_name ?? ''} onChange={(e) => setEditForm({ ...editForm, receiver_name: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label="Imputation">
-                <ImputationPicker value={editForm.imputation_reference_id ?? null} onChange={(id) => setEditForm({ ...editForm, imputation_reference_id: id ?? null })} placeholder="Sélectionner une imputation..." />
+                <ImputationPicker value={editForm.imputation_reference_id ?? null} onChange={(id) => setEditForm({ ...editForm, imputation_reference_id: id ?? null })} placeholder={t('travelwiz.selectionner_une_imputation')} />
               </DynamicPanelField>
               <DynamicPanelField label="Demandeur">
-                <UserPicker value={editForm.requester_user_id ?? null} onChange={(id) => setEditForm({ ...editForm, requester_user_id: id ?? null })} placeholder="Sélectionner un utilisateur..." />
+                <UserPicker value={editForm.requester_user_id ?? null} onChange={(id) => setEditForm({ ...editForm, requester_user_id: id ?? null })} placeholder={t('travelwiz.selectionner_un_utilisateur')} />
               </DynamicPanelField>
               <DynamicPanelField label="Demandeur libre">
                 <input type="text" value={editForm.requester_name ?? ''} onChange={(e) => setEditForm({ ...editForm, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si le demandeur n'existe pas dans le référentiel" />
               </DynamicPanelField>
-              <DynamicPanelField label="Installation de destination" span="full">
+              <DynamicPanelField label={t('travelwiz.installation_de_destination')} span="full">
                 <AssetPicker value={editForm.destination_asset_id ?? null} onChange={(assetId) => setEditForm({ ...editForm, destination_asset_id: assetId ?? null })} clearable placeholder="Sélectionner l'installation de destination..." />
               </DynamicPanelField>
               <DynamicPanelField label="Projet" span="full">
-                <ProjectPicker value={editForm.project_id ?? null} onChange={(projectId) => setEditForm({ ...editForm, project_id: projectId ?? null })} clearable placeholder="Sélectionner un projet..." />
+                <ProjectPicker value={editForm.project_id ?? null} onChange={(projectId) => setEditForm({ ...editForm, project_id: projectId ?? null })} clearable placeholder={t('travelwiz.selectionner_un_projet')} />
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
@@ -248,13 +248,13 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 {loadingOptions?.length ? <span className="gl-badge gl-badge-info">{loadingOptions.length} option(s) de chargement</span> : null}
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Demande d’expédition</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.demande_d_expedition')}</p>
                 <h3 className="mt-1 text-lg font-semibold text-foreground">{cargoRequest.request_code}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{cargoRequest.title}</p>
               </div>
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Complétude</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.completeness')}</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">{completionRatio}%</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
@@ -275,7 +275,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               </div>
             </div>
 
-            <FormSection title="Lecture opérationnelle" collapsible defaultExpanded>
+            <FormSection title={t('travelwiz.lecture_operationnelle')} collapsible defaultExpanded>
               <div className="space-y-2">
                 {[
                   { label: 'Intitulé de la demande', done: Boolean(cargoRequest.title?.trim()) },
@@ -298,22 +298,22 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               </div>
             </FormSection>
 
-            <FormSection title="Demande d’expédition">
+            <FormSection title={t('packlog.demande_d_expedition')}>
               <DetailRow label="Code" value={cargoRequest.request_code} />
-              <DetailRow label="Intitulé" value={cargoRequest.title} />
+              <DetailRow label={t('conformite.columns.title')} value={cargoRequest.title} />
               <DetailRow label="Statut" value={requestStatusLabels[cargoRequest.status] ?? cargoRequest.status} />
               <DetailRow label="Description" value={cargoRequest.description ?? '—'} />
-              <DetailRow label="Entreprise expéditrice" value={cargoRequest.sender_name ?? '—'} />
+              <DetailRow label={t('travelwiz.entreprise_expeditrice')} value={cargoRequest.sender_name ?? '—'} />
               <DetailRow label="Contact entreprise" value={cargoRequest.sender_contact_name ?? '—'} />
               <DetailRow label="Destinataire" value={cargoRequest.receiver_name ?? '—'} />
               <DetailRow label="Destination" value={cargoRequest.destination_name ?? '—'} />
               <DetailRow label="Imputation" value={cargoRequest.imputation_reference_name ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim() : '—'} />
               <DetailRow label="Demandeur" value={cargoRequest.requester_display_name ?? cargoRequest.requester_name ?? '—'} />
-              <DetailRow label="Nombre de colis" value={String(cargoRequest.cargo_count ?? 0)} />
-              <DetailRow label="Créée le" value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
+              <DetailRow label={t('travelwiz.nombre_de_colis')} value={String(cargoRequest.cargo_count ?? 0)} />
+              <DetailRow label={t('packlog.requests.columns.created_at')} value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
             </FormSection>
 
-            <FormSection title="Complétude de la demande" collapsible defaultExpanded>
+            <FormSection title={t('travelwiz.completude_de_la_demande')} collapsible defaultExpanded>
               <div className="space-y-3">
                 <div className={`rounded-lg border px-3 py-2 text-xs ${cargoRequest.is_ready_for_submission ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
                   {cargoRequest.is_ready_for_submission ? 'La demande est prête pour soumission.' : 'La demande n’est pas encore prête pour soumission.'}
@@ -327,7 +327,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Aucun manque bloquant détecté.</p>
+                  <p className="text-xs text-muted-foreground">{t('travelwiz.aucun_manque_bloquant_detecte')}</p>
                 )}
               </div>
             </FormSection>
@@ -356,7 +356,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">Aucun colis rattaché à cette demande.</p>
+                  <p className="text-xs text-muted-foreground">{t('travelwiz.aucun_colis_rattache_a_cette_demande')}</p>
                   <PanelActionButton
                     variant="primary"
                     onClick={() => useUIStore.getState().openDynamicPanel({
@@ -372,7 +372,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               )}
             </FormSection>
 
-            <FormSection title="Propositions de chargement" collapsible defaultExpanded>
+            <FormSection title={t('travelwiz.propositions_de_chargement')} collapsible defaultExpanded>
               {(loadingOptions ?? []).length > 0 ? (
                 <div className="space-y-2">
                   {(loadingOptions ?? []).map((option) => (
@@ -418,7 +418,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">Aucune proposition de chargement disponible pour le moment.</p>
+                <p className="text-xs text-muted-foreground">{t('travelwiz.aucune_proposition_de_chargement_disponi')}</p>
               )}
             </FormSection>
           </>

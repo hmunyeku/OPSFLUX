@@ -40,10 +40,10 @@ export function TravelWizConfigTab() {
   return (
     <>
       <CollapsibleSection id="travelwiz-captain" title="Portail capitaine & signal POB"
-        description="Délais opérationnels pour le portail capitaine et le signal Pax On Board (POB)."
+        description={t('settings.delais_operationnels_pour_le_portail_cap')}
         storageKey="settings.travelwiz.captain.collapse" showSeparator={false}>
         <div className="mt-2 space-y-0">
-          <SettingRow label="Durée de session capitaine"
+          <SettingRow label={t('settings.duree_de_session_capitaine')}
             description="Délai d'expiration d'un jeton de session capitaine après authentification par code à 6 chiffres.">
             <div className="flex items-center gap-2">
               <input type="number" min={5} max={480} step={5}
@@ -54,7 +54,7 @@ export function TravelWizConfigTab() {
             </div>
           </SettingRow>
           <SettingRow label="Délai d'obsolescence du signal POB"
-            description="Au-delà de ce délai sans confirmation capitaine, le signal POB est considéré comme obsolète et alerte les opérateurs.">
+            description={t('settings.au_dela_de_ce_delai_sans_confirmation_ca')}>
             <div className="flex items-center gap-2">
               <input type="number" min={5} max={1440} step={5}
                 className="gl-form-input w-24 text-sm text-right font-mono"
@@ -66,12 +66,12 @@ export function TravelWizConfigTab() {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection id="travelwiz-operations" title="Transport & Météo"
-        description="Réglages opérationnels du transport, du suivi terrain et de la météo."
+      <CollapsibleSection id="travelwiz-operations" title={t('settings.transport_meteo')}
+        description={t('settings.reglages_operationnels_du_transport_du_s')}
         storageKey="settings.travelwiz.collapse" showSeparator={false}>
         <div className="mt-2 space-y-0">
-          <SettingRow label="Intervalle de synchro météo"
-            description="Fréquence minimale entre deux collectes météo automatiques par site actif.">
+          <SettingRow label={t('settings.intervalle_de_synchro_meteo')}
+            description={t('settings.frequence_minimale_entre_deux_collectes')}>
             <div className="flex items-center gap-2">
               <input type="number" min={5} max={240} step={5}
                 className="gl-form-input w-24 text-sm text-right font-mono"
@@ -80,8 +80,8 @@ export function TravelWizConfigTab() {
               <span className="text-xs text-muted-foreground">minutes</span>
             </div>
           </SettingRow>
-          <SettingRow label="Seuil alerte météo Beaufort"
-            description="Déclenchement des alertes météo opérationnelles pour les voyages actifs.">
+          <SettingRow label={t('settings.seuil_alerte_meteo_beaufort')}
+            description={t('settings.declenchement_des_alertes_meteo_operatio')}>
             <div className="flex items-center gap-2">
               <input type="number" min={1} max={12} step={1}
                 className="gl-form-input w-20 text-sm text-right font-mono"

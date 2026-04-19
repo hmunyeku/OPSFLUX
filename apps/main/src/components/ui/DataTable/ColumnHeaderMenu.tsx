@@ -9,6 +9,7 @@
  * Follows GitLab Pajamas design (compact, 11px text).
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   PinOff, EyeOff, RotateCcw,
   ArrowLeftToLine, ArrowRightToLine,
@@ -63,6 +64,7 @@ export function ColumnHeaderMenuPortal({
   props: ColumnHeaderMenuProps
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Close on outside click or Escape
@@ -128,19 +130,19 @@ export function ColumnHeaderMenuPortal({
           {isPinned ? (
             <MenuItem
               icon={<PinOff size={12} />}
-              label="Libérer la colonne"
+              label={t('ui.liberer_la_colonne')}
               onClick={() => handleAction(props.onUnpin)}
             />
           ) : (
             <>
               <MenuItem
                 icon={<ArrowLeftToLine size={12} />}
-                label="Figer à gauche"
+                label={t('ui.figer_a_gauche')}
                 onClick={() => handleAction(props.onPinLeft)}
               />
               <MenuItem
                 icon={<ArrowRightToLine size={12} />}
-                label="Figer à droite"
+                label={t('ui.figer_a_droite')}
                 onClick={() => handleAction(props.onPinRight)}
               />
             </>
@@ -149,7 +151,7 @@ export function ColumnHeaderMenuPortal({
           {isPinned === 'left' && (
             <MenuItem
               icon={<ArrowRightToLine size={12} />}
-              label="Figer à droite"
+              label={t('ui.figer_a_droite')}
               onClick={() => handleAction(() => {
                 props.onUnpin()
                 props.onPinRight()
@@ -159,7 +161,7 @@ export function ColumnHeaderMenuPortal({
           {isPinned === 'right' && (
             <MenuItem
               icon={<ArrowLeftToLine size={12} />}
-              label="Figer à gauche"
+              label={t('ui.figer_a_gauche')}
               onClick={() => handleAction(() => {
                 props.onUnpin()
                 props.onPinLeft()
@@ -173,7 +175,7 @@ export function ColumnHeaderMenuPortal({
       {canHide && (
         <MenuItem
           icon={<EyeOff size={12} />}
-          label="Masquer la colonne"
+          label={t('ui.masquer_la_colonne')}
           onClick={() => handleAction(props.onHide)}
         />
       )}
@@ -182,7 +184,7 @@ export function ColumnHeaderMenuPortal({
       {canResize && (
         <MenuItem
           icon={<RotateCcw size={12} />}
-          label="Réinitialiser la largeur"
+          label={t('ui.reinitialiser_la_largeur')}
           onClick={() => handleAction(props.onResetWidth)}
         />
       )}

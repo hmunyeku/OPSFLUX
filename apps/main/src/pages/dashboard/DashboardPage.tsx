@@ -341,7 +341,7 @@ export function DashboardPage() {
                 onClick={() => editorRef.current?.undo()}
                 disabled={!editorRef.current?.canUndo}
                 className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground disabled:opacity-30"
-                title="Annuler (Ctrl+Z)"
+                title={t('common.undo')}
               >
                 <Undo2 className="h-3.5 w-3.5" />
               </button>
@@ -626,6 +626,7 @@ function TabButton({
   onClose,
   onStartRename,
 }: TabButtonProps) {
+  const { t } = useTranslation()
   return (
     <div className="relative flex items-center group pointer-events-none">
       <button
@@ -677,7 +678,7 @@ function TabButton({
             onClose()
           }}
           className="pointer-events-auto h-5 w-5 ml-0.5 inline-flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-          title="Supprimer cet onglet"
+          title={t('dashboard.delete_tab')}
         >
           <X size={11} className="text-muted-foreground hover:text-destructive" />
         </button>

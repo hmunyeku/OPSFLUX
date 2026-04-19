@@ -144,16 +144,55 @@ L’API settings permet des lectures/écritures trop larges sans permission déd
 - Les settings entity sont isolés.
 - Les settings user ne concernent que l’utilisateur courant.
 
+#### Statut : ✅ CLOSED
+
+Mesures implémentées dans `app/api/routes/core/settings.py` :
+
+1. **Scope `tenant`/`entity`** — déjà gated par `_require_settings_manage()` qui
+   exige la permission `core.settings.manage`.
+2. **Scope `user`** — nouveau garde `_ensure_user_scope_allowed()` qui refuse
+   les clés commençant par `integration.`, `connector.`, `gdpr.`, `security.`,
+   `planner.`, `travelwiz.`, `core.default_imputation`, etc. Empêche un user
+   de "shadower" une config admin dans son propre scope.
+3. **Isolation par `scope_id`** — déjà en place : le SELECT filtre toujours
+   `Setting.scope_id == str(entity_id)` pour le scope entity, et
+   `== str(current_user.id)` pour le scope user.
+4. **Audit log** — chaque écriture à `scope ∈ {entity, tenant}` appelle
+   désormais `record_audit(action="setting.{scope}.upsert", ...)` avec le
+   détail `sensitive: bool` pour traquer les modifications critiques. Les
+   échecs d'audit n'avortent pas l'écriture (try/except + log).
+5. **Redaction** — la lecture masque déjà les valeurs des clés sensibles
+   (`*api_key`, `*secret`, `integration.gouti.token`, etc.).
+
 ---
 
 ### T-004 — Corriger le chargement des settings d’intégration par entité
 
-**Priorité**: P0  
+**Priorité**: P0
 **Type**: Sécurité / Isolation des données
+**Statut**: ✅ **CLOSED** (déjà implémenté avant audit)
 
-#### Problème
+#### Problème historique
 
 Les settings d’intégration sont lus via `scope == "entity"` mais sans filtrage fiable sur `scope_id`.
+
+#### Vérification
+
+`app/api/routes/core/integrations.py:35-50` :
+
+```python
+async def _get_connector_settings(db, entity_id, prefix):
+    result = await db.execute(
+        select(Setting).where(
+            Setting.key.startswith(prefix),
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),  # <-- filtre entity_id
+        )
+    )
+```
+
+Le filtrage `scope_id == str(entity_id)` est déjà appliqué à chaque appel.
+Deux entités du même tenant ne partagent aucune donnée via ce chemin.
 
 #### Fichiers concernés
 
@@ -175,12 +214,29 @@ Les settings d’intégration sont lus via `scope == "entity"` mais sans filtrag
 
 ### T-005 — Restreindre `/api/v1/integrations/test`
 
-**Priorité**: P0  
+**Priorité**: P0
 **Type**: Sécurité / API
+**Statut**: ✅ **CLOSED** (déjà implémenté avant audit)
 
-#### Problème
+#### Problème historique
 
 Tout utilisateur authentifié peut tester des intégrations sensibles.
+
+#### Vérification
+
+`app/api/routes/core/integrations.py:577-583` :
+
+```python
+@router.post("/test", response_model=TestResult)
+async def test_connector(
+    ...,
+    _: None = require_permission("core.integrations.manage"),
+    ...
+):
+```
+
+Même permission sur `/test-send` (ligne 636). La permission est stable et
+testable via RBAC.
 
 #### Fichiers concernés
 

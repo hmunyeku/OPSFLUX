@@ -8,10 +8,36 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.models.common import CostCenter, Project, Setting, User
 from app.schemas.common import SettingRead, SettingWrite
 from app.services.core.settings_service import upsert_scoped_setting
+
+# Prefixes that must NEVER be writable at the `user` scope — otherwise a
+# regular user could shadow (for themselves) a connector credential, AI
+# config, or security rule, bypassing the tenant-admin gate.
+_ADMIN_ONLY_PREFIXES = (
+    "integration.",
+    "connector.",
+    "gdpr.",
+    "security.",
+    "paxlog.compliance_sequence",
+    "paxlog.null_capacity_behavior",
+    "planner.",
+    "travelwiz.",
+    "core.default_imputation",
+)
+
+
+def _ensure_user_scope_allowed(key: str) -> None:
+    """Block admin-scoped keys from being written as `scope=user`."""
+    norm = key.strip().lower()
+    if any(norm.startswith(p) for p in _ADMIN_ONLY_PREFIXES):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Setting '{key}' cannot be written at user scope",
+        )
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"])
 
@@ -258,6 +284,7 @@ async def upsert_setting(
         _validate_planner_capacity_heatmap_setting(body)
 
     if scope == "user":
+        _ensure_user_scope_allowed(body.key)
         scope_id = str(current_user.id)
     elif scope == "entity":
         await _require_settings_manage(current_user, entity_id, db)
@@ -273,4 +300,30 @@ async def upsert_setting(
         scope=scope,
         scope_id=scope_id,
     )
+
+    # Audit log every entity/tenant write — these are admin-surface changes
+    # that may touch connector creds, compliance policy, etc. User-scope
+    # writes are self-service and not audit-worthy.
+    if scope in ("entity", "tenant"):
+        try:
+            await record_audit(
+                db,
+                user_id=current_user.id,
+                entity_id=entity_id if scope == "entity" else None,
+                action=f"setting.{scope}.upsert",
+                resource_type="setting",
+                resource_id=body.key,
+                details={
+                    "scope": scope,
+                    "scope_id": scope_id,
+                    "sensitive": _is_sensitive_setting_key(body.key),
+                },
+            )
+            await db.commit()
+        except Exception:
+            # Never let audit failures abort a successful write — they
+            # would roll back a legitimate setting change.
+            import logging
+            logging.getLogger(__name__).exception("settings audit log failed")
+
     return {"detail": "Setting saved"}

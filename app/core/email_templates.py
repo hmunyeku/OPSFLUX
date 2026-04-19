@@ -1932,6 +1932,212 @@ DEFAULT_TEMPLATES: list[dict] = [
             },
         },
     },
+    # ── MOCTrack templates ────────────────────────────────────────────────
+    # One generic template per business moment. The FSM service (moc_service
+    # _notify_transition) dispatches based on the new status — every recipient
+    # gets the same template with `reference`, `objectives`, `site_label`,
+    # `platform_code`, `status_label`, `actor_name`, `link` variables.
+    {
+        "slug": "moc.created",
+        "name": "MOC — Nouveau MOC créé",
+        "description": "Envoyé au chef de site quand un MOC vient d'être créé (statut 'Créé').",
+        "object_type": "moc",
+        "variables_schema": {
+            "reference": "Référence MOC (ex: MOC_001_BRF1)",
+            "objectives": "Objectifs du MOC",
+            "site_label": "Site concerné",
+            "platform_code": "Plateforme",
+            "actor_name": "Initiateur",
+            "link": "Lien vers le MOC",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux MOC — Nouveau MOC {{ reference }} à approuver",
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Un nouveau Management of Change vient d'être créé sur votre site "
+                    "<strong>{{ site_label }}</strong> (plateforme {{ platform_code }}).</p>"
+                    "<p><strong>{{ reference }}</strong> — {{ objectives }}</p>"
+                    "<p>Initié par : {{ actor_name }}</p>"
+                    "<p>Votre approbation est requise pour faire avancer ce MOC.</p>"
+                    "{% if link %}<p><a href=\"{{ link }}\">Ouvrir dans OpsFlux</a></p>{% endif %}"
+                    "<p>Cordialement,<br/>OpsFlux</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux MOC — New MOC {{ reference }} awaiting approval",
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>A new Management of Change has been created on your site "
+                    "<strong>{{ site_label }}</strong> (platform {{ platform_code }}).</p>"
+                    "<p><strong>{{ reference }}</strong> — {{ objectives }}</p>"
+                    "<p>Initiated by: {{ actor_name }}</p>"
+                    "<p>Your approval is required to progress this MOC.</p>"
+                    "{% if link %}<p><a href=\"{{ link }}\">Open in OpsFlux</a></p>{% endif %}"
+                    "<p>Best regards,<br/>OpsFlux</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "moc.awaiting_validation",
+        "name": "MOC — Action requise",
+        "description": "Envoyé quand un MOC atteint votre niveau de validation (approve / submit / confirm / start_study / validate).",
+        "object_type": "moc",
+        "variables_schema": {
+            "reference": "Référence MOC",
+            "objectives": "Objectifs du MOC",
+            "site_label": "Site concerné",
+            "platform_code": "Plateforme",
+            "status_label": "Nouveau statut",
+            "actor_name": "Utilisateur ayant déclenché la transition",
+            "link": "Lien vers le MOC",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux MOC — Action requise sur {{ reference }} ({{ status_label }})",
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Le MOC <strong>{{ reference }}</strong> est passé au statut "
+                    "<strong>{{ status_label }}</strong> et attend votre action.</p>"
+                    "<p>{{ objectives }} — site {{ site_label }} / {{ platform_code }}</p>"
+                    "<p>Dernière action par : {{ actor_name }}</p>"
+                    "{% if link %}<p><a href=\"{{ link }}\">Ouvrir dans OpsFlux</a></p>{% endif %}"
+                    "<p>Cordialement,<br/>OpsFlux</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux MOC — Action required on {{ reference }} ({{ status_label }})",
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>MOC <strong>{{ reference }}</strong> has moved to status "
+                    "<strong>{{ status_label }}</strong> and awaits your action.</p>"
+                    "<p>{{ objectives }} — site {{ site_label }} / {{ platform_code }}</p>"
+                    "<p>Last action by: {{ actor_name }}</p>"
+                    "{% if link %}<p><a href=\"{{ link }}\">Open in OpsFlux</a></p>{% endif %}"
+                    "<p>Best regards,<br/>OpsFlux</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "moc.validated",
+        "name": "MOC — Validé à exécuter",
+        "description": "Envoyé au chef de site quand l'étude du MOC est validée à exécuter.",
+        "object_type": "moc",
+        "variables_schema": {
+            "reference": "Référence MOC",
+            "objectives": "Objectifs",
+            "site_label": "Site",
+            "platform_code": "Plateforme",
+            "actor_name": "Valideur final",
+            "link": "Lien",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux MOC — {{ reference }} validé à exécuter",
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Le MOC <strong>{{ reference }}</strong> a été "
+                    "<strong>validé à exécuter</strong> par {{ actor_name }}.</p>"
+                    "<p>{{ objectives }} — {{ site_label }} / {{ platform_code }}</p>"
+                    "<p>Vous pouvez maintenant démarrer les travaux de modification sur site.</p>"
+                    "{% if link %}<p><a href=\"{{ link }}\">Ouvrir dans OpsFlux</a></p>{% endif %}"
+                    "<p>Cordialement,<br/>OpsFlux</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux MOC — {{ reference }} validated for execution",
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>MOC <strong>{{ reference }}</strong> has been "
+                    "<strong>validated for execution</strong> by {{ actor_name }}.</p>"
+                    "<p>{{ objectives }} — {{ site_label }} / {{ platform_code }}</p>"
+                    "<p>You can now start the modification works on site.</p>"
+                    "{% if link %}<p><a href=\"{{ link }}\">Open in OpsFlux</a></p>{% endif %}"
+                    "<p>Best regards,<br/>OpsFlux</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "moc.cancelled",
+        "name": "MOC — Annulé",
+        "description": "Envoyé à l'initiateur quand le MOC est annulé par un directeur ou par lui-même.",
+        "object_type": "moc",
+        "variables_schema": {
+            "reference": "Référence MOC",
+            "objectives": "Objectifs",
+            "actor_name": "Auteur de l'annulation",
+            "comment": "Commentaire associé à l'annulation",
+            "link": "Lien",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux MOC — {{ reference }} annulé",
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Le MOC <strong>{{ reference }}</strong> a été "
+                    "<strong>annulé</strong> par {{ actor_name }}.</p>"
+                    "<p>{{ objectives }}</p>"
+                    "{% if comment %}<p>Motif : {{ comment }}</p>{% endif %}"
+                    "{% if link %}<p><a href=\"{{ link }}\">Voir dans OpsFlux</a></p>{% endif %}"
+                    "<p>Cordialement,<br/>OpsFlux</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux MOC — {{ reference }} cancelled",
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>MOC <strong>{{ reference }}</strong> was <strong>cancelled</strong> "
+                    "by {{ actor_name }}.</p>"
+                    "<p>{{ objectives }}</p>"
+                    "{% if comment %}<p>Reason: {{ comment }}</p>{% endif %}"
+                    "{% if link %}<p><a href=\"{{ link }}\">View in OpsFlux</a></p>{% endif %}"
+                    "<p>Best regards,<br/>OpsFlux</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "moc.closed",
+        "name": "MOC — Clôturé",
+        "description": "Envoyé à l'initiateur et au chef de site quand le MOC est clôturé (MAJ PID/ESD effectuée).",
+        "object_type": "moc",
+        "variables_schema": {
+            "reference": "Référence MOC",
+            "objectives": "Objectifs",
+            "actor_name": "Auteur de la clôture",
+            "link": "Lien",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux MOC — {{ reference }} clôturé",
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Le MOC <strong>{{ reference }}</strong> est désormais "
+                    "<strong>clôturé</strong>. Les PID / ESD ont été mis à jour "
+                    "conformément.</p>"
+                    "<p>{{ objectives }}</p>"
+                    "<p>Merci à {{ actor_name }} pour le suivi.</p>"
+                    "{% if link %}<p><a href=\"{{ link }}\">Consulter dans OpsFlux</a></p>{% endif %}"
+                    "<p>Cordialement,<br/>OpsFlux</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux MOC — {{ reference }} closed",
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>MOC <strong>{{ reference }}</strong> is now <strong>closed</strong>. "
+                    "PID / ESD have been updated accordingly.</p>"
+                    "<p>{{ objectives }}</p>"
+                    "<p>Thanks to {{ actor_name }} for the follow-up.</p>"
+                    "{% if link %}<p><a href=\"{{ link }}\">View in OpsFlux</a></p>{% endif %}"
+                    "<p>Best regards,<br/>OpsFlux</p>"
+                ),
+            },
+        },
+    },
 ]
 
 

@@ -2567,6 +2567,240 @@ def _s(props: dict | None = None, required: list | None = None) -> dict:
     return schema
 
 
+# ─── MOC (Management of Change) tools ───────────────────────────────────────
+
+def _moc_to_dict(m: Any, *, compact: bool = False) -> dict:
+    d = {
+        "id": str(m.id),
+        "reference": m.reference,
+        "status": m.status,
+        "site_label": m.site_label,
+        "platform_code": m.platform_code,
+        "priority": m.priority,
+        "objectives": (m.objectives or "")[:200] if compact else m.objectives,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    }
+    if not compact:
+        d.update({
+            "description": m.description,
+            "current_situation": m.current_situation,
+            "proposed_changes": m.proposed_changes,
+            "impact_analysis": m.impact_analysis,
+            "modification_type": m.modification_type,
+            "temporary_duration_days": m.temporary_duration_days,
+            "initiator_id": str(m.initiator_id),
+            "initiator_name": m.initiator_name,
+            "initiator_function": m.initiator_function,
+            "site_chief_approved_at": m.site_chief_approved_at.isoformat() if m.site_chief_approved_at else None,
+            "director_confirmed_at": m.director_confirmed_at.isoformat() if m.director_confirmed_at else None,
+            "study_started_at": m.study_started_at.isoformat() if m.study_started_at else None,
+            "study_completed_at": m.study_completed_at.isoformat() if m.study_completed_at else None,
+            "execution_started_at": m.execution_started_at.isoformat() if m.execution_started_at else None,
+            "execution_completed_at": m.execution_completed_at.isoformat() if m.execution_completed_at else None,
+            "status_changed_at": m.status_changed_at.isoformat() if m.status_changed_at else None,
+        })
+    return d
+
+
+async def _list_mocs(args: dict) -> dict:
+    from app.models.moc import MOC
+
+    status = args.get("status")
+    site_label = args.get("site_label")
+    priority = args.get("priority")
+    search = (args.get("search") or "").strip()
+    limit = max(1, min(int(args.get("limit") or 20), 100))
+    entity_code = args.get("entity_code")
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, entity_code)
+        query = select(MOC).where(
+            MOC.entity_id == entity_id, MOC.archived == False  # noqa: E712
+        ).order_by(MOC.created_at.desc())
+        if status:
+            query = query.where(MOC.status == status)
+        if site_label:
+            query = query.where(MOC.site_label == site_label)
+        if priority:
+            query = query.where(MOC.priority == priority)
+        if search:
+            p = f"%{search}%"
+            query = query.where(or_(
+                MOC.reference.ilike(p),
+                MOC.objectives.ilike(p),
+                MOC.description.ilike(p),
+            ))
+        result = await session.execute(query.limit(limit + 1))
+        rows = result.scalars().all()
+    more = len(rows) > limit
+    return _ok({
+        "count": min(len(rows), limit),
+        "has_more": more,
+        "items": [_moc_to_dict(m, compact=True) for m in rows[:limit]],
+    })
+
+
+async def _get_moc(args: dict) -> dict:
+    from app.models.moc import MOC, MOCStatusHistory, MOCValidation
+
+    moc_id = args.get("id")
+    reference = args.get("reference")
+    entity_code = args.get("entity_code")
+    if not moc_id and not reference:
+        raise ValueError("id ou reference requis")
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, entity_code)
+        if moc_id:
+            q = select(MOC).where(
+                MOC.id == UUID(str(moc_id)), MOC.entity_id == entity_id,
+                MOC.archived == False,  # noqa: E712
+            )
+        else:
+            q = select(MOC).where(
+                MOC.reference == reference, MOC.entity_id == entity_id,
+                MOC.archived == False,  # noqa: E712
+            )
+        result = await session.execute(q)
+        moc = result.scalar_one_or_none()
+        if not moc:
+            raise ValueError("MOC introuvable")
+
+        hist = await session.execute(
+            select(MOCStatusHistory).where(MOCStatusHistory.moc_id == moc.id)
+            .order_by(MOCStatusHistory.created_at.desc())
+        )
+        vals = await session.execute(
+            select(MOCValidation).where(MOCValidation.moc_id == moc.id)
+        )
+
+    out = _moc_to_dict(moc, compact=False)
+    out["status_history"] = [
+        {
+            "old_status": h.old_status,
+            "new_status": h.new_status,
+            "note": h.note,
+            "changed_by": str(h.changed_by),
+            "created_at": h.created_at.isoformat(),
+        }
+        for h in hist.scalars().all()
+    ]
+    out["validations"] = [
+        {
+            "role": v.role,
+            "metier_code": v.metier_code,
+            "required": v.required,
+            "completed": v.completed,
+            "approved": v.approved,
+            "comments": v.comments,
+            "validator_name": v.validator_name,
+            "validated_at": v.validated_at.isoformat() if v.validated_at else None,
+        }
+        for v in vals.scalars().all()
+    ]
+    return _ok(out)
+
+
+async def _create_moc(args: dict) -> dict:
+    from app.models.moc import MOC, MOCStatusHistory
+    from app.services.modules.moc_service import generate_reference
+
+    entity_code = args.get("entity_code")
+    site_label = (args.get("site_label") or "").strip()
+    platform_code = (args.get("platform_code") or "").strip()
+    objectives = (args.get("objectives") or "").strip()
+    if not site_label or not platform_code or not objectives:
+        raise ValueError("site_label, platform_code et objectives sont requis")
+
+    mod_type = args.get("modification_type")
+    if mod_type not in (None, "permanent", "temporary"):
+        raise ValueError("modification_type doit être 'permanent' ou 'temporary'")
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, entity_code)
+        # MCP acts as a system-level initiator — use the seeded admin user.
+        from app.models.common import User
+        admin = (await session.execute(
+            select(User).where(User.active == True)  # noqa: E712
+            .order_by(User.created_at).limit(1)
+        )).scalar_one_or_none()
+        if not admin:
+            raise ValueError("Aucun utilisateur actif dans l'entité — seed requis")
+
+        ref = await generate_reference(
+            session, entity_id=entity_id, platform_code=platform_code,
+        )
+        moc = MOC(
+            entity_id=entity_id,
+            reference=ref,
+            initiator_id=admin.id,
+            initiator_name=args.get("initiator_function") or admin.full_name,
+            initiator_function=args.get("initiator_function"),
+            site_label=site_label,
+            platform_code=platform_code.upper(),
+            objectives=objectives,
+            description=args.get("description"),
+            current_situation=args.get("current_situation"),
+            proposed_changes=args.get("proposed_changes"),
+            impact_analysis=args.get("impact_analysis"),
+            modification_type=mod_type,
+            temporary_duration_days=args.get("temporary_duration_days"),
+            status="created",
+        )
+        session.add(moc)
+        await session.flush()
+        session.add(MOCStatusHistory(
+            moc_id=moc.id, old_status=None, new_status="created",
+            changed_by=admin.id, note="MOC créé via MCP",
+        ))
+        await session.commit()
+        await session.refresh(moc)
+    return _ok(_moc_to_dict(moc, compact=False))
+
+
+async def _transition_moc(args: dict) -> dict:
+    from app.models.moc import MOC
+    from app.services.modules.moc_service import transition
+
+    moc_id = args.get("id")
+    to_status = args.get("to_status")
+    if not moc_id or not to_status:
+        raise ValueError("id et to_status requis")
+
+    entity_code = args.get("entity_code")
+    payload: dict = {}
+    if args.get("priority"):
+        payload["priority"] = str(args["priority"])
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, entity_code)
+        result = await session.execute(
+            select(MOC).where(
+                MOC.id == UUID(str(moc_id)), MOC.entity_id == entity_id,
+                MOC.archived == False,  # noqa: E712
+            )
+        )
+        moc = result.scalar_one_or_none()
+        if not moc:
+            raise ValueError("MOC introuvable")
+
+        from app.models.common import User
+        admin = (await session.execute(
+            select(User).where(User.active == True)  # noqa: E712
+            .order_by(User.created_at).limit(1)
+        )).scalar_one_or_none()
+        if not admin:
+            raise ValueError("Aucun utilisateur actif")
+
+        await transition(
+            session, moc=moc, to_status=to_status, actor=admin,
+            comment=args.get("comment"), payload=payload,
+        )
+        await session.commit()
+        await session.refresh(moc)
+    return _ok(_moc_to_dict(moc, compact=False))
+
+
 OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
     # ── Tiers ────────────────────────────────────────────────────────────
     ("list_tiers",
@@ -3343,6 +3577,63 @@ OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
      _s({
          "entity_code": {"type": "string", "description": "Code entité (optionnel)"},
      }), _list_project_templates),
+
+    # ── MOCTrack (Management of Change) ────────────────────────────────────
+    ("list_mocs",
+     "Liste les Management of Change (MOC) — modifications d'installations "
+     "industrielles. Filtres: status (created/approved/…/closed), site_label, "
+     "priority (1/2/3), search (référence/objectifs/description). "
+     "Limit=20 par défaut (max 100).",
+     _s({
+         "status": {"type": "string", "description": "Statut exact (ex: under_study)"},
+         "site_label": {"type": "string", "description": "Site (RDR EAST, RDR WEST, …)"},
+         "priority": {"type": "string", "description": "1=haute, 2=normale, 3=faible"},
+         "search": {"type": "string", "description": "Texte dans référence/objectifs/description"},
+         "limit": {"type": "integer", "description": "Nombre max (défaut 20, max 100)"},
+         "entity_code": {"type": "string"},
+     }), _list_mocs),
+
+    ("get_moc",
+     "Récupère les détails d'un MOC par id ou référence, y compris "
+     "l'historique des statuts et la matrice de validation.",
+     _s({
+         "id": {"type": "string", "description": "UUID du MOC"},
+         "reference": {"type": "string", "description": "Référence (ex: MOC_001_BRF1)"},
+         "entity_code": {"type": "string"},
+     }), _get_moc),
+
+    ("create_moc",
+     "Crée un nouveau MOC en statut 'created'. Fournir au minimum site_label "
+     "+ platform_code + objectives. Référence auto-générée (MOC_NNN_PF).",
+     _s({
+         "site_label": {"type": "string", "description": "Site (requis)"},
+         "platform_code": {"type": "string", "description": "Plateforme (requis)"},
+         "objectives": {"type": "string", "description": "Objectifs (requis)"},
+         "description": {"type": "string"},
+         "current_situation": {"type": "string"},
+         "proposed_changes": {"type": "string"},
+         "impact_analysis": {"type": "string"},
+         "modification_type": {"type": "string", "description": "permanent ou temporary"},
+         "temporary_duration_days": {"type": "integer"},
+         "initiator_function": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }, ["site_label", "platform_code", "objectives"]), _create_moc),
+
+    ("transition_moc",
+     "Fait passer un MOC à un nouveau statut via la FSM. Transitions autorisées: "
+     "created→approved/cancelled, approved→submitted_to_confirm, "
+     "submitted_to_confirm→approved_to_study/cancelled/stand_by, "
+     "approved_to_study→under_study, under_study→study_in_validation, "
+     "study_in_validation→validated/under_study/cancelled, validated→execution, "
+     "execution→executed_docs_pending, executed_docs_pending→closed. "
+     "Commentaire optionnel pour tracer la raison.",
+     _s({
+         "id": {"type": "string", "description": "UUID du MOC (requis)"},
+         "to_status": {"type": "string", "description": "Statut cible (requis)"},
+         "comment": {"type": "string"},
+         "priority": {"type": "string", "description": "Pour approved_to_study: 1/2/3"},
+         "entity_code": {"type": "string"},
+     }, ["id", "to_status"]), _transition_moc),
 ]
 
 def _resolve_tool_permissions(name: str) -> list[str]:
@@ -3420,6 +3711,13 @@ def _resolve_tool_permissions(name: str) -> list[str]:
         return ["project.update"]
     if name in {"create_project_task"}:
         return ["project.task.create"]
+
+    if name in {"list_mocs", "get_moc"}:
+        return ["moc.read"]
+    if name in {"create_moc"}:
+        return ["moc.create"]
+    if name in {"transition_moc"}:
+        return ["moc.transition"]
 
     return []
 

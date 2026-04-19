@@ -303,7 +303,12 @@ NOTIFY_ROLES_BY_STATUS: dict[str, list[str]] = {
 async def _notify_transition(
     db: AsyncSession, *, moc: MOC, old_status: str | None, actor: User
 ) -> None:
-    """Push in-app notifications to the recipients of the new status."""
+    """Dispatch in-app + email notifications to the recipients of the new status.
+
+    The email template is picked by status: `moc.created`, `moc.validated`,
+    `moc.cancelled`, `moc.closed` have dedicated templates; every other
+    transition uses the generic `moc.awaiting_validation` template.
+    """
     target_roles = NOTIFY_ROLES_BY_STATUS.get(moc.status, [])
     if not target_roles:
         return
@@ -318,7 +323,6 @@ async def _notify_transition(
     )
     user_list = active_users.scalars().all()
 
-    recipient_ids: list[UUID] = []
     # Map role → permission we test: we can't test role membership directly
     # without touching UserGroupRole tables here. Fall back to permission-
     # based addressing using canonical permissions.
@@ -331,36 +335,98 @@ async def _notify_transition(
         "MOC_MAINTENANCE_MANAGER": "moc.maintenance.validate",
     }
     perms_to_test = {ROLE_TO_PERM[r] for r in target_roles if r in ROLE_TO_PERM}
+
+    recipients: list[User] = []
     for user in user_list:
         for perm in perms_to_test:
             try:
                 if await has_user_permission(user, moc.entity_id, perm, db):
-                    recipient_ids.append(user.id)
+                    recipients.append(user)
                     break
             except Exception:
                 continue
 
-    if not recipient_ids:
+    # For cancelled / closed, always include the initiator (they may not hold
+    # any of the MOC_* permissions but must be kept in the loop).
+    if moc.status in ("cancelled", "closed"):
+        initiator = await db.get(User, moc.initiator_id)
+        if initiator and initiator.id != actor.id and initiator not in recipients:
+            recipients.append(initiator)
+
+    if not recipients:
         return
 
+    status_label = _humanise_status(moc.status)
+    title = f"MOC {moc.reference} — {status_label}"
+    body = (
+        f"Le MOC « {(moc.objectives or moc.description or moc.reference)[:120]} » "
+        f"est passé de {_humanise_status(old_status or 'created')} à "
+        f"{status_label} par {actor.full_name or actor.email}."
+    )
+    link_path = f"/moc?id={moc.id}"
+
+    # 1. In-app notifications (bulk, fast) ─────────────────────────────────
     try:
         from app.core.notifications import send_in_app_bulk
         await send_in_app_bulk(
             db,
-            user_ids=recipient_ids,
+            user_ids=[u.id for u in recipients],
             entity_id=moc.entity_id,
-            title=f"MOC {moc.reference} — {_humanise_status(moc.status)}",
-            body=(
-                f"Le MOC « {(moc.objectives or moc.description or moc.reference)[:120]} » "
-                f"est passé de {_humanise_status(old_status or 'created')} à "
-                f"{_humanise_status(moc.status)} par {actor.full_name or actor.email}."
-            ),
+            title=title,
+            body=body,
             category="info",
-            link=f"/moc?id={moc.id}",
+            link=link_path,
             event_type=f"moc.{moc.status}",
         )
     except Exception:
         logger.exception("send_in_app_bulk failed for MOC %s", moc.reference)
+
+    # 2. Email notifications (per-user — best effort) ─────────────────────
+    # Template slug per transition. The generic `moc.awaiting_validation`
+    # covers every mid-flow step; dedicated templates for milestones.
+    template_slug = {
+        "created": "moc.created",
+        "validated": "moc.validated",
+        "cancelled": "moc.cancelled",
+        "closed": "moc.closed",
+    }.get(moc.status, "moc.awaiting_validation")
+
+    try:
+        from app.core.email_templates import render_and_send_email
+    except Exception:
+        return
+
+    origin = "https://app.opsflux.io"  # overriden by entity setting in template engine
+    variables = {
+        "reference": moc.reference,
+        "objectives": (moc.objectives or moc.description or "")[:300],
+        "site_label": moc.site_label,
+        "platform_code": moc.platform_code,
+        "status_label": status_label,
+        "actor_name": actor.full_name or actor.email,
+        "comment": None,  # populated by caller if relevant
+        "link": f"{origin}{link_path}",
+    }
+
+    for user in recipients:
+        if not user.email:
+            continue
+        try:
+            await render_and_send_email(
+                db,
+                slug=template_slug,
+                entity_id=moc.entity_id,
+                language=user.language or "fr",
+                to=user.email,
+                variables=variables,
+                category="moc",
+            )
+        except Exception:
+            logger.debug(
+                "MOC email failed for %s (slug=%s, user=%s)",
+                moc.reference, template_slug, user.email,
+                exc_info=True,
+            )
 
 
 def _humanise_status(s: str) -> str:

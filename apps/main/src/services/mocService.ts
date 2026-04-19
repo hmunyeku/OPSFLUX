@@ -33,7 +33,27 @@ export type MOCValidationRole =
   | 'production_manager'
   | 'gas_manager'
   | 'maintenance_manager'
+  | 'process_engineer'
   | 'metier'
+
+export type MOCSiteRole =
+  | 'site_chief'
+  | 'director'
+  | 'lead_process'
+  | 'hse'
+  | 'production_manager'
+  | 'gas_manager'
+  | 'maintenance_manager'
+
+export interface MOCSiteAssignment {
+  id: string
+  site_label: string
+  role: MOCSiteRole
+  user_id: string
+  user_display: string | null
+  active: boolean
+  created_at: string
+}
 
 export interface MOCStatusHistoryEntry {
   id: string
@@ -49,6 +69,7 @@ export interface MOCValidation {
   id: string
   role: MOCValidationRole
   metier_code: string | null
+  metier_name: string | null
   required: boolean
   completed: boolean
   approved: boolean | null
@@ -126,6 +147,15 @@ export interface MOC {
   execution_supervisor_id: string | null
   planned_implementation_date: string | null
   actual_implementation_date: string | null
+  // DO / DG execution accords (paper form p.5 "Réalisation du MOC")
+  do_execution_accord: boolean | null
+  dg_execution_accord: boolean | null
+  do_execution_accord_at: string | null
+  dg_execution_accord_at: string | null
+  do_execution_accord_by: string | null
+  dg_execution_accord_by: string | null
+  do_execution_comment: string | null
+  dg_execution_comment: string | null
   // Extras
   tags: string[] | null
   metadata: Record<string, unknown> | null
@@ -139,9 +169,11 @@ export interface MOCWithDetails extends MOC {
 export interface MOCCreatePayload {
   initiator_name?: string | null
   initiator_function?: string | null
-  site_label: string
+  // Either installation_id alone (backend auto-derives site/platform from
+  // the asset registry hierarchy) OR both site_label + platform_code.
+  site_label?: string | null
   site_id?: string | null
-  platform_code: string
+  platform_code?: string | null
   installation_id?: string | null
   objectives?: string | null
   description?: string | null
@@ -165,11 +197,25 @@ export interface MOCTransitionPayload {
 export interface MOCValidationUpsertPayload {
   role: MOCValidationRole
   metier_code?: string | null
+  metier_name?: string | null
   required?: boolean | null
   completed?: boolean | null
   approved?: boolean | null
   level?: MOCValidationLevel | null
   comments?: string | null
+}
+
+export interface MOCExecutionAccordPayload {
+  actor: 'do' | 'dg'
+  accord: boolean
+  comment?: string | null
+}
+
+export interface MOCSiteAssignmentCreatePayload {
+  site_label: string
+  role: MOCSiteRole
+  user_id: string
+  active?: boolean
 }
 
 export interface MOCListFilters {
@@ -256,6 +302,41 @@ export const mocService = {
   stats: async (): Promise<MOCStatsSummary> => {
     const { data } = await api.get<MOCStatsSummary>(`${BASE}/stats`)
     return data
+  },
+
+  executionAccord: async (
+    id: string,
+    payload: MOCExecutionAccordPayload,
+  ): Promise<MOCWithDetails> => {
+    const { data } = await api.post<MOCWithDetails>(
+      `${BASE}/${id}/execution-accord`,
+      payload,
+    )
+    return data
+  },
+
+  listSiteAssignments: async (
+    site_label?: string,
+  ): Promise<MOCSiteAssignment[]> => {
+    const { data } = await api.get<MOCSiteAssignment[]>(
+      `${BASE}/site-assignments`,
+      { params: site_label ? { site_label } : undefined },
+    )
+    return data
+  },
+
+  createSiteAssignment: async (
+    payload: MOCSiteAssignmentCreatePayload,
+  ): Promise<MOCSiteAssignment> => {
+    const { data } = await api.post<MOCSiteAssignment>(
+      `${BASE}/site-assignments`,
+      payload,
+    )
+    return data
+  },
+
+  deleteSiteAssignment: async (id: string): Promise<void> => {
+    await api.delete(`${BASE}/site-assignments/${id}`)
   },
 }
 

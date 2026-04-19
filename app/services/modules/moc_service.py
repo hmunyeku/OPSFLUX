@@ -183,6 +183,18 @@ async def transition(
                 f"Cannot validate: {len(missing)} required role(s) have not approved yet.",
             )
     elif to_status == "execution":
+        # CDC / paper form p.5 — "Réalisation du MOC" requires explicit
+        # Accord from BOTH DO and DG before execution can start.
+        if moc.do_execution_accord is not True:
+            raise HTTPException(
+                400,
+                "Accord du Directeur Opérations requis avant de lancer l'exécution.",
+            )
+        if moc.dg_execution_accord is not True:
+            raise HTTPException(
+                400,
+                "Accord du Directeur Gaz requis avant de lancer l'exécution.",
+            )
         moc.execution_started_at = now
         moc.execution_supervisor_id = actor.id
     elif to_status == "executed_docs_pending":
@@ -334,17 +346,52 @@ async def _notify_transition(
         "MOC_HSE": "moc.hse.validate",
         "MOC_MAINTENANCE_MANAGER": "moc.maintenance.validate",
     }
+    # Map MOC_* role → moc_site_assignments role (for site-scoped filtering)
+    ROLE_TO_SITE_ROLE = {
+        "MOC_SITE_CHIEF": "site_chief",
+        "MOC_DIRECTOR": "director",
+        "MOC_LEAD_PROCESS": "lead_process",
+        "MOC_HSE": "hse",
+        "MOC_MAINTENANCE_MANAGER": "maintenance_manager",
+    }
     perms_to_test = {ROLE_TO_PERM[r] for r in target_roles if r in ROLE_TO_PERM}
+    site_roles = {
+        ROLE_TO_SITE_ROLE[r] for r in target_roles if r in ROLE_TO_SITE_ROLE
+    }
+
+    # Prefer site assignments when at least one explicit mapping exists for
+    # this site. Falls back to permission-scan if no assignment is registered
+    # (keeps the module usable out of the box).
+    from app.models.moc import MOCSiteAssignment
+
+    site_assignment_user_ids: set[UUID] = set()
+    if site_roles:
+        r = await db.execute(
+            select(MOCSiteAssignment.user_id).where(
+                MOCSiteAssignment.entity_id == moc.entity_id,
+                MOCSiteAssignment.site_label == moc.site_label,
+                MOCSiteAssignment.role.in_(site_roles),
+                MOCSiteAssignment.active == True,  # noqa: E712
+            )
+        )
+        site_assignment_user_ids = {row[0] for row in r.all()}
 
     recipients: list[User] = []
-    for user in user_list:
-        for perm in perms_to_test:
-            try:
-                if await has_user_permission(user, moc.entity_id, perm, db):
-                    recipients.append(user)
-                    break
-            except Exception:
-                continue
+    if site_assignment_user_ids:
+        # Use explicit site assignments — precise targeting
+        for user in user_list:
+            if user.id in site_assignment_user_ids:
+                recipients.append(user)
+    else:
+        # Fallback: permission-based broadcast on the entity
+        for user in user_list:
+            for perm in perms_to_test:
+                try:
+                    if await has_user_permission(user, moc.entity_id, perm, db):
+                        recipients.append(user)
+                        break
+                except Exception:
+                    continue
 
     # For cancelled / closed, always include the initiator (they may not hold
     # any of the MOC_* permissions but must be kept in the loop).

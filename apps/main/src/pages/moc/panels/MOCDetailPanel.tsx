@@ -49,6 +49,7 @@ import { formatDate, formatDateTime } from '@/lib/i18n'
 import {
   useDeleteMOC,
   useMOC,
+  useMOCExecutionAccord,
   useMOCFsm,
   useTransitionMOC,
   useUpdateMOC,
@@ -68,16 +69,26 @@ const ROLE_LABELS: Record<MOCValidationRole, string> = {
   production_manager: 'Production Manager',
   gas_manager: 'Gas Manager',
   maintenance_manager: 'Maintenance Manager',
+  process_engineer: 'Process Engineer',
   metier: 'Métier',
 }
 
+// Roles shown permanently in the matrix (paper form page 5 order)
 const CORE_ROLES: MOCValidationRole[] = [
+  'process_engineer',
   'hse',
   'lead_process',
   'production_manager',
   'gas_manager',
   'maintenance_manager',
 ]
+
+const COST_BUCKET_LABELS: Record<string, string> = {
+  lt_20: '< 20 MXAF',
+  '20_to_50': '20 – 50 MXAF',
+  '50_to_100': '50 – 100 MXAF',
+  gt_100: '> 100 MXAF',
+}
 
 type DetailTab = 'fiche' | 'validation' | 'comments' | 'documents' | 'history'
 
@@ -98,6 +109,7 @@ export function MOCDetailPanel({ id }: Props) {
   const deleteMutation = useDeleteMOC()
   const updateMutation = useUpdateMOC()
   const validationMutation = useUpsertMOCValidation()
+  const executionAccordMutation = useMOCExecutionAccord()
 
   // Dictionary-backed labels (admin-customisable per tenant)
   const statusLabels = useDictionaryLabels('moc_status', MOC_STATUS_LABELS)
@@ -175,6 +187,7 @@ export function MOCDetailPanel({ id }: Props) {
       completed?: boolean
       approved?: boolean | null
       comments?: string
+      level?: 'DO' | 'DG' | 'DO_AND_DG' | null
     },
   ) => {
     await validationMutation.mutateAsync({
@@ -484,6 +497,86 @@ export function MOCDetailPanel({ id }: Props) {
                 />
               </div>
             </FormSection>
+
+            {/* Coût du MOC — paper form page 5 */}
+            <FormSection title={t('moc.section.cost')} defaultExpanded>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="text-xs font-medium text-muted-foreground">
+                  {t('moc.fields.cost_bucket')}
+                </label>
+                <select
+                  className="gl-form-input h-7 text-xs"
+                  value={moc.cost_bucket ?? ''}
+                  disabled={!canUpdateFlags}
+                  onChange={(e) =>
+                    updateMutation.mutate({
+                      id: moc.id,
+                      payload: {
+                        cost_bucket:
+                          (e.target.value || null) as
+                            | 'lt_20'
+                            | '20_to_50'
+                            | '50_to_100'
+                            | 'gt_100'
+                            | null,
+                      },
+                    })
+                  }
+                >
+                  <option value="">—</option>
+                  {(['lt_20', '20_to_50', '50_to_100', 'gt_100'] as const).map(
+                    (v) => (
+                      <option key={v} value={v}>
+                        {COST_BUCKET_LABELS[v]}
+                      </option>
+                    ),
+                  )}
+                </select>
+                {moc.estimated_cost_mxaf !== null && (
+                  <span className="text-xs text-muted-foreground">
+                    Estimé : {moc.estimated_cost_mxaf} MXAF
+                  </span>
+                )}
+              </div>
+            </FormSection>
+
+            {/* "Réalisation du MOC" — DO + DG dual sign-off (paper form p.5) */}
+            <FormSection
+              title={t('moc.section.execution_accord')}
+              defaultExpanded
+            >
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                {t('moc.section.execution_accord_hint')}
+              </p>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                <ExecutionAccordRow
+                  label="Directeur Opérations (D.O)"
+                  accord={moc.do_execution_accord}
+                  accordAt={moc.do_execution_accord_at}
+                  comment={moc.do_execution_comment}
+                  disabled={executionAccordMutation.isPending}
+                  onAccord={(accord, comment) =>
+                    executionAccordMutation.mutate({
+                      id: moc.id,
+                      payload: { actor: 'do', accord, comment },
+                    })
+                  }
+                />
+                <ExecutionAccordRow
+                  label="Directeur Gaz (D.G)"
+                  accord={moc.dg_execution_accord}
+                  accordAt={moc.dg_execution_accord_at}
+                  comment={moc.dg_execution_comment}
+                  disabled={executionAccordMutation.isPending}
+                  onAccord={(accord, comment) =>
+                    executionAccordMutation.mutate({
+                      id: moc.id,
+                      payload: { actor: 'dg', accord, comment },
+                    })
+                  }
+                />
+              </div>
+            </FormSection>
           </>
         )}
 
@@ -564,6 +657,7 @@ function ValidationRow({
     completed?: boolean
     approved?: boolean | null
     comments?: string
+    level?: 'DO' | 'DG' | 'DO_AND_DG' | null
   }) => void
   disabled: boolean
   readOnly?: boolean
@@ -593,6 +687,26 @@ function ValidationRow({
           </label>
           {!readOnly && (
             <>
+              <select
+                className="gl-form-input h-6 text-[10px] px-1 py-0"
+                value={entry?.level ?? ''}
+                disabled={disabled}
+                onChange={(e) =>
+                  onChange({
+                    level: (e.target.value || null) as
+                      | 'DO'
+                      | 'DG'
+                      | 'DO_AND_DG'
+                      | null,
+                  })
+                }
+                title="Niveau de validation (DO/DG/DO+DG)"
+              >
+                <option value="">—</option>
+                <option value="DO">DO</option>
+                <option value="DG">DG</option>
+                <option value="DO_AND_DG">DO+DG</option>
+              </select>
               <button
                 type="button"
                 disabled={disabled}
@@ -622,6 +736,7 @@ function ValidationRow({
               }`}
             >
               {entry.approved ? 'Approuvé' : 'Rejeté'}
+              {entry.level ? ` — ${entry.level}` : ''}
             </span>
           )}
         </div>
@@ -629,6 +744,78 @@ function ValidationRow({
       {entry?.validator_name && entry.validated_at && (
         <div className="mt-1 text-[10px] text-muted-foreground">
           {entry.validator_name} · {formatDateTime(entry.validated_at)}
+          {entry.level ? ` · Niveau ${entry.level}` : ''}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ExecutionAccordRow({
+  label,
+  accord,
+  accordAt,
+  comment,
+  disabled,
+  onAccord,
+}: {
+  label: string
+  accord: boolean | null
+  accordAt: string | null
+  comment: string | null
+  disabled?: boolean
+  onAccord: (accord: boolean, comment: string | null) => void
+}) {
+  const [commentDraft, setCommentDraft] = useState(comment ?? '')
+  return (
+    <div className="rounded-md border border-border/60 bg-card p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-foreground">{label}</span>
+        {accord === null ? (
+          <span className="text-[10px] text-muted-foreground">En attente</span>
+        ) : (
+          <span
+            className={`gl-badge ${
+              accord ? 'gl-badge-success' : 'gl-badge-danger'
+            }`}
+          >
+            {accord ? 'Accord' : 'Refus'}
+          </span>
+        )}
+      </div>
+      <textarea
+        className="gl-form-input mt-2 text-xs"
+        rows={2}
+        value={commentDraft}
+        disabled={disabled}
+        onChange={(e) => setCommentDraft(e.target.value)}
+        placeholder="Commentaire (optionnel)"
+      />
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          className={`gl-button gl-button-sm ${
+            accord === true ? 'gl-button-confirm' : 'gl-button-default'
+          }`}
+          disabled={disabled}
+          onClick={() => onAccord(true, commentDraft.trim() || null)}
+        >
+          <CheckCircle2 size={12} /> Accord
+        </button>
+        <button
+          type="button"
+          className={`gl-button gl-button-sm ${
+            accord === false ? 'gl-button-danger' : 'gl-button-default'
+          }`}
+          disabled={disabled}
+          onClick={() => onAccord(false, commentDraft.trim() || null)}
+        >
+          <XCircle size={12} /> Refus
+        </button>
+      </div>
+      {accordAt && (
+        <div className="mt-1 text-[10px] text-muted-foreground">
+          {formatDateTime(accordAt)}
         </div>
       )}
     </div>

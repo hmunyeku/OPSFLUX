@@ -34,12 +34,15 @@ from app.core.database import get_db
 from app.core.errors import StructuredHTTPException
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import User
-from app.models.moc import MOC, MOCStatusHistory, MOC_STATUSES
+from app.models.moc import MOC, MOCSiteAssignment, MOCStatusHistory, MOC_STATUSES
 from app.schemas.common import PaginatedResponse
 from app.schemas.moc import (
     MOCCreate,
+    MOCExecutionAccord,
     MOCRead,
     MOCReadWithDetails,
+    MOCSiteAssignmentCreate,
+    MOCSiteAssignmentRead,
     MOCStatsByStatus,
     MOCStatsBySite,
     MOCStatsByType,
@@ -190,9 +193,61 @@ async def create_moc(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new MOC. Status is always `created` at this point."""
+    """Create a new MOC. Status is always `created` at this point.
+
+    When `installation_id` is provided, `platform_code` and `site_label`
+    are auto-derived from the asset registry hierarchy (Installation ←
+    Site ← Field). The user doesn't need to retype them — picking the
+    installation is enough. Free-text values are still accepted for
+    tenants not using asset_registry.
+    """
+    # ── Auto-derive site/platform from installation_id when available ──
+    platform_code = (body.platform_code or "").strip()
+    site_label = (body.site_label or "").strip()
+    site_id = body.site_id
+
+    if body.installation_id:
+        from app.models.asset_registry import Installation, OilSite, OilField
+        inst = (await db.execute(
+            select(Installation).where(
+                Installation.id == body.installation_id,
+                Installation.entity_id == entity_id,
+            )
+        )).scalar_one_or_none()
+        if inst:
+            platform_code = platform_code or (inst.code or inst.name or "")
+            # Walk up the hierarchy: installation → site → field
+            site = None
+            if inst.site_id:
+                site = (await db.execute(
+                    select(OilSite).where(OilSite.id == inst.site_id)
+                )).scalar_one_or_none()
+            if site:
+                site_id = site_id or site.id
+                if not site_label:
+                    # Prefer the field name (RDR EAST / RDR WEST / SOUTH) as the
+                    # MOC "site_label" per CDC wording; fall back to site.name.
+                    if site.field_id:
+                        field = (await db.execute(
+                            select(OilField).where(OilField.id == site.field_id)
+                        )).scalar_one_or_none()
+                        if field:
+                            site_label = field.name or field.code or ""
+                    site_label = site_label or site.name or site.code or ""
+
+    if not platform_code:
+        raise StructuredHTTPException(
+            400, code="MOC_MISSING_PLATFORM",
+            message="Plateforme requise (choisir une installation ou saisir en texte libre).",
+        )
+    if not site_label:
+        raise StructuredHTTPException(
+            400, code="MOC_MISSING_SITE",
+            message="Site requis (se déduit automatiquement de l'installation choisie).",
+        )
+
     ref = await generate_reference(
-        db, entity_id=entity_id, platform_code=body.platform_code
+        db, entity_id=entity_id, platform_code=platform_code,
     )
     moc = MOC(
         entity_id=entity_id,
@@ -200,9 +255,9 @@ async def create_moc(
         initiator_id=current_user.id,
         initiator_name=body.initiator_name or current_user.full_name,
         initiator_function=body.initiator_function,
-        site_label=body.site_label,
-        site_id=body.site_id,
-        platform_code=body.platform_code.strip().upper(),
+        site_label=site_label,
+        site_id=site_id,
+        platform_code=platform_code.upper(),
         installation_id=body.installation_id,
         objectives=body.objectives,
         description=body.description,
@@ -537,4 +592,198 @@ async def upsert_moc_validation(
     )
     await db.commit()
     await db.refresh(row)
+    # ValidationRow relationship metier_name is optional — pass through
     return row
+
+
+# ─── Execution accord (DO / DG — paper form p.5 "Réalisation du MOC") ────────
+
+
+@router.post(
+    "/{moc_id}/execution-accord",
+    response_model=MOCReadWithDetails,
+)
+async def set_execution_accord(
+    moc_id: UUID,
+    body: MOCExecutionAccord,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record the Accord/Refus given by the DO or DG for MOC execution.
+
+    Required permissions:
+      * `moc.director.validate_study` for actor="do"
+      * `moc.director.validate_study` for actor="dg" (DG uses the same
+        permission today; split when the tenant needs distinct gating).
+
+    Both accords (DO + DG = True) are required before transitioning
+    validated → execution.
+    """
+    from datetime import UTC, datetime as _dt
+    from app.api.deps import has_user_permission
+
+    # Permission check — DO/DG level mapping
+    if not await has_user_permission(
+        current_user, entity_id, "moc.director.validate_study", db,
+    ) and not await has_user_permission(current_user, entity_id, "moc.manage", db):
+        raise StructuredHTTPException(
+            403, code="MOC_EXECUTION_ACCORD_FORBIDDEN",
+            message="Seul un directeur peut donner l'accord d'exécution.",
+        )
+
+    moc = await _get_or_404(db, moc_id, entity_id)
+    if moc.status not in ("validated", "execution"):
+        # Accord can be revisited during validated state; no-op after execution
+        # already started, but don't forbid in case of correction.
+        if moc.status != "execution":
+            raise StructuredHTTPException(
+                400, code="MOC_WRONG_STATE",
+                message=(
+                    f"Accord exécution possible uniquement en statut 'validated'. "
+                    f"Statut actuel : {moc.status}"
+                ),
+            )
+
+    now = _dt.now(UTC)
+    if body.actor == "do":
+        moc.do_execution_accord = body.accord
+        moc.do_execution_accord_at = now
+        moc.do_execution_accord_by = current_user.id
+        if body.comment is not None:
+            moc.do_execution_comment = body.comment
+    else:  # "dg"
+        moc.dg_execution_accord = body.accord
+        moc.dg_execution_accord_at = now
+        moc.dg_execution_accord_by = current_user.id
+        if body.comment is not None:
+            moc.dg_execution_comment = body.comment
+
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action=f"moc.execution_accord.{body.actor}",
+        resource_type="moc", resource_id=str(moc.id),
+        details={
+            "reference": moc.reference,
+            "actor": body.actor,
+            "accord": body.accord,
+        },
+    )
+    await db.commit()
+    return await get_moc(moc_id=moc.id, entity_id=entity_id, db=db)
+
+
+# ─── Site assignments (CDC §4.4 "contacts des valideurs") ───────────────────
+
+
+@router.get(
+    "/site-assignments",
+    response_model=list[MOCSiteAssignmentRead],
+    dependencies=[require_permission("moc.read")],
+)
+async def list_site_assignments(
+    site_label: str | None = Query(None),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(MOCSiteAssignment).where(MOCSiteAssignment.entity_id == entity_id)
+    if site_label:
+        q = q.where(MOCSiteAssignment.site_label == site_label)
+    q = q.order_by(MOCSiteAssignment.site_label, MOCSiteAssignment.role)
+    rows = (await db.execute(q)).scalars().all()
+
+    uids = {r.user_id for r in rows}
+    names = await _user_display(db, uids)
+    return [
+        {
+            "id": r.id,
+            "site_label": r.site_label,
+            "role": r.role,
+            "user_id": r.user_id,
+            "user_display": names.get(r.user_id),
+            "active": r.active,
+            "created_at": r.created_at,
+        }
+        for r in rows
+    ]
+
+
+@router.post(
+    "/site-assignments",
+    response_model=MOCSiteAssignmentRead,
+    status_code=201,
+    dependencies=[require_permission("moc.manage")],
+)
+async def create_site_assignment(
+    body: MOCSiteAssignmentCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    row = MOCSiteAssignment(
+        entity_id=entity_id,
+        site_label=body.site_label,
+        role=body.role,
+        user_id=body.user_id,
+        active=body.active,
+    )
+    db.add(row)
+    try:
+        await db.flush()
+    except Exception as exc:
+        await db.rollback()
+        raise StructuredHTTPException(
+            409, code="MOC_SITE_ASSIGNMENT_DUPLICATE",
+            message="Cet utilisateur est déjà assigné à ce rôle pour ce site.",
+        ) from exc
+
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action="moc.site_assignment.created",
+        resource_type="moc_site_assignment", resource_id=str(row.id),
+        details={"site": body.site_label, "role": body.role, "user": str(body.user_id)},
+    )
+    await db.commit()
+    await db.refresh(row)
+    names = await _user_display(db, {row.user_id})
+    return {
+        "id": row.id,
+        "site_label": row.site_label,
+        "role": row.role,
+        "user_id": row.user_id,
+        "user_display": names.get(row.user_id),
+        "active": row.active,
+        "created_at": row.created_at,
+    }
+
+
+@router.delete(
+    "/site-assignments/{assignment_id}",
+    status_code=204,
+    dependencies=[require_permission("moc.manage")],
+)
+async def delete_site_assignment(
+    assignment_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    row = (await db.execute(
+        select(MOCSiteAssignment).where(
+            MOCSiteAssignment.id == assignment_id,
+            MOCSiteAssignment.entity_id == entity_id,
+        )
+    )).scalar_one_or_none()
+    if not row:
+        raise StructuredHTTPException(
+            404, code="MOC_SITE_ASSIGNMENT_NOT_FOUND",
+            message="Assignation non trouvée",
+        )
+    await db.delete(row)
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action="moc.site_assignment.deleted",
+        resource_type="moc_site_assignment", resource_id=str(row.id),
+        details={"site": row.site_label, "role": row.role},
+    )
+    await db.commit()

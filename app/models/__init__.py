@@ -69,6 +69,7 @@ from app.models.packlog import (  # noqa: F401
 )
 from app.models.moc import (  # noqa: F401
     MOC,
+    MOCSiteAssignment,
     MOCStatusHistory,
     MOCValidation,
 )

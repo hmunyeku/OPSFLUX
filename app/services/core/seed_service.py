@@ -2021,12 +2021,13 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("moc_cost_bucket", "20_to_50", "20 – 50 MXAF", 2, {"en": "20 – 50 MXAF"}),
         ("moc_cost_bucket", "50_to_100", "50 – 100 MXAF", 3, {"en": "50 – 100 MXAF"}),
         ("moc_cost_bucket", "gt_100", "> 100 MXAF", 4, {"en": "> 100 MXAF"}),
-        ("moc_validation_role", "hse", "HSE / Safety", 1, {"en": "HSE / Safety"}),
-        ("moc_validation_role", "lead_process", "Lead Process", 2, {"en": "Lead Process"}),
-        ("moc_validation_role", "production_manager", "Production Manager", 3, {"en": "Production Manager"}),
-        ("moc_validation_role", "gas_manager", "Gas Manager", 4, {"en": "Gas Manager"}),
-        ("moc_validation_role", "maintenance_manager", "Maintenance Manager", 5, {"en": "Maintenance Manager"}),
-        ("moc_validation_role", "metier", "Métier (discipline)", 6, {"en": "Discipline"}),
+        ("moc_validation_role", "process_engineer", "Process Engineer", 1, {"en": "Process Engineer"}),
+        ("moc_validation_role", "hse", "HSE / Safety", 2, {"en": "HSE / Safety"}),
+        ("moc_validation_role", "lead_process", "Lead Process", 3, {"en": "Lead Process"}),
+        ("moc_validation_role", "production_manager", "Production Manager", 4, {"en": "Production Manager"}),
+        ("moc_validation_role", "gas_manager", "Gas Manager", 5, {"en": "Gas Manager"}),
+        ("moc_validation_role", "maintenance_manager", "Maintenance Manager", 6, {"en": "Maintenance Manager"}),
+        ("moc_validation_role", "metier", "Métier (discipline)", 7, {"en": "Discipline"}),
     ]
 
     created = 0

@@ -4852,7 +4852,10 @@
       "installation": "Installation (asset registry)",
       "installation_hint": "Link to asset registry site/installation if known — optional",
       "installation_ph": "Pick an installation…",
-      "site_custom_ph": "Site name"
+      "site_custom_ph": "Site name",
+      "cost_bucket": "Cost bucket",
+      "installation_hint_v2": "Pick the installation from the registry — site and platform are auto-derived",
+      "manual_location_toggle": "Manual entry (installation not yet in the registry)"
     },
     "create": {
       "title": "New MOC",
@@ -4874,7 +4877,10 @@
       "flags": "HAZOP / HAZID / Documents",
       "attachments": "Attachments",
       "timeline": "Status history",
-      "comments": "Discussion thread"
+      "comments": "Discussion thread",
+      "cost": "MOC cost",
+      "execution_accord": "MOC Execution — DO / DG accords",
+      "execution_accord_hint": "Both directors must give their accord before execution starts on site."
     },
     "stats": {
       "total": "Total MOCs",

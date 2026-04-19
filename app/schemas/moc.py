@@ -12,13 +12,18 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class MOCCreate(BaseModel):
-    """Initial MOC creation — minimal required fields per CDC §4.1."""
+    """Initial MOC creation — minimal required fields per CDC §4.1.
+
+    Either `installation_id` (preferred — auto-derives site + platform from
+    the asset registry hierarchy) OR both `site_label` + `platform_code`
+    must be provided. Backend raises a 400 otherwise.
+    """
 
     initiator_name: str | None = None
     initiator_function: str | None = None
-    site_label: str = Field(..., min_length=1, max_length=100)
+    site_label: str | None = Field(default=None, max_length=100)
     site_id: UUID | None = None
-    platform_code: str = Field(..., min_length=1, max_length=60)
+    platform_code: str | None = Field(default=None, max_length=60)
     installation_id: UUID | None = None
     objectives: str | None = None
     description: str | None = None
@@ -77,6 +82,11 @@ class MOCUpdate(BaseModel):
     pid_update_completed: bool | None = None
     esd_update_required: bool | None = None
     esd_update_completed: bool | None = None
+    # DO / DG execution accords — "Réalisation du MOC" paper form p.5
+    do_execution_accord: bool | None = None
+    dg_execution_accord: bool | None = None
+    do_execution_comment: str | None = None
+    dg_execution_comment: str | None = None
 
 
 # ─── Status transition ────────────────────────────────────────────────────────
@@ -99,8 +109,12 @@ class MOCTransition(BaseModel):
 
 
 class MOCValidationUpsert(BaseModel):
-    role: str = Field(..., pattern="^(hse|lead_process|production_manager|gas_manager|maintenance_manager|metier)$")
+    role: str = Field(
+        ...,
+        pattern="^(hse|lead_process|production_manager|gas_manager|maintenance_manager|process_engineer|metier)$",
+    )
     metier_code: str | None = None
+    metier_name: str | None = None
     required: bool | None = None
     completed: bool | None = None
     approved: bool | None = None
@@ -114,6 +128,7 @@ class MOCValidationRead(BaseModel):
     id: UUID
     role: str
     metier_code: str | None
+    metier_name: str | None
     required: bool
     completed: bool
     approved: bool | None
@@ -122,6 +137,42 @@ class MOCValidationRead(BaseModel):
     level: str | None
     comments: str | None
     validated_at: datetime | None
+
+
+# ─── Execution accords (DO / DG — paper form "Réalisation du MOC") ────────────
+
+
+class MOCExecutionAccord(BaseModel):
+    """Body for POST /moc/{id}/execution-accord — DO or DG giving Accord/Refus."""
+
+    actor: str = Field(..., pattern="^(do|dg)$")
+    accord: bool  # True = Accord, False = Refus
+    comment: str | None = None
+
+
+# ─── Site assignments (CDC §4.4 "contacts des valideurs") ─────────────────────
+
+
+class MOCSiteAssignmentCreate(BaseModel):
+    site_label: str = Field(..., min_length=1, max_length=100)
+    role: str = Field(
+        ...,
+        pattern="^(site_chief|director|lead_process|hse|production_manager|gas_manager|maintenance_manager)$",
+    )
+    user_id: UUID
+    active: bool = True
+
+
+class MOCSiteAssignmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    site_label: str
+    role: str
+    user_id: UUID
+    user_display: str | None = None
+    active: bool
+    created_at: datetime
 
 
 # ─── Status history ───────────────────────────────────────────────────────────
@@ -209,6 +260,16 @@ class MOCRead(BaseModel):
     pid_update_completed: bool
     esd_update_required: bool
     esd_update_completed: bool
+
+    # DO / DG execution accords
+    do_execution_accord: bool | None
+    dg_execution_accord: bool | None
+    do_execution_accord_at: datetime | None
+    dg_execution_accord_at: datetime | None
+    do_execution_accord_by: UUID | None
+    dg_execution_accord_by: UUID | None
+    do_execution_comment: str | None
+    dg_execution_comment: str | None
 
     # Execution
     execution_started_at: datetime | None

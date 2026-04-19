@@ -35,10 +35,14 @@ export function MOCCreatePanel() {
   const siteOptions = useDictionaryOptions('moc_site')
   const modificationTypeOptions = useDictionaryOptions('moc_modification_type')
 
+  // Primary input: installation from asset registry. When present, backend
+  // auto-derives site_label + platform_code from the hierarchy.
+  // Fallback: free-text Site + Platform for tenants not using asset_registry.
+  const [installationId, setInstallationId] = useState<string | null>(null)
+  const [manualFallback, setManualFallback] = useState(false)
   const [site, setSite] = useState('')
   const [customSite, setCustomSite] = useState('')
   const [platform, setPlatform] = useState('')
-  const [installationId, setInstallationId] = useState<string | null>(null)
   const [objectives, setObjectives] = useState('')
   const [description, setDescription] = useState('')
   const [currentSituation, setCurrentSituation] = useState('')
@@ -48,15 +52,21 @@ export function MOCCreatePanel() {
   const [durationDays, setDurationDays] = useState('')
   const [initiatorFn, setInitiatorFn] = useState('')
 
+  // Preferred path: installation picker — backend derives site + platform.
+  // Fallback path: manual Site dropdown + Platform free-text.
   const siteLabel = site === 'OTHER' ? customSite.trim() : site
-  const canSubmit = !!siteLabel && !!platform.trim() && !!objectives.trim() && !create.isPending
+  const canSubmit =
+    !!objectives.trim() &&
+    !create.isPending &&
+    (installationId || (siteLabel && platform.trim()))
 
   const submit = async () => {
     if (!canSubmit) return
     const payload: MOCCreatePayload = {
-      site_label: siteLabel,
-      platform_code: platform.trim().toUpperCase(),
       installation_id: installationId,
+      // Only include manual fields when no installation picked
+      site_label: installationId ? null : siteLabel,
+      platform_code: installationId ? null : platform.trim().toUpperCase(),
       objectives: objectives.trim() || null,
       description: description.trim() || null,
       current_situation: currentSituation.trim() || null,
@@ -107,50 +117,21 @@ export function MOCCreatePanel() {
     >
       <PanelContentLayout>
         <FormSection title={t('moc.create.section_location')} defaultExpanded>
+          {/* Primary: installation picker. Site + Platform auto-derived
+              backend-side from the asset_registry hierarchy (Installation →
+              Site → Field). If the target isn't in the registry yet, tick
+              "Saisie manuelle" to enter Site + Platform as free text. */}
           <FormGrid>
-            <DynamicPanelField label={t('moc.fields.site')}>
-              <select
-                className={panelInputClass}
-                value={site}
-                onChange={(e) => setSite(e.target.value)}
-              >
-                <option value="">—</option>
-                {siteOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-                <option value="OTHER">{t('common.other')}</option>
-              </select>
-            </DynamicPanelField>
-            {site === 'OTHER' && (
-              <DynamicPanelField label={t('moc.fields.site_custom')}>
-                <input
-                  className={panelInputClass}
-                  value={customSite}
-                  onChange={(e) => setCustomSite(e.target.value)}
-                  placeholder={t('moc.fields.site_custom_ph') as string}
-                />
-              </DynamicPanelField>
-            )}
-            <DynamicPanelField label={t('moc.fields.platform')}>
-              <input
-                className={panelInputClass}
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value)}
-                placeholder="BRF1, INF1, DS1, …"
-              />
-            </DynamicPanelField>
-            <DynamicPanelField label={t('moc.fields.installation')}>
+            <DynamicPanelField label={t('moc.fields.installation')} span="full">
               <AssetPicker
                 value={installationId}
                 onChange={(id) => setInstallationId(id)}
                 placeholder={t('moc.fields.installation_ph') as string}
-                filterTypes={['installation', 'site']}
+                filterTypes={['installation']}
                 clearable
               />
               <p className="mt-1 text-[10px] text-muted-foreground/70">
-                {t('moc.fields.installation_hint')}
+                {t('moc.fields.installation_hint_v2')}
               </p>
             </DynamicPanelField>
             <DynamicPanelField label={t('moc.fields.initiator_function')}>
@@ -162,6 +143,56 @@ export function MOCCreatePanel() {
               />
             </DynamicPanelField>
           </FormGrid>
+
+          {!installationId && (
+            <div className="mt-3">
+              <label className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={manualFallback}
+                  onChange={(e) => setManualFallback(e.target.checked)}
+                />
+                {t('moc.fields.manual_location_toggle')}
+              </label>
+              {manualFallback && (
+                <FormGrid>
+                  <DynamicPanelField label={t('moc.fields.site')}>
+                    <select
+                      className={panelInputClass}
+                      value={site}
+                      onChange={(e) => setSite(e.target.value)}
+                    >
+                      <option value="">—</option>
+                      {siteOptions.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                      <option value="OTHER">{t('common.other')}</option>
+                    </select>
+                  </DynamicPanelField>
+                  {site === 'OTHER' && (
+                    <DynamicPanelField label={t('moc.fields.site_custom')}>
+                      <input
+                        className={panelInputClass}
+                        value={customSite}
+                        onChange={(e) => setCustomSite(e.target.value)}
+                        placeholder={t('moc.fields.site_custom_ph') as string}
+                      />
+                    </DynamicPanelField>
+                  )}
+                  <DynamicPanelField label={t('moc.fields.platform')}>
+                    <input
+                      className={panelInputClass}
+                      value={platform}
+                      onChange={(e) => setPlatform(e.target.value)}
+                      placeholder="BRF1, INF1, DS1, …"
+                    />
+                  </DynamicPanelField>
+                </FormGrid>
+              )}
+            </div>
+          )}
         </FormSection>
 
         <FormSection title={t('moc.create.section_objectives')} defaultExpanded>

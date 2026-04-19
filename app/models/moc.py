@@ -68,7 +68,19 @@ MOC_VALIDATION_ROLES = (
     "production_manager",
     "gas_manager",
     "maintenance_manager",
+    "process_engineer",    # study responsible — also validates in the matrix
     "metier",              # discipline specialist (elec, instru, etc.)
+)
+
+# Roles that can be assigned per site in `moc_site_assignments`.
+MOC_SITE_ROLES = (
+    "site_chief",
+    "director",
+    "lead_process",
+    "hse",
+    "production_manager",
+    "gas_manager",
+    "maintenance_manager",
 )
 
 
@@ -214,6 +226,26 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
 
+    # ── "Réalisation du MOC" — DO + DG dual sign-off (paper form page 5) ──
+    # Both must be `True` before the `validated → execution` transition is
+    # allowed. `None` means not yet decided, `False` means explicit refusal.
+    do_execution_accord: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    dg_execution_accord: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    do_execution_accord_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    dg_execution_accord_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    do_execution_accord_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True,
+    )
+    dg_execution_accord_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True,
+    )
+    do_execution_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dg_execution_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # ── Status ──
     status: Mapped[str] = mapped_column(
         String(30), nullable=False, server_default="created"
@@ -322,9 +354,52 @@ class MOCValidation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     validator_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Free-text metier label ("Électricité", "Piping", "Instru"…) when role="metier".
+    # Complements the rigid metier_code used for uniqueness — admins can
+    # customise the display without touching the CHECK constraint.
+    metier_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     comments: Mapped[str | None] = mapped_column(Text, nullable=True)
     validated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
     moc = relationship("MOC", back_populates="validations")
+
+
+# ─── Per-site person directory (CDC §4.4) ─────────────────────────────────────
+
+
+class MOCSiteAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Maps a user to a role on a specific site_label within an entity.
+
+    Used by the notification layer so we only alert the chef de site of
+    RDR EAST when an MOC on RDR EAST changes status — instead of pinging
+    every user that happens to hold `moc.site_chief.approve` on the entity.
+
+    Kept deliberately simple: free-text site_label (matches what the MOC
+    stores) + enum role + FK to user. Admins manage assignments via
+    Settings → MOC → Site assignments.
+    """
+
+    __tablename__ = "moc_site_assignments"
+    __table_args__ = (
+        CheckConstraint(
+            f"role IN {MOC_SITE_ROLES}",
+            name="ck_moc_site_assignment_role",
+        ),
+        UniqueConstraint(
+            "entity_id", "site_label", "role", "user_id",
+            name="uq_moc_site_assignment",
+        ),
+        Index("idx_moc_site_assignments_entity_site", "entity_id", "site_label"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False,
+    )
+    site_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    role: Mapped[str] = mapped_column(String(30), nullable=False)
+    user_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+    )
+    active: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)

@@ -5662,7 +5662,10 @@
       "installation": "Installation (asset registry)",
       "installation_hint": "Lier au site/installation du référentiel si connu — optionnel",
       "installation_ph": "Choisir une installation…",
-      "site_custom_ph": "Nom du site"
+      "site_custom_ph": "Nom du site",
+      "cost_bucket": "Tranche de coût",
+      "installation_hint_v2": "Choisir l'installation dans le référentiel — site et plateforme sont déduits automatiquement",
+      "manual_location_toggle": "Saisie manuelle (installation absente du référentiel)"
     },
     "create": {
       "title": "Nouveau MOC",
@@ -5684,7 +5687,10 @@
       "flags": "HAZOP / HAZID / Documents",
       "attachments": "Pièces jointes",
       "timeline": "Historique des statuts",
-      "comments": "Fil de discussion"
+      "comments": "Fil de discussion",
+      "cost": "Coût du MOC",
+      "execution_accord": "Réalisation du MOC — Accords DO / DG",
+      "execution_accord_hint": "Les deux directeurs doivent donner leur accord avant le démarrage de l'exécution sur site."
     },
     "stats": {
       "total": "Total MOCs",

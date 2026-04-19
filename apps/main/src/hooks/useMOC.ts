@@ -5,7 +5,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   mocService,
   type MOCCreatePayload,
+  type MOCExecutionAccordPayload,
   type MOCListFilters,
+  type MOCSiteAssignmentCreatePayload,
   type MOCTransitionPayload,
   type MOCUpdatePayload,
   type MOCValidationUpsertPayload,
@@ -104,6 +106,46 @@ export function useUpsertMOCValidation() {
       mocService.upsertValidation(args.id, args.payload),
     onSuccess: (_d, args) => {
       qc.invalidateQueries({ queryKey: keys.detail(args.id) })
+    },
+  })
+}
+
+export function useMOCExecutionAccord() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { id: string; payload: MOCExecutionAccordPayload }) =>
+      mocService.executionAccord(args.id, args.payload),
+    onSuccess: (_d, args) => {
+      qc.invalidateQueries({ queryKey: keys.detail(args.id) })
+      qc.invalidateQueries({ queryKey: [...keys.all, 'list'] })
+    },
+  })
+}
+
+export function useMOCSiteAssignments(site_label?: string) {
+  return useQuery({
+    queryKey: [...keys.all, 'site_assignments', site_label ?? ''],
+    queryFn: () => mocService.listSiteAssignments(site_label),
+  })
+}
+
+export function useCreateMOCSiteAssignment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: MOCSiteAssignmentCreatePayload) =>
+      mocService.createSiteAssignment(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...keys.all, 'site_assignments'] })
+    },
+  })
+}
+
+export function useDeleteMOCSiteAssignment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => mocService.deleteSiteAssignment(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...keys.all, 'site_assignments'] })
     },
   })
 }

@@ -5723,11 +5723,13 @@
       "transitioned": "Statut mis à jour : {{status}}",
       "deleted": "MOC archivé",
       "validator_invited": "Validateur invité",
-      "error_generic": "Erreur lors de l'opération"
+      "error_generic": "Erreur lors de l'opération",
+      "pdf_failed": "Échec de la génération du PDF"
     },
     "actions": {
       "invite_validator": "Inviter un validateur",
-      "send_invite": "Envoyer l'invitation"
+      "send_invite": "Envoyer l'invitation",
+      "download_pdf": "Formulaire PDF"
     },
     "detail_tab": {
       "fiche": "Fiche",

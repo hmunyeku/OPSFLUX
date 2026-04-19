@@ -466,6 +466,26 @@ export const mocService = {
     await api.delete(`${BASE}/types/${typeId}/rules/${ruleId}`)
   },
 
+  // ── PDF export (Formulaire MOC Perenco — slug `moc.report`) ──
+  downloadPdf: async (id: string, language: 'fr' | 'en' = 'fr'): Promise<void> => {
+    const response = await api.get(`${BASE}/${id}/pdf`, {
+      params: { language },
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    // Try to extract filename from Content-Disposition, fallback to id.
+    const cd = response.headers['content-disposition'] as string | undefined
+    const match = cd?.match(/filename="([^"]+)"/)
+    a.download = match?.[1] ?? `moc-${id}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  },
+
   // ── Invite validator ──
   inviteValidator: async (
     id: string,

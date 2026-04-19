@@ -866,6 +866,92 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             },
         },
     },
+    {
+        # Rapport MOC — réplique du Formulaire MOC Perenco (rev. 06, oct. 2025).
+        # Un seul PDF couvre : demande, revue hiérarchie, accord chef de site,
+        # étude process, matrice de validation parallèle, accords DO/DG.
+        "slug": "moc.report",
+        "name": "Rapport MOC",
+        "description": (
+            "Formulaire complet d'un MOC — demande, revues, matrice de "
+            "validation, accords DO/DG — au format du formulaire Perenco."
+        ),
+        "object_type": "moc",
+        "page_size": "A4",
+        "orientation": "portrait",
+        "margin_top": 15,
+        "margin_right": 12,
+        "margin_bottom": 15,
+        "margin_left": 12,
+        "variables_schema": {
+            "reference": "Référence MOC (MOC_NNN_PF)",
+            "status_label": "Statut actuel humanisé",
+            "moc_type_label": "Libellé du type de MOC (ou '—')",
+            "site_label": "Site (RDR East / RDR West / …)",
+            "platform_code": "Code plateforme",
+            "initiator_display": "Nom du demandeur",
+            "initiator_function": "Fonction du demandeur",
+            "created_at": "Date de création (formatée)",
+            "objectives": "Objectif(s) des modifications",
+            "description": "Description complète (markdown → HTML)",
+            "current_situation": "Situation actuelle (markdown → HTML)",
+            "proposed_changes": "Modifications proposées (markdown → HTML)",
+            "impact_analysis": "Analyse d'impact (markdown → HTML)",
+            "modification_type_label": "Permanent / Temporaire",
+            "temporary_start_date": "Date début si temporaire",
+            "temporary_end_date": "Date fin si temporaire",
+            "is_real_change": "Booléen revue hiérarchie",
+            "hierarchy_review_comment": "Commentaire revue hiérarchie",
+            "site_chief_approved": "Accord chef de site",
+            "site_chief_display": "Nom chef de site",
+            "site_chief_approved_at": "Date approbation CDS",
+            "site_chief_comment": "Commentaire CDS",
+            "director_display": "Nom directeur",
+            "director_confirmed_at": "Date confirmation directeur",
+            "director_comment": "Commentaire directeur",
+            "priority": "Priorité (1/2/3)",
+            "estimated_cost_mxaf": "Coût estimé (MXAF)",
+            "cost_bucket_label": "Tranche de coût",
+            "validation_level_label": "DO / DO + DG",
+            "hazop_required": "HAZOP nécessaire",
+            "hazop_completed": "HAZOP réalisé",
+            "hazid_required": "HAZID nécessaire",
+            "hazid_completed": "HAZID réalisé",
+            "environmental_required": "Étude environnementale nécessaire",
+            "environmental_completed": "Étude environnementale réalisée",
+            "pid_update_required": "MAJ PID nécessaire",
+            "pid_update_completed": "MAJ PID réalisée",
+            "esd_update_required": "MAJ ESD nécessaire",
+            "esd_update_completed": "MAJ ESD réalisée",
+            "study_conclusion": "Conclusions de l'étude (markdown → HTML)",
+            "responsible_display": "Process Engineer en charge",
+            "study_completed_at": "Date fin d'étude",
+            "validations": (
+                "Liste des validations : [{role_label, validator_name, "
+                "comments, validated_at, approved, level}]"
+            ),
+            "do_execution_accord": "Accord DO (True/False/None)",
+            "do_execution_accord_at": "Date accord DO",
+            "do_execution_comment": "Commentaire DO",
+            "dg_execution_accord": "Accord DG (True/False/None)",
+            "dg_execution_accord_at": "Date accord DG",
+            "dg_execution_comment": "Commentaire DG",
+            "entity": "Objet entity avec .name et .code",
+            "generated_at": "Horodatage de génération",
+        },
+        "default_versions": {
+            "fr": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+            "en": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+        },
+    },
 ]
 
 
@@ -3371,6 +3457,404 @@ _CARGO_LABEL_BODY_EN = """\
 
 DEFAULT_PDF_TEMPLATES[10]["default_versions"]["fr"]["body_html"] = _CARGO_LABEL_BODY_FR
 DEFAULT_PDF_TEMPLATES[10]["default_versions"]["en"]["body_html"] = _CARGO_LABEL_BODY_EN
+
+
+# ── MOC Report HTML Template ─────────────────────────────────────────────
+# Réplique du Formulaire MOC Perenco (rev. 06, oct. 2025). Cinq blocs :
+#   1. Demande de modifications (objectifs, description, situation actuelle,
+#      modifications proposées, analyse d'impact, type).
+#   2. Revue préalable de la hiérarchie + accord chef de site.
+#   3. Conclusions du process engineer + drapeaux HAZOP/HAZID/ENV/PID/ESD.
+#   4. Matrice de validation parallèle (HSE, Lead Process, Production, Gaz,
+#      Maintenance, Métier) avec commentaires + date/visa.
+#   5. Coût & niveau de validation + accords DO/DG.
+# Les zones texte riches passent par le filtre `| safe` ; le service doit
+# convertir le markdown source en HTML avant d'injecter les variables.
+
+_MOC_REPORT_BODY_FR = r"""\
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<style>
+  @page { size: A4 portrait; margin: 15mm 12mm 18mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Times New Roman", serif; font-size: 9pt; color: #111; margin: 0; }
+  h1 { font-size: 14pt; margin: 0 0 2mm 0; text-align: center; text-transform: uppercase; letter-spacing: 0.5pt; }
+  .rev { text-align: right; font-size: 8pt; color: #555; margin-bottom: 3mm; }
+  .meta { display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 3mm; }
+  table.moc { width: 100%; border-collapse: collapse; margin-bottom: 4mm; font-size: 9pt; }
+  table.moc th, table.moc td { border: 0.5pt solid #333; padding: 2mm 3mm; vertical-align: top; }
+  table.moc th { background: #e8eef5; text-align: left; font-weight: 700; }
+  table.moc td.label { background: #f6f7f9; font-weight: 600; width: 35%; }
+  table.moc td.value { width: 65%; }
+  table.moc .section-title { background: #cbd6e5; font-weight: 700; text-transform: uppercase; font-size: 8.5pt; letter-spacing: 0.3pt; }
+  .rich { white-space: pre-wrap; }
+  .check { display: inline-block; width: 9pt; height: 9pt; border: 0.7pt solid #333; margin: 0 2pt -1pt 0; text-align: center; line-height: 9pt; }
+  .check.on { background: #333; color: #fff; }
+  .check.on::after { content: "\2713"; color: #fff; font-weight: 900; font-size: 7pt; }
+  .sig { min-height: 14mm; }
+  .three-col { display: flex; gap: 2mm; }
+  .three-col > div { flex: 1; border: 0.5pt solid #333; padding: 2mm 3mm; }
+  .three-col .lbl { font-weight: 600; font-size: 8pt; color: #444; }
+  .matrix td { font-size: 8.5pt; }
+  .matrix th { background: #e8eef5; text-align: left; font-weight: 700; }
+  .matrix td.role { width: 25%; font-weight: 600; background: #f6f7f9; }
+  .footer-note { margin-top: 3mm; font-size: 7.5pt; color: #666; font-style: italic; text-align: center; }
+  .status-chip { display: inline-block; padding: 1mm 3mm; background: #2a4a7f; color: #fff; border-radius: 2pt; font-size: 8pt; font-weight: 700; }
+  .yn { display: inline-block; margin-right: 4mm; }
+</style>
+</head>
+<body>
+
+<div class="rev">Formulaire MOC — Rev. 06 / Octobre 2025</div>
+<h1>Formulaire MOC</h1>
+
+<div class="meta">
+  <div><strong>Référence :</strong> {{ reference }} &nbsp;&nbsp;
+       <span class="status-chip">{{ status_label }}</span></div>
+  <div><strong>Site :</strong> {{ site_label }} — {{ platform_code }}</div>
+</div>
+
+<!-- ══════════════════  1. DEMANDE DE MODIFICATIONS  ══════════════════ -->
+<table class="moc">
+  <tr><td colspan="2" class="section-title">I. Demande de modifications</td></tr>
+  <tr>
+    <td class="label">MOC ID</td>
+    <td class="value">{{ reference }}</td>
+  </tr>
+  {% if moc_type_label %}
+  <tr>
+    <td class="label">Type de MOC</td>
+    <td class="value">{{ moc_type_label }}</td>
+  </tr>
+  {% endif %}
+  <tr>
+    <td class="label">Changement envisagé</td>
+    <td class="value">
+      Les modifications des installations visent à améliorer la sécurité,
+      l'environnement, la production, les coûts ou la fiabilité — cf. CDC §2.
+    </td>
+  </tr>
+  <tr>
+    <td class="label">Demandeur</td>
+    <td class="value">
+      <strong>{{ initiator_display or '—' }}</strong>
+      {% if initiator_function %} — {{ initiator_function }}{% endif %}
+      <br/><span style="color:#555;">Date : {{ created_at }}</span>
+    </td>
+  </tr>
+  <tr>
+    <td class="label">Objectif(s) des modifications</td>
+    <td class="value rich">{{ objectives or '—' }}</td>
+  </tr>
+  <tr>
+    <td class="label">Description</td>
+    <td class="value">{{ description | safe if description else '—' }}</td>
+  </tr>
+  <tr>
+    <td class="label">Situation actuelle</td>
+    <td class="value">{{ current_situation | safe if current_situation else '—' }}</td>
+  </tr>
+  <tr>
+    <td class="label">Modifications proposées</td>
+    <td class="value">{{ proposed_changes | safe if proposed_changes else '—' }}</td>
+  </tr>
+  <tr>
+    <td class="label">Analyse d'impact</td>
+    <td class="value">{{ impact_analysis | safe if impact_analysis else '—' }}</td>
+  </tr>
+  <tr>
+    <td class="label">Type de modification</td>
+    <td class="value">
+      <span class="yn"><span class="check {% if modification_type_label == 'Permanent' %}on{% endif %}"></span> Permanent</span>
+      <span class="yn"><span class="check {% if modification_type_label == 'Temporaire' %}on{% endif %}"></span> Temporaire</span>
+      {% if temporary_start_date or temporary_end_date %}
+      <br/><span style="color:#555;">
+        Période : du {{ temporary_start_date or '?' }} au {{ temporary_end_date or '?' }}
+      </span>
+      {% endif %}
+    </td>
+  </tr>
+</table>
+
+<!-- ══════════════════  2. REVUE HIÉRARCHIE + CHEF DE SITE  ══════════════════ -->
+<table class="moc">
+  <tr><td colspan="2" class="section-title">II. Revue préalable de la hiérarchie</td></tr>
+  <tr>
+    <td class="label">Les modifications constituent-elles un véritable changement au sens MOC ?</td>
+    <td class="value">
+      <span class="yn"><span class="check {% if is_real_change == True %}on{% endif %}"></span> Oui</span>
+      <span class="yn"><span class="check {% if is_real_change == False %}on{% endif %}"></span> Non</span>
+    </td>
+  </tr>
+  <tr>
+    <td class="label">Commentaires hiérarchie</td>
+    <td class="value rich">{{ hierarchy_review_comment or '—' }}</td>
+  </tr>
+  <tr><td colspan="2" class="section-title">Approbation préalable du chef de site (CDS / OM)</td></tr>
+  <tr>
+    <td class="label">Accord de principe</td>
+    <td class="value">
+      <span class="yn"><span class="check {% if site_chief_approved == True %}on{% endif %}"></span> Oui</span>
+      <span class="yn"><span class="check {% if site_chief_approved == False %}on{% endif %}"></span> Non</span>
+    </td>
+  </tr>
+  <tr>
+    <td class="label">Commentaires CDS</td>
+    <td class="value rich">{{ site_chief_comment or '—' }}</td>
+  </tr>
+  <tr>
+    <td class="label">Nom du CDS / OM</td>
+    <td class="value">
+      <strong>{{ site_chief_display or '—' }}</strong>
+      {% if site_chief_approved_at %}<br/><span style="color:#555;">Date : {{ site_chief_approved_at }}</span>{% endif %}
+      <div class="sig"></div>
+    </td>
+  </tr>
+</table>
+
+<!-- ══════════════════  3. CONFIRMATION DIRECTEUR  ══════════════════ -->
+{% if director_display or director_confirmed_at %}
+<table class="moc">
+  <tr><td colspan="2" class="section-title">III. Confirmation à étudier (Direction)</td></tr>
+  <tr>
+    <td class="label">Directeur</td>
+    <td class="value">
+      <strong>{{ director_display or '—' }}</strong>
+      {% if director_confirmed_at %}<br/><span style="color:#555;">Date : {{ director_confirmed_at }}</span>{% endif %}
+    </td>
+  </tr>
+  <tr>
+    <td class="label">Priorité</td>
+    <td class="value">{% if priority == '1' %}1 — Haute{% elif priority == '2' %}2 — Normale{% elif priority == '3' %}3 — Basse{% else %}—{% endif %}</td>
+  </tr>
+  <tr>
+    <td class="label">Commentaires directeur</td>
+    <td class="value rich">{{ director_comment or '—' }}</td>
+  </tr>
+</table>
+{% endif %}
+
+<!-- ══════════════════  4. CONCLUSIONS PROCESS ENGINEER  ══════════════════ -->
+<table class="moc">
+  <tr>
+    <th style="width:25%;">Entité</th>
+    <th>Conclusions MOC — à transmettre au site après étude</th>
+    <th style="width:22%;">Date / visa</th>
+  </tr>
+  <tr>
+    <td class="role">Process Engineer</td>
+    <td>
+      {{ study_conclusion | safe if study_conclusion else '—' }}
+      <br/><br/>
+      <strong>Préalables à prendre en compte :</strong><br/>
+      <table class="matrix" style="width:100%; border-collapse:collapse;">
+        <tr><th>Étape</th><th>Nécessaire</th><th>Réalisé</th></tr>
+        <tr>
+          <td>HAZOP / HAZID</td>
+          <td><span class="check {% if hazop_required or hazid_required %}on{% endif %}"></span> Oui
+              <span class="check {% if not (hazop_required or hazid_required) %}on{% endif %}"></span> Non</td>
+          <td><span class="check {% if hazop_completed or hazid_completed %}on{% endif %}"></span> Oui
+              <span class="check {% if not (hazop_completed or hazid_completed) %}on{% endif %}"></span> Non</td>
+        </tr>
+        <tr>
+          <td>Environmental assessment</td>
+          <td><span class="check {% if environmental_required %}on{% endif %}"></span> Oui
+              <span class="check {% if not environmental_required %}on{% endif %}"></span> Non</td>
+          <td><span class="check {% if environmental_completed %}on{% endif %}"></span> Oui
+              <span class="check {% if not environmental_completed %}on{% endif %}"></span> Non</td>
+        </tr>
+        <tr>
+          <td>MAJ PID</td>
+          <td><span class="check {% if pid_update_required %}on{% endif %}"></span> Oui
+              <span class="check {% if not pid_update_required %}on{% endif %}"></span> Non</td>
+          <td><span class="check {% if pid_update_completed %}on{% endif %}"></span> Oui
+              <span class="check {% if not pid_update_completed %}on{% endif %}"></span> Non</td>
+        </tr>
+        <tr>
+          <td>MAJ ESD</td>
+          <td><span class="check {% if esd_update_required %}on{% endif %}"></span> Oui
+              <span class="check {% if not esd_update_required %}on{% endif %}"></span> Non</td>
+          <td><span class="check {% if esd_update_completed %}on{% endif %}"></span> Oui
+              <span class="check {% if not esd_update_completed %}on{% endif %}"></span> Non</td>
+        </tr>
+      </table>
+    </td>
+    <td>
+      <strong>{{ responsible_display or '—' }}</strong>
+      {% if study_completed_at %}<br/><span style="color:#555;">{{ study_completed_at }}</span>{% endif %}
+      <div class="sig"></div>
+    </td>
+  </tr>
+</table>
+
+<!-- ══════════════════  5. MATRICE DE VALIDATION PARALLÈLE  ══════════════════ -->
+<table class="moc matrix">
+  <tr>
+    <th>Entité</th>
+    <th>Commentaires / recommandations</th>
+    <th style="width:22%;">Date / visa</th>
+  </tr>
+  {% for v in validations %}
+  <tr>
+    <td class="role">
+      {{ v.role_label }}
+      {% if v.metier_name %}<br/><span style="color:#555; font-size:7.5pt;">{{ v.metier_name }}</span>{% endif %}
+    </td>
+    <td class="rich">
+      {{ v.comments | safe if v.comments else '—' }}
+      {% if v.level %}<br/><span style="font-size:7.5pt; color:#2a4a7f;">Niveau : {{ v.level }}</span>{% endif %}
+    </td>
+    <td>
+      <strong>{{ v.validator_name or '—' }}</strong>
+      {% if v.validated_at %}<br/><span style="color:#555;">{{ v.validated_at }}</span>{% endif %}
+      {% if v.approved == True %}<br/><span style="color:#2f7a3e; font-weight:700;">✓ Approuvé</span>
+      {% elif v.approved == False %}<br/><span style="color:#b92020; font-weight:700;">✗ Refusé</span>
+      {% endif %}
+      <div class="sig"></div>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="3" style="text-align:center; color:#777;">— Aucune validation enregistrée —</td></tr>
+  {% endfor %}
+</table>
+
+<!-- ══════════════════  6. COÛT + ACCORDS DO/DG  ══════════════════ -->
+<table class="moc">
+  <tr><th>Coût du MOC</th><th>Niveau de validation</th></tr>
+  <tr>
+    <td><span class="check {% if cost_bucket_label == '< 20 MXAF' %}on{% endif %}"></span> 0 &lt; X &lt; 20 MXAF</td>
+    <td>D.O</td>
+  </tr>
+  <tr>
+    <td><span class="check {% if cost_bucket_label == '20 – 50 MXAF' %}on{% endif %}"></span> 20 &lt; X &lt; 50 MXAF</td>
+    <td>D.O</td>
+  </tr>
+  <tr>
+    <td><span class="check {% if cost_bucket_label == '50 – 100 MXAF' %}on{% endif %}"></span> 50 &lt; X &lt; 100 MXAF</td>
+    <td>D.O</td>
+  </tr>
+  <tr>
+    <td><span class="check {% if cost_bucket_label == '> 100 MXAF' %}on{% endif %}"></span> X &gt; 100 MXAF</td>
+    <td>D.O + D.G</td>
+  </tr>
+  {% if estimated_cost_mxaf %}
+  <tr>
+    <td colspan="2" style="background:#f6f7f9;">
+      <strong>Coût estimé :</strong> {{ estimated_cost_mxaf }} MXAF
+    </td>
+  </tr>
+  {% endif %}
+</table>
+
+<h1 style="margin-top:5mm;">Formulaire validation MOC</h1>
+
+<table class="moc">
+  <tr>
+    <th>Entité</th>
+    <th>Réalisation du MOC</th>
+    <th style="width:22%;">Date / visa</th>
+  </tr>
+  <tr>
+    <td class="role">D.O</td>
+    <td>
+      <span class="yn"><span class="check {% if do_execution_accord == True %}on{% endif %}"></span> Accord</span>
+      <span class="yn"><span class="check {% if do_execution_accord == False %}on{% endif %}"></span> Refus</span>
+      {% if do_execution_comment %}<div class="rich" style="margin-top:2mm;">{{ do_execution_comment }}</div>{% endif %}
+    </td>
+    <td>
+      {% if do_execution_accord_at %}<span style="color:#555;">{{ do_execution_accord_at }}</span>{% endif %}
+      <div class="sig"></div>
+    </td>
+  </tr>
+  <tr>
+    <td class="role">D.G</td>
+    <td>
+      <span class="yn"><span class="check {% if dg_execution_accord == True %}on{% endif %}"></span> Accord</span>
+      <span class="yn"><span class="check {% if dg_execution_accord == False %}on{% endif %}"></span> Refus</span>
+      {% if dg_execution_comment %}<div class="rich" style="margin-top:2mm;">{{ dg_execution_comment }}</div>{% endif %}
+    </td>
+    <td>
+      {% if dg_execution_accord_at %}<span style="color:#555;">{{ dg_execution_accord_at }}</span>{% endif %}
+      <div class="sig"></div>
+    </td>
+  </tr>
+</table>
+
+<div class="footer-note">
+  Document généré le {{ generated_at }} par OpsFlux MOCtrack —
+  {% if entity and entity.name %}{{ entity.name }}{% endif %}.
+  Ce formulaire reproduit le Rapport MOC Perenco (rev. 06 / octobre 2025).
+</div>
+
+</body>
+</html>"""
+
+# EN fallback — same structure, English labels only
+_MOC_REPORT_BODY_EN = _MOC_REPORT_BODY_FR \
+    .replace("Formulaire MOC", "MOC Form") \
+    .replace("Formulaire validation MOC", "MOC Validation Form") \
+    .replace("Rev. 06 / Octobre 2025", "Rev. 06 / October 2025") \
+    .replace("Référence", "Reference") \
+    .replace("Site :", "Site:") \
+    .replace("I. Demande de modifications", "I. Change request") \
+    .replace("Type de MOC", "MOC type") \
+    .replace("Changement envisagé", "Proposed change") \
+    .replace("Demandeur", "Initiator") \
+    .replace("Objectif(s) des modifications", "Change objective(s)") \
+    .replace("Situation actuelle", "Current situation") \
+    .replace("Modifications proposées", "Proposed changes") \
+    .replace("Analyse d'impact", "Impact analysis") \
+    .replace("Type de modification", "Modification type") \
+    .replace("Temporaire", "Temporary") \
+    .replace("II. Revue préalable de la hiérarchie", "II. Preliminary hierarchy review") \
+    .replace("Les modifications constituent-elles un véritable changement au sens MOC ?",
+             "Is this a real change per MOC rules?") \
+    .replace("Commentaires hiérarchie", "Hierarchy comments") \
+    .replace("Approbation préalable du chef de site (CDS / OM)",
+             "Site chief approval (CDS / OM)") \
+    .replace("Accord de principe", "Preliminary approval") \
+    .replace("Commentaires CDS", "Site chief comments") \
+    .replace("Nom du CDS / OM", "Site chief name") \
+    .replace("III. Confirmation à étudier (Direction)",
+             "III. Direction confirmation") \
+    .replace("Directeur", "Director") \
+    .replace("Priorité", "Priority") \
+    .replace("1 — Haute", "1 — High") \
+    .replace("2 — Normale", "2 — Normal") \
+    .replace("3 — Basse", "3 — Low") \
+    .replace("Commentaires directeur", "Director comments") \
+    .replace("Entité", "Entity") \
+    .replace("Conclusions MOC — à transmettre au site après étude",
+             "MOC conclusions — to be sent to site after study") \
+    .replace("Date / visa", "Date / signature") \
+    .replace("Préalables à prendre en compte", "Prerequisites") \
+    .replace("Étape", "Step") \
+    .replace("Nécessaire", "Required") \
+    .replace("Réalisé", "Completed") \
+    .replace("Oui", "Yes") \
+    .replace("Non", "No") \
+    .replace("Commentaires / recommandations", "Comments / recommendations") \
+    .replace("Niveau", "Level") \
+    .replace("Approuvé", "Approved") \
+    .replace("Refusé", "Rejected") \
+    .replace("— Aucune validation enregistrée —", "— No validation recorded —") \
+    .replace("Coût du MOC", "MOC cost") \
+    .replace("Niveau de validation", "Validation level") \
+    .replace("Coût estimé", "Estimated cost") \
+    .replace("Réalisation du MOC", "MOC execution") \
+    .replace("Accord", "Approval") \
+    .replace("Refus", "Refusal") \
+    .replace("Période : du", "Period: from") \
+    .replace(" au ", " to ") \
+    .replace("Document généré le", "Document generated on") \
+    .replace("Ce formulaire reproduit le Rapport MOC Perenco",
+             "This form reproduces the Perenco MOC Report")
+
+
+DEFAULT_PDF_TEMPLATES[11]["default_versions"]["fr"]["body_html"] = _MOC_REPORT_BODY_FR
+DEFAULT_PDF_TEMPLATES[11]["default_versions"]["en"]["body_html"] = _MOC_REPORT_BODY_EN
 
 
 # ── Rendering helpers ────────────────────────────────────────────────────

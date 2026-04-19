@@ -18,7 +18,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -894,6 +894,213 @@ async def upsert_moc_validation(
     await db.refresh(row)
     # ValidationRow relationship metier_name is optional — pass through
     return row
+
+
+# ─── PDF report (Formulaire MOC — Perenco rev. 06) ──────────────────────────
+
+
+@router.get(
+    "/{moc_id}/pdf",
+    responses={200: {"content": {"application/pdf": {}}}},
+    dependencies=[require_permission("moc.read")],
+)
+async def export_moc_pdf(
+    moc_id: UUID,
+    language: str = Query("fr", pattern="^(fr|en)$"),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render the MOC as a PDF matching the Perenco paper form template.
+
+    Admin can override the HTML/CSS via Settings → PDF Templates (slug
+    `moc.report`) without touching the code. Body variables are documented
+    in `DEFAULT_PDF_TEMPLATES` for the slug.
+    """
+    from datetime import UTC, datetime as _dt
+    from html import escape as _html_escape
+    from app.core.pdf_templates import render_pdf
+    from app.models.common import Entity
+
+    def render_markdown(txt: str | None) -> str | None:
+        """Minimal markdown → HTML for the PDF body. Keeps line breaks and
+        bullet lists readable without pulling in a full markdown lib."""
+        if not txt:
+            return None
+        lines = txt.splitlines()
+        out: list[str] = []
+        in_list = False
+        for line in lines:
+            stripped = line.lstrip()
+            if stripped.startswith(("- ", "* ")):
+                if not in_list:
+                    out.append("<ul>")
+                    in_list = True
+                out.append(f"<li>{_html_escape(stripped[2:])}</li>")
+            else:
+                if in_list:
+                    out.append("</ul>")
+                    in_list = False
+                if stripped:
+                    out.append(f"<p>{_html_escape(line)}</p>")
+        if in_list:
+            out.append("</ul>")
+        return "".join(out)
+
+    moc = await _get_or_404(db, moc_id, entity_id, with_details=True)
+
+    # Resolve display names (initiator, site_chief, director, responsible,
+    # plus every validator).
+    uids: set[UUID] = {moc.initiator_id}
+    for fk in (moc.site_chief_id, moc.director_id, moc.responsible_id):
+        if fk:
+            uids.add(fk)
+    for v in moc.validations or []:
+        if v.validator_id:
+            uids.add(v.validator_id)
+    names = await _user_display(db, uids)
+
+    entity = (await db.execute(
+        select(Entity).where(Entity.id == entity_id)
+    )).scalar_one_or_none()
+
+    # Service-side labels — dictionary lookups would be heavier; keep the
+    # canonical FR labels here and let the template admin tweak the HTML
+    # for language-specific wording.
+    ROLE_LABELS = {
+        "hse": "HSE / Safety",
+        "lead_process": "Lead Process",
+        "production_manager": "Production Manager",
+        "gas_manager": "Gas Manager",
+        "maintenance_manager": "Maintenance Manager",
+        "process_engineer": "Process Engineer",
+        "metier": "Métier",
+    }
+    COST_BUCKET_LABELS = {
+        "lt_20": "< 20 MXAF",
+        "20_to_50": "20 – 50 MXAF",
+        "50_to_100": "50 – 100 MXAF",
+        "gt_100": "> 100 MXAF",
+    }
+    STATUS_LABELS = {
+        "created": "Créé",
+        "approved": "Approuvé",
+        "submitted_to_confirm": "Soumis à confirmer",
+        "cancelled": "Annulé",
+        "stand_by": "Stand-by",
+        "approved_to_study": "Confirmé à étudier",
+        "under_study": "En étude Process",
+        "study_in_validation": "Étudié en validation",
+        "validated": "Validé à exécuter",
+        "execution": "Exécution",
+        "executed_docs_pending": "Exécuté — docs en attente",
+        "closed": "Clôturé",
+    }
+
+    def _fmt_date(d) -> str | None:
+        if d is None:
+            return None
+        return d.strftime("%d/%m/%Y") if hasattr(d, "strftime") else str(d)
+
+    validations_payload = []
+    for v in moc.validations or []:
+        validations_payload.append({
+            "role_label": ROLE_LABELS.get(v.role, v.role),
+            "metier_name": v.metier_name,
+            "validator_name": v.validator_name or names.get(v.validator_id) if v.validator_id else None,
+            "comments": render_markdown(v.comments) if v.comments else None,
+            "validated_at": _fmt_date(v.validated_at),
+            "approved": v.approved,
+            "level": v.level,
+        })
+
+    # Fetch MOC type label lazily (avoid a join when not needed)
+    moc_type_label = None
+    if moc.moc_type_id:
+        row = (await db.execute(
+            select(MOCType.label).where(MOCType.id == moc.moc_type_id)
+        )).scalar_one_or_none()
+        moc_type_label = row
+
+    variables = {
+        "reference": moc.reference,
+        "status_label": STATUS_LABELS.get(moc.status, moc.status),
+        "moc_type_label": moc_type_label,
+        "site_label": moc.site_label,
+        "platform_code": moc.platform_code,
+        "initiator_display": names.get(moc.initiator_id) or moc.initiator_name,
+        "initiator_function": moc.initiator_function,
+        "created_at": _fmt_date(moc.created_at),
+        "objectives": moc.objectives,
+        "description": render_markdown(moc.description) if moc.description else None,
+        "current_situation": render_markdown(moc.current_situation) if moc.current_situation else None,
+        "proposed_changes": render_markdown(moc.proposed_changes) if moc.proposed_changes else None,
+        "impact_analysis": render_markdown(moc.impact_analysis) if moc.impact_analysis else None,
+        "modification_type_label": (
+            "Permanent" if moc.modification_type == "permanent"
+            else "Temporaire" if moc.modification_type == "temporary"
+            else None
+        ),
+        "temporary_start_date": _fmt_date(moc.temporary_start_date),
+        "temporary_end_date": _fmt_date(moc.temporary_end_date),
+        "is_real_change": moc.is_real_change,
+        "hierarchy_review_comment": moc.hierarchy_review_comment,
+        "site_chief_approved": moc.site_chief_approved,
+        "site_chief_display": names.get(moc.site_chief_id) if moc.site_chief_id else None,
+        "site_chief_approved_at": _fmt_date(moc.site_chief_approved_at),
+        "site_chief_comment": moc.site_chief_comment,
+        "director_display": names.get(moc.director_id) if moc.director_id else None,
+        "director_confirmed_at": _fmt_date(moc.director_confirmed_at),
+        "director_comment": moc.director_comment,
+        "priority": moc.priority,
+        "estimated_cost_mxaf": float(moc.estimated_cost_mxaf) if moc.estimated_cost_mxaf is not None else None,
+        "cost_bucket_label": COST_BUCKET_LABELS.get(moc.cost_bucket) if moc.cost_bucket else None,
+        "hazop_required": moc.hazop_required,
+        "hazop_completed": moc.hazop_completed,
+        "hazid_required": moc.hazid_required,
+        "hazid_completed": moc.hazid_completed,
+        "environmental_required": moc.environmental_required,
+        "environmental_completed": moc.environmental_completed,
+        "pid_update_required": moc.pid_update_required,
+        "pid_update_completed": moc.pid_update_completed,
+        "esd_update_required": moc.esd_update_required,
+        "esd_update_completed": moc.esd_update_completed,
+        "study_conclusion": None,  # Reserved for a dedicated field in a later iteration
+        "responsible_display": names.get(moc.responsible_id) if moc.responsible_id else None,
+        "study_completed_at": _fmt_date(moc.study_completed_at),
+        "validations": validations_payload,
+        "do_execution_accord": moc.do_execution_accord,
+        "do_execution_accord_at": _fmt_date(moc.do_execution_accord_at),
+        "do_execution_comment": moc.do_execution_comment,
+        "dg_execution_accord": moc.dg_execution_accord,
+        "dg_execution_accord_at": _fmt_date(moc.dg_execution_accord_at),
+        "dg_execution_comment": moc.dg_execution_comment,
+        "entity": {
+            "name": entity.name if entity else None,
+            "code": entity.code if entity else None,
+        },
+        "generated_at": _dt.now(UTC).strftime("%d/%m/%Y %H:%M UTC"),
+    }
+
+    pdf_bytes = await render_pdf(
+        db, slug="moc.report", entity_id=entity_id,
+        language=language, variables=variables,
+    )
+    if pdf_bytes is None:
+        raise StructuredHTTPException(
+            404, code="MOC_PDF_TEMPLATE_MISSING",
+            message=(
+                "Le modèle PDF 'moc.report' n'est pas configuré pour cette "
+                "entité. L'admin doit le seed via Config → PDF Templates."
+            ),
+        )
+
+    filename = f"{moc.reference}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ─── Invite validator (ad-hoc, on top of the matrix) ─────────────────────────

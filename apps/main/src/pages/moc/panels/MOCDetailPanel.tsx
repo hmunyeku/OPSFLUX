@@ -24,6 +24,7 @@ import {
   Loader2,
   MessageSquare,
   Send,
+  FileDown,
   Trash2,
   XCircle,
 } from 'lucide-react'
@@ -61,6 +62,7 @@ import { UserPicker } from '@/components/shared/UserPicker'
 import {
   MOC_STATUS_COLOURS,
   MOC_STATUS_LABELS,
+  mocService,
   type MOCStatus,
   type MOCValidation,
   type MOCValidationRole,
@@ -269,8 +271,22 @@ export function MOCDetailPanel({ id }: Props) {
     <DynamicPanelShell
       title={moc.reference}
       subtitle={moc.objectives || moc.description || ''}
-      actions={
-        canDelete
+      actions={[
+        <PanelActionButton
+          key="pdf"
+          icon={<FileDown size={12} />}
+          variant="default"
+          onClick={async () => {
+            try {
+              await mocService.downloadPdf(moc.id, 'fr')
+            } catch {
+              toast({ title: t('moc.toast.pdf_failed'), variant: 'error' })
+            }
+          }}
+        >
+          {t('moc.actions.download_pdf')}
+        </PanelActionButton>,
+        ...(canDelete
           ? [
               <DangerConfirmButton
                 key="del"
@@ -281,8 +297,8 @@ export function MOCDetailPanel({ id }: Props) {
                 {t('common.delete')}
               </DangerConfirmButton>,
             ]
-          : []
-      }
+          : []),
+      ]}
     >
       {/* Status header — always visible above the tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 bg-muted/20">

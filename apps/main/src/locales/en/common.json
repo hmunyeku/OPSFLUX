@@ -4913,11 +4913,13 @@
       "transitioned": "Status updated: {{status}}",
       "deleted": "MOC archived",
       "validator_invited": "Validator invited",
-      "error_generic": "Operation failed"
+      "error_generic": "Operation failed",
+      "pdf_failed": "PDF generation failed"
     },
     "actions": {
       "invite_validator": "Invite validator",
-      "send_invite": "Send invitation"
+      "send_invite": "Send invitation",
+      "download_pdf": "PDF Form"
     },
     "detail_tab": {
       "fiche": "Record",

@@ -839,16 +839,24 @@ async def add_ticket_todo(
     return TodoRead.model_validate(todo)
 
 
-@router.patch("/todos/{todo_id}", response_model=TodoRead)
+@router.patch(
+    "/todos/{todo_id}",
+    response_model=TodoRead,
+    dependencies=[require_permission("support.ticket.manage")],
+)
 async def update_ticket_todo(
     todo_id: UUID,
     body: TodoUpdate,
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("support.ticket.manage"),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update a ticket todo item (title, completed, order)."""
-    result = await db.execute(select(TicketTodo).where(TicketTodo.id == todo_id))
+    """Update a ticket todo item (title, completed, order). Tenant-scoped via parent ticket."""
+    result = await db.execute(
+        select(TicketTodo)
+        .join(SupportTicket, SupportTicket.id == TicketTodo.ticket_id)
+        .where(TicketTodo.id == todo_id, SupportTicket.entity_id == entity_id)
+    )
     todo = result.scalar_one_or_none()
     if not todo:
         raise HTTPException(status_code=404, detail="Todo not found")
@@ -871,15 +879,23 @@ async def update_ticket_todo(
     return TodoRead.model_validate(todo)
 
 
-@router.delete("/todos/{todo_id}", status_code=204)
+@router.delete(
+    "/todos/{todo_id}",
+    status_code=204,
+    dependencies=[require_permission("support.ticket.manage")],
+)
 async def delete_ticket_todo(
     todo_id: UUID,
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("support.ticket.manage"),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a ticket todo item."""
-    result = await db.execute(select(TicketTodo).where(TicketTodo.id == todo_id))
+    """Delete a ticket todo item. Tenant-scoped via parent ticket."""
+    result = await db.execute(
+        select(TicketTodo)
+        .join(SupportTicket, SupportTicket.id == TicketTodo.ticket_id)
+        .where(TicketTodo.id == todo_id, SupportTicket.entity_id == entity_id)
+    )
     todo = result.scalar_one_or_none()
     if not todo:
         raise HTTPException(status_code=404, detail="Todo not found")

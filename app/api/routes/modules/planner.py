@@ -452,7 +452,7 @@ async def list_activities(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.read")),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
@@ -593,7 +593,7 @@ async def create_activity(
     body: ActivityCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.create")),
+    _: None = require_permission("planner.activity.create"),
     db: AsyncSession = Depends(get_db),
 ):
     activity = PlannerActivity(
@@ -612,7 +612,7 @@ async def get_activity(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.read")),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
@@ -625,7 +625,7 @@ async def update_activity(
     body: ActivityUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.update")),
+    _: None = require_permission("planner.activity.update"),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import text as sa_text
@@ -689,7 +689,7 @@ async def delete_activity(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.delete")),
+    _: None = require_permission("planner.activity.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
@@ -706,7 +706,7 @@ async def submit_activity(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.submit")),
+    _: None = require_permission("planner.activity.submit"),
     db: AsyncSession = Depends(get_db),
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
@@ -870,7 +870,7 @@ async def validate_activity(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.validate")),
+    _: None = require_permission("planner.activity.validate"),
     db: AsyncSession = Depends(get_db),
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
@@ -931,7 +931,7 @@ async def reject_activity(
     reason: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.validate")),
+    _: None = require_permission("planner.activity.validate"),
     db: AsyncSession = Depends(get_db),
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
@@ -999,7 +999,7 @@ async def bulk_validate_activities(
     body: BulkActivityTransitionRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.validate")),
+    _: None = require_permission("planner.activity.validate"),
     db: AsyncSession = Depends(get_db),
 ):
     """Validate multiple submitted activities at once."""
@@ -1029,7 +1029,7 @@ async def bulk_reject_activities(
     body: BulkActivityTransitionRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.validate")),
+    _: None = require_permission("planner.activity.validate"),
     db: AsyncSession = Depends(get_db),
 ):
     """Reject multiple submitted activities at once."""
@@ -1060,7 +1060,7 @@ async def cancel_activity(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.cancel")),
+    _: None = require_permission("planner.activity.cancel"),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import text as sa_text
@@ -1135,7 +1135,7 @@ async def create_activity_from_project_task(
     priority: str = "medium",
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.create")),
+    _: None = require_permission("planner.activity.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a planner activity from a project task (Projets → Planner link)."""
@@ -1197,7 +1197,7 @@ async def list_conflicts(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.conflict.read")),
+    _: None = require_permission("planner.conflict.read"),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
@@ -1272,7 +1272,7 @@ async def resolve_conflict(
     body: ConflictResolve,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.conflict.resolve")),
+    _: None = require_permission("planner.conflict.resolve"),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -1354,7 +1354,7 @@ async def bulk_resolve_conflicts(
     body: BulkConflictResolveRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.conflict.resolve")),
+    _: None = require_permission("planner.conflict.resolve"),
     db: AsyncSession = Depends(get_db),
 ):
     """Resolve many conflicts in one request.
@@ -1450,7 +1450,7 @@ async def list_conflict_audit(
     conflict_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.conflict.read")),
+    _: None = require_permission("planner.conflict.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the append-only audit history of a conflict."""
@@ -1719,7 +1719,7 @@ async def list_revision_signals(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.read")),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List project-driven Planner revision signals captured in audit_log."""
@@ -1774,7 +1774,7 @@ async def acknowledge_revision_signal(
     request: Request,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.validate")),
+    _: None = require_permission("planner.activity.validate"),
     db: AsyncSession = Depends(get_db),
 ):
     """Mark a project-driven revision signal as reviewed by a Planner arbiter."""
@@ -1822,7 +1822,7 @@ async def get_revision_signal_impact_summary(
     signal_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.read")),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return current downstream impact summary for a project-driven revision signal."""
@@ -1977,7 +1977,7 @@ async def request_revision_decision(
     request: Request,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.validate")),
+    _: None = require_permission("planner.activity.validate"),
     db: AsyncSession = Depends(get_db),
 ):
     signal = await db.get(AuditLog, signal_id)
@@ -2159,7 +2159,7 @@ async def force_revision_decision_request(
     request: Request,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.validate")),
+    _: None = require_permission("planner.activity.validate"),
     db: AsyncSession = Depends(get_db),
 ):
     request_row = await db.get(AuditLog, request_id)
@@ -2228,7 +2228,7 @@ async def accept_counter_revision_decision_request(
     request: Request,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.validate")),
+    _: None = require_permission("planner.activity.validate"),
     db: AsyncSession = Depends(get_db),
 ):
     """Arbiter accepts a counter-proposal from the target reviewer.
@@ -2320,7 +2320,7 @@ async def get_capacity(
     date_to: date = Query(..., description="End date (inclusive)"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Compute daily capacity usage for an asset over a date range.
@@ -2328,7 +2328,7 @@ async def get_capacity(
     Formula: residual = capacity - permanent_ops_quota - sum(validated activities pax_quota)
     """
     asset = await db.get(Installation, asset_id)
-    if not asset:
+    if not asset or asset.entity_id != entity_id:
         raise HTTPException(404, "Installation not found")
 
     from app.services.modules.planner_service import get_current_capacity
@@ -2388,7 +2388,7 @@ async def list_dependencies(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.read")),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_activity_or_404(db, activity_id, entity_id)
@@ -2435,7 +2435,7 @@ async def create_dependency(
     activity_id: UUID,
     body: DependencyCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = Depends(require_permission("planner.activity.update")),
+    _: None = require_permission("planner.activity.update"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_activity_or_404(db, activity_id, entity_id)
@@ -2457,7 +2457,7 @@ async def delete_dependency(
     dependency_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.update")),
+    _: None = require_permission("planner.activity.update"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_activity_or_404(db, activity_id, entity_id)
@@ -2491,7 +2491,7 @@ async def get_availability(
     exclude_activity_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Check PAX capacity availability for an asset over a date range.
@@ -2502,7 +2502,7 @@ async def get_availability(
     from app.services.modules.planner_service import check_availability
 
     asset = await db.get(Installation, asset_id)
-    if not asset:
+    if not asset or asset.entity_id != entity_id:
         raise HTTPException(404, "Installation not found")
 
     result = await check_availability(
@@ -2551,7 +2551,7 @@ async def list_asset_capacities(
     asset_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the full capacity history for an asset (most recent first)."""
@@ -2593,7 +2593,7 @@ async def create_asset_capacity(
     max_pax_per_company: dict | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.update")),
+    _: None = require_permission("planner.capacity.update"),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new capacity record (INSERT only — never UPDATE existing).
@@ -2604,7 +2604,7 @@ async def create_asset_capacity(
     import json
 
     asset = await db.get(Installation, asset_id)
-    if not asset:
+    if not asset or asset.entity_id != entity_id:
         raise HTTPException(404, "Installation not found")
 
     eff_date = effective_date or date.today()
@@ -2666,7 +2666,7 @@ async def override_priority(
     reason: str = Query(..., min_length=1),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.priority.override")),
+    _: None = require_permission("planner.priority.override"),
     db: AsyncSession = Depends(get_db),
 ):
     """Override an activity's priority (DO privilege).
@@ -2711,7 +2711,7 @@ async def get_gantt(
     scenario_id: UUID | None = Query(None, description="When set, applies scenario overlay on top of live activities"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.read")),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get Gantt chart data — activities grouped by asset with capacity info.
@@ -2801,7 +2801,7 @@ async def export_gantt_pdf(
     payload: GanttPdfExportRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.read")),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Render the Planner Gantt as an A3 landscape PDF (vector, server-side).
@@ -2878,7 +2878,7 @@ async def get_heatmap(
     scenario_id: UUID | None = Query(None, description="When set, applies scenario overlay to activity loads"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get capacity heatmap data — daily saturation percentage per asset.
@@ -2911,7 +2911,7 @@ async def get_calendar(
     view: str = Query("month", pattern=r"^(month|week)$", description="Calendar view mode"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.read")),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return activities grouped by day for a calendar UI.
@@ -2942,10 +2942,12 @@ async def get_calendar(
     result = await db.execute(query.order_by(PlannerActivity.start_date))
     activities = result.scalars().all()
 
-    # Fetch asset info for capacity (if asset_id specified)
+    # Fetch asset info for capacity (if asset_id specified) — tenant-scoped
     asset = None
     if asset_id:
         asset = await db.get(Installation, asset_id)
+        if asset and asset.entity_id != entity_id:
+            asset = None
 
     # Group activities by day
     days_map: dict[date, dict] = {}
@@ -3012,7 +3014,7 @@ async def set_recurrence(
     end_date: date | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.create")),
+    _: None = require_permission("planner.activity.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Set a recurrence rule on an activity (maintenance, inspection).
@@ -3073,7 +3075,7 @@ async def delete_recurrence(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.update")),
+    _: None = require_permission("planner.activity.update"),
     db: AsyncSession = Depends(get_db),
 ):
     """Remove recurrence rule from an activity."""
@@ -3098,7 +3100,7 @@ async def simulate(
     body: ScenarioRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Dry-run: compute projected daily loads and conflicts if the
@@ -3122,7 +3124,7 @@ async def forecast(
     body: ForecastRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Project future capacity load from historical patterns.
@@ -3191,7 +3193,7 @@ async def _build_scenario_activity_read(db: AsyncSession, act: PlannerScenarioAc
 async def list_scenarios(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
     page: int = 1,
     page_size: int = 25,
@@ -3225,7 +3227,7 @@ async def list_scenarios(
 async def get_reference_scenario(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the current reference scenario (the live plan).
@@ -3259,7 +3261,7 @@ async def get_scenario(
     scenario_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get scenario detail with proposed activities and simulation result."""
@@ -3298,7 +3300,7 @@ async def create_scenario(
     body: ScenarioCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new scenario — automatically seeded from all live activities.
@@ -3361,7 +3363,7 @@ async def update_scenario(
     body: ScenarioUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Update scenario metadata (title, description, status)."""
@@ -3390,7 +3392,7 @@ async def delete_scenario(
     scenario_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Soft-delete a scenario."""
@@ -3417,7 +3419,7 @@ async def add_scenario_activity(
     body: ScenarioActivityCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a proposed activity to a scenario."""
@@ -3448,7 +3450,7 @@ async def update_scenario_activity(
     body: ScenarioActivityUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a proposed activity in a scenario."""
@@ -3475,7 +3477,7 @@ async def remove_scenario_activity(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a proposed activity from a scenario."""
@@ -3500,7 +3502,7 @@ async def simulate_scenario_persistent(
     scenario_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.capacity.read")),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Run simulation on a saved scenario and cache the result.
@@ -3573,7 +3575,7 @@ async def promote_scenario(
     scenario_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.create")),
+    _: None = require_permission("planner.activity.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Promote a scenario — convert proposed activities to live PlannerActivity rows.
@@ -3717,7 +3719,7 @@ async def restore_scenario(
     scenario_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("planner.activity.create")),
+    _: None = require_permission("planner.activity.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Restore the live plan to its state before this scenario was promoted.

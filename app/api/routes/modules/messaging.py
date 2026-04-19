@@ -249,7 +249,10 @@ async def update_announcement(
 ):
     """Update an announcement."""
     result = await db.execute(
-        select(Announcement).where(Announcement.id == announcement_id)
+        select(Announcement).where(
+            Announcement.id == announcement_id,
+            Announcement.entity_id == entity_id,
+        )
     )
     announcement = result.scalar_one_or_none()
     if not announcement:
@@ -275,11 +278,15 @@ async def update_announcement(
 async def delete_announcement(
     announcement_id: UUID,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete an announcement."""
     result = await db.execute(
-        select(Announcement).where(Announcement.id == announcement_id)
+        select(Announcement).where(
+            Announcement.id == announcement_id,
+            Announcement.entity_id == entity_id,
+        )
     )
     announcement = result.scalar_one_or_none()
     if not announcement:
@@ -570,11 +577,19 @@ async def create_security_rule(
 async def update_security_rule(
     rule_id: UUID,
     body: SecurityRuleUpdate,
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update a security rule."""
+    """Update a security rule.
+
+    Tenant-scoped: can only update rules owned by the caller's entity.
+    Global rules (entity_id=NULL) are not editable through this endpoint.
+    """
     result = await db.execute(
-        select(SecurityRule).where(SecurityRule.id == rule_id)
+        select(SecurityRule).where(
+            SecurityRule.id == rule_id,
+            SecurityRule.entity_id == entity_id,
+        )
     )
     rule = result.scalar_one_or_none()
     if not rule:
@@ -597,11 +612,15 @@ async def update_security_rule(
 async def delete_security_rule(
     rule_id: UUID,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a security rule."""
+    """Delete a security rule. Tenant-scoped."""
     result = await db.execute(
-        select(SecurityRule).where(SecurityRule.id == rule_id)
+        select(SecurityRule).where(
+            SecurityRule.id == rule_id,
+            SecurityRule.entity_id == entity_id,
+        )
     )
     rule = result.scalar_one_or_none()
     if not rule:

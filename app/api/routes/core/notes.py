@@ -12,13 +12,68 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_entity, get_current_user
 from app.core.database import get_db
-from app.models.common import Note, User
+from app.models.common import Note, Tier, User
 from app.schemas.common import NoteCreate, NoteRead, NoteUpdate
 from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/notes", tags=["notes"])
+
+
+async def _assert_owner_in_entity(
+    db: AsyncSession, owner_type: str, owner_id: UUID, entity_id: UUID
+) -> None:
+    """Validate that the (owner_type, owner_id) pair belongs to the caller's entity.
+
+    Prevents cross-tenant note reads via the polymorphic owner pattern. If the
+    owner_type is unknown, we deny — safer than defaulting to open.
+    """
+    from app.models.common import Entity
+    from app.models.asset_registry import Installation, OilSite, RegistryEquipment, RegistryPipeline
+
+    async def _check(model, scope_entity: bool = True) -> bool:
+        stmt = select(model.id).where(model.id == owner_id)
+        if scope_entity and hasattr(model, "entity_id"):
+            stmt = stmt.where(model.entity_id == entity_id)
+        r = await db.execute(stmt)
+        return r.scalar_one_or_none() is not None
+
+    ok = False
+    if owner_type == "entity":
+        ok = owner_id == entity_id
+    elif owner_type == "user":
+        # Users are global but their default_entity_id scopes access.
+        from sqlalchemy import or_
+        stmt = select(User.id).where(
+            User.id == owner_id,
+            or_(User.default_entity_id == entity_id, User.default_entity_id.is_(None)),
+        )
+        r = await db.execute(stmt)
+        ok = r.scalar_one_or_none() is not None
+    elif owner_type in ("tier", "tier_contact"):
+        if owner_type == "tier":
+            ok = await _check(Tier)
+        else:
+            from app.models.common import TierContact
+            stmt = (
+                select(TierContact.id)
+                .join(Tier, Tier.id == TierContact.tier_id)
+                .where(TierContact.id == owner_id, Tier.entity_id == entity_id)
+            )
+            r = await db.execute(stmt)
+            ok = r.scalar_one_or_none() is not None
+    elif owner_type in ("asset", "installation"):
+        ok = await _check(Installation)
+    elif owner_type == "site":
+        ok = await _check(OilSite)
+    elif owner_type == "equipment":
+        ok = await _check(RegistryEquipment)
+    elif owner_type == "pipeline":
+        ok = await _check(RegistryPipeline)
+    # else: unknown owner_type → deny
+    if not ok:
+        raise HTTPException(status_code=404, detail="Owner not found")
 
 
 @router.get("", response_model=list[NoteRead])
@@ -26,9 +81,14 @@ async def list_notes(
     owner_type: str = Query(..., description="Object type: user, tier, asset, entity"),
     owner_id: UUID = Query(..., description="UUID of the owning object"),
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """List notes for a given owner. Shows public + user's own private notes."""
+    """List notes for a given owner. Shows public + user's own private notes.
+
+    Tenant-scoped: the owner must belong to the caller's entity.
+    """
+    await _assert_owner_in_entity(db, owner_type, owner_id, entity_id)
     result = await db.execute(
         select(Note)
         .options(joinedload(Note.author))
@@ -57,9 +117,11 @@ async def list_notes(
 async def create_note(
     body: NoteCreate,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new note linked to any object."""
+    """Create a new note linked to any object. Tenant-scoped via owner."""
+    await _assert_owner_in_entity(db, body.owner_type, body.owner_id, entity_id)
     note = Note(
         owner_type=body.owner_type,
         owner_id=body.owner_id,

@@ -22,7 +22,7 @@ import { MarkdownField } from '@/components/shared/MarkdownField'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
-import { useCreateMOC } from '@/hooks/useMOC'
+import { useCreateMOC, useMOCTypes } from '@/hooks/useMOC'
 import type { MOCCreatePayload, MOCModificationType } from '@/services/mocService'
 
 export function MOCCreatePanel() {
@@ -35,6 +35,9 @@ export function MOCCreatePanel() {
   // them per tenant in Settings → Dictionary (category `moc_site`, `moc_modification_type`).
   const siteOptions = useDictionaryOptions('moc_site')
   const modificationTypeOptions = useDictionaryOptions('moc_modification_type')
+  // Admin-maintained catalogue of MOC types — each type carries its own
+  // validation matrix template that is auto-seeded on create.
+  const { data: mocTypes = [] } = useMOCTypes(false)
 
   // Primary input: installation from asset registry. When present, backend
   // auto-derives site_label + platform_code from the hierarchy.
@@ -50,6 +53,7 @@ export function MOCCreatePanel() {
   const [proposedChanges, setProposedChanges] = useState('')
   const [impactAnalysis, setImpactAnalysis] = useState('')
   const [modificationType, setModificationType] = useState<MOCModificationType | ''>('')
+  const [mocTypeId, setMocTypeId] = useState<string>('')
   const [durationDays, setDurationDays] = useState('')
   const [temporaryStart, setTemporaryStart] = useState('')
   const [temporaryEnd, setTemporaryEnd] = useState('')
@@ -85,6 +89,7 @@ export function MOCCreatePanel() {
       temporary_end_date:
         modificationType === 'temporary' && temporaryEnd ? temporaryEnd : null,
       initiator_function: initiatorFn.trim() || null,
+      moc_type_id: mocTypeId || null,
     }
     try {
       const moc = await create.mutateAsync(payload)
@@ -251,6 +256,31 @@ export function MOCCreatePanel() {
 
         <FormSection title={t('moc.create.section_type')} defaultExpanded>
           <FormGrid>
+            {/* Type de MOC — drives the initial validation matrix.
+                Admin manages this catalogue in Settings → MOCtrack → Types. */}
+            <DynamicPanelField label={t('moc.fields.moc_type')} span="full">
+              <select
+                className={panelInputClass}
+                value={mocTypeId}
+                onChange={(e) => setMocTypeId(e.target.value)}
+              >
+                <option value="">—</option>
+                {mocTypes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              {mocTypeId && (
+                <p className="mt-1 text-[10px] text-muted-foreground/70">
+                  {(() => {
+                    const chosen = mocTypes.find((x) => x.id === mocTypeId)
+                    const n = chosen?.rules?.filter((r) => r.active).length ?? 0
+                    return t('moc.fields.moc_type_hint', { count: n })
+                  })()}
+                </p>
+              )}
+            </DynamicPanelField>
             <DynamicPanelField label={t('moc.fields.modification_type')}>
               <select
                 className={panelInputClass}

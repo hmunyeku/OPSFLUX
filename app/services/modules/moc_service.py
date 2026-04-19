@@ -27,7 +27,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.common import User
-from app.models.moc import MOC, MOCStatusHistory, MOCValidation
+from app.models.moc import (
+    MOC,
+    MOCStatusHistory,
+    MOCType,
+    MOCTypeValidationRule,
+    MOCValidation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -288,6 +294,122 @@ async def upsert_validation(
         if validator:
             row.validator_id = validator.id
             row.validator_name = validator.full_name
+    await db.flush()
+    return row
+
+
+# ─── Type-driven matrix seeding ───────────────────────────────────────────────
+
+
+async def seed_matrix_from_type(
+    db: AsyncSession, *, moc: MOC, moc_type_id: UUID,
+) -> int:
+    """Create one MOCValidation row per active rule of the given type.
+
+    Idempotent: if a row already exists for (moc_id, role, metier_code,
+    validator_id=NULL), it is left alone. Returns the number of rows
+    inserted.
+    """
+    moc_type = (await db.execute(
+        select(MOCType).where(
+            MOCType.id == moc_type_id,
+            MOCType.entity_id == moc.entity_id,
+        )
+    )).scalar_one_or_none()
+    if moc_type is None:
+        return 0
+
+    rules = (await db.execute(
+        select(MOCTypeValidationRule)
+        .where(
+            MOCTypeValidationRule.moc_type_id == moc_type.id,
+            MOCTypeValidationRule.active == True,  # noqa: E712
+        )
+        .order_by(MOCTypeValidationRule.position)
+    )).scalars().all()
+
+    existing = (await db.execute(
+        select(MOCValidation.role, MOCValidation.metier_code).where(
+            MOCValidation.moc_id == moc.id,
+            MOCValidation.validator_id.is_(None),
+        )
+    )).all()
+    already = {(r, m) for r, m in existing}
+
+    count = 0
+    for rule in rules:
+        key = (rule.role, rule.metier_code)
+        if key in already:
+            continue
+        db.add(MOCValidation(
+            moc_id=moc.id,
+            role=rule.role,
+            metier_code=rule.metier_code,
+            metier_name=rule.metier_name,
+            required=rule.required,
+            level=rule.level,
+            source="matrix",
+        ))
+        count += 1
+    if count:
+        await db.flush()
+    return count
+
+
+async def invite_validator(
+    db: AsyncSession,
+    *,
+    moc: MOC,
+    user: User,
+    invited_by: User,
+    role: str,
+    metier_code: str | None = None,
+    metier_name: str | None = None,
+    level: str | None = None,
+    required: bool = True,
+    comments: str | None = None,
+) -> MOCValidation:
+    """Add an ad-hoc validator row pointing at a specific user.
+
+    Distinct from `upsert_validation` because each invite materialises a
+    row keyed by validator_id — so multiple users can be invited for the
+    same role (e.g. two lead_process reviewers).
+    """
+    existing = (await db.execute(
+        select(MOCValidation).where(
+            MOCValidation.moc_id == moc.id,
+            MOCValidation.role == role,
+            (MOCValidation.metier_code == metier_code) if metier_code
+            else MOCValidation.metier_code.is_(None),
+            MOCValidation.validator_id == user.id,
+        )
+    )).scalar_one_or_none()
+    if existing:
+        # Refresh metadata but don't duplicate
+        if level is not None:
+            existing.level = level
+        if required is not None:
+            existing.required = required
+        if comments is not None:
+            existing.comments = comments
+        await db.flush()
+        return existing
+
+    row = MOCValidation(
+        moc_id=moc.id,
+        role=role,
+        metier_code=metier_code,
+        metier_name=metier_name,
+        validator_id=user.id,
+        validator_name=user.full_name or user.email,
+        level=level,
+        required=required,
+        comments=comments,
+        source="invite",
+        invited_by=invited_by.id,
+        invited_at=datetime.now(UTC),
+    )
+    db.add(row)
     await db.flush()
     return row
 

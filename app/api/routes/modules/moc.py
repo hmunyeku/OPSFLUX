@@ -34,7 +34,14 @@ from app.core.database import get_db
 from app.core.errors import StructuredHTTPException
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import User
-from app.models.moc import MOC, MOCSiteAssignment, MOCStatusHistory, MOC_STATUSES
+from app.models.moc import (
+    MOC,
+    MOCSiteAssignment,
+    MOCStatusHistory,
+    MOCType,
+    MOCTypeValidationRule,
+    MOC_STATUSES,
+)
 from app.schemas.common import PaginatedResponse
 from app.schemas.moc import (
     MOCCreate,
@@ -49,7 +56,15 @@ from app.schemas.moc import (
     MOCStatsSummary,
     MOCStatusHistoryRead,
     MOCTransition,
+    MOCTypeCreate,
+    MOCTypeRead,
+    MOCTypeReadWithRules,
+    MOCTypeUpdate,
+    MOCTypeValidationRuleCreate,
+    MOCTypeValidationRuleRead,
+    MOCTypeValidationRuleUpdate,
     MOCUpdate,
+    MOCValidationInvite,
     MOCValidationRead,
     MOCValidationUpsert,
 )
@@ -57,6 +72,8 @@ from app.services.modules.moc_service import (
     FSM,
     allowed_transitions,
     generate_reference,
+    invite_validator,
+    seed_matrix_from_type,
     transition,
     upsert_validation,
 )
@@ -249,6 +266,21 @@ async def create_moc(
     ref = await generate_reference(
         db, entity_id=entity_id, platform_code=platform_code,
     )
+    # Validate moc_type_id scoping if provided
+    if body.moc_type_id:
+        valid_type = (await db.execute(
+            select(MOCType).where(
+                MOCType.id == body.moc_type_id,
+                MOCType.entity_id == entity_id,
+                MOCType.active == True,  # noqa: E712
+            )
+        )).scalar_one_or_none()
+        if not valid_type:
+            raise StructuredHTTPException(
+                400, code="MOC_TYPE_INVALID",
+                message="Type de MOC invalide ou désactivé.",
+            )
+
     moc = MOC(
         entity_id=entity_id,
         reference=ref,
@@ -259,6 +291,7 @@ async def create_moc(
         site_id=site_id,
         platform_code=platform_code.upper(),
         installation_id=body.installation_id,
+        moc_type_id=body.moc_type_id,
         objectives=body.objectives,
         description=body.description,
         current_situation=body.current_situation,
@@ -275,6 +308,9 @@ async def create_moc(
     )
     db.add(moc)
     await db.flush()
+    # Seed the validation matrix from the chosen MOC type (if any)
+    if body.moc_type_id:
+        await seed_matrix_from_type(db, moc=moc, moc_type_id=body.moc_type_id)
     # Seed the history with the creation event
     db.add(MOCStatusHistory(
         moc_id=moc.id, old_status=None, new_status="created",
@@ -407,6 +443,267 @@ async def fsm_description() -> dict:
             for src, targets in FSM.items()
         },
     }
+
+
+# ─── MOC Types (catalogue + validation matrix template) ─────────────────────
+#
+# Declared before "/{moc_id}" to prevent the UUID matcher from swallowing
+# the literal "types" segment. All mutating endpoints gate on `moc.manage`.
+
+
+async def _get_type_or_404(
+    db: AsyncSession, type_id: UUID, entity_id: UUID, *, with_rules: bool = False,
+) -> MOCType:
+    stmt = select(MOCType).where(
+        MOCType.id == type_id,
+        MOCType.entity_id == entity_id,
+        MOCType.archived == False,  # noqa: E712
+    )
+    if with_rules:
+        stmt = stmt.options(selectinload(MOCType.rules))
+    row = (await db.execute(stmt)).scalar_one_or_none()
+    if not row:
+        raise StructuredHTTPException(
+            404, code="MOC_TYPE_NOT_FOUND", message="Type de MOC introuvable",
+        )
+    return row
+
+
+@router.get(
+    "/types",
+    response_model=list[MOCTypeReadWithRules],
+    dependencies=[require_permission("moc.read")],
+)
+async def list_moc_types(
+    include_inactive: bool = Query(False),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    q = (
+        select(MOCType)
+        .where(
+            MOCType.entity_id == entity_id,
+            MOCType.archived == False,  # noqa: E712
+        )
+        .options(selectinload(MOCType.rules))
+        .order_by(MOCType.label)
+    )
+    if not include_inactive:
+        q = q.where(MOCType.active == True)  # noqa: E712
+    rows = (await db.execute(q)).scalars().all()
+    return rows
+
+
+@router.post(
+    "/types",
+    response_model=MOCTypeReadWithRules,
+    status_code=201,
+    dependencies=[require_permission("moc.manage")],
+)
+async def create_moc_type(
+    body: MOCTypeCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    row = MOCType(
+        entity_id=entity_id,
+        code=body.code.strip(),
+        label=body.label.strip(),
+        description=body.description,
+        active=body.active,
+    )
+    db.add(row)
+    try:
+        await db.flush()
+    except Exception as exc:
+        await db.rollback()
+        raise StructuredHTTPException(
+            409, code="MOC_TYPE_DUPLICATE",
+            message="Un type avec ce code existe déjà.",
+        ) from exc
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action="moc.type.created", resource_type="moc_type",
+        resource_id=str(row.id),
+        details={"code": row.code, "label": row.label},
+    )
+    await db.commit()
+    # Re-load with rules relation populated for the response
+    return await _get_type_or_404(db, row.id, entity_id, with_rules=True)
+
+
+@router.get(
+    "/types/{type_id}",
+    response_model=MOCTypeReadWithRules,
+    dependencies=[require_permission("moc.read")],
+)
+async def get_moc_type(
+    type_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _get_type_or_404(db, type_id, entity_id, with_rules=True)
+
+
+@router.patch(
+    "/types/{type_id}",
+    response_model=MOCTypeReadWithRules,
+    dependencies=[require_permission("moc.manage")],
+)
+async def update_moc_type(
+    type_id: UUID,
+    body: MOCTypeUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    row = await _get_type_or_404(db, type_id, entity_id)
+    data = body.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(row, k, v)
+    await db.commit()
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action="moc.type.updated", resource_type="moc_type",
+        resource_id=str(row.id), details=data,
+    )
+    return await _get_type_or_404(db, type_id, entity_id, with_rules=True)
+
+
+@router.delete(
+    "/types/{type_id}",
+    status_code=204,
+    dependencies=[require_permission("moc.manage")],
+)
+async def delete_moc_type(
+    type_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    row = await _get_type_or_404(db, type_id, entity_id)
+    row.archived = True
+    from datetime import UTC as _UTC, datetime as _dt
+    row.deleted_at = _dt.now(_UTC)
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action="moc.type.deleted", resource_type="moc_type",
+        resource_id=str(row.id), details={"code": row.code},
+    )
+    await db.commit()
+
+
+# ── Rules (validation matrix template) ──
+
+
+@router.post(
+    "/types/{type_id}/rules",
+    response_model=MOCTypeValidationRuleRead,
+    status_code=201,
+    dependencies=[require_permission("moc.manage")],
+)
+async def add_moc_type_rule(
+    type_id: UUID,
+    body: MOCTypeValidationRuleCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    moc_type = await _get_type_or_404(db, type_id, entity_id)
+    rule = MOCTypeValidationRule(
+        moc_type_id=moc_type.id,
+        role=body.role,
+        metier_code=body.metier_code,
+        metier_name=body.metier_name,
+        required=body.required,
+        level=body.level,
+        position=body.position,
+        active=body.active,
+    )
+    db.add(rule)
+    try:
+        await db.flush()
+    except Exception as exc:
+        await db.rollback()
+        raise StructuredHTTPException(
+            409, code="MOC_TYPE_RULE_DUPLICATE",
+            message="Une règle identique existe déjà pour ce rôle/métier.",
+        ) from exc
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action="moc.type_rule.created", resource_type="moc_type_rule",
+        resource_id=str(rule.id),
+        details={"moc_type_id": str(type_id), "role": body.role},
+    )
+    await db.commit()
+    await db.refresh(rule)
+    return rule
+
+
+@router.patch(
+    "/types/{type_id}/rules/{rule_id}",
+    response_model=MOCTypeValidationRuleRead,
+    dependencies=[require_permission("moc.manage")],
+)
+async def update_moc_type_rule(
+    type_id: UUID,
+    rule_id: UUID,
+    body: MOCTypeValidationRuleUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_type_or_404(db, type_id, entity_id)
+    rule = (await db.execute(
+        select(MOCTypeValidationRule).where(
+            MOCTypeValidationRule.id == rule_id,
+            MOCTypeValidationRule.moc_type_id == type_id,
+        )
+    )).scalar_one_or_none()
+    if not rule:
+        raise StructuredHTTPException(
+            404, code="MOC_TYPE_RULE_NOT_FOUND", message="Règle introuvable",
+        )
+    data = body.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(rule, k, v)
+    await db.commit()
+    await db.refresh(rule)
+    return rule
+
+
+@router.delete(
+    "/types/{type_id}/rules/{rule_id}",
+    status_code=204,
+    dependencies=[require_permission("moc.manage")],
+)
+async def delete_moc_type_rule(
+    type_id: UUID,
+    rule_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_type_or_404(db, type_id, entity_id)
+    rule = (await db.execute(
+        select(MOCTypeValidationRule).where(
+            MOCTypeValidationRule.id == rule_id,
+            MOCTypeValidationRule.moc_type_id == type_id,
+        )
+    )).scalar_one_or_none()
+    if not rule:
+        raise StructuredHTTPException(
+            404, code="MOC_TYPE_RULE_NOT_FOUND", message="Règle introuvable",
+        )
+    await db.delete(rule)
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action="moc.type_rule.deleted", resource_type="moc_type_rule",
+        resource_id=str(rule_id),
+        details={"moc_type_id": str(type_id)},
+    )
+    await db.commit()
 
 
 # ─── Detail ───────────────────────────────────────────────────────────────────
@@ -595,6 +892,88 @@ async def upsert_moc_validation(
     await db.commit()
     await db.refresh(row)
     # ValidationRow relationship metier_name is optional — pass through
+    return row
+
+
+# ─── Invite validator (ad-hoc, on top of the matrix) ─────────────────────────
+
+
+@router.post(
+    "/{moc_id}/validations/invite",
+    response_model=MOCValidationRead,
+    status_code=201,
+    dependencies=[require_permission("moc.manage")],
+)
+async def invite_moc_validator(
+    moc_id: UUID,
+    body: MOCValidationInvite,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Invite a specific user to validate an MOC.
+
+    The invited user must exist on the current entity. The resulting
+    `MOCValidation` row has source='invite' and carries `invited_by`/
+    `invited_at` metadata. Multiple users can be invited for the same
+    role (e.g. cross-review), which is why uniqueness now includes
+    `validator_id`.
+    """
+    moc = await _get_or_404(db, moc_id, entity_id)
+
+    invited_user = (await db.execute(
+        select(User).where(User.id == body.user_id, User.active == True)  # noqa: E712
+    )).scalar_one_or_none()
+    if not invited_user:
+        raise StructuredHTTPException(
+            400, code="MOC_INVITE_USER_NOT_FOUND",
+            message="Utilisateur à inviter introuvable ou inactif.",
+        )
+
+    row = await invite_validator(
+        db,
+        moc=moc,
+        user=invited_user,
+        invited_by=current_user,
+        role=body.role,
+        metier_code=body.metier_code,
+        metier_name=body.metier_name,
+        level=body.level,
+        required=body.required,
+        comments=body.comments,
+    )
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action="moc.validator.invited",
+        resource_type="moc", resource_id=str(moc.id),
+        details={
+            "reference": moc.reference,
+            "invitee": str(invited_user.id),
+            "role": body.role,
+        },
+    )
+    await db.commit()
+    await db.refresh(row)
+
+    # Best-effort in-app notification to the invitee so they find the MOC.
+    try:
+        from app.core.notifications import send_in_app_bulk
+        await send_in_app_bulk(
+            db,
+            user_ids=[invited_user.id],
+            entity_id=entity_id,
+            title=f"MOC {moc.reference} — invitation à valider",
+            body=(
+                f"{current_user.full_name or current_user.email} vous a invité "
+                f"à valider le MOC « {moc.reference} » (rôle : {body.role})."
+            ),
+            category="info",
+            link=f"/moc?id={moc.id}",
+            event_type="moc.validator_invited",
+        )
+    except Exception:
+        logger.exception("Invite notification failed for MOC %s", moc.reference)
+
     return row
 
 

@@ -49,6 +49,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { formatDate, formatDateTime } from '@/lib/i18n'
 import {
   useDeleteMOC,
+  useInviteMOCValidator,
   useMOC,
   useMOCExecutionAccord,
   useMOCFsm,
@@ -56,6 +57,7 @@ import {
   useUpdateMOC,
   useUpsertMOCValidation,
 } from '@/hooks/useMOC'
+import { UserPicker } from '@/components/shared/UserPicker'
 import {
   MOC_STATUS_COLOURS,
   MOC_STATUS_LABELS,
@@ -110,7 +112,15 @@ export function MOCDetailPanel({ id }: Props) {
   const deleteMutation = useDeleteMOC()
   const updateMutation = useUpdateMOC()
   const validationMutation = useUpsertMOCValidation()
+  const inviteMutation = useInviteMOCValidator()
   const executionAccordMutation = useMOCExecutionAccord()
+
+  // Inline ad-hoc invite form state (scoped to the validation tab)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteUserId, setInviteUserId] = useState<string | null>(null)
+  const [inviteRole, setInviteRole] = useState<MOCValidationRole>('hse')
+  const [inviteLevel, setInviteLevel] = useState<'' | 'DO' | 'DG' | 'DO_AND_DG'>('')
+  const [inviteComments, setInviteComments] = useState('')
 
   // Dictionary-backed labels (admin-customisable per tenant)
   const statusLabels = useDictionaryLabels('moc_status', MOC_STATUS_LABELS)
@@ -197,11 +207,43 @@ export function MOCDetailPanel({ id }: Props) {
     })
   }
 
+  // Split validations by source:
+  //  • matrix/manual rows (validator_id=NULL) → one row per CORE_ROLES slot
+  //  • invite rows (source='invite', validator_id set) → ad-hoc list below
+  const matrixRows = moc.validations.filter(
+    (v) => v.source !== 'invite' && !v.validator_id,
+  )
+  const invitedRows = moc.validations.filter((v) => v.source === 'invite')
   const validationByRole = new Map<MOCValidationRole, MOCValidation>()
-  for (const v of moc.validations) {
+  for (const v of matrixRows) {
     if (v.role !== 'metier') validationByRole.set(v.role as MOCValidationRole, v)
   }
-  const metierValidations = moc.validations.filter((v) => v.role === 'metier')
+  const metierValidations = matrixRows.filter((v) => v.role === 'metier')
+
+  const submitInvite = async () => {
+    if (!inviteUserId) return
+    try {
+      await inviteMutation.mutateAsync({
+        id: moc.id,
+        payload: {
+          user_id: inviteUserId,
+          role: inviteRole,
+          level: inviteLevel || null,
+          comments: inviteComments.trim() || null,
+        },
+      })
+      toast({ title: t('moc.toast.validator_invited'), variant: 'success' })
+      setInviteOpen(false)
+      setInviteUserId(null)
+      setInviteComments('')
+      setInviteLevel('')
+    } catch (err) {
+      const msg =
+        (err as { response?: { data?: { detail?: { message?: string } } } })
+          ?.response?.data?.detail?.message || t('moc.toast.error_generic')
+      toast({ title: msg, variant: 'error' })
+    }
+  }
 
   const tabItems = [
     { id: 'fiche' as const, label: t('moc.detail_tab.fiche'), icon: Info },
@@ -424,7 +466,96 @@ export function MOCDetailPanel({ id }: Props) {
             <FormSection
               title={t('moc.section.validation_matrix')}
               defaultExpanded
+              headerExtra={
+                canValidate ? (
+                  <button
+                    type="button"
+                    className="gl-button gl-button-sm gl-button-default"
+                    onClick={() => setInviteOpen((v) => !v)}
+                  >
+                    {inviteOpen
+                      ? t('common.cancel')
+                      : t('moc.actions.invite_validator')}
+                  </button>
+                ) : undefined
+              }
             >
+              {inviteOpen && (
+                <div className="mb-3 rounded border border-border bg-muted/30 p-3 space-y-2">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground">
+                        {t('moc.fields.invitee')}
+                      </label>
+                      <UserPicker
+                        value={inviteUserId}
+                        onChange={(uid) => setInviteUserId(uid)}
+                        placeholder={t('moc.fields.invitee_ph') as string}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground">
+                        {t('moc.fields.role')}
+                      </label>
+                      <select
+                        className="gl-form-input h-8 w-full text-xs"
+                        value={inviteRole}
+                        onChange={(e) =>
+                          setInviteRole(e.target.value as MOCValidationRole)
+                        }
+                      >
+                        {(Object.keys(ROLE_LABELS) as MOCValidationRole[]).map(
+                          (r) => (
+                            <option key={r} value={r}>
+                              {roleLabels[r] ?? ROLE_LABELS[r]}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground">
+                        {t('moc.fields.level')}
+                      </label>
+                      <select
+                        className="gl-form-input h-8 w-full text-xs"
+                        value={inviteLevel}
+                        onChange={(e) =>
+                          setInviteLevel(
+                            e.target.value as '' | 'DO' | 'DG' | 'DO_AND_DG',
+                          )
+                        }
+                      >
+                        <option value="">—</option>
+                        <option value="DO">DO</option>
+                        <option value="DG">DG</option>
+                        <option value="DO_AND_DG">DO + DG</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-[10px] font-medium text-muted-foreground">
+                        {t('moc.fields.invite_comment')}
+                      </label>
+                      <input
+                        className="gl-form-input h-8 w-full text-xs"
+                        value={inviteComments}
+                        onChange={(e) => setInviteComments(e.target.value)}
+                        placeholder={t('moc.fields.invite_comment_ph') as string}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      className="gl-button gl-button-sm gl-button-primary"
+                      disabled={!inviteUserId || inviteMutation.isPending}
+                      onClick={submitInvite}
+                    >
+                      {t('moc.actions.send_invite')}
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 {CORE_ROLES.map((role) => {
                   const v = validationByRole.get(role)
@@ -454,6 +585,36 @@ export function MOCDetailPanel({ id }: Props) {
                             id: moc.id,
                             payload: {
                               role: 'metier',
+                              metier_code: v.metier_code,
+                              ...patch,
+                            },
+                          })
+                        }
+                        disabled={validationMutation.isPending || !canValidate}
+                        readOnly={!canValidate}
+                      />
+                    ))}
+                  </div>
+                )}
+                {invitedRows.length > 0 && (
+                  <div className="mt-3 border-t border-border pt-3 space-y-2">
+                    <h4 className="text-xs font-semibold text-muted-foreground">
+                      {t('moc.section.invited_validators')}
+                    </h4>
+                    {invitedRows.map((v) => (
+                      <ValidationRow
+                        key={v.id}
+                        label={
+                          (v.validator_name || 'Utilisateur invité') +
+                          ' — ' +
+                          (roleLabels[v.role] ?? ROLE_LABELS[v.role])
+                        }
+                        entry={v}
+                        onChange={(patch) =>
+                          validationMutation.mutate({
+                            id: moc.id,
+                            payload: {
+                              role: v.role,
                               metier_code: v.metier_code,
                               ...patch,
                             },

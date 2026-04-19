@@ -5673,7 +5673,16 @@
       "temporary_end_date": "Date fin (temporaire)",
       "temporary_period": "Période temporaire",
       "duration_days_optional_ph": "Durée en jours (si déjà connue)",
-      "duration_days_hint": "Optionnel — les dates début/fin priment sur ce champ pour les rappels."
+      "duration_days_hint": "Optionnel — les dates début/fin priment sur ce champ pour les rappels.",
+      "moc_type": "Type de MOC",
+      "moc_type_hint": "{{count}} règle(s) de validation pré-remplies par ce type.",
+      "invitee": "Utilisateur",
+      "invitee_ph": "Choisir un utilisateur…",
+      "role": "Rôle",
+      "level": "Niveau",
+      "invite_comment": "Commentaire",
+      "invite_comment_ph": "Contexte de l'invitation (optionnel)",
+      "required": "Requis"
     },
     "create": {
       "title": "Nouveau MOC",
@@ -5692,6 +5701,7 @@
       "content": "Contenu",
       "validation_matrix": "Matrice de validation",
       "metier_validations": "Validations métier",
+      "invited_validators": "Validateurs invités",
       "flags": "HAZOP / HAZID / Documents",
       "attachments": "Pièces jointes",
       "timeline": "Historique des statuts",
@@ -5711,7 +5721,13 @@
     "toast": {
       "created": "MOC {{ref}} créé",
       "transitioned": "Statut mis à jour : {{status}}",
-      "deleted": "MOC archivé"
+      "deleted": "MOC archivé",
+      "validator_invited": "Validateur invité",
+      "error_generic": "Erreur lors de l'opération"
+    },
+    "actions": {
+      "invite_validator": "Inviter un validateur",
+      "send_invite": "Envoyer l'invitation"
     },
     "detail_tab": {
       "fiche": "Fiche",
@@ -5730,6 +5746,21 @@
         "thresholds_hint": "Ajoutez autant de jalons que nécessaire. Par défaut : J-30, J-14, J-7, J-1.",
         "invalid_threshold": "Seuil invalide (1-365 jours)",
         "reset": "Revenir aux seuils par défaut (J-30/14/7/1)"
+      },
+      "types": {
+        "title": "Types de MOC",
+        "description": "Catalogue des catégories de MOC avec leur matrice de validation par défaut. Quand un MOC est créé avec un type, la matrice est pré-remplie automatiquement.",
+        "add": "Ajouter un type",
+        "code_ph": "Code",
+        "label_ph": "Libellé",
+        "empty": "Aucun type défini. Créez-en un pour qu'il apparaisse dans le formulaire de création.",
+        "rules_title": "Matrice de validation",
+        "rules_empty": "Aucune règle. Ajoutez les rôles qui doivent valider ce type de MOC.",
+        "add_rule": "Ajouter",
+        "metier_ph": "Code métier",
+        "created": "Type créé",
+        "deleted": "Type supprimé",
+        "confirm_delete": "Supprimer le type « {{label}} » ?"
       }
     }
   }

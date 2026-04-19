@@ -4863,7 +4863,16 @@
       "temporary_end_date": "Temporary end date",
       "temporary_period": "Temporary period",
       "duration_days_optional_ph": "Duration in days (if already known)",
-      "duration_days_hint": "Optional — start/end dates take precedence for reminders."
+      "duration_days_hint": "Optional — start/end dates take precedence for reminders.",
+      "moc_type": "MOC type",
+      "moc_type_hint": "{{count}} validation rule(s) will be auto-seeded from this type.",
+      "invitee": "User",
+      "invitee_ph": "Pick a user…",
+      "role": "Role",
+      "level": "Level",
+      "invite_comment": "Comment",
+      "invite_comment_ph": "Invitation context (optional)",
+      "required": "Required"
     },
     "create": {
       "title": "New MOC",
@@ -4882,6 +4891,7 @@
       "content": "Content",
       "validation_matrix": "Validation matrix",
       "metier_validations": "Discipline validations",
+      "invited_validators": "Invited validators",
       "flags": "HAZOP / HAZID / Documents",
       "attachments": "Attachments",
       "timeline": "Status history",
@@ -4901,7 +4911,13 @@
     "toast": {
       "created": "MOC {{ref}} created",
       "transitioned": "Status updated: {{status}}",
-      "deleted": "MOC archived"
+      "deleted": "MOC archived",
+      "validator_invited": "Validator invited",
+      "error_generic": "Operation failed"
+    },
+    "actions": {
+      "invite_validator": "Invite validator",
+      "send_invite": "Send invitation"
     },
     "detail_tab": {
       "fiche": "Record",
@@ -4920,6 +4936,21 @@
         "thresholds_hint": "Add as many milestones as needed. Default: J-30, J-14, J-7, J-1.",
         "invalid_threshold": "Invalid threshold (1-365 days)",
         "reset": "Reset to defaults (J-30/14/7/1)"
+      },
+      "types": {
+        "title": "MOC types",
+        "description": "Catalogue of MOC categories with their default validation matrix. When a MOC is created with a type, the matrix is auto-seeded.",
+        "add": "Add type",
+        "code_ph": "Code",
+        "label_ph": "Label",
+        "empty": "No type defined yet. Create one to make it available in the creation form.",
+        "rules_title": "Validation matrix",
+        "rules_empty": "No rules. Add the roles that must validate this MOC type.",
+        "add_rule": "Add",
+        "metier_ph": "Discipline code",
+        "created": "Type created",
+        "deleted": "Type deleted",
+        "confirm_delete": "Delete type \"{{label}}\"?"
       }
     }
   }

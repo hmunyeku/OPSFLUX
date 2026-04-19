@@ -65,6 +65,8 @@ export interface MOCStatusHistoryEntry {
   created_at: string
 }
 
+export type MOCValidationSource = 'manual' | 'matrix' | 'invite'
+
 export interface MOCValidation {
   id: string
   role: MOCValidationRole
@@ -78,6 +80,65 @@ export interface MOCValidation {
   level: MOCValidationLevel | null
   comments: string | null
   validated_at: string | null
+  source: MOCValidationSource
+  invited_by: string | null
+  invited_at: string | null
+}
+
+// ── MOC Types (catalogue + validation matrix template) ──────
+
+export interface MOCTypeValidationRule {
+  id: string
+  moc_type_id: string
+  role: MOCValidationRole
+  metier_code: string | null
+  metier_name: string | null
+  required: boolean
+  level: MOCValidationLevel | null
+  position: number
+  active: boolean
+}
+
+export interface MOCType {
+  id: string
+  code: string
+  label: string
+  description: string | null
+  active: boolean
+  created_at: string
+  updated_at: string
+  rules: MOCTypeValidationRule[]
+}
+
+export interface MOCTypeCreatePayload {
+  code: string
+  label: string
+  description?: string | null
+  active?: boolean
+}
+
+export type MOCTypeUpdatePayload = Partial<MOCTypeCreatePayload>
+
+export interface MOCTypeRuleCreatePayload {
+  role: MOCValidationRole
+  metier_code?: string | null
+  metier_name?: string | null
+  required?: boolean
+  level?: MOCValidationLevel | null
+  position?: number
+  active?: boolean
+}
+
+export type MOCTypeRuleUpdatePayload = Partial<MOCTypeRuleCreatePayload>
+
+export interface MOCValidationInvitePayload {
+  user_id: string
+  role: MOCValidationRole
+  metier_code?: string | null
+  metier_name?: string | null
+  level?: MOCValidationLevel | null
+  required?: boolean
+  comments?: string | null
 }
 
 export interface MOC {
@@ -92,6 +153,7 @@ export interface MOC {
   site_id: string | null
   platform_code: string
   installation_id: string | null
+  moc_type_id: string | null
   // Initiator
   initiator_id: string
   initiator_name: string | null
@@ -188,6 +250,7 @@ export interface MOCCreatePayload {
   temporary_end_date?: string | null
   planned_implementation_date?: string | null
   tags?: string[] | null
+  moc_type_id?: string | null
 }
 
 export type MOCUpdatePayload = Partial<MOC>
@@ -341,6 +404,75 @@ export const mocService = {
 
   deleteSiteAssignment: async (id: string): Promise<void> => {
     await api.delete(`${BASE}/site-assignments/${id}`)
+  },
+
+  // ── MOC Types ──
+  listTypes: async (includeInactive = false): Promise<MOCType[]> => {
+    const { data } = await api.get<MOCType[]>(`${BASE}/types`, {
+      params: includeInactive ? { include_inactive: true } : undefined,
+    })
+    return data
+  },
+
+  getType: async (id: string): Promise<MOCType> => {
+    const { data } = await api.get<MOCType>(`${BASE}/types/${id}`)
+    return data
+  },
+
+  createType: async (payload: MOCTypeCreatePayload): Promise<MOCType> => {
+    const { data } = await api.post<MOCType>(`${BASE}/types`, payload)
+    return data
+  },
+
+  updateType: async (
+    id: string,
+    payload: MOCTypeUpdatePayload,
+  ): Promise<MOCType> => {
+    const { data } = await api.patch<MOCType>(`${BASE}/types/${id}`, payload)
+    return data
+  },
+
+  deleteType: async (id: string): Promise<void> => {
+    await api.delete(`${BASE}/types/${id}`)
+  },
+
+  addTypeRule: async (
+    typeId: string,
+    payload: MOCTypeRuleCreatePayload,
+  ): Promise<MOCTypeValidationRule> => {
+    const { data } = await api.post<MOCTypeValidationRule>(
+      `${BASE}/types/${typeId}/rules`,
+      payload,
+    )
+    return data
+  },
+
+  updateTypeRule: async (
+    typeId: string,
+    ruleId: string,
+    payload: MOCTypeRuleUpdatePayload,
+  ): Promise<MOCTypeValidationRule> => {
+    const { data } = await api.patch<MOCTypeValidationRule>(
+      `${BASE}/types/${typeId}/rules/${ruleId}`,
+      payload,
+    )
+    return data
+  },
+
+  deleteTypeRule: async (typeId: string, ruleId: string): Promise<void> => {
+    await api.delete(`${BASE}/types/${typeId}/rules/${ruleId}`)
+  },
+
+  // ── Invite validator ──
+  inviteValidator: async (
+    id: string,
+    payload: MOCValidationInvitePayload,
+  ): Promise<MOCValidation> => {
+    const { data } = await api.post<MOCValidation>(
+      `${BASE}/${id}/validations/invite`,
+      payload,
+    )
+    return data
   },
 }
 

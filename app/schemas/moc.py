@@ -25,6 +25,9 @@ class MOCCreate(BaseModel):
     site_id: UUID | None = None
     platform_code: str | None = Field(default=None, max_length=60)
     installation_id: UUID | None = None
+    # Optional — when set, the backend seeds the validation matrix from
+    # the type's configured rules (source='matrix').
+    moc_type_id: UUID | None = None
     objectives: str | None = None
     description: str | None = None
     current_situation: str | None = None
@@ -70,6 +73,7 @@ class MOCUpdate(BaseModel):
     planned_implementation_date: date | None = None
     actual_implementation_date: date | None = None
     tags: list[str] | None = None
+    moc_type_id: UUID | None = None
     # Hierarchy / site chief review
     is_real_change: bool | None = None
     hierarchy_review_comment: str | None = None
@@ -149,6 +153,96 @@ class MOCValidationRead(BaseModel):
     level: str | None
     comments: str | None
     validated_at: datetime | None
+    source: str = "manual"
+    invited_by: UUID | None = None
+    invited_at: datetime | None = None
+
+
+class MOCValidationInvite(BaseModel):
+    """Invite a specific user to validate — shows up in their MOC tasks.
+
+    The invited user must be an existing OpsFlux user on the same entity.
+    `role`/`metier_code`/`level` describe which row of the matrix they fill.
+    """
+
+    user_id: UUID
+    role: str = Field(
+        ...,
+        pattern="^(hse|lead_process|production_manager|gas_manager|maintenance_manager|process_engineer|metier)$",
+    )
+    metier_code: str | None = None
+    metier_name: str | None = None
+    level: str | None = Field(default=None, pattern="^(DO|DG|DO_AND_DG)$")
+    required: bool = True
+    comments: str | None = None
+
+
+# ─── MOC Types (catalogue + template validation matrix) ──────────────────────
+
+
+class MOCTypeValidationRuleBase(BaseModel):
+    role: str = Field(
+        ...,
+        pattern="^(hse|lead_process|production_manager|gas_manager|maintenance_manager|process_engineer|metier)$",
+    )
+    metier_code: str | None = Field(default=None, max_length=40)
+    metier_name: str | None = Field(default=None, max_length=120)
+    required: bool = True
+    level: str | None = Field(default=None, pattern="^(DO|DG|DO_AND_DG)$")
+    position: int = 0
+    active: bool = True
+
+
+class MOCTypeValidationRuleCreate(MOCTypeValidationRuleBase):
+    pass
+
+
+class MOCTypeValidationRuleUpdate(BaseModel):
+    role: str | None = Field(
+        default=None,
+        pattern="^(hse|lead_process|production_manager|gas_manager|maintenance_manager|process_engineer|metier)$",
+    )
+    metier_code: str | None = None
+    metier_name: str | None = None
+    required: bool | None = None
+    level: str | None = Field(default=None, pattern="^(DO|DG|DO_AND_DG)$")
+    position: int | None = None
+    active: bool | None = None
+
+
+class MOCTypeValidationRuleRead(MOCTypeValidationRuleBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    moc_type_id: UUID
+
+
+class MOCTypeCreate(BaseModel):
+    code: str = Field(..., min_length=1, max_length=60)
+    label: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    active: bool = True
+
+
+class MOCTypeUpdate(BaseModel):
+    code: str | None = Field(default=None, min_length=1, max_length=60)
+    label: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = None
+    active: bool | None = None
+
+
+class MOCTypeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    code: str
+    label: str
+    description: str | None
+    active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class MOCTypeReadWithRules(MOCTypeRead):
+    rules: list[MOCTypeValidationRuleRead] = []
 
 
 # ─── Execution accords (DO / DG — paper form "Réalisation du MOC") ────────────
@@ -220,6 +314,9 @@ class MOCRead(BaseModel):
     site_id: UUID | None
     platform_code: str
     installation_id: UUID | None
+
+    # Type (optional — drives the initial validation matrix)
+    moc_type_id: UUID | None = None
 
     # Initiator
     initiator_id: UUID

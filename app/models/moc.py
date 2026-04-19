@@ -126,6 +126,15 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     # Auto-generated reference: MOC_001_BRF1
     reference: Mapped[str] = mapped_column(String(60), nullable=False)
 
+    # Optional MOC type — drives the seeded validation matrix via its rules.
+    # NULL means "no template" (free-form validation, users add rows manually
+    # or by invitation). Set once at creation and rarely changed.
+    moc_type_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("moc_types.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     # ── Initiator (denormalised name/function for offline-capable forms) ──
     initiator_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
@@ -339,7 +348,14 @@ class MOCValidation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             f"level IS NULL OR level IN {MOC_VALIDATION_LEVELS}",
             name="ck_moc_validation_level",
         ),
-        UniqueConstraint("moc_id", "role", "metier_code", name="uq_moc_validation_role"),
+        # Allow multiple rows for the same (role, metier_code) as long as they
+        # target different users (ad-hoc invitations). Template-seeded rows
+        # have validator_id=NULL; PostgreSQL treats NULLs as distinct so the
+        # matrix template still produces one template row per role.
+        UniqueConstraint(
+            "moc_id", "role", "metier_code", "validator_id",
+            name="uq_moc_validation_role_validator",
+        ),
         Index("idx_moc_validations_moc", "moc_id"),
     )
 
@@ -366,6 +382,18 @@ class MOCValidation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     comments: Mapped[str | None] = mapped_column(Text, nullable=True)
     validated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    # Invitation metadata — who added this row and how.
+    # source = 'matrix' (seeded from moc_type rules) | 'invite' (ad-hoc) | 'manual'.
+    source: Mapped[str] = mapped_column(
+        String(20), server_default="manual", nullable=False,
+    )
+    invited_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True,
+    )
+    invited_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
     )
 
     moc = relationship("MOC", back_populates="validations")
@@ -408,6 +436,84 @@ class MOCSiteAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
     )
     active: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
+
+
+# ─── MOC Types + template validation matrix ──────────────────────────────────
+
+
+class MOCType(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
+    """Catalogue of MOC categories (e.g. "Modification process", "Changement
+    d'équipement rotatif", "Dérogation temporaire"...).
+
+    Each type carries its own validation matrix (via `MOCTypeValidationRule`).
+    When an MOC is created with a given `moc_type_id`, the service seeds one
+    `MOCValidation` row per rule with `source='matrix'`. Validators can
+    additionally be invited ad-hoc on top of the template.
+
+    Managed by admins via Settings → MOCtrack → Types de MOC.
+    """
+
+    __tablename__ = "moc_types"
+    __table_args__ = (
+        UniqueConstraint("entity_id", "code", name="uq_moc_type_entity_code"),
+        Index("idx_moc_types_entity", "entity_id"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False,
+    )
+    code: Mapped[str] = mapped_column(String(60), nullable=False)
+    label: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
+
+    rules = relationship(
+        "MOCTypeValidationRule",
+        back_populates="moc_type",
+        cascade="all, delete-orphan",
+        order_by="MOCTypeValidationRule.position",
+    )
+
+
+class MOCTypeValidationRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One row in a MOC type's default validation matrix.
+
+    Mirrors the columns of `MOCValidation` that make sense as a template:
+    role + optional metier + required flag + level. When an MOC is created
+    with this type, each active rule is turned into a `MOCValidation` row.
+    """
+
+    __tablename__ = "moc_type_validation_rules"
+    __table_args__ = (
+        CheckConstraint(
+            f"role IN {MOC_VALIDATION_ROLES}",
+            name="ck_moc_type_rule_role",
+        ),
+        CheckConstraint(
+            f"level IS NULL OR level IN {MOC_VALIDATION_LEVELS}",
+            name="ck_moc_type_rule_level",
+        ),
+        UniqueConstraint(
+            "moc_type_id", "role", "metier_code",
+            name="uq_moc_type_rule_role",
+        ),
+        Index("idx_moc_type_rules_type", "moc_type_id"),
+    )
+
+    moc_type_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("moc_types.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role: Mapped[str] = mapped_column(String(30), nullable=False)
+    metier_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    metier_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    required: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
+    level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    position: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
+
+    moc_type = relationship("MOCType", back_populates="rules")
 
 
 # ─── Reminder dispatch log (idempotency) ──────────────────────────────────────

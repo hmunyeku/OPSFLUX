@@ -9,7 +9,12 @@ import {
   type MOCListFilters,
   type MOCSiteAssignmentCreatePayload,
   type MOCTransitionPayload,
+  type MOCTypeCreatePayload,
+  type MOCTypeRuleCreatePayload,
+  type MOCTypeRuleUpdatePayload,
+  type MOCTypeUpdatePayload,
   type MOCUpdatePayload,
+  type MOCValidationInvitePayload,
   type MOCValidationUpsertPayload,
 } from '@/services/mocService'
 
@@ -19,6 +24,9 @@ const keys = {
   detail: (id: string) => [...keys.all, 'detail', id] as const,
   stats: () => [...keys.all, 'stats'] as const,
   fsm: () => [...keys.all, 'fsm'] as const,
+  types: (includeInactive: boolean) =>
+    [...keys.all, 'types', includeInactive] as const,
+  type: (id: string) => [...keys.all, 'type', id] as const,
 }
 
 export function useMOCList(filters: MOCListFilters = {}) {
@@ -146,6 +154,108 @@ export function useDeleteMOCSiteAssignment() {
     mutationFn: (id: string) => mocService.deleteSiteAssignment(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [...keys.all, 'site_assignments'] })
+    },
+  })
+}
+
+// ── MOC Types ──
+
+export function useMOCTypes(includeInactive = false) {
+  return useQuery({
+    queryKey: keys.types(includeInactive),
+    queryFn: () => mocService.listTypes(includeInactive),
+    staleTime: 30_000,
+  })
+}
+
+export function useMOCType(id: string | null | undefined) {
+  return useQuery({
+    queryKey: keys.type(id ?? 'none'),
+    queryFn: () => mocService.getType(id as string),
+    enabled: !!id,
+  })
+}
+
+export function useCreateMOCType() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: MOCTypeCreatePayload) => mocService.createType(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...keys.all, 'types'] })
+    },
+  })
+}
+
+export function useUpdateMOCType() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { id: string; payload: MOCTypeUpdatePayload }) =>
+      mocService.updateType(args.id, args.payload),
+    onSuccess: (_d, args) => {
+      qc.invalidateQueries({ queryKey: [...keys.all, 'types'] })
+      qc.invalidateQueries({ queryKey: keys.type(args.id) })
+    },
+  })
+}
+
+export function useDeleteMOCType() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => mocService.deleteType(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...keys.all, 'types'] })
+    },
+  })
+}
+
+export function useAddMOCTypeRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { typeId: string; payload: MOCTypeRuleCreatePayload }) =>
+      mocService.addTypeRule(args.typeId, args.payload),
+    onSuccess: (_d, args) => {
+      qc.invalidateQueries({ queryKey: keys.type(args.typeId) })
+      qc.invalidateQueries({ queryKey: [...keys.all, 'types'] })
+    },
+  })
+}
+
+export function useUpdateMOCTypeRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: {
+      typeId: string
+      ruleId: string
+      payload: MOCTypeRuleUpdatePayload
+    }) => mocService.updateTypeRule(args.typeId, args.ruleId, args.payload),
+    onSuccess: (_d, args) => {
+      qc.invalidateQueries({ queryKey: keys.type(args.typeId) })
+      qc.invalidateQueries({ queryKey: [...keys.all, 'types'] })
+    },
+  })
+}
+
+export function useDeleteMOCTypeRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { typeId: string; ruleId: string }) =>
+      mocService.deleteTypeRule(args.typeId, args.ruleId),
+    onSuccess: (_d, args) => {
+      qc.invalidateQueries({ queryKey: keys.type(args.typeId) })
+      qc.invalidateQueries({ queryKey: [...keys.all, 'types'] })
+    },
+  })
+}
+
+// ── Invite validator ──
+
+export function useInviteMOCValidator() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { id: string; payload: MOCValidationInvitePayload }) =>
+      mocService.inviteValidator(args.id, args.payload),
+    onSuccess: (_d, args) => {
+      qc.invalidateQueries({ queryKey: keys.detail(args.id) })
     },
   })
 }

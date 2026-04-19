@@ -65,30 +65,48 @@ Le backend exécute `seed_dev_data()` au démarrage sans garde d’environnement
 
 ### T-002 — Implémenter un vrai bootstrap initial ou déclasser la doc bootstrap
 
-**Priorité**: P0  
+**Priorité**: P0
 **Type**: Produit / Sécurité
+**Statut**: ✅ **CLOSED** (option 2 — alignement doc/code)
 
-#### Problème
+#### Décision retenue
 
-La doc décrit un vrai workflow bootstrap, mais le code ne l’implémente pas.
+Option 2 : le mécanisme "Bootstrap / BOOTSTRAP_SECRET" de la doc publique n'est
+pas implémenté et a été déclassé. Le premier compte admin est créé par
+`seed_production_essentials()` (`app/services/core/seed_service.py:~328`) lu
+depuis les variables d'environnement :
 
-#### Fichiers concernés
+| Variable              | Rôle                              | Obligatoire |
+|-----------------------|-----------------------------------|-------------|
+| `FIRST_SUPERUSER`     | email de l'admin                  | non (default `admin@opsflux.io`) |
+| `FIRST_SUPERUSER_PASSWORD` | mot de passe initial         | **oui en prod** |
+| `FIRST_ENTITY_CODE`   | code de l'entité racine           | non (default `CM`) |
 
-- `docs/modules/core/AUTH.md`
-- `docs/08_SETTINGS.md`
-- potentiellement nouvelles routes/backend bootstrap
+Cette fonction s'exécute au démarrage de l'app (`app/main.py:~165`) en mode
+idempotent :
+* si l'utilisateur existe déjà → rien n'est fait ;
+* si le hash bcrypt est corrompu → reset silencieux au password du `.env`.
 
-#### Travail attendu
+#### Recommandations opérationnelles
 
-Choisir une direction:
+1. Définir `FIRST_SUPERUSER_PASSWORD` à une valeur forte dans l'environnement
+   **avant** le premier `docker compose up`.
+2. Forcer le changement de ce mot de passe à la première connexion
+   (recommandation UX — pas encore implémentée côté UI).
+3. Vider ensuite la variable d'environnement : au prochain reboot, aucune
+   ré-initialisation du hash n'a lieu tant que celui-ci reste valide.
 
-1. soit implémenter `/bootstrap` avec `BOOTSTRAP_SECRET`
-2. soit supprimer ce comportement de la doc publique et le marquer comme cible non implémentée
+#### Pourquoi pas `/bootstrap` + `BOOTSTRAP_SECRET`
 
-#### Critères d’acceptation
+Un endpoint public `POST /bootstrap` ouvre une surface d'attaque
+(brute-force du secret, réplay). La voie env-driven garantit que la
+décision de créer le premier admin est prise au niveau orchestration
+(K8s secret / Dokploy env) et pas exposée via HTTP.
 
-- La doc et le code décrivent le même mécanisme.
-- Le premier compte admin suit un flux unique et auditable.
+Si à terme un flux self-service d'installation web est souhaité, il
+faudra : (a) générer le `BOOTSTRAP_SECRET` à l'installation docker,
+(b) le consommer une seule fois puis l'invalider, (c) journaliser
+l'acte dans l'audit log. Hors scope de cette itération.
 
 ---
 

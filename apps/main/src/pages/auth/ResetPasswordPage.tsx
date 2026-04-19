@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, ArrowLeft, Eye, EyeOff, CheckCircle, KeyRound, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
+import { ROUTES } from '@/lib/routes'
 
 const inputClass = 'gl-form-input h-9'
 
@@ -66,7 +67,7 @@ export function ResetPasswordPage() {
               {t('auth.reset_password_invalid_link')}
             </p>
             <Link
-              to="/forgot-password"
+              to={ROUTES.forgotPassword}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
             >
               {t('auth.forgot_password_send_button')}
@@ -100,7 +101,7 @@ export function ResetPasswordPage() {
                 {t('auth.reset_password_success_description')}
               </p>
               <Link
-                to="/login"
+                to={ROUTES.login}
                 className="gl-button gl-button-confirm inline-flex items-center gap-1.5 h-9 px-4"
               >
                 <ArrowLeft size={12} />
@@ -111,7 +112,7 @@ export function ResetPasswordPage() {
             /* Form state */
             <>
               <Link
-                to="/login"
+                to={ROUTES.login}
                 className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-4"
               >
                 <ArrowLeft size={12} />

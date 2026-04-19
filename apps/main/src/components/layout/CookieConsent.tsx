@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 import { safeLocal } from '@/lib/safeStorage'
+import { ROUTES } from '@/lib/routes'
 
 const STORAGE_KEY = 'opsflux:cookie-consent'
 
@@ -57,7 +58,7 @@ export default function CookieConsent() {
         <p className="text-sm leading-snug text-center sm:text-left flex-1">
           OpsFlux utilise des cookies essentiels au fonctionnement.{' '}
           <Link
-            to="/privacy"
+            to={ROUTES.privacy}
             className="underline underline-offset-2 text-primary hover:text-primary/80"
           >
             En savoir plus

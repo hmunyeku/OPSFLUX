@@ -309,7 +309,7 @@ export function LoginPage() {
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-medium text-foreground">{t('auth.password')}</label>
                   <Link
-                    to="/forgot-password"
+                    to={ROUTES.forgotPassword}
                     className="text-[11px] text-primary hover:text-primary/80 transition-colors"
                   >
                     {t('auth.forgot_password', 'Mot de passe oublié ?')}

@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Loader2, CheckCircle, AlertTriangle, Mail } from 'lucide-react'
 import axios from 'axios'
+import { ROUTES } from '@/lib/routes'
 
 export default function VerifyEmailPage() {
   const [params] = useSearchParams()
@@ -113,7 +114,7 @@ export default function VerifyEmailPage() {
         )}
 
         <div className="mt-6 pt-4 border-t">
-          <Link to="/login" className="text-sm text-primary hover:underline">
+          <Link to={ROUTES.login} className="text-sm text-primary hover:underline">
             Retour à la connexion
           </Link>
         </div>

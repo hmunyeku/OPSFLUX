@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Loader2, ArrowLeft, Mail, CheckCircle } from 'lucide-react'
 import api from '@/lib/api'
+import { ROUTES } from '@/lib/routes'
 
 const inputClass = 'gl-form-input h-9'
 
@@ -46,7 +47,7 @@ export function ForgotPasswordPage() {
         <div className="rounded border border-border bg-card p-5">
           {/* Back link */}
           <Link
-            to="/login"
+            to={ROUTES.login}
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
             <ArrowLeft size={12} />
@@ -67,7 +68,7 @@ export function ForgotPasswordPage() {
                 {t('auth.forgot_password_link_expiry')}
               </p>
               <Link
-                to="/login"
+                to={ROUTES.login}
                 className="inline-flex items-center gap-1.5 mt-4 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
               >
                 <ArrowLeft size={12} />

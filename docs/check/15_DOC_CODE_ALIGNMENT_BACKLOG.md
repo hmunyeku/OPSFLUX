@@ -525,6 +525,70 @@ qui mérite son sprint dédié avec tests CI verts à chaque étape.
 
 ---
 
+### T-014 — Résidu de strings FR hardcodées frontend
+
+**Priorité**: P2
+**Type**: i18n / UX
+**Statut**: 🟡 **PARTIAL** — 1330 strings migrées, ~760 restantes sur ~150 fichiers
+
+#### État
+
+Un agent offline a scanné `apps/main/src` et migré 1330 strings FR
+hardcodées sur 104 fichiers vers `t()` + 823 nouvelles clés i18n. Cette
+passe a été **importée partiellement** dans `main` (commit `34938c95`) :
+
+* **Catalogues** (`fr/common.json` et `en/common.json`) : les 823 nouvelles
+  clés sont disponibles (FR 4830 clés, EN 4132).
+* **Code** : les 34 fichiers que `main` n'avait pas touchés depuis la
+  base de la branche de l'agent ont été importés tels quels (~390 strings
+  migrées).
+* **72 fichiers** avaient reçu des changements récents sur main (scroll
+  dashboards, migrations `formatDate`, migrations `ROUTES`, migration des
+  `gl-button-*`). L'import brut de la version de l'agent aurait régressé
+  ces fixes — ils ont été préservés au prix de ~940 strings non migrées.
+
+#### Travail restant (~760 strings, ~150 fichiers)
+
+Top fichiers restants (comptage par heuristique accent FR) :
+
+| Fichier | Strings restantes |
+|---|---:|
+| `pages/users/UsersPage.tsx` | 70 |
+| `pages/travelwiz/panels/CargoRequestPanels.tsx` | 62 |
+| `pages/settings/tabs/ProfileTab.tsx` | 50 |
+| `pages/packlog/PackLogCreatePanels.tsx` | 44 |
+| `pages/packlog/PackLogCargoDetailPanel.tsx` | 42 |
+| `pages/projets/panels/ProjectDetailPanel.tsx` | 40 |
+| `pages/planner/panels/ActivityDetailPanel.tsx` | 32 |
+| `pages/papyrus/PapyrusCorePage.tsx` | 31 |
+| `pages/legal/PrivacyPage.tsx` | 27 |
+| ...145 other files | ~360 |
+
+#### Pourquoi automatiser plus loin est risqué
+
+J'ai tenté un script de portage chirurgical qui lit les `(literal, key)`
+que l'agent a introduits et les réapplique sur main. Résultat : 340
+substitutions appliquées mais **~30 fichiers cassés** parce que le script
+ajoute le `import useTranslation` sans injecter `const { t } = useTranslation()`
+dans chaque composant qui utilise `t(` — les fichiers avec plusieurs
+composants (tab panels, sub-components dans un même fichier) explosent.
+
+Injecter le hook correctement nécessite une analyse AST par fonction, ce
+qui sort du scope d'une migration script-driven raisonnable.
+
+#### Recommandation
+
+Migrer **file-by-file** au fil des touches (règle : quand un dev édite un
+fichier de la liste, il migre les strings FR de ce fichier avant de le
+commit). Le catalogue est déjà peuplé, donc l'effort par fichier est ~15
+minutes.
+
+Le script d'extraction automatique (`scripts/port_fr_strings.py`) est en
+place pour lister les mappings candidats à partir de la branche
+`origin/claude/cranky-wilbur` (conservée pour référence).
+
+---
+
 ### T-013 — UI GridStack drag-drop dashboards
 
 **Priorité**: P2

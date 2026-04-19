@@ -187,7 +187,10 @@
     "comment": "Commentaire",
     "history": "Historique",
     "total": "Total",
-    "empty_state": "Aucune donnée à afficher"
+    "empty_state": "Aucune donnée à afficher",
+    "preview": "Aperçu",
+    "empty_preview": "(rien à afficher)",
+    "markdown_hint": "Markdown supporté (**gras**, *italique*, listes, tableaux, liens)"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",

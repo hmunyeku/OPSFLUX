@@ -39,6 +39,7 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { TabBar } from '@/components/ui/Tabs'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { MarkdownDisplay } from '@/components/shared/MarkdownField'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
@@ -390,7 +391,7 @@ export function MOCDetailPanel({ id }: Props) {
               </DetailFieldGrid>
             </FormSection>
 
-            {/* Content */}
+            {/* Content — multi-paragraph fields rendered as Markdown */}
             <FormSection title={t('moc.section.content')} defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow
@@ -399,19 +400,19 @@ export function MOCDetailPanel({ id }: Props) {
                 />
                 <ReadOnlyRow
                   label={t('moc.fields.description')}
-                  value={moc.description || '—'}
+                  value={<MarkdownDisplay value={moc.description} />}
                 />
                 <ReadOnlyRow
                   label={t('moc.fields.current_situation')}
-                  value={moc.current_situation || '—'}
+                  value={<MarkdownDisplay value={moc.current_situation} />}
                 />
                 <ReadOnlyRow
                   label={t('moc.fields.proposed_changes')}
-                  value={moc.proposed_changes || '—'}
+                  value={<MarkdownDisplay value={moc.proposed_changes} />}
                 />
                 <ReadOnlyRow
                   label={t('moc.fields.impact_analysis')}
-                  value={moc.impact_analysis || '—'}
+                  value={<MarkdownDisplay value={moc.impact_analysis} />}
                 />
               </DetailFieldGrid>
             </FormSection>

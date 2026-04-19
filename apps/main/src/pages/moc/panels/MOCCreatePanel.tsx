@@ -18,6 +18,7 @@ import {
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { MarkdownField } from '@/components/shared/MarkdownField'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
@@ -202,46 +203,48 @@ export function MOCCreatePanel() {
         </FormSection>
 
         <FormSection title={t('moc.create.section_objectives')} defaultExpanded>
-          <DynamicPanelField label={t('moc.fields.objectives')}>
-            <textarea
+          {/* Short one-liner — keep as plain input, no markdown overhead. */}
+          <DynamicPanelField label={t('moc.fields.objectives')} span="full">
+            <input
               className={panelInputClass}
-              rows={3}
               value={objectives}
               onChange={(e) => setObjectives(e.target.value)}
               placeholder={t('moc.fields.objectives_ph') as string}
             />
           </DynamicPanelField>
-          <DynamicPanelField label={t('moc.fields.description')}>
-            <textarea
-              className={panelInputClass}
-              rows={4}
+          {/* Multi-paragraph fields use MarkdownField — edit/preview toggle,
+              bullet lists, tables, inline code, etc. */}
+          <DynamicPanelField label={t('moc.fields.description')} span="full">
+            <MarkdownField
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={setDescription}
+              rows={5}
+              hint={t('common.markdown_hint') as string}
             />
           </DynamicPanelField>
-          <DynamicPanelField label={t('moc.fields.current_situation')}>
-            <textarea
-              className={panelInputClass}
-              rows={3}
+          <DynamicPanelField label={t('moc.fields.current_situation')} span="full">
+            <MarkdownField
               value={currentSituation}
-              onChange={(e) => setCurrentSituation(e.target.value)}
+              onChange={setCurrentSituation}
+              rows={4}
+              hint={t('common.markdown_hint') as string}
             />
           </DynamicPanelField>
-          <DynamicPanelField label={t('moc.fields.proposed_changes')}>
-            <textarea
-              className={panelInputClass}
-              rows={3}
+          <DynamicPanelField label={t('moc.fields.proposed_changes')} span="full">
+            <MarkdownField
               value={proposedChanges}
-              onChange={(e) => setProposedChanges(e.target.value)}
+              onChange={setProposedChanges}
+              rows={4}
+              hint={t('common.markdown_hint') as string}
             />
           </DynamicPanelField>
-          <DynamicPanelField label={t('moc.fields.impact_analysis')}>
-            <textarea
-              className={panelInputClass}
-              rows={3}
+          <DynamicPanelField label={t('moc.fields.impact_analysis')} span="full">
+            <MarkdownField
               value={impactAnalysis}
-              onChange={(e) => setImpactAnalysis(e.target.value)}
+              onChange={setImpactAnalysis}
+              rows={4}
               placeholder={t('moc.fields.impact_analysis_ph') as string}
+              hint={t('common.markdown_hint') as string}
             />
           </DynamicPanelField>
         </FormSection>

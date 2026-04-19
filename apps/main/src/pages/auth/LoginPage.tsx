@@ -21,6 +21,7 @@ import { useAuthStore, MFARequiredError } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { Eye, EyeOff, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react'
 import api from '@/lib/api'
+import { ROUTES } from '@/lib/routes'
 
 const inputClass = 'gl-form-input h-9'
 
@@ -131,7 +132,7 @@ export function LoginPage() {
       localStorage.setItem('access_token', ssoAccessToken)
       localStorage.setItem('refresh_token', ssoRefreshToken)
       useAuthStore.setState({ isAuthenticated: true, mfaToken: null, mfaPending: false })
-      fetchUser().then(() => navigate('/dashboard'))
+      fetchUser().then(() => navigate(ROUTES.dashboard))
       // Clean URL
       window.history.replaceState({}, '', '/login')
     }
@@ -154,7 +155,7 @@ export function LoginPage() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/dashboard')
+      navigate(ROUTES.dashboard)
     } catch (err: any) {
       if (err instanceof MFARequiredError) {
         setError('')
@@ -206,7 +207,7 @@ export function LoginPage() {
     setMfaLoading(true)
     try {
       await verifyMfa(code)
-      navigate('/dashboard')
+      navigate(ROUTES.dashboard)
     } catch {
       setMfaError(t('auth.invalid_mfa_code', 'Code invalide. Veuillez réessayer.'))
       setMfaCode('')

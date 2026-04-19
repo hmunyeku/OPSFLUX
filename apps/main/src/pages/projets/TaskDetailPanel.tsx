@@ -40,6 +40,7 @@ import { TabBar } from '@/components/ui/Tabs'
 import { TagManager } from '@/components/shared/TagManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import type { PlannerRevisionDecisionRequest, ProjectTask } from '@/types/api'
+import { formatDate } from '@/lib/i18n'
 
 // ── Inline editable textarea (multiline) ─────────────────────
 // InlineEditableRow only supports single-line input. For long-form
@@ -636,14 +637,14 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                     <InlineEditableRow
                       label="Début"
                       value={task.start_date ? task.start_date.split('T')[0] : ''}
-                      displayValue={task.start_date ? new Date(task.start_date).toLocaleDateString('fr-FR') : '—'}
+                      displayValue={task.start_date ? formatDate(task.start_date) : '—'}
                       onSave={(v) => handleSave('start_date', v || null)}
                       type="date"
                     />
                     <InlineEditableRow
                       label="Échéance"
                       value={task.due_date ? task.due_date.split('T')[0] : ''}
-                      displayValue={task.due_date ? new Date(task.due_date).toLocaleDateString('fr-FR') : '—'}
+                      displayValue={task.due_date ? formatDate(task.due_date) : '—'}
                       onSave={(v) => handleSave('due_date', v || null)}
                       type="date"
                     />
@@ -660,7 +661,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                     {task.completed_at && (
                       <ReadOnlyRow
                         label="Terminé le"
-                        value={new Date(task.completed_at).toLocaleDateString('fr-FR')}
+                        value={formatDate(task.completed_at)}
                       />
                     )}
                   </DetailFieldGrid>
@@ -710,9 +711,9 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   </p>
                   {(thisTaskBreakdownPending.proposed_start_date || thisTaskBreakdownPending.proposed_end_date) && (
                     <p className="mt-1 text-[10px] text-amber-700/70 dark:text-amber-400/70 tabular-nums">
-                      Proposition parent : {thisTaskBreakdownPending.proposed_start_date ? new Date(thisTaskBreakdownPending.proposed_start_date).toLocaleDateString('fr-FR') : '—'}
+                      Proposition parent : {thisTaskBreakdownPending.proposed_start_date ? formatDate(thisTaskBreakdownPending.proposed_start_date) : '—'}
                       {' → '}
-                      {thisTaskBreakdownPending.proposed_end_date ? new Date(thisTaskBreakdownPending.proposed_end_date).toLocaleDateString('fr-FR') : '—'}
+                      {thisTaskBreakdownPending.proposed_end_date ? formatDate(thisTaskBreakdownPending.proposed_end_date) : '—'}
                     </p>
                   )}
                 </div>
@@ -896,13 +897,13 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                         <div key={request.id} className="rounded-lg border border-border bg-muted/20 px-3 py-2.5">
                           <p className="text-xs font-medium text-foreground">
                             {request.requester_user_name || t('planner.revision_signals.actor_fallback')}
-                            {request.due_at ? ` · ${t('planner.revision_requests.due_at')} ${new Date(request.due_at).toLocaleDateString('fr-FR')}` : ''}
+                            {request.due_at ? ` · ${t('planner.revision_requests.due_at')} ${formatDate(request.due_at)}` : ''}
                           </p>
                           {(request.proposed_start_date || request.proposed_end_date || request.proposed_pax_quota != null || request.proposed_status) && (
                             <p className="mt-1 text-xs text-muted-foreground">
                               {t('planner.revision_requests.proposed_summary', {
-                                start: request.proposed_start_date ? new Date(request.proposed_start_date).toLocaleDateString('fr-FR') : '—',
-                                end: request.proposed_end_date ? new Date(request.proposed_end_date).toLocaleDateString('fr-FR') : '—',
+                                start: request.proposed_start_date ? formatDate(request.proposed_start_date) : '—',
+                                end: request.proposed_end_date ? formatDate(request.proposed_end_date) : '—',
                                 pax: request.proposed_pax_quota ?? '—',
                                 status: request.proposed_status || '—',
                               })}
@@ -978,8 +979,8 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                           {(request.counter_start_date || request.counter_end_date || request.counter_status) && (
                             <p className="mt-1 text-xs text-muted-foreground">
                               {t('planner.revision_requests.counter_summary', {
-                                start: request.counter_start_date ? new Date(request.counter_start_date).toLocaleDateString('fr-FR') : '—',
-                                end: request.counter_end_date ? new Date(request.counter_end_date).toLocaleDateString('fr-FR') : '—',
+                                start: request.counter_start_date ? formatDate(request.counter_start_date) : '—',
+                                end: request.counter_end_date ? formatDate(request.counter_end_date) : '—',
                                 pax: request.counter_pax_quota ?? '—',
                                 status: request.counter_status || '—',
                               })}

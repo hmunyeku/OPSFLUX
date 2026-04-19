@@ -64,6 +64,7 @@ import { VerificationDetailPanel } from './panels/VerificationDetailPanel'
 // Tabs
 import { VerificationsTab } from './tabs/VerificationsTab'
 import { RulesMatrixView } from './tabs/RulesTab'
+import { formatDate } from '@/lib/i18n'
 
 export function ConformitePage() {
   const { t } = useTranslation()
@@ -213,7 +214,7 @@ export function ConformitePage() {
       const cls = s === 'valid' ? 'gl-badge-success' : s === 'expired' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
       return <span className={cn('gl-badge', cls)}>{statusLabels[s] ?? s}</span>
     }},
-    { accessorKey: 'expires_at', header: t('conformite.columns.expiration'), size: 110, cell: ({ row }) => row.original.expires_at ? <span className="text-muted-foreground text-xs">{new Date(row.original.expires_at).toLocaleDateString('fr-FR')}</span> : <span className="text-muted-foreground/40">--</span> },
+    { accessorKey: 'expires_at', header: t('conformite.columns.expiration'), size: 110, cell: ({ row }) => row.original.expires_at ? <span className="text-muted-foreground text-xs">{formatDate(row.original.expires_at)}</span> : <span className="text-muted-foreground/40">--</span> },
     { accessorKey: 'issuer', header: t('conformite.columns.issuer'), size: 120, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.issuer || '--'}</span> },
   ], [statusLabels, t])
 
@@ -226,17 +227,17 @@ export function ConformitePage() {
       return <span className={cn('gl-badge', cls)}>{exemptionStatusLabels[s] ?? s}</span>
     }},
     { accessorKey: 'reason', header: t('conformite.columns.reason'), cell: ({ row }) => <span className="text-muted-foreground text-xs truncate max-w-[200px] block">{row.original.reason}</span> },
-    { accessorKey: 'start_date', header: t('conformite.columns.start_date'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.start_date).toLocaleDateString('fr-FR')}</span> },
-    { accessorKey: 'end_date', header: t('conformite.columns.end_date'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.end_date).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'start_date', header: t('conformite.columns.start_date'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{formatDate(row.original.start_date)}</span> },
+    { accessorKey: 'end_date', header: t('conformite.columns.end_date'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{formatDate(row.original.end_date)}</span> },
     { accessorKey: 'approver_name', header: t('conformite.columns.approved_by'), size: 130, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.approver_name || '--'}</span> },
-    { accessorKey: 'created_at', header: t('conformite.columns.created_at'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'created_at', header: t('conformite.columns.created_at'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{formatDate(row.original.created_at)}</span> },
   ], [exemptionStatusLabels, t])
 
   const jpColumns = useMemo<ColumnDef<JobPosition, unknown>[]>(() => [
     { accessorKey: 'code', header: t('conformite.columns.code'), size: 100, cell: ({ row }) => <span className="font-medium">{row.original.code}</span> },
     { accessorKey: 'name', header: t('conformite.columns.title'), cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
     { accessorKey: 'department', header: t('conformite.columns.department'), size: 140, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.department || '--'}</span> },
-    { accessorKey: 'created_at', header: t('conformite.columns.created_at'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'created_at', header: t('conformite.columns.created_at'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{formatDate(row.original.created_at)}</span> },
   ], [t])
 
   const transferColumns = useMemo<ColumnDef<TierContactTransfer, unknown>[]>(() => [
@@ -249,7 +250,7 @@ export function ConformitePage() {
         ? <CrossModuleLink module="tiers" id={row.original.to_tier_id} label={row.original.to_tier_name || row.original.to_tier_id} showIcon={false} className="text-xs" />
         : <span className="text-foreground text-xs">{row.original.to_tier_name || '--'}</span>,
     },
-    { accessorKey: 'transfer_date', header: t('conformite.columns.date'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.transfer_date).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'transfer_date', header: t('conformite.columns.date'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{formatDate(row.original.transfer_date)}</span> },
     { accessorKey: 'reason', header: t('conformite.columns.reason'), cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.reason || '--'}</span> },
   ], [t])
 

@@ -11,6 +11,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useOAuthApps, useDeactivateOAuthApp, useOAuthAuthorizations, useRevokeOAuthAuthorization } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { formatDate } from '@/lib/i18n'
 
 export function ApplicationsTab() {
   const { t } = useTranslation()
@@ -137,7 +138,7 @@ export function ApplicationsTab() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-foreground truncate">{auth.application.name}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Autorisé le {new Date(auth.created_at).toLocaleDateString('fr-FR')}
+                        Autorisé le {formatDate(auth.created_at)}
                       </p>
                     </div>
                   </div>

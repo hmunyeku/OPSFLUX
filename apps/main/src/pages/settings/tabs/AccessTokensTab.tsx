@@ -14,6 +14,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useAccessTokens, useRevokeToken } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { formatDate } from '@/lib/i18n'
 
 export function AccessTokensTab() {
   const { t } = useTranslation()
@@ -105,7 +106,7 @@ export function AccessTokensTab() {
       header: t('settings.columns.tokens.last_used'),
       cell: ({ row }) => (
         <span className="text-muted-foreground">
-          {row.original.last_used_at ? new Date(row.original.last_used_at).toLocaleDateString('fr-FR') : '—'}
+          {row.original.last_used_at ? formatDate(row.original.last_used_at) : '—'}
         </span>
       ),
     },
@@ -114,7 +115,7 @@ export function AccessTokensTab() {
       header: t('settings.columns.tokens.expiration'),
       cell: ({ row }) => (
         <span className="text-muted-foreground">
-          {row.original.expires_at ? new Date(row.original.expires_at).toLocaleDateString('fr-FR') : 'Jamais'}
+          {row.original.expires_at ? formatDate(row.original.expires_at) : 'Jamais'}
         </span>
       ),
     },

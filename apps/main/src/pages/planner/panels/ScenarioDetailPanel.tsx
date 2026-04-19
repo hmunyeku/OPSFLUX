@@ -39,6 +39,7 @@ import {
 } from '@/hooks/usePlanner'
 import { usePermission } from '@/hooks/usePermission'
 import { formatDateOnly, extractApiError } from '../shared'
+import { formatDate } from '@/lib/i18n'
 
 export function ScenarioDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -321,9 +322,9 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                 </div>
               } />
               <ReadOnlyRow label="Créé par" value={scenario.created_by_name || '—'} />
-              <ReadOnlyRow label="Créé le" value={new Date(scenario.created_at).toLocaleDateString('fr-FR')} />
+              <ReadOnlyRow label="Créé le" value={formatDate(scenario.created_at)} />
               {scenario.promoted_by_name && <ReadOnlyRow label="Promu par" value={scenario.promoted_by_name} />}
-              {scenario.promoted_at && <ReadOnlyRow label="Promu le" value={new Date(scenario.promoted_at).toLocaleDateString('fr-FR')} />}
+              {scenario.promoted_at && <ReadOnlyRow label="Promu le" value={formatDate(scenario.promoted_at)} />}
               {scenario.last_simulated_at && <ReadOnlyRow label="Dernière simulation" value={new Date(scenario.last_simulated_at).toLocaleString('fr-FR')} />}
               {!isPromoted && !isArchived && (
                 <div className="col-span-full pt-1">

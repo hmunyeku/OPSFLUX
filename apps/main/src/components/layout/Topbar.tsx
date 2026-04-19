@@ -34,6 +34,7 @@ import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
 // NotificationCenter and AnnouncementCenter removed — merged into AssistantPanel
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
 import { safeLocal } from '@/lib/safeStorage'
+import { ROUTES } from '@/lib/routes'
 
 interface TopbarProps {
   onToggleSidebar: () => void
@@ -359,7 +360,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           </button>
 
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate(ROUTES.dashboard)}
             className="flex items-center gap-1.5 shrink-0"
             aria-label="OpsFlux"
           >
@@ -501,7 +502,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                       )}
                     </select>
                     <button
-                      onClick={() => { setShowUserMenu(false); navigate('/settings#delegations') }}
+                      onClick={() => { setShowUserMenu(false); navigate(`${ROUTES.settings}#delegations`) }}
                       className="mt-2 text-xs text-primary hover:underline"
                     >
                       {t('settings.delegations.manage_link')}
@@ -510,14 +511,14 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 )}
                 <div className="py-1">
                   <button
-                    onClick={() => { setShowUserMenu(false); navigate('/settings') }}
+                    onClick={() => { setShowUserMenu(false); navigate(ROUTES.settings) }}
                     className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent rounded-sm mx-0 transition-colors"
                   >
                     <UserIcon size={14} />
                     {t('nav.profile')}
                   </button>
                   <button
-                    onClick={() => { setShowUserMenu(false); navigate('/settings') }}
+                    onClick={() => { setShowUserMenu(false); navigate(ROUTES.settings) }}
                     className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent rounded-sm mx-0 transition-colors"
                   >
                     <Settings size={14} />
@@ -527,7 +528,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 <div className="my-0.5 h-px bg-border" />
                 <div className="py-1">
                   <button
-                    onClick={() => { setShowUserMenu(false); logout(); navigate('/login') }}
+                    onClick={() => { setShowUserMenu(false); logout(); navigate(ROUTES.login) }}
                     className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-destructive hover:bg-accent rounded-sm mx-0 transition-colors"
                   >
                     <LogOut size={14} />

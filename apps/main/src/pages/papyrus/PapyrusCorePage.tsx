@@ -93,6 +93,7 @@ import { DocumentEditor } from '@/components/papyrus/DocumentEditor'
 import { PapyrusFormBuilder } from '@/components/papyrus/PapyrusFormBuilder'
 import { PapyrusFormRunner } from '@/components/papyrus/PapyrusFormRunner'
 import { useProjects } from '@/hooks/useProjets'
+import { formatDate } from '@/lib/i18n'
 import type {
   Document as REDocument,
   DocType,
@@ -234,11 +235,6 @@ function ClassificationBadge({ classification }: { classification: string }) {
   )
 }
 
-function formatDate(d: string | null | undefined) {
-  if (!d) return '--'
-  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
 // -- Dynamic Workflow Actions (FSM-driven) ------------------------------------
 
 function WorkflowActions({ docId }: { docId: string }) {
@@ -338,7 +334,7 @@ function WorkflowActions({ docId }: { docId: string }) {
                 {h.comment && <span className="italic ml-1">&laquo;{h.comment}&raquo;</span>}
                 {h.created_at && (
                   <span className="ml-1 tabular-nums">
-                    {new Date(h.created_at).toLocaleDateString('fr-FR')}
+                    {formatDate(h.created_at)}
                   </span>
                 )}
               </div>

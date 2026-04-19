@@ -80,6 +80,7 @@ import type {
   DCSTag,
 } from '@/services/pidPfdService'
 import { pidPfdService } from '@/services/pidPfdService'
+import { formatDate } from '@/lib/i18n'
 
 // -- Constants ----------------------------------------------------------------
 
@@ -522,7 +523,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label="Cree par" value={doc.creator_name || '--'} />
                 <ReadOnlyRow
                   label="Cree le"
-                  value={new Date(doc.created_at).toLocaleDateString('fr-FR')}
+                  value={formatDate(doc.created_at)}
                 />
               </DetailFieldGrid>
             </FormSection>
@@ -600,7 +601,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                       <p className="text-muted-foreground mt-0.5">{rev.change_description}</p>
                     )}
                     <p className="text-muted-foreground/60 mt-0.5">
-                      {rev.creator_name || 'Systeme'} — {new Date(rev.created_at).toLocaleDateString('fr-FR')}
+                      {rev.creator_name || 'Systeme'} — {formatDate(rev.created_at)}
                     </p>
                   </div>
                 </div>
@@ -715,7 +716,7 @@ function DashboardTab() {
                 </div>
                 <StatusBadge status={doc.status} />
                 <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                  {new Date(doc.updated_at).toLocaleDateString('fr-FR')}
+                  {formatDate(doc.updated_at)}
                 </span>
               </div>
             ))}
@@ -973,7 +974,7 @@ export function PidPfdPage() {
       size: 100,
       cell: ({ row }) => (
         <span className="text-muted-foreground text-xs tabular-nums">
-          {new Date(row.original.updated_at).toLocaleDateString('fr-FR')}
+          {formatDate(row.original.updated_at)}
         </span>
       ),
     },

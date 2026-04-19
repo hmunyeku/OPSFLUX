@@ -90,6 +90,7 @@ import {
   GoutiProjectBanner, WeatherIcon, InlinePickerField,
   TaskStatusIcon, nextTaskStatus,
 } from '../shared'
+import { formatDate } from '@/lib/i18n'
 
 function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const { t } = useTranslation()
@@ -725,8 +726,8 @@ function TaskRow({
           <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
             {task.code && <span>Ref: {task.code}</span>}
             {task.assignee_name && <span>Resp: {task.assignee_name}</span>}
-            <span>Créé le {new Date(task.created_at).toLocaleDateString('fr-FR')}</span>
-            {task.completed_at && <span>Terminé le {new Date(task.completed_at).toLocaleDateString('fr-FR')}</span>}
+            <span>Créé le {formatDate(task.created_at)}</span>
+            {task.completed_at && <span>Terminé le {formatDate(task.completed_at)}</span>}
           </div>
         </div>
       )}

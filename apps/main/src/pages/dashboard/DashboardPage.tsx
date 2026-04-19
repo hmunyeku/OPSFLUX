@@ -49,6 +49,7 @@ import type { DashboardEditorHandle } from '@/components/dashboard/DashboardEdit
 import { DashboardFilterProvider } from '@/components/dashboard/DashboardFilterContext'
 import { DashboardFilterBar } from '@/components/dashboard/DashboardFilterBar'
 import type { DashboardWidget, DashboardTab, UserDashboardTab } from '@/services/dashboardService'
+import { ROUTES } from '@/lib/routes'
 
 // ── Relative time formatting ──────────────────────────────────
 
@@ -402,7 +403,7 @@ export function DashboardPage() {
               variant="promo"
               title={t('dashboard.welcome_title')}
               description={t('dashboard.welcome_description')}
-              action={{ label: t('dashboard.discover'), onClick: () => navigate('/search') }}
+              action={{ label: t('dashboard.discover'), onClick: () => navigate(ROUTES.search) }}
               dismissKey="banner:welcome-v1"
             />
           </div>
@@ -485,7 +486,7 @@ export function DashboardPage() {
               </div>
               {auditData?.items && auditData.items.length > 0 && (
                 <div className="border-t border-border px-4 py-2">
-                  <button onClick={() => navigate('/settings')} className="text-xs text-primary hover:underline">
+                  <button onClick={() => navigate(ROUTES.settings)} className="text-xs text-primary hover:underline">
                     {t('dashboard.view_all')}
                   </button>
                 </div>
@@ -565,7 +566,7 @@ export function DashboardPage() {
               </div>
               {auditData?.items && auditData.items.length > 0 && (
                 <div className="border-t border-border px-4 py-2">
-                  <button onClick={() => navigate('/settings')} className="text-xs text-primary hover:underline">
+                  <button onClick={() => navigate(ROUTES.settings)} className="text-xs text-primary hover:underline">
                     {t('dashboard.view_all')}
                   </button>
                 </div>

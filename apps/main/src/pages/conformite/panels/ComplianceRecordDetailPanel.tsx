@@ -22,6 +22,7 @@ import { useComplianceRecords, useUpdateComplianceRecord, useDeleteComplianceRec
 import type { ComplianceRecordUpdate } from '@/types/api'
 import { useConformiteDictionaryState } from '../shared'
 import { ComplianceOwnerCard } from '../components'
+import { formatDate } from '@/lib/i18n'
 
 export function ComplianceRecordDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -166,15 +167,15 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
             <DetailFieldGrid>
               <ReadOnlyRow label={t('conformite.records.fields.type')} value={record.type_name || '—'} />
               <ReadOnlyRow label={t('conformite.records.fields.status')} value={<span className={cn('gl-badge', statusClass)}>{statusLabels[record.status] ?? record.status}</span>} />
-              <ReadOnlyRow label={t('common.created_at')} value={record.created_at ? new Date(record.created_at).toLocaleDateString('fr-FR') : '—'} />
+              <ReadOnlyRow label={t('common.created_at')} value={record.created_at ? formatDate(record.created_at) : '—'} />
             </DetailFieldGrid>
           </FormSection>
           <FormSection title={t('conformite.records.sections.reference')}>
             <DetailFieldGrid>
               <InlineEditableRow label={t('conformite.records.fields.issuer')} value={record.issuer || ''} onSave={(value) => handleSave({ issuer: value || null })} />
               <InlineEditableRow label={t('conformite.records.fields.reference_number')} value={record.reference_number || ''} onSave={(value) => handleSave({ reference_number: value || null })} />
-              <ReadOnlyRow label={t('conformite.records.fields.issued_at')} value={record.issued_at ? new Date(record.issued_at).toLocaleDateString('fr-FR') : '—'} />
-              <ReadOnlyRow label={t('conformite.records.fields.expires_at')} value={record.expires_at ? new Date(record.expires_at).toLocaleDateString('fr-FR') : '—'} />
+              <ReadOnlyRow label={t('conformite.records.fields.issued_at')} value={record.issued_at ? formatDate(record.issued_at) : '—'} />
+              <ReadOnlyRow label={t('conformite.records.fields.expires_at')} value={record.expires_at ? formatDate(record.expires_at) : '—'} />
             </DetailFieldGrid>
             <div className="mt-3">
               <InlineEditableRow label={t('conformite.records.fields.notes')} value={record.notes || ''} onSave={(value) => handleSave({ notes: value || null })} />

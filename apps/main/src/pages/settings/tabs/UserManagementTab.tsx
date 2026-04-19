@@ -13,6 +13,7 @@ import {
 import api from '@/lib/api'
 import { useToast } from '@/components/ui/Toast'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/i18n'
 
 interface AdminUser {
   id: string
@@ -94,7 +95,7 @@ function relativeTime(iso: string | null): string {
   if (hours < 24) return `Il y a ${hours}h`
   const days = Math.floor(hours / 24)
   if (days < 30) return `Il y a ${days}j`
-  return new Date(iso).toLocaleDateString('fr-FR')
+  return formatDate(iso)
 }
 
 function ConfirmDialog({

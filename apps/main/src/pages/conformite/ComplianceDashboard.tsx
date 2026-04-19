@@ -9,6 +9,7 @@ import {
 import { useComplianceKPIs } from '@/hooks/useConformite'
 import type { ComplianceDashboardKPIs } from '@/services/conformiteService'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/i18n'
 
 // ── Stat Card ─────────────────────────────────────────────────────────────
 
@@ -134,7 +135,7 @@ function ExpirationList({ items, variant }: { items: ExpirationItem[]; variant: 
     <div className="divide-y divide-border">
       {items.map(item => {
         const dateStr = variant === 'recent' ? item.expired_at : item.expires_at
-        const formatted = dateStr ? new Date(dateStr).toLocaleDateString('fr-FR') : '--'
+        const formatted = dateStr ? formatDate(dateStr) : '--'
         const days = variant === 'recent' ? item.days_overdue : item.days_remaining
         const daysLabel = variant === 'recent'
           ? `${days}j de retard`

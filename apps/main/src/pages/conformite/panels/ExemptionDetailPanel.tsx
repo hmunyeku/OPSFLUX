@@ -18,6 +18,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useExemptions, useApproveExemption, useRejectExemption, useDeleteExemption } from '@/hooks/useConformite'
 import { useConformiteDictionaryState } from '../shared'
+import { formatDate } from '@/lib/i18n'
 
 export function ExemptionDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -111,11 +112,11 @@ export function ExemptionDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label="Type de conformité" value={exemption.record_type_name || '--'} />
               <ReadOnlyRow label="Catégorie" value={exemption.record_type_category ? <span className="gl-badge gl-badge-neutral">{exemption.record_type_category}</span> : '--'} />
               <ReadOnlyRow label="Propriétaire" value={exemption.owner_name || '--'} />
-              <ReadOnlyRow label="Date de début" value={new Date(exemption.start_date).toLocaleDateString('fr-FR')} />
-              <ReadOnlyRow label="Date de fin" value={new Date(exemption.end_date).toLocaleDateString('fr-FR')} />
+              <ReadOnlyRow label="Date de début" value={formatDate(exemption.start_date)} />
+              <ReadOnlyRow label="Date de fin" value={formatDate(exemption.end_date)} />
               <ReadOnlyRow label="Approuvé par" value={exemption.approver_name || '--'} />
               <ReadOnlyRow label="Créé par" value={exemption.creator_name || '--'} />
-              <ReadOnlyRow label="Créé le" value={new Date(exemption.created_at).toLocaleDateString('fr-FR')} />
+              <ReadOnlyRow label="Créé le" value={formatDate(exemption.created_at)} />
             </DetailFieldGrid>
           </FormSection>
           <FormSection title="Motif">

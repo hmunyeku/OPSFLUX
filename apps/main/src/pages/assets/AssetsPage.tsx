@@ -6,9 +6,10 @@
  */
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ROUTES } from '@/lib/routes'
 
 export function AssetsPage() {
   const navigate = useNavigate()
-  useEffect(() => { navigate('/assets', { replace: true }) }, [navigate])
+  useEffect(() => { navigate(ROUTES.assets, { replace: true }) }, [navigate])
   return null
 }

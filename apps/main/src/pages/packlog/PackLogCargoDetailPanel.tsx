@@ -76,6 +76,7 @@ import type {
   PackageElementDispositionUpdate,
   PackageElementReturnUpdate,
 } from '@/types/api'
+import { formatDate } from '@/lib/i18n'
 
 const CARGO_STATUS_LABELS_FALLBACK: Record<string, string> = {
   registered: 'Enregistré',
@@ -711,7 +712,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                         <ReadOnlyRow label="Propriété" value={cargo.ownership_type ? (ownershipLabels[cargo.ownership_type] ?? cargo.ownership_type) : '—'} />
                         <ReadOnlyRow label="Réutilisable" value={cargo.is_reusable ? 'Oui — retour attendu' : 'Non'} />
                         {cargo.is_reusable && cargo.expected_return_date && (
-                          <ReadOnlyRow label="Date retour prévue" value={new Date(cargo.expected_return_date).toLocaleDateString('fr-FR')} />
+                          <ReadOnlyRow label="Date retour prévue" value={formatDate(cargo.expected_return_date)} />
                         )}
                         <ReadOnlyRow label="HAZMAT validé" value={cargo.hazmat_validated ? 'Oui' : 'Non'} />
                       </DetailFieldGrid>
@@ -743,7 +744,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                     <ReadOnlyRow label="Imputation" value={cargo.imputation_reference_name ? `${cargo.imputation_reference_code ?? ''} ${cargo.imputation_reference_name}`.trim() : '—'} />
                     <ReadOnlyRow label="Préparé le" value={cargo.document_prepared_at ? new Date(cargo.document_prepared_at).toLocaleString('fr-FR') : '—'} />
                     <ReadOnlyRow label="Disponible le" value={cargo.available_from ? new Date(cargo.available_from).toLocaleString('fr-FR') : '—'} />
-                    <ReadOnlyRow label="Créé le" value={new Date(cargo.created_at).toLocaleDateString('fr-FR')} />
+                    <ReadOnlyRow label="Créé le" value={formatDate(cargo.created_at)} />
                     {cargo.received_at && <ReadOnlyRow label="Reçu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
                     <ReadOnlyRow label="Description" value={cargo.description ?? '—'} />
                     {cargo.damage_notes && <ReadOnlyRow label="Notes avarie" value={cargo.damage_notes} />}

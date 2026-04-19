@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
+import { ROUTES } from '@/lib/routes'
 
 interface Notification {
   id: string
@@ -232,7 +233,7 @@ export function NotificationCenter() {
           {notifications.length > 0 && (
             <div className="border-t px-3 py-1.5 shrink-0">
               <button
-                onClick={() => { setOpen(false); navigate('/settings?tab=notifications') }}
+                onClick={() => { setOpen(false); navigate(`${ROUTES.settings}?tab=notifications`) }}
                 className="text-[10px] text-primary hover:underline"
               >
                 {t('notifications.see_all')}

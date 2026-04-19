@@ -14,6 +14,7 @@ import {
   CATEGORY_ORDER,
   PRIORITY_COLORS,
 } from '../shared'
+import { formatDate } from '@/lib/i18n'
 
 type TargetTab = 'job_position' | 'department' | 'asset' | 'packlog_cargo' | 'all'
 
@@ -487,7 +488,7 @@ export function RulesMatrixView({
                             onMouseLeave={() => { setHoveredCol(null); setHoveredRow(null) }}
                             onClick={() => handleCellClick(type.id, row.id === '__all__' ? '__all__' : row.id)}
                             title={rule
-                              ? `${type.name} (${type.category})\n${t('conformite.rules.matrix.validity_days')}: ${rule.override_validity_days ?? type.validity_days ?? '∞'}j${rule.grace_period_days ? ` · ${t('conformite.rules.matrix.grace')}: ${rule.grace_period_days}j` : ''}${rule.renewal_reminder_days ? ` · ${t('conformite.rules.matrix.reminder')}: ${rule.renewal_reminder_days}j` : ''}\n${t('common.priority')}: ${rulePriorityLabels[rule.priority] ?? rule.priority}${rule.effective_from ? `\n${t('conformite.rules.matrix.effective_from')}: ${new Date(rule.effective_from).toLocaleDateString('fr-FR')}` : ''}\n${t('conformite.rules.matrix.edit_rule')}`
+                              ? `${type.name} (${type.category})\n${t('conformite.rules.matrix.validity_days')}: ${rule.override_validity_days ?? type.validity_days ?? '∞'}j${rule.grace_period_days ? ` · ${t('conformite.rules.matrix.grace')}: ${rule.grace_period_days}j` : ''}${rule.renewal_reminder_days ? ` · ${t('conformite.rules.matrix.reminder')}: ${rule.renewal_reminder_days}j` : ''}\n${t('common.priority')}: ${rulePriorityLabels[rule.priority] ?? rule.priority}${rule.effective_from ? `\n${t('conformite.rules.matrix.effective_from')}: ${formatDate(rule.effective_from)}` : ''}\n${t('conformite.rules.matrix.edit_rule')}`
                               : `${t('conformite.rules.matrix.create_rule')} ${type.name}`
                             }
                           >

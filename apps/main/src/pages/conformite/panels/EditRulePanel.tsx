@@ -18,6 +18,7 @@ import {
 } from '@/hooks/useConformite'
 import type { ComplianceRule } from '@/types/api'
 import { RuleFormFields } from './RuleFormFields'
+import { formatDate } from '@/lib/i18n'
 
 export function EditRulePanel() {
   const { t } = useTranslation()
@@ -159,7 +160,7 @@ export function EditRulePanel() {
                     <span className="text-muted-foreground ml-1.5">
                       {h.action === 'created' ? 'Création' : h.action === 'updated' ? 'Modification' : h.action === 'archived' ? 'Archivé' : h.action}
                     </span>
-                    <span className="text-muted-foreground ml-1.5">· {new Date(h.changed_at).toLocaleDateString('fr-FR')}</span>
+                    <span className="text-muted-foreground ml-1.5">· {formatDate(h.changed_at)}</span>
                   </div>
                   {h.change_reason && <p className="text-xs text-muted-foreground mt-0.5 italic">{h.change_reason}</p>}
                 </div>

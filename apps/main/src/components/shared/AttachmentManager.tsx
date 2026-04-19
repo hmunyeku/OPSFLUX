@@ -21,6 +21,7 @@ import { useAttachments, useUploadAttachment, useDeleteAttachment } from '@/hook
 import { useToast } from '@/components/ui/Toast'
 import api from '@/lib/api'
 import type { FileAttachment } from '@/types/api'
+import { formatDate } from '@/lib/i18n'
 
 /** Download a file via authenticated API call → blob → save as link click */
 async function downloadFile(attachmentId: string, filename: string) {
@@ -223,7 +224,7 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-foreground truncate">{att.original_name}</p>
                 <p className="text-[9px] text-muted-foreground">
-                  {formatSize(att.size_bytes)} · {new Date(att.created_at).toLocaleDateString('fr-FR')}
+                  {formatSize(att.size_bytes)} · {formatDate(att.created_at)}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">

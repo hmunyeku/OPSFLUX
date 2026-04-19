@@ -45,6 +45,7 @@ import { useUsers } from '@/hooks/useUsers'
 import { usePageSize } from '@/hooks/usePageSize'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import type { RoleRead, PermissionRead, GroupRead, PermissionOverride } from '@/services/rbacService'
+import { formatDate } from '@/lib/i18n'
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN TAB — 3 sub-tabs
@@ -291,7 +292,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
       accessorKey: 'created_at',
       header: t('settings.columns.rbac_roles.created_at'),
       cell: ({ row }) => row.original.created_at ? (
-        <span className="text-muted-foreground text-xs">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span>
+        <span className="text-muted-foreground text-xs">{formatDate(row.original.created_at)}</span>
       ) : <span className="text-muted-foreground/50">—</span>,
       size: 100,
     },
@@ -299,7 +300,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
       accessorKey: 'updated_at',
       header: t('settings.columns.rbac_roles.updated_at'),
       cell: ({ row }) => row.original.updated_at ? (
-        <span className="text-muted-foreground text-xs">{new Date(row.original.updated_at).toLocaleDateString('fr-FR')}</span>
+        <span className="text-muted-foreground text-xs">{formatDate(row.original.updated_at)}</span>
       ) : <span className="text-muted-foreground/50">—</span>,
       size: 100,
     },
@@ -902,7 +903,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
       accessorKey: 'created_at',
       header: t('settings.columns.rbac_groups.created_at'),
       cell: ({ row }) => row.original.created_at ? (
-        <span className="text-muted-foreground text-xs">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span>
+        <span className="text-muted-foreground text-xs">{formatDate(row.original.created_at)}</span>
       ) : <span className="text-muted-foreground/50">—</span>,
       size: 100,
     },
@@ -910,7 +911,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
       accessorKey: 'updated_at',
       header: t('settings.columns.rbac_groups.updated_at'),
       cell: ({ row }) => row.original.updated_at ? (
-        <span className="text-muted-foreground text-xs">{new Date(row.original.updated_at).toLocaleDateString('fr-FR')}</span>
+        <span className="text-muted-foreground text-xs">{formatDate(row.original.updated_at)}</span>
       ) : <span className="text-muted-foreground/50">—</span>,
       size: 100,
     },

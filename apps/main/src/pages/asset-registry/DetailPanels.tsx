@@ -78,6 +78,7 @@ import {
   CreateEquipmentPanel,
   CreatePipelinePanel,
 } from './CreatePanels'
+import { formatDate } from '@/lib/i18n'
 
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -179,7 +180,7 @@ function fmtBool(val: boolean | undefined | null, t: (k: string) => string) {
 
 function fmtDate(val: string | null | undefined) {
   if (!val) return '—'
-  try { return new Date(val).toLocaleDateString('fr-FR') } catch { return val }
+  try { return formatDate(val) } catch { return val }
 }
 
 function fmtNum(val: number | null | undefined, unit?: string) {

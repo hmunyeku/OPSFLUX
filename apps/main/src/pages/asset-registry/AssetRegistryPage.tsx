@@ -46,6 +46,7 @@ import { CreateFieldPanel, CreateSitePanel, CreateInstallationPanel, CreateEquip
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { AssetHierarchyTree } from './AssetHierarchyTree'
 import { MapsTab } from './MapsTab'
+import { ROUTES } from '@/lib/routes'
 
 
 // ── Status badge helper ──────────────────────────────────────
@@ -888,7 +889,7 @@ export function AssetRegistryPage() {
           >
             <>
               {canReadImputations && (
-                <ToolbarButton icon={Coins} label={t('nav.imputations')} onClick={() => navigate('/imputations')} />
+                <ToolbarButton icon={Coins} label={t('nav.imputations')} onClick={() => navigate(ROUTES.imputations)} />
               )}
               {showCreateButton && (
                 <ToolbarButton icon={Plus} label={t('common.create')} variant="primary" onClick={handleCreate} />

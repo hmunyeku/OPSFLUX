@@ -72,7 +72,7 @@ Vérifications disponibles:
   - `voyage-workflow`
 - seed aligné avec les slugs runtime
 - migration de synchronisation des définitions existantes:
-  - [093_sync_workflow_definition_slugs.py](/C:/Users/ajha0/Desktop/OPSFLUX/alembic/versions/093_sync_workflow_definition_slugs.py)
+  - [093_sync_workflow_definition_slugs.py](/alembic/versions/093_sync_workflow_definition_slugs.py)
 - garde-fous d'approbation clarifiés par étape:
   - initiateur
   - chef de projet

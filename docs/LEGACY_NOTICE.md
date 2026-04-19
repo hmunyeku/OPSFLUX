@@ -14,7 +14,7 @@ Ils ne constituent plus la référence officielle du projet.
 
 La référence officielle est désormais:
 
-- [docs/rebuilt/README.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/rebuilt/README.md)
+- [docs/rebuilt/README.md](docs/rebuilt/README.md)
 
 Règle:
 

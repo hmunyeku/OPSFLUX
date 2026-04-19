@@ -438,10 +438,29 @@ La doc mentionne `X-Tenant-ID`, le frontend envoie `X-Entity-ID`, le backend lit
 
 ### T-010 — Marquer les docs par statut
 
-**Priorité**: P2  
+**Priorité**: P2
 **Type**: Documentation / Gouvernance
+**Statut**: ✅ **CLOSED** — convention par dossier appliquée
 
-#### Problème
+#### Décision
+
+Plutôt que de tagger 62 fichiers Markdown individuellement (risque d'erreur
+sans relecture exhaustive de chaque doc), une **convention de statut par
+dossier** a été adoptée dans `docs/README.md` :
+
+| Dossier | Statut implicite |
+|---|---|
+| `docs/rebuilt/` | `target` |
+| `docs/rebuilt/modules/` | `partial` |
+| `docs/check/` | `audit` |
+| `docs/adr/` | `accepted` |
+| `docs/` racine + sous-dossiers historiques | `legacy` |
+
+Les docs individuels peuvent overrider via un header `Status: implemented`.
+Renvoie vers le backlog (`docs/check/15_*`) et l'audit de dette
+(`docs/rebuilt/39_*`) pour l'état réel des features avec indicateurs.
+
+#### Problème historique
 
 Les docs mélangent état réel et cible produit.
 
@@ -467,10 +486,27 @@ Ajouter un en-tête standard:
 
 ### T-011 — Séparer clairement “architecture cible” et “runtime actuel”
 
-**Priorité**: P2  
+**Priorité**: P2
 **Type**: Documentation
+**Statut**: ✅ **CLOSED** (même résolution que T-010)
 
-#### Problème
+#### Décision
+
+La séparation est désormais portée par **l'arborescence** plutôt que par des
+sections en tête de chaque doc :
+
+- `docs/rebuilt/` = architecture cible (plans)
+- `docs/check/15_DOC_CODE_ALIGNMENT_BACKLOG.md` = écarts code ↔ cible,
+  avec statut `CLOSED`/`OPEN` par item
+- `docs/rebuilt/39_TECH_DEBT_AUDIT_2026_04_10.md` = snapshot de dette
+  technique daté
+
+Le runtime actuel est documenté dans le code lui-même (docstrings +
+commentaires) et les commits de résolution des tickets, pas en prose dans
+les docs Core. Les docs Core restent orientées **cible**, avec les écarts
+tracés ailleurs.
+
+#### Problème historique
 
 Les documents Core servent à la fois de vision cible et de description runtime.
 

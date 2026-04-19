@@ -56,8 +56,8 @@ Audit transversal du socle OpsFlux avec focus sur:
 ### 1. Gating module incomplet
 
 Constat:
-- Le runtime charge tous les modules au démarrage via [main.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/main.py).
-- La navigation frontend était encore majoritairement hardcodée dans [Sidebar.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/components/layout/Sidebar.tsx).
+- Le runtime charge tous les modules au démarrage via [main.py](/app/main.py).
+- La navigation frontend était encore majoritairement hardcodée dans [Sidebar.tsx](/apps/main/src/components/layout/Sidebar.tsx).
 - Les dashboards pouvaient continuer à exposer des tabs/widgets d’un module même si on voulait le retirer.
 
 Impact:
@@ -67,10 +67,10 @@ Impact:
 
 Action lancée:
 - ajout d’un socle de lifecycle module:
-  - [module_lifecycle_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/core/module_lifecycle_service.py)
-  - [modules.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/modules.py)
-  - [ModulesTab.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/settings/tabs/ModulesTab.tsx)
-- filtrage du catalogue widgets et des tabs dashboard dans [dashboard.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/dashboard.py)
+  - [module_lifecycle_service.py](/app/services/core/module_lifecycle_service.py)
+  - [modules.py](/app/api/routes/core/modules.py)
+  - [ModulesTab.tsx](/apps/main/src/pages/settings/tabs/ModulesTab.tsx)
+- filtrage du catalogue widgets et des tabs dashboard dans [dashboard.py](/app/api/routes/core/dashboard.py)
 - masquage sidebar côté frontend
 
 Résiduel:
@@ -97,7 +97,7 @@ Action menée:
 ### 3. Affectation utilisateur à l’entité incohérente à la création
 
 Constat:
-- la création utilisateur dans [users.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/users.py) ne suivait pas la même logique que l’affectation manuelle à une entité
+- la création utilisateur dans [users.py](/app/api/routes/core/users.py) ne suivait pas la même logique que l’affectation manuelle à une entité
 - si l’entité cible n’avait pas de groupe exploitable, l’utilisateur pouvait être créé avec `default_entity_id` mais sans vraie appartenance opérationnelle
 
 Impact:
@@ -105,7 +105,7 @@ Impact:
 - permissions et visibilité potentiellement incorrectes
 
 Action menée:
-- unification de la logique d’assignation via helper commun dans [users.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/users.py)
+- unification de la logique d’assignation via helper commun dans [users.py](/app/api/routes/core/users.py)
 
 ### 4. Gating dashboard/widget encore trop orienté frontend
 
@@ -118,7 +118,7 @@ Impact:
 - erreurs ou incohérences runtime
 
 Action menée:
-- filtrage catalogue, tabs et `widget-data` dans [dashboard.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/dashboard.py)
+- filtrage catalogue, tabs et `widget-data` dans [dashboard.py](/app/api/routes/core/dashboard.py)
 
 ### 5. Multi-entité: dette transversale encore présente
 
@@ -186,12 +186,12 @@ Points de vigilance restants:
 ## Livrables déjà démarrés
 
 - lifecycle module:
-  [module_lifecycle_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/core/module_lifecycle_service.py)
+  [module_lifecycle_service.py](/app/services/core/module_lifecycle_service.py)
 - API modules:
-  [modules.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/modules.py)
+  [modules.py](/app/api/routes/core/modules.py)
 - pilotage admin:
-  [ModulesTab.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/settings/tabs/ModulesTab.tsx)
+  [ModulesTab.tsx](/apps/main/src/pages/settings/tabs/ModulesTab.tsx)
 - filtrage dashboard:
-  [dashboard.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/dashboard.py)
+  [dashboard.py](/app/api/routes/core/dashboard.py)
 - filtrage navigation:
-  [Sidebar.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/components/layout/Sidebar.tsx)
+  [Sidebar.tsx](/apps/main/src/components/layout/Sidebar.tsx)

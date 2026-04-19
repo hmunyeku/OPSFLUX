@@ -14,10 +14,10 @@ Elle sert de vue d'ensemble métier.
 
 Références principales:
 
-- [docs/modules/v1/PAXLOG.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/modules/v1/PAXLOG.md)
-- [docs/modules/v1/FUNC_TRAVELWIZ.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/modules/v1/FUNC_TRAVELWIZ.md)
-- [docs/modules/v1/TRAVELWIZ.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/modules/v1/TRAVELWIZ.md)
-- [app/models/paxlog.py](C:/Users/ajha0/Desktop/OPSFLUX/app/models/paxlog.py)
+- [docs/modules/v1/PAXLOG.md](docs/modules/v1/PAXLOG.md)
+- [docs/modules/v1/FUNC_TRAVELWIZ.md](docs/modules/v1/FUNC_TRAVELWIZ.md)
+- [docs/modules/v1/TRAVELWIZ.md](docs/modules/v1/TRAVELWIZ.md)
+- [app/models/paxlog.py](app/models/paxlog.py)
 
 ## 1. Vue d'ensemble
 

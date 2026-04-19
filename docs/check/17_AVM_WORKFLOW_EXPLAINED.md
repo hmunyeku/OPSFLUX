@@ -12,9 +12,9 @@ code et des docs.
 
 Références:
 
-- [app/models/paxlog.py](C:/Users/ajha0/Desktop/OPSFLUX/app/models/paxlog.py)
-- [app/api/routes/modules/paxlog.py](C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules/paxlog.py)
-- [docs/modules/v1/PAXLOG.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/modules/v1/PAXLOG.md)
+- [app/models/paxlog.py](app/models/paxlog.py)
+- [app/api/routes/modules/paxlog.py](app/api/routes/modules/paxlog.py)
+- [docs/modules/v1/PAXLOG.md](docs/modules/v1/PAXLOG.md)
 
 ## 1. Ce qu'est une AVM
 

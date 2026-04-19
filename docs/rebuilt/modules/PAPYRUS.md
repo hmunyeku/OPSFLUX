@@ -435,45 +435,45 @@ Le travail restant consiste surtout a rendre ce socle lisible et operable dans l
 
 Routes principales:
 
-- [papyrus_core.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules/papyrus_core.py)
+- [papyrus_core.py](/app/api/routes/modules/papyrus_core.py)
 
 Services principaux:
 
-- [papyrus_document_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/modules/papyrus_document_service.py)
-- [papyrus_forms_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/modules/papyrus_forms_service.py)
-- [papyrus_presets_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/modules/papyrus_presets_service.py)
-- [papyrus_runtime_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/modules/papyrus_runtime_service.py)
-- [papyrus_versioning_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/modules/papyrus_versioning_service.py)
-- [papyrus_dispatch_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/modules/papyrus_dispatch_service.py)
+- [papyrus_document_service.py](/app/services/modules/papyrus_document_service.py)
+- [papyrus_forms_service.py](/app/services/modules/papyrus_forms_service.py)
+- [papyrus_presets_service.py](/app/services/modules/papyrus_presets_service.py)
+- [papyrus_runtime_service.py](/app/services/modules/papyrus_runtime_service.py)
+- [papyrus_versioning_service.py](/app/services/modules/papyrus_versioning_service.py)
+- [papyrus_dispatch_service.py](/app/services/modules/papyrus_dispatch_service.py)
 
 Modeles ORM:
 
-- [papyrus.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/models/papyrus.py)
-- [papyrus_document.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/models/papyrus_document.py)
+- [papyrus.py](/app/models/papyrus.py)
+- [papyrus_document.py](/app/models/papyrus_document.py)
 
 Schemas API:
 
-- [papyrus.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/schemas/papyrus.py)
-- [papyrus_document.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/schemas/papyrus_document.py)
+- [papyrus.py](/app/schemas/papyrus.py)
+- [papyrus_document.py](/app/schemas/papyrus_document.py)
 
 ### Frontend principal
 
 Page principale:
 
-- [PapyrusCorePage.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/papyrus/PapyrusCorePage.tsx)
+- [PapyrusCorePage.tsx](/apps/main/src/pages/papyrus/PapyrusCorePage.tsx)
 
 Composants principaux:
 
-- [DocumentEditor.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/components/papyrus/DocumentEditor.tsx)
-- [DocumentEditorCore.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/components/papyrus/DocumentEditorCore.tsx)
-- [PapyrusFormRunner.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/components/papyrus/PapyrusFormRunner.tsx)
-- [PapyrusFormBuilder.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/components/papyrus/PapyrusFormBuilder.tsx)
+- [DocumentEditor.tsx](/apps/main/src/components/papyrus/DocumentEditor.tsx)
+- [DocumentEditorCore.tsx](/apps/main/src/components/papyrus/DocumentEditorCore.tsx)
+- [PapyrusFormRunner.tsx](/apps/main/src/components/papyrus/PapyrusFormRunner.tsx)
+- [PapyrusFormBuilder.tsx](/apps/main/src/components/papyrus/PapyrusFormBuilder.tsx)
 
 Hooks / services frontend:
 
-- [usePapyrusCore.ts](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/hooks/usePapyrusCore.ts)
-- [papyrusServiceCore.ts](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/services/papyrusServiceCore.ts)
-- [papyrusService.ts](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/services/papyrusService.ts)
+- [usePapyrusCore.ts](/apps/main/src/hooks/usePapyrusCore.ts)
+- [papyrusServiceCore.ts](/apps/main/src/services/papyrusServiceCore.ts)
+- [papyrusService.ts](/apps/main/src/services/papyrusService.ts)
 
 ---
 

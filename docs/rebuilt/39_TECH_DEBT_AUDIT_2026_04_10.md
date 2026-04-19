@@ -14,10 +14,10 @@ Audit ciblé de dette technique résiduelle dans:
 ### 1. Critique — contrôle d'accès RGPD basé sur les 8 premiers caractères de l'UUID
 
 Références:
-- [gdpr.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/gdpr.py#L300)
-- [gdpr.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/gdpr.py#L353)
-- [gdpr.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/gdpr.py#L377)
-- [gdpr.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/gdpr.py#L402)
+- [gdpr.py](/app/api/routes/core/gdpr.py#L300)
+- [gdpr.py](/app/api/routes/core/gdpr.py#L353)
+- [gdpr.py](/app/api/routes/core/gdpr.py#L377)
+- [gdpr.py](/app/api/routes/core/gdpr.py#L402)
 
 Constat:
 - le nom de fichier des exports RGPD est construit avec `user_id_str[:8]`
@@ -34,8 +34,8 @@ Correction recommandée:
 ### 2. Élevée — purge RGPD non scindée par entité
 
 Références:
-- [gdpr_purge.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/tasks/jobs/gdpr_purge.py#L37)
-- [GdprTab.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/settings/tabs/GdprTab.tsx#L134)
+- [gdpr_purge.py](/app/tasks/jobs/gdpr_purge.py#L37)
+- [GdprTab.tsx](/apps/main/src/pages/settings/tabs/GdprTab.tsx#L134)
 
 Constat:
 - le job charge `SELECT key, value FROM settings WHERE key LIKE 'gdpr.retention_%'`
@@ -53,8 +53,8 @@ Correction recommandée:
 ### 3. Élevée — la file email utilise le `default_entity_id` au lieu de l'entité de la notification
 
 Références:
-- [email_queue.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/tasks/jobs/email_queue.py#L61)
-- [email_queue.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/tasks/jobs/email_queue.py#L79)
+- [email_queue.py](/app/tasks/jobs/email_queue.py#L61)
+- [email_queue.py](/app/tasks/jobs/email_queue.py#L79)
 
 Constat:
 - le job récupère `default_entity_id` depuis `users`
@@ -72,7 +72,7 @@ Correction recommandée:
 ### 4. Moyenne — le digest notifications ne profite pas des templates entity-scoped
 
 Référence:
-- [notification_digest.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/tasks/jobs/notification_digest.py#L87)
+- [notification_digest.py](/app/tasks/jobs/notification_digest.py#L87)
 
 Constat:
 - `render_and_send_email(..., entity_id=None, ...)`
@@ -88,13 +88,13 @@ Correction recommandée:
 ### 5. Moyenne — dette legacy Papyrus encore très présente dans le runtime
 
 Références:
-- [report_editor.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules/report_editor.py#L1)
-- [App.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/App.tsx#L105)
-- [dashboard.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/dashboard.py#L93)
-- [PapyrusCorePage.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/papyrus/PapyrusCorePage.tsx#L1578)
-- [PapyrusCorePage.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/papyrus/PapyrusCorePage.tsx#L2500)
-- [DocumentEditorCore.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/components/papyrus/DocumentEditorCore.tsx#L97)
-- [papyrus_versioning_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/modules/papyrus_versioning_service.py#L313)
+- [report_editor.py](/app/api/routes/modules/report_editor.py#L1)
+- [App.tsx](/apps/main/src/App.tsx#L105)
+- [dashboard.py](/app/api/routes/core/dashboard.py#L93)
+- [PapyrusCorePage.tsx](/apps/main/src/pages/papyrus/PapyrusCorePage.tsx#L1578)
+- [PapyrusCorePage.tsx](/apps/main/src/pages/papyrus/PapyrusCorePage.tsx#L2500)
+- [DocumentEditorCore.tsx](/apps/main/src/components/papyrus/DocumentEditorCore.tsx#L97)
+- [papyrus_versioning_service.py](/app/services/modules/papyrus_versioning_service.py#L313)
 
 Constat:
 - alias `report_editor` / `report-editor`
@@ -113,7 +113,7 @@ Correction recommandée:
 ### 6. Moyenne — TODO métier RGPD encore ouvert sur les notifications de violation
 
 Référence:
-- [gdpr.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/gdpr.py#L576)
+- [gdpr.py](/app/api/routes/core/gdpr.py#L576)
 
 Constat:
 - le rapport de violation est journalisé mais la notification DPO / personnes affectées n’est pas implémentée
@@ -128,9 +128,9 @@ Correction recommandée:
 ### 7. Faible à moyenne — dette de robustesse par heuristiques/fallbacks silencieux
 
 Références:
-- [gdpr.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/gdpr.py#L191)
-- [papyrus_dispatch_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/modules/papyrus_dispatch_service.py#L534)
-- [notifications.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/core/notifications.py)
+- [gdpr.py](/app/api/routes/core/gdpr.py#L191)
+- [papyrus_dispatch_service.py](/app/services/modules/papyrus_dispatch_service.py#L534)
+- [notifications.py](/app/core/notifications.py)
 
 Constat:
 - plusieurs flux gardent des comportements heuristiques:

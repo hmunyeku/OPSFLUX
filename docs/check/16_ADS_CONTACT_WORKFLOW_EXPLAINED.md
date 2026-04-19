@@ -15,12 +15,12 @@ Point de vocabulaire important:
 
 Références:
 
-- [app/models/paxlog.py](C:/Users/ajha0/Desktop/OPSFLUX/app/models/paxlog.py)
-- [app/api/routes/modules/paxlog.py](C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules/paxlog.py)
-- [docs/modules/v1/PAXLOG.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/modules/v1/PAXLOG.md)
-- [docs/modules/v1/FUNC_PLANNER.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/modules/v1/FUNC_PLANNER.md)
-- [docs/modules/v1/FUNC_TRAVELWIZ.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/modules/v1/FUNC_TRAVELWIZ.md)
-- [docs/modules/v1/TRAVELWIZ.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/modules/v1/TRAVELWIZ.md)
+- [app/models/paxlog.py](app/models/paxlog.py)
+- [app/api/routes/modules/paxlog.py](app/api/routes/modules/paxlog.py)
+- [docs/modules/v1/PAXLOG.md](docs/modules/v1/PAXLOG.md)
+- [docs/modules/v1/FUNC_PLANNER.md](docs/modules/v1/FUNC_PLANNER.md)
+- [docs/modules/v1/FUNC_TRAVELWIZ.md](docs/modules/v1/FUNC_TRAVELWIZ.md)
+- [docs/modules/v1/TRAVELWIZ.md](docs/modules/v1/TRAVELWIZ.md)
 
 ## 1. Création de la demande
 

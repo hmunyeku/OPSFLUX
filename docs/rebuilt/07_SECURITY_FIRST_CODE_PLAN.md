@@ -35,8 +35,8 @@ Fermer le chemin nominal PaxLog.
 
 Fichiers:
 
-- [main.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/main.py)
-- [seed_service.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/core/seed_service.py)
+- [main.py](/app/main.py)
+- [seed_service.py](/app/services/core/seed_service.py)
 
 Objectif:
 
@@ -47,9 +47,9 @@ Objectif:
 
 Fichiers:
 
-- [tenant.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/core/middleware/tenant.py)
-- [database.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/core/database.py)
-- [deps.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/deps.py)
+- [tenant.py](/app/core/middleware/tenant.py)
+- [database.py](/app/core/database.py)
+- [deps.py](/app/api/deps.py)
 
 Objectif:
 
@@ -61,9 +61,9 @@ Objectif:
 
 Fichiers:
 
-- [config.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/core/config.py)
-- [login_security.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/core/login_security.py)
-- [auth.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/auth.py)
+- [config.py](/app/core/config.py)
+- [login_security.py](/app/core/login_security.py)
+- [auth.py](/app/api/routes/core/auth.py)
 
 Objectif:
 
@@ -77,8 +77,8 @@ Objectif:
 
 Fichiers:
 
-- [tiers.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules/tiers.py)
-- [TiersPage.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/tiers/TiersPage.tsx)
+- [tiers.py](/app/api/routes/modules/tiers.py)
+- [TiersPage.tsx](/apps/main/src/pages/tiers/TiersPage.tsx)
 
 Objectif:
 
@@ -90,8 +90,8 @@ Objectif:
 
 Fichiers:
 
-- [projets.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules/projets.py)
-- [ProjetsPage.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/projets/ProjetsPage.tsx)
+- [projets.py](/app/api/routes/modules/projets.py)
+- [ProjetsPage.tsx](/apps/main/src/pages/projets/ProjetsPage.tsx)
 
 Objectif:
 
@@ -102,9 +102,9 @@ Objectif:
 
 Fichiers:
 
-- [planner.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules/planner.py)
-- [__init__.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/modules/planner/__init__.py)
-- [PlannerPage.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/planner/PlannerPage.tsx)
+- [planner.py](/app/api/routes/modules/planner.py)
+- [__init__.py](/app/modules/planner/__init__.py)
+- [PlannerPage.tsx](/apps/main/src/pages/planner/PlannerPage.tsx)
 
 Objectif:
 
@@ -118,10 +118,10 @@ Objectif:
 
 Fichiers:
 
-- [dashboard.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/dashboard.py)
-- [dashboardService.ts](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/services/dashboardService.ts)
-- [useDashboard.ts](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/hooks/useDashboard.ts)
-- [DashboardPage.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/dashboard/DashboardPage.tsx)
+- [dashboard.py](/app/api/routes/core/dashboard.py)
+- [dashboardService.ts](/apps/main/src/services/dashboardService.ts)
+- [useDashboard.ts](/apps/main/src/hooks/useDashboard.ts)
+- [DashboardPage.tsx](/apps/main/src/pages/dashboard/DashboardPage.tsx)
 
 Objectif:
 
@@ -134,9 +134,9 @@ Objectif:
 
 Fichiers:
 
-- [dashboard.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/dashboard.py)
-- [dashboard_widget_providers.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/services/modules/dashboard_widget_providers.py)
-- [DASHBOARD.md](/C:/Users/ajha0/Desktop/OPSFLUX/docs/rebuilt/modules/DASHBOARD.md)
+- [dashboard.py](/app/api/routes/core/dashboard.py)
+- [dashboard_widget_providers.py](/app/services/modules/dashboard_widget_providers.py)
+- [DASHBOARD.md](/docs/rebuilt/modules/DASHBOARD.md)
 
 Objectif:
 
@@ -148,7 +148,7 @@ Objectif:
 
 Fichiers:
 
-- [dashboard.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/core/dashboard.py)
+- [dashboard.py](/app/api/routes/core/dashboard.py)
 - services dashboard associés
 
 Objectif:
@@ -162,10 +162,10 @@ Objectif:
 
 Fichiers:
 
-- [paxlog.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules/paxlog.py)
-- [paxlogService.ts](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/services/paxlogService.ts)
-- [usePaxlog.ts](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/hooks/usePaxlog.ts)
-- [PaxLogPage.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/paxlog/PaxLogPage.tsx)
+- [paxlog.py](/app/api/routes/modules/paxlog.py)
+- [paxlogService.ts](/apps/main/src/services/paxlogService.ts)
+- [usePaxlog.ts](/apps/main/src/hooks/usePaxlog.ts)
+- [PaxLogPage.tsx](/apps/main/src/pages/paxlog/PaxLogPage.tsx)
 
 Objectif:
 
@@ -179,9 +179,9 @@ Objectif:
 
 Fichiers:
 
-- [paxlog.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules/paxlog.py)
-- [travelwiz_handlers.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/event_handlers/travelwiz_handlers.py)
-- [module_handlers.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/event_handlers/module_handlers.py)
+- [paxlog.py](/app/api/routes/modules/paxlog.py)
+- [travelwiz_handlers.py](/app/event_handlers/travelwiz_handlers.py)
+- [module_handlers.py](/app/event_handlers/module_handlers.py)
 
 Objectif:
 
@@ -193,9 +193,9 @@ Objectif:
 
 Fichiers:
 
-- [paxlog.py](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules/paxlog.py)
-- [conformite routes et UI](/C:/Users/ajha0/Desktop/OPSFLUX/app/api/routes/modules)
-- [ConformitePage.tsx](/C:/Users/ajha0/Desktop/OPSFLUX/apps/main/src/pages/conformite/ConformitePage.tsx)
+- [paxlog.py](/app/api/routes/modules/paxlog.py)
+- [conformite routes et UI](/app/api/routes/modules)
+- [ConformitePage.tsx](/apps/main/src/pages/conformite/ConformitePage.tsx)
 
 Objectif:
 

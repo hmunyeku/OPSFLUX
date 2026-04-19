@@ -3,15 +3,16 @@
 Supports ADR 003: round-trip with ArcGIS globalid, idempotent re-imports,
 and bulk rollback of a specific import run.
 
-Revision ID: 055
+Revision ID: 133_kmz_import_external_id
+Down revision: 132_planner_scenario_reference
 """
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-revision = "055"
-down_revision = "054"
+revision = "133_kmz_import_external_id"
+down_revision = "132_planner_scenario_reference"
 branch_labels = None
 depends_on = None
 

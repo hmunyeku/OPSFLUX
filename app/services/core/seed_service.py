@@ -2037,6 +2037,16 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("moc_attachment_type", "photo", "Photo", 5, {"en": "Photo"}),
         ("moc_attachment_type", "study", "Étude", 6, {"en": "Study"}),
         ("moc_attachment_type", "other", "Autre", 99, {"en": "Other"}),
+        # Métiers disponibles sur la demande (Daxium multi-select).
+        ("moc_metier", "INTEGRITE", "Intégrité", 1, {"en": "Integrity"}),
+        ("moc_metier", "INSTRUMENTATION", "Instrumentation", 2, {"en": "Instrumentation"}),
+        ("moc_metier", "ELECTRICITE", "Électricité", 3, {"en": "Electrical"}),
+        ("moc_metier", "CRANE_MAINTENANCE", "Crane Maintenance", 4, {"en": "Crane Maintenance"}),
+        ("moc_metier", "MAINTENANCE", "Maintenance", 5, {"en": "Maintenance"}),
+        ("moc_metier", "PRODUCTION", "Production", 6, {"en": "Production"}),
+        # Nature du MOC — Daxium `type`.
+        ("moc_nature", "OPTIMISATION", "Optimisation", 1, {"en": "Optimisation"}),
+        ("moc_nature", "SECURITE", "Sécurité", 2, {"en": "Safety"}),
     ]
 
     created = 0

@@ -19,13 +19,16 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileText,
+  Factory,
   History,
   Info,
   Loader2,
   MessageSquare,
+  PlayCircle,
   Send,
   FileDown,
   Trash2,
+  Undo2,
   XCircle,
 } from 'lucide-react'
 import {
@@ -54,11 +57,15 @@ import {
   useMOC,
   useMOCExecutionAccord,
   useMOCFsm,
+  useMOCProductionValidation,
+  useMOCReturnRequest,
+  useMOCSignature,
   useTransitionMOC,
   useUpdateMOC,
   useUpsertMOCValidation,
 } from '@/hooks/useMOC'
 import { UserPicker } from '@/components/shared/UserPicker'
+import { SignaturePad } from '@/components/shared/SignaturePad'
 import {
   MOC_STATUS_COLOURS,
   MOC_STATUS_LABELS,
@@ -66,6 +73,7 @@ import {
   type MOCStatus,
   type MOCValidation,
   type MOCValidationRole,
+  type MOCWithDetails,
 } from '@/services/mocService'
 
 const ROLE_LABELS: Record<MOCValidationRole, string> = {
@@ -95,7 +103,14 @@ const COST_BUCKET_LABELS: Record<string, string> = {
   gt_100: '> 100 MXAF',
 }
 
-type DetailTab = 'fiche' | 'validation' | 'comments' | 'documents' | 'history'
+type DetailTab =
+  | 'fiche'
+  | 'production'
+  | 'validation'
+  | 'execution'
+  | 'comments'
+  | 'documents'
+  | 'history'
 
 interface Props {
   id: string
@@ -116,6 +131,9 @@ export function MOCDetailPanel({ id }: Props) {
   const validationMutation = useUpsertMOCValidation()
   const inviteMutation = useInviteMOCValidator()
   const executionAccordMutation = useMOCExecutionAccord()
+  const productionValidationMutation = useMOCProductionValidation()
+  const returnMutation = useMOCReturnRequest()
+  const signatureMutation = useMOCSignature()
 
   // Inline ad-hoc invite form state (scoped to the validation tab)
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -250,9 +268,19 @@ export function MOCDetailPanel({ id }: Props) {
   const tabItems = [
     { id: 'fiche' as const, label: t('moc.detail_tab.fiche'), icon: Info },
     {
+      id: 'production' as const,
+      label: t('moc.detail_tab.production'),
+      icon: Factory,
+    },
+    {
       id: 'validation' as const,
       label: t('moc.detail_tab.validation'),
       icon: ClipboardCheck,
+    },
+    {
+      id: 'execution' as const,
+      label: t('moc.detail_tab.execution'),
+      icon: PlayCircle,
     },
     {
       id: 'comments' as const,
@@ -773,6 +801,74 @@ export function MOCDetailPanel({ id }: Props) {
           </>
         )}
 
+        {activeTab === 'production' && (
+          <ProductionValidationTab
+            moc={moc}
+            disabled={!canUpdateFlags}
+            onSubmit={async (payload) => {
+              try {
+                await productionValidationMutation.mutateAsync({ id: moc.id, payload })
+                toast({
+                  title: t('moc.toast.production_saved'),
+                  variant: 'success',
+                })
+              } catch {
+                toast({ title: t('moc.toast.error_generic'), variant: 'error' })
+              }
+            }}
+            onReturn={async (reason) => {
+              try {
+                await returnMutation.mutateAsync({
+                  id: moc.id,
+                  payload: { stage: 'production', reason },
+                })
+                toast({ title: t('moc.toast.return_sent'), variant: 'success' })
+              } catch {
+                toast({ title: t('moc.toast.error_generic'), variant: 'error' })
+              }
+            }}
+          />
+        )}
+
+        {activeTab === 'execution' && (
+          <ExecutionTab
+            moc={moc}
+            disabled={!canUpdateFlags}
+            onAccord={async (actor, accord, comment, signature) => {
+              try {
+                await executionAccordMutation.mutateAsync({
+                  id: moc.id,
+                  payload: { actor, accord, comment, signature },
+                })
+                toast({ title: t('moc.toast.accord_saved'), variant: 'success' })
+              } catch {
+                toast({ title: t('moc.toast.error_generic'), variant: 'error' })
+              }
+            }}
+            onReturn={async (stage, reason) => {
+              try {
+                await returnMutation.mutateAsync({
+                  id: moc.id,
+                  payload: { stage, reason },
+                })
+                toast({ title: t('moc.toast.return_sent'), variant: 'success' })
+              } catch {
+                toast({ title: t('moc.toast.error_generic'), variant: 'error' })
+              }
+            }}
+            onSignature={async (slot, signature) => {
+              try {
+                await signatureMutation.mutateAsync({
+                  id: moc.id,
+                  payload: { slot, signature },
+                })
+              } catch {
+                toast({ title: t('moc.toast.error_generic'), variant: 'error' })
+              }
+            }}
+          />
+        )}
+
         {activeTab === 'comments' && (
           <FormSection title={t('moc.section.comments')} defaultExpanded>
             <NoteManager ownerType="moc" ownerId={moc.id} />
@@ -1057,6 +1153,444 @@ function FlagRow({
           Réalisé
         </label>
       </div>
+    </div>
+  )
+}
+
+
+// ─── ProductionValidationTab (Daxium tab 3) ────────────────────────────────
+
+
+function ProductionValidationTab({
+  moc,
+  disabled,
+  onSubmit,
+  onReturn,
+}: {
+  moc: MOCWithDetails
+  disabled?: boolean
+  onSubmit: (payload: {
+    validated: boolean
+    comment?: string | null
+    signature?: string | null
+    priority?: '1' | '2' | '3' | null
+  }) => Promise<void>
+  onReturn: (reason: string) => Promise<void>
+}) {
+  const { t } = useTranslation()
+  const [validated, setValidated] = useState<boolean | null>(moc.production_validated)
+  const [comment, setComment] = useState(moc.production_comment ?? '')
+  const [priority, setPriority] = useState<'1' | '2' | '3'>(
+    (moc.priority as '1' | '2' | '3') || '2',
+  )
+  const [signature, setSignature] = useState<string | null>(moc.production_signature)
+  const [returnReason, setReturnReason] = useState('')
+  const [returnOpen, setReturnOpen] = useState(false)
+
+  return (
+    <>
+      <FormSection
+        title={t('moc.section.production_validation')}
+        defaultExpanded
+      >
+        <div className="space-y-3 text-xs">
+          <div className="flex items-center gap-4">
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="radio"
+                name="prodValidated"
+                checked={validated === true}
+                onChange={() => setValidated(true)}
+                disabled={disabled}
+              />
+              {t('moc.actions.production_validate')}
+            </label>
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="radio"
+                name="prodValidated"
+                checked={validated === false}
+                onChange={() => setValidated(false)}
+                disabled={disabled}
+              />
+              {t('moc.actions.production_refuse')}
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-muted-foreground shrink-0">
+              {t('moc.fields.priority')} :
+            </label>
+            <select
+              className="gl-form-input h-7 text-xs"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as '1' | '2' | '3')}
+              disabled={disabled}
+            >
+              <option value="1">{t('moc.priority.1')}</option>
+              <option value="2">{t('moc.priority.2')}</option>
+              <option value="3">{t('moc.priority.3')}</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[10px] text-muted-foreground">
+              {t('moc.fields.comment')}
+            </label>
+            <textarea
+              className="gl-form-input w-full text-xs"
+              rows={3}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              disabled={disabled}
+            />
+          </div>
+
+          <SignaturePad
+            label={t('moc.fields.production_signature')}
+            value={signature}
+            onChange={setSignature}
+            disabled={disabled}
+          />
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-primary"
+              disabled={disabled || validated === null}
+              onClick={() =>
+                onSubmit({
+                  validated: validated ?? false,
+                  comment: comment.trim() || null,
+                  signature,
+                  priority,
+                })
+              }
+            >
+              <CheckCircle2 size={12} /> {t('common.save')}
+            </button>
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-default"
+              onClick={() => setReturnOpen((v) => !v)}
+              disabled={disabled}
+            >
+              <Undo2 size={12} /> {t('moc.actions.request_return')}
+            </button>
+          </div>
+
+          {returnOpen && (
+            <div className="rounded border border-border bg-muted/20 p-2 space-y-2">
+              <label className="text-[10px] text-muted-foreground">
+                {t('moc.fields.return_reason')}
+              </label>
+              <textarea
+                className="gl-form-input w-full text-xs"
+                rows={2}
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+              />
+              <div className="flex justify-end gap-1">
+                <button
+                  type="button"
+                  className="gl-button gl-button-sm gl-button-default"
+                  onClick={() => setReturnOpen(false)}
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  className="gl-button gl-button-sm gl-button-danger"
+                  disabled={returnReason.trim().length < 3}
+                  onClick={async () => {
+                    await onReturn(returnReason.trim())
+                    setReturnOpen(false)
+                    setReturnReason('')
+                  }}
+                >
+                  {t('moc.actions.send_return')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {moc.production_return_requested && moc.production_return_reason && (
+            <div className="rounded border border-destructive/40 bg-destructive/5 p-2 text-destructive">
+              <strong>{t('moc.fields.return_reason')} :</strong>{' '}
+              {moc.production_return_reason}
+            </div>
+          )}
+        </div>
+      </FormSection>
+    </>
+  )
+}
+
+
+// ─── ExecutionTab (signatures + accords DO/DG + renvois) ──────────────────
+
+
+function ExecutionTab({
+  moc,
+  disabled,
+  onAccord,
+  onReturn,
+  onSignature,
+}: {
+  moc: MOCWithDetails
+  disabled?: boolean
+  onAccord: (
+    actor: 'do' | 'dg',
+    accord: boolean,
+    comment: string | null,
+    signature: string | null,
+  ) => Promise<void>
+  onReturn: (stage: 'do' | 'dg', reason: string) => Promise<void>
+  onSignature: (
+    slot:
+      | 'initiator'
+      | 'site_chief'
+      | 'production'
+      | 'director'
+      | 'process_engineer'
+      | 'do'
+      | 'dg',
+    signature: string,
+  ) => Promise<void>
+}) {
+  const { t } = useTranslation()
+  return (
+    <>
+      <FormSection title={t('moc.section.signatures')} defaultExpanded>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <SignatureSlot
+            label={t('moc.signature.initiator')}
+            value={moc.initiator_signature}
+            disabled={disabled}
+            onSave={(s) => onSignature('initiator', s)}
+          />
+          <SignatureSlot
+            label={t('moc.signature.site_chief')}
+            value={moc.site_chief_signature}
+            disabled={disabled}
+            onSave={(s) => onSignature('site_chief', s)}
+          />
+          <SignatureSlot
+            label={t('moc.signature.production')}
+            value={moc.production_signature}
+            disabled={disabled}
+            onSave={(s) => onSignature('production', s)}
+          />
+          <SignatureSlot
+            label={t('moc.signature.director')}
+            value={moc.director_signature}
+            disabled={disabled}
+            onSave={(s) => onSignature('director', s)}
+          />
+          <SignatureSlot
+            label={t('moc.signature.process_engineer')}
+            value={moc.process_engineer_signature}
+            disabled={disabled}
+            onSave={(s) => onSignature('process_engineer', s)}
+          />
+        </div>
+      </FormSection>
+
+      <FormSection title={t('moc.section.execution_accord')} defaultExpanded>
+        <div className="space-y-3">
+          <DirectorAccordBlock
+            actor="do"
+            label="Directeur Opérations (D.O)"
+            accord={moc.do_execution_accord}
+            comment={moc.do_execution_comment}
+            signature={moc.do_signature}
+            returnReason={moc.do_return_reason}
+            disabled={disabled}
+            onAccord={onAccord}
+            onReturn={(reason) => onReturn('do', reason)}
+          />
+          <DirectorAccordBlock
+            actor="dg"
+            label="Directeur Général (D.G)"
+            accord={moc.dg_execution_accord}
+            comment={moc.dg_execution_comment}
+            signature={moc.dg_signature}
+            returnReason={moc.dg_return_reason}
+            disabled={disabled}
+            onAccord={onAccord}
+            onReturn={(reason) => onReturn('dg', reason)}
+          />
+        </div>
+      </FormSection>
+    </>
+  )
+}
+
+function SignatureSlot({
+  label,
+  value,
+  disabled,
+  onSave,
+}: {
+  label: string
+  value: string | null
+  disabled?: boolean
+  onSave: (signature: string) => Promise<void>
+}) {
+  const [draft, setDraft] = useState<string | null>(value)
+  return (
+    <div className="space-y-1">
+      <SignaturePad
+        label={label}
+        value={draft ?? value}
+        onChange={(s) => setDraft(s)}
+        disabled={disabled}
+      />
+      {draft && draft !== value && (
+        <button
+          type="button"
+          className="gl-button gl-button-sm gl-button-primary"
+          onClick={async () => {
+            if (draft) await onSave(draft)
+          }}
+        >
+          <CheckCircle2 size={11} /> Enregistrer la signature
+        </button>
+      )}
+    </div>
+  )
+}
+
+function DirectorAccordBlock({
+  actor,
+  label,
+  accord,
+  comment,
+  signature,
+  returnReason,
+  disabled,
+  onAccord,
+  onReturn,
+}: {
+  actor: 'do' | 'dg'
+  label: string
+  accord: boolean | null
+  comment: string | null
+  signature: string | null
+  returnReason: string | null
+  disabled?: boolean
+  onAccord: (
+    actor: 'do' | 'dg',
+    accord: boolean,
+    comment: string | null,
+    signature: string | null,
+  ) => Promise<void>
+  onReturn: (reason: string) => Promise<void>
+}) {
+  const { t } = useTranslation()
+  const [draftComment, setDraftComment] = useState(comment ?? '')
+  const [draftSig, setDraftSig] = useState<string | null>(signature)
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [returnReasonDraft, setReturnReasonDraft] = useState('')
+
+  return (
+    <div className="rounded border border-border bg-muted/10 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <strong className="text-xs">{label}</strong>
+        <div className="flex items-center gap-2 text-xs">
+          {accord === true && (
+            <span className="text-green-600 font-semibold">✓ Accord</span>
+          )}
+          {accord === false && (
+            <span className="text-destructive font-semibold">✗ Refus</span>
+          )}
+          {accord === null && (
+            <span className="text-muted-foreground">— En attente —</span>
+          )}
+        </div>
+      </div>
+
+      <textarea
+        className="gl-form-input w-full text-xs"
+        rows={2}
+        value={draftComment}
+        onChange={(e) => setDraftComment(e.target.value)}
+        placeholder={t('moc.fields.comment_ph') as string}
+        disabled={disabled}
+      />
+
+      <SignaturePad
+        label={t(`moc.signature.${actor}`)}
+        value={draftSig}
+        onChange={setDraftSig}
+        disabled={disabled}
+      />
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          className="gl-button gl-button-sm gl-button-primary"
+          disabled={disabled}
+          onClick={() => onAccord(actor, true, draftComment.trim() || null, draftSig)}
+        >
+          <CheckCircle2 size={11} /> {t('moc.actions.accord')}
+        </button>
+        <button
+          type="button"
+          className="gl-button gl-button-sm gl-button-danger"
+          disabled={disabled}
+          onClick={() => onAccord(actor, false, draftComment.trim() || null, draftSig)}
+        >
+          <XCircle size={11} /> {t('moc.actions.refuse')}
+        </button>
+        <button
+          type="button"
+          className="gl-button gl-button-sm gl-button-default"
+          onClick={() => setReturnOpen((v) => !v)}
+          disabled={disabled}
+        >
+          <Undo2 size={11} /> {t('moc.actions.request_return')}
+        </button>
+      </div>
+
+      {returnOpen && (
+        <div className="rounded border border-border bg-muted/30 p-2 space-y-2">
+          <textarea
+            className="gl-form-input w-full text-xs"
+            rows={2}
+            value={returnReasonDraft}
+            onChange={(e) => setReturnReasonDraft(e.target.value)}
+            placeholder={t('moc.fields.return_reason_ph') as string}
+          />
+          <div className="flex justify-end gap-1">
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-default"
+              onClick={() => setReturnOpen(false)}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-danger"
+              disabled={returnReasonDraft.trim().length < 3}
+              onClick={async () => {
+                await onReturn(returnReasonDraft.trim())
+                setReturnOpen(false)
+                setReturnReasonDraft('')
+              }}
+            >
+              {t('moc.actions.send_return')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {returnReason && (
+        <div className="rounded border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive">
+          <strong>{t('moc.fields.return_reason')} :</strong> {returnReason}
+        </div>
+      )}
     </div>
   )
 }

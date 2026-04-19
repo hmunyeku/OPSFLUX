@@ -5682,12 +5682,50 @@
       "level": "Niveau",
       "invite_comment": "Commentaire",
       "invite_comment_ph": "Contexte de l'invitation (optionnel)",
-      "required": "Requis"
+      "required": "Requis",
+      "title": "Nom du MOC",
+      "title_ph": "Ex. « Changement du compresseur K-101 »",
+      "nature": "Nature",
+      "metiers": "Métiers",
+      "metiers_empty": "Dictionnaire moc_metier vide — à seeder ou compléter.",
+      "initiator_email": "Email du demandeur",
+      "initiator_email_ph": "jean.dupont@exemple.com",
+      "external_initiator_toggle": "Demandeur externe (hors compte)",
+      "external_name": "Nom du demandeur externe",
+      "external_name_ph": "Nom Prénom",
+      "external_function": "Fonction du demandeur externe",
+      "external_function_ph": "Ex. Superviseur entreprise tierce",
+      "initiator_signature": "Signature du demandeur",
+      "production_signature": "Signature Production",
+      "priority": "Priorité",
+      "comment": "Commentaire",
+      "comment_ph": "Commentaire (optionnel)",
+      "return_reason": "Motif de renvoi",
+      "return_reason_ph": "Expliquez pourquoi le MOC est renvoyé…"
+    },
+    "nature": {
+      "OPTIMISATION": "Optimisation",
+      "SECURITE": "Sécurité"
+    },
+    "priority": {
+      "1": "1 — Priorité la plus élevée",
+      "2": "2 — Priorité normale",
+      "3": "3 — Priorité moindre"
+    },
+    "signature": {
+      "initiator": "Signature Demandeur",
+      "site_chief": "Signature CDS / OM",
+      "production": "Signature Production",
+      "director": "Signature Directeur",
+      "process_engineer": "Signature Ingénieur Process",
+      "do": "Signature D.O",
+      "dg": "Signature D.G"
     },
     "create": {
       "title": "Nouveau MOC",
       "subtitle": "Demande de modification",
       "section_location": "Localisation",
+      "section_initiator": "Demandeur",
       "section_objectives": "Contenu du MOC",
       "section_type": "Type & durée"
     },
@@ -5702,6 +5740,9 @@
       "validation_matrix": "Matrice de validation",
       "metier_validations": "Validations métier",
       "invited_validators": "Validateurs invités",
+      "production_validation": "Validation pour mise en étude (Production)",
+      "signatures": "Signatures",
+      "execution_accord": "Réalisation du MOC — Accords D.O / D.G",
       "flags": "HAZOP / HAZID / Documents",
       "attachments": "Pièces jointes",
       "timeline": "Historique des statuts",
@@ -5724,16 +5765,27 @@
       "deleted": "MOC archivé",
       "validator_invited": "Validateur invité",
       "error_generic": "Erreur lors de l'opération",
-      "pdf_failed": "Échec de la génération du PDF"
+      "pdf_failed": "Échec de la génération du PDF",
+      "production_saved": "Validation production enregistrée",
+      "accord_saved": "Accord enregistré",
+      "return_sent": "Renvoi enregistré"
     },
     "actions": {
       "invite_validator": "Inviter un validateur",
       "send_invite": "Envoyer l'invitation",
-      "download_pdf": "Formulaire PDF"
+      "download_pdf": "Formulaire PDF",
+      "production_validate": "Valider la mise en étude",
+      "production_refuse": "Refuser",
+      "request_return": "Renvoyer pour modification",
+      "send_return": "Envoyer le renvoi",
+      "accord": "Accord",
+      "refuse": "Refus"
     },
     "detail_tab": {
       "fiche": "Fiche",
+      "production": "Production",
       "validation": "Validation",
+      "execution": "Exécution",
       "comments": "Commentaires",
       "documents": "Documents",
       "history": "Historique"

@@ -19,11 +19,16 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { MarkdownField } from '@/components/shared/MarkdownField'
+import { SignaturePad } from '@/components/shared/SignaturePad'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useCreateMOC, useMOCTypes } from '@/hooks/useMOC'
-import type { MOCCreatePayload, MOCModificationType } from '@/services/mocService'
+import type {
+  MOCCreatePayload,
+  MOCModificationType,
+  MOCNature,
+} from '@/services/mocService'
 
 export function MOCCreatePanel() {
   const { t } = useTranslation()
@@ -35,6 +40,8 @@ export function MOCCreatePanel() {
   // them per tenant in Settings → Dictionary (category `moc_site`, `moc_modification_type`).
   const siteOptions = useDictionaryOptions('moc_site')
   const modificationTypeOptions = useDictionaryOptions('moc_modification_type')
+  // Métier codes — multi-select on the request (Daxium `metier`).
+  const metierOptions = useDictionaryOptions('moc_metier')
   // Admin-maintained catalogue of MOC types — each type carries its own
   // validation matrix template that is auto-seeded on create.
   const { data: mocTypes = [] } = useMOCTypes(false)
@@ -54,6 +61,15 @@ export function MOCCreatePanel() {
   const [impactAnalysis, setImpactAnalysis] = useState('')
   const [modificationType, setModificationType] = useState<MOCModificationType | ''>('')
   const [mocTypeId, setMocTypeId] = useState<string>('')
+  // Daxium extras
+  const [title, setTitle] = useState('')
+  const [nature, setNature] = useState<MOCNature | ''>('')
+  const [metiers, setMetiers] = useState<string[]>([])
+  const [initiatorEmail, setInitiatorEmail] = useState('')
+  const [externalMode, setExternalMode] = useState(false)
+  const [externalName, setExternalName] = useState('')
+  const [externalFunction, setExternalFunction] = useState('')
+  const [initiatorSignature, setInitiatorSignature] = useState<string | null>(null)
   const [durationDays, setDurationDays] = useState('')
   const [temporaryStart, setTemporaryStart] = useState('')
   const [temporaryEnd, setTemporaryEnd] = useState('')
@@ -90,6 +106,13 @@ export function MOCCreatePanel() {
         modificationType === 'temporary' && temporaryEnd ? temporaryEnd : null,
       initiator_function: initiatorFn.trim() || null,
       moc_type_id: mocTypeId || null,
+      title: title.trim() || null,
+      nature: nature || null,
+      metiers: metiers.length ? metiers : null,
+      initiator_email: initiatorEmail.trim() || null,
+      initiator_external_name: externalMode ? externalName.trim() || null : null,
+      initiator_external_function: externalMode ? externalFunction.trim() || null : null,
+      initiator_signature: initiatorSignature,
     }
     try {
       const moc = await create.mutateAsync(payload)
@@ -207,7 +230,68 @@ export function MOCCreatePanel() {
           )}
         </FormSection>
 
+        <FormSection title={t('moc.create.section_initiator')} defaultExpanded>
+          <FormGrid>
+            <DynamicPanelField label={t('moc.fields.initiator_email')}>
+              <input
+                type="email"
+                className={panelInputClass}
+                value={initiatorEmail}
+                onChange={(e) => setInitiatorEmail(e.target.value)}
+                placeholder={t('moc.fields.initiator_email_ph') as string}
+              />
+            </DynamicPanelField>
+            <DynamicPanelField label=" ">
+              <label className="flex items-center gap-2 text-xs pt-1.5">
+                <input
+                  type="checkbox"
+                  checked={externalMode}
+                  onChange={(e) => setExternalMode(e.target.checked)}
+                />
+                {t('moc.fields.external_initiator_toggle')}
+              </label>
+            </DynamicPanelField>
+            {externalMode && (
+              <>
+                <DynamicPanelField label={t('moc.fields.external_name')}>
+                  <input
+                    className={panelInputClass}
+                    value={externalName}
+                    onChange={(e) => setExternalName(e.target.value)}
+                    placeholder={t('moc.fields.external_name_ph') as string}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('moc.fields.external_function')}>
+                  <input
+                    className={panelInputClass}
+                    value={externalFunction}
+                    onChange={(e) => setExternalFunction(e.target.value)}
+                    placeholder={t('moc.fields.external_function_ph') as string}
+                  />
+                </DynamicPanelField>
+              </>
+            )}
+            <DynamicPanelField label={t('moc.fields.initiator_signature')} span="full">
+              <SignaturePad
+                value={initiatorSignature}
+                onChange={setInitiatorSignature}
+                width={320}
+                height={110}
+              />
+            </DynamicPanelField>
+          </FormGrid>
+        </FormSection>
+
         <FormSection title={t('moc.create.section_objectives')} defaultExpanded>
+          {/* Title (nom_moc) — short label for lists. */}
+          <DynamicPanelField label={t('moc.fields.title')} span="full">
+            <input
+              className={panelInputClass}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t('moc.fields.title_ph') as string}
+            />
+          </DynamicPanelField>
           {/* Short one-liner — keep as plain input, no markdown overhead. */}
           <DynamicPanelField label={t('moc.fields.objectives')} span="full">
             <input
@@ -280,6 +364,53 @@ export function MOCCreatePanel() {
                   })()}
                 </p>
               )}
+            </DynamicPanelField>
+            <DynamicPanelField label={t('moc.fields.nature')}>
+              <select
+                className={panelInputClass}
+                value={nature}
+                onChange={(e) => setNature(e.target.value as MOCNature | '')}
+              >
+                <option value="">—</option>
+                <option value="OPTIMISATION">{t('moc.nature.OPTIMISATION')}</option>
+                <option value="SECURITE">{t('moc.nature.SECURITE')}</option>
+              </select>
+            </DynamicPanelField>
+            <DynamicPanelField label={t('moc.fields.metiers')} span="full">
+              <div className="flex flex-wrap gap-1.5">
+                {metierOptions.length === 0 && (
+                  <span className="text-[10px] text-muted-foreground italic">
+                    {t('moc.fields.metiers_empty')}
+                  </span>
+                )}
+                {metierOptions.map((o) => {
+                  const checked = metiers.includes(o.value)
+                  return (
+                    <label
+                      key={o.value}
+                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] cursor-pointer border ${
+                        checked
+                          ? 'bg-primary/10 border-primary text-primary'
+                          : 'bg-muted border-transparent text-muted-foreground'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          setMetiers((prev) =>
+                            e.target.checked
+                              ? [...prev, o.value]
+                              : prev.filter((v) => v !== o.value),
+                          )
+                        }
+                        className="hidden"
+                      />
+                      {o.label}
+                    </label>
+                  )
+                })}
+              </div>
             </DynamicPanelField>
             <DynamicPanelField label={t('moc.fields.modification_type')}>
               <select

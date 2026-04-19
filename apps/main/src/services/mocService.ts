@@ -36,6 +36,22 @@ export type MOCValidationRole =
   | 'process_engineer'
   | 'metier'
 
+export type MOCNature = 'OPTIMISATION' | 'SECURITE'
+export type MOCSignatureSlot =
+  | 'initiator'
+  | 'site_chief'
+  | 'production'
+  | 'director'
+  | 'process_engineer'
+  | 'do'
+  | 'dg'
+export type MOCReturnStage =
+  | 'site_chief'
+  | 'production'
+  | 'do'
+  | 'dg'
+  | 'validator'
+
 export type MOCSiteRole =
   | 'site_chief'
   | 'director'
@@ -83,6 +99,9 @@ export interface MOCValidation {
   source: MOCValidationSource
   invited_by: string | null
   invited_at: string | null
+  signature: string | null
+  return_requested: boolean
+  return_reason: string | null
 }
 
 // ── MOC Types (catalogue + validation matrix template) ──────
@@ -154,10 +173,18 @@ export interface MOC {
   platform_code: string
   installation_id: string | null
   moc_type_id: string | null
+  // Daxium extras
+  title: string | null
+  nature: MOCNature | null
+  metiers: string[] | null
   // Initiator
   initiator_id: string
   initiator_name: string | null
   initiator_function: string | null
+  initiator_email: string | null
+  initiator_external_name: string | null
+  initiator_external_function: string | null
+  initiator_signature: string | null
   initiator_display: string | null
   // Content
   objectives: string | null
@@ -179,11 +206,23 @@ export interface MOC {
   site_chief_id: string | null
   site_chief_approved_at: string | null
   site_chief_comment: string | null
+  site_chief_signature: string | null
+  site_chief_return_requested: boolean
+  site_chief_return_reason: string | null
   site_chief_display: string | null
+  // Production mise-en-étude (Daxium tab 3)
+  production_validated: boolean | null
+  production_validated_by: string | null
+  production_validated_at: string | null
+  production_comment: string | null
+  production_signature: string | null
+  production_return_requested: boolean
+  production_return_reason: string | null
   // Director
   director_id: string | null
   director_confirmed_at: string | null
   director_comment: string | null
+  director_signature: string | null
   director_display: string | null
   priority: MOCPriority | null
   // Study
@@ -194,6 +233,8 @@ export interface MOC {
   study_completed_at: string | null
   estimated_cost_mxaf: number | null
   cost_bucket: MOCCostBucket | null
+  study_conclusion: string | null
+  process_engineer_signature: string | null
   // Validation flags
   hazop_required: boolean
   hazop_completed: boolean
@@ -220,6 +261,12 @@ export interface MOC {
   dg_execution_accord_by: string | null
   do_execution_comment: string | null
   dg_execution_comment: string | null
+  do_signature: string | null
+  dg_signature: string | null
+  do_return_requested: boolean
+  do_return_reason: string | null
+  dg_return_requested: boolean
+  dg_return_reason: string | null
   // Extras
   tags: string[] | null
   metadata: Record<string, unknown> | null
@@ -231,8 +278,15 @@ export interface MOCWithDetails extends MOC {
 }
 
 export interface MOCCreatePayload {
+  title?: string | null
+  nature?: MOCNature | null
+  metiers?: string[] | null
   initiator_name?: string | null
   initiator_function?: string | null
+  initiator_email?: string | null
+  initiator_external_name?: string | null
+  initiator_external_function?: string | null
+  initiator_signature?: string | null
   // Either installation_id alone (backend auto-derives site/platform from
   // the asset registry hierarchy) OR both site_label + platform_code.
   site_label?: string | null
@@ -270,6 +324,9 @@ export interface MOCValidationUpsertPayload {
   approved?: boolean | null
   level?: MOCValidationLevel | null
   comments?: string | null
+  signature?: string | null
+  return_requested?: boolean | null
+  return_reason?: string | null
   // Pass the invitee's user_id to edit an ad-hoc invited row. Omit to
   // target the template/manual row (validator_id NULL).
   target_validator_id?: string | null
@@ -279,6 +336,29 @@ export interface MOCExecutionAccordPayload {
   actor: 'do' | 'dg'
   accord: boolean
   comment?: string | null
+  signature?: string | null
+  return_requested?: boolean | null
+  return_reason?: string | null
+}
+
+export interface MOCProductionValidationPayload {
+  validated: boolean
+  comment?: string | null
+  signature?: string | null
+  priority?: MOCPriority | null
+  return_requested?: boolean | null
+  return_reason?: string | null
+}
+
+export interface MOCReturnPayload {
+  stage: MOCReturnStage
+  reason: string
+  validation_id?: string | null
+}
+
+export interface MOCSignaturePayload {
+  slot: MOCSignatureSlot
+  signature: string
 }
 
 export interface MOCSiteAssignmentCreatePayload {
@@ -464,6 +544,36 @@ export const mocService = {
 
   deleteTypeRule: async (typeId: string, ruleId: string): Promise<void> => {
     await api.delete(`${BASE}/types/${typeId}/rules/${ruleId}`)
+  },
+
+  // ── Renvoi pour modification ──
+  requestReturn: async (
+    id: string,
+    payload: MOCReturnPayload,
+  ): Promise<MOCWithDetails> => {
+    const { data } = await api.post<MOCWithDetails>(`${BASE}/${id}/return`, payload)
+    return data
+  },
+
+  // ── Production mise-en-étude (Daxium tab 3) ──
+  setProductionValidation: async (
+    id: string,
+    payload: MOCProductionValidationPayload,
+  ): Promise<MOCWithDetails> => {
+    const { data } = await api.post<MOCWithDetails>(
+      `${BASE}/${id}/production-validation`,
+      payload,
+    )
+    return data
+  },
+
+  // ── Signature at a named slot ──
+  setSignature: async (
+    id: string,
+    payload: MOCSignaturePayload,
+  ): Promise<MOCWithDetails> => {
+    const { data } = await api.post<MOCWithDetails>(`${BASE}/${id}/signature`, payload)
+    return data
   },
 
   // ── PDF export (Formulaire MOC Perenco — slug `moc.report`) ──

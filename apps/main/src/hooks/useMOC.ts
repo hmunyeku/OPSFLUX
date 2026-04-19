@@ -7,6 +7,9 @@ import {
   type MOCCreatePayload,
   type MOCExecutionAccordPayload,
   type MOCListFilters,
+  type MOCProductionValidationPayload,
+  type MOCReturnPayload,
+  type MOCSignaturePayload,
   type MOCSiteAssignmentCreatePayload,
   type MOCTransitionPayload,
   type MOCTypeCreatePayload,
@@ -243,6 +246,42 @@ export function useDeleteMOCTypeRule() {
     onSuccess: (_d, args) => {
       qc.invalidateQueries({ queryKey: keys.type(args.typeId) })
       qc.invalidateQueries({ queryKey: [...keys.all, 'types'] })
+    },
+  })
+}
+
+// ── Renvoi + Production validation + Signature ──
+
+export function useMOCReturnRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { id: string; payload: MOCReturnPayload }) =>
+      mocService.requestReturn(args.id, args.payload),
+    onSuccess: (_d, args) => {
+      qc.invalidateQueries({ queryKey: keys.detail(args.id) })
+      qc.invalidateQueries({ queryKey: [...keys.all, 'list'] })
+    },
+  })
+}
+
+export function useMOCProductionValidation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { id: string; payload: MOCProductionValidationPayload }) =>
+      mocService.setProductionValidation(args.id, args.payload),
+    onSuccess: (_d, args) => {
+      qc.invalidateQueries({ queryKey: keys.detail(args.id) })
+    },
+  })
+}
+
+export function useMOCSignature() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { id: string; payload: MOCSignaturePayload }) =>
+      mocService.setSignature(args.id, args.payload),
+    onSuccess: (_d, args) => {
+      qc.invalidateQueries({ queryKey: keys.detail(args.id) })
     },
   })
 }

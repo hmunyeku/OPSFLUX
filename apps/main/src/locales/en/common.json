@@ -4872,12 +4872,50 @@
       "level": "Level",
       "invite_comment": "Comment",
       "invite_comment_ph": "Invitation context (optional)",
-      "required": "Required"
+      "required": "Required",
+      "title": "MOC title",
+      "title_ph": "E.g. \"K-101 compressor change\"",
+      "nature": "Nature",
+      "metiers": "Disciplines",
+      "metiers_empty": "Dictionary moc_metier is empty — seed or edit it.",
+      "initiator_email": "Initiator email",
+      "initiator_email_ph": "john.doe@example.com",
+      "external_initiator_toggle": "External initiator (no account)",
+      "external_name": "External initiator name",
+      "external_name_ph": "First Last",
+      "external_function": "External initiator function",
+      "external_function_ph": "E.g. Subcontractor supervisor",
+      "initiator_signature": "Initiator signature",
+      "production_signature": "Production signature",
+      "priority": "Priority",
+      "comment": "Comment",
+      "comment_ph": "Comment (optional)",
+      "return_reason": "Return reason",
+      "return_reason_ph": "Explain why the MOC is being returned…"
+    },
+    "nature": {
+      "OPTIMISATION": "Optimisation",
+      "SECURITE": "Safety"
+    },
+    "priority": {
+      "1": "1 — Highest priority",
+      "2": "2 — Normal priority",
+      "3": "3 — Low priority"
+    },
+    "signature": {
+      "initiator": "Initiator signature",
+      "site_chief": "Site chief signature",
+      "production": "Production signature",
+      "director": "Director signature",
+      "process_engineer": "Process Engineer signature",
+      "do": "DO signature",
+      "dg": "DG signature"
     },
     "create": {
       "title": "New MOC",
       "subtitle": "Change request",
       "section_location": "Location",
+      "section_initiator": "Initiator",
       "section_objectives": "MOC content",
       "section_type": "Type & duration"
     },
@@ -4892,6 +4930,9 @@
       "validation_matrix": "Validation matrix",
       "metier_validations": "Discipline validations",
       "invited_validators": "Invited validators",
+      "production_validation": "Validation for study (Production)",
+      "signatures": "Signatures",
+      "execution_accord": "MOC Execution — DO / DG accords",
       "flags": "HAZOP / HAZID / Documents",
       "attachments": "Attachments",
       "timeline": "Status history",
@@ -4914,16 +4955,27 @@
       "deleted": "MOC archived",
       "validator_invited": "Validator invited",
       "error_generic": "Operation failed",
-      "pdf_failed": "PDF generation failed"
+      "pdf_failed": "PDF generation failed",
+      "production_saved": "Production validation saved",
+      "accord_saved": "Accord saved",
+      "return_sent": "Return recorded"
     },
     "actions": {
       "invite_validator": "Invite validator",
       "send_invite": "Send invitation",
-      "download_pdf": "PDF Form"
+      "download_pdf": "PDF Form",
+      "production_validate": "Approve for study",
+      "production_refuse": "Refuse",
+      "request_return": "Return for modification",
+      "send_return": "Send return",
+      "accord": "Approve",
+      "refuse": "Refuse"
     },
     "detail_tab": {
       "fiche": "Record",
+      "production": "Production",
       "validation": "Validation",
+      "execution": "Execution",
       "comments": "Comments",
       "documents": "Documents",
       "history": "History"

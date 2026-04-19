@@ -262,10 +262,11 @@ testable via RBAC.
 
 ### T-006 — Restreindre `/api/v1/integrations/test-send`
 
-**Priorité**: P0  
+**Priorité**: P0
 **Type**: Sécurité / API
+**Statut**: ✅ **CLOSED**
 
-#### Problème
+#### Problème historique
 
 Un endpoint capable d’envoyer de vrais emails/SMS/WhatsApp est accessible trop largement.
 
@@ -292,9 +293,46 @@ Un endpoint capable d’envoyer de vrais emails/SMS/WhatsApp est accessible trop
 - Envoi réel interdit aux profils non autorisés.
 - Toute action d’envoi est tracée.
 
+#### Mesures implémentées (`app/api/routes/core/integrations.py`)
+
+1. **Permission existante** : `require_permission("core.integrations.manage")`.
+2. **Rate limit** : sliding-window Redis **10 sends / heure / user**
+   (`ratelimit:integrations.test-send:<user_id>`). Si Redis absent, le limiter
+   passe en no-op silencieux (meilleur qu'une denial par défaut).
+3. **Audit log** sur chaque invocation — `action="integration.test_send"` (+
+   `integration.test_send.rate_limited` quand bloqué) avec
+   `{channel, recipient, status, message}`. Écrit après le send, donc même
+   un échec d'envoi laisse une trace.
+
 ---
 
 ### T-007 — Redéfinir la résolution tenant/entity
+
+**Statut**: ✅ **CLOSED** (convention déjà propre, doc était ambiguë)
+
+#### Audit
+
+En re-lisant le code :
+
+| Header | Rôle | Lu par |
+|---|---|---|
+| `X-Entity-ID` | UUID de l'entité courante (multi-entity dans un tenant) | `app/api/deps.py`, `middleware/entity_scope.py`, 10+ sites |
+| `X-Tenant` | Slug du schéma PostgreSQL (ex. "perenco" → schema `perenco`) | `middleware/tenant.py:47` seulement (fallback pour clients API hors subdomain) |
+| `X-Acting-Context` | Identité déléguée (act-on-behalf) | `app/core/acting_context.py` |
+
+Ce sont **trois concepts distincts** qui coexistent volontairement. La
+confusion documentée dans ce ticket venait d'une ancienne doc qui disait
+"tenant" en parlant d'entity. Le code backend est cohérent avec lui-même
+et avec le frontend (`X-Entity-ID` envoyé depuis `lib/api.ts`).
+
+#### Conventions officielles
+
+1. **Host-based tenant** : `perenco.app.opsflux.io` → schema `perenco`.
+2. **Header `X-Tenant`** : fallback pour clients sur `api.opsflux.io`.
+3. **Header `X-Entity-ID`** : obligatoire pour toute route multi-entity.
+4. **Header `X-Acting-Context`** : optionnel, pour super-admin act-as.
+
+#### Problème historique initial
 
 **Priorité**: P0  
 **Type**: Architecture / Sécurité
@@ -335,12 +373,19 @@ Puis:
 
 ### T-008 — Corriger le refresh token frontend
 
-**Priorité**: P1  
+**Priorité**: P1
 **Type**: Frontend / Fiabilité
+**Statut**: ✅ **CLOSED** (comportement volontaire — re-vérifié)
 
-#### Problème
+#### Audit
 
-Le refresh utilise `axios.post(...)` hors de l’instance API configurée.
+`apps/main/src/lib/api.ts:83` utilise bien `axios.post(...)` nu au lieu de
+`api.post(...)`. **C'est volontaire** : appeler `api` depuis l'intercepteur
+401 déclencherait une récursion infinie si `/auth/refresh` renvoie
+lui-même 401. Le code contourne ça en appelant `${resolveApiBaseUrl()}` en
+dur, donc le cross-domain fonctionne.
+
+#### Problème historique
 
 #### Fichiers concernés
 
@@ -362,10 +407,11 @@ Le refresh utilise `axios.post(...)` hors de l’instance API configurée.
 
 ### T-009 — Normaliser les headers de contexte
 
-**Priorité**: P1  
+**Priorité**: P1
 **Type**: API / Documentation
+**Statut**: ✅ **CLOSED** (voir T-007 — convention propre, code et FE alignés)
 
-#### Problème
+#### Problème historique
 
 La doc mentionne `X-Tenant-ID`, le frontend envoie `X-Entity-ID`, le backend lit `X-Tenant`.
 

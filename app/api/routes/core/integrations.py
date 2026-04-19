@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.email_templates import render_and_send_email
 from app.models.common import Setting, User
@@ -639,6 +640,11 @@ async def test_send_real(
     """Send a real test message (email, SMS or WhatsApp) to verify the integration works end-to-end.
 
     This is NOT a connectivity test — it actually delivers a message to the recipient.
+
+    Protected by:
+      * permission `core.integrations.manage`
+      * audit_log row per invocation (user/entity/channel/recipient/status)
+      * per-user rate limit of 10 sends/hour (Redis-backed sliding window)
     """
     connector_id = body.connector_id
     recipient = body.recipient.strip()
@@ -648,9 +654,47 @@ async def test_send_real(
     if not recipient:
         return SendTestResult(connector_id=connector_id, status="error", message="Destinataire requis", channel="", sent_at=now_iso)
 
+    # ── Rate limit (per-user, best-effort) ────────────────────────────
+    # Test-send is a real-world side-effect endpoint. Without a cap, a
+    # compromised admin session could spam SMS / email at the tenant's
+    # expense. Sliding 10/hour per user is generous for ops work but
+    # catches automated abuse. Redis-absent = skip limiter, not deny.
+    try:
+        from app.core.redis_client import get_redis
+        import time
+        r = get_redis()
+        if r is not None:
+            bucket = f"ratelimit:integrations.test-send:{current_user.id}"
+            now_ts = int(time.time())
+            window = 3600
+            await r.zremrangebyscore(bucket, 0, now_ts - window)
+            count = await r.zcard(bucket)
+            if count >= 10:
+                try:
+                    await record_audit(
+                        db, user_id=current_user.id, entity_id=entity_id,
+                        action="integration.test_send.rate_limited",
+                        resource_type="integration_connector",
+                        resource_id=connector_id,
+                        details={"recipient": recipient, "window_count": count},
+                    )
+                    await db.commit()
+                except Exception:
+                    logger.debug("audit on rate-limit failed", exc_info=True)
+                return SendTestResult(
+                    connector_id=connector_id, status="error",
+                    message="Trop de tests récents — réessayez dans 1h",
+                    channel="", sent_at=now_iso,
+                )
+            await r.zadd(bucket, {f"{now_ts}-{connector_id}": now_ts})
+            await r.expire(bucket, window)
+    except Exception:
+        logger.debug("rate-limit check skipped", exc_info=True)
+
+    # ── Execute the test-send ──────────────────────────────────────────
     try:
         if connector_id == "smtp":
-            return await _send_test_email(
+            result = await _send_test_email(
                 db,
                 entity_id,
                 recipient,
@@ -659,14 +703,34 @@ async def test_send_real(
                 current_user.language or "fr",
             )
         elif connector_id in ("sms_twilio", "sms_vonage", "sms_ovh"):
-            return await _send_test_sms(db, entity_id, connector_id, recipient, sender_name, now_iso)
+            result = await _send_test_sms(db, entity_id, connector_id, recipient, sender_name, now_iso)
         elif connector_id == "whatsapp":
-            return await _send_test_whatsapp(db, entity_id, recipient, sender_name, now_iso)
+            result = await _send_test_whatsapp(db, entity_id, recipient, sender_name, now_iso)
         else:
-            return SendTestResult(connector_id=connector_id, status="error", message=f"Envoi de test non supporté pour: {connector_id}", channel="", sent_at=now_iso)
+            result = SendTestResult(connector_id=connector_id, status="error", message=f"Envoi de test non supporté pour: {connector_id}", channel="", sent_at=now_iso)
     except Exception as e:
         logger.exception(f"Test send failed for {connector_id}")
-        return SendTestResult(connector_id=connector_id, status="error", message=f"Erreur: {str(e)[:300]}", channel=connector_id, sent_at=now_iso)
+        result = SendTestResult(connector_id=connector_id, status="error", message=f"Erreur: {str(e)[:300]}", channel=connector_id, sent_at=now_iso)
+
+    # ── Audit every send attempt ──────────────────────────────────────
+    try:
+        await record_audit(
+            db, user_id=current_user.id, entity_id=entity_id,
+            action="integration.test_send",
+            resource_type="integration_connector",
+            resource_id=connector_id,
+            details={
+                "channel": result.channel,
+                "recipient": recipient,
+                "status": result.status,
+                "message": (result.message or "")[:300],
+            },
+        )
+        await db.commit()
+    except Exception:
+        logger.exception("test_send audit log failed")
+
+    return result
 
 
 async def _send_test_email(

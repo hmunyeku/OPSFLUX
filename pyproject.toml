@@ -16,6 +16,8 @@ dependencies = [
     "shapely>=2.0.0",
     # KMZ import/export (asset registry GIS interop)
     "lxml>=5.0.0",
+    # XLSX import (Papyrus bulk document type import)
+    "openpyxl>=3.1.0",
     # Redis
     "redis[hiredis]>=5.0.0",
     # Auth

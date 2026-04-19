@@ -405,7 +405,19 @@ async def seed_dev_data(db: AsyncSession) -> None:
     """Seed development data — calls production essentials + adds test data.
 
     Only runs when DEV_SEED_ON_STARTUP is enabled in development.
+
+    Defence-in-depth: refuses to run outside the `development` environment,
+    even if a caller bypasses the `settings.is_dev` gate in app/main.py.
+    Creating test users with known passwords in prod/staging is a security
+    incident — this check makes that impossible without editing the source.
     """
+    from app.core.config import settings  # avoid import cycle at module load
+    if settings.ENVIRONMENT != "development":
+        raise RuntimeError(
+            f"seed_dev_data() refused to run: ENVIRONMENT={settings.ENVIRONMENT!r}. "
+            "This function creates test accounts with well-known passwords and "
+            "must never execute in staging or production."
+        )
     # First, seed all production essentials
     await seed_production_essentials(db)
 

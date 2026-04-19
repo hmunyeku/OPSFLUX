@@ -1942,10 +1942,12 @@ async def delete_crane_lift_zone(
 # ════════════════════════════════════════════════════════════════════════════
 # Import workflow:
 #   1. POST /kmz/preview — upload a KMZ, returns counts + samples. No DB write.
-#   2. POST /kmz/import  — (TODO) upload a KMZ, creates Field/Site/Installations/
-#      Equipment (wells)/Pipelines in one transaction, using the FIELD/SITE
-#      attributes from the KMZ to group records. Not exposed until we agree on
-#      field/site naming + upsert semantics.
+#   2. POST /kmz/import?field_id=<uuid> — commits parsed records under the given
+#      OilField. Upsert keyed by ArcGIS globalid / normalised code, so reruns
+#      are idempotent. Registers an ImportRun row for audit + rollback.
+#   3. POST /kmz/import/{run_id}/rollback — soft-deletes everything the run
+#      created, idempotent.
+#   4. GET /kmz/import-runs — lists prior runs with report + rollback status.
 #
 # Export workflow:
 #   GET /kmz/export — returns a KMZ built from the entity's current registry.

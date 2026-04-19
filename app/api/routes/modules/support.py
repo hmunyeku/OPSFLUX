@@ -108,13 +108,38 @@ async def _notify_ticket_event(
         link = f"/support?ticket={ticket.id}"
 
         if event == "created":
-            # Notify all support admins
-            admins = await db.execute(
-                select(User.id).join(User.group_members).where(User.active == True)
+            # Notify every active user holding `support.ticket.manage` on this
+            # entity. Resolution is the same 3-layer RBAC used elsewhere; we
+            # iterate active users and filter — fine for realistic tenant
+            # sizes (admin groups are small).
+            from app.api.deps import has_user_permission
+            active_users = await db.execute(
+                select(User).where(User.active == True, User.id != actor_id)
             )
-            # Simple approach: notify all active users with support.ticket.manage permission
-            # For now, just log — full event bus integration in Phase 2
-            logger.info("Ticket %s created by user %s", ticket.reference, actor_id)
+            admin_ids: list[UUID] = []
+            for user in active_users.scalars().all():
+                try:
+                    if await has_user_permission(
+                        user, entity_id, "support.ticket.manage", db
+                    ):
+                        admin_ids.append(user.id)
+                except Exception:
+                    logger.debug(
+                        "Perm check failed for user %s on support.ticket.manage",
+                        user.id, exc_info=True,
+                    )
+            if admin_ids:
+                await send_in_app_bulk(
+                    db, user_ids=admin_ids, entity_id=entity_id,
+                    title=f"Nouveau ticket {ticket.reference}",
+                    body=f"« {ticket.title} » — priorité {ticket.priority}.",
+                    category="info", link=link,
+                    event_type="ticket.created",
+                )
+            logger.info(
+                "Ticket %s created by %s — notified %d admin(s)",
+                ticket.reference, actor_id, len(admin_ids),
+            )
 
         elif event == "resolved":
             await send_in_app(

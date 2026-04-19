@@ -740,19 +740,107 @@ class BreachReport(BaseModel):
 async def create_breach_report(
     body: BreachReport,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Record a data breach incident (RGPD Art. 33/34). Admin only."""
+    """Record a data breach incident (RGPD Art. 33/34). Admin only.
+
+    Notifies the Data Protection Officer:
+      - In-app notification (always) — DPO sees a red "breach" alert at next login.
+      - Email (if setting `gdpr.dpo_email` is configured) — so the DPO is reached
+        even offline.
+
+    Per RGPD Art. 33 the DPO must be notified without delay; in-app + email gives
+    a belt-and-braces channel without hard-coding any address in the source.
+    """
+    breach_ref = f"breach_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
     await record_audit(
         db, user_id=current_user.id,
         action="gdpr.breach_report",
-        resource_type="breach", resource_id=f"breach_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}",
+        resource_type="breach", resource_id=breach_ref,
         details=body.model_dump(),
     )
     await db.commit()
 
-    # TODO: send email notification to DPO and affected users
-    return {"status": "recorded", "message": "Incident de violation enregistré dans le journal d'audit."}
+    # ── Notify DPO ────────────────────────────────────────────────────
+    delivered: dict[str, bool] = {"in_app": False, "email": False}
+    try:
+        from app.core.notifications import send_in_app
+        from app.models.common import Setting, User as UserModel
+
+        # Look up DPO email/user from entity settings; both optional.
+        async def _get(key: str) -> str | None:
+            r = await db.execute(
+                select(Setting.value).where(
+                    Setting.key == key,
+                    Setting.scope == "entity",
+                    Setting.scope_id == str(entity_id),
+                )
+            )
+            v = r.scalar_one_or_none()
+            if v is None:
+                return None
+            # Values are JSONB — accept both {"value": "..."} and plain strings.
+            if isinstance(v, dict) and "value" in v:
+                return str(v["value"]) if v["value"] is not None else None
+            return str(v) if v else None
+
+        dpo_email = await _get("gdpr.dpo_email")
+        dpo_user_id_str = await _get("gdpr.dpo_user_id")
+
+        severity = "critical" if (body.estimated_affected_users or 0) >= 100 else "warning"
+        title = f"Violation de données signalée — {body.title}"
+        summary = (
+            f"{body.description}\n\n"
+            f"Types de données : {', '.join(body.affected_data_types) or '—'}\n"
+            f"Utilisateurs impactés (estimation) : {body.estimated_affected_users or '?'}"
+        )
+
+        if dpo_user_id_str:
+            try:
+                await send_in_app(
+                    db, user_id=UUID(dpo_user_id_str), entity_id=entity_id,
+                    title=title, body=summary,
+                    category=severity, link="/settings?tab=gdpr",
+                    event_type="gdpr.breach_reported",
+                )
+                delivered["in_app"] = True
+            except Exception:
+                logger.exception("DPO in-app notification failed (breach=%s)", breach_ref)
+
+        if dpo_email:
+            try:
+                from app.core.email_templates import render_and_send_email
+                dpo_user = None
+                if dpo_user_id_str:
+                    dpo_user = await db.get(UserModel, UUID(dpo_user_id_str))
+                language = dpo_user.language if dpo_user and dpo_user.language else "fr"
+                await render_and_send_email(
+                    db, slug="gdpr_breach_report", entity_id=entity_id,
+                    language=language, to=dpo_email,
+                    variables={
+                        "title": body.title,
+                        "description": body.description,
+                        "affected_data_types": ", ".join(body.affected_data_types) or "—",
+                        "affected_users": str(body.estimated_affected_users or "?"),
+                        "measures_taken": body.measures_taken or "—",
+                        "breach_ref": breach_ref,
+                        "reporter": current_user.email,
+                    },
+                )
+                delivered["email"] = True
+            except Exception:
+                logger.exception("DPO email notification failed (breach=%s)", breach_ref)
+    except Exception:
+        # Don't fail the breach report itself because the notification path broke.
+        logger.exception("DPO notification flow errored (breach=%s)", breach_ref)
+
+    return {
+        "status": "recorded",
+        "message": "Incident de violation enregistré dans le journal d'audit.",
+        "breach_ref": breach_ref,
+        "dpo_notification": delivered,
+    }
 
 
 @router.get("/breach-reports")

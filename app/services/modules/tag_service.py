@@ -298,18 +298,102 @@ async def suggest_tag_name(
     })
     suggestions.append(generated)
 
-    # 4. AI suggestions (if enabled)
-    # Placeholder — would use core_ai_service.complete() in production
-    # For now, generate alternative sequences
+    # 4. Alternate deterministic sequences (always returned — fast, offline).
     alt_seq = next_seq + 1
-    alt_generated = _apply_tag_rule(rule, {
+    suggestions.append(_apply_tag_rule(rule, {
         "AREA": area,
         "TYPE": tag_type,
         "SEQ": str(alt_seq).zfill(_get_seq_digits(rule.pattern)),
-    })
-    suggestions.append(alt_generated)
+    }))
+
+    # 5. AI-assisted suggestions — optional, only if an AI provider is
+    # configured. Kept best-effort: any failure is swallowed so tag creation
+    # never blocks on LLM availability.
+    try:
+        ai_suggestions = await _ai_tag_suggestions(
+            rule=rule,
+            tag_type=tag_type,
+            area=area,
+            next_seq=next_seq,
+            existing=suggestions,
+        )
+        for s in ai_suggestions:
+            if s and s not in suggestions:
+                suggestions.append(s)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).debug("AI tag suggestions unavailable", exc_info=True)
 
     return suggestions[:3]
+
+
+async def _ai_tag_suggestions(
+    *,
+    rule: Any,
+    tag_type: str,
+    area: str,
+    next_seq: int,
+    existing: list[str],
+) -> list[str]:
+    """Ask the configured LLM for one extra contextually sensible tag name.
+
+    Returns [] when no AI provider is configured or on any error. The
+    returned suggestion is validated against the rule's pattern skeleton
+    so we never propose a string that can't pass downstream validation.
+    """
+    from app.core.ai_config import get_ai_config
+
+    cfg = await get_ai_config()
+    provider = cfg.get("provider")
+    # Require an API key for cloud providers; Ollama uses a base_url instead.
+    if provider != "ollama" and not cfg.get("api_key"):
+        return []
+
+    try:
+        import litellm  # heavy import, lazy
+    except ImportError:
+        return []
+
+    # Minimal, reusable "model" kwargs — mirrors ai_chat._normalize_model_config
+    # but inlined here to avoid importing an API route module from a service.
+    model = cfg.get("model") or "claude-sonnet-4-5"
+    kw: dict = {
+        "model": model if "/" in model else f"{provider}/{model}",
+        "max_tokens": 128,
+        "temperature": 0.2,
+    }
+    if cfg.get("api_key") and provider != "ollama":
+        kw["api_key"] = cfg["api_key"]
+    if cfg.get("base_url") and provider == "ollama":
+        kw["api_base"] = cfg["base_url"]
+
+    prompt = (
+        "You are helping name an ISA-style industrial tag. Given the rule "
+        f"pattern `{rule.pattern}`, tag type `{tag_type}`, area `{area}`, and "
+        f"the next available sequence number `{next_seq}`, propose ONE short "
+        "alternative tag name that conforms to the pattern (fill AREA/TYPE/SEQ "
+        "placeholders; you may adjust SEQ by a small offset 0..4 to avoid "
+        f"these existing suggestions: {', '.join(existing)}).\n"
+        "Reply with JUST the tag, no quotes, no explanation."
+    )
+    try:
+        resp = await litellm.acompletion(
+            messages=[{"role": "user", "content": prompt}],
+            **kw,
+        )
+        content = (resp.choices[0].message.content or "").strip()
+    except Exception:
+        return []
+
+    # Keep only the first line, strip surrounding punctuation, cap length.
+    candidate = content.splitlines()[0].strip(" `\"'").strip()
+    if not candidate or len(candidate) > 64:
+        return []
+    # Basic sanity: candidate should look like a tag (alnum + - _ .)
+    import re
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._\-]*", candidate):
+        return []
+    return [candidate]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

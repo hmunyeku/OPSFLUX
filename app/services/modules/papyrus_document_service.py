@@ -1238,8 +1238,17 @@ async def publish_document(
 
     # Only author or admin can publish (D-083)
     if doc.created_by != actor_id:
-        # TODO: check for document.admin permission
-        pass
+        from fastapi import HTTPException
+        from app.api.deps import has_user_permission
+        from app.models.common import User
+        actor = await db.get(User, actor_id)
+        if not actor:
+            raise HTTPException(403, "Only the author or a document admin can publish")
+        is_admin = await has_user_permission(actor, entity_id, "document.admin", db)
+        if not is_admin:
+            raise HTTPException(
+                403, "Only the author or a document admin can publish this document"
+            )
 
     from_state = doc.status
     fsm_state, _ = await _try_workflow_transition(
@@ -2425,12 +2434,8 @@ async def import_mdr(
         for row in reader:
             rows.append(row)
     elif filename.endswith((".xlsx", ".xls")):
-        try:
-            import openpyxl
-        except ImportError:
-            from fastapi import HTTPException
-            raise HTTPException(501, "XLSX import requires openpyxl — pip install openpyxl")
-
+        # openpyxl is a declared dependency (pyproject.toml) — always available.
+        import openpyxl
         wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), read_only=True, data_only=True)
         ws = wb.active
         if ws is None:

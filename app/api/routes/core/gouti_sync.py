@@ -810,11 +810,26 @@ async def get_catalog(
         }
         if include_tasks:
             try:
-                raw_tasks_resp = await connector.get_project_reports(gouti_id)  # placeholder: will use tasks endpoint below
+                raw_tasks = await connector.get_project_tasks(gouti_id)
             except Exception:
-                raw_tasks_resp = []
-            # TODO: wire to dedicated tasks endpoint
-            entry["tasks"] = []
+                logger.exception("Gouti get_project_tasks failed for project %s", gouti_id)
+                raw_tasks = []
+            # Normalise to the shape the frontend expects. Keep it minimal —
+            # the catalog view is a dropdown list, full detail comes from the
+            # dedicated /gouti/projects/{id}/tasks endpoint.
+            entry["tasks"] = [
+                {
+                    "gouti_id": t.get("_id") or t.get("id"),
+                    "name": t.get("Name") or t.get("name") or "(sans nom)",
+                    "status": _map_gouti_status(t.get("Status") or ""),
+                    "progress": t.get("Progress") or t.get("progress"),
+                    "start_date": t.get("Start_date") or t.get("start_date"),
+                    "target_date": t.get("Target_date") or t.get("target_date"),
+                }
+                for t in raw_tasks
+                if isinstance(t, dict)
+            ]
+            entry["task_count"] = len(entry["tasks"])
         catalog.append(entry)
 
     return {

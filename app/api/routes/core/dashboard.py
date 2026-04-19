@@ -245,8 +245,11 @@ async def get_home_page(
     tenant_id = await _get_tenant_id(entity_id, db)
     roles = await _get_user_role_codes(current_user.id, entity_id, db)
 
-    # Resolve BU for user (if assigned)
-    bu_id = None  # TODO: resolve from user's group/BU assignment
+    # Resolve BU for user: User.business_unit_id is the authoritative assignment
+    # (stored on the user record). Home-page resolution falls back from
+    # user → role → BU → global, so passing None here is safe when the user
+    # has no BU.
+    bu_id = str(current_user.business_unit_id) if current_user.business_unit_id else None
 
     dashboard = await get_home_page_for_user(
         user_id=current_user.id,

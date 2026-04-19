@@ -175,11 +175,17 @@ async def provider_weather_sites(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
 ) -> dict:
-    """Get latest weather for operational sites.
+    """Get latest weather for operational sites via Open-Meteo (free, no auth).
 
-    Weather data is typically stored externally or cached; here we return
-    a placeholder structure that the frontend can fill via its own API calls.
+    https://open-meteo.com/ is a free, no-API-key weather service. We request
+    current_weather=true per lat/lon batch. Responses are cached in Redis for
+    15 minutes per coordinate pair to stay polite and fast. Network errors
+    degrade gracefully — each site keeps `weather: None` and the widget
+    renders without that site's data instead of failing the whole request.
     """
+    import asyncio
+    import httpx
+    import json as _json
     result = await db.execute(text("""
         SELECT id, code, name, latitude, longitude
         FROM ar_installations
@@ -190,6 +196,64 @@ async def provider_weather_sites(
         LIMIT 20
     """), {"entity_id": str(entity_id)})
     rows = result.mappings().all()
+
+    # ── Resolve weather per site (parallel, cached, best-effort) ─────────
+    async def _fetch_weather(lat: float | None, lon: float | None) -> dict | None:
+        if lat is None or lon is None:
+            return None
+        cache_key = f"weather:openmeteo:{round(lat, 2)}:{round(lon, 2)}"
+        try:
+            from app.core.redis_client import get_redis
+            r = get_redis()
+        except Exception:
+            r = None
+        if r is not None:
+            try:
+                cached = await r.get(cache_key)
+                if cached:
+                    return _json.loads(cached)
+            except Exception:
+                pass
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(
+                    "https://api.open-meteo.com/v1/forecast",
+                    params={
+                        "latitude": lat,
+                        "longitude": lon,
+                        "current_weather": "true",
+                        "timezone": "auto",
+                    },
+                )
+                resp.raise_for_status()
+                cw = resp.json().get("current_weather") or {}
+                payload = {
+                    "temperature_c": cw.get("temperature"),
+                    "wind_kmh": cw.get("windspeed"),
+                    "wind_direction_deg": cw.get("winddirection"),
+                    "weather_code": cw.get("weathercode"),
+                    "is_day": bool(cw.get("is_day")),
+                    "fetched_at": cw.get("time"),
+                }
+                if r is not None:
+                    try:
+                        await r.setex(cache_key, 900, _json.dumps(payload))
+                    except Exception:
+                        pass
+                return payload
+        except Exception:
+            return None
+
+    weather_results = await asyncio.gather(
+        *(
+            _fetch_weather(
+                float(r["latitude"]) if r["latitude"] is not None else None,
+                float(r["longitude"]) if r["longitude"] is not None else None,
+            )
+            for r in rows
+        ),
+        return_exceptions=False,
+    )
 
     return {
         "value": len(rows),
@@ -202,9 +266,9 @@ async def provider_weather_sites(
                 "name": r["name"],
                 "latitude": r["latitude"],
                 "longitude": r["longitude"],
-                "weather": None,  # populated by frontend weather API call
+                "weather": w,
             }
-            for r in rows
+            for r, w in zip(rows, weather_results)
         ],
     }
 

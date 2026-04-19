@@ -1419,19 +1419,245 @@ async def export_svg(
     entity_id: UUID,
     db: AsyncSession,
 ) -> bytes:
-    """Export PID as SVG (placeholder — actual rendering by frontend/draw.io)."""
+    """Export PID as native SVG by rendering the stored drawio mxGraph XML.
+
+    Supports the core mxCell shapes OpsFlux uses for P&ID/PFD diagrams
+    (rectangles, ellipses, lines, edges with routing). Fonts/styles fall
+    back to reasonable defaults when not specified. Text inside vertices
+    is centered.
+    """
     pid = await get_pid_document(pid_id, entity_id, db)
     if not pid.xml_content:
         from fastapi import HTTPException
         raise HTTPException(400, "PID has no XML content")
 
-    # Simplified: return the mxGraph XML wrapped in SVG
-    svg = f"""<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg">
-  <metadata>{pid.xml_content}</metadata>
-  <text x="10" y="20">PID {pid.number} — Export SVG requires draw.io rendering</text>
-</svg>"""
-    return svg.encode("utf-8")
+    svg_body = _mxgraph_to_svg(pid.xml_content, title=f"PID {pid.number or ''} — {pid.title or ''}")
+    return svg_body.encode("utf-8")
+
+
+def _mxgraph_to_svg(mxgraph_xml: str, *, title: str = "") -> str:
+    """Convert a drawio mxGraphModel XML blob into a standalone SVG document.
+
+    Handles the vertex/edge model used by drawio (aka mxGraph):
+      * vertex cells with geometry (x, y, width, height) and style
+      * edge cells with source/target or absolute mxPoint waypoints
+      * basic style tokens: rounded/ellipse/line, fillColor, strokeColor,
+        strokeWidth, fontSize, fontColor
+
+    Unknown cells are drawn as thin-grey rectangles so nothing disappears.
+    """
+    from lxml import etree  # already a declared dependency (KMZ import)
+
+    try:
+        root = etree.fromstring(mxgraph_xml.encode("utf-8") if isinstance(mxgraph_xml, str) else mxgraph_xml)
+    except Exception:
+        # Corrupted XML — emit a minimal note so the export doesn't 500.
+        return (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="200">'
+            '<text x="10" y="30" font-family="sans-serif">Diagramme XML corrompu</text>'
+            '</svg>'
+        )
+
+    # drawio nests the real model under <mxGraphModel><root>...
+    cells = root.findall('.//mxCell')
+    if not cells:
+        cells = root.findall('.//{http://www.w3.org/1999/xhtml}mxCell')
+
+    # First pass: collect vertices keyed by id so edges can look up endpoints.
+    vertices: dict[str, dict] = {}
+    edges: list[dict] = []
+    for c in cells:
+        cid = c.get('id') or ''
+        style = _parse_drawio_style(c.get('style') or '')
+        value = c.get('value') or ''
+        geom_el = c.find('mxGeometry')
+        if geom_el is None:
+            continue
+        gx = _num(geom_el.get('x'), 0.0)
+        gy = _num(geom_el.get('y'), 0.0)
+        gw = _num(geom_el.get('width'), 0.0)
+        gh = _num(geom_el.get('height'), 0.0)
+        points = [
+            (_num(p.get('x'), 0.0), _num(p.get('y'), 0.0))
+            for p in geom_el.findall('.//mxPoint')
+        ]
+        is_edge = (c.get('edge') == '1') or (c.get('source') or c.get('target'))
+
+        entry = {
+            'id': cid,
+            'style': style,
+            'value': value,
+            'x': gx, 'y': gy, 'w': gw, 'h': gh,
+            'source': c.get('source'),
+            'target': c.get('target'),
+            'points': points,
+        }
+        if is_edge:
+            edges.append(entry)
+        elif c.get('vertex') == '1' or gw or gh:
+            vertices[cid] = entry
+
+    # Compute bounding box for the viewBox.
+    xs = [v['x'] for v in vertices.values()] + [v['x'] + v['w'] for v in vertices.values()]
+    ys = [v['y'] for v in vertices.values()] + [v['y'] + v['h'] for v in vertices.values()]
+    for e in edges:
+        for px, py in e['points']:
+            xs.append(px); ys.append(py)
+    if not xs:
+        xs = [0.0, 1000.0]
+    if not ys:
+        ys = [0.0, 600.0]
+    pad = 20.0
+    min_x = min(xs) - pad
+    min_y = min(ys) - pad
+    max_x = max(xs) + pad
+    max_y = max(ys) + pad
+    width = max(1.0, max_x - min_x)
+    height = max(1.0, max_y - min_y)
+
+    parts: list[str] = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'viewBox="{min_x:.1f} {min_y:.1f} {width:.1f} {height:.1f}" '
+        f'width="{width:.0f}" height="{height:.0f}" '
+        f'font-family="Arial, Helvetica, sans-serif">',
+    ]
+    if title:
+        parts.append(f'<title>{_xml_escape(title)}</title>')
+
+    # Render vertices.
+    for v in vertices.values():
+        parts.append(_render_vertex(v))
+
+    # Render edges on top so they connect above shape fills.
+    for e in edges:
+        parts.append(_render_edge(e, vertices))
+
+    parts.append('</svg>')
+    return ''.join(parts)
+
+
+def _parse_drawio_style(style: str) -> dict[str, str]:
+    """Drawio styles are semicolon-separated key=value (or flag-only) tokens."""
+    out: dict[str, str] = {}
+    for tok in style.split(';'):
+        tok = tok.strip()
+        if not tok:
+            continue
+        if '=' in tok:
+            k, v = tok.split('=', 1)
+            out[k.strip()] = v.strip()
+        else:
+            out[tok] = '1'
+    return out
+
+
+def _num(raw, default: float) -> float:
+    try:
+        return float(raw) if raw is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _xml_escape(s: str) -> str:
+    return (
+        s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        .replace('"', '&quot;').replace("'", '&apos;')
+    )
+
+
+def _render_vertex(v: dict) -> str:
+    s = v['style']
+    fill = s.get('fillColor', '#ffffff')
+    stroke = s.get('strokeColor', '#222222')
+    sw = s.get('strokeWidth', '1')
+    text = v['value'] or ''
+    x, y, w, h = v['x'], v['y'], v['w'], v['h']
+    inner = ''
+    if 'ellipse' in s:
+        cx, cy = x + w / 2, y + h / 2
+        inner = (
+            f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" rx="{w/2:.1f}" ry="{h/2:.1f}" '
+            f'fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>'
+        )
+    elif s.get('line') == '1' or 'shape' in s and s['shape'] == 'line':
+        inner = (
+            f'<line x1="{x:.1f}" y1="{y + h/2:.1f}" x2="{x + w:.1f}" y2="{y + h/2:.1f}" '
+            f'stroke="{stroke}" stroke-width="{sw}"/>'
+        )
+    else:
+        rounded = 'rounded' in s and s['rounded'] == '1'
+        rx = 4 if rounded else 0
+        inner = (
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" '
+            f'rx="{rx}" ry="{rx}" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>'
+        )
+    if text:
+        font_size = s.get('fontSize', '12')
+        font_color = s.get('fontColor', '#111111')
+        tx = x + w / 2
+        ty = y + h / 2
+        # Split on <br> / <br/> for multi-line. One tspan per line.
+        import re as _re
+        lines = [ln.strip() for ln in _re.split(r'<br\s*/?>', text) if ln.strip()]
+        if not lines:
+            lines = [text]
+        dy_start = - (len(lines) - 1) * 0.5 * float(font_size)
+        tspans = ''.join(
+            f'<tspan x="{tx:.1f}" dy="{0 if i == 0 else float(font_size):.1f}">'
+            f'{_xml_escape(_re.sub(r"<[^>]+>", "", ln))}</tspan>'
+            for i, ln in enumerate(lines)
+        )
+        inner += (
+            f'<text x="{tx:.1f}" y="{ty + dy_start:.1f}" '
+            f'font-size="{font_size}" fill="{font_color}" '
+            f'text-anchor="middle" dominant-baseline="middle">{tspans}</text>'
+        )
+    return inner
+
+
+def _render_edge(e: dict, vertices: dict[str, dict]) -> str:
+    style = e['style']
+    stroke = style.get('strokeColor', '#222222')
+    sw = style.get('strokeWidth', '1.5')
+    dash = 'stroke-dasharray="4 3" ' if style.get('dashed') == '1' else ''
+    # Resolve source/target coordinates.
+    path_points: list[tuple[float, float]] = []
+    if e['source'] and e['source'] in vertices:
+        sv = vertices[e['source']]
+        path_points.append((sv['x'] + sv['w'] / 2, sv['y'] + sv['h'] / 2))
+    for px, py in e['points']:
+        path_points.append((px, py))
+    if e['target'] and e['target'] in vertices:
+        tv = vertices[e['target']]
+        path_points.append((tv['x'] + tv['w'] / 2, tv['y'] + tv['h'] / 2))
+    if len(path_points) < 2:
+        return ''
+    d_parts = [f'M {path_points[0][0]:.1f} {path_points[0][1]:.1f}']
+    for x, y in path_points[1:]:
+        d_parts.append(f'L {x:.1f} {y:.1f}')
+    arrow = ''
+    if style.get('endArrow', 'classic') != 'none':
+        # Tip marker at the last point, pointing from previous.
+        x1, y1 = path_points[-2]
+        x2, y2 = path_points[-1]
+        import math
+        angle = math.atan2(y2 - y1, x2 - x1)
+        al = 6.0
+        ax1 = x2 - al * math.cos(angle - math.radians(25))
+        ay1 = y2 - al * math.sin(angle - math.radians(25))
+        ax2 = x2 - al * math.cos(angle + math.radians(25))
+        ay2 = y2 - al * math.sin(angle + math.radians(25))
+        arrow = (
+            f'<path d="M {ax1:.1f} {ay1:.1f} L {x2:.1f} {y2:.1f} L {ax2:.1f} {ay2:.1f}" '
+            f'fill="none" stroke="{stroke}" stroke-width="{sw}"/>'
+        )
+    return (
+        f'<path d="{" ".join(d_parts)}" fill="none" stroke="{stroke}" '
+        f'stroke-width="{sw}" {dash}stroke-linejoin="round"/>'
+        f'{arrow}'
+    )
 
 
 async def export_pdf(

@@ -122,7 +122,9 @@ class LDAPUserSync(UserSyncProvider):
             conn.unbind()
             return "ok", f"Connected to {self.server_url}"
         except ImportError:
-            return "error", "ldap3 library not installed"
+            # ldap3 is a declared dependency; this means deployment is broken.
+            logger.error("ldap3 module not importable — check pyproject.toml deps and Docker image")
+            return "error", "ldap3 module not available in this build"
         except Exception as exc:
             return "error", str(exc)
 
@@ -130,8 +132,11 @@ class LDAPUserSync(UserSyncProvider):
         try:
             import ldap3
         except ImportError:
-            logger.error("ldap3 not installed")
-            return []
+            logger.error("ldap3 module not importable during fetch_users — deployment broken")
+            raise RuntimeError(
+                "LDAP sync failed: ldap3 module is declared in pyproject.toml but not "
+                "available at runtime. Check the Docker image build."
+            )
 
         users: list[NormalizedUser] = []
         try:
@@ -510,6 +515,111 @@ class KeycloakUserSync(UserSyncProvider):
         return users
 
 
+# ── Generic SCIM 2.0 ──────────────────────────────────────────
+#
+# SCIM (System for Cross-domain Identity Management) is an IETF standard
+# for user provisioning. Many IdPs expose a SCIM 2.0 endpoint
+# (https://datatracker.ietf.org/doc/html/rfc7644) — OneLogin, Workday,
+# Bamboo, custom HR systems, etc. Supporting it generically lets OpsFlux
+# ingest from any compliant provider without a bespoke class per vendor.
+
+class SCIMUserSync(UserSyncProvider):
+    provider_id = "scim"
+    label = "SCIM 2.0 (générique)"
+
+    def __init__(
+        self,
+        base_url: str,
+        bearer_token: str,
+        page_size: int = 100,
+        filter_expr: str | None = None,
+    ):
+        self.base_url = base_url.rstrip("/")
+        self.bearer_token = bearer_token
+        self.page_size = page_size
+        self.filter_expr = filter_expr
+
+    @classmethod
+    def from_settings(cls, settings: dict[str, str]) -> "SCIMUserSync":
+        return cls(
+            base_url=settings.get("base_url", ""),
+            bearer_token=settings.get("bearer_token", ""),
+            page_size=int(settings.get("page_size", "100") or "100"),
+            filter_expr=settings.get("filter") or None,
+        )
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.bearer_token}",
+            "Accept": "application/scim+json, application/json",
+        }
+
+    async def test_connection(self) -> tuple[str, str]:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"{self.base_url}/Users?count=1",
+                    headers=self._headers(),
+                )
+                resp.raise_for_status()
+            return "ok", f"Connected to SCIM endpoint ({self.base_url})"
+        except Exception as exc:
+            return "error", str(exc)
+
+    async def fetch_users(self) -> list[NormalizedUser]:
+        users: list[NormalizedUser] = []
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                start_index = 1
+                while True:
+                    params = {"startIndex": start_index, "count": self.page_size}
+                    if self.filter_expr:
+                        params["filter"] = self.filter_expr
+                    resp = await client.get(
+                        f"{self.base_url}/Users",
+                        headers=self._headers(),
+                        params=params,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    resources = data.get("Resources") or data.get("resources") or []
+                    if not resources:
+                        break
+                    for u in resources:
+                        users.append(self._to_normalized(u))
+                    total = int(data.get("totalResults", len(resources)))
+                    returned = int(data.get("itemsPerPage", len(resources)))
+                    start_index += returned
+                    if start_index > total or returned == 0:
+                        break
+        except Exception:
+            logger.exception("SCIM user fetch failed")
+        return users
+
+    @staticmethod
+    def _to_normalized(u: dict[str, Any]) -> NormalizedUser:
+        emails = u.get("emails") or []
+        primary_email = next(
+            (e.get("value") for e in emails if e.get("primary")),
+            emails[0].get("value") if emails else u.get("userName", ""),
+        )
+        name = u.get("name") or {}
+        phones = u.get("phoneNumbers") or []
+        enterprise = u.get("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User") or {}
+        groups = [g.get("display") or g.get("value") for g in u.get("groups") or [] if g]
+        return NormalizedUser(
+            external_ref=f"scim:{u.get('id') or u.get('externalId') or primary_email}",
+            email=primary_email or "",
+            first_name=name.get("givenName") or "",
+            last_name=name.get("familyName") or "",
+            department=enterprise.get("department") or u.get("department"),
+            position=u.get("title") or enterprise.get("jobTitle"),
+            phone=(phones[0].get("value") if phones else None),
+            groups=[g for g in groups if g],
+            active=u.get("active", True),
+        )
+
+
 # ── Provider registry ─────────────────────────────────────────
 
 PROVIDER_REGISTRY: dict[str, type[UserSyncProvider]] = {
@@ -518,6 +628,7 @@ PROVIDER_REGISTRY: dict[str, type[UserSyncProvider]] = {
     "gouti": GouTiUserSync,
     "okta": OktaUserSync,
     "keycloak": KeycloakUserSync,
+    "scim": SCIMUserSync,
 }
 
 # Settings prefix for each provider
@@ -527,6 +638,7 @@ PROVIDER_SETTINGS_PREFIX: dict[str, str] = {
     "gouti": "integration.gouti",
     "okta": "integration.okta",
     "keycloak": "integration.keycloak",
+    "scim": "integration.scim",
 }
 
 

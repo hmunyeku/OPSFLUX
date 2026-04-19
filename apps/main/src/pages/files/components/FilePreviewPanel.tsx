@@ -89,7 +89,7 @@ function TextPreview({ url }: { url: string }) {
           {lines.slice(0, 500).map((line, i) => (
             <tr key={i} className="hover:bg-muted/30">
               <td className="text-right text-muted-foreground/40 pr-3 pl-2 select-none w-10 align-top">{i + 1}</td>
-              <td className="pr-3 whitespace-pre-wrap break-all">{line || '\u00A0'}</td>
+              <td className="pr-3 whitespace-pre-wrap break-all">{line || ' '}</td>
             </tr>
           ))}
           {lines.length > 500 && (

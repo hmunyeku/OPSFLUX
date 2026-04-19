@@ -94,10 +94,10 @@ function fmtPax(act: { pax_quota?: number; pax_quota_mode?: 'constant' | 'variab
       if (values.length > 0) {
         const min = Math.min(...values)
         const max = Math.max(...values)
-        return min === max ? `\u03A3${min}` : `\u03A3${min}\u2013${max}`
+        return min === max ? `Σ${min}` : `Σ${min}–${max}`
       }
     }
-    return `\u03A3${act.children_pob_total ?? 0}`
+    return `Σ${act.children_pob_total ?? 0}`
   }
   const mode = act.pax_quota_mode ?? 'constant'
   if (mode === 'variable' && act.pax_quota_daily && Object.keys(act.pax_quota_daily).length > 0) {
@@ -105,7 +105,7 @@ function fmtPax(act: { pax_quota?: number; pax_quota_mode?: 'constant' | 'variab
     if (values.length > 0) {
       const min = Math.min(...values)
       const max = Math.max(...values)
-      return min === max ? `${min}` : `${min}\u2013${max}`
+      return min === max ? `${min}` : `${min}–${max}`
     }
   }
   return String(act.pax_quota ?? 0)
@@ -1155,7 +1155,7 @@ export function GanttView({
         workloadFooterRow = {
           id: 'workload-chart',
           label: 'Plan de charge',
-          sublabel: 'par type d\u2019activit\u00e9',
+          sublabel: 'par type d’activité',
           level: 0,
           hasChildren: false,
           // Tall enough for labels + stack + cumulative curve.

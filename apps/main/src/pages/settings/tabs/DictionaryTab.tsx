@@ -29,7 +29,7 @@ interface DictionaryEntry {
 
 /** Available languages for dictionary translations */
 const AVAILABLE_LANGUAGES = [
-  { code: 'fr', label: 'Fran\u00E7ais' },
+  { code: 'fr', label: 'Français' },
   { code: 'en', label: 'English' },
 ]
 

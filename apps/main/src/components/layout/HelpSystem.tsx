@@ -90,7 +90,7 @@ interface ModuleHelp {
 const HELP_CONTENT: Record<string, ModuleHelp> = {
   dashboard: {
     title: 'Tableau de bord',
-    icon: '\u{1F4CA}',
+    icon: '📊',
     description:
       "Vue d'ensemble de vos opérations. Les widgets affichent les KPIs en temps réel de tous les modules.",
     workflows: [
@@ -101,7 +101,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Cliquez sur "Modifier" en haut à droite',
           'Glissez-déposez les widgets pour les réorganiser',
           'Cliquez "+" pour ajouter un widget depuis le catalogue',
-          'Configurez chaque widget via son icone \u2699\uFE0F',
+          'Configurez chaque widget via son icone ⚙️',
           'Cliquez "Terminer" pour sauvegarder',
         ],
       },
@@ -114,7 +114,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   users: {
     title: 'Comptes utilisateurs',
-    icon: '\u{1F465}',
+    icon: '👥',
     description:
       "Gestion des comptes, rôles, groupes et permissions. Contrôle d'accès centralisé (RBAC).",
     workflows: [
@@ -134,16 +134,16 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
         steps: [
           'Cliquez sur un utilisateur dans la liste',
           'Allez dans l\'onglet "Permissions"',
-          'Cliquez sur les cellules \u2713/\u2717 pour accorder ou retirer',
+          'Cliquez sur les cellules ✓/✗ pour accorder ou retirer',
           'Les permissions héritées du rôle/groupe sont indiquées par un badge',
         ],
         diagram: `graph TD
-    A["\u{1F464} Utilisateur"]:::user --> B["\u{1F465} Groupe"]:::group
-    B --> C["\u{1F6E1}\uFE0F R\u00f4le"]:::role
-    C --> D["\u{1F511} Permissions de base"]:::perm
-    B --> E["\u2699\uFE0F Overrides groupe"]:::override
-    A --> F["\u26A1 Overrides utilisateur"]:::override
-    D --> G["\u2705 Permissions effectives"]:::effective
+    A["👤 Utilisateur"]:::user --> B["👥 Groupe"]:::group
+    B --> C["🛡️ Rôle"]:::role
+    C --> D["🔑 Permissions de base"]:::perm
+    B --> E["⚙️ Overrides groupe"]:::override
+    A --> F["⚡ Overrides utilisateur"]:::override
+    D --> G["✅ Permissions effectives"]:::effective
     E --> G
     F --> G
 
@@ -174,7 +174,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   projets: {
     title: 'Gestion de projets',
-    icon: '\u{1F4C1}',
+    icon: '📁',
     description:
       "Module complet de gestion de projets pour les opérations Oil & Gas Perenco. Comprend un Gantt interactif avec dépendances entre tâches (FS, FF, SS, SF), un tableur pour l'édition en masse, une vue Kanban par statut, et un système de calcul d'avancement pondéré (par effort, par durée, par poids manuel ou égal). Les projets sont rattachés à un site/installation, peuvent être importés depuis Gouti, et supportent jalons, sous-tâches, pièces jointes, commentaires, suivi budgétaire et imputation analytique par centre de coûts.",
     workflows: [
@@ -189,9 +189,9 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Ajoutez les tâches dans l\'onglet "Planning" via le Gantt ou le Tableur',
         ],
         diagram: `graph LR
-    A["\u{1F4CB} Planifi\u00e9"]:::planned --> B["\u{1F504} Actif"]:::active
-    B --> C["\u2705 Termin\u00e9"]:::done
-    B --> D["\u274C Annul\u00e9"]:::cancelled
+    A["📋 Planifié"]:::planned --> B["🔄 Actif"]:::active
+    B --> C["✅ Terminé"]:::done
+    B --> D["❌ Annulé"]:::cancelled
 
     classDef planned fill:#475569,stroke:#64748b,color:#fff
     classDef active fill:#3b82f6,stroke:#60a5fa,color:#fff
@@ -208,9 +208,9 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           "Le Tableur permet l'édition en masse",
         ],
         diagram: `graph LR
-    A["\u{1F4DD} \u00C0 faire"]:::todo --> B["\u{1F504} En cours"]:::progress
-    B --> C["\u{1F441}\uFE0F Revue"]:::review
-    C --> D["\u2705 Termin\u00e9"]:::done
+    A["📝 À faire"]:::todo --> B["🔄 En cours"]:::progress
+    B --> C["👁️ Revue"]:::review
+    C --> D["✅ Terminé"]:::done
     C -->|Corrections| B
 
     classDef todo fill:#475569,stroke:#64748b,color:#fff
@@ -281,7 +281,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   paxlog: {
     title: 'PaxLog — Gestion des passagers',
-    icon: '\u2708\uFE0F',
+    icon: '✈️',
     description:
       "Module central de gestion des avis de séjour (AdS) et du suivi opérationnel des passagers (PAX) sur les installations Perenco Cameroun. Couvre tout le cycle : création de l'AdS avec destination offshore (Ebome, Ekoundou, Mokoko...) et catégorie de visite, ajout de PAX internes (employés Perenco) ou externes (sous-traitants via portail), vérification automatique des certifications HUET/BOSIET/médicales, soumission au workflow de validation multi-niveaux (initiateur → chef de projet → CDS → validateur final), suivi POB en temps réel, gestion des rotations et liste d'attente quand la capacité du site est saturée.",
     workflows: [
@@ -302,22 +302,22 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
         title: 'Parcours de validation AdS',
         requiredAnyPermissions: ['paxlog.ads.approve', 'paxlog.ads.read'],
         steps: [
-          'Brouillon \u2192 Soumis',
+          'Brouillon → Soumis',
           'Contrôle conformité automatique',
           'Validation par le responsable projet',
           'Validation finale par le coordinateur',
-          'Approuvé \u2192 Mouvement possible',
+          'Approuvé → Mouvement possible',
         ],
         diagram: `graph TD
-    A["\u{1F4DD} Brouillon"]:::draft --> |Soumettre| B["\u{1F4E4} Soumis"]:::submitted
-    B --> C{"\u{1F50D} Conformit\u00e9"}
-    C -->|OK| D["\u2705 En validation"]:::validation
-    C -->|Issues| E["\u26A0\uFE0F Bloqu\u00e9"]:::blocked
-    D -->|Approuver| F["\u{1F7E2} Approuv\u00e9"]:::approved
-    D -->|Rejeter| G["\u{1F534} Rejet\u00e9"]:::rejected
-    D -->|Escalader| H["\u2696\uFE0F Arbitrage"]:::arbitration
-    F -->|D\u00e9marrer| I["\u{1F504} En cours"]:::progress
-    I -->|Terminer| J["\u2714\uFE0F Termin\u00e9"]:::done
+    A["📝 Brouillon"]:::draft --> |Soumettre| B["📤 Soumis"]:::submitted
+    B --> C{"🔍 Conformité"}
+    C -->|OK| D["✅ En validation"]:::validation
+    C -->|Issues| E["⚠️ Bloqué"]:::blocked
+    D -->|Approuver| F["🟢 Approuvé"]:::approved
+    D -->|Rejeter| G["🔴 Rejeté"]:::rejected
+    D -->|Escalader| H["⚖️ Arbitrage"]:::arbitration
+    F -->|Démarrer| I["🔄 En cours"]:::progress
+    I -->|Terminer| J["✔️ Terminé"]:::done
 
     classDef draft fill:#475569,stroke:#64748b,color:#fff
     classDef submitted fill:#3b82f6,stroke:#60a5fa,color:#fff
@@ -394,7 +394,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   planner: {
     title: 'Planner — Planification des activités',
-    icon: '\u{1F4C5}',
+    icon: '📅',
     description:
       "Module de planification opérationnelle des activités sur les installations Perenco (Workover, forage, maintenance majeure, projets, inspections, audits HSE). Le Gantt interactif visualise toutes les activités par asset (FPSO, plateformes, bases) et détecte automatiquement les conflits de capacité POB. Les scénarios what-if permettent de simuler l'impact de modifications avant application. Intégration native avec PaxLog (les quotas PAX consomment le POB du site) et avec Projets (chaque activité peut être rattachée à un projet pour le suivi budgétaire).",
     workflows: [
@@ -420,11 +420,11 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Validez la résolution pour mettre à jour le planning',
         ],
         diagram: `graph TD
-    A["\u{1F4C5} Activit\u00e9 A"]:::act --> C{"\u26A0\uFE0F Conflit capacit\u00e9"}
-    B["\u{1F4C5} Activit\u00e9 B"]:::act --> C
-    C -->|D\u00e9caler| D["\u{1F504} Report\u00e9e"]:::resolved
-    C -->|R\u00e9duire| E["\u2702\uFE0F Ajust\u00e9e"]:::resolved
-    C -->|Annuler| F["\u274C Annul\u00e9e"]:::cancelled
+    A["📅 Activité A"]:::act --> C{"⚠️ Conflit capacité"}
+    B["📅 Activité B"]:::act --> C
+    C -->|Décaler| D["🔄 Reportée"]:::resolved
+    C -->|Réduire| E["✂️ Ajustée"]:::resolved
+    C -->|Annuler| F["❌ Annulée"]:::cancelled
 
     classDef act fill:#3b82f6,stroke:#60a5fa,color:#fff
     classDef resolved fill:#22c55e,stroke:#4ade80,color:#fff
@@ -493,7 +493,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   tiers: {
     title: 'Tiers — Entreprises & Contacts',
-    icon: '\u{1F3E2}',
+    icon: '🏢',
     description:
       'Annuaire des entreprises partenaires, fournisseurs, sous-traitants et leurs contacts. Portail externe pour les tiers.',
     workflows: [
@@ -539,7 +539,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   conformite: {
     title: 'Conformité',
-    icon: '\u2705',
+    icon: '✅',
     description:
       'Gestion des certifications, habilitations, formations obligatoires et audits. Vérification automatique avant chaque déplacement.',
     workflows: [
@@ -553,12 +553,12 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Les expirations sont signalées en rouge',
         ],
         diagram: `graph TD
-    A["\u{1F4CB} R\u00e8gles site"]:::rule --> D{"\u{1F50D} V\u00e9rification"}
-    B["\u{1F393} Profil / Habilitations"]:::rule --> D
-    C["\u{1F4DD} Auto-d\u00e9clarations"]:::rule --> D
-    D -->|Tout OK| E["\u2705 Conforme"]:::ok
-    D -->|Manquant| F["\u26A0\uFE0F Non conforme"]:::nok
-    D -->|Expir\u00e9| G["\u{1F534} Expir\u00e9"]:::expired
+    A["📋 Règles site"]:::rule --> D{"🔍 Vérification"}
+    B["🎓 Profil / Habilitations"]:::rule --> D
+    C["📝 Auto-déclarations"]:::rule --> D
+    D -->|Tout OK| E["✅ Conforme"]:::ok
+    D -->|Manquant| F["⚠️ Non conforme"]:::nok
+    D -->|Expiré| G["🔴 Expiré"]:::expired
 
     classDef rule fill:#475569,stroke:#64748b,color:#fff
     classDef ok fill:#22c55e,stroke:#4ade80,color:#fff
@@ -600,7 +600,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   assets: {
     title: 'Registre des assets',
-    icon: '\u{1F3ED}',
+    icon: '🏭',
     description:
       "Hiérarchie des installations, sites, équipements et zones. Configuration des capacités et règles d'accès.",
     workflows: [
@@ -633,7 +633,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   travelwiz: {
     title: 'TravelWiz — Voyages & Transport',
-    icon: '\u{1F681}',
+    icon: '🚁',
     description:
       "Module de gestion du transport aérien (hélicoptère) et maritime (bateau, crewboat, supply) entre les bases logistiques (Douala, Kribi) et les installations offshore Perenco (Ebome, Ekoundou, Mokoko, Sanaga). Couvre la planification des voyages avec pickup multi-sites, la génération des manifestes PAX et fret avec contrôle automatique du poids vs capacité, le suivi GPS temps réel des vecteurs, les conditions météo par site (vent, houle, plafond, visibilité), la gestion de la maintenance, et le portail capitaine pour la gestion terrain depuis les FPSO.",
     workflows: [
@@ -659,10 +659,10 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Validez le manifeste pour impression ou envoi',
         ],
         diagram: `graph LR
-    A["\u{1F4CB} AdS Approuv\u00e9s"]:::input --> B["\u{1F4E6} Manifeste"]:::manifest
-    B --> C{"\u2696\uFE0F Poids"}
-    C -->|OK| D["\u2705 Valid\u00e9"]:::ok
-    C -->|D\u00e9pass\u00e9| E["\u26A0\uFE0F Surcharge"]:::warn
+    A["📋 AdS Approuvés"]:::input --> B["📦 Manifeste"]:::manifest
+    B --> C{"⚖️ Poids"}
+    C -->|OK| D["✅ Validé"]:::ok
+    C -->|Dépassé| E["⚠️ Surcharge"]:::warn
 
     classDef input fill:#475569,stroke:#64748b,color:#fff
     classDef manifest fill:#3b82f6,stroke:#60a5fa,color:#fff
@@ -743,7 +743,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   packlog: {
     title: 'PackLog — Logistique Cargo',
-    icon: '\u{1F4E6}',
+    icon: '📦',
     description:
       "Module de gestion logistique cargo pour les opérations offshore Perenco. Gère les articles du catalogue centralisé (pièces de rechange, consommables, équipements), les lettres de transport (LT) avec expéditeur/destinataire et liste détaillée d'articles, le suivi des cargos depuis la préparation jusqu'à la livraison sur site, la traçabilité complète (préparation, en transit, réceptionné, livré), la gestion des matières dangereuses (HAZMAT) avec classes IMDG/IATA, et l'intégration avec TravelWiz pour le rattachement à un voyage hélicoptère ou bateau.",
     workflows: [
@@ -770,9 +770,9 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           "L'historique des mouvements est tracé automatiquement",
         ],
         diagram: `graph LR
-    A["\u{1F4E6} Pr\u00e9paration"]:::prep --> B["\u{1F69A} En transit"]:::transit
-    B --> C["\u{1F4E5} R\u00e9ceptionn\u00e9"]:::received
-    C --> D["\u2705 Livr\u00e9"]:::delivered
+    A["📦 Préparation"]:::prep --> B["🚚 En transit"]:::transit
+    B --> C["📥 Réceptionné"]:::received
+    C --> D["✅ Livré"]:::delivered
 
     classDef prep fill:#475569,stroke:#64748b,color:#fff
     classDef transit fill:#3b82f6,stroke:#60a5fa,color:#fff
@@ -832,7 +832,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   imputations: {
     title: 'Imputations — Allocation des coûts',
-    icon: '\u{1F4B0}',
+    icon: '💰',
     description:
       'Ventilation des coûts par centre de coûts, projet, activité et entité. Suivi budgétaire et analytique.',
     workflows: [
@@ -869,7 +869,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   papyrus: {
     title: 'Papyrus — Gestion documentaire',
-    icon: '\u{1F4C4}',
+    icon: '📄',
     description:
       'Stockage, classement, versionning et partage des documents. Modèles de documents et génération PDF.',
     workflows: [
@@ -906,7 +906,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   workflows: {
     title: 'Workflows — Moteur de processus',
-    icon: '\u{1F504}',
+    icon: '🔄',
     description:
       "Conception et exécution des workflows de validation. Éditeur visuel drag-and-drop, versioning et délégation.",
     workflows: [
@@ -922,9 +922,9 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Publiez le workflow (une nouvelle version est créée)',
         ],
         diagram: `graph TD
-    A["\u{1F4DD} Conception"]:::design --> B["\u{1F50D} Test"]:::test
-    B --> C["\u2705 Publication"]:::published
-    C --> D["\u{1F504} Nouvelle version"]:::version
+    A["📝 Conception"]:::design --> B["🔍 Test"]:::test
+    B --> C["✅ Publication"]:::published
+    C --> D["🔄 Nouvelle version"]:::version
     D --> B
 
     classDef design fill:#475569,stroke:#64748b,color:#fff
@@ -954,7 +954,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   entites: {
     title: 'Entités — Gestion des filiales',
-    icon: '\u{1F310}',
+    icon: '🌐',
     description:
       'Administration des entités (filiales, pays, divisions). Chaque entité isole ses données opérationnelles.',
     workflows: [
@@ -980,7 +980,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   support: {
     title: 'Support & Feedback',
-    icon: '\u{1F3AB}',
+    icon: '🎫',
     description:
       'Tickets de support, signalements de bugs, annonces et communication.',
     workflows: [
@@ -988,7 +988,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
         title: 'Signaler un bug',
         requiredPermission: 'support.ticket.create',
         steps: [
-          'Cliquez le bouton \u{1F4AC} en bas à droite',
+          'Cliquez le bouton 💬 en bas à droite',
           'Choisissez "Bug"',
           'Décrivez le problème (min. 20 caractères)',
           "Ajoutez une capture d'écran si possible",
@@ -1004,7 +1004,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   settings: {
     title: 'Paramètres',
-    icon: '\u2699\uFE0F',
+    icon: '⚙️',
     description:
       "Configuration du profil, de l'application, des intégrations et des modules.",
     workflows: [],
@@ -1055,7 +1055,7 @@ function getSettingsHelp(
 
   return {
     title: profileFirst ? t('settings.help.profile_title') : t('settings.help.title'),
-    icon: '\u2699\uFE0F',
+    icon: '⚙️',
     description: profileFirst
       ? t('settings.help.profile_description')
       : t('settings.help.description'),
@@ -1348,7 +1348,7 @@ export function HelpPanel() {
                         className="flex gap-2 text-xs text-muted-foreground leading-relaxed"
                       >
                         <span className="text-amber-500/70 mt-0.5 shrink-0">
-                          \u2022
+                          •
                         </span>
                         {tip}
                       </li>

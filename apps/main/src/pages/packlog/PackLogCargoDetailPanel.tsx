@@ -705,47 +705,47 @@ export function CargoDetailPanel({ id }: { id: string }) {
                     <FormSection title="Identification">
                       <DetailFieldGrid>
                         <ReadOnlyRow label="Code" value={cargo.code} />
-                        <ReadOnlyRow label="Designation" value={cargo.designation ?? '\u2014'} />
-                        <ReadOnlyRow label="Type" value={cargoTypeLabels[cargo.cargo_type] ?? cargo.cargo_type ?? '\u2014'} />
-                        <ReadOnlyRow label="Article SAP" value={cargo.sap_article_code ?? '\u2014'} />
-                        <ReadOnlyRow label="Propri\u00e9t\u00e9" value={cargo.ownership_type ? (ownershipLabels[cargo.ownership_type] ?? cargo.ownership_type) : '\u2014'} />
-                        <ReadOnlyRow label="R\u00e9utilisable" value={cargo.is_reusable ? 'Oui \u2014 retour attendu' : 'Non'} />
+                        <ReadOnlyRow label="Designation" value={cargo.designation ?? '—'} />
+                        <ReadOnlyRow label="Type" value={cargoTypeLabels[cargo.cargo_type] ?? cargo.cargo_type ?? '—'} />
+                        <ReadOnlyRow label="Article SAP" value={cargo.sap_article_code ?? '—'} />
+                        <ReadOnlyRow label="Propriété" value={cargo.ownership_type ? (ownershipLabels[cargo.ownership_type] ?? cargo.ownership_type) : '—'} />
+                        <ReadOnlyRow label="Réutilisable" value={cargo.is_reusable ? 'Oui — retour attendu' : 'Non'} />
                         {cargo.is_reusable && cargo.expected_return_date && (
-                          <ReadOnlyRow label="Date retour pr\u00e9vue" value={new Date(cargo.expected_return_date).toLocaleDateString('fr-FR')} />
+                          <ReadOnlyRow label="Date retour prévue" value={new Date(cargo.expected_return_date).toLocaleDateString('fr-FR')} />
                         )}
-                        <ReadOnlyRow label="HAZMAT valid\u00e9" value={cargo.hazmat_validated ? 'Oui' : 'Non'} />
+                        <ReadOnlyRow label="HAZMAT validé" value={cargo.hazmat_validated ? 'Oui' : 'Non'} />
                       </DetailFieldGrid>
                     </FormSection>
                   </div>
                   <div className="@container space-y-4">
                     <FormSection title="Dimensions & Poids">
                       <DetailFieldGrid>
-                        <ReadOnlyRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString('fr-FR')} kg` : '\u2014'} />
-                        <ReadOnlyRow label="Dimensions" value={cargo.width_cm && cargo.length_cm && cargo.height_cm ? `${cargo.width_cm} \u00d7 ${cargo.length_cm} \u00d7 ${cargo.height_cm} cm` : '\u2014'} />
-                        <ReadOnlyRow label="Surface totale" value={cargo.surface_m2 != null ? `${cargo.surface_m2.toLocaleString('fr-FR')} m\u00b2` : '\u2014'} />
-                        <ReadOnlyRow label="Volume estim\u00e9" value={volumeLabel} />
-                        <ReadOnlyRow label="Nombre de colis" value={cargo.package_count?.toString() ?? '\u2014'} />
+                        <ReadOnlyRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString('fr-FR')} kg` : '—'} />
+                        <ReadOnlyRow label="Dimensions" value={cargo.width_cm && cargo.length_cm && cargo.height_cm ? `${cargo.width_cm} × ${cargo.length_cm} × ${cargo.height_cm} cm` : '—'} />
+                        <ReadOnlyRow label="Surface totale" value={cargo.surface_m2 != null ? `${cargo.surface_m2.toLocaleString('fr-FR')} m²` : '—'} />
+                        <ReadOnlyRow label="Volume estimé" value={volumeLabel} />
+                        <ReadOnlyRow label="Nombre de colis" value={cargo.package_count?.toString() ?? '—'} />
                         <ReadOnlyRow label="Empilable" value={cargo.stackable ? 'Oui' : 'Non'} />
                       </DetailFieldGrid>
                     </FormSection>
                   </div>
                 </SectionColumns>
 
-                <FormSection title="Demande & Tra\u00e7abilit\u00e9">
+                <FormSection title="Demande & Traçabilité">
                   <DetailFieldGrid>
-                    <ReadOnlyRow label="Demande d'exp\u00e9dition" value={cargo.request_code ? `${cargo.request_code} \u2014 ${cargo.request_title ?? ''}`.trim() : '\u2014'} />
+                    <ReadOnlyRow label="Demande d'expédition" value={cargo.request_code ? `${cargo.request_code} — ${cargo.request_title ?? ''}`.trim() : '—'} />
                     <ReadOnlyRow label="Statut demande" value={cargoRequestStatusLabel} />
                     <ReadOnlyRow label="Workflow dossier" value={cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status} />
-                    <ReadOnlyRow label="Demandeur" value={cargo.requester_name ?? cargo.request_requester_name ?? '\u2014'} />
-                    <ReadOnlyRow label="Exp\u00e9diteur" value={cargo.sender_name ?? '\u2014'} />
-                    <ReadOnlyRow label="Destinataire" value={cargo.receiver_name ?? cargo.request_receiver_name ?? '\u2014'} />
-                    <ReadOnlyRow label="Projet" value={projectLabel ?? '\u2014'} />
-                    <ReadOnlyRow label="Imputation" value={cargo.imputation_reference_name ? `${cargo.imputation_reference_code ?? ''} ${cargo.imputation_reference_name}`.trim() : '\u2014'} />
-                    <ReadOnlyRow label="Pr\u00e9par\u00e9 le" value={cargo.document_prepared_at ? new Date(cargo.document_prepared_at).toLocaleString('fr-FR') : '\u2014'} />
-                    <ReadOnlyRow label="Disponible le" value={cargo.available_from ? new Date(cargo.available_from).toLocaleString('fr-FR') : '\u2014'} />
-                    <ReadOnlyRow label="Cr\u00e9\u00e9 le" value={new Date(cargo.created_at).toLocaleDateString('fr-FR')} />
-                    {cargo.received_at && <ReadOnlyRow label="Re\u00e7u le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
-                    <ReadOnlyRow label="Description" value={cargo.description ?? '\u2014'} />
+                    <ReadOnlyRow label="Demandeur" value={cargo.requester_name ?? cargo.request_requester_name ?? '—'} />
+                    <ReadOnlyRow label="Expéditeur" value={cargo.sender_name ?? '—'} />
+                    <ReadOnlyRow label="Destinataire" value={cargo.receiver_name ?? cargo.request_receiver_name ?? '—'} />
+                    <ReadOnlyRow label="Projet" value={projectLabel ?? '—'} />
+                    <ReadOnlyRow label="Imputation" value={cargo.imputation_reference_name ? `${cargo.imputation_reference_code ?? ''} ${cargo.imputation_reference_name}`.trim() : '—'} />
+                    <ReadOnlyRow label="Préparé le" value={cargo.document_prepared_at ? new Date(cargo.document_prepared_at).toLocaleString('fr-FR') : '—'} />
+                    <ReadOnlyRow label="Disponible le" value={cargo.available_from ? new Date(cargo.available_from).toLocaleString('fr-FR') : '—'} />
+                    <ReadOnlyRow label="Créé le" value={new Date(cargo.created_at).toLocaleDateString('fr-FR')} />
+                    {cargo.received_at && <ReadOnlyRow label="Reçu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
+                    <ReadOnlyRow label="Description" value={cargo.description ?? '—'} />
                     {cargo.damage_notes && <ReadOnlyRow label="Notes avarie" value={cargo.damage_notes} />}
                   </DetailFieldGrid>
                 </FormSection>
@@ -782,29 +782,29 @@ export function CargoDetailPanel({ id }: { id: string }) {
               <div className="space-y-4">
                 <FormSection title="Transport & Manifeste">
                   <DetailFieldGrid>
-                    <ReadOnlyRow label="Voyage" value={cargo.voyage_code ?? '\u2014'} />
-                    <ReadOnlyRow label="Manifeste" value={manifestLabel ?? '\u2014'} />
-                    <ReadOnlyRow label="Zone pr\u00e9vue" value={cargo.planned_zone_name ?? '\u2014'} />
-                    <ReadOnlyRow label="Site de destination" value={cargo.destination_name ?? '\u2014'} />
+                    <ReadOnlyRow label="Voyage" value={cargo.voyage_code ?? '—'} />
+                    <ReadOnlyRow label="Manifeste" value={manifestLabel ?? '—'} />
+                    <ReadOnlyRow label="Zone prévue" value={cargo.planned_zone_name ?? '—'} />
+                    <ReadOnlyRow label="Site de destination" value={cargo.destination_name ?? '—'} />
                   </DetailFieldGrid>
                 </FormSection>
 
                 <CargoLocationSection
                   pickupLocationLabel={cargo.pickup_location_label}
-                  pickupCoordinatesLabel={cargo.pickup_latitude != null && cargo.pickup_longitude != null ? `${cargo.pickup_latitude}, ${cargo.pickup_longitude}` : '\u2014'}
+                  pickupCoordinatesLabel={cargo.pickup_latitude != null && cargo.pickup_longitude != null ? `${cargo.pickup_latitude}, ${cargo.pickup_longitude}` : '—'}
                   pickupMapUrl={pickupMapUrl}
                   pickupMapEmbedUrl={pickupMapEmbedUrl}
                 />
 
-                <FormSection title="Contacts & Op\u00e9rations">
+                <FormSection title="Contacts & Opérations">
                   <DetailFieldGrid>
-                    <ReadOnlyRow label="Lieu d'enl\u00e8vement" value={cargo.pickup_location_label ?? '\u2014'} />
-                    <ReadOnlyRow label="Coordonn\u00e9es enl\u00e8vement" value={cargo.pickup_latitude != null && cargo.pickup_longitude != null ? `${cargo.pickup_latitude}, ${cargo.pickup_longitude}` : '\u2014'} />
-                    <ReadOnlyRow label="Contact d'enl\u00e8vement" value={cargo.pickup_contact_display_name ?? cargo.pickup_contact_name ?? '\u2014'} />
-                    <ReadOnlyRow label="T\u00e9l\u00e9phone d'enl\u00e8vement" value={cargo.pickup_contact_phone ?? '\u2014'} />
-                    <ReadOnlyRow label="Levage fourni par" value={cargo.lifting_provider ?? '\u2014'} />
-                    <ReadOnlyRow label="Oreilles de levage certifi\u00e9es" value={cargo.lifting_points_certified ? 'Oui' : 'Non'} />
-                    <ReadOnlyRow label="Ticket de pes\u00e9e" value={cargo.weight_ticket_provided ? 'Oui' : 'Non'} />
+                    <ReadOnlyRow label="Lieu d'enlèvement" value={cargo.pickup_location_label ?? '—'} />
+                    <ReadOnlyRow label="Coordonnées enlèvement" value={cargo.pickup_latitude != null && cargo.pickup_longitude != null ? `${cargo.pickup_latitude}, ${cargo.pickup_longitude}` : '—'} />
+                    <ReadOnlyRow label="Contact d'enlèvement" value={cargo.pickup_contact_display_name ?? cargo.pickup_contact_name ?? '—'} />
+                    <ReadOnlyRow label="Téléphone d'enlèvement" value={cargo.pickup_contact_phone ?? '—'} />
+                    <ReadOnlyRow label="Levage fourni par" value={cargo.lifting_provider ?? '—'} />
+                    <ReadOnlyRow label="Oreilles de levage certifiées" value={cargo.lifting_points_certified ? 'Oui' : 'Non'} />
+                    <ReadOnlyRow label="Ticket de pesée" value={cargo.weight_ticket_provided ? 'Oui' : 'Non'} />
                     <ReadOnlyRow label="Photos" value={cargo.photo_evidence_count?.toString() ?? '0'} />
                     <ReadOnlyRow label="Documents" value={cargo.document_attachment_count?.toString() ?? '0'} />
                   </DetailFieldGrid>

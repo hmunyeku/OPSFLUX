@@ -88,7 +88,7 @@ function InlineEditableTextarea({
           className="w-full text-sm bg-transparent resize-y focus:outline-none min-h-[5rem]"
         />
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
-          <span className="text-[10px] text-muted-foreground mr-auto">{'\u2318'}+Entr\u00e9e pour valider \u00b7 Esc pour annuler</span>
+          <span className="text-[10px] text-muted-foreground mr-auto">{'⌘'}+Entrée pour valider · Esc pour annuler</span>
           <button onClick={cancel} className="gl-button-sm gl-button-ghost">
             <X size={12} /> Annuler
           </button>
@@ -125,11 +125,11 @@ function InlineEditableTextarea({
 // ── Status/Priority labels & colors ────────────────────────────
 
 const STATUS_OPTIONS = [
-  { value: 'todo', label: '\u00c0 faire', color: '#9ca3af' },
+  { value: 'todo', label: 'À faire', color: '#9ca3af' },
   { value: 'in_progress', label: 'En cours', color: '#3b82f6' },
   { value: 'review', label: 'Revue', color: '#eab308' },
-  { value: 'done', label: 'Termin\u00e9', color: '#22c55e' },
-  { value: 'cancelled', label: 'Annul\u00e9', color: '#ef4444' },
+  { value: 'done', label: 'Terminé', color: '#22c55e' },
+  { value: 'cancelled', label: 'Annulé', color: '#ef4444' },
 ]
 const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Basse', color: '#9ca3af' },
@@ -296,7 +296,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
     if (isLinkedToPlanner) {
       try {
         await unlinkFromPlanner.mutateAsync({ projectId, taskId })
-        toast({ title: t('projets.task.planner.unlinked', 'T\u00e2che retir\u00e9e du Planner'), variant: 'success' })
+        toast({ title: t('projets.task.planner.unlinked', 'Tâche retirée du Planner'), variant: 'success' })
       } catch {
         toast({ title: t('projets.task.planner.unlink_error', 'Erreur lors du retrait'), variant: 'error' })
       }
@@ -307,9 +307,9 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           items: [{ task_id: taskId, priority: task?.priority || 'medium' }],
         })
         if (res.created > 0) {
-          toast({ title: t('projets.task.planner.sent', 'T\u00e2che envoy\u00e9e au Planner'), variant: 'success' })
+          toast({ title: t('projets.task.planner.sent', 'Tâche envoyée au Planner'), variant: 'success' })
         } else if (res.skipped > 0) {
-          toast({ title: t('projets.task.planner.already_linked', 'T\u00e2che d\u00e9j\u00e0 li\u00e9e au Planner'), variant: 'warning' })
+          toast({ title: t('projets.task.planner.already_linked', 'Tâche déjà liée au Planner'), variant: 'warning' })
         } else {
           toast({ title: res.errors[0] || t('common.error', 'Erreur'), variant: 'error' })
         }
@@ -365,7 +365,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
   if (!task) {
     return (
-      <DynamicPanelShell title="T\u00e2che" subtitle="Chargement..." icon={<CheckCircle2 size={14} className="text-primary" />}>
+      <DynamicPanelShell title="Tâche" subtitle="Chargement..." icon={<CheckCircle2 size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )
@@ -459,7 +459,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           )}
           {childTasks.length > 0 && (
             <div className="flex items-center gap-1">
-              <ListTodo size={11} /> {childTasks.length} sous-t\u00e2ches
+              <ListTodo size={11} /> {childTasks.length} sous-tâches
             </div>
           )}
         </div>
@@ -471,9 +471,9 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
         activeId={activeTab}
         onTabChange={(id) => setActiveTab(id as typeof activeTab)}
         items={[
-          { id: 'details', label: 'D\u00e9tails', icon: ListTodo },
-          { id: 'subtasks', label: 'Sous-t\u00e2ches', icon: Layers, badge: childTasks.length || undefined },
-          { id: 'dependencies', label: 'D\u00e9pendances', icon: Link2, badge: depsCount || undefined },
+          { id: 'details', label: 'Détails', icon: ListTodo },
+          { id: 'subtasks', label: 'Sous-tâches', icon: Layers, badge: childTasks.length || undefined },
+          { id: 'dependencies', label: 'Dépendances', icon: Link2, badge: depsCount || undefined },
           { id: 'collaboration', label: 'Collaboration', icon: MessageSquare, badge: commentsCount || undefined },
         ]}
       />
@@ -495,7 +495,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 />
                 <ReadOnlyRow
                   label="Code"
-                  value={<span className="text-sm font-mono font-medium text-foreground">{task.code || '\u2014'}</span>}
+                  value={<span className="text-sm font-mono font-medium text-foreground">{task.code || '—'}</span>}
                 />
               </DetailFieldGrid>
 
@@ -519,7 +519,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             {/* ── 2-column layout: État/Assignation | Planning/POB ── */}
             <SectionColumns>
               <div className="@container space-y-5">
-                <FormSection title="\u00c9tat & priorit\u00e9" collapsible defaultExpanded storageKey="task-detail-state">
+                <FormSection title="État & priorité" collapsible defaultExpanded storageKey="task-detail-state">
                   <DetailFieldGrid>
                     <InlineEditableSelect
                       label="Statut"
@@ -529,7 +529,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                       onSave={(v) => handleSave('status', v)}
                     />
                     <InlineEditableSelect
-                      label="Priorit\u00e9"
+                      label="Priorité"
                       value={task.priority || 'medium'}
                       displayValue={PRIORITY_MAP[task.priority || 'medium']?.label || task.priority}
                       options={PRIORITY_OPTIONS.map((p) => ({ value: p.value, label: p.label }))}
@@ -544,9 +544,9 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                         {isParentTask && (
                           <span
                             className="ml-1 text-[9px] font-normal text-muted-foreground/70 normal-case"
-                            title="Cette t\u00e2che est un parent \u2014 son avancement est calcul\u00e9 automatiquement \u00e0 partir de ses sous-t\u00e2ches selon la m\u00e9thode de pond\u00e9ration du projet."
+                            title="Cette tâche est un parent — son avancement est calculé automatiquement à partir de ses sous-tâches selon la méthode de pondération du projet."
                           >
-                            (calcul\u00e9)
+                            (calculé)
                           </span>
                         )}
                       </p>
@@ -560,7 +560,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                         value={task.progress ?? 0}
                         onChange={(e) => !isParentTask && handleSave('progress', Number(e.target.value))}
                         disabled={isParentTask}
-                        title={isParentTask ? 'Calcul\u00e9 depuis les sous-t\u00e2ches \u2014 non modifiable manuellement' : undefined}
+                        title={isParentTask ? 'Calculé depuis les sous-tâches — non modifiable manuellement' : undefined}
                         className={cn(
                           'flex-1 h-1.5 accent-primary',
                           isParentTask && 'opacity-50 cursor-not-allowed',
@@ -576,7 +576,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                     {isParentTask && (
                       <p className="mt-1.5 text-[10px] text-muted-foreground/80 italic">
                         <AlertCircle size={10} className="inline mr-0.5" />
-                        Avancement agr\u00e9g\u00e9 automatiquement depuis les {childTasks.length} sous-t\u00e2che{childTasks.length > 1 ? 's' : ''} selon la m\u00e9thode du projet.
+                        Avancement agrégé automatiquement depuis les {childTasks.length} sous-tâche{childTasks.length > 1 ? 's' : ''} selon la méthode du projet.
                       </p>
                     )}
                   </div>
@@ -591,7 +591,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                         <InlineEditableRow
                           label="Poids"
                           value={task.weight != null ? String(task.weight) : ''}
-                          displayValue={task.weight != null ? String(task.weight) : '\u2014 (non pond\u00e9r\u00e9)'}
+                          displayValue={task.weight != null ? String(task.weight) : '— (non pondéré)'}
                           onSave={(v) => handleSave('weight', v ? Number(v) : null)}
                           type="number"
                         />
@@ -599,7 +599,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                       </DetailFieldGrid>
                       <p className="mt-1.5 text-[10px] text-muted-foreground/80 italic">
                         <AlertCircle size={10} className="inline mr-0.5" />
-                        Le projet utilise la pond\u00e9ration manuelle. Les t\u00e2ches sans poids comptent pour 0 dans le calcul de l&apos;avancement.
+                        Le projet utilise la pondération manuelle. Les tâches sans poids comptent pour 0 dans le calcul de l&apos;avancement.
                       </p>
                     </div>
                   )}
@@ -608,17 +608,17 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 <FormSection title="Assignation" collapsible defaultExpanded storageKey="task-detail-assign">
                   <DetailFieldGrid>
                     <InlineEditableSelect
-                      label="Assign\u00e9"
+                      label="Assigné"
                       value={task.assignee_id || ''}
                       displayValue={
                         task.assignee_id
                           ? (usersData?.items ?? []).find((u) => u.id === task.assignee_id)
                               ? `${(usersData!.items.find((u) => u.id === task.assignee_id)!).first_name} ${(usersData!.items.find((u) => u.id === task.assignee_id)!).last_name}`
-                              : task.assignee_name || '\u2014'
-                          : 'Non assign\u00e9'
+                              : task.assignee_name || '—'
+                          : 'Non assigné'
                       }
                       options={[
-                        { value: '', label: 'Non assign\u00e9' },
+                        { value: '', label: 'Non assigné' },
                         ...((usersData?.items ?? []).map((u) => ({
                           value: u.id,
                           label: `${u.first_name} ${u.last_name}`,
@@ -634,32 +634,32 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 <FormSection title="Planning" collapsible defaultExpanded storageKey="task-detail-planning">
                   <DetailFieldGrid>
                     <InlineEditableRow
-                      label="D\u00e9but"
+                      label="Début"
                       value={task.start_date ? task.start_date.split('T')[0] : ''}
-                      displayValue={task.start_date ? new Date(task.start_date).toLocaleDateString('fr-FR') : '\u2014'}
+                      displayValue={task.start_date ? new Date(task.start_date).toLocaleDateString('fr-FR') : '—'}
                       onSave={(v) => handleSave('start_date', v || null)}
                       type="date"
                     />
                     <InlineEditableRow
-                      label="\u00c9ch\u00e9ance"
+                      label="Échéance"
                       value={task.due_date ? task.due_date.split('T')[0] : ''}
-                      displayValue={task.due_date ? new Date(task.due_date).toLocaleDateString('fr-FR') : '\u2014'}
+                      displayValue={task.due_date ? new Date(task.due_date).toLocaleDateString('fr-FR') : '—'}
                       onSave={(v) => handleSave('due_date', v || null)}
                       type="date"
                     />
                   </DetailFieldGrid>
                   <DetailFieldGrid>
                     <ReadOnlyRow
-                      label="Dur\u00e9e"
+                      label="Durée"
                       value={
                         durationDays != null
                           ? <span className="text-sm tabular-nums">{durationDays} jour{durationDays !== 1 ? 's' : ''}</span>
-                          : '\u2014'
+                          : '—'
                       }
                     />
                     {task.completed_at && (
                       <ReadOnlyRow
-                        label="Termin\u00e9 le"
+                        label="Terminé le"
                         value={new Date(task.completed_at).toLocaleDateString('fr-FR')}
                       />
                     )}
@@ -669,21 +669,21 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 <FormSection title="POB & Charge" collapsible defaultExpanded storageKey="task-detail-pob">
                   <DetailFieldGrid>
                     <InlineEditableRow
-                      label="POB demand\u00e9"
+                      label="POB demandé"
                       value={String(task.pob_quota ?? 0)}
                       displayValue={`${task.pob_quota ?? 0} pers.`}
                       onSave={(v) => handleSave('pob_quota', Math.max(0, Number(v) || 0))}
                       type="number"
                     />
-                    <ReadOnlyRow label="Heures estim\u00e9es" value={task.estimated_hours ? `${task.estimated_hours} h` : '\u2014'} />
+                    <ReadOnlyRow label="Heures estimées" value={task.estimated_hours ? `${task.estimated_hours} h` : '—'} />
                   </DetailFieldGrid>
                   <DetailFieldGrid>
-                    <ReadOnlyRow label="Heures r\u00e9elles" value={task.actual_hours ? `${task.actual_hours} h` : '\u2014'} />
+                    <ReadOnlyRow label="Heures réelles" value={task.actual_hours ? `${task.actual_hours} h` : '—'} />
                     <div />
                   </DetailFieldGrid>
                   <p className="mt-2 text-[10px] text-muted-foreground/80 italic">
                     <AlertCircle size={10} className="inline mr-1" />
-                    Modifier le POB d&apos;une t\u00e2che li\u00e9e au Planner d\u00e9clenche une notification \u00e0 l&apos;arbitre.
+                    Modifier le POB d&apos;une tâche liée au Planner déclenche une notification à l&apos;arbitre.
                   </p>
                 </FormSection>
               </div>
@@ -700,19 +700,19 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 <Flag size={14} className="mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
-                    Mise \u00e0 jour requise suite \u00e0 la r\u00e9vision du parent
+                    Mise à jour requise suite à la révision du parent
                   </p>
                   <p className="mt-0.5 text-[11px] text-amber-800/80 dark:text-amber-300/80">
                     {thisTaskBreakdownPending.parent_task_title
-                      ? `La t\u00e2che parente \u00ab\u00a0${thisTaskBreakdownPending.parent_task_title}\u00a0\u00bb a accept\u00e9 une r\u00e9vision Planner. `
-                      : 'Une r\u00e9vision Planner a \u00e9t\u00e9 accept\u00e9e sur la t\u00e2che parente. '}
-                    Merci de mettre \u00e0 jour les dates ou le p\u00e9rim\u00e8tre de cette sous-t\u00e2che en cons\u00e9quence.
+                      ? `La tâche parente « ${thisTaskBreakdownPending.parent_task_title} » a accepté une révision Planner. `
+                      : 'Une révision Planner a été acceptée sur la tâche parente. '}
+                    Merci de mettre à jour les dates ou le périmètre de cette sous-tâche en conséquence.
                   </p>
                   {(thisTaskBreakdownPending.proposed_start_date || thisTaskBreakdownPending.proposed_end_date) && (
                     <p className="mt-1 text-[10px] text-amber-700/70 dark:text-amber-400/70 tabular-nums">
-                      Proposition parent : {thisTaskBreakdownPending.proposed_start_date ? new Date(thisTaskBreakdownPending.proposed_start_date).toLocaleDateString('fr-FR') : '\u2014'}
-                      {' \u2192 '}
-                      {thisTaskBreakdownPending.proposed_end_date ? new Date(thisTaskBreakdownPending.proposed_end_date).toLocaleDateString('fr-FR') : '\u2014'}
+                      Proposition parent : {thisTaskBreakdownPending.proposed_start_date ? new Date(thisTaskBreakdownPending.proposed_start_date).toLocaleDateString('fr-FR') : '—'}
+                      {' → '}
+                      {thisTaskBreakdownPending.proposed_end_date ? new Date(thisTaskBreakdownPending.proposed_end_date).toLocaleDateString('fr-FR') : '—'}
                     </p>
                   )}
                 </div>
@@ -728,7 +728,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   disabled={resolveBreakdown.isPending}
                   className="gl-button-sm gl-button-default shrink-0"
                 >
-                  {resolveBreakdown.isPending ? 'Enregistrement\u2026' : "J'ai mis \u00e0 jour"}
+                  {resolveBreakdown.isPending ? 'Enregistrement…' : "J'ai mis à jour"}
                 </button>
               </div>
             )}
@@ -736,11 +736,11 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             {childTasks.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Layers size={32} className="mb-3 opacity-30" />
-                <p className="text-sm font-medium">Aucune sous-t\u00e2che</p>
-                <p className="text-xs mt-1 text-muted-foreground/70">Cette t\u00e2che n&apos;a pas de sous-t\u00e2ches.</p>
+                <p className="text-sm font-medium">Aucune sous-tâche</p>
+                <p className="text-xs mt-1 text-muted-foreground/70">Cette tâche n&apos;a pas de sous-tâches.</p>
               </div>
             ) : (
-              <FormSection title={`Sous-t\u00e2ches (${childTasks.length})`} collapsible defaultExpanded storageKey="task-detail-children">
+              <FormSection title={`Sous-tâches (${childTasks.length})`} collapsible defaultExpanded storageKey="task-detail-children">
                 <div className="space-y-1.5">
                   {childTasks.map(child => {
                     const childPending = breakdownPendingByTask.get(child.id)
@@ -768,7 +768,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                         </div>
                         {childPending && (
                           <span className="gl-badge gl-badge-warning text-[10px] shrink-0">
-                            \u00e0 r\u00e9viser
+                            à réviser
                           </span>
                         )}
                         <div className="flex items-center gap-2 shrink-0">
@@ -797,20 +797,20 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           <>
             {/* Dependencies (predecessors + successors) */}
             <FormSection
-              title={`D\u00e9pendances (${depsCount})`}
+              title={`Dépendances (${depsCount})`}
               collapsible
               defaultExpanded={depsCount > 0}
               storageKey="task-detail-deps"
             >
               {incomingDeps.length === 0 && outgoingDeps.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">Aucune d\u00e9pendance</p>
+                <p className="text-xs text-muted-foreground italic">Aucune dépendance</p>
               ) : (
                 <SectionColumns>
                   {/* Predecessors */}
                   <div className="@container">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5 flex items-center gap-1.5">
                       <ArrowLeft size={11} />
-                      Ant\u00e9c\u00e9dents ({incomingDeps.length})
+                      Antécédents ({incomingDeps.length})
                     </p>
                     {incomingDeps.length === 0 ? (
                       <p className="text-xs text-muted-foreground/70 italic px-2 py-1.5">Aucun</p>
@@ -896,15 +896,15 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                         <div key={request.id} className="rounded-lg border border-border bg-muted/20 px-3 py-2.5">
                           <p className="text-xs font-medium text-foreground">
                             {request.requester_user_name || t('planner.revision_signals.actor_fallback')}
-                            {request.due_at ? ` \u00b7 ${t('planner.revision_requests.due_at')} ${new Date(request.due_at).toLocaleDateString('fr-FR')}` : ''}
+                            {request.due_at ? ` · ${t('planner.revision_requests.due_at')} ${new Date(request.due_at).toLocaleDateString('fr-FR')}` : ''}
                           </p>
                           {(request.proposed_start_date || request.proposed_end_date || request.proposed_pax_quota != null || request.proposed_status) && (
                             <p className="mt-1 text-xs text-muted-foreground">
                               {t('planner.revision_requests.proposed_summary', {
-                                start: request.proposed_start_date ? new Date(request.proposed_start_date).toLocaleDateString('fr-FR') : '\u2014',
-                                end: request.proposed_end_date ? new Date(request.proposed_end_date).toLocaleDateString('fr-FR') : '\u2014',
-                                pax: request.proposed_pax_quota ?? '\u2014',
-                                status: request.proposed_status || '\u2014',
+                                start: request.proposed_start_date ? new Date(request.proposed_start_date).toLocaleDateString('fr-FR') : '—',
+                                end: request.proposed_end_date ? new Date(request.proposed_end_date).toLocaleDateString('fr-FR') : '—',
+                                pax: request.proposed_pax_quota ?? '—',
+                                status: request.proposed_status || '—',
                               })}
                             </p>
                           )}
@@ -978,10 +978,10 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                           {(request.counter_start_date || request.counter_end_date || request.counter_status) && (
                             <p className="mt-1 text-xs text-muted-foreground">
                               {t('planner.revision_requests.counter_summary', {
-                                start: request.counter_start_date ? new Date(request.counter_start_date).toLocaleDateString('fr-FR') : '\u2014',
-                                end: request.counter_end_date ? new Date(request.counter_end_date).toLocaleDateString('fr-FR') : '\u2014',
-                                pax: request.counter_pax_quota ?? '\u2014',
-                                status: request.counter_status || '\u2014',
+                                start: request.counter_start_date ? new Date(request.counter_start_date).toLocaleDateString('fr-FR') : '—',
+                                end: request.counter_end_date ? new Date(request.counter_end_date).toLocaleDateString('fr-FR') : '—',
+                                pax: request.counter_pax_quota ?? '—',
+                                status: request.counter_status || '—',
                               })}
                             </p>
                           )}
@@ -1000,7 +1000,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           <>
             {/* Pièces jointes */}
             <FormSection
-              title="Pi\u00e8ces jointes"
+              title="Pièces jointes"
               collapsible
               defaultExpanded={false}
               storageKey="task-detail-attachments"
@@ -1021,7 +1021,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-1">
                       <MessageSquare size={10} />
                       <span className="font-semibold text-foreground/80">{c.author_name || 'Utilisateur'}</span>
-                      <span>\u00b7</span>
+                      <span>·</span>
                       <span className="tabular-nums">
                         {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </span>

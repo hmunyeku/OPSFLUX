@@ -154,7 +154,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
                     <ReadOnlyRow label="Nom" value={vector.name} />
                     <ReadOnlyRow label="Type" value={<span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>{typeEntry?.label || vector.type}</span>} />
                     <ReadOnlyRow label="Mode" value={modeLabels[vector.mode] || vector.mode} />
-                    <ReadOnlyRow label="Base d'attache" value={vector.home_base_name ?? '\u2014'} />
+                    <ReadOnlyRow label="Base d'attache" value={vector.home_base_name ?? '—'} />
                     <ReadOnlyRow label="Actif" value={vector.active ? 'Oui' : 'Non'} />
                   </DetailFieldGrid>
                 </FormSection>
@@ -163,8 +163,8 @@ export function VectorDetailPanel({ id }: { id: string }) {
                 <FormSection title="Capacites">
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Capacite PAX" value={vector.pax_capacity} />
-                    <ReadOnlyRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '\u2014'} />
-                    <ReadOnlyRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m\u00b3` : '\u2014'} />
+                    <ReadOnlyRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '—'} />
+                    <ReadOnlyRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m³` : '—'} />
                   </DetailFieldGrid>
                 </FormSection>
               </div>
@@ -198,7 +198,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
               <FormSection title="Operationnel" collapsible defaultExpanded>
                 <DetailFieldGrid>
                   <ReadOnlyRow label="Pesee requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
-                  {vector.mode === 'sea' && <ReadOnlyRow label="Numero MMSI" value={vector.mmsi_number ?? '\u2014'} />}
+                  {vector.mode === 'sea' && <ReadOnlyRow label="Numero MMSI" value={vector.mmsi_number ?? '—'} />}
                 </DetailFieldGrid>
               </FormSection>
 
@@ -210,7 +210,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
                         <MapPin size={14} className="text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{zone.name}</p>
-                          <p className="text-xs text-muted-foreground">{zone.zone_type}{zone.capacity ? ` \u2022 Capacite: ${zone.capacity}` : ''}</p>
+                          <p className="text-xs text-muted-foreground">{zone.zone_type}{zone.capacity ? ` • Capacite: ${zone.capacity}` : ''}</p>
                         </div>
                         <span className={cn('gl-badge', zone.active ? 'gl-badge-success' : 'gl-badge-neutral')}>{zone.active ? 'Actif' : 'Inactif'}</span>
                       </div>

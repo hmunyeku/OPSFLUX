@@ -1141,7 +1141,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                         example: '',
                       },
                     ])}
-                    className="rounded-md border border-dashed border-border/70 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/40"
+                    className="gl-button-sm gl-button-default border-dashed"
                   >
                     <span className="inline-flex items-center gap-1.5">
                       <Plus size={12} />
@@ -1197,7 +1197,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                             <button
                               type="button"
                               onClick={() => setVariableSchemaRows((current) => current.filter((item) => item.id !== row.id))}
-                              className="w-full rounded-md border border-border/70 px-3 py-2 text-xs text-destructive hover:bg-destructive/5"
+                              className="gl-button-sm gl-button-default w-full"
                             >
                               {t('settings.pdf_templates_editor.schema_editor.remove')}
                             </button>
@@ -1259,7 +1259,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                     footer_html: selectedVersion.footer_html ?? '',
                     is_published: false,
                   })}
-                  className="rounded-md border border-border/70 px-3 py-2 text-xs text-muted-foreground"
+                  className="gl-button-sm gl-button-default"
                 >
                   <span className="inline-flex items-center gap-1.5">
                     <Copy size={12} />

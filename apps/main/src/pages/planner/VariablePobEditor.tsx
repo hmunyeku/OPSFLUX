@@ -273,7 +273,7 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={() => setBulkFillOpen(true)}
-          className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
+          className="gl-button gl-button-default"
           title="Remplir la sélection avec une valeur"
           disabled={selectedKeys.length === 0}
         >
@@ -282,7 +282,7 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={copyValueToSelection}
-          className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
+          className="gl-button gl-button-default"
           title="Copier la première cellule sur toute la sélection"
           disabled={selectedKeys.length === 0}
         >
@@ -291,7 +291,7 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={clearSelection}
-          className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
+          className="gl-button gl-button-default"
           title="Vider la sélection (Suppr)"
           disabled={selectedKeys.length === 0}
         >
@@ -306,7 +306,7 @@ export function VariablePobEditor({
             const v = Number(prompt('Valeur PAX pour tous les jours :', String(defaultValue || 1)))
             if (Number.isFinite(v)) fillAllWith(v)
           }}
-          className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
+          className="gl-button gl-button-default"
           title="Remplir tous les jours"
         >
           Tout
@@ -317,7 +317,7 @@ export function VariablePobEditor({
             const v = Number(prompt('Valeur PAX en semaine (Lun-Ven) :', String(defaultValue || 1)))
             if (Number.isFinite(v)) fillWeekdaysOnly(v)
           }}
-          className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
+          className="gl-button gl-button-default"
           title="Lun-Ven uniquement"
         >
           Semaine
@@ -328,7 +328,7 @@ export function VariablePobEditor({
             const v = Number(prompt('Valeur PAX le week-end (Sam-Dim) :', '0'))
             if (Number.isFinite(v)) fillWeekendsOnly(v)
           }}
-          className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
+          className="gl-button gl-button-default"
           title="Sam-Dim uniquement"
         >
           Week-end
@@ -358,14 +358,14 @@ export function VariablePobEditor({
           <button
             type="button"
             onClick={applyBulkFill}
-            className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground"
+            className="gl-button gl-button-confirm"
           >
             OK
           </button>
           <button
             type="button"
             onClick={() => { setBulkFillOpen(false); setBulkFillValue('') }}
-            className="px-2 py-0.5 text-[10px] rounded border border-border"
+            className="gl-button gl-button-default"
           >
             Annuler
           </button>

@@ -242,8 +242,8 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
                 : 'Aucune sélection — affichera tous les projets'}
             </span>
             <div className="flex items-center gap-2">
-              <button onClick={onClose} className="px-3 py-1.5 text-xs rounded border border-border hover:bg-muted">Annuler</button>
-              <button onClick={handleApply} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90">
+              <button onClick={onClose} className="gl-button-sm gl-button-default">Annuler</button>
+              <button onClick={handleApply} className="gl-button-sm gl-button-confirm">
                 Appliquer
               </button>
             </div>

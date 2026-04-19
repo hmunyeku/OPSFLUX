@@ -1057,7 +1057,7 @@ export function GanttCore(props: GanttCoreProps) {
             <button
               type="button"
               onClick={() => setRangeMenuOpen((v) => !v)}
-              className="flex items-center gap-1 text-[11px] text-foreground/80 tabular-nums px-1.5 py-0.5 rounded hover:bg-muted border border-transparent hover:border-border"
+              className="gl-button gl-button-default text-foreground/80 tabular-nums border-transparent"
               title="Changer la période"
             >
               <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />

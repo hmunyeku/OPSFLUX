@@ -2766,7 +2766,7 @@ function ScenariosTab({
               <FlaskConical size={32} className="mx-auto mb-2 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">Aucun scénario</p>
               <p className="text-xs text-muted-foreground/60 mt-1">Créez un scénario what-if pour tester l'impact d'activités proposées.</p>
-              <button onClick={() => setShowCreate(true)} className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+              <button onClick={() => setShowCreate(true)} className="gl-button-sm gl-button-confirm mt-3">
                 <Plus size={12} /> Nouveau scénario
               </button>
             </div>
@@ -3434,7 +3434,7 @@ export function PlannerPage() {
               </span>
               <button
                 onClick={() => setActiveScenario(null)}
-                className="ml-auto shrink-0 text-xs px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors whitespace-nowrap"
+                className="gl-button-sm gl-button-default ml-auto shrink-0 border-amber-300 dark:border-amber-700 dark:hover:bg-amber-900/40"
               >
                 ✕ Quitter
               </button>
@@ -4067,14 +4067,14 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
             <button
               onClick={save}
               disabled={isPending || !draftOtherId}
-              className="px-2 py-1 text-[11px] rounded bg-primary text-primary-foreground disabled:opacity-50"
+              className="gl-button gl-button-confirm"
             >
               Enregistrer
             </button>
             <button
               onClick={() => setEditing(false)}
               disabled={isPending}
-              className="px-2 py-1 text-[11px] rounded border border-border"
+              className="gl-button gl-button-default"
             >
               Annuler
             </button>

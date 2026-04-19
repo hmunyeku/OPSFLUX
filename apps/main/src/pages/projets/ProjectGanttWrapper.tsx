@@ -945,7 +945,7 @@ export function ProjectGanttWrapper() {
       <div className="mb-2 flex items-center gap-2">
         <button
           onClick={() => setShowProjectSelector(true)}
-          className="text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted"
+          className="gl-button-sm gl-button-default"
         >
           {projectSelection.mode === 'all' ? 'Tous les projets' : `${projectSelection.projectIds.length} projet(s)`}
         </button>

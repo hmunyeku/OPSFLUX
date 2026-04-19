@@ -754,7 +754,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
         </div>
       ) : (
         <button
-          className="gl-button-sm gl-button-default flex items-center gap-1.5"
+          className="gl-button-sm gl-button-default items-center gap-1.5"
           onClick={() => setShowPicker(true)}
         >
           <Plus size={12} /> Ajouter à une entité
@@ -825,7 +825,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
           <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Entreprises liées</span>
           {!showTierPicker && (
             <button
-              className="gl-button-sm gl-button-default flex items-center gap-1"
+              className="gl-button-sm gl-button-default items-center gap-1"
               onClick={() => setShowTierPicker(true)}
             >
               <Plus size={12} /> Lier une entreprise
@@ -1756,7 +1756,7 @@ function UserDetailPanel({ id }: { id: string }) {
                 <div className="space-y-3">
                   <div>
                     <button
-                      className="gl-button-sm gl-button-confirm flex items-center gap-1.5"
+                      className="gl-button-sm gl-button-confirm items-center gap-1.5"
                       onClick={handlePasswordReset}
                       disabled={sendPasswordReset.isPending}
                     >
@@ -1775,7 +1775,7 @@ function UserDetailPanel({ id }: { id: string }) {
                   {(isLocked || user.failed_login_count > 0) && (
                     <div>
                       <button
-                        className="gl-button-sm gl-button-default flex items-center gap-1.5"
+                        className="gl-button-sm gl-button-default items-center gap-1.5"
                         onClick={handleUnlockAccount}
                         disabled={updateUser.isPending}
                       >
@@ -1794,7 +1794,7 @@ function UserDetailPanel({ id }: { id: string }) {
 
                   <div>
                     <button
-                      className="gl-button-sm gl-button-danger flex items-center gap-1.5"
+                      className="gl-button-sm gl-button-danger items-center gap-1.5"
                       onClick={handleRevokeSessions}
                       disabled={revokeAllSessions.isPending}
                     >
@@ -2031,7 +2031,7 @@ function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: Acc
         {stats.map((card) => {
           const Icon = card.icon
           return (
-            <button key={card.label} onClick={() => onNavigate(card.tab)} className="rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/30 hover:shadow-sm text-left cursor-pointer group">
+            <button key={card.label} onClick={() => onNavigate(card.tab)} className="gl-button gl-button-default hover:shadow-sm text-left group">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
                   {card.label}
@@ -2063,7 +2063,7 @@ function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: Acc
               <button
                 key={action.label}
                 onClick={action.onClick}
-                className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-card text-left hover:border-primary/30 hover:bg-primary/[0.02] transition-all group"
+                className="gl-button gl-button-default gap-2.5 text-left group"
               >
                 <Icon size={14} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                 <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{action.label}</span>

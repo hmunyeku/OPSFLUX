@@ -711,11 +711,11 @@ function RequesterHomeTab({
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-95" onClick={onCreateAds}>
+              <button className="gl-button-sm gl-button-confirm" onClick={onCreateAds}>
                 <ClipboardList size={14} />
                 {t('paxlog.new_ads')}
               </button>
-              <button className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent" onClick={onCreateAvm}>
+              <button className="gl-button-sm gl-button-default" onClick={onCreateAvm}>
                 <Briefcase size={14} />
                 {t('paxlog.new_avm')}
               </button>
@@ -741,7 +741,7 @@ function RequesterHomeTab({
                 <button
                   key={item.id}
                   onClick={() => onOpenAds(item.id)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent"
+                  className="gl-button gl-button-default w-full text-left"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -769,7 +769,7 @@ function RequesterHomeTab({
                   <button
                     key={item.id}
                     onClick={() => onOpenAvm(item.id)}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent"
+                    className="gl-button gl-button-default w-full text-left"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -908,7 +908,7 @@ function ValidatorHomeTab({
                       <button
                         key={item.id}
                         onClick={() => onOpenAds(item.id)}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent"
+                        className="gl-button gl-button-default w-full text-left"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -1010,7 +1010,7 @@ function ValidatorHomeTab({
                   <button
                     key={item.id}
                     onClick={() => onOpenAvm(item.id)}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent"
+                    className="gl-button gl-button-default w-full text-left"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1387,14 +1387,14 @@ function WaitlistTab({ openDetail }: { openDetail: (id: string) => void }) {
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); savePriorityEdit(row.original) }}
-                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+                  className="gl-button gl-button-default"
                 >
                   {t('common.save')}
                 </button>
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); cancelPriorityEdit() }}
-                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+                  className="gl-button gl-button-default"
                 >
                   {t('common.cancel')}
                 </button>
@@ -1409,7 +1409,7 @@ function WaitlistTab({ openDetail }: { openDetail: (id: string) => void }) {
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); startPriorityEdit(row.original) }}
-                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+                className="gl-button gl-button-default"
               >
                 {t('paxlog.waitlist.actions.edit_priority')}
               </button>
@@ -1438,7 +1438,7 @@ function WaitlistTab({ openDetail }: { openDetail: (id: string) => void }) {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleDecision(row.original, 'approve') }}
-            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+            className="gl-button gl-button-default"
           >
             <ThumbsUp size={11} />
             {t('common.approve')}
@@ -1446,7 +1446,7 @@ function WaitlistTab({ openDetail }: { openDetail: (id: string) => void }) {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleDecision(row.original, 'reject') }}
-            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+            className="gl-button gl-button-default"
           >
             <ThumbsDown size={11} />
             {t('common.reject')}
@@ -2405,7 +2405,7 @@ function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSource: '
                     <button
                       key={record.id}
                       type="button"
-                      className="w-full rounded border border-border px-2 py-1.5 text-left hover:bg-accent/50 transition-colors"
+                      className="gl-button gl-button-default w-full text-left"
                       onClick={() => openDynamicPanel({ type: 'detail', module: 'conformite', id: record.id, meta: { subtype: 'record' } })}
                     >
                       <div className="flex items-center justify-between gap-2 text-xs">
@@ -5104,7 +5104,7 @@ function CreateAvmPanel() {
                 </DynamicPanelField>
               </div>
             ))}
-            <button type="button" className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent" onClick={addProgramLine}>
+            <button type="button" className="gl-button-sm gl-button-default" onClick={addProgramLine}>
               <Plus size={13} />
               {t('paxlog.create_avm.program.add_line')}
             </button>

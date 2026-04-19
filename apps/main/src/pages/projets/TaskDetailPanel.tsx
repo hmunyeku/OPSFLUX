@@ -450,7 +450,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 },
               )}
               disabled={resolveBreakdown.isPending}
-              className="shrink-0 rounded-md border border-amber-400/60 bg-white dark:bg-amber-900/20 px-2 py-1 text-[11px] font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 disabled:opacity-50"
+              className="gl-button gl-button-default shrink-0 border-amber-400/60 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200 dark:hover:bg-amber-900/40"
             >
               {resolveBreakdown.isPending ? 'Enregistrement…' : 'J\'ai mis à jour'}
             </button>
@@ -836,7 +836,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                                   <button
                                     key={child.id}
                                     type="button"
-                                    className="rounded border border-border px-1.5 py-0.5 text-[11px] text-foreground hover:bg-muted"
+                                    className="gl-button gl-button-default"
                                     onClick={() => openDynamicPanel({ type: 'task-detail', module: 'projets', id: child.id, meta: { projectId } })}
                                   >
                                     {child.code || child.title}
@@ -892,7 +892,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                         <button
                           key={dep.id}
                           type="button"
-                          className="group w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 hover:border-primary/30 hover:bg-accent/30 transition-all"
+                          className="gl-button gl-button-default group w-full text-left"
                           onClick={() => predTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: predTask.id, meta: { projectId } })}
                         >
                           <Link2 size={12} className="text-muted-foreground shrink-0" />
@@ -929,7 +929,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                         <button
                           key={dep.id}
                           type="button"
-                          className="group w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 hover:border-primary/30 hover:bg-accent/30 transition-all"
+                          className="gl-button gl-button-default group w-full text-left"
                           onClick={() => succTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: succTask.id, meta: { projectId } })}
                         >
                           <Link2 size={12} className="text-muted-foreground shrink-0" />

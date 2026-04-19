@@ -218,7 +218,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                     e.stopPropagation()
                     openDynamicPanel({ type: 'detail', module: 'planner', id: linkedEntry.activity_id })
                   }}
-                  className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
+                  className="gl-button gl-button-default"
                 >
                   <Eye size={10} />
                   Ouvrir
@@ -234,7 +234,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                     toast({ title: 'Impossible de retirer cette activité du Planner', variant: 'error' })
                   }
                 }}
-                className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
+                className="gl-button gl-button-default"
                 disabled={unlinkTaskFromPlanner.isPending}
               >
                 <Unlink size={10} />
@@ -338,9 +338,9 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}</span>
-              <button onClick={onClose} className="px-3 py-1.5 text-xs rounded border border-border hover:bg-muted">Annuler</button>
+              <button onClick={onClose} className="gl-button-sm gl-button-default">Annuler</button>
               <button onClick={handleSend} disabled={selectedIds.size === 0 || sendToPlanner.isPending}
-                className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 flex items-center gap-1.5">
+                className="gl-button-sm gl-button-confirm">
                 {sendToPlanner.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
                 Envoyer au Planner ({selectedIds.size})
               </button>

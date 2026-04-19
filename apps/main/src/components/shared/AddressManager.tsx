@@ -252,7 +252,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
                 <button type="button" onClick={handleGeolocate} disabled={geoLoading} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30 transition-all">
                   {geoLoading ? <Loader2 size={10} className="animate-spin" /> : <LocateFixed size={10} />} GPS
                 </button>
-                <button type="button" onClick={handleGeocode} disabled={geocodeLoading} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 dark:text-emerald-300 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 dark:border-emerald-700 transition-all">
+                <button type="button" onClick={handleGeocode} disabled={geocodeLoading} className="gl-button gl-button-confirm text-emerald-700 bg-emerald-50 border-emerald-300 dark:text-emerald-300 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 dark:border-emerald-700">
                   {geocodeLoading ? <Loader2 size={10} className="animate-spin" /> : <Search size={10} />} Géocoder
                 </button>
                 <button type="button" onClick={() => setShowMapPicker(true)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:border-amber-700 transition-all">

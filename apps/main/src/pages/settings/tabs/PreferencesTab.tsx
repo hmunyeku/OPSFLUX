@@ -205,7 +205,7 @@ function PageSizeSection() {
             <button
               type="button"
               onClick={() => setShowCustom(true)}
-              className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground border-dashed"
+              className="gl-button gl-button-default border-dashed"
             >
               Autre...
             </button>
@@ -305,7 +305,7 @@ function UIScaleSection() {
         <button
           type="button"
           onClick={handleReset}
-          className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="gl-button gl-button-default"
         >
           {t('settings.ui_scale_reset')} ({DEFAULT_SCALE}%)
         </button>

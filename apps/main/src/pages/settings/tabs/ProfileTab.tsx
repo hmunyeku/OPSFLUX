@@ -1091,7 +1091,7 @@ function LinkedSSOAccounts() {
                 </div>
                 {unlinkingId === l.id ? (
                   <div className="flex items-center gap-1 shrink-0 text-xs">
-                    <button onClick={() => handleUnlink(l.id)} className="px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400">Oui</button>
+                    <button onClick={() => handleUnlink(l.id)} className="gl-button gl-button-danger bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Oui</button>
                     <button onClick={() => setUnlinkingId(null)} className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400">Non</button>
                   </div>
                 ) : (
@@ -1117,7 +1117,7 @@ function LinkedSSOAccounts() {
               <button
                 key={a.id}
                 onClick={() => handleLink(a.id)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/60 bg-card hover:bg-accent/50 hover:border-border text-sm font-medium transition-all"
+                className="gl-button gl-button-default"
               >
                 <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">{meta.icon}</span>
                 Lier {meta.name}

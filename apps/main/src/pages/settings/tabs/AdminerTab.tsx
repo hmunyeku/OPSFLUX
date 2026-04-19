@@ -212,7 +212,7 @@ export function AdminerTab() {
           href="https://db.opsflux.io"
           target="_blank"
           rel="noopener noreferrer"
-          className="gl-button-sm gl-button-confirm flex items-center gap-1.5"
+          className="gl-button-sm gl-button-confirm items-center gap-1.5"
         >
           <Database size={11} />
           Ouvrir pgAdmin
@@ -238,7 +238,7 @@ export function AdminerTab() {
             <button
               onClick={runQuery}
               disabled={isRunning || !query.trim()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="gl-button-sm gl-button-confirm disabled:cursor-not-allowed"
             >
               {isRunning ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -252,7 +252,7 @@ export function AdminerTab() {
                 setQuery('')
                 setResult(null)
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
+              className="gl-button-sm gl-button-default"
             >
               <Trash2 size={12} />
               Effacer
@@ -268,7 +268,7 @@ export function AdminerTab() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowMaxRowsDropdown(!showMaxRowsDropdown)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                className="gl-button-sm gl-button-default"
               >
                 <Table2 size={11} />
                 {maxRows} lignes max
@@ -349,7 +349,7 @@ export function AdminerTab() {
                     ].join('\n')
                     copyToClipboard(tsv, 'results')
                   }}
-                  className="inline-flex items-center gap-1 px-2 py-1 text-[10px] rounded border border-border hover:bg-muted text-muted-foreground transition-colors"
+                  className="gl-button gl-button-default"
                 >
                   {copied === 'results' ? (
                     <Check size={10} className="text-green-500" />
@@ -444,7 +444,7 @@ export function AdminerTab() {
                 setResult(null)
                 textareaRef.current?.focus()
               }}
-              className="flex items-center gap-2 px-3 py-2 text-xs text-left rounded-md border border-border bg-background hover:bg-muted hover:border-primary/30 transition-colors group"
+              className="gl-button-sm gl-button-default text-left group"
             >
               <Database size={11} className="text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
               <span className="text-foreground truncate">{label}</span>

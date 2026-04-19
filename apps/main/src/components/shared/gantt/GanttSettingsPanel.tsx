@@ -288,7 +288,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
                 const name = prompt('Nom du préréglage :')
                 if (name?.trim()) onSavePreset(name.trim())
               }}
-              className="w-full text-[10px] px-2 py-1 rounded border border-border hover:bg-muted text-center"
+              className="gl-button gl-button-default w-full text-center"
             >
               + Sauvegarder la vue actuelle
             </button>

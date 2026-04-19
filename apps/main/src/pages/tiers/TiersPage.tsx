@@ -608,14 +608,14 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
               {tier.is_blocked ? (
                 <button
                   onClick={() => setShowBlockForm(!showBlockForm)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 transition-colors"
+                  className="gl-button-sm gl-button-confirm bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
                 >
                   <ShieldCheck size={12} />{t('tiers.ui.unblock')}
                 </button>
               ) : (
                 <button
                   onClick={() => setShowBlockForm(!showBlockForm)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 transition-colors"
+                  className="gl-button-sm gl-button-danger bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                 >
                   <ShieldBan size={12} />{t('tiers.ui.block')}
                 </button>
@@ -656,7 +656,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                       { onSuccess: () => { setShowBlockForm(false); setBlockReason('') } }
                     )
                   }}
-                  className="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  className="gl-button-sm gl-button-confirm"
                 >
                   {tier.is_blocked ? t('tiers.ui.unblock') : t('tiers.ui.block')}
                 </button>
@@ -740,7 +740,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                           { onSuccess: () => { setShowRefForm(false); setRefCode('') } }
                         )
                       }}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                      className="gl-button-sm gl-button-confirm"
                     >
                       {createExternalRef.isPending ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
                       {t('common.add')}
@@ -985,7 +985,7 @@ function ContactListSection({
             <button
               onClick={handleCreate}
               disabled={!form.first_name.trim() || !form.last_name.trim() || createContact.isPending}
-              className="px-2 py-1 rounded text-[11px] font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
+              className="gl-button gl-button-confirm text-white"
             >
               {createContact.isPending ? <Loader2 size={11} className="animate-spin" /> : t('common.create')}
             </button>
@@ -1267,7 +1267,7 @@ function ContactDetailPanel({
                   <button
                     onClick={handlePromote}
                     disabled={!contact.email || promoteContact.isPending}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                    className="gl-button-sm gl-button-confirm"
                   >
                     {promoteContact.isPending ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
                     {t('tiers.ui.promote_to_external_user')}

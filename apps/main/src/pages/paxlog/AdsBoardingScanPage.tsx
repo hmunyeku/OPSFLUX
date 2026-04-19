@@ -160,7 +160,7 @@ export function AdsBoardingScanPage() {
                                 type="button"
                                 onClick={() => updatePassenger.mutate({ passengerId: passenger.id, payload: { boarding_status: 'pending' } })}
                                 disabled={updatePassenger.isPending}
-                                className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-50"
+                                className="gl-button-sm gl-button-default"
                               >
                                 Attente
                               </button>
@@ -168,7 +168,7 @@ export function AdsBoardingScanPage() {
                                 type="button"
                                 onClick={() => updatePassenger.mutate({ passengerId: passenger.id, payload: { boarding_status: 'no_show' } })}
                                 disabled={updatePassenger.isPending}
-                                className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
+                                className="gl-button-sm gl-button-danger border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
                               >
                                 No-show
                               </button>
@@ -176,7 +176,7 @@ export function AdsBoardingScanPage() {
                                 type="button"
                                 onClick={() => updatePassenger.mutate({ passengerId: passenger.id, payload: { boarding_status: 'boarded' } })}
                                 disabled={updatePassenger.isPending}
-                                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
+                                className="gl-button-sm gl-button-confirm border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
                               >
                                 Embarqué
                               </button>

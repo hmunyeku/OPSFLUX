@@ -612,7 +612,7 @@ function TrackingTab() {
                 scanCandidates.map((item) => (
                   <button
                     key={item.id}
-                    className="flex w-full items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-left hover:bg-muted/20"
+                    className="gl-button gl-button-default w-full justify-between text-left"
                     onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}
                   >
                     <div>

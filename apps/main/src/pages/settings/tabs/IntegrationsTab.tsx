@@ -819,7 +819,7 @@ function AddConnectorDialog({
                   key={c.id}
                   type="button"
                   onClick={() => { onAdd(c.id); onClose() }}
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border/50 hover:border-primary/40 hover:bg-accent/50 transition-colors text-center group"
+                  className="gl-button gl-button-default flex-col text-center group"
                 >
                   <span className="text-2xl">{c.icon}</span>
                   <span className="text-xs font-semibold text-foreground">{c.name}</span>

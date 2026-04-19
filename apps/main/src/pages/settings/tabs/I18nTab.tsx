@@ -227,7 +227,7 @@ export default function I18nTab() {
         <div className="grow" />
         <button
           onClick={() => setShowLanguagesPanel(true)}
-          className="gl-button-sm gl-button-default flex items-center gap-1.5"
+          className="gl-button-sm gl-button-default items-center gap-1.5"
         >
           <Globe size={14} /> Gérer les langues
         </button>
@@ -260,7 +260,7 @@ export default function I18nTab() {
 
         <button
           onClick={() => setShowAddKey(true)}
-          className="gl-button-sm gl-button-confirm flex items-center gap-1.5"
+          className="gl-button-sm gl-button-confirm items-center gap-1.5"
         >
           <Plus size={14} /> Ajouter une clé
         </button>
@@ -568,7 +568,7 @@ function AiTranslateButton({
       <button
         onClick={() => { setResult(null); mutation.mutate() }}
         disabled={mutation.isPending}
-        className="gl-button-sm gl-button-default flex items-center gap-1.5"
+        className="gl-button-sm gl-button-default items-center gap-1.5"
         title={`Traduire automatiquement les clés manquantes du ${sourceLang.toUpperCase()} vers ${targetLang.toUpperCase()} via l'IA`}
       >
         {mutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
@@ -655,14 +655,14 @@ function ImportExportMenu({
       <button
         onClick={exportJson}
         disabled={messages.length === 0}
-        className="gl-button-sm gl-button-default flex items-center gap-1.5"
+        className="gl-button-sm gl-button-default items-center gap-1.5"
       >
         <Download size={14} /> Exporter
       </button>
       <button
         onClick={() => fileRef.current?.click()}
         disabled={bulk.isPending}
-        className="gl-button-sm gl-button-default flex items-center gap-1.5"
+        className="gl-button-sm gl-button-default items-center gap-1.5"
       >
         {bulk.isPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
         Importer
@@ -822,7 +822,7 @@ function LanguagesPanel({
           ) : (
             <button
               onClick={() => setShowAdd(true)}
-              className="w-full p-2 border border-dashed border-border rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 flex items-center justify-center gap-1.5"
+              className="gl-button gl-button-default w-full border-dashed"
             >
               <Plus size={14} /> Ajouter une langue
             </button>

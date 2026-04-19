@@ -484,6 +484,70 @@ Ajouter un en-tête standard:
 
 ---
 
+### T-012 — Split structurel de `paxlog.py` (11 000 lignes)
+
+**Priorité**: P3
+**Type**: Refactoring / Maintenabilité
+**Statut**: 🟡 **PARTIAL** — split amorcé, reste structuré à terminer
+
+#### État actuel
+
+`app/api/routes/modules/paxlog.py` → `app/api/routes/modules/paxlog/__init__.py`
+(rename effectué, comportement identique). Un premier sous-module a été
+extrait :
+
+- `paxlog/rotations.py` — 4 routes (GET/POST/PATCH/DELETE rotation-cycles)
+
+Les 96 autres routes restent dans `__init__.py` (ads, avm, profiles,
+credentials, compliance, external, signalements, waitlist, stay-programs,
+profile-types, habilitation-matrix, incidents, imputations).
+
+#### Pourquoi pas aller plus loin maintenant
+
+`tests/unit/test_paxlog_flows.py` monkey-patch de nombreux helpers privés
+(`_can_manage_ads`, `_build_ads_read_data`, `_try_ads_workflow_transition`,
+`_resolve_pax_identity`, etc.). Ces `monkeypatch.setattr(paxlog, "_helper",
+fake)` reposent sur la résolution de nom **locale au module de définition** :
+déplacer un helper dans un sous-module rend les patches inopérants.
+
+Le split complet demande donc de router chaque helper privé via un réexport
+dans le package `paxlog/` (comme fait pour `record_audit` dans `rotations.py`)
+**ET** de mettre à jour les tests en conséquence. C'est un travail rigoureux
+qui mérite son sprint dédié avec tests CI verts à chaque étape.
+
+#### Prochaines étapes (backlog)
+
+1. Extraire `paxlog/ads.py` en ré-exportant les helpers partagés via
+   `from . import _can_manage_ads as _can_manage_ads` dans le sous-module.
+2. Mettre à jour les tests qui référencent directement ces helpers.
+3. Répéter pour avm, profiles, credentials, compliance, external.
+4. Cible finale : `__init__.py` < 500 lignes, chaque sous-module < 1500 lignes.
+
+---
+
+### T-013 — UI GridStack drag-drop dashboards
+
+**Priorité**: P2
+**Type**: UX / Frontend
+**Statut**: 🔵 **OUT OF SCOPE** (chantier frontend multi-jour)
+
+#### Contexte
+
+Le mode éditeur de `ModuleDashboard` (`Modifier` → `DashboardEditorLayout` +
+`DashboardGrid`) permet déjà d'ajouter / retirer des widgets depuis le
+catalogue. Ce qui manque : le **drag-drop réordonnable** style GridStack.
+
+#### Travail restant
+
+- Intégrer une lib de grille (react-grid-layout ou gridstack.js).
+- Persister le layout (x, y, w, h par widget) côté backend — modèle existe
+  déjà dans `dashboard_widget` mais n'est pas exploité en UI.
+- Tester cross-browser + touch devices.
+
+Estimation : 3-5 jours. Hors scope itération.
+
+---
+
 ### T-011 — Séparer clairement “architecture cible” et “runtime actuel”
 
 **Priorité**: P2

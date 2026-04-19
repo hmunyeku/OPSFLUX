@@ -1,18 +1,32 @@
 /**
  * MOCDetailPanel — inspect and act on a Management of Change request.
  *
- * Sections:
- *   • Header — reference + status badge + priority
- *   • Info — location, content, modification type, dates
- *   • Workflow — list of allowed transitions as action buttons
- *   • Validation matrix — one row per role with approve / reject controls
- *   • Flags — HAZOP/HAZID/Environmental + PID/ESD update checkboxes
- *   • Timeline — status history (reverse chronological)
- *   • Attachments — polymorphic via AttachmentManager
+ * Tabbed layout (TabBar inside DynamicPanelShell), following the same
+ * pattern as ProjectDetailPanel / TaskDetailPanel / PaxProfileDetailPanel:
+ *
+ *   - Fiche         : status header, workflow actions, identification + content
+ *   - Validation    : per-role matrix + HAZOP/HAZID/Environmental + PID/ESD flags
+ *   - Commentaires  : polymorphic NoteManager (owner_type="moc") — CDC §4.7
+ *   - Documents     : polymorphic AttachmentManager — CDC §4.3
+ *   - Historique    : status_history timeline — CDC §4.9
+ *
+ * Permission-aware: workflow buttons, validation controls and delete action
+ * are hidden for users who don't hold the matching permission.
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Loader2, Send, Trash2, XCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  ClipboardCheck,
+  FileText,
+  History,
+  Info,
+  Loader2,
+  MessageSquare,
+  Send,
+  Trash2,
+  XCircle,
+} from 'lucide-react'
 import {
   DynamicPanelShell,
   PanelContentLayout,
@@ -23,11 +37,14 @@ import {
   DangerConfirmButton,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
+import { TabBar } from '@/components/ui/Tabs'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { NoteManager } from '@/components/shared/NoteManager'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
+import { usePermission } from '@/hooks/usePermission'
 import { formatDate, formatDateTime } from '@/lib/i18n'
 import {
   useDeleteMOC,
@@ -62,6 +79,8 @@ const CORE_ROLES: MOCValidationRole[] = [
   'maintenance_manager',
 ]
 
+type DetailTab = 'fiche' | 'validation' | 'comments' | 'documents' | 'history'
+
 interface Props {
   id: string
 }
@@ -71,6 +90,7 @@ export function MOCDetailPanel({ id }: Props) {
   const { toast } = useToast()
   const confirm = useConfirm()
   const closePanel = useUIStore((s) => s.closeDynamicPanel)
+  const { hasPermission } = usePermission()
 
   const { data: moc, isLoading } = useMOC(id)
   const { data: fsm } = useMOCFsm()
@@ -81,8 +101,12 @@ export function MOCDetailPanel({ id }: Props) {
 
   // Dictionary-backed labels (admin-customisable per tenant)
   const statusLabels = useDictionaryLabels('moc_status', MOC_STATUS_LABELS)
-  const roleLabels = useDictionaryLabels('moc_validation_role', ROLE_LABELS as Record<string, string>)
+  const roleLabels = useDictionaryLabels(
+    'moc_validation_role',
+    ROLE_LABELS as Record<string, string>,
+  )
 
+  const [activeTab, setActiveTab] = useState<DetailTab>('fiche')
   const [transitionNote, setTransitionNote] = useState('')
   const [priorityPick, setPriorityPick] = useState<'1' | '2' | '3'>('2')
 
@@ -96,7 +120,13 @@ export function MOCDetailPanel({ id }: Props) {
     )
   }
 
-  const allowedTransitions = fsm?.transitions[moc.status] ?? []
+  const allAllowedFsm = fsm?.transitions[moc.status] ?? []
+  const allowedTransitions = allAllowedFsm.filter(
+    (tr) => hasPermission(tr.permission) || hasPermission('moc.manage'),
+  )
+  const canValidate = hasPermission('moc.validate') || hasPermission('moc.manage')
+  const canDelete = hasPermission('moc.delete') || hasPermission('moc.manage')
+  const canUpdateFlags = hasPermission('moc.update') || hasPermission('moc.manage')
 
   const doTransition = async (to: MOCStatus) => {
     try {
@@ -108,7 +138,12 @@ export function MOCDetailPanel({ id }: Props) {
         id: moc.id,
         payload: { to_status: to, comment: transitionNote || null, payload },
       })
-      toast({ title: t('moc.toast.transitioned', { status: statusLabels[to] ?? MOC_STATUS_LABELS[to] }), variant: 'success' })
+      toast({
+        title: t('moc.toast.transitioned', {
+          status: statusLabels[to] ?? MOC_STATUS_LABELS[to],
+        }),
+        variant: 'success',
+      })
       setTransitionNote('')
     } catch (err: unknown) {
       const d = (err as { response?: { data?: { detail?: { message?: string } | string } } })
@@ -154,259 +189,360 @@ export function MOCDetailPanel({ id }: Props) {
   }
   const metierValidations = moc.validations.filter((v) => v.role === 'metier')
 
+  const tabItems = [
+    { id: 'fiche' as const, label: t('moc.detail_tab.fiche'), icon: Info },
+    {
+      id: 'validation' as const,
+      label: t('moc.detail_tab.validation'),
+      icon: ClipboardCheck,
+    },
+    {
+      id: 'comments' as const,
+      label: t('moc.detail_tab.comments'),
+      icon: MessageSquare,
+    },
+    {
+      id: 'documents' as const,
+      label: t('moc.detail_tab.documents'),
+      icon: FileText,
+    },
+    { id: 'history' as const, label: t('moc.detail_tab.history'), icon: History },
+  ]
+
   return (
     <DynamicPanelShell
       title={moc.reference}
       subtitle={moc.objectives || moc.description || ''}
-      actions={[
-        <DangerConfirmButton
-          key="del"
-          icon={<Trash2 size={12} />}
-          onConfirm={doDelete}
-          disabled={deleteMutation.isPending}
-        >
-          {t('common.delete')}
-        </DangerConfirmButton>,
-      ]}
+      actions={
+        canDelete
+          ? [
+              <DangerConfirmButton
+                key="del"
+                icon={<Trash2 size={12} />}
+                onConfirm={doDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {t('common.delete')}
+              </DangerConfirmButton>,
+            ]
+          : []
+      }
     >
-      <PanelContentLayout>
-        {/* Status header */}
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {t('moc.fields.status')}
-          </span>
+      {/* Status header — always visible above the tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 bg-muted/20">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {t('moc.fields.status')}
+        </span>
+        <span
+          className={`gl-badge gl-badge-${MOC_STATUS_COLOURS[moc.status]}`}
+          title={statusLabels[moc.status] ?? MOC_STATUS_LABELS[moc.status]}
+        >
+          {statusLabels[moc.status] ?? MOC_STATUS_LABELS[moc.status]}
+        </span>
+        {moc.priority && (
           <span
-            className={`gl-badge gl-badge-${MOC_STATUS_COLOURS[moc.status]}`}
-            title={statusLabels[moc.status] ?? MOC_STATUS_LABELS[moc.status]}
+            className={`gl-badge gl-badge-${
+              moc.priority === '1'
+                ? 'danger'
+                : moc.priority === '2'
+                  ? 'warning'
+                  : 'neutral'
+            }`}
           >
-            {statusLabels[moc.status] ?? MOC_STATUS_LABELS[moc.status]}
+            {t('moc.priority_prefix')} {moc.priority}
           </span>
-          {moc.priority && (
-            <span
-              className={`gl-badge gl-badge-${
-                moc.priority === '1' ? 'danger' : moc.priority === '2' ? 'warning' : 'neutral'
-              }`}
-            >
-              {t('moc.priority_prefix')} {moc.priority}
-            </span>
-          )}
-          <span className="text-xs text-muted-foreground">
-            {formatDateTime(moc.status_changed_at)}
-          </span>
-        </div>
+        )}
+        <span className="text-xs text-muted-foreground ml-auto">
+          {formatDateTime(moc.status_changed_at)}
+        </span>
+      </div>
 
-        {/* Allowed workflow actions */}
-        {allowedTransitions.length > 0 && (
-          <FormSection title={t('moc.section.workflow')} defaultExpanded>
-            <div className="space-y-2">
-              <textarea
-                className={panelInputClass}
-                rows={2}
-                value={transitionNote}
-                onChange={(e) => setTransitionNote(e.target.value)}
-                placeholder={t('moc.fields.transition_comment_ph') as string}
-              />
-              {allowedTransitions.some((t) => t.to === 'approved_to_study') && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {t('moc.fields.priority')}
-                  </span>
-                  {(['1', '2', '3'] as const).map((p) => (
-                    <label key={p} className="flex items-center gap-1 text-xs">
-                      <input
-                        type="radio"
-                        checked={priorityPick === p}
-                        onChange={() => setPriorityPick(p)}
-                      />
-                      P{p}
-                    </label>
-                  ))}
+      {/* Tabs */}
+      <TabBar
+        items={tabItems}
+        activeId={activeTab}
+        onTabChange={setActiveTab}
+      />
+
+      <PanelContentLayout>
+        {activeTab === 'fiche' && (
+          <>
+            {/* Allowed workflow actions */}
+            {allowedTransitions.length > 0 && (
+              <FormSection title={t('moc.section.workflow')} defaultExpanded>
+                <div className="space-y-2">
+                  <textarea
+                    className={panelInputClass}
+                    rows={2}
+                    value={transitionNote}
+                    onChange={(e) => setTransitionNote(e.target.value)}
+                    placeholder={t('moc.fields.transition_comment_ph') as string}
+                  />
+                  {allowedTransitions.some((tr) => tr.to === 'approved_to_study') && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {t('moc.fields.priority')}
+                      </span>
+                      {(['1', '2', '3'] as const).map((p) => (
+                        <label key={p} className="flex items-center gap-1 text-xs">
+                          <input
+                            type="radio"
+                            checked={priorityPick === p}
+                            onChange={() => setPriorityPick(p)}
+                          />
+                          P{p}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {allowedTransitions.map((tr) => {
+                      const isCancel = tr.to === 'cancelled'
+                      const isReturn =
+                        tr.to === 'under_study' && moc.status === 'study_in_validation'
+                      const IconComp = isCancel || isReturn ? XCircle : Send
+                      return (
+                        <PanelActionButton
+                          key={tr.to}
+                          icon={<IconComp size={12} />}
+                          variant={isCancel ? 'danger' : isReturn ? 'default' : 'primary'}
+                          onClick={() => doTransition(tr.to)}
+                          disabled={transitionMutation.isPending}
+                        >
+                          {statusLabels[tr.to] ?? MOC_STATUS_LABELS[tr.to]}
+                        </PanelActionButton>
+                      )
+                    })}
+                  </div>
                 </div>
-              )}
-              <div className="flex flex-wrap gap-2">
-                {allowedTransitions.map((tr) => {
-                  const isCancel = tr.to === 'cancelled'
-                  const isReturn = tr.to === 'under_study' && moc.status === 'study_in_validation'
-                  const IconComp = isCancel || isReturn ? XCircle : Send
+              </FormSection>
+            )}
+
+            {/* Identification */}
+            <FormSection title={t('moc.section.identification')} defaultExpanded>
+              <DetailFieldGrid>
+                <ReadOnlyRow
+                  label={t('moc.fields.reference')}
+                  value={moc.reference}
+                />
+                <ReadOnlyRow
+                  label={t('moc.fields.created_at')}
+                  value={formatDateTime(moc.created_at)}
+                />
+                <ReadOnlyRow label={t('moc.fields.site')} value={moc.site_label} />
+                <ReadOnlyRow
+                  label={t('moc.fields.platform')}
+                  value={moc.platform_code}
+                />
+                <ReadOnlyRow
+                  label={t('moc.fields.initiator')}
+                  value={moc.initiator_display || moc.initiator_name || '—'}
+                />
+                <ReadOnlyRow
+                  label={t('moc.fields.initiator_function')}
+                  value={moc.initiator_function || '—'}
+                />
+                <ReadOnlyRow
+                  label={t('moc.fields.modification_type')}
+                  value={
+                    moc.modification_type === 'permanent'
+                      ? t('moc.type_permanent')
+                      : moc.modification_type === 'temporary'
+                        ? `${t('moc.type_temporary')} (${moc.temporary_duration_days ?? '?'} j)`
+                        : '—'
+                  }
+                />
+                <ReadOnlyRow
+                  label={t('moc.fields.planned_date')}
+                  value={
+                    moc.planned_implementation_date
+                      ? formatDate(moc.planned_implementation_date)
+                      : '—'
+                  }
+                />
+              </DetailFieldGrid>
+            </FormSection>
+
+            {/* Content */}
+            <FormSection title={t('moc.section.content')} defaultExpanded>
+              <DetailFieldGrid>
+                <ReadOnlyRow
+                  label={t('moc.fields.objectives')}
+                  value={moc.objectives || '—'}
+                />
+                <ReadOnlyRow
+                  label={t('moc.fields.description')}
+                  value={moc.description || '—'}
+                />
+                <ReadOnlyRow
+                  label={t('moc.fields.current_situation')}
+                  value={moc.current_situation || '—'}
+                />
+                <ReadOnlyRow
+                  label={t('moc.fields.proposed_changes')}
+                  value={moc.proposed_changes || '—'}
+                />
+                <ReadOnlyRow
+                  label={t('moc.fields.impact_analysis')}
+                  value={moc.impact_analysis || '—'}
+                />
+              </DetailFieldGrid>
+            </FormSection>
+          </>
+        )}
+
+        {activeTab === 'validation' && (
+          <>
+            <FormSection
+              title={t('moc.section.validation_matrix')}
+              defaultExpanded
+            >
+              <div className="space-y-2">
+                {CORE_ROLES.map((role) => {
+                  const v = validationByRole.get(role)
                   return (
-                    <PanelActionButton
-                      key={tr.to}
-                      icon={<IconComp size={12} />}
-                      variant={isCancel ? 'danger' : isReturn ? 'default' : 'primary'}
-                      onClick={() => doTransition(tr.to)}
-                      disabled={transitionMutation.isPending}
-                    >
-                      {statusLabels[tr.to] ?? MOC_STATUS_LABELS[tr.to]}
-                    </PanelActionButton>
+                    <ValidationRow
+                      key={role}
+                      label={roleLabels[role] ?? ROLE_LABELS[role]}
+                      entry={v}
+                      onChange={(patch) => setValidation(role, patch)}
+                      disabled={validationMutation.isPending || !canValidate}
+                      readOnly={!canValidate}
+                    />
                   )
                 })}
+                {metierValidations.length > 0 && (
+                  <div className="mt-3 border-t border-border pt-3 space-y-2">
+                    <h4 className="text-xs font-semibold text-muted-foreground">
+                      {t('moc.section.metier_validations')}
+                    </h4>
+                    {metierValidations.map((v) => (
+                      <ValidationRow
+                        key={v.id}
+                        label={`Métier — ${v.metier_code ?? '?'}`}
+                        entry={v}
+                        onChange={(patch) =>
+                          validationMutation.mutate({
+                            id: moc.id,
+                            payload: {
+                              role: 'metier',
+                              metier_code: v.metier_code,
+                              ...patch,
+                            },
+                          })
+                        }
+                        disabled={validationMutation.isPending || !canValidate}
+                        readOnly={!canValidate}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
+            </FormSection>
+
+            <FormSection title={t('moc.section.flags')} defaultExpanded>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                <FlagRow
+                  label="HAZOP"
+                  required={moc.hazop_required}
+                  completed={moc.hazop_completed}
+                  disabled={!canUpdateFlags}
+                  onToggleRequired={(v) => toggleFlag('hazop_required', v)}
+                  onToggleCompleted={(v) => toggleFlag('hazop_completed', v)}
+                />
+                <FlagRow
+                  label="HAZID"
+                  required={moc.hazid_required}
+                  completed={moc.hazid_completed}
+                  disabled={!canUpdateFlags}
+                  onToggleRequired={(v) => toggleFlag('hazid_required', v)}
+                  onToggleCompleted={(v) => toggleFlag('hazid_completed', v)}
+                />
+                <FlagRow
+                  label="Environmental"
+                  required={moc.environmental_required}
+                  completed={moc.environmental_completed}
+                  disabled={!canUpdateFlags}
+                  onToggleRequired={(v) => toggleFlag('environmental_required', v)}
+                  onToggleCompleted={(v) => toggleFlag('environmental_completed', v)}
+                />
+                <FlagRow
+                  label="MAJ PID"
+                  required={moc.pid_update_required}
+                  completed={moc.pid_update_completed}
+                  disabled={!canUpdateFlags}
+                  onToggleRequired={(v) => toggleFlag('pid_update_required', v)}
+                  onToggleCompleted={(v) => toggleFlag('pid_update_completed', v)}
+                />
+                <FlagRow
+                  label="MAJ ESD"
+                  required={moc.esd_update_required}
+                  completed={moc.esd_update_completed}
+                  disabled={!canUpdateFlags}
+                  onToggleRequired={(v) => toggleFlag('esd_update_required', v)}
+                  onToggleCompleted={(v) => toggleFlag('esd_update_completed', v)}
+                />
+              </div>
+            </FormSection>
+          </>
+        )}
+
+        {activeTab === 'comments' && (
+          <FormSection title={t('moc.section.comments')} defaultExpanded>
+            <NoteManager ownerType="moc" ownerId={moc.id} />
           </FormSection>
         )}
 
-        {/* Identification */}
-        <FormSection title={t('moc.section.identification')} defaultExpanded>
-          <DetailFieldGrid>
-            <ReadOnlyRow label={t('moc.fields.reference')} value={moc.reference} />
-            <ReadOnlyRow label={t('moc.fields.created_at')} value={formatDateTime(moc.created_at)} />
-            <ReadOnlyRow label={t('moc.fields.site')} value={moc.site_label} />
-            <ReadOnlyRow label={t('moc.fields.platform')} value={moc.platform_code} />
-            <ReadOnlyRow
-              label={t('moc.fields.initiator')}
-              value={moc.initiator_display || moc.initiator_name || '—'}
-            />
-            <ReadOnlyRow
-              label={t('moc.fields.initiator_function')}
-              value={moc.initiator_function || '—'}
-            />
-            <ReadOnlyRow
-              label={t('moc.fields.modification_type')}
-              value={
-                moc.modification_type === 'permanent'
-                  ? t('moc.type_permanent')
-                  : moc.modification_type === 'temporary'
-                    ? `${t('moc.type_temporary')} (${moc.temporary_duration_days ?? '?'} j)`
-                    : '—'
-              }
-            />
-            <ReadOnlyRow
-              label={t('moc.fields.planned_date')}
-              value={moc.planned_implementation_date ? formatDate(moc.planned_implementation_date) : '—'}
-            />
-          </DetailFieldGrid>
-        </FormSection>
+        {activeTab === 'documents' && (
+          <FormSection title={t('moc.section.attachments')} defaultExpanded>
+            <AttachmentManager ownerType="moc" ownerId={moc.id} />
+          </FormSection>
+        )}
 
-        {/* Content */}
-        <FormSection title={t('moc.section.content')} defaultExpanded>
-          <DetailFieldGrid>
-            <ReadOnlyRow label={t('moc.fields.objectives')} value={moc.objectives || '—'} />
-            <ReadOnlyRow label={t('moc.fields.description')} value={moc.description || '—'} />
-            <ReadOnlyRow label={t('moc.fields.current_situation')} value={moc.current_situation || '—'} />
-            <ReadOnlyRow label={t('moc.fields.proposed_changes')} value={moc.proposed_changes || '—'} />
-            <ReadOnlyRow label={t('moc.fields.impact_analysis')} value={moc.impact_analysis || '—'} />
-          </DetailFieldGrid>
-        </FormSection>
-
-        {/* Validation matrix */}
-        <FormSection title={t('moc.section.validation_matrix')} defaultExpanded>
-          <div className="space-y-2">
-            {CORE_ROLES.map((role) => {
-              const v = validationByRole.get(role)
-              return (
-                <ValidationRow
-                  key={role}
-                  label={roleLabels[role] ?? ROLE_LABELS[role]}
-                  entry={v}
-                  onChange={(patch) => setValidation(role, patch)}
-                  disabled={validationMutation.isPending}
-                />
-              )
-            })}
-            {metierValidations.length > 0 && (
-              <div className="mt-3 border-t border-border pt-3 space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground">
-                  {t('moc.section.metier_validations')}
-                </h4>
-                {metierValidations.map((v) => (
-                  <ValidationRow
-                    key={v.id}
-                    label={`Métier — ${v.metier_code ?? '?'}`}
-                    entry={v}
-                    onChange={(patch) =>
-                      validationMutation.mutate({
-                        id: moc.id,
-                        payload: { role: 'metier', metier_code: v.metier_code, ...patch },
-                      })
-                    }
-                    disabled={validationMutation.isPending}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </FormSection>
-
-        {/* Flags */}
-        <FormSection title={t('moc.section.flags')}>
-          <div className="grid grid-cols-2 gap-2">
-            <FlagRow
-              label="HAZOP"
-              required={moc.hazop_required}
-              completed={moc.hazop_completed}
-              onToggleRequired={(v) => toggleFlag('hazop_required', v)}
-              onToggleCompleted={(v) => toggleFlag('hazop_completed', v)}
-            />
-            <FlagRow
-              label="HAZID"
-              required={moc.hazid_required}
-              completed={moc.hazid_completed}
-              onToggleRequired={(v) => toggleFlag('hazid_required', v)}
-              onToggleCompleted={(v) => toggleFlag('hazid_completed', v)}
-            />
-            <FlagRow
-              label="Environmental"
-              required={moc.environmental_required}
-              completed={moc.environmental_completed}
-              onToggleRequired={(v) => toggleFlag('environmental_required', v)}
-              onToggleCompleted={(v) => toggleFlag('environmental_completed', v)}
-            />
-            <FlagRow
-              label="MAJ PID"
-              required={moc.pid_update_required}
-              completed={moc.pid_update_completed}
-              onToggleRequired={(v) => toggleFlag('pid_update_required', v)}
-              onToggleCompleted={(v) => toggleFlag('pid_update_completed', v)}
-            />
-            <FlagRow
-              label="MAJ ESD"
-              required={moc.esd_update_required}
-              completed={moc.esd_update_completed}
-              onToggleRequired={(v) => toggleFlag('esd_update_required', v)}
-              onToggleCompleted={(v) => toggleFlag('esd_update_completed', v)}
-            />
-          </div>
-        </FormSection>
-
-        {/* Attachments (polymorphic) */}
-        <FormSection title={t('moc.section.attachments')}>
-          <AttachmentManager ownerType="moc" ownerId={moc.id} />
-        </FormSection>
-
-        {/* Status history */}
-        <FormSection title={t('moc.section.timeline')}>
-          <div className="space-y-2">
-            {moc.status_history.map((h) => (
-              <div
-                key={h.id}
-                className="rounded-md border border-border/60 bg-card px-3 py-2 text-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {h.old_status && (
-                      <>
-                        <span className="text-muted-foreground">
-                          {statusLabels[h.old_status as MOCStatus] ?? MOC_STATUS_LABELS[h.old_status as MOCStatus] ?? h.old_status}
-                        </span>
-                        <span className="text-muted-foreground">→</span>
-                      </>
-                    )}
-                    <span className="font-medium text-foreground">
-                      {statusLabels[h.new_status as MOCStatus] ?? MOC_STATUS_LABELS[h.new_status as MOCStatus] ?? h.new_status}
+        {activeTab === 'history' && (
+          <FormSection title={t('moc.section.timeline')} defaultExpanded>
+            <div className="space-y-2">
+              {moc.status_history.map((h) => (
+                <div
+                  key={h.id}
+                  className="rounded-md border border-border/60 bg-card px-3 py-2 text-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {h.old_status && (
+                        <>
+                          <span className="text-muted-foreground">
+                            {statusLabels[h.old_status as MOCStatus] ??
+                              MOC_STATUS_LABELS[h.old_status as MOCStatus] ??
+                              h.old_status}
+                          </span>
+                          <span className="text-muted-foreground">→</span>
+                        </>
+                      )}
+                      <span className="font-medium text-foreground">
+                        {statusLabels[h.new_status as MOCStatus] ??
+                          MOC_STATUS_LABELS[h.new_status as MOCStatus] ??
+                          h.new_status}
+                      </span>
+                    </div>
+                    <span className="text-muted-foreground tabular-nums">
+                      {formatDateTime(h.created_at)}
                     </span>
                   </div>
-                  <span className="text-muted-foreground tabular-nums">
-                    {formatDateTime(h.created_at)}
-                  </span>
+                  <div className="mt-0.5 text-muted-foreground">
+                    {h.changed_by_name || '—'}
+                    {h.note ? ` — ${h.note}` : ''}
+                  </div>
                 </div>
-                <div className="mt-0.5 text-muted-foreground">
-                  {h.changed_by_name || '—'}
-                  {h.note ? ` — ${h.note}` : ''}
-                </div>
-              </div>
-            ))}
-          </div>
-        </FormSection>
+              ))}
+              {moc.status_history.length === 0 && (
+                <p className="text-xs text-muted-foreground/60">
+                  {t('common.empty_state')}
+                </p>
+              )}
+            </div>
+          </FormSection>
+        )}
       </PanelContentLayout>
     </DynamicPanelShell>
   )
@@ -419,6 +555,7 @@ function ValidationRow({
   entry,
   onChange,
   disabled,
+  readOnly,
 }: {
   label: string
   entry: MOCValidation | undefined
@@ -429,10 +566,11 @@ function ValidationRow({
     comments?: string
   }) => void
   disabled: boolean
+  readOnly?: boolean
 }) {
   return (
     <div className="rounded-md border border-border/60 bg-card px-3 py-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold text-foreground">{label}</span>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1 text-xs">
@@ -440,7 +578,7 @@ function ValidationRow({
               type="checkbox"
               checked={entry?.required ?? false}
               disabled={disabled}
-              onChange={(e) => onChange({ required: e.target.checked })}
+              onChange={(e) => !readOnly && onChange({ required: e.target.checked })}
             />
             Requis
           </label>
@@ -449,30 +587,43 @@ function ValidationRow({
               type="checkbox"
               checked={entry?.completed ?? false}
               disabled={disabled}
-              onChange={(e) => onChange({ completed: e.target.checked })}
+              onChange={(e) => !readOnly && onChange({ completed: e.target.checked })}
             />
             Réalisé
           </label>
-          <button
-            type="button"
-            disabled={disabled}
-            className={`gl-button gl-button-sm ${
-              entry?.approved === true ? 'gl-button-confirm' : 'gl-button-default'
-            }`}
-            onClick={() => onChange({ approved: true })}
-          >
-            <CheckCircle2 size={12} /> OK
-          </button>
-          <button
-            type="button"
-            disabled={disabled}
-            className={`gl-button gl-button-sm ${
-              entry?.approved === false ? 'gl-button-danger' : 'gl-button-default'
-            }`}
-            onClick={() => onChange({ approved: false })}
-          >
-            <XCircle size={12} /> Rejet
-          </button>
+          {!readOnly && (
+            <>
+              <button
+                type="button"
+                disabled={disabled}
+                className={`gl-button gl-button-sm ${
+                  entry?.approved === true ? 'gl-button-confirm' : 'gl-button-default'
+                }`}
+                onClick={() => onChange({ approved: true })}
+              >
+                <CheckCircle2 size={12} /> OK
+              </button>
+              <button
+                type="button"
+                disabled={disabled}
+                className={`gl-button gl-button-sm ${
+                  entry?.approved === false ? 'gl-button-danger' : 'gl-button-default'
+                }`}
+                onClick={() => onChange({ approved: false })}
+              >
+                <XCircle size={12} /> Rejet
+              </button>
+            </>
+          )}
+          {readOnly && entry?.approved != null && (
+            <span
+              className={`gl-badge ${
+                entry.approved ? 'gl-badge-success' : 'gl-badge-danger'
+              }`}
+            >
+              {entry.approved ? 'Approuvé' : 'Rejeté'}
+            </span>
+          )}
         </div>
       </div>
       {entry?.validator_name && entry.validated_at && (
@@ -488,12 +639,14 @@ function FlagRow({
   label,
   required,
   completed,
+  disabled,
   onToggleRequired,
   onToggleCompleted,
 }: {
   label: string
   required: boolean
   completed: boolean
+  disabled?: boolean
   onToggleRequired: (v: boolean) => void
   onToggleCompleted: (v: boolean) => void
 }) {
@@ -505,6 +658,7 @@ function FlagRow({
           <input
             type="checkbox"
             checked={required}
+            disabled={disabled}
             onChange={(e) => onToggleRequired(e.target.checked)}
           />
           Nécessaire
@@ -513,6 +667,7 @@ function FlagRow({
           <input
             type="checkbox"
             checked={completed}
+            disabled={disabled}
             onChange={(e) => onToggleCompleted(e.target.checked)}
           />
           Réalisé

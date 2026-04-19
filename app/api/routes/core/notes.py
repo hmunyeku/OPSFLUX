@@ -72,6 +72,9 @@ async def _assert_owner_in_entity(
         ok = await _check(RegistryEquipment)
     elif owner_type == "pipeline":
         ok = await _check(RegistryPipeline)
+    elif owner_type == "moc":
+        from app.models.moc import MOC
+        ok = await _check(MOC)
     # else: unknown owner_type → deny
     if not ok:
         raise StructuredHTTPException(

@@ -1,29 +1,31 @@
 /**
  * MOCPage — Management of Change module.
  *
- * Tabs: Dashboard | Liste | Statistiques
- * Panel: detail (read + transition actions) or create.
+ * Two tabs only:
+ *   - Dashboard  — ModuleDashboard with all MOC widgets (statistics live here)
+ *   - Liste      — DataTable with visual search/filter tokens per column
+ *
+ * The dynamic panel hosts Create/Detail views. Detail is itself tabbed
+ * (Fiche | Validation | Commentaires | Documents | Historique) — see
+ * MOCDetailPanel.
  */
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/react-table'
-import {
-  AlertTriangle,
-  BarChart3,
-  ClipboardList,
-  LayoutDashboard,
-  Plus,
-} from 'lucide-react'
+import { ClipboardList, LayoutDashboard, Plus } from 'lucide-react'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
-import { renderRegisteredPanel, registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
+import {
+  renderRegisteredPanel,
+  registerPanelRenderer,
+} from '@/components/layout/DetachedPanelRenderer'
 import { PageNavBar } from '@/components/ui/Tabs'
-import { DataTable } from '@/components/ui/DataTable/DataTable'
-import { BadgeCell } from '@/components/ui/DataTable'
-import { useMOCList, useMOCStats } from '@/hooks/useMOC'
+import { DataTable, BadgeCell } from '@/components/ui/DataTable'
+import { useMOCList } from '@/hooks/useMOC'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
+import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { formatDate } from '@/lib/i18n'
 import {
   MOC_STATUS_COLOURS,
@@ -34,12 +36,11 @@ import {
 import { MOCDetailPanel } from './panels/MOCDetailPanel'
 import { MOCCreatePanel } from './panels/MOCCreatePanel'
 
-type MOCTab = 'dashboard' | 'list' | 'stats'
+type MOCTab = 'dashboard' | 'list'
 
 const TABS: { id: MOCTab; labelKey: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', labelKey: 'moc.tabs.dashboard', icon: LayoutDashboard },
   { id: 'list', labelKey: 'moc.tabs.list', icon: ClipboardList },
-  { id: 'stats', labelKey: 'moc.tabs.stats', icon: BarChart3 },
 ]
 
 registerPanelRenderer('moc', (view) => {
@@ -56,7 +57,7 @@ export function MOCPage() {
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
 
   const urlTab = (searchParams.get('tab') as MOCTab) || 'dashboard'
-  const activeTab = (['dashboard', 'list', 'stats'] as MOCTab[]).includes(urlTab)
+  const activeTab = (['dashboard', 'list'] as MOCTab[]).includes(urlTab)
     ? urlTab
     : 'dashboard'
   const setActiveTab = (tab: MOCTab) => {
@@ -94,12 +95,11 @@ export function MOCPage() {
           rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-moc" /> : null}
         />
 
-        <PanelContent scroll={activeTab !== 'list'}>
+        <PanelContent scroll={activeTab === 'dashboard'}>
           {activeTab === 'dashboard' && (
             <ModuleDashboard module="moc" toolbarPortalId="dash-toolbar-moc" />
           )}
           {activeTab === 'list' && <MOCListTab />}
-          {activeTab === 'stats' && <MOCStatsTab />}
         </PanelContent>
       </div>
 
@@ -115,13 +115,28 @@ function MOCListTab() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
-  const [statusFilter, setStatusFilter] = useState<MOCStatus | ''>('')
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
+  const [siteFilter, setSiteFilter] = useState<string | undefined>(undefined)
+  const [priorityFilter, setPriorityFilter] = useState<string | undefined>(undefined)
+
+  const siteOptions = useDictionaryOptions('moc_site')
+  const priorityOptions = useDictionaryOptions('moc_priority')
 
   const { data, isLoading } = useMOCList({
     page,
     page_size: pageSize,
-    status: statusFilter || undefined,
+    status: statusFilter as MOCStatus | undefined,
+    site_label: siteFilter,
+    priority: priorityFilter as '1' | '2' | '3' | undefined,
+    search: search || undefined,
   })
+
+  const statusOptions = useMemo(
+    () =>
+      Object.entries(MOC_STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })),
+    [],
+  )
 
   const columns: ColumnDef<MOC>[] = useMemo(
     () => [
@@ -134,6 +149,10 @@ function MOCListTab() {
             {row.original.reference}
           </span>
         ),
+        meta: {
+          filterType: 'text' as const,
+          filterLabel: t('moc.columns.reference') as string,
+        },
       },
       {
         accessorKey: 'objectives',
@@ -150,8 +169,15 @@ function MOCListTab() {
         header: t('moc.columns.site'),
         size: 110,
         cell: ({ row }) => (
-          <span className="text-xs text-muted-foreground">{row.original.site_label}</span>
+          <span className="text-xs text-muted-foreground">
+            {row.original.site_label}
+          </span>
         ),
+        meta: {
+          filterType: 'select' as const,
+          filterLabel: t('moc.columns.site') as string,
+          filterOptions: siteOptions,
+        },
       },
       {
         accessorKey: 'platform_code',
@@ -162,6 +188,10 @@ function MOCListTab() {
             {row.original.platform_code}
           </span>
         ),
+        meta: {
+          filterType: 'text' as const,
+          filterLabel: t('moc.columns.platform') as string,
+        },
       },
       {
         accessorKey: 'status',
@@ -173,6 +203,11 @@ function MOCListTab() {
             variant={MOC_STATUS_COLOURS[row.original.status]}
           />
         ),
+        meta: {
+          filterType: 'select' as const,
+          filterLabel: t('moc.columns.status') as string,
+          filterOptions: statusOptions,
+        },
       },
       {
         accessorKey: 'priority',
@@ -193,6 +228,11 @@ function MOCListTab() {
           ) : (
             <span className="text-muted-foreground/40 text-xs">—</span>
           ),
+        meta: {
+          filterType: 'select' as const,
+          filterLabel: t('moc.columns.priority') as string,
+          filterOptions: priorityOptions,
+        },
       },
       {
         accessorKey: 'initiator_display',
@@ -215,161 +255,73 @@ function MOCListTab() {
         ),
       },
     ],
-    [t],
+    [t, siteOptions, statusOptions, priorityOptions],
   )
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <label className="text-xs font-medium text-muted-foreground">
-          {t('moc.columns.status')}
-        </label>
-        <select
-          className="gl-form-input h-7 text-xs"
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value as MOCStatus | '')
-            setPage(1)
-          }}
-        >
-          <option value="">{t('common.all')}</option>
-          {Object.entries(MOC_STATUS_LABELS).map(([k, label]) => (
-            <option key={k} value={k}>{label}</option>
-          ))}
-        </select>
-      </div>
-      <div className="flex-1 min-h-0">
-        <DataTable<MOC>
-          columns={columns}
-          data={data?.items ?? []}
-          isLoading={isLoading}
-          pagination={
-            data
-              ? { page: data.page, pageSize: data.page_size, total: data.total, pages: data.pages }
-              : undefined
-          }
-          onPaginationChange={(p: number, size: number) => {
-            setPage(p)
-            setPageSize(size)
-          }}
-          onRowClick={(row: MOC) =>
-            openDynamicPanel({ type: 'detail', module: 'moc', id: row.id })
-          }
-        />
-      </div>
-    </div>
-  )
-}
-
-// ─── Stats tab ──────────────────────────────────────────────────────────────
-
-function MOCStatsTab() {
-  const { t } = useTranslation()
-  const { data, isLoading } = useMOCStats()
-
-  if (isLoading) {
-    return <div className="p-6 text-sm text-muted-foreground">{t('common.loading')}</div>
-  }
-  if (!data) return null
-
-  return (
-    <div className="space-y-4 p-4">
-      <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
-        <StatCard label={t('moc.stats.total')} value={data.total} icon={ClipboardList} />
-        <StatCard
-          label={t('moc.stats.avg_cycle')}
-          value={data.avg_cycle_time_days != null ? `${data.avg_cycle_time_days}j` : '—'}
-          icon={BarChart3}
-        />
-        <StatCard
-          label={t('moc.stats.open')}
-          value={data.by_status
-            .filter((s) => !['closed', 'cancelled'].includes(s.status))
-            .reduce((acc, s) => acc + s.count, 0)}
-          icon={AlertTriangle}
-        />
-      </div>
-      <BreakdownTable
-        title={t('moc.stats.by_status')}
-        rows={data.by_status.map((s) => ({
-          label: MOC_STATUS_LABELS[s.status as MOCStatus] || s.status,
-          count: s.count,
-        }))}
-      />
-      <BreakdownTable
-        title={t('moc.stats.by_site')}
-        rows={data.by_site.map((s) => ({
-          label: s.site_label,
-          count: s.count,
-          percentage: s.percentage,
-        }))}
-      />
-      <BreakdownTable
-        title={t('moc.stats.by_type')}
-        rows={data.by_type.map((s) => ({
-          label: s.modification_type === 'permanent' ? t('moc.type_permanent') : s.modification_type === 'temporary' ? t('moc.type_temporary') : '—',
-          count: s.count,
-          percentage: s.percentage,
-        }))}
-      />
-    </div>
-  )
-}
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string
-  value: string | number
-  icon: typeof LayoutDashboard
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center gap-2">
-        <Icon size={16} className="text-muted-foreground" />
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-      </div>
-      <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
-    </div>
-  )
-}
-
-function BreakdownTable({
-  title,
-  rows,
-}: {
-  title: string
-  rows: { label: string; count: number; percentage?: number }[]
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card">
-      <div className="border-b border-border px-4 py-2">
-        <h3 className="text-sm font-semibold">{title}</h3>
-      </div>
-      <div className="divide-y divide-border/50">
-        {rows.length === 0 ? (
-          <div className="px-4 py-3 text-xs text-muted-foreground/60">Aucune donnée</div>
-        ) : (
-          rows.map((r, i) => (
-            <div key={i} className="flex items-center justify-between px-4 py-2">
-              <span className="text-xs text-foreground">{r.label}</span>
-              <div className="flex items-center gap-3">
-                {r.percentage !== undefined && (
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {r.percentage}%
-                  </span>
-                )}
-                <span className="text-xs font-semibold tabular-nums">{r.count}</span>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
+    <DataTable<MOC>
+      columns={columns}
+      data={data?.items ?? []}
+      isLoading={isLoading}
+      getRowId={(row) => row.id}
+      storageKey="moc-list"
+      searchValue={search}
+      onSearchChange={(v: string) => {
+        setSearch(v)
+        setPage(1)
+      }}
+      pagination={
+        data
+          ? {
+              page: data.page,
+              pageSize: data.page_size,
+              total: data.total,
+              pages: data.pages,
+            }
+          : undefined
+      }
+      onPaginationChange={(p: number, size: number) => {
+        setPage(p)
+        setPageSize(size)
+      }}
+      sortable
+      autoColumnFilters
+      activeFilters={{
+        status: statusFilter,
+        site_label: siteFilter,
+        priority: priorityFilter,
+      }}
+      onFilterChange={(id: string, value: unknown) => {
+        if (id === 'status') {
+          setStatusFilter(value as string | undefined)
+          setPage(1)
+        } else if (id === 'site_label') {
+          setSiteFilter(value as string | undefined)
+          setPage(1)
+        } else if (id === 'priority') {
+          setPriorityFilter(value as string | undefined)
+          setPage(1)
+        }
+      }}
+      columnVisibility
+      importExport={{
+        exportFormats: ['csv', 'xlsx', 'pdf'],
+        filenamePrefix: 'moc',
+        exportHeaders: {
+          reference: 'Référence',
+          objectives: 'Objectifs',
+          site_label: 'Site',
+          platform_code: 'Plateforme',
+          status: 'Statut',
+          priority: 'Priorité',
+          initiator_display: 'Initiateur',
+          created_at: 'Créé le',
+        },
+      }}
+      onRowClick={(row: MOC) =>
+        openDynamicPanel({ type: 'detail', module: 'moc', id: row.id })
+      }
+    />
   )
 }
 

@@ -186,7 +186,8 @@
     "duration": "Durée",
     "comment": "Commentaire",
     "history": "Historique",
-    "total": "Total"
+    "total": "Total",
+    "empty_state": "Aucune donnée à afficher"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -5682,7 +5683,8 @@
       "metier_validations": "Validations métier",
       "flags": "HAZOP / HAZID / Documents",
       "attachments": "Pièces jointes",
-      "timeline": "Historique des statuts"
+      "timeline": "Historique des statuts",
+      "comments": "Fil de discussion"
     },
     "stats": {
       "total": "Total MOCs",
@@ -5696,6 +5698,13 @@
       "created": "MOC {{ref}} créé",
       "transitioned": "Statut mis à jour : {{status}}",
       "deleted": "MOC archivé"
+    },
+    "detail_tab": {
+      "fiche": "Fiche",
+      "validation": "Validation",
+      "comments": "Commentaires",
+      "documents": "Documents",
+      "history": "Historique"
     }
   }
 }

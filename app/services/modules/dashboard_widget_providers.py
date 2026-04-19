@@ -2236,6 +2236,227 @@ async def provider_workflow_pending(
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  MOC (Management of Change) module widgets
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+_MOC_STATUS_LABELS = {
+    "created": "Créé",
+    "approved": "Approuvé",
+    "submitted_to_confirm": "Soumis à confirmer",
+    "cancelled": "Annulé",
+    "stand_by": "Stand-by",
+    "approved_to_study": "Confirmé à étudier",
+    "under_study": "En étude",
+    "study_in_validation": "Étudié en validation",
+    "validated": "Validé à exécuter",
+    "execution": "Exécution",
+    "executed_docs_pending": "Exécuté (MAJ PID/ESD)",
+    "closed": "Clôturé",
+}
+
+
+async def provider_moc_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI tile: total MOCs + counts by simple category."""
+    if entity_id is None:
+        return {"value": 0, "label": "MOCs", "breakdown": []}
+    row = await db.execute(
+        text(
+            """
+            SELECT
+                COUNT(*) FILTER (WHERE archived = FALSE) AS total,
+                COUNT(*) FILTER (WHERE archived = FALSE AND status IN
+                    ('created','approved','submitted_to_confirm','approved_to_study',
+                     'under_study','study_in_validation','validated','execution',
+                     'executed_docs_pending')) AS open,
+                COUNT(*) FILTER (WHERE archived = FALSE AND status = 'closed') AS closed,
+                COUNT(*) FILTER (WHERE archived = FALSE AND status = 'cancelled') AS cancelled
+            FROM mocs
+            WHERE entity_id = :eid
+            """
+        ),
+        {"eid": str(entity_id)},
+    )
+    r = row.mappings().one()
+    return {
+        "value": r["total"],
+        "label": "MOCs (total)",
+        "breakdown": [
+            {"label": "En cours", "value": r["open"]},
+            {"label": "Clôturés", "value": r["closed"]},
+            {"label": "Annulés", "value": r["cancelled"]},
+        ],
+    }
+
+
+async def provider_moc_by_status(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Pie chart: MOCs by status."""
+    if entity_id is None:
+        return {"labels": [], "datasets": [{"data": []}]}
+    rows = await db.execute(
+        text(
+            """
+            SELECT status, COUNT(*) AS count
+            FROM mocs
+            WHERE entity_id = :eid AND archived = FALSE
+            GROUP BY status
+            ORDER BY count DESC
+            """
+        ),
+        {"eid": str(entity_id)},
+    )
+    data = rows.mappings().all()
+    return {
+        "labels": [_MOC_STATUS_LABELS.get(r["status"], r["status"]) for r in data],
+        "datasets": [{"data": [r["count"] for r in data]}],
+    }
+
+
+async def provider_moc_by_site(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Bar chart: MOCs by site_label."""
+    if entity_id is None:
+        return {"labels": [], "datasets": [{"data": []}]}
+    rows = await db.execute(
+        text(
+            """
+            SELECT COALESCE(site_label, '—') AS site, COUNT(*) AS count
+            FROM mocs
+            WHERE entity_id = :eid AND archived = FALSE
+            GROUP BY site_label
+            ORDER BY count DESC
+            """
+        ),
+        {"eid": str(entity_id)},
+    )
+    data = rows.mappings().all()
+    return {
+        "labels": [r["site"] for r in data],
+        "datasets": [{"data": [r["count"] for r in data]}],
+    }
+
+
+async def provider_moc_by_priority(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Bar chart: open MOCs by priority bucket (P1/P2/P3/—)."""
+    if entity_id is None:
+        return {"labels": [], "datasets": [{"data": []}]}
+    rows = await db.execute(
+        text(
+            """
+            SELECT COALESCE(priority, '—') AS prio, COUNT(*) AS count
+            FROM mocs
+            WHERE entity_id = :eid AND archived = FALSE
+              AND status NOT IN ('closed', 'cancelled')
+            GROUP BY priority
+            ORDER BY COALESCE(priority, 'ZZ')
+            """
+        ),
+        {"eid": str(entity_id)},
+    )
+    data = rows.mappings().all()
+    return {
+        "labels": [f"P{r['prio']}" if r['prio'] in ('1', '2', '3') else r['prio'] for r in data],
+        "datasets": [{"data": [r["count"] for r in data]}],
+    }
+
+
+async def provider_moc_recent(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Table: 10 most recent MOCs (for a quick-access widget)."""
+    if entity_id is None:
+        return {"columns": [], "rows": []}
+    rows = await db.execute(
+        text(
+            """
+            SELECT reference, site_label, platform_code, status, priority, created_at
+            FROM mocs
+            WHERE entity_id = :eid AND archived = FALSE
+            ORDER BY created_at DESC
+            LIMIT 10
+            """
+        ),
+        {"eid": str(entity_id)},
+    )
+    data = rows.mappings().all()
+    return {
+        "columns": [
+            {"key": "reference", "label": "Référence"},
+            {"key": "site", "label": "Site"},
+            {"key": "platform", "label": "Plateforme"},
+            {"key": "status", "label": "Statut"},
+            {"key": "priority", "label": "P"},
+            {"key": "created", "label": "Créé"},
+        ],
+        "rows": [
+            {
+                "reference": r["reference"],
+                "site": r["site_label"],
+                "platform": r["platform_code"],
+                "status": _MOC_STATUS_LABELS.get(r["status"], r["status"]),
+                "priority": r["priority"] or "—",
+                "created": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in data
+        ],
+    }
+
+
+async def provider_moc_awaiting_validation(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI: MOCs currently waiting on an actor (for hierarchy / site chief / director).
+
+    The widget is intentionally coarse — it just counts by status. A future
+    refinement will filter by the current user's role (e.g. "MOCs waiting MY
+    approval").
+    """
+    if entity_id is None:
+        return {"value": 0, "label": "En attente", "breakdown": []}
+    row = await db.execute(
+        text(
+            """
+            SELECT
+                COUNT(*) FILTER (WHERE status = 'created') AS awaiting_site_chief,
+                COUNT(*) FILTER (WHERE status = 'submitted_to_confirm') AS awaiting_director,
+                COUNT(*) FILTER (WHERE status = 'approved_to_study') AS awaiting_lead_process,
+                COUNT(*) FILTER (WHERE status = 'study_in_validation') AS awaiting_validators,
+                COUNT(*) FILTER (WHERE status IN
+                    ('created','submitted_to_confirm','approved_to_study','study_in_validation')
+                ) AS total
+            FROM mocs
+            WHERE entity_id = :eid AND archived = FALSE
+            """
+        ),
+        {"eid": str(entity_id)},
+    )
+    r = row.mappings().one()
+    return {
+        "value": r["total"],
+        "label": "En attente d'action",
+        "breakdown": [
+            {"label": "Chef de site", "value": r["awaiting_site_chief"]},
+            {"label": "Directeur", "value": r["awaiting_director"]},
+            {"label": "Lead Process", "value": r["awaiting_lead_process"]},
+            {"label": "Valideurs", "value": r["awaiting_validators"]},
+        ],
+    }
+
+
 _PROVIDER_MAP: dict[str, Any] = {
     # ── Core / cross-module ──
     "pax_on_site": provider_pax_on_site,
@@ -2319,6 +2540,13 @@ _PROVIDER_MAP: dict[str, Any] = {
     "workflow_overview": provider_workflow_overview,
     "workflow_by_definition": provider_workflow_by_definition,
     "workflow_pending": provider_workflow_pending,
+    # ── MOC module ──
+    "moc_overview": provider_moc_overview,
+    "moc_by_status": provider_moc_by_status,
+    "moc_by_site": provider_moc_by_site,
+    "moc_by_priority": provider_moc_by_priority,
+    "moc_recent": provider_moc_recent,
+    "moc_awaiting_validation": provider_moc_awaiting_validation,
 }
 
 

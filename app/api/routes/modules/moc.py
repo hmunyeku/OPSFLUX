@@ -116,7 +116,6 @@ def _enrich(moc: MOC, names: dict[UUID, str]) -> dict[str, Any]:
 
 @router.get(
     "",
-    response_model=PaginatedResponse[dict],
     dependencies=[require_permission("moc.read")],
 )
 async def list_mocs(
@@ -130,7 +129,7 @@ async def list_mocs(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict:
     """Paginated list of MOCs for the current entity."""
     query = select(MOC).where(
         MOC.entity_id == entity_id,
@@ -163,10 +162,6 @@ async def list_mocs(
             )
         )
 
-    async def transform(row):
-        # Collect all user IDs we need to display for this page
-        pass
-    # Run pagination with a post-processor that enriches user names in one go.
     page = await paginate(db, query, pagination)
     mocs = page["items"]
     uids: set[UUID] = set()
@@ -462,7 +457,7 @@ async def delete_moc(
     moc = await _get_or_404(db, moc_id, entity_id)
     moc.archived = True
     from datetime import UTC, datetime
-    moc.archived_at = datetime.now(UTC)
+    moc.deleted_at = datetime.now(UTC)
     await record_audit(
         db, user_id=current_user.id, entity_id=entity_id,
         action="moc.deleted",

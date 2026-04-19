@@ -482,6 +482,31 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
     "workflow_overview": {"type": "kpi", "title": "Vue d'ensemble workflow", "source": "workflow", "roles": ["*"]},
     "workflow_by_definition": {"type": "chart", "title": "Par workflow", "source": "workflow", "roles": ["*"]},
     "workflow_pending": {"type": "table", "title": "En attente", "source": "workflow", "roles": ["*"]},
+    # ── MOC (Management of Change) ──
+    "moc_overview": {
+        "type": "kpi", "title": "MOCs — vue d'ensemble", "source": "moc",
+        "roles": ["*"], "permissions": ["moc.read"],
+    },
+    "moc_by_status": {
+        "type": "chart", "title": "MOCs par statut", "source": "moc",
+        "roles": ["*"], "permissions": ["moc.read"],
+    },
+    "moc_by_site": {
+        "type": "chart", "title": "MOCs par site", "source": "moc",
+        "roles": ["*"], "permissions": ["moc.read"],
+    },
+    "moc_by_priority": {
+        "type": "chart", "title": "MOCs en cours par priorité", "source": "moc",
+        "roles": ["*"], "permissions": ["moc.read"],
+    },
+    "moc_recent": {
+        "type": "table", "title": "MOCs récents", "source": "moc",
+        "roles": ["*"], "permissions": ["moc.read"],
+    },
+    "moc_awaiting_validation": {
+        "type": "kpi", "title": "MOCs en attente d'action", "source": "moc",
+        "roles": ["*"], "permissions": ["moc.read"],
+    },
 }
 
 

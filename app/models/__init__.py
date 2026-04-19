@@ -67,6 +67,11 @@ from app.models.packlog import (  # noqa: F401
     DeckLayoutItem,
     PackageElement,
 )
+from app.models.moc import (  # noqa: F401
+    MOC,
+    MOCStatusHistory,
+    MOCValidation,
+)
 from app.models.paxlog import (  # noqa: F401
     Ads,
     AdsEvent,

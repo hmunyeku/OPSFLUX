@@ -38,6 +38,7 @@ const CaptainPortalPage = lazy(() => import('@/pages/travelwiz/CaptainPortalPage
 const TVModePage = lazy(() => import('@/pages/dashboard/TVModePage').then(m => ({ default: m.TVModePage })))
 const FileManagerPage = lazy(() => import('@/pages/files/FileManagerPage'))
 const SupportPage = lazy(() => import('@/pages/support/SupportPage').then(m => ({ default: m.SupportPage })))
+const MOCPage = lazy(() => import('@/pages/moc/MOCPage').then(m => ({ default: m.MOCPage })))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -112,6 +113,7 @@ export default function App() {
                   <Route path="/pid-pfd/*" element={<RequireModuleEnabled module="pid_pfd"><RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<LoaderFallback />}><FileManagerPage /></Suspense></RequirePermission>} />
                   <Route path="/support/*" element={<RequireModuleEnabled module="support"><RequirePermission permission="support.ticket.read"><SupportPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/moc/*" element={<RequireModuleEnabled module="moc"><RequirePermission permission="moc.read"><MOCPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/settings/*" element={<SettingsPage />} />
                   {/* French path aliases → redirect to canonical English paths */}
                   <Route path="/workflows/*" element={<Navigate to="/workflow" replace />} />

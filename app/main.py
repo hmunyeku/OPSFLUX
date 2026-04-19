@@ -38,6 +38,7 @@ from app.modules.papyrus import MANIFEST as PAPYRUS_MANIFEST
 from app.modules.pid_pfd import MANIFEST as PID_PFD_MANIFEST
 from app.modules.messaging import MANIFEST as MESSAGING_MANIFEST
 from app.modules.support import MANIFEST as SUPPORT_MANIFEST
+from app.modules.moc import MANIFEST as MOC_MANIFEST
 
 # Route imports
 from app.api.routes.core.auth import router as auth_router
@@ -101,6 +102,7 @@ from app.api.routes.modules.pid_pfd import router as pid_pfd_router
 from app.api.routes.modules.asset_registry import router as asset_registry_router
 from app.api.routes.modules.messaging import router as messaging_router
 from app.api.routes.modules.support import router as support_router
+from app.api.routes.modules.moc import router as moc_router
 from app.api.routes.core.entities import router as entities_router
 from app.api.routes.core.admin import router as admin_router
 from app.api.routes.core.import_assistant import router as import_assistant_router
@@ -144,7 +146,7 @@ async def lifespan(app: FastAPI):
 
     # Register modules (idempotent)
     registry = ModuleRegistry()
-    for manifest in [ASSET_MANIFEST, TIERS_MANIFEST, DASHBOARD_MANIFEST, WORKFLOW_MANIFEST, PAXLOG_MANIFEST, CONFORMITE_MANIFEST, PROJETS_MANIFEST, PLANNER_MANIFEST, TRAVELWIZ_MANIFEST, PACKLOG_MANIFEST, PAPYRUS_MANIFEST, PID_PFD_MANIFEST, MESSAGING_MANIFEST, SUPPORT_MANIFEST]:
+    for manifest in [ASSET_MANIFEST, TIERS_MANIFEST, DASHBOARD_MANIFEST, WORKFLOW_MANIFEST, PAXLOG_MANIFEST, CONFORMITE_MANIFEST, PROJETS_MANIFEST, PLANNER_MANIFEST, TRAVELWIZ_MANIFEST, PACKLOG_MANIFEST, PAPYRUS_MANIFEST, PID_PFD_MANIFEST, MESSAGING_MANIFEST, SUPPORT_MANIFEST, MOC_MANIFEST]:
         await registry.register(manifest)
 
     # Sync module permissions & roles to DB (idempotent upsert — D-021)
@@ -372,6 +374,7 @@ app.include_router(papyrus_router)
 app.include_router(pid_pfd_router)
 app.include_router(messaging_router)
 app.include_router(support_router)
+app.include_router(moc_router)
 app.include_router(entities_router)
 app.include_router(admin_router)
 app.include_router(import_assistant_router)

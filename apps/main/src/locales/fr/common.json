@@ -32,7 +32,8 @@
     "imputations": "Imputations",
     "help": "Aide",
     "collapse": "Réduire",
-    "expand": "Étendre"
+    "expand": "Étendre",
+    "moc": "MOCTrack"
   },
   "auth": {
     "login": "Connexion",
@@ -5598,5 +5599,99 @@
     "les_fichiers_seront_uploades_dans_le_dos": "Les fichiers seront uploadés dans le dossier courant",
     "nouveau_dossier": "Nouveau dossier",
     "supprimer_la_selection": "Supprimer la sélection"
+  },
+  "moc": {
+    "page_title": "MOCTrack",
+    "page_subtitle": "Gestion digitale des modifications (Management of Change)",
+    "priority_prefix": "Priorité",
+    "type_permanent": "Permanent",
+    "type_temporary": "Temporaire",
+    "tabs": {
+      "dashboard": "Tableau de bord",
+      "list": "Liste",
+      "stats": "Statistiques"
+    },
+    "actions": {
+      "new": "Nouveau MOC",
+      "approve": "Approuver",
+      "submit": "Soumettre",
+      "confirm": "Confirmer",
+      "cancel_moc": "Annuler le MOC",
+      "stand_by": "Mettre en stand-by",
+      "resume": "Reprendre",
+      "start_study": "Démarrer l'étude",
+      "submit_study": "Soumettre l'étude",
+      "validate": "Valider",
+      "start_execution": "Démarrer l'exécution",
+      "complete_execution": "Terminer l'exécution",
+      "close": "Clôturer"
+    },
+    "columns": {
+      "reference": "Référence",
+      "objectives": "Objectifs",
+      "site": "Site",
+      "platform": "Plateforme",
+      "status": "Statut",
+      "priority": "Priorité",
+      "initiator": "Initiateur",
+      "created_at": "Créé le"
+    },
+    "fields": {
+      "status": "Statut",
+      "site": "Site",
+      "site_custom": "Site personnalisé",
+      "platform": "Plateforme",
+      "initiator": "Initiateur",
+      "initiator_function": "Fonction de l'initiateur",
+      "initiator_function_ph": "Process Engineer, Chef de site, …",
+      "reference": "Référence",
+      "created_at": "Créé le",
+      "objectives": "Objectifs",
+      "objectives_ph": "Brève description des objectifs du changement",
+      "description": "Description",
+      "current_situation": "Situation actuelle",
+      "proposed_changes": "Modifications proposées",
+      "impact_analysis": "Analyse d'impact",
+      "impact_analysis_ph": "Impact HSE / opérations / environnement / durée / pertes",
+      "modification_type": "Type de modification",
+      "duration_days": "Durée (jours)",
+      "planned_date": "Date prévue",
+      "priority": "Priorité",
+      "transition_comment_ph": "Commentaire (optionnel) associé à la transition"
+    },
+    "create": {
+      "title": "Nouveau MOC",
+      "subtitle": "Demande de modification",
+      "section_location": "Localisation",
+      "section_objectives": "Contenu du MOC",
+      "section_type": "Type & durée"
+    },
+    "delete": {
+      "confirm_title": "Supprimer le MOC ?",
+      "confirm_message": "Le MOC {{ref}} sera archivé. Cette action peut être annulée par un administrateur."
+    },
+    "section": {
+      "workflow": "Actions workflow",
+      "identification": "Identification",
+      "content": "Contenu",
+      "validation_matrix": "Matrice de validation",
+      "metier_validations": "Validations métier",
+      "flags": "HAZOP / HAZID / Documents",
+      "attachments": "Pièces jointes",
+      "timeline": "Historique des statuts"
+    },
+    "stats": {
+      "total": "Total MOCs",
+      "open": "En cours",
+      "avg_cycle": "Cycle moyen",
+      "by_status": "Répartition par statut",
+      "by_site": "Répartition par site",
+      "by_type": "Répartition par type"
+    },
+    "toast": {
+      "created": "MOC {{ref}} créé",
+      "transitioned": "Statut mis à jour : {{status}}",
+      "deleted": "MOC archivé"
+    }
   }
 }

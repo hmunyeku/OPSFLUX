@@ -32,7 +32,8 @@
     "imputations": "Imputations",
     "help": "Help",
     "collapse": "Collapse",
-    "expand": "Expand"
+    "expand": "Expand",
+    "moc": "MOCTrack"
   },
   "auth": {
     "login": "Login",
@@ -4788,5 +4789,99 @@
     "les_fichiers_seront_uploades_dans_le_dos": "Les fichiers seront uploadés dans le dossier courant",
     "nouveau_dossier": "Nouveau dossier",
     "supprimer_la_selection": "Supprimer la sélection"
+  },
+  "moc": {
+    "page_title": "MOCTrack",
+    "page_subtitle": "Digital Management of Change tracking",
+    "priority_prefix": "Priority",
+    "type_permanent": "Permanent",
+    "type_temporary": "Temporary",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "list": "List",
+      "stats": "Statistics"
+    },
+    "actions": {
+      "new": "New MOC",
+      "approve": "Approve",
+      "submit": "Submit",
+      "confirm": "Confirm",
+      "cancel_moc": "Cancel MOC",
+      "stand_by": "Put on stand-by",
+      "resume": "Resume",
+      "start_study": "Start study",
+      "submit_study": "Submit study",
+      "validate": "Validate",
+      "start_execution": "Start execution",
+      "complete_execution": "Complete execution",
+      "close": "Close"
+    },
+    "columns": {
+      "reference": "Reference",
+      "objectives": "Objectives",
+      "site": "Site",
+      "platform": "Platform",
+      "status": "Status",
+      "priority": "Priority",
+      "initiator": "Initiator",
+      "created_at": "Created"
+    },
+    "fields": {
+      "status": "Status",
+      "site": "Site",
+      "site_custom": "Custom site",
+      "platform": "Platform",
+      "initiator": "Initiator",
+      "initiator_function": "Initiator function",
+      "initiator_function_ph": "Process Engineer, Site Chief, …",
+      "reference": "Reference",
+      "created_at": "Created",
+      "objectives": "Objectives",
+      "objectives_ph": "Brief description of the change objectives",
+      "description": "Description",
+      "current_situation": "Current situation",
+      "proposed_changes": "Proposed changes",
+      "impact_analysis": "Impact analysis",
+      "impact_analysis_ph": "HSE / operations / environment / duration / losses",
+      "modification_type": "Modification type",
+      "duration_days": "Duration (days)",
+      "planned_date": "Planned date",
+      "priority": "Priority",
+      "transition_comment_ph": "Optional comment attached to the transition"
+    },
+    "create": {
+      "title": "New MOC",
+      "subtitle": "Change request",
+      "section_location": "Location",
+      "section_objectives": "MOC content",
+      "section_type": "Type & duration"
+    },
+    "delete": {
+      "confirm_title": "Delete MOC?",
+      "confirm_message": "MOC {{ref}} will be archived. An administrator can undo."
+    },
+    "section": {
+      "workflow": "Workflow actions",
+      "identification": "Identification",
+      "content": "Content",
+      "validation_matrix": "Validation matrix",
+      "metier_validations": "Discipline validations",
+      "flags": "HAZOP / HAZID / Documents",
+      "attachments": "Attachments",
+      "timeline": "Status history"
+    },
+    "stats": {
+      "total": "Total MOCs",
+      "open": "Open",
+      "avg_cycle": "Average cycle",
+      "by_status": "By status",
+      "by_site": "By site",
+      "by_type": "By type"
+    },
+    "toast": {
+      "created": "MOC {{ref}} created",
+      "transitioned": "Status updated: {{status}}",
+      "deleted": "MOC archived"
+    }
   }
 }

@@ -39,6 +39,7 @@ import {
   FolderOpen,
   LifeBuoy,
   Package,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -78,6 +79,7 @@ const moduleNavItems: NavItemDef[] = [
   { path: '/papyrus', icon: FileText, labelKey: 'nav.papyrus', module: 'papyrus', order: 55, requiredPermission: 'document.read' },
   { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid_pfd', order: 58, requiredPermission: 'pid.read' },
   { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', module: 'workflow', order: 60, requiredPermission: 'workflow.definition.read' },
+  { path: '/moc', icon: ClipboardList, labelKey: 'nav.moc', module: 'moc', order: 62, requiredPermission: 'moc.read' },
 ]
 
 const adminNavItems: NavItemDef[] = [

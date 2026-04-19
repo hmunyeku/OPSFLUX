@@ -45,6 +45,7 @@ export const ROUTES = {
   packlog: '/packlog',
   papyrus: '/papyrus',
   pidPfd: '/pid-pfd',
+  moc: '/moc',
 
   // ── Dynamic ──────────────────────────────────────────────────────────────
   tv: (token: string) => `/tv/${token}`,

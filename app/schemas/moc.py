@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 # ─── Create / Update ──────────────────────────────────────────────────────────
@@ -38,7 +38,15 @@ class MOCCreate(BaseModel):
     temporary_end_date: date | None = None
     planned_implementation_date: date | None = None
     tags: list[str] | None = None
-    metadata_: dict | None = Field(default=None, alias="metadata")
+    # Avoids Pydantic reading SQLAlchemy's `Base.metadata` (a MetaData
+    # instance on every ORM model) when validating from_attributes.
+    # Validation tries `metadata_` first (Python attribute) then falls
+    # back to `metadata` (JSON body key). Output is always "metadata".
+    metadata_: dict | None = Field(
+        default=None,
+        serialization_alias="metadata",
+        validation_alias=AliasChoices("metadata_", "metadata"),
+    )
 
 
 class MOCUpdate(BaseModel):
@@ -285,7 +293,15 @@ class MOCRead(BaseModel):
     actual_implementation_date: date | None
 
     tags: list | None
-    metadata_: dict | None = Field(default=None, alias="metadata")
+    # Avoids Pydantic reading SQLAlchemy's `Base.metadata` (a MetaData
+    # instance on every ORM model) when validating from_attributes.
+    # Validation tries `metadata_` first (Python attribute) then falls
+    # back to `metadata` (JSON body key). Output is always "metadata".
+    metadata_: dict | None = Field(
+        default=None,
+        serialization_alias="metadata",
+        validation_alias=AliasChoices("metadata_", "metadata"),
+    )
 
     # Enrichments (populated by service)
     initiator_display: str | None = None

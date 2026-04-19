@@ -861,7 +861,7 @@ export function AssetRegistryPage() {
   const showCreateButton = canCreate && activeTab !== 'dashboard' && activeTab !== 'hierarchy'
 
   const tabContent: Record<TabKey, JSX.Element> = {
-    dashboard: <ModuleDashboard module="asset_registry" />,
+    dashboard: <div className="space-y-4 p-4"><ModuleDashboard module="asset_registry" toolbarPortalId="dash-toolbar-asset-registry" /></div>,
     hierarchy: <AssetHierarchyTree />,
     fields: <FieldsTab />,
     sites: <SitesTab />,
@@ -899,8 +899,9 @@ export function AssetRegistryPage() {
             items={TABS.map(({ key, icon, labelKey }) => ({ id: key, icon, label: t(labelKey) }))}
             activeId={activeTab}
             onTabChange={(id) => setActiveTab(id as TabKey)}
+            rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-asset-registry" /> : null}
           />
-          <PanelContent scroll={false}>
+          <PanelContent scroll={activeTab === 'dashboard' || activeTab === 'maps'}>
             {tabContent[activeTab]}
           </PanelContent>
         </div>

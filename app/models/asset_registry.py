@@ -331,6 +331,8 @@ class OilSite(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     commissioning_date: Mapped[date | None] = mapped_column(Date)
     first_oil_date: Mapped[date | None] = mapped_column(Date)
     notes: Mapped[str | None] = mapped_column(Text)
+    # External identity for round-trip with GIS sources (ArcGIS globalid, etc.)
+    external_id: Mapped[str | None] = mapped_column(String(100))
 
     # Relationships
     field: Mapped["OilField"] = relationship(back_populates="sites")
@@ -390,6 +392,9 @@ class Installation(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
     # Relationships
     site: Mapped["OilSite"] = relationship(back_populates="installations")
+    # External identity for round-trip with GIS sources (ArcGIS globalid, etc.)
+    external_id: Mapped[str | None] = mapped_column(String(100))
+
     decks: Mapped[list["InstallationDeck"]] = relationship(back_populates="installation", cascade="all, delete-orphan")
     offshore_details: Mapped["InstallationOffshoreDetails | None"] = relationship(back_populates="installation", uselist=False, cascade="all, delete-orphan")
     onshore_details: Mapped["InstallationOnshoreDetails | None"] = relationship(back_populates="installation", uselist=False, cascade="all, delete-orphan")
@@ -567,6 +572,8 @@ class RegistryEquipment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Ba
     replacement_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
     notes: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
+    # External identity for round-trip with GIS sources (ArcGIS globalid, etc.)
+    external_id: Mapped[str | None] = mapped_column(String(100))
 
     # Relationships
     installation: Mapped["Installation | None"] = relationship(back_populates="equipment_list")
@@ -673,6 +680,8 @@ class RegistryPipeline(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Bas
     permit_number: Mapped[str | None] = mapped_column(String(100))
     regulator: Mapped[str | None] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text)
+    # External identity for round-trip with GIS sources (ArcGIS globalid, etc.)
+    external_id: Mapped[str | None] = mapped_column(String(100))
 
     # Relationships
     from_installation: Mapped["Installation"] = relationship(foreign_keys=[from_installation_id])

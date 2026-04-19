@@ -464,4 +464,47 @@ export const assetRegistryService = {
     const { data } = await api.get(`${BASE}/kmz/export`, { responseType: 'blob' })
     return data
   },
+
+  /** Commit a previously-previewed KMZ under the given OilField. Returns the import report. */
+  kmzImport: async (file: File, fieldId: string): Promise<KmzImportReport> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await api.post(`${BASE}/kmz/import`, formData, {
+      params: { field_id: fieldId },
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
+
+  /** List recent KMZ import runs for the current entity (for audit + rollback UI). */
+  listKmzImportRuns: async (): Promise<KmzImportRunSummary[]> => {
+    const { data } = await api.get(`${BASE}/kmz/import-runs`)
+    return data
+  },
+
+  /** Soft-delete every asset created by a given import run. */
+  rollbackKmzImport: async (runId: string): Promise<{ detail: string; soft_deleted?: Record<string, number> }> => {
+    const { data } = await api.post(`${BASE}/kmz/import/${runId}/rollback`)
+    return data
+  },
+}
+
+export interface KmzImportReport {
+  field: { id: string; code?: string; name?: string; import_run_id?: string }
+  sites: { created: number; matched: number; errors: number }
+  installations: { created: number; matched: number; errors: number }
+  wells: { created: number; matched: number; errors: number }
+  pipelines: { created: number; matched: number; skipped: number; errors: number }
+  warnings: Array<{ kind: string; name: string; reason: string }>
+}
+
+export interface KmzImportRunSummary {
+  id: string
+  field_id: string | null
+  source_filename: string | null
+  document_name: string | null
+  status: string
+  created_at: string | null
+  rolled_back_at: string | null
+  report: KmzImportReport | null
 }

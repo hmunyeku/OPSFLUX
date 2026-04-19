@@ -220,8 +220,31 @@
       "errors": {
         "not_kmz": "Only .kmz files are accepted",
         "parse_failed": "Failed to parse KMZ",
-        "export_failed": "KMZ export failed"
-      }
+        "export_failed": "KMZ export failed",
+        "import_failed": "KMZ import failed"
+      },
+      "commit_field_label": "Target oil field",
+      "commit_field_placeholder": "— Select a field —",
+      "commit_button": "Commit to database",
+      "commit_hint": "Sites are derived from the FIELD attribute; wells are attached to the nearest platform (or by name prefix).",
+      "commit_confirm_title": "Commit import to database?",
+      "commit_confirm_message": "Platforms, wells and pipelines will be created in the registry. The operation is idempotent (re-importing won't duplicate) and can be rolled back from history.",
+      "import_success": "Import completed",
+      "import_ready_hint": "Drop a KMZ above to start. The content is parsed without touching the database. You'll then pick the target field before committing.",
+      "report_title": "Import report",
+      "report_reset": "New import",
+      "report_created": "created",
+      "report_matched": "matched",
+      "report_skipped": "skipped",
+      "report_errors": "errors",
+      "report_warnings_title": "Warnings",
+      "history_button": "History",
+      "history_title": "KMZ import history",
+      "history_empty": "No imports performed yet.",
+      "history_rolled_back": "rolled back",
+      "rollback_button": "Rollback import",
+      "rollback_confirm_title": "Rollback this import?",
+      "rollback_confirm_message": "All assets created by this import will be archived (soft delete). This action can only be undone manually by an admin via the database."
     },
     "subtitle": "Sites and equipment registry",
     "total": "assets",

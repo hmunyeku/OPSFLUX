@@ -2007,3 +2007,135 @@ async def kmz_export(
         media_type="application/vnd.google-earth.kmz",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/kmz/import", dependencies=[require_permission("asset.create")])
+async def kmz_import(
+    file: UploadFile = File(...),
+    field_id: UUID = Query(..., description="Target OilField id"),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Import a KMZ into the Asset Registry under the given OilField.
+
+    Uses upsert semantics keyed by ArcGIS globalid / normalised code so
+    re-running the same import is idempotent. Records the operation in
+    ar_import_runs for audit + rollback.
+    """
+    from app.services.kmz_import import import_kmz
+
+    if not file.filename or not file.filename.lower().endswith(".kmz"):
+        raise HTTPException(400, "File must be a .kmz archive")
+    content = await file.read()
+    if len(content) > 100 * 1024 * 1024:
+        raise HTTPException(400, "KMZ too large (max 100 MB)")
+    try:
+        report = await import_kmz(
+            db,
+            entity_id=entity_id,
+            field_id=field_id,
+            user_id=current_user.id,
+            kmz_bytes=content,
+            filename=file.filename,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        await db.rollback()
+        logger.exception("KMZ import failed for entity %s", entity_id)
+        raise HTTPException(500, f"Import error: {exc}") from exc
+
+    await db.commit()
+    return report.to_dict()
+
+
+@router.post(
+    "/kmz/import/{run_id}/rollback",
+    dependencies=[require_permission("asset.delete")],
+)
+async def kmz_import_rollback(
+    run_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Soft-delete every asset created by a given import run. Idempotent:
+    calling it twice marks the run rolled_back but is a no-op on the
+    second call.
+    """
+    from datetime import datetime, timezone
+
+    from app.models.asset_registry_import import ImportRun
+
+    run = (
+        await db.execute(
+            select(ImportRun).where(ImportRun.id == run_id, ImportRun.entity_id == entity_id)
+        )
+    ).scalar_one_or_none()
+    if not run:
+        raise HTTPException(404, "Import run not found")
+    if run.rolled_back_at is not None:
+        return {"detail": "Already rolled back", "rolled_back_at": run.rolled_back_at.isoformat()}
+
+    soft_deleted = {"sites": 0, "installations": 0, "equipment": 0, "pipelines": 0}
+    for pid in run.created_pipeline_ids:
+        obj = (await db.execute(select(RegistryPipeline).where(RegistryPipeline.id == pid))).scalar_one_or_none()
+        if obj and not obj.archived:
+            obj.archived = True
+            soft_deleted["pipelines"] += 1
+    for eid in run.created_equipment_ids:
+        obj = (await db.execute(select(RegistryEquipment).where(RegistryEquipment.id == eid))).scalar_one_or_none()
+        if obj and not obj.archived:
+            obj.archived = True
+            soft_deleted["equipment"] += 1
+    for iid in run.created_installation_ids:
+        obj = (await db.execute(select(Installation).where(Installation.id == iid))).scalar_one_or_none()
+        if obj and not obj.archived:
+            obj.archived = True
+            soft_deleted["installations"] += 1
+    for sid in run.created_site_ids:
+        obj = (await db.execute(select(OilSite).where(OilSite.id == sid))).scalar_one_or_none()
+        if obj and not obj.archived:
+            obj.archived = True
+            soft_deleted["sites"] += 1
+
+    run.rolled_back_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"detail": "Rollback completed", "soft_deleted": soft_deleted, "run_id": str(run.id)}
+
+
+@router.get("/kmz/import-runs", dependencies=[require_permission("asset.read")])
+async def list_import_runs(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List the most recent KMZ import runs for this entity (for audit UI).
+    """
+    from app.models.asset_registry_import import ImportRun
+
+    runs = (
+        await db.execute(
+            select(ImportRun)
+            .where(ImportRun.entity_id == entity_id)
+            .order_by(ImportRun.created_at.desc())
+            .limit(50)
+        )
+    ).scalars().all()
+    return [
+        {
+            "id": str(r.id),
+            "field_id": str(r.field_id) if r.field_id else None,
+            "source_filename": r.source_filename,
+            "document_name": r.document_name,
+            "status": r.status,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "rolled_back_at": r.rolled_back_at.isoformat() if r.rolled_back_at else None,
+            "report": r.report,
+        }
+        for r in runs
+    ]

@@ -218,8 +218,31 @@
       "errors": {
         "not_kmz": "Seuls les fichiers .kmz sont acceptés",
         "parse_failed": "Impossible d'analyser le KMZ",
-        "export_failed": "Échec de l'export KMZ"
-      }
+        "export_failed": "Échec de l'export KMZ",
+        "import_failed": "L'import KMZ a échoué"
+      },
+      "commit_field_label": "Champ pétrolier de rattachement",
+      "commit_field_placeholder": "— Sélectionner un champ —",
+      "commit_button": "Importer en base",
+      "commit_hint": "Les sites seront déduits de l'attribut FIELD ; les puits seront rattachés à la plateforme la plus proche (ou par préfixe de nom).",
+      "commit_confirm_title": "Lancer l'import en base ?",
+      "commit_confirm_message": "Les plateformes, puits et pipelines seront créés dans le référentiel. L'opération est idempotente (un re-import ne duplique rien) et peut être annulée via l'historique.",
+      "import_success": "Import terminé",
+      "import_ready_hint": "Déposez un KMZ ci-dessus pour commencer. Le contenu sera analysé sans modifier la base. Vous choisirez ensuite le champ de rattachement avant de valider l'import.",
+      "report_title": "Rapport d'import",
+      "report_reset": "Nouvel import",
+      "report_created": "créés",
+      "report_matched": "déjà en base",
+      "report_skipped": "ignorés",
+      "report_errors": "erreurs",
+      "report_warnings_title": "Avertissements",
+      "history_button": "Historique",
+      "history_title": "Historique des imports KMZ",
+      "history_empty": "Aucun import effectué.",
+      "history_rolled_back": "annulé",
+      "rollback_button": "Annuler l'import",
+      "rollback_confirm_title": "Annuler cet import ?",
+      "rollback_confirm_message": "Tous les assets créés par cet import seront archivés (soft-delete). Cette action peut être annulée manuellement par un admin via la base."
     },
     "list": "Liste",
     "map": "Carte",

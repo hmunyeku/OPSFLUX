@@ -765,7 +765,11 @@ export function MOCDetailPanel({ id }: Props) {
 
         {activeTab === 'documents' && (
           <FormSection title={t('moc.section.attachments')} defaultExpanded>
-            <AttachmentManager ownerType="moc" ownerId={moc.id} />
+            <AttachmentManager
+              ownerType="moc"
+              ownerId={moc.id}
+              categoryDictionary="moc_attachment_type"
+            />
           </FormSection>
         )}
 

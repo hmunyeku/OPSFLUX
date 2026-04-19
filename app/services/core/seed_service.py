@@ -2028,6 +2028,15 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("moc_validation_role", "gas_manager", "Gas Manager", 5, {"en": "Gas Manager"}),
         ("moc_validation_role", "maintenance_manager", "Maintenance Manager", 6, {"en": "Maintenance Manager"}),
         ("moc_validation_role", "metier", "Métier (discipline)", 7, {"en": "Discipline"}),
+        # Typed MOC attachments (CDC §4 — paper form expects PID initial/modifié,
+        # photos, études). Admin can add more via Settings → Dictionary.
+        ("moc_attachment_type", "pid_initial", "PID initial", 1, {"en": "Initial PID"}),
+        ("moc_attachment_type", "pid_modified", "PID modifié", 2, {"en": "Modified PID"}),
+        ("moc_attachment_type", "esd_initial", "ESD initial", 3, {"en": "Initial ESD"}),
+        ("moc_attachment_type", "esd_modified", "ESD modifié", 4, {"en": "Modified ESD"}),
+        ("moc_attachment_type", "photo", "Photo", 5, {"en": "Photo"}),
+        ("moc_attachment_type", "study", "Étude", 6, {"en": "Study"}),
+        ("moc_attachment_type", "other", "Autre", 99, {"en": "Other"}),
     ]
 
     created = 0

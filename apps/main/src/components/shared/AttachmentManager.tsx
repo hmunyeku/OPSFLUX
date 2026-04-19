@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useAttachments, useUploadAttachment, useDeleteAttachment } from '@/hooks/useSettings'
+import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useToast } from '@/components/ui/Toast'
 import api from '@/lib/api'
 import type { FileAttachment } from '@/types/api'
@@ -121,11 +122,30 @@ interface AttachmentManagerProps {
   compact?: boolean
   initialShowForm?: boolean
   readOnly?: boolean
+  /** When set, uploads are tagged with a category drawn from this dictionary
+   *  (e.g. 'moc_attachment_type'). Displays a dropdown above the dropzone
+   *  and a filter tab-bar, plus a badge on each attached file.
+   */
+  categoryDictionary?: string
 }
 
-export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm, readOnly }: AttachmentManagerProps) {
+export function AttachmentManager({
+  ownerType,
+  ownerId,
+  compact,
+  initialShowForm,
+  readOnly,
+  categoryDictionary,
+}: AttachmentManagerProps) {
   const { toast } = useToast()
-  const { data, isLoading } = useAttachments(ownerType, ownerId)
+  const categoryOptions = useDictionaryOptions(categoryDictionary ?? '')
+  const [uploadCategory, setUploadCategory] = useState<string>('')
+  const [categoryFilter, setCategoryFilter] = useState<string>('')
+  const { data, isLoading } = useAttachments(
+    ownerType,
+    ownerId,
+    categoryFilter || undefined,
+  )
   const uploadAttachment = useUploadAttachment()
   const deleteAttachment = useDeleteAttachment()
 
@@ -146,13 +166,18 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
     if (!files || !ownerId) return
     for (const file of Array.from(files)) {
       try {
-        await uploadAttachment.mutateAsync({ ownerType, ownerId, file })
+        await uploadAttachment.mutateAsync({
+          ownerType,
+          ownerId,
+          file,
+          category: uploadCategory || undefined,
+        })
         toast({ title: `${file.name} ajouté`, variant: 'success' })
       } catch {
         toast({ title: 'Erreur', description: `Impossible d'ajouter ${file.name}.`, variant: 'error' })
       }
     }
-  }, [ownerId, ownerType, uploadAttachment, toast])
+  }, [ownerId, ownerType, uploadAttachment, toast, uploadCategory])
 
   const handleDelete = useCallback(async (id: string) => {
     try {
@@ -181,9 +206,61 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
 
   return (
     <div className="space-y-2">
+      {/* Category filter pills (when dictionary provided) */}
+      {categoryDictionary && categoryOptions.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('')}
+            className={cn(
+              'rounded px-2 py-0.5 text-[10px] transition-colors',
+              categoryFilter === ''
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:bg-muted/70',
+            )}
+          >
+            Tous
+          </button>
+          {categoryOptions.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setCategoryFilter(o.value)}
+              className={cn(
+                'rounded px-2 py-0.5 text-[10px] transition-colors',
+                categoryFilter === o.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/70',
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Upload zone */}
       {!readOnly && (
         <>
+          {categoryDictionary && categoryOptions.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] text-muted-foreground shrink-0">
+                Type :
+              </label>
+              <select
+                className="gl-form-input h-7 text-xs flex-1"
+                value={uploadCategory}
+                onChange={(e) => setUploadCategory(e.target.value)}
+              >
+                <option value="">— non catégorisé —</option>
+                {categoryOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
           <div
             onDragOver={handleDragOver}
@@ -222,7 +299,14 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
             <div className="flex items-center gap-2.5 px-3 py-2">
               <FileIcon size={14} className="text-muted-foreground shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-foreground truncate">{att.original_name}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-medium text-foreground truncate">{att.original_name}</p>
+                  {att.category && (
+                    <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-medium text-accent-foreground shrink-0">
+                      {categoryOptions.find((o) => o.value === att.category)?.label ?? att.category}
+                    </span>
+                  )}
+                </div>
                 <p className="text-[9px] text-muted-foreground">
                   {formatSize(att.size_bytes)} · {formatDate(att.created_at)}
                 </p>

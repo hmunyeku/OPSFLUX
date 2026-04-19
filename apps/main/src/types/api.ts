@@ -994,6 +994,8 @@ export interface FileAttachment {
   content_type: string
   size_bytes: number
   description: string | null
+  /** Optional typed category (driven by per-module dictionary, e.g. `moc_attachment_type`). */
+  category: string | null
   uploaded_by: string
   created_at: string
 }

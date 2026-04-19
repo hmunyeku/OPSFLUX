@@ -29,14 +29,19 @@ router = APIRouter(prefix="/api/v1/attachments", tags=["attachments"])
 async def list_attachments(
     owner_type: str = Query(..., description="Object type: user, tier, asset, entity"),
     owner_id: UUID = Query(..., description="UUID of the owning object"),
+    category: str | None = Query(
+        None,
+        description="Optional category filter (e.g. pid_initial, photo, study).",
+        max_length=40,
+    ),
     request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List file attachments for a given owner."""
+    """List file attachments for a given owner (optionally filtered by category)."""
     await check_polymorphic_owner_access(owner_type, owner_id, current_user, db, request, write=False)
-    result = await db.execute(
+    stmt = (
         select(Attachment)
         .where(
             Attachment.owner_type == owner_type,
@@ -45,6 +50,9 @@ async def list_attachments(
         )
         .order_by(Attachment.created_at.desc())
     )
+    if category:
+        stmt = stmt.where(Attachment.category == category)
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 
@@ -55,6 +63,7 @@ async def upload_attachment(
     owner_type: str = Form(...),
     owner_id: str = Form(...),
     description: str | None = Form(None),
+    category: str | None = Form(None),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -88,6 +97,7 @@ async def upload_attachment(
         size_bytes=len(content),
         storage_path=storage_path,
         description=description,
+        category=(category or None) if category else None,
         uploaded_by=current_user.id,
         entity_id=entity_id,
     )

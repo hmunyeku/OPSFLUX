@@ -370,21 +370,36 @@ export const notesService = {
 
 // ── Attachments (polymorphic) ────────────────────────────
 export const attachmentsService = {
-  /** List file attachments for a given owner. */
-  list: async (ownerType: string, ownerId: string): Promise<FileAttachment[]> => {
+  /** List file attachments for a given owner (optionally filtered by category). */
+  list: async (
+    ownerType: string,
+    ownerId: string,
+    category?: string,
+  ): Promise<FileAttachment[]> => {
     const { data } = await api.get('/api/v1/attachments', {
-      params: { owner_type: ownerType, owner_id: ownerId },
+      params: {
+        owner_type: ownerType,
+        owner_id: ownerId,
+        ...(category ? { category } : {}),
+      },
     })
     return data
   },
 
-  /** Upload a file attachment. */
-  upload: async (ownerType: string, ownerId: string, file: File, description?: string): Promise<FileAttachment> => {
+  /** Upload a file attachment — optional typed category (e.g. 'pid_initial'). */
+  upload: async (
+    ownerType: string,
+    ownerId: string,
+    file: File,
+    description?: string,
+    category?: string,
+  ): Promise<FileAttachment> => {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('owner_type', ownerType)
     formData.append('owner_id', ownerId)
     if (description) formData.append('description', description)
+    if (category) formData.append('category', category)
     const { data } = await api.post('/api/v1/attachments', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })

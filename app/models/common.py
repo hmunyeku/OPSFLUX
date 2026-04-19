@@ -1180,6 +1180,12 @@ class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     size_bytes: Mapped[int] = mapped_column(nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Optional per-owner-type category (e.g. 'pid_initial' / 'pid_modified'
+    # / 'photo' / 'study' for MOC — 'pid' / 'esd' for other modules). The
+    # allowed values are driven by a dictionary category per module
+    # (e.g. `moc_attachment_type`), so admins can customise the list
+    # without a schema change. NULL = uncategorised.
+    category: Mapped[str | None] = mapped_column(String(40), nullable=True)
     uploaded_by: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )

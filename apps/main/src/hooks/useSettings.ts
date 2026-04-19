@@ -750,22 +750,26 @@ export function useDeleteNote() {
 // ATTACHMENTS (polymorphic — reusable for any object type)
 // ═════════════════════════════════════════════════════════════
 
-/** Fetch attachments for a given owner (owner_type + owner_id). */
-export function useAttachments(ownerType: string, ownerId: string | undefined) {
+/** Fetch attachments for a given owner (owner_type + owner_id, optional category filter). */
+export function useAttachments(
+  ownerType: string,
+  ownerId: string | undefined,
+  category?: string,
+) {
   return useQuery({
-    queryKey: ['attachments', ownerType, ownerId],
-    queryFn: () => attachmentsService.list(ownerType, ownerId!),
+    queryKey: ['attachments', ownerType, ownerId, category ?? ''],
+    queryFn: () => attachmentsService.list(ownerType, ownerId!, category),
     enabled: !!ownerId,
   })
 }
 
-/** Upload a file attachment. */
+/** Upload a file attachment (optional typed category). */
 export function useUploadAttachment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ ownerType, ownerId, file, description }: {
-      ownerType: string; ownerId: string; file: File; description?: string
-    }) => attachmentsService.upload(ownerType, ownerId, file, description),
+    mutationFn: ({ ownerType, ownerId, file, description, category }: {
+      ownerType: string; ownerId: string; file: File; description?: string; category?: string
+    }) => attachmentsService.upload(ownerType, ownerId, file, description, category),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['attachments', variables.ownerType, variables.ownerId] })
     },

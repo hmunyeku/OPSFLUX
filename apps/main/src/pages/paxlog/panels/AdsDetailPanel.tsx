@@ -1053,7 +1053,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
           defaultExpanded
           headerAction={ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update') ? (
             <button
-              className="h-5 w-5 rounded flex items-center justify-center text-primary hover:bg-primary/10 transition-colors"
+              className="gl-button gl-button-confirm h-5 w-5 flex text-primary"
               onClick={() => setShowPaxPicker(true)}
               title={t('paxlog.ads_detail.actions.add_passenger')}
             >
@@ -1224,7 +1224,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       )}
                       {(ap.user_id || ap.contact_id) && hasPermission('paxlog.ads.update') && (
                         <button
-                          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          className="gl-button gl-button-danger"
                           onClick={() => removePax.mutate({ adsId: id, entryId: ap.id })}
                           title={t('paxlog.ads_detail.actions.remove_passenger')}
                         >

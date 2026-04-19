@@ -175,7 +175,7 @@ function AuditDetailModal({ entry, onClose }: { entry: AuditLogEntry; onClose: (
             <ScrollText size={16} className="text-primary" />
             <h3 className="text-sm font-semibold">Détail de l&apos;entrée d&apos;audit</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-muted text-muted-foreground"><X size={14} /></button>
+          <button onClick={onClose} className="gl-button gl-button-default"><X size={14} /></button>
         </div>
 
         {/* Content */}

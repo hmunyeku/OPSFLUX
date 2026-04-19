@@ -282,7 +282,7 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={copyValueToSelection}
-          className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
+          className="gl-button gl-button-default text-[10px]"
           title="Copier la première cellule sur toute la sélection"
           disabled={selectedKeys.length === 0}
         >
@@ -291,7 +291,7 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={clearSelection}
-          className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
+          className="gl-button gl-button-default text-[10px]"
           title="Vider la sélection (Suppr)"
           disabled={selectedKeys.length === 0}
         >

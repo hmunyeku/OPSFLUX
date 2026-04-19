@@ -419,7 +419,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                     <button
                       key={user.id}
                       type="button"
-                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
+                      className="gl-button gl-button-default w-full flex text-left text-sm"
                       onClick={() => handleAddUser(user.id)}
                     >
                       <UserPlus size={12} className="text-primary shrink-0" />
@@ -476,7 +476,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                   </span>
                   <button
                     type="button"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500"
+                    className="gl-button gl-button-danger opacity-0 group-hover:opacity-100 dark:hover:bg-red-900/30 text-red-500"
                     title={t('entities.remove_user')}
                     onClick={() => handleRemoveUser(user.user_id)}
                   >

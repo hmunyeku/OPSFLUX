@@ -827,7 +827,7 @@ export function GeoEditor({
                 <button
                   key={i}
                   type="button"
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors border-b border-border/50 last:border-0 flex items-start gap-2"
+                  className="gl-button gl-button-default w-full text-left text-sm last:border-0 flex items-start"
                   onClick={() => handleSelectResult(r)}
                 >
                   <MapPin size={12} className="text-primary shrink-0 mt-0.5" />

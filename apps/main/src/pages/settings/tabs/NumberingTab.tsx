@@ -695,7 +695,7 @@ function PatternRow({
               />
               <div className="flex items-center gap-1">
                 <button
-                  className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                  className="gl-button gl-button-sm gl-button-default w-7 flex"
                   onClick={handlePreview}
                   title={t('settings.numbering.preview')}
                 >
@@ -704,7 +704,7 @@ function PatternRow({
                 {isDirty && (
                   <>
                     <button
-                      className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                      className="gl-button gl-button-sm gl-button-default w-7 flex"
                       onClick={handleReset}
                       title={t('settings.numbering.reset')}
                     >

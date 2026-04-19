@@ -79,10 +79,10 @@ export function FileToolbar({
       <div className="h-5 w-px bg-border" />
 
       {/* Actions */}
-      <button onClick={onRefresh} className="p-1.5 rounded hover:bg-accent text-muted-foreground" title="Actualiser">
+      <button onClick={onRefresh} className="gl-button gl-button-default" title="Actualiser">
         <RefreshCw size={13} />
       </button>
-      <button onClick={onCreateFolder} className="p-1.5 rounded hover:bg-accent text-muted-foreground" title="Nouveau dossier">
+      <button onClick={onCreateFolder} className="gl-button gl-button-default" title="Nouveau dossier">
         <FolderPlus size={13} />
       </button>
       <label className="p-1.5 rounded hover:bg-accent text-muted-foreground cursor-pointer" title="Uploader">

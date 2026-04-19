@@ -353,7 +353,7 @@ export function InstancesTable({
       id: 'actions',
       header: '',
       cell: () => (
-        <button className="p-1 rounded hover:bg-accent text-muted-foreground">
+        <button className="gl-button gl-button-default">
           <Eye size={12} />
         </button>
       ),

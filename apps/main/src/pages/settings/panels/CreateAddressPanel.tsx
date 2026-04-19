@@ -208,7 +208,7 @@ export function CreateAddressPanel() {
               type="button"
               onClick={handleGeolocate}
               disabled={geoLoading}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30 transition-all"
+              className="gl-button gl-button-sm gl-button-confirm text-primary"
             >
               {geoLoading ? <Loader2 size={12} className="animate-spin" /> : <LocateFixed size={12} />}
               Ma position

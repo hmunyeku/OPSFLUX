@@ -981,10 +981,10 @@ export function GanttCore(props: GanttCoreProps) {
           {/* Undo/Redo */}
           {(onUndo || onRedo) && (
             <div className="flex items-center gap-0.5 ml-1 border-l border-border/40 pl-1">
-              <button onClick={onUndo} disabled={!onUndo} className="p-1 rounded hover:bg-muted disabled:opacity-30" title="Annuler (Ctrl+Z)">
+              <button onClick={onUndo} disabled={!onUndo} className="gl-button gl-button-default" title="Annuler (Ctrl+Z)">
                 <Undo2 className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
-              <button onClick={onRedo} disabled={!onRedo} className="p-1 rounded hover:bg-muted disabled:opacity-30" title="Refaire (Ctrl+Y)">
+              <button onClick={onRedo} disabled={!onRedo} className="gl-button gl-button-default" title="Refaire (Ctrl+Y)">
                 <Redo2 className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </div>
@@ -1012,12 +1012,12 @@ export function GanttCore(props: GanttCoreProps) {
           {showActions && (
             <div className="flex items-center gap-0.5 ml-2 border-l border-border/40 pl-2">
               {onAddTask && (
-                <button onClick={onAddTask} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title="Ajouter une tâche">
+                <button onClick={onAddTask} className="gl-button gl-button-sm gl-button-default h-6 text-[10px] flex" title="Ajouter une tâche">
                   <Plus className="h-3 w-3" /> Tâche
                 </button>
               )}
               {onAddMilestone && (
-                <button onClick={onAddMilestone} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title="Ajouter un jalon">
+                <button onClick={onAddMilestone} className="gl-button gl-button-sm gl-button-default h-6 text-[10px] flex" title="Ajouter un jalon">
                   <Diamond className="h-3 w-3" /> Jalon
                 </button>
               )}
@@ -1146,7 +1146,7 @@ export function GanttCore(props: GanttCoreProps) {
           </div>
 
           {/* Fit all */}
-          <button onClick={fitAll} className="p-1 rounded hover:bg-muted" title="Ajuster à l'écran">
+          <button onClick={fitAll} className="gl-button gl-button-default" title="Ajuster à l'écran">
             <Maximize className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
 
@@ -1176,7 +1176,7 @@ export function GanttCore(props: GanttCoreProps) {
                   <button
                     onClick={exportPNG}
                     disabled={exporting !== null}
-                    className="w-full px-2.5 py-1.5 flex items-center gap-2 hover:bg-muted text-left"
+                    className="gl-button gl-button-default w-full flex text-left"
                   >
                     <FileImage className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>Image PNG</span>
@@ -1185,7 +1185,7 @@ export function GanttCore(props: GanttCoreProps) {
                     <button
                       onClick={exportPDF}
                       disabled={exporting !== null}
-                      className="w-full px-2.5 py-1.5 flex items-center gap-2 hover:bg-muted text-left"
+                      className="gl-button gl-button-default w-full flex text-left"
                     >
                       <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                       <span>PDF A3 paysage</span>

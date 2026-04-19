@@ -233,7 +233,7 @@ export function CountrySelect({
             <button
               type="button"
               tabIndex={-1}
-              className="p-0.5 rounded hover:bg-accent text-muted-foreground transition-colors"
+              className="gl-button gl-button-default"
               onClick={handleClear}
             >
               <X size={12} />

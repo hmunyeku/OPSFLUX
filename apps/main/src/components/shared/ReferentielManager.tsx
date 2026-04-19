@@ -430,7 +430,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             <button
               onClick={handleSubmit}
               disabled={(!editingId && !form.compliance_type_id) || createRecord.isPending || updateRecord.isPending}
-              className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+              className="gl-button gl-button-confirm text-[10px]"
             >
               {(createRecord.isPending || updateRecord.isPending) ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
               {editingId ? 'Enregistrer' : 'Créer'}

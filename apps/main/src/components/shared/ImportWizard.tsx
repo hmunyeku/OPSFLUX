@@ -720,7 +720,7 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
               <span className="text-xs text-muted-foreground">— {t(`import.targets.${targetObject}`)}</span>
             </div>
             <Dialog.Close asChild>
-              <button className="p-1 rounded hover:bg-accent text-muted-foreground"><X size={16} /></button>
+              <button className="gl-button gl-button-default"><X size={16} /></button>
             </Dialog.Close>
           </div>
 
@@ -806,7 +806,7 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
                       </div>
                     </div>
                     <div className="flex items-center gap-2 mb-2">
-                      <button onClick={handleSyncSelectAllNew} className="px-2 py-1 text-xs rounded border hover:bg-accent">
+                      <button onClick={handleSyncSelectAllNew} className="gl-button gl-button-sm gl-button-default">
                         {t('import.sync.select_all_new')}
                       </button>
                       <span className="text-xs text-muted-foreground">{syncSelectedEmails.size} selected</span>
@@ -1179,11 +1179,11 @@ function StepUpload({ parsedFile, encoding, autoImportMapping, isAutoImporting, 
             <p className="text-green-600/80 mt-0.5">{t('import.template_match_msg')}</p>
           </div>
           <button onClick={onAutoImport} disabled={isAutoImporting}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
+            className="gl-button gl-button-sm gl-button-confirm flex text-white">
             {isAutoImporting ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
             {t('import.import_now')}
           </button>
-          <button onClick={onDismissAutoImport} className="p-1 rounded hover:bg-green-500/20 text-green-600" title={t('import.customize')}><X size={14} /></button>
+          <button onClick={onDismissAutoImport} className="gl-button gl-button-confirm text-green-600" title={t('import.customize')}><X size={14} /></button>
         </div>
       )}
       <div onDragOver={(e) => e.preventDefault()} onDrop={onDrop} onClick={() => fileInputRef.current?.click()}
@@ -1258,7 +1258,7 @@ function StepMapping({ allHeaders, targetFields, columnMapping, transforms, conf
       {/* Action bar */}
       <div className="flex items-center gap-2 flex-wrap">
         <button onClick={onAutoDetect} disabled={isAutoDetecting}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border hover:bg-accent disabled:opacity-50">
+          className="gl-button gl-button-sm gl-button-default flex">
           {isAutoDetecting ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
           {t('import.auto_detect')}
         </button>
@@ -1291,7 +1291,7 @@ function StepMapping({ allHeaders, targetFields, columnMapping, transforms, conf
               className="w-full text-xs border rounded px-2 py-1 bg-background" />
           </div>
           <button onClick={onSaveMapping} disabled={!mappingName.trim() || isSaving}
-            className="px-3 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+            className="gl-button gl-button-sm gl-button-confirm">
             {isSaving ? <Loader2 size={12} className="animate-spin" /> : t('common.save')}
           </button>
         </div>
@@ -1400,7 +1400,7 @@ function StepMapping({ allHeaders, targetFields, columnMapping, transforms, conf
           </div>
           {dedupFields.length > 0 && (
             <button onClick={onApplyDedup}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90">
+              className="gl-button gl-button-sm gl-button-confirm flex">
               <Trash2 size={10} /> {t('import.dedup_title')}
             </button>
           )}
@@ -1474,7 +1474,7 @@ function TransformEditor({ header, allHeaders, isVirtual, current, sampleValue, 
             <span>{t('import.transform.title')}</span>
           )}
         </p>
-        <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground"><X size={14} /></button>
+        <button onClick={onClose} className="gl-button gl-button-default"><X size={14} /></button>
       </div>
 
       {!isVirtual && (
@@ -1659,7 +1659,7 @@ function TransformEditor({ header, allHeaders, isVirtual, current, sampleValue, 
 
       {/* Apply button */}
       <button onClick={handleApply}
-        className="w-full py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 font-medium">
+        className="gl-button gl-button-sm gl-button-confirm w-full">
         {t('import.transform.apply')}
       </button>
     </div>
@@ -1770,7 +1770,7 @@ function StepReport({ importResult, isExecuting, onDownloadErrors, t }: {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">{t('import.error_details')}</p>
-            <button onClick={onDownloadErrors} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded border hover:bg-accent">
+            <button onClick={onDownloadErrors} className="gl-button gl-button-default flex text-[10px]">
               <Download size={10} /> {t('import.download_errors')}
             </button>
           </div>

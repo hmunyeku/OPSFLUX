@@ -267,7 +267,7 @@ export function ImageEditor({
         {/* Header */}
         <div className="flex items-center justify-between px-4 h-11 border-b border-border shrink-0">
           <h2 className="text-sm font-semibold text-foreground">Modifier l'image</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground transition-colors">
+          <button onClick={onClose} className="gl-button gl-button-default">
             <X size={16} />
           </button>
         </div>

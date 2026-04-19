@@ -823,7 +823,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                             <button
                               key={dep.id}
                               type="button"
-                              className="group w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 hover:border-primary/30 hover:bg-accent/30 transition-all"
+                              className="gl-button gl-button-default group w-full text-left flex hover:border-primary/30"
                               onClick={() => predTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: predTask.id, meta: { projectId } })}
                             >
                               <Link2 size={12} className="text-muted-foreground shrink-0" />
@@ -860,7 +860,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                             <button
                               key={dep.id}
                               type="button"
-                              className="group w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 hover:border-primary/30 hover:bg-accent/30 transition-all"
+                              className="gl-button gl-button-default group w-full text-left flex hover:border-primary/30"
                               onClick={() => succTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: succTask.id, meta: { projectId } })}
                             >
                               <Link2 size={12} className="text-muted-foreground shrink-0" />
@@ -965,7 +965,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                                       <button
                                         key={child.id}
                                         type="button"
-                                        className="rounded border border-border px-1.5 py-0.5 text-[11px] text-foreground hover:bg-muted"
+                                        className="gl-button gl-button-default text-[11px]"
                                         onClick={() => openDynamicPanel({ type: 'task-detail', module: 'projets', id: child.id, meta: { projectId } })}
                                       >
                                         {child.code || child.title}

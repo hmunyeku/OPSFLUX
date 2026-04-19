@@ -136,7 +136,7 @@ export function DelegationsTab() {
                     <button
                       key={candidate.id}
                       type="button"
-                      className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
+                      className="gl-button gl-button-default flex w-full items-start text-left text-sm"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
                         setDelegateId(candidate.id)
@@ -321,7 +321,7 @@ export function DelegationsTab() {
                     <button
                       key={candidate.id}
                       type="button"
-                      className="flex w-full items-center justify-between gap-4 px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
+                      className="gl-button gl-button-default flex w-full justify-between gap-4 text-left text-sm"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
                         setActingContext(`simulate:${candidate.id}`)

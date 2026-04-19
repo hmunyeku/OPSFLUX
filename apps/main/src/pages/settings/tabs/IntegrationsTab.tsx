@@ -766,7 +766,7 @@ function AddConnectorDialog({
             <Plus size={16} className="text-primary" />
             <h3 className="text-sm font-semibold text-foreground">Ajouter un service</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded-md hover:bg-accent text-muted-foreground">
+          <button onClick={onClose} className="gl-button gl-button-default">
             <X size={16} />
           </button>
         </div>

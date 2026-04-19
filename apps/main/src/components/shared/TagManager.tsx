@@ -373,12 +373,12 @@ function InlineTagEditor({
         <button
           onClick={handleSave}
           disabled={!editName.trim() || isSaving}
-          className="p-0.5 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600"
+          className="gl-button gl-button-confirm dark:hover:bg-green-900/30 text-green-600"
           title="Valider"
         >
           {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
         </button>
-        <button onClick={onCancel} className="p-0.5 rounded hover:bg-accent text-muted-foreground" title="Annuler">
+        <button onClick={onCancel} className="gl-button gl-button-default" title="Annuler">
           <X size={10} />
         </button>
       </div>

@@ -540,7 +540,7 @@ function EntityDetailPanel({ id }: { id: string }) {
       cell: ({ row }: { row: { original: EntityUser } }) => (
         <button
           type="button"
-          className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="gl-button gl-button-danger dark:hover:bg-red-900/30 text-red-500 opacity-0 group-hover:opacity-100"
           title="Retirer"
           onClick={(e) => { e.stopPropagation(); handleRemoveUser(row.original.user_id) }}
         >
@@ -814,7 +814,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                       <button
                         key={user.id}
                         type="button"
-                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
+                        className="gl-button gl-button-default w-full flex text-left text-sm"
                         onClick={() => handleAddUser(user.id)}
                       >
                         <UserPlus size={12} className="text-primary shrink-0" />

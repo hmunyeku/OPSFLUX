@@ -98,7 +98,7 @@ function DictCombobox({ value, options, onChange, placeholder }: {
           <div className="overflow-y-auto max-h-40">
             <button
               type="button"
-              className="w-full text-left px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent"
+              className="gl-button gl-button-default w-full text-left text-sm"
               onClick={() => { onChange(''); setOpen(false); setSearch('') }}
             >
               — Aucun —

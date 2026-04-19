@@ -243,7 +243,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
       )}
       <button
         onClick={startEdit}
-        className="p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+        className="gl-button gl-button-confirm"
         title={t('common.edit')}
       >
         <Pencil size={11} />

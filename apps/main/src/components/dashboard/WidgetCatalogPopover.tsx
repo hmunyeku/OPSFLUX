@@ -32,7 +32,7 @@ export function WidgetCatalogPopover({ catalog, onAdd }: WidgetCatalogPopoverPro
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-xs font-medium hover:bg-muted transition-colors">
+        <button className="gl-button gl-button-sm gl-button-default">
           <Plus className="h-3.5 w-3.5" />
           {t('dashboard.add_widget')}
         </button>

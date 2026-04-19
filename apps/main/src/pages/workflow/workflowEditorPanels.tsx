@@ -108,7 +108,7 @@ export function NodeConfigPanel({
           <span className={config.color}><config.icon size={14} /></span>
           <h3 className="text-xs font-semibold text-foreground">{t(config.labelKey)}</h3>
         </div>
-        <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
+        <button onClick={onClose} className="gl-button gl-button-default">
           <XCircle size={14} />
         </button>
       </div>
@@ -284,7 +284,7 @@ export function EdgeConfigPanel({
         <h3 className="text-xs font-semibold text-foreground flex items-center gap-1">
           <ArrowRight size={12} /> {t('workflow.transition')}
         </h3>
-        <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
+        <button onClick={onClose} className="gl-button gl-button-default">
           <XCircle size={14} />
         </button>
       </div>
@@ -496,7 +496,7 @@ export function ValidationPanel({
           <Shield size={12} className="inline mr-1" />
           {t('workflow.validation_title')}
         </h3>
-        <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
+        <button onClick={onClose} className="gl-button gl-button-default">
           <XCircle size={12} />
         </button>
       </div>

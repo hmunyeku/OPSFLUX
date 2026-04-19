@@ -11,7 +11,7 @@ export function FileBreadcrumbs({ breadcrumbs, currentPath, onNavigate, onNaviga
   return (
     <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto scrollbar-none">
       {currentPath !== '/' && (
-        <button onClick={onNavigateUp} className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
+        <button onClick={onNavigateUp} className="gl-button gl-button-default shrink-0">
           <ArrowLeft size={14} />
         </button>
       )}

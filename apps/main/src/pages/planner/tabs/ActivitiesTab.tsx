@@ -238,7 +238,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {s === 'draft' && (
               <button
-                className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                className="gl-button gl-button-confirm"
                 onClick={(e) => handleAction(e, () => submitActivity.mutate(row.original.id, {
                   onSuccess: () => toast({ title: t('planner.toast.activity_submitted'), variant: 'success' }),
                   onError: (err) => toast({
@@ -269,7 +269,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                   <CheckCircle2 size={12} />
                 </button>
                 <button
-                  className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                  className="gl-button gl-button-danger"
                   onClick={(e) => handleAction(e, async () => {
                     const reason = await promptInput({ title: t('planner.toast.reject_activity_title'), placeholder: 'Motif du rejet...' })
                     if (reason !== null) rejectActivity.mutate({ id: row.original.id, reason }, {
@@ -289,7 +289,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
             )}
             {!['completed', 'cancelled'].includes(s) && (
               <button
-                className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                className="gl-button gl-button-danger"
                 onClick={(e) => handleAction(e, async () => {
                   const ok = await confirmDialog({ title: 'Annuler ?', message: 'Annuler cette activité ?', confirmLabel: 'Annuler', variant: 'warning' })
                   if (ok) cancelActivity.mutate(row.original.id)
@@ -301,7 +301,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
             )}
             {canDelete && (
               <button
-                className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                className="gl-button gl-button-danger"
                 onClick={(e) => handleAction(e, async () => {
                   const ok = await confirmDialog({ title: 'Supprimer ?', message: 'Supprimer cette activité ?', confirmLabel: 'Supprimer', variant: 'danger' })
                   if (ok) deleteActivity.mutate(row.original.id)
@@ -367,7 +367,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           <button
             type="button"
             onClick={resetFilters}
-            className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-foreground border border-border rounded"
+            className="gl-button gl-button-sm gl-button-default h-6 text-[10px]"
             title="Réinitialiser tous les filtres"
           >
             Réinitialiser

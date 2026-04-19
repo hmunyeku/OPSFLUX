@@ -441,7 +441,7 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                   </div>
                   {!isPromoted && !isArchived && (
                     <button
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                      className="gl-button gl-button-danger opacity-0 group-hover:opacity-100"
                       title="Retirer du scénario"
                       onClick={() => handleRemoveScenarioActivity(act.id as string)}
                     >

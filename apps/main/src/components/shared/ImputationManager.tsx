@@ -181,7 +181,7 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
         <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wide">Imputations</h3>
         {editable && !showForm && (
           <button
-            className="h-5 w-5 rounded flex items-center justify-center text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100"
+            className="gl-button gl-button-confirm h-5 w-5 flex text-primary opacity-0 group-hover:opacity-100"
             onClick={() => setShowForm(true)}
             title={t('settings.imputation_manager.add')}
           >
@@ -311,7 +311,7 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
                           {updateImputation.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
                         </button>
                         <button
-                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                          className="gl-button gl-button-default"
                           onClick={cancelEdit}
                         >
                           <X size={11} />
@@ -320,13 +320,13 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
                     ) : (
                       <>
                         <button
-                          className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                          className="gl-button gl-button-default"
                           onClick={() => startEdit(imp)}
                         >
                           <Pencil size={11} />
                         </button>
                         <button
-                          className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                          className="gl-button gl-button-danger"
                           onClick={() => handleDelete(imp.id)}
                         >
                           <Trash2 size={11} />

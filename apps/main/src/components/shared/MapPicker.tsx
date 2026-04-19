@@ -321,7 +321,7 @@ export function MapPicker({
                 <button
                   key={i}
                   type="button"
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors border-b border-border/50 last:border-0 flex items-start gap-2"
+                  className="gl-button gl-button-default w-full text-left text-sm last:border-0 flex items-start"
                   onClick={() => handleSelectResult(r)}
                 >
                   <MapPin size={12} className="text-primary shrink-0 mt-0.5" />
@@ -397,7 +397,7 @@ export function MapPickerModal({
             <MapPin size={16} className="text-primary" />
             <h3 className="text-sm font-semibold text-foreground">Choisir sur la carte</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded-md hover:bg-accent text-muted-foreground">
+          <button onClick={onClose} className="gl-button gl-button-default">
             <X size={16} />
           </button>
         </div>

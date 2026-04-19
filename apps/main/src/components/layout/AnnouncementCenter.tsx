@@ -164,12 +164,12 @@ function AnnouncementItem({
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           {!ann.is_read && (
-            <button onClick={onDismiss} className="p-0.5 rounded hover:bg-muted text-muted-foreground" title="Marquer comme lu">
+            <button onClick={onDismiss} className="gl-button gl-button-default" title="Marquer comme lu">
               <Check size={10} />
             </button>
           )}
           {onDelete && (
-            <button onClick={onDelete} className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-muted-foreground hover:text-red-500" title="Supprimer">
+            <button onClick={onDelete} className="gl-button gl-button-danger dark:hover:bg-red-900/20" title="Supprimer">
               <X size={10} />
             </button>
           )}

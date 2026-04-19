@@ -963,7 +963,7 @@ export function InlineEditableRow({
           />
           <button
             onClick={commit}
-            className="shrink-0 h-7 w-7 flex items-center justify-center rounded-lg text-success hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+            className="gl-button gl-button-sm gl-button-confirm shrink-0 w-7 flex text-success dark:hover:bg-green-900/20"
           >
             <Check size={14} />
           </button>

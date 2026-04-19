@@ -417,7 +417,7 @@ function MessageRow({ message }: { message: I18nMessage }) {
               <button
                 onClick={save}
                 disabled={upsert.isPending}
-                className="p-1.5 rounded hover:bg-primary/10 text-primary disabled:opacity-50"
+                className="gl-button gl-button-confirm text-primary"
                 title="Enregistrer"
               >
                 {upsert.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
@@ -445,7 +445,7 @@ function MessageRow({ message }: { message: I18nMessage }) {
               </button>
               <button
                 onClick={handleDelete}
-                className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                className="gl-button gl-button-danger"
                 title="Supprimer"
               >
                 <Trash2 size={14} />
@@ -751,7 +751,7 @@ function LanguagesPanel({
           <div className="font-medium flex items-center gap-2">
             <Globe size={16} /> Langues
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-muted">
+          <button onClick={onClose} className="gl-button gl-button-default">
             <X size={16} />
           </button>
         </div>

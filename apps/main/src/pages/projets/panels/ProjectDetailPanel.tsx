@@ -136,7 +136,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
     <div className="border border-primary/30 rounded-md bg-primary/5 p-3 space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-primary">Nouvelle tâche</span>
-        <button onClick={onClose} className="p-0.5 rounded hover:bg-muted text-muted-foreground"><X size={12} /></button>
+        <button onClick={onClose} className="gl-button gl-button-default"><X size={12} /></button>
       </div>
 
       <input
@@ -415,7 +415,7 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
         <button
           onClick={handleAdd}
           disabled={!newName.trim() || createD.isPending}
-          className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-30"
+          className="gl-button gl-button-confirm text-primary"
         >
           {createD.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />}
         </button>
@@ -488,7 +488,7 @@ function TaskActionsSection({ task, projectId }: { task: ProjectTask; projectId:
         <button
           onClick={handleAdd}
           disabled={!newTitle.trim() || createA.isPending}
-          className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-30"
+          className="gl-button gl-button-confirm text-primary"
         >
           {createA.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />}
         </button>
@@ -637,7 +637,7 @@ function TaskRow({
         {task.assignee_name && <span className="text-muted-foreground text-[10px] max-w-[70px] truncate">{task.assignee_name}</span>}
         {confirmDelete ? (
           <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-            <button onClick={handleDelete} className="p-0.5 rounded bg-red-500/10 text-red-500 hover:bg-red-500/20"><Check size={10} /></button>
+            <button onClick={handleDelete} className="gl-button gl-button-danger text-red-500"><Check size={10} /></button>
             <button onClick={() => setConfirmDelete(false)} className="p-0.5 rounded hover:bg-muted text-muted-foreground"><X size={10} /></button>
           </div>
         ) : (
@@ -825,7 +825,7 @@ function MilestoneQuickAdd({ projectId }: { projectId: string }) {
         onChange={(e) => setDueDate(e.target.value)}
         className={`${panelInputClass} w-[110px] text-xs`}
       />
-      <button onClick={handleSubmit} disabled={createMs.isPending || !name.trim()} className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-40">
+      <button onClick={handleSubmit} disabled={createMs.isPending || !name.trim()} className="gl-button gl-button-confirm text-primary">
         {createMs.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
       </button>
       <button onClick={() => { setOpen(false); setName(''); setDueDate('') }} className="p-1 rounded hover:bg-muted text-muted-foreground">
@@ -926,7 +926,7 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
               <button
                 key={u.id}
                 type="button"
-                className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted flex flex-col"
+                className="gl-button gl-button-sm gl-button-default w-full text-left flex flex-col"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(u.id, `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email)}
               >
@@ -940,7 +940,7 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
       <select value={role} onChange={(e) => setRole(e.target.value)} className={`${panelInputClass} w-[100px] text-xs`}>
         {memberRoleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
       </select>
-      <button onClick={handleSubmit} disabled={addMember.isPending || !selectedUserId} className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-40">
+      <button onClick={handleSubmit} disabled={addMember.isPending || !selectedUserId} className="gl-button gl-button-confirm text-primary">
         {addMember.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
       </button>
       <button onClick={() => { setOpen(false); setSearch(''); setSelectedUserId('') }} className="p-1 rounded hover:bg-muted text-muted-foreground">

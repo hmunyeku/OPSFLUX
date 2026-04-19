@@ -300,10 +300,10 @@ function InlineHourEditor({
           />
         </>
       )}
-      <button onClick={handleSave} disabled={isSaving} className="p-0.5 rounded hover:bg-green-100 text-green-600">
+      <button onClick={handleSave} disabled={isSaving} className="gl-button gl-button-confirm text-green-600">
         {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
       </button>
-      <button onClick={onCancel} className="p-0.5 rounded hover:bg-accent text-muted-foreground">
+      <button onClick={onCancel} className="gl-button gl-button-default">
         <X size={10} />
       </button>
     </div>

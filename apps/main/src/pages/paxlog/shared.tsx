@@ -261,7 +261,7 @@ export function SearchablePicker<T extends { id: string }>({
               {items.map((item) => (
                 <button
                   key={item.id}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors"
+                  className="gl-button gl-button-sm gl-button-default w-full text-left"
                   onClick={() => { onSelect(item); setOpen(false) }}
                 >
                   {renderItem(item)}
@@ -370,4 +370,4 @@ export function AllowedCompaniesPicker({
       )}
     </div>
   )
-}
+}

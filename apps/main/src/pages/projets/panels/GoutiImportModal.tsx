@@ -538,7 +538,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
               </span>
             </div>
             <Dialog.Close asChild>
-              <button className="p-1 rounded hover:bg-muted text-muted-foreground"><X size={14} /></button>
+              <button className="gl-button gl-button-default"><X size={14} /></button>
             </Dialog.Close>
           </div>
           <Dialog.Description className="sr-only">
@@ -792,7 +792,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
             <div className="flex items-center gap-2">
               <button
                 onClick={onClose}
-                className="px-3 py-1 text-xs rounded border border-border hover:bg-muted"
+                className="gl-button gl-button-sm gl-button-default"
               >
                 Annuler
               </button>
@@ -873,7 +873,7 @@ export function GoutiSyncToolbar() {
           type="button"
           onClick={handleMainClick}
           disabled={syncSelected.isPending}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-l border border-orange-500/30 bg-orange-500/5 text-orange-700 hover:bg-orange-500/10 disabled:opacity-50"
+          className="gl-button gl-button-default text-orange-700"
           title={hasSelection
             ? `Forcer la synchronisation (${status.project_count} importés · dernière : ${lastSyncLabel})`
             : 'Ouvrir l\'assistant d\'import Gouti'}

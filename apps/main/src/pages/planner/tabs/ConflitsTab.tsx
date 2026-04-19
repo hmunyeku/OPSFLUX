@@ -403,7 +403,7 @@ export function ConflitsTab() {
           <button
             type="button"
             onClick={resetConflictFilters}
-            className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-foreground border border-border rounded"
+            className="gl-button gl-button-sm gl-button-default h-6 text-[10px]"
             title="Réinitialiser tous les filtres"
           >
             Réinitialiser

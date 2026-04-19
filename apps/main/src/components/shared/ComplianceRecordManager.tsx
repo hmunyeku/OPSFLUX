@@ -222,7 +222,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
           <input type="text" value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="N° référence..." />
           <div className="flex justify-end gap-1.5">
             <button onClick={() => setShowForm(false)} className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted text-muted-foreground">Annuler</button>
-            <button onClick={handleCreate} disabled={!form.compliance_type_id || createRecord.isPending} className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40">
+            <button onClick={handleCreate} disabled={!form.compliance_type_id || createRecord.isPending} className="gl-button gl-button-confirm text-[10px]">
               {createRecord.isPending ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
               Créer
             </button>

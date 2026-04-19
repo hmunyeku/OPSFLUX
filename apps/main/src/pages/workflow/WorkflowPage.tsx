@@ -412,7 +412,7 @@ function WorkflowEditorInner({
     <div className="flex flex-col h-full">
       {/* ── Editor Header ── */}
       <div className="flex items-center gap-3 px-4 py-1.5 border-b border-border bg-card shrink-0">
-        <button onClick={onBack} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground">
+        <button onClick={onBack} className="gl-button gl-button-default">
           <ArrowLeft size={16} />
         </button>
         <div className="flex-1 min-w-0">
@@ -445,7 +445,7 @@ function WorkflowEditorInner({
               <button
                 onClick={handleUndo}
                 disabled={!canUndo}
-                className="p-1.5 rounded-md hover:bg-accent text-muted-foreground disabled:opacity-30"
+                className="gl-button gl-button-default"
                 title={t('workflow.shortcut_undo')}
               >
                 <Undo2 size={14} />
@@ -453,7 +453,7 @@ function WorkflowEditorInner({
               <button
                 onClick={handleRedo}
                 disabled={!canRedo}
-                className="p-1.5 rounded-md hover:bg-accent text-muted-foreground disabled:opacity-30"
+                className="gl-button gl-button-default"
                 title={t('workflow.shortcut_redo')}
               >
                 <Redo2 size={14} />

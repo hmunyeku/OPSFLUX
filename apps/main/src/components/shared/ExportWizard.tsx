@@ -457,7 +457,7 @@ export function ExportWizard({
               <Dialog.Title className="text-sm font-semibold">{t('export.wizard_title')}</Dialog.Title>
             </div>
             <Dialog.Close asChild>
-              <button className="p-1 rounded hover:bg-accent text-muted-foreground"><X size={16} /></button>
+              <button className="gl-button gl-button-default"><X size={16} /></button>
             </Dialog.Close>
           </div>
 

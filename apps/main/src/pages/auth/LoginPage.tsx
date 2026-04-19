@@ -389,7 +389,7 @@ export function LoginPage() {
                 type="button"
                 onClick={handleBackToLogin}
                 aria-label={t('common.back') as string}
-                className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                className="gl-button gl-button-default"
               >
                 <ArrowLeft size={14} />
               </button>

@@ -130,7 +130,7 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''} · {projects.length}{hasMore ? `/${totalAvailable}` : ''} affichés</span>
               <Dialog.Close asChild>
-                <button className="p-1 rounded hover:bg-accent"><X size={14} /></button>
+                <button className="gl-button gl-button-default"><X size={14} /></button>
               </Dialog.Close>
             </div>
           </div>

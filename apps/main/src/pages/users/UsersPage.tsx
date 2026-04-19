@@ -721,7 +721,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-foreground">Ajouter à une entité</span>
             <button
-              className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              className="gl-button gl-button-default"
               onClick={() => { setShowPicker(false); setPickerSearch('') }}
             >
               <X size={14} />
@@ -744,7 +744,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
               filteredAvailable.map((entity) => (
                 <button
                   key={entity.id}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left hover:bg-accent transition-colors group"
+                  className="gl-button gl-button-default w-full flex text-left group"
                   onClick={() => handleAssign(entity.id)}
                   disabled={assignToEntity.isPending}
                 >
@@ -790,7 +790,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
                 </div>
               </div>
               <button
-                className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                className="gl-button gl-button-danger"
                 title="Retirer de cette entité"
                 onClick={() => handleRemove(entity.entity_id, entity.entity_name)}
               >
@@ -845,7 +845,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-foreground">Rechercher une entreprise</span>
               <button
-                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                className="gl-button gl-button-default"
                 onClick={() => { setShowTierPicker(false); setTierSearch('') }}
               >
                 <X size={14} />
@@ -869,7 +869,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
                 return available.slice(0, 20).map((tier) => (
                   <button
                     key={tier.id}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left hover:bg-accent transition-colors group"
+                    className="gl-button gl-button-default w-full flex text-left group"
                     onClick={async () => {
                       await linkToTier.mutateAsync({ userId, tierId: tier.id })
                       setShowTierPicker(false)
@@ -906,7 +906,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
                   </div>
                 </div>
                 <button
-                  className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  className="gl-button gl-button-danger"
                   title="Retirer le lien"
                   onClick={async () => {
                     const ok = await confirm({
@@ -1256,14 +1256,14 @@ function UserDetailPanel({ id }: { id: string }) {
             {showAvatarMenu && (
               <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
                 <button
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors flex items-center gap-2"
+                  className="gl-button gl-button-sm gl-button-default w-full text-left flex"
                   onClick={() => { avatarInputRef.current?.click() }}
                 >
                   <Upload size={12} className="text-muted-foreground" />
                   Charger depuis le PC
                 </button>
                 <button
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors flex items-center gap-2"
+                  className="gl-button gl-button-sm gl-button-default w-full text-left flex"
                   onClick={() => { setShowUrlInput(true); setShowAvatarMenu(false) }}
                 >
                   <Link2 size={12} className="text-muted-foreground" />
@@ -2076,7 +2076,7 @@ function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: Acc
               <button
                 key={action.label}
                 onClick={action.onClick}
-                className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-card text-left hover:border-primary/30 hover:bg-primary/[0.02] transition-all group"
+                className="gl-button gl-button-confirm flex text-left hover:border-primary/30 hover:bg-primary/[0.02] group"
               >
                 <Icon size={14} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                 <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{action.label}</span>

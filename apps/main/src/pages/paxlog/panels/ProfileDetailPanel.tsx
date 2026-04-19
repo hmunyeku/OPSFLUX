@@ -195,7 +195,7 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
                     <button
                       key={record.id}
                       type="button"
-                      className="w-full rounded border border-border px-2 py-1.5 text-left hover:bg-accent/50 transition-colors"
+                      className="gl-button gl-button-default w-full text-left"
                       onClick={() => openDynamicPanel({ type: 'detail', module: 'conformite', id: record.id, meta: { subtype: 'record' } })}
                     >
                       <div className="flex items-center justify-between gap-2 text-xs">

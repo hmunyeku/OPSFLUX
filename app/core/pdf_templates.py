@@ -3494,6 +3494,9 @@ _MOC_REPORT_BODY_FR = r"""\
   .check.on { background: #333; color: #fff; }
   .check.on::after { content: "\2713"; color: #fff; font-weight: 900; font-size: 7pt; }
   .sig { min-height: 14mm; }
+  .sig img { max-height: 18mm; max-width: 45mm; }
+  .return-box { border-left: 2pt solid #b92020; background: #fdf1f1; padding: 1.5mm 3mm; margin-top: 1.5mm; font-size: 8pt; }
+  .return-box strong { color: #b92020; }
   .three-col { display: flex; gap: 2mm; }
   .three-col > div { flex: 1; border: 0.5pt solid #333; padding: 2mm 3mm; }
   .three-col .lbl { font-weight: 600; font-size: 8pt; color: #444; }
@@ -3523,10 +3526,28 @@ _MOC_REPORT_BODY_FR = r"""\
     <td class="label">MOC ID</td>
     <td class="value">{{ reference }}</td>
   </tr>
+  {% if title %}
+  <tr>
+    <td class="label">Nom du MOC</td>
+    <td class="value"><strong>{{ title }}</strong></td>
+  </tr>
+  {% endif %}
   {% if moc_type_label %}
   <tr>
     <td class="label">Type de MOC</td>
     <td class="value">{{ moc_type_label }}</td>
+  </tr>
+  {% endif %}
+  {% if nature %}
+  <tr>
+    <td class="label">Nature</td>
+    <td class="value">{{ nature }}</td>
+  </tr>
+  {% endif %}
+  {% if metiers %}
+  <tr>
+    <td class="label">Métiers</td>
+    <td class="value">{{ metiers | join(', ') }}</td>
   </tr>
   {% endif %}
   <tr>
@@ -3541,7 +3562,11 @@ _MOC_REPORT_BODY_FR = r"""\
     <td class="value">
       <strong>{{ initiator_display or '—' }}</strong>
       {% if initiator_function %} — {{ initiator_function }}{% endif %}
+      {% if initiator_email %}<br/><span style="color:#555;">{{ initiator_email }}</span>{% endif %}
       <br/><span style="color:#555;">Date : {{ created_at }}</span>
+      {% if initiator_signature %}
+        <div class="sig"><img src="{{ initiator_signature }}"/></div>
+      {% endif %}
     </td>
   </tr>
   <tr>
@@ -3609,10 +3634,50 @@ _MOC_REPORT_BODY_FR = r"""\
     <td class="value">
       <strong>{{ site_chief_display or '—' }}</strong>
       {% if site_chief_approved_at %}<br/><span style="color:#555;">Date : {{ site_chief_approved_at }}</span>{% endif %}
-      <div class="sig"></div>
+      <div class="sig">
+        {% if site_chief_signature %}<img src="{{ site_chief_signature }}"/>{% endif %}
+      </div>
+      {% if site_chief_return_requested and site_chief_return_reason %}
+        <div class="return-box"><strong>Renvoi pour modification :</strong> {{ site_chief_return_reason }}</div>
+      {% endif %}
     </td>
   </tr>
 </table>
+
+<!-- ══════════════════  II-bis. PRODUCTION — MISE EN ÉTUDE  ══════════════════ -->
+{% if production_validated is not none or production_comment or production_signature %}
+<table class="moc">
+  <tr><td colspan="2" class="section-title">II-bis. Validation pour mise en étude (Production)</td></tr>
+  <tr>
+    <td class="label">Mise en étude validée ?</td>
+    <td class="value">
+      <span class="yn"><span class="check {% if production_validated == True %}on{% endif %}"></span> Oui</span>
+      <span class="yn"><span class="check {% if production_validated == False %}on{% endif %}"></span> Non</span>
+      {% if production_validated_at %}<br/><span style="color:#555;">Date : {{ production_validated_at }}</span>{% endif %}
+    </td>
+  </tr>
+  {% if production_comment %}
+  <tr>
+    <td class="label">Commentaire production</td>
+    <td class="value rich">{{ production_comment }}</td>
+  </tr>
+  {% endif %}
+  {% if production_signature %}
+  <tr>
+    <td class="label">Signature Production</td>
+    <td class="value"><div class="sig"><img src="{{ production_signature }}"/></div></td>
+  </tr>
+  {% endif %}
+  {% if production_return_requested and production_return_reason %}
+  <tr>
+    <td class="label">Renvoi pour modification</td>
+    <td class="value">
+      <div class="return-box"><strong>Motif :</strong> {{ production_return_reason }}</div>
+    </td>
+  </tr>
+  {% endif %}
+</table>
+{% endif %}
 
 <!-- ══════════════════  3. CONFIRMATION DIRECTEUR  ══════════════════ -->
 {% if director_display or director_confirmed_at %}
@@ -3633,6 +3698,12 @@ _MOC_REPORT_BODY_FR = r"""\
     <td class="label">Commentaires directeur</td>
     <td class="value rich">{{ director_comment or '—' }}</td>
   </tr>
+  {% if director_signature %}
+  <tr>
+    <td class="label">Signature Directeur</td>
+    <td class="value"><div class="sig"><img src="{{ director_signature }}"/></div></td>
+  </tr>
+  {% endif %}
 </table>
 {% endif %}
 
@@ -3684,7 +3755,9 @@ _MOC_REPORT_BODY_FR = r"""\
     <td>
       <strong>{{ responsible_display or '—' }}</strong>
       {% if study_completed_at %}<br/><span style="color:#555;">{{ study_completed_at }}</span>{% endif %}
-      <div class="sig"></div>
+      <div class="sig">
+        {% if process_engineer_signature %}<img src="{{ process_engineer_signature }}"/>{% endif %}
+      </div>
     </td>
   </tr>
 </table>
@@ -3712,7 +3785,12 @@ _MOC_REPORT_BODY_FR = r"""\
       {% if v.approved == True %}<br/><span style="color:#2f7a3e; font-weight:700;">✓ Approuvé</span>
       {% elif v.approved == False %}<br/><span style="color:#b92020; font-weight:700;">✗ Refusé</span>
       {% endif %}
-      <div class="sig"></div>
+      <div class="sig">
+        {% if v.signature %}<img src="{{ v.signature }}"/>{% endif %}
+      </div>
+      {% if v.return_requested and v.return_reason %}
+        <div class="return-box"><strong>Renvoi :</strong> {{ v.return_reason }}</div>
+      {% endif %}
     </td>
   </tr>
   {% else %}
@@ -3762,10 +3840,15 @@ _MOC_REPORT_BODY_FR = r"""\
       <span class="yn"><span class="check {% if do_execution_accord == True %}on{% endif %}"></span> Accord</span>
       <span class="yn"><span class="check {% if do_execution_accord == False %}on{% endif %}"></span> Refus</span>
       {% if do_execution_comment %}<div class="rich" style="margin-top:2mm;">{{ do_execution_comment }}</div>{% endif %}
+      {% if do_return_requested and do_return_reason %}
+        <div class="return-box"><strong>Renvoi :</strong> {{ do_return_reason }}</div>
+      {% endif %}
     </td>
     <td>
       {% if do_execution_accord_at %}<span style="color:#555;">{{ do_execution_accord_at }}</span>{% endif %}
-      <div class="sig"></div>
+      <div class="sig">
+        {% if do_signature %}<img src="{{ do_signature }}"/>{% endif %}
+      </div>
     </td>
   </tr>
   <tr>
@@ -3774,10 +3857,15 @@ _MOC_REPORT_BODY_FR = r"""\
       <span class="yn"><span class="check {% if dg_execution_accord == True %}on{% endif %}"></span> Accord</span>
       <span class="yn"><span class="check {% if dg_execution_accord == False %}on{% endif %}"></span> Refus</span>
       {% if dg_execution_comment %}<div class="rich" style="margin-top:2mm;">{{ dg_execution_comment }}</div>{% endif %}
+      {% if dg_return_requested and dg_return_reason %}
+        <div class="return-box"><strong>Renvoi :</strong> {{ dg_return_reason }}</div>
+      {% endif %}
     </td>
     <td>
       {% if dg_execution_accord_at %}<span style="color:#555;">{{ dg_execution_accord_at }}</span>{% endif %}
-      <div class="sig"></div>
+      <div class="sig">
+        {% if dg_signature %}<img src="{{ dg_signature }}"/>{% endif %}
+      </div>
     </td>
   </tr>
 </table>

@@ -1025,6 +1025,9 @@ async def export_moc_pdf(
             "validated_at": _fmt_date(v.validated_at),
             "approved": v.approved,
             "level": v.level,
+            "signature": v.signature,
+            "return_requested": v.return_requested,
+            "return_reason": v.return_reason,
         })
 
     # Fetch MOC type label lazily (avoid a join when not needed)
@@ -1037,12 +1040,21 @@ async def export_moc_pdf(
 
     variables = {
         "reference": moc.reference,
+        "title": moc.title,
+        "nature": moc.nature,
+        "metiers": moc.metiers or [],
         "status_label": STATUS_LABELS.get(moc.status, moc.status),
         "moc_type_label": moc_type_label,
         "site_label": moc.site_label,
         "platform_code": moc.platform_code,
-        "initiator_display": names.get(moc.initiator_id) or moc.initiator_name,
-        "initiator_function": moc.initiator_function,
+        "initiator_display": (
+            moc.initiator_external_name
+            or names.get(moc.initiator_id)
+            or moc.initiator_name
+        ),
+        "initiator_function": moc.initiator_external_function or moc.initiator_function,
+        "initiator_email": moc.initiator_email,
+        "initiator_signature": moc.initiator_signature,
         "created_at": _fmt_date(moc.created_at),
         "objectives": moc.objectives,
         "description": render_markdown(moc.description) if moc.description else None,
@@ -1062,9 +1074,20 @@ async def export_moc_pdf(
         "site_chief_display": names.get(moc.site_chief_id) if moc.site_chief_id else None,
         "site_chief_approved_at": _fmt_date(moc.site_chief_approved_at),
         "site_chief_comment": moc.site_chief_comment,
+        "site_chief_signature": moc.site_chief_signature,
+        "site_chief_return_requested": moc.site_chief_return_requested,
+        "site_chief_return_reason": moc.site_chief_return_reason,
+        # Production mise-en-étude (Daxium tab 3)
+        "production_validated": moc.production_validated,
+        "production_validated_at": _fmt_date(moc.production_validated_at),
+        "production_comment": moc.production_comment,
+        "production_signature": moc.production_signature,
+        "production_return_requested": moc.production_return_requested,
+        "production_return_reason": moc.production_return_reason,
         "director_display": names.get(moc.director_id) if moc.director_id else None,
         "director_confirmed_at": _fmt_date(moc.director_confirmed_at),
         "director_comment": moc.director_comment,
+        "director_signature": moc.director_signature,
         "priority": moc.priority,
         "estimated_cost_mxaf": float(moc.estimated_cost_mxaf) if moc.estimated_cost_mxaf is not None else None,
         "cost_bucket_label": COST_BUCKET_LABELS.get(moc.cost_bucket) if moc.cost_bucket else None,
@@ -1078,16 +1101,23 @@ async def export_moc_pdf(
         "pid_update_completed": moc.pid_update_completed,
         "esd_update_required": moc.esd_update_required,
         "esd_update_completed": moc.esd_update_completed,
-        "study_conclusion": None,  # Reserved for a dedicated field in a later iteration
+        "study_conclusion": render_markdown(moc.study_conclusion) if moc.study_conclusion else None,
         "responsible_display": names.get(moc.responsible_id) if moc.responsible_id else None,
+        "process_engineer_signature": moc.process_engineer_signature,
         "study_completed_at": _fmt_date(moc.study_completed_at),
         "validations": validations_payload,
         "do_execution_accord": moc.do_execution_accord,
         "do_execution_accord_at": _fmt_date(moc.do_execution_accord_at),
         "do_execution_comment": moc.do_execution_comment,
+        "do_signature": moc.do_signature,
+        "do_return_requested": moc.do_return_requested,
+        "do_return_reason": moc.do_return_reason,
         "dg_execution_accord": moc.dg_execution_accord,
         "dg_execution_accord_at": _fmt_date(moc.dg_execution_accord_at),
         "dg_execution_comment": moc.dg_execution_comment,
+        "dg_signature": moc.dg_signature,
+        "dg_return_requested": moc.dg_return_requested,
+        "dg_return_reason": moc.dg_return_reason,
         "entity": {
             "name": entity.name if entity else None,
             "code": entity.code if entity else None,

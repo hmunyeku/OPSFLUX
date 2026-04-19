@@ -19,8 +19,17 @@ class MOCCreate(BaseModel):
     must be provided. Backend raises a 400 otherwise.
     """
 
+    # Short MOC title (Daxium `nom_moc`) — optional for backward compat but
+    # strongly recommended; it's what appears in list views.
+    title: str | None = Field(default=None, max_length=200)
+    nature: str | None = Field(default=None, pattern="^(OPTIMISATION|SECURITE)$")
+    metiers: list[str] | None = None
     initiator_name: str | None = None
     initiator_function: str | None = None
+    initiator_email: str | None = Field(default=None, max_length=200)
+    initiator_external_name: str | None = Field(default=None, max_length=200)
+    initiator_external_function: str | None = Field(default=None, max_length=200)
+    initiator_signature: str | None = None
     site_label: str | None = Field(default=None, max_length=100)
     site_id: UUID | None = None
     platform_code: str | None = Field(default=None, max_length=60)
@@ -55,8 +64,15 @@ class MOCCreate(BaseModel):
 class MOCUpdate(BaseModel):
     """Update any MOC field — access controlled by status+role in service."""
 
+    title: str | None = Field(default=None, max_length=200)
+    nature: str | None = Field(default=None, pattern="^(OPTIMISATION|SECURITE)$")
+    metiers: list[str] | None = None
     initiator_name: str | None = None
     initiator_function: str | None = None
+    initiator_email: str | None = None
+    initiator_external_name: str | None = None
+    initiator_external_function: str | None = None
+    initiator_signature: str | None = None
     site_label: str | None = None
     site_id: UUID | None = None
     platform_code: str | None = None
@@ -66,6 +82,7 @@ class MOCUpdate(BaseModel):
     current_situation: str | None = None
     proposed_changes: str | None = None
     impact_analysis: str | None = None
+    study_conclusion: str | None = None
     modification_type: str | None = None
     temporary_duration_days: int | None = None
     temporary_start_date: date | None = None
@@ -79,8 +96,19 @@ class MOCUpdate(BaseModel):
     hierarchy_review_comment: str | None = None
     site_chief_approved: bool | None = None
     site_chief_comment: str | None = None
+    site_chief_signature: str | None = None
+    site_chief_return_requested: bool | None = None
+    site_chief_return_reason: str | None = None
+    # Production mise-en-étude (Daxium tab 3)
+    production_validated: bool | None = None
+    production_comment: str | None = None
+    production_signature: str | None = None
+    production_return_requested: bool | None = None
+    production_return_reason: str | None = None
     # Director
     director_comment: str | None = None
+    director_signature: str | None = None
+    process_engineer_signature: str | None = None
     priority: str | None = Field(default=None, pattern="^[123]$")
     # Study
     estimated_cost_mxaf: float | None = None
@@ -103,6 +131,12 @@ class MOCUpdate(BaseModel):
     dg_execution_accord: bool | None = None
     do_execution_comment: str | None = None
     dg_execution_comment: str | None = None
+    do_signature: str | None = None
+    dg_signature: str | None = None
+    do_return_requested: bool | None = None
+    do_return_reason: str | None = None
+    dg_return_requested: bool | None = None
+    dg_return_reason: str | None = None
 
 
 # ─── Status transition ────────────────────────────────────────────────────────
@@ -136,6 +170,9 @@ class MOCValidationUpsert(BaseModel):
     approved: bool | None = None
     level: str | None = Field(default=None, pattern="^(DO|DG|DO_AND_DG)$")
     comments: str | None = None
+    signature: str | None = None
+    return_requested: bool | None = None
+    return_reason: str | None = None
     # When targeting an ad-hoc invited row, pass the invitee's user_id so
     # the upsert hits the right row (otherwise the NULL-validator template
     # row is selected by default).
@@ -160,6 +197,9 @@ class MOCValidationRead(BaseModel):
     source: str = "manual"
     invited_by: UUID | None = None
     invited_at: datetime | None = None
+    signature: str | None = None
+    return_requested: bool = False
+    return_reason: str | None = None
 
 
 class MOCValidationInvite(BaseModel):
@@ -258,6 +298,53 @@ class MOCExecutionAccord(BaseModel):
     actor: str = Field(..., pattern="^(do|dg)$")
     accord: bool  # True = Accord, False = Refus
     comment: str | None = None
+    signature: str | None = None
+    # When the actor refuses / asks for modifications, both flags can be set.
+    return_requested: bool | None = None
+    return_reason: str | None = None
+
+
+class MOCProductionValidation(BaseModel):
+    """Body for POST /moc/{id}/production-validation — Daxium tab 3."""
+
+    validated: bool
+    comment: str | None = None
+    signature: str | None = None
+    priority: str | None = Field(default=None, pattern="^[123]$")
+    return_requested: bool | None = None
+    return_reason: str | None = None
+
+
+class MOCReturnRequest(BaseModel):
+    """Fire a 'return for rework' at any decision point.
+
+    The backend transitions the MOC back to `created` (or `under_study`
+    depending on the stage) and records the motive in the relevant
+    `*_return_*` fields + status history.
+    """
+
+    stage: str = Field(
+        ...,
+        pattern="^(site_chief|production|do|dg|validator)$",
+        description="Which actor is requesting the return.",
+    )
+    reason: str = Field(..., min_length=3)
+    # Optional — only used when stage == 'validator' to target the right row.
+    validation_id: UUID | None = None
+
+
+class MOCSignatureUpdate(BaseModel):
+    """Store an electronic signature (base64 PNG data URL) at a fixed slot.
+
+    `slot` maps to a `*_signature` column on the MOC record. Use
+    MOCValidationUpsert.signature for per-validator signatures.
+    """
+
+    slot: str = Field(
+        ...,
+        pattern="^(initiator|site_chief|production|director|process_engineer|do|dg)$",
+    )
+    signature: str = Field(..., min_length=10)
 
 
 # ─── Site assignments (CDC §4.4 "contacts des valideurs") ─────────────────────
@@ -322,10 +409,19 @@ class MOCRead(BaseModel):
     # Type (optional — drives the initial validation matrix)
     moc_type_id: UUID | None = None
 
+    # Daxium extras — title, nature, métiers
+    title: str | None = None
+    nature: str | None = None
+    metiers: list | None = None
+
     # Initiator
     initiator_id: UUID
     initiator_name: str | None
     initiator_function: str | None
+    initiator_email: str | None = None
+    initiator_external_name: str | None = None
+    initiator_external_function: str | None = None
+    initiator_signature: str | None = None
 
     # Content
     objectives: str | None
@@ -349,11 +445,24 @@ class MOCRead(BaseModel):
     site_chief_id: UUID | None
     site_chief_approved_at: datetime | None
     site_chief_comment: str | None
+    site_chief_signature: str | None = None
+    site_chief_return_requested: bool = False
+    site_chief_return_reason: str | None = None
+
+    # Production mise-en-étude (Daxium tab 3)
+    production_validated: bool | None = None
+    production_validated_by: UUID | None = None
+    production_validated_at: datetime | None = None
+    production_comment: str | None = None
+    production_signature: str | None = None
+    production_return_requested: bool = False
+    production_return_reason: str | None = None
 
     # Director
     director_id: UUID | None
     director_confirmed_at: datetime | None
     director_comment: str | None
+    director_signature: str | None = None
     priority: str | None
 
     # Study
@@ -363,6 +472,8 @@ class MOCRead(BaseModel):
     study_completed_at: datetime | None
     estimated_cost_mxaf: float | None
     cost_bucket: str | None
+    study_conclusion: str | None = None
+    process_engineer_signature: str | None = None
 
     # Validation flags
     hazop_required: bool
@@ -385,6 +496,12 @@ class MOCRead(BaseModel):
     dg_execution_accord_by: UUID | None
     do_execution_comment: str | None
     dg_execution_comment: str | None
+    do_signature: str | None = None
+    dg_signature: str | None = None
+    do_return_requested: bool = False
+    do_return_reason: str | None = None
+    dg_return_requested: bool = False
+    dg_return_reason: str | None = None
 
     # Execution
     execution_started_at: datetime | None

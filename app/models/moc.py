@@ -52,6 +52,8 @@ MOC_STATUSES = (
 )
 
 MOC_MODIFICATION_TYPES = ("permanent", "temporary")
+# CDC Daxium: nature du MOC — orthogonale au "modification_type".
+MOC_NATURES = ("OPTIMISATION", "SECURITE")
 MOC_PRIORITIES = ("1", "2", "3")  # 1=highest, 2=normal, 3=low
 MOC_COST_BUCKETS = (
     "lt_20",       # 0 < X < 20 MXAF
@@ -102,6 +104,10 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
             name="ck_moc_modification_type",
         ),
         CheckConstraint(
+            f"nature IS NULL OR nature IN {MOC_NATURES}",
+            name="ck_moc_nature",
+        ),
+        CheckConstraint(
             f"priority IS NULL OR priority IN {MOC_PRIORITIES}",
             name="ck_moc_priority",
         ),
@@ -135,12 +141,27 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         nullable=True,
     )
 
+    # Short MOC title (Daxium `nom_moc`) — distinct from the objectives text,
+    # useful for list displays and table rows. Optional for backward compat.
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Nature du MOC — OPTIMISATION / SECURITE (Daxium field `type`). Orthogonal
+    # to `modification_type` (permanent / temporary).
+    nature: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Array of métier codes intervening on this MOC (Daxium multi-select).
+    metiers: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+
     # ── Initiator (denormalised name/function for offline-capable forms) ──
     initiator_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     initiator_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     initiator_function: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    initiator_email: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # When the initiator isn't an OpsFlux user (external entrepreneur, visitor)
+    # these two capture their identity. initiator_id still points at the user
+    # who filed the MOC on their behalf.
+    initiator_external_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    initiator_external_function: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # ── Location ──
     # Site is a RDR zone (East/West/South) — can be modelled as a free string
@@ -189,6 +210,11 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     site_chief_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Renvoi pour modification (CDS) — Daxium `dmd_modif_cds` + `motif_cds`.
+    site_chief_return_requested: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False,
+    )
+    site_chief_return_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Director confirmation (step 4) ──
     director_id: Mapped[PyUUID | None] = mapped_column(
@@ -199,6 +225,23 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     director_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     priority: Mapped[str | None] = mapped_column(String(1), nullable=True)
+
+    # ── Production mise-en-étude (Daxium tab 3 "Validation pour mise en étude") ──
+    # Added as an explicit validation step distinct from the FSM because the
+    # Daxium form captures production-level approval + priority separately.
+    production_validated: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    production_validated_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True,
+    )
+    production_validated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    production_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    production_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    production_return_requested: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False,
+    )
+    production_return_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Study phase ──
     lead_process_id: Mapped[PyUUID | None] = mapped_column(
@@ -216,6 +259,9 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     estimated_cost_mxaf: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     cost_bucket: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Process engineer's final conclusion — distinct from the description, filled
+    # during the study_in_validation phase.
+    study_conclusion: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Parallel validation flags (HAZOP/HAZID/Environmental + PID/ESD) ──
     hazop_required: Mapped[bool] = mapped_column(Boolean, server_default="false")
@@ -259,6 +305,25 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     do_execution_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     dg_execution_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Renvoi pour modification — DO / DG (Daxium `renvoi_do` / `motif_do`).
+    do_return_requested: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False,
+    )
+    do_return_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dg_return_requested: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False,
+    )
+    dg_return_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # ── Electronic signatures (base64 PNG data URL) ──
+    # Kept inline on the record to mirror the paper form. Not authoritative
+    # cryptographic signatures — they visually complete the document.
+    initiator_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    site_chief_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    director_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    process_engineer_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    do_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dg_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Status ──
     status: Mapped[str] = mapped_column(
@@ -395,6 +460,15 @@ class MOCValidation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     invited_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True,
     )
+    # Electronic signature (base64 PNG data URL) of this validator.
+    signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Renvoi + motif — Daxium captures "Souhaitez-vous renvoyer ? + motif"
+    # per responsable métier (onglet 5). Accepting the transition to
+    # `under_study` should check whether any validator flipped this on.
+    return_requested: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False,
+    )
+    return_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     moc = relationship("MOC", back_populates="validations")
 

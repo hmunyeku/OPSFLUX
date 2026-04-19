@@ -46,8 +46,11 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.moc import (
     MOCCreate,
     MOCExecutionAccord,
+    MOCProductionValidation,
     MOCRead,
     MOCReadWithDetails,
+    MOCReturnRequest,
+    MOCSignatureUpdate,
     MOCSiteAssignmentCreate,
     MOCSiteAssignmentRead,
     MOCStatsByStatus,
@@ -287,6 +290,13 @@ async def create_moc(
         initiator_id=current_user.id,
         initiator_name=body.initiator_name or current_user.full_name,
         initiator_function=body.initiator_function,
+        initiator_email=body.initiator_email or current_user.email,
+        initiator_external_name=body.initiator_external_name,
+        initiator_external_function=body.initiator_external_function,
+        initiator_signature=body.initiator_signature,
+        title=(body.title.strip() if body.title else None),
+        nature=body.nature,
+        metiers=body.metiers,
         site_label=site_label,
         site_id=site_id,
         platform_code=platform_code.upper(),
@@ -878,6 +888,9 @@ async def upsert_moc_validation(
         approved=body.approved,
         level=body.level,
         comments=body.comments,
+        signature=body.signature,
+        return_requested=body.return_requested,
+        return_reason=body.return_reason,
         target_validator_id=body.target_validator_id,
     )
     await record_audit(
@@ -1103,6 +1116,217 @@ async def export_moc_pdf(
     )
 
 
+# ─── Return for rework (Daxium "renvoi pour modification") ──────────────────
+
+
+@router.post(
+    "/{moc_id}/return",
+    response_model=MOCReadWithDetails,
+    dependencies=[require_permission("moc.update")],
+)
+async def request_moc_return(
+    moc_id: UUID,
+    body: MOCReturnRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record a 'return for rework' request at a given stage.
+
+    Unlike `/transition` which advances the FSM, this endpoint captures the
+    fact that the actor (CDS / Production / DO / DG / validator) wants
+    modifications. The MOC is pushed back to `created` (for site_chief /
+    production returns) or `under_study` (for DO / DG / validator returns
+    made after the study). The motive is stored in the matching field +
+    added to the status history for audit.
+    """
+    from datetime import UTC, datetime as _dt
+
+    moc = await _get_or_404(db, moc_id, entity_id, with_details=True)
+    now = _dt.now(UTC)
+    old_status = moc.status
+    target_status: str
+
+    if body.stage == "site_chief":
+        moc.site_chief_return_requested = True
+        moc.site_chief_return_reason = body.reason
+        moc.site_chief_id = moc.site_chief_id or current_user.id
+        target_status = "created"
+    elif body.stage == "production":
+        moc.production_return_requested = True
+        moc.production_return_reason = body.reason
+        moc.production_validated = False
+        moc.production_validated_by = current_user.id
+        moc.production_validated_at = now
+        target_status = "created"
+    elif body.stage == "do":
+        moc.do_return_requested = True
+        moc.do_return_reason = body.reason
+        moc.do_execution_accord = False
+        moc.do_execution_accord_at = now
+        moc.do_execution_accord_by = current_user.id
+        target_status = "under_study"
+    elif body.stage == "dg":
+        moc.dg_return_requested = True
+        moc.dg_return_reason = body.reason
+        moc.dg_execution_accord = False
+        moc.dg_execution_accord_at = now
+        moc.dg_execution_accord_by = current_user.id
+        target_status = "under_study"
+    elif body.stage == "validator":
+        if not body.validation_id:
+            raise StructuredHTTPException(
+                400, code="MOC_RETURN_MISSING_VALIDATION",
+                message="validation_id requis pour un renvoi par validateur",
+            )
+        from app.models.moc import MOCValidation
+        row = (await db.execute(
+            select(MOCValidation).where(
+                MOCValidation.id == body.validation_id,
+                MOCValidation.moc_id == moc.id,
+            )
+        )).scalar_one_or_none()
+        if not row:
+            raise StructuredHTTPException(
+                404, code="MOC_VALIDATION_NOT_FOUND",
+                message="Ligne de validation introuvable",
+            )
+        row.return_requested = True
+        row.return_reason = body.reason
+        row.validator_id = row.validator_id or current_user.id
+        row.validator_name = row.validator_name or current_user.full_name
+        target_status = "under_study"
+    else:
+        raise StructuredHTTPException(
+            400, code="MOC_RETURN_INVALID_STAGE", message="Étape inconnue",
+        )
+
+    # Push the MOC back to the rework status (skip if already there).
+    if moc.status != target_status:
+        moc.status = target_status
+        moc.status_changed_at = now
+        db.add(MOCStatusHistory(
+            moc_id=moc.id,
+            old_status=old_status,
+            new_status=target_status,
+            changed_by=current_user.id,
+            note=f"[Renvoi {body.stage}] {body.reason}",
+        ))
+
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action=f"moc.return.{body.stage}",
+        resource_type="moc", resource_id=str(moc.id),
+        details={
+            "reference": moc.reference,
+            "stage": body.stage,
+            "from_status": old_status,
+            "to_status": target_status,
+        },
+    )
+    await db.commit()
+    return await get_moc(moc_id=moc.id, entity_id=entity_id, db=db)
+
+
+# ─── Production mise-en-étude (Daxium tab 3 "Validation pour mise en étude") ─
+
+
+@router.post(
+    "/{moc_id}/production-validation",
+    response_model=MOCReadWithDetails,
+    dependencies=[require_permission("moc.update")],
+)
+async def set_production_validation(
+    moc_id: UUID,
+    body: MOCProductionValidation,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record the Production service's approval to proceed with the study.
+
+    Captures: validated flag, comment, optional signature + priority
+    override + optional return-for-rework request.
+    """
+    from datetime import UTC, datetime as _dt
+
+    moc = await _get_or_404(db, moc_id, entity_id)
+    now = _dt.now(UTC)
+    moc.production_validated = body.validated
+    moc.production_validated_by = current_user.id
+    moc.production_validated_at = now
+    if body.comment is not None:
+        moc.production_comment = body.comment
+    if body.signature is not None:
+        moc.production_signature = body.signature
+    if body.priority is not None:
+        moc.priority = body.priority
+    if body.return_requested:
+        moc.production_return_requested = True
+        moc.production_return_reason = body.return_reason
+
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action="moc.production_validation",
+        resource_type="moc", resource_id=str(moc.id),
+        details={
+            "reference": moc.reference,
+            "validated": body.validated,
+            "priority": body.priority,
+            "return": body.return_requested,
+        },
+    )
+    await db.commit()
+    return await get_moc(moc_id=moc.id, entity_id=entity_id, db=db)
+
+
+# ─── Signature capture at a named slot ─────────────────────────────────────
+
+
+@router.post(
+    "/{moc_id}/signature",
+    response_model=MOCReadWithDetails,
+    dependencies=[require_permission("moc.update")],
+)
+async def set_moc_signature(
+    moc_id: UUID,
+    body: MOCSignatureUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Store a base64 PNG signature at a named MOC slot.
+
+    Slots: initiator, site_chief, production, director, process_engineer,
+    do, dg. For per-validator signatures use the /validations upsert
+    endpoint instead.
+    """
+    moc = await _get_or_404(db, moc_id, entity_id)
+    slot_map = {
+        "initiator": "initiator_signature",
+        "site_chief": "site_chief_signature",
+        "production": "production_signature",
+        "director": "director_signature",
+        "process_engineer": "process_engineer_signature",
+        "do": "do_signature",
+        "dg": "dg_signature",
+    }
+    column = slot_map.get(body.slot)
+    if not column:
+        raise StructuredHTTPException(
+            400, code="MOC_SIGNATURE_INVALID_SLOT", message="Slot inconnu",
+        )
+    setattr(moc, column, body.signature)
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action=f"moc.signature.{body.slot}",
+        resource_type="moc", resource_id=str(moc.id),
+        details={"slot": body.slot},
+    )
+    await db.commit()
+    return await get_moc(moc_id=moc.id, entity_id=entity_id, db=db)
+
+
 # ─── Invite validator (ad-hoc, on top of the matrix) ─────────────────────────
 
 
@@ -1241,12 +1465,22 @@ async def set_execution_accord(
         moc.do_execution_accord_by = current_user.id
         if body.comment is not None:
             moc.do_execution_comment = body.comment
+        if body.signature is not None:
+            moc.do_signature = body.signature
+        if body.return_requested:
+            moc.do_return_requested = True
+            moc.do_return_reason = body.return_reason
     else:  # "dg"
         moc.dg_execution_accord = body.accord
         moc.dg_execution_accord_at = now
         moc.dg_execution_accord_by = current_user.id
         if body.comment is not None:
             moc.dg_execution_comment = body.comment
+        if body.signature is not None:
+            moc.dg_signature = body.signature
+        if body.return_requested:
+            moc.dg_return_requested = True
+            moc.dg_return_reason = body.return_reason
 
     await record_audit(
         db, user_id=current_user.id, entity_id=entity_id,

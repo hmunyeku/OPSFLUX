@@ -256,6 +256,9 @@ async def upsert_validation(
     approved: bool | None = None,
     level: str | None = None,
     comments: str | None = None,
+    signature: str | None = None,
+    return_requested: bool | None = None,
+    return_reason: str | None = None,
     target_validator_id: UUID | None = None,
 ) -> MOCValidation:
     """Create or update a validation entry.
@@ -301,7 +304,13 @@ async def upsert_validation(
             row.level = level
         if comments is not None:
             row.comments = comments
-    if approved is not None or completed:
+    if signature is not None:
+        row.signature = signature
+    if return_requested is not None:
+        row.return_requested = return_requested
+    if return_reason is not None:
+        row.return_reason = return_reason
+    if approved is not None or completed or signature is not None:
         row.validated_at = datetime.now(UTC)
         if validator:
             row.validator_id = validator.id

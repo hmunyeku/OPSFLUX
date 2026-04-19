@@ -821,7 +821,7 @@ export function PackLogPage() {
               rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-packlog" /> : null}
             />
 
-            <PanelContent scroll={false}>
+            <PanelContent scroll={activeTab === 'dashboard'}>
               {activeTab === 'dashboard' && <ModuleDashboard module="packlog" toolbarPortalId="dash-toolbar-packlog" />}
               {activeTab === 'requests' && <RequestsTab />}
               {activeTab === 'cargo' && <CargoTab />}

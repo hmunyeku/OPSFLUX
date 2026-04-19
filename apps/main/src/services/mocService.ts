@@ -105,6 +105,8 @@ export interface MOC {
   impact_analysis: string | null
   modification_type: MOCModificationType | null
   temporary_duration_days: number | null
+  temporary_start_date: string | null
+  temporary_end_date: string | null
   // Hierarchy review
   is_real_change: boolean | null
   hierarchy_reviewer_id: string | null
@@ -182,6 +184,8 @@ export interface MOCCreatePayload {
   impact_analysis?: string | null
   modification_type?: MOCModificationType | null
   temporary_duration_days?: number | null
+  temporary_start_date?: string | null
+  temporary_end_date?: string | null
   planned_implementation_date?: string | null
   tags?: string[] | null
 }

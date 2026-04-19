@@ -2100,6 +2100,66 @@ DEFAULT_TEMPLATES: list[dict] = [
         },
     },
     {
+        "slug": "moc.temporary_expiry_reminder",
+        "name": "MOC temporaire — Rappel d'expiration",
+        "description": (
+            "Envoyé par l'APScheduler quand un MOC temporaire approche de sa "
+            "date de fin (seuils J-30/J-14/J-7/J-1 par défaut, configurable "
+            "via Settings → MOC)."
+        ),
+        "object_type": "moc",
+        "variables_schema": {
+            "reference": "Référence MOC",
+            "objectives": "Objectifs",
+            "site_label": "Site",
+            "platform_code": "Plateforme",
+            "end_date": "Date de fin de la modification temporaire (ISO)",
+            "days_remaining": "Jours restants avant expiration",
+            "threshold": "Seuil de rappel en jours (J-N)",
+            "link": "Lien vers le MOC",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux MOC — {{ reference }} expire dans {{ days_remaining }} jour(s)",
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Le MOC <strong>{{ reference }}</strong> est une modification "
+                    "<strong>temporaire</strong> qui arrive à échéance le "
+                    "<strong>{{ end_date }}</strong> (dans {{ days_remaining }} jour(s)).</p>"
+                    "<p>{{ objectives }} — site {{ site_label }} / {{ platform_code }}</p>"
+                    "<p>Actions attendues avant l'échéance :</p>"
+                    "<ul>"
+                    "<li>Vérifier que les modifications temporaires ont bien été levées sur site</li>"
+                    "<li>Ou soumettre une demande de prolongation si le besoin persiste</li>"
+                    "<li>Clôturer le MOC une fois les PID/ESD remis en configuration initiale</li>"
+                    "</ul>"
+                    "{% if link %}<p><a href=\"{{ link }}\">Ouvrir dans OpsFlux</a></p>{% endif %}"
+                    "<p>Rappel automatique — seuil J-{{ threshold }}.</p>"
+                    "<p>Cordialement,<br/>OpsFlux</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux MOC — {{ reference }} expires in {{ days_remaining }} day(s)",
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>MOC <strong>{{ reference }}</strong> is a <strong>temporary</strong> "
+                    "modification that expires on <strong>{{ end_date }}</strong> "
+                    "(in {{ days_remaining }} day(s)).</p>"
+                    "<p>{{ objectives }} — site {{ site_label }} / {{ platform_code }}</p>"
+                    "<p>Expected actions before the deadline:</p>"
+                    "<ul>"
+                    "<li>Verify temporary modifications have been reverted on site</li>"
+                    "<li>Or submit a duration extension request if the need persists</li>"
+                    "<li>Close the MOC once the PID/ESD documents are realigned</li>"
+                    "</ul>"
+                    "{% if link %}<p><a href=\"{{ link }}\">Open in OpsFlux</a></p>{% endif %}"
+                    "<p>Automated reminder — J-{{ threshold }} threshold.</p>"
+                    "<p>Best regards,<br/>OpsFlux</p>"
+                ),
+            },
+        },
+    },
+    {
         "slug": "moc.closed",
         "name": "MOC — Clôturé",
         "description": "Envoyé à l'initiateur et au chef de site quand le MOC est clôturé (MAJ PID/ESD effectuée).",

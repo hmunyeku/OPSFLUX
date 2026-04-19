@@ -21,7 +21,7 @@ import {
   Globe, Plug, FileText, FileOutput, Trash2,
   Activity, Hash, BookOpen, ShieldCheck, Database,
   Users, CalendarClock, Ship, Boxes, FolderKanban,
-  Languages,
+  Languages, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -154,6 +154,7 @@ import { PlannerConfigTab } from './tabs/PlannerConfigTab'
 import { TravelWizConfigTab } from './tabs/TravelWizConfigTab'
 import { PackLogConfigTab } from './tabs/PackLogConfigTab'
 import { ProjetsConfigTab } from './tabs/ProjetsConfigTab'
+import { MOCConfigTab } from './tabs/MOCConfigTab'
 import { GdprTab } from './tabs/GdprTab'
 import { AdminerTab } from './tabs/AdminerTab'
 import { SystemTab } from './tabs/SystemTab'
@@ -199,6 +200,7 @@ registerSettingsSection({ id: 'paxlog-config', label: 'PaxLog', icon: Users, com
 registerSettingsSection({ id: 'planner-config', label: 'Planner', icon: CalendarClock, component: PlannerConfigTab, category: 'general', order: 37, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'travelwiz-config', label: 'TravelWiz', icon: Ship, component: TravelWizConfigTab, category: 'general', order: 38, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'packlog-config', label: 'PackLog', icon: Boxes, component: PackLogConfigTab, category: 'general', order: 39, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'moc-config', label: 'MOCTrack', icon: ClipboardList, component: MOCConfigTab, category: 'general', order: 40, requiredPermission: 'core.settings.manage' })
 
 registerSettingsSection({ id: 'gdpr', label: 'RGPD / Protection des données', icon: Shield, component: GdprTab, category: 'general', order: 40, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })

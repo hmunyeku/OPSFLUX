@@ -34,6 +34,8 @@ class MOCCreate(BaseModel):
         default=None, pattern="^(permanent|temporary)$"
     )
     temporary_duration_days: int | None = Field(default=None, ge=1)
+    temporary_start_date: date | None = None
+    temporary_end_date: date | None = None
     planned_implementation_date: date | None = None
     tags: list[str] | None = None
     metadata_: dict | None = Field(default=None, alias="metadata")
@@ -55,6 +57,8 @@ class MOCUpdate(BaseModel):
     impact_analysis: str | None = None
     modification_type: str | None = None
     temporary_duration_days: int | None = None
+    temporary_start_date: date | None = None
+    temporary_end_date: date | None = None
     planned_implementation_date: date | None = None
     actual_implementation_date: date | None = None
     tags: list[str] | None = None
@@ -222,6 +226,8 @@ class MOCRead(BaseModel):
     impact_analysis: str | None
     modification_type: str | None
     temporary_duration_days: int | None
+    temporary_start_date: date | None
+    temporary_end_date: date | None
 
     # Hierarchy review
     is_real_change: bool | None

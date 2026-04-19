@@ -219,6 +219,17 @@ def _register_jobs() -> None:
     from app.tasks.jobs.asset_inspection import check_asset_inspections
     scheduler.add_job(check_asset_inspections, trigger=CronTrigger(hour=7, minute=0), id="asset_inspection", name="Rappels inspections assets", replace_existing=True, max_instances=1)
 
+    # MOCTrack — daily reminders for temporary MOCs approaching expiry.
+    from app.tasks.jobs.moc_temporary_expiry import check_moc_temporary_expiry
+    scheduler.add_job(
+        check_moc_temporary_expiry,
+        trigger=CronTrigger(hour=7, minute=30),
+        id="moc_temporary_expiry",
+        name="Rappels MOC temporaires approchant échéance",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     from app.tasks.jobs.paxlog_ads_autoclose import process_overdue_ads_closure
     scheduler.add_job(process_overdue_ads_closure, trigger=CronTrigger(hour=1, minute=30), id="paxlog_overdue_ads_closure", name="Alerter et clôturer les AdS en dépassement", replace_existing=True, max_instances=1)
 

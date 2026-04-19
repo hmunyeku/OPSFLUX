@@ -50,6 +50,8 @@ export function MOCCreatePanel() {
   const [impactAnalysis, setImpactAnalysis] = useState('')
   const [modificationType, setModificationType] = useState<MOCModificationType | ''>('')
   const [durationDays, setDurationDays] = useState('')
+  const [temporaryStart, setTemporaryStart] = useState('')
+  const [temporaryEnd, setTemporaryEnd] = useState('')
   const [initiatorFn, setInitiatorFn] = useState('')
 
   // Preferred path: installation picker — backend derives site + platform.
@@ -77,6 +79,10 @@ export function MOCCreatePanel() {
         modificationType === 'temporary' && durationDays
           ? parseInt(durationDays, 10)
           : null,
+      temporary_start_date:
+        modificationType === 'temporary' && temporaryStart ? temporaryStart : null,
+      temporary_end_date:
+        modificationType === 'temporary' && temporaryEnd ? temporaryEnd : null,
       initiator_function: initiatorFn.trim() || null,
     }
     try {
@@ -259,15 +265,41 @@ export function MOCCreatePanel() {
               </select>
             </DynamicPanelField>
             {modificationType === 'temporary' && (
-              <DynamicPanelField label={t('moc.fields.duration_days')}>
-                <input
-                  type="number"
-                  min={1}
-                  className={panelInputClass}
-                  value={durationDays}
-                  onChange={(e) => setDurationDays(e.target.value)}
-                />
-              </DynamicPanelField>
+              <>
+                <DynamicPanelField label={t('moc.fields.temporary_start_date')}>
+                  <input
+                    type="date"
+                    className={panelInputClass}
+                    value={temporaryStart}
+                    onChange={(e) => setTemporaryStart(e.target.value)}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('moc.fields.temporary_end_date')}>
+                  <input
+                    type="date"
+                    className={panelInputClass}
+                    value={temporaryEnd}
+                    onChange={(e) => setTemporaryEnd(e.target.value)}
+                    min={temporaryStart || undefined}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField
+                  label={t('moc.fields.duration_days')}
+                  span="full"
+                >
+                  <input
+                    type="number"
+                    min={1}
+                    className={panelInputClass}
+                    value={durationDays}
+                    onChange={(e) => setDurationDays(e.target.value)}
+                    placeholder={t('moc.fields.duration_days_optional_ph') as string}
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground/70">
+                    {t('moc.fields.duration_days_hint')}
+                  </p>
+                </DynamicPanelField>
+              </>
             )}
           </FormGrid>
         </FormSection>

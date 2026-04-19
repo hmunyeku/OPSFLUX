@@ -154,7 +154,12 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     proposed_changes: Mapped[str | None] = mapped_column(Text, nullable=True)
     impact_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     modification_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Legacy — kept for backward compat but superseded by the two dates below.
     temporary_duration_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # New: explicit period for temporary modifications (CDC / paper form p.1e).
+    # When set, `moc_reminder_log` triggers J-N reminders before end date.
+    temporary_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    temporary_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     # ── Hierarchy review (step 2 of the paper form) ──
     is_real_change: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
@@ -403,3 +408,34 @@ class MOCSiteAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
     )
     active: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
+
+
+# ─── Reminder dispatch log (idempotency) ──────────────────────────────────────
+
+
+class MOCReminderLog(UUIDPrimaryKeyMixin, Base):
+    """Idempotency ledger for scheduled MOC reminders.
+
+    Prevents the APScheduler job from sending the same J-N reminder twice
+    for a given MOC. Unique on (moc_id, reminder_kind, days_before).
+    """
+
+    __tablename__ = "moc_reminder_log"
+    __table_args__ = (
+        UniqueConstraint(
+            "moc_id", "reminder_kind", "days_before",
+            name="uq_moc_reminder_once_per_threshold",
+        ),
+        Index("idx_moc_reminder_log_moc", "moc_id"),
+    )
+
+    moc_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mocs.id", ondelete="CASCADE"), nullable=False,
+    )
+    reminder_kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    days_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_date: Mapped[date] = mapped_column(Date, nullable=False)
+    sent_to_count: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )

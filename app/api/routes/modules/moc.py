@@ -266,6 +266,8 @@ async def create_moc(
         impact_analysis=body.impact_analysis,
         modification_type=body.modification_type,
         temporary_duration_days=body.temporary_duration_days,
+        temporary_start_date=body.temporary_start_date,
+        temporary_end_date=body.temporary_end_date,
         planned_implementation_date=body.planned_implementation_date,
         tags=body.tags,
         metadata_=body.metadata_,

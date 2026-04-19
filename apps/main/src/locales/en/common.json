@@ -4855,7 +4855,12 @@
       "site_custom_ph": "Site name",
       "cost_bucket": "Cost bucket",
       "installation_hint_v2": "Pick the installation from the registry — site and platform are auto-derived",
-      "manual_location_toggle": "Manual entry (installation not yet in the registry)"
+      "manual_location_toggle": "Manual entry (installation not yet in the registry)",
+      "temporary_start_date": "Temporary start date",
+      "temporary_end_date": "Temporary end date",
+      "temporary_period": "Temporary period",
+      "duration_days_optional_ph": "Duration in days (if already known)",
+      "duration_days_hint": "Optional — start/end dates take precedence for reminders."
     },
     "create": {
       "title": "New MOC",
@@ -4901,6 +4906,18 @@
       "comments": "Comments",
       "documents": "Documents",
       "history": "History"
+    },
+    "settings": {
+      "reminders": {
+        "title": "Temporary MOC reminders",
+        "description": "Temporary MOCs nearing their end date trigger an automatic email + in-app reminder. Configure the thresholds (J-N) before expiry.",
+        "enabled_label": "Automatic reminders",
+        "enabled_hint": "Turn the daily job on / off.",
+        "thresholds_label": "Reminder thresholds (J-N)",
+        "thresholds_hint": "Add as many milestones as needed. Default: J-30, J-14, J-7, J-1.",
+        "invalid_threshold": "Invalid threshold (1-365 days)",
+        "reset": "Reset to defaults (J-30/14/7/1)"
+      }
     }
   }
 }

@@ -361,10 +361,24 @@ export function MOCDetailPanel({ id }: Props) {
                     moc.modification_type === 'permanent'
                       ? t('moc.type_permanent')
                       : moc.modification_type === 'temporary'
-                        ? `${t('moc.type_temporary')} (${moc.temporary_duration_days ?? '?'} j)`
+                        ? t('moc.type_temporary')
                         : '—'
                   }
                 />
+                {moc.modification_type === 'temporary' && (
+                  <>
+                    <ReadOnlyRow
+                      label={t('moc.fields.temporary_period')}
+                      value={
+                        moc.temporary_start_date && moc.temporary_end_date
+                          ? `${formatDate(moc.temporary_start_date)} → ${formatDate(moc.temporary_end_date)}`
+                          : moc.temporary_duration_days
+                            ? `${moc.temporary_duration_days} j`
+                            : '—'
+                      }
+                    />
+                  </>
+                )}
                 <ReadOnlyRow
                   label={t('moc.fields.planned_date')}
                   value={

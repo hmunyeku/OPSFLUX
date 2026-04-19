@@ -23,6 +23,8 @@ from uuid import UUID
 
 import pyotp
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
+from app.core.errors import StructuredHTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select, update
@@ -85,7 +87,11 @@ def _validate_password_strength(password: str, *, config: dict | None = None) ->
         errors.append("Le mot de passe doit contenir au moins un caractère spécial")
 
     if errors:
-        raise HTTPException(status_code=400, detail="; ".join(errors))
+        raise StructuredHTTPException(
+            400, code="PASSWORD_POLICY_VIOLATION",
+            message="; ".join(errors),
+            params={"violations": errors},
+        )
 
 
 class EntityBrief(BaseModel):
@@ -384,17 +390,26 @@ async def mfa_verify_login(
     try:
         payload = decode_token(body.mfa_token)
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired MFA token")
+        raise StructuredHTTPException(
+            401, code="MFA_TOKEN_INVALID",
+            message="Invalid or expired MFA token",
+        )
 
     if payload.get("type") != "mfa_challenge":
-        raise HTTPException(status_code=401, detail="Invalid token type")
+        raise StructuredHTTPException(
+            401, code="MFA_TOKEN_INVALID",
+            message="Invalid token type",
+        )
 
     user_id = UUID(payload["sub"])
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if not user or not user.active or not user.mfa_enabled or not user.totp_secret:
-        raise HTTPException(status_code=401, detail="Invalid MFA session")
+        raise StructuredHTTPException(
+            401, code="MFA_SESSION_INVALID",
+            message="Invalid MFA session",
+        )
 
     # Try TOTP
     totp = pyotp.TOTP(user.totp_secret)
@@ -446,10 +461,16 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     try:
         payload = decode_token(body.refresh_token)
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise StructuredHTTPException(
+            401, code="REFRESH_TOKEN_INVALID",
+            message="Invalid refresh token",
+        )
 
     if payload.get("type") != "refresh":
-        raise HTTPException(status_code=401, detail="Invalid token type")
+        raise StructuredHTTPException(
+            401, code="REFRESH_TOKEN_INVALID",
+            message="Invalid token type",
+        )
 
     user_id = UUID(payload["sub"])
     token_hash = sha256(body.refresh_token.encode()).hexdigest()
@@ -464,7 +485,10 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     )
     stored_token = result.scalar_one_or_none()
     if not stored_token:
-        raise HTTPException(status_code=401, detail="Refresh token revoked or not found")
+        raise StructuredHTTPException(
+            401, code="REFRESH_TOKEN_REVOKED",
+            message="Refresh token revoked or not found",
+        )
 
     # Revoke old token
     stored_token.revoked = True
@@ -473,7 +497,10 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     user_result = await db.execute(select(User).where(User.id == user_id))
     user = user_result.scalar_one_or_none()
     if not user or not user.active:
-        raise HTTPException(status_code=401, detail="User not found or inactive")
+        raise StructuredHTTPException(
+            401, code="USER_INACTIVE",
+            message="User not found or inactive",
+        )
 
     # Get roles (via junction table)
     roles_result = await db.execute(
@@ -663,7 +690,11 @@ async def switch_entity(
 
     # Also allow if it's the user's default entity
     if not has_access and current_user.default_entity_id != body.entity_id:
-        raise HTTPException(status_code=403, detail="No access to this entity")
+        raise StructuredHTTPException(
+            403, code="ENTITY_ACCESS_DENIED",
+            message="No access to this entity",
+            params={"entity_id": str(body.entity_id)},
+        )
 
     # Update user's default entity
     current_user.default_entity_id = body.entity_id
@@ -766,17 +797,26 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
     try:
         payload = decode_token(body.token)
     except JWTError:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+        raise StructuredHTTPException(
+            400, code="RESET_TOKEN_INVALID",
+            message="Invalid or expired reset token",
+        )
 
     if payload.get("type") != "password_reset":
-        raise HTTPException(status_code=400, detail="Invalid token type")
+        raise StructuredHTTPException(
+            400, code="RESET_TOKEN_INVALID",
+            message="Invalid token type",
+        )
 
     user_id = UUID(payload["sub"])
     result = await db.execute(select(User).where(User.id == user_id, User.active == True))  # noqa: E712
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=400, detail="Invalid reset token")
+        raise StructuredHTTPException(
+            400, code="RESET_TOKEN_INVALID",
+            message="Invalid reset token",
+        )
 
     # Validate password strength (AUTH.md §7 configurable policy)
     auth_cfg = await get_security_settings(db)
@@ -809,10 +849,16 @@ async def change_password(
 ):
     """Change password for the authenticated user. Requires current password."""
     if not current_user.hashed_password or not verify_password(body.current_password, current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
+        raise StructuredHTTPException(
+            400, code="CURRENT_PASSWORD_INCORRECT",
+            message="Current password is incorrect",
+        )
 
     if body.current_password == body.new_password:
-        raise HTTPException(status_code=400, detail="New password must be different from current password")
+        raise StructuredHTTPException(
+            400, code="PASSWORD_REUSE",
+            message="New password must be different from current password",
+        )
 
     auth_cfg = await get_security_settings(db)
     _validate_password_strength(body.new_password, config=auth_cfg)
@@ -981,18 +1027,30 @@ async def sso_authorize(
 ):
     """Build OAuth2 authorization URL and return it. Frontend redirects the user."""
     if provider not in SSO_PROVIDERS:
-        raise HTTPException(status_code=400, detail=f"Unknown SSO provider: {provider}")
+        raise StructuredHTTPException(
+            400, code="SSO_PROVIDER_UNKNOWN",
+            message=f"Unknown SSO provider: {provider}",
+            params={"provider": provider},
+        )
 
     provider_def = SSO_PROVIDERS[provider]
     cfg = await _get_sso_settings(db, entity_id, provider_def["settings_prefix"])
 
     client_id = cfg.get("client_id", "")
     if not client_id:
-        raise HTTPException(status_code=400, detail=f"SSO provider '{provider}' is not configured")
+        raise StructuredHTTPException(
+            400, code="SSO_PROVIDER_NOT_CONFIGURED",
+            message=f"SSO provider '{provider}' is not configured",
+            params={"provider": provider},
+        )
 
     urls = _build_provider_urls(provider, cfg)
     if not urls:
-        raise HTTPException(status_code=400, detail=f"Cannot build URLs for provider '{provider}' — missing config fields")
+        raise StructuredHTTPException(
+            400, code="SSO_PROVIDER_MISCONFIGURED",
+            message=f"Cannot build URLs for provider '{provider}' — missing config fields",
+            params={"provider": provider},
+        )
 
     # Build callback URL
     callback_url = f"{settings.API_URL}/api/v1/auth/sso/callback"
@@ -1235,17 +1293,29 @@ async def sso_link_authorize(
 ):
     """Initiate OAuth2 flow to link an SSO provider to the current user's account."""
     if provider not in SSO_PROVIDERS:
-        raise HTTPException(400, f"Unknown SSO provider: {provider}")
+        raise StructuredHTTPException(
+            400, code="SSO_PROVIDER_UNKNOWN",
+            message=f"Unknown SSO provider: {provider}",
+            params={"provider": provider},
+        )
 
     provider_def = SSO_PROVIDERS[provider]
     cfg = await _get_sso_settings(db, entity_id, provider_def["settings_prefix"])
     client_id = cfg.get("client_id", "")
     if not client_id:
-        raise HTTPException(400, f"SSO provider '{provider}' is not configured")
+        raise StructuredHTTPException(
+            400, code="SSO_PROVIDER_NOT_CONFIGURED",
+            message=f"SSO provider '{provider}' is not configured",
+            params={"provider": provider},
+        )
 
     urls = _build_provider_urls(provider, cfg)
     if not urls:
-        raise HTTPException(400, f"Cannot build URLs for provider '{provider}'")
+        raise StructuredHTTPException(
+            400, code="SSO_PROVIDER_MISCONFIGURED",
+            message=f"Cannot build URLs for provider '{provider}'",
+            params={"provider": provider},
+        )
 
     callback_url = f"{settings.API_URL}/api/v1/auth/sso/callback"
     state = create_sso_state_token(provider, mode="link", user_id=str(current_user.id))
@@ -1304,7 +1374,10 @@ async def unlink_sso_provider(
     )
     provider = result.scalar_one_or_none()
     if not provider:
-        raise HTTPException(404, "Linked provider not found")
+        raise StructuredHTTPException(
+            404, code="LINKED_PROVIDER_NOT_FOUND",
+            message="Linked provider not found",
+        )
     await db.delete(provider)
     await db.commit()
     return {"detail": "Provider unlinked"}

@@ -17,18 +17,12 @@ import {
   PanelActionButton,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
+import { AssetPicker } from '@/components/shared/AssetPicker'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
+import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useCreateMOC } from '@/hooks/useMOC'
 import type { MOCCreatePayload, MOCModificationType } from '@/services/mocService'
-
-const SITE_OPTIONS = [
-  { value: 'RDR EAST', label: 'RDR East' },
-  { value: 'RDR WEST', label: 'RDR West' },
-  { value: 'SOUTH', label: 'South' },
-  { value: 'BASE_WOURI', label: 'Base Wouri' },
-  { value: 'OTHER', label: 'Autre' },
-]
 
 export function MOCCreatePanel() {
   const { t } = useTranslation()
@@ -36,9 +30,15 @@ export function MOCCreatePanel() {
   const closePanel = useUIStore((s) => s.closeDynamicPanel)
   const create = useCreateMOC()
 
-  const [site, setSite] = useState('RDR EAST')
+  // Sites & modification types come from the dictionary so admins can customise
+  // them per tenant in Settings → Dictionary (category `moc_site`, `moc_modification_type`).
+  const siteOptions = useDictionaryOptions('moc_site')
+  const modificationTypeOptions = useDictionaryOptions('moc_modification_type')
+
+  const [site, setSite] = useState('')
   const [customSite, setCustomSite] = useState('')
   const [platform, setPlatform] = useState('')
+  const [installationId, setInstallationId] = useState<string | null>(null)
   const [objectives, setObjectives] = useState('')
   const [description, setDescription] = useState('')
   const [currentSituation, setCurrentSituation] = useState('')
@@ -56,6 +56,7 @@ export function MOCCreatePanel() {
     const payload: MOCCreatePayload = {
       site_label: siteLabel,
       platform_code: platform.trim().toUpperCase(),
+      installation_id: installationId,
       objectives: objectives.trim() || null,
       description: description.trim() || null,
       current_situation: currentSituation.trim() || null,
@@ -113,11 +114,13 @@ export function MOCCreatePanel() {
                 value={site}
                 onChange={(e) => setSite(e.target.value)}
               >
-                {SITE_OPTIONS.map((o) => (
+                <option value="">—</option>
+                {siteOptions.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
                 ))}
+                <option value="OTHER">{t('common.other')}</option>
               </select>
             </DynamicPanelField>
             {site === 'OTHER' && (
@@ -126,7 +129,7 @@ export function MOCCreatePanel() {
                   className={panelInputClass}
                   value={customSite}
                   onChange={(e) => setCustomSite(e.target.value)}
-                  placeholder="Nom du site"
+                  placeholder={t('moc.fields.site_custom_ph') as string}
                 />
               </DynamicPanelField>
             )}
@@ -137,6 +140,18 @@ export function MOCCreatePanel() {
                 onChange={(e) => setPlatform(e.target.value)}
                 placeholder="BRF1, INF1, DS1, …"
               />
+            </DynamicPanelField>
+            <DynamicPanelField label={t('moc.fields.installation')}>
+              <AssetPicker
+                value={installationId}
+                onChange={(id) => setInstallationId(id)}
+                placeholder={t('moc.fields.installation_ph') as string}
+                filterTypes={['installation', 'site']}
+                clearable
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground/70">
+                {t('moc.fields.installation_hint')}
+              </p>
             </DynamicPanelField>
             <DynamicPanelField label={t('moc.fields.initiator_function')}>
               <input
@@ -205,8 +220,11 @@ export function MOCCreatePanel() {
                 }
               >
                 <option value="">—</option>
-                <option value="permanent">{t('moc.type_permanent')}</option>
-                <option value="temporary">{t('moc.type_temporary')}</option>
+                {modificationTypeOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </DynamicPanelField>
             {modificationType === 'temporary' && (

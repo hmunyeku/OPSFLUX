@@ -27,6 +27,7 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useDictionaryLabels } from '@/hooks/useDictionary'
 import { formatDate, formatDateTime } from '@/lib/i18n'
 import {
   useDeleteMOC,
@@ -78,6 +79,10 @@ export function MOCDetailPanel({ id }: Props) {
   const updateMutation = useUpdateMOC()
   const validationMutation = useUpsertMOCValidation()
 
+  // Dictionary-backed labels (admin-customisable per tenant)
+  const statusLabels = useDictionaryLabels('moc_status', MOC_STATUS_LABELS)
+  const roleLabels = useDictionaryLabels('moc_validation_role', ROLE_LABELS as Record<string, string>)
+
   const [transitionNote, setTransitionNote] = useState('')
   const [priorityPick, setPriorityPick] = useState<'1' | '2' | '3'>('2')
 
@@ -103,7 +108,7 @@ export function MOCDetailPanel({ id }: Props) {
         id: moc.id,
         payload: { to_status: to, comment: transitionNote || null, payload },
       })
-      toast({ title: t('moc.toast.transitioned', { status: MOC_STATUS_LABELS[to] }), variant: 'success' })
+      toast({ title: t('moc.toast.transitioned', { status: statusLabels[to] ?? MOC_STATUS_LABELS[to] }), variant: 'success' })
       setTransitionNote('')
     } catch (err: unknown) {
       const d = (err as { response?: { data?: { detail?: { message?: string } | string } } })
@@ -172,9 +177,9 @@ export function MOCDetailPanel({ id }: Props) {
           </span>
           <span
             className={`gl-badge gl-badge-${MOC_STATUS_COLOURS[moc.status]}`}
-            title={MOC_STATUS_LABELS[moc.status]}
+            title={statusLabels[moc.status] ?? MOC_STATUS_LABELS[moc.status]}
           >
-            {MOC_STATUS_LABELS[moc.status]}
+            {statusLabels[moc.status] ?? MOC_STATUS_LABELS[moc.status]}
           </span>
           {moc.priority && (
             <span
@@ -231,7 +236,7 @@ export function MOCDetailPanel({ id }: Props) {
                       onClick={() => doTransition(tr.to)}
                       disabled={transitionMutation.isPending}
                     >
-                      {MOC_STATUS_LABELS[tr.to]}
+                      {statusLabels[tr.to] ?? MOC_STATUS_LABELS[tr.to]}
                     </PanelActionButton>
                   )
                 })}
@@ -291,7 +296,7 @@ export function MOCDetailPanel({ id }: Props) {
               return (
                 <ValidationRow
                   key={role}
-                  label={ROLE_LABELS[role]}
+                  label={roleLabels[role] ?? ROLE_LABELS[role]}
                   entry={v}
                   onChange={(patch) => setValidation(role, patch)}
                   disabled={validationMutation.isPending}
@@ -381,13 +386,13 @@ export function MOCDetailPanel({ id }: Props) {
                     {h.old_status && (
                       <>
                         <span className="text-muted-foreground">
-                          {MOC_STATUS_LABELS[h.old_status as MOCStatus] || h.old_status}
+                          {statusLabels[h.old_status as MOCStatus] ?? MOC_STATUS_LABELS[h.old_status as MOCStatus] ?? h.old_status}
                         </span>
                         <span className="text-muted-foreground">→</span>
                       </>
                     )}
                     <span className="font-medium text-foreground">
-                      {MOC_STATUS_LABELS[h.new_status as MOCStatus] || h.new_status}
+                      {statusLabels[h.new_status as MOCStatus] ?? MOC_STATUS_LABELS[h.new_status as MOCStatus] ?? h.new_status}
                     </span>
                   </div>
                   <span className="text-muted-foreground tabular-nums">

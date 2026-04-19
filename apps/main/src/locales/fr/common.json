@@ -5657,7 +5657,11 @@
       "duration_days": "Durée (jours)",
       "planned_date": "Date prévue",
       "priority": "Priorité",
-      "transition_comment_ph": "Commentaire (optionnel) associé à la transition"
+      "transition_comment_ph": "Commentaire (optionnel) associé à la transition",
+      "installation": "Installation (asset registry)",
+      "installation_hint": "Lier au site/installation du référentiel si connu — optionnel",
+      "installation_ph": "Choisir une installation…",
+      "site_custom_ph": "Nom du site"
     },
     "create": {
       "title": "Nouveau MOC",

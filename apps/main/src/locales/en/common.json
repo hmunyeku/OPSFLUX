@@ -4847,7 +4847,11 @@
       "duration_days": "Duration (days)",
       "planned_date": "Planned date",
       "priority": "Priority",
-      "transition_comment_ph": "Optional comment attached to the transition"
+      "transition_comment_ph": "Optional comment attached to the transition",
+      "installation": "Installation (asset registry)",
+      "installation_hint": "Link to asset registry site/installation if known — optional",
+      "installation_ph": "Pick an installation…",
+      "site_custom_ph": "Site name"
     },
     "create": {
       "title": "New MOC",

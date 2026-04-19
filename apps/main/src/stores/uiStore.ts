@@ -18,6 +18,7 @@
  *   - 'full': replaces the main content area, list hidden, with navigation
  */
 import { create } from 'zustand'
+import { safeLocal } from '@/lib/safeStorage'
 
 // ── Panel content types ─────────────────────────────────────
 export type DynamicPanelView =
@@ -47,7 +48,7 @@ const PANEL_MODE_KEY = 'opsflux:dynamic-panel-mode'
 
 function getStoredDockSide(): 'left' | 'right' {
   try {
-    const stored = localStorage.getItem(DOCK_SIDE_KEY)
+    const stored = safeLocal.getItem(DOCK_SIDE_KEY)
     if (stored === 'left' || stored === 'right') return stored
   } catch { /* noop */ }
   return 'right'
@@ -55,7 +56,7 @@ function getStoredDockSide(): 'left' | 'right' {
 
 function getStoredPanelMode(): 'docked' | 'full' {
   try {
-    const stored = localStorage.getItem(PANEL_MODE_KEY)
+    const stored = safeLocal.getItem(PANEL_MODE_KEY)
     if (stored === 'docked' || stored === 'full') return stored
   } catch { /* noop */ }
   return 'docked'
@@ -68,16 +69,16 @@ function savePinnedPanels(panels: DetachedPanel[]) {
   const pinned = panels.filter((p) => p.pinned)
   try {
     if (pinned.length === 0) {
-      localStorage.removeItem(PINNED_PANELS_KEY)
+      safeLocal.removeItem(PINNED_PANELS_KEY)
     } else {
-      localStorage.setItem(PINNED_PANELS_KEY, JSON.stringify(pinned))
+      safeLocal.setItem(PINNED_PANELS_KEY, JSON.stringify(pinned))
     }
   } catch { /* noop */ }
 }
 
 function loadPinnedPanels(): DetachedPanel[] {
   try {
-    const stored = localStorage.getItem(PINNED_PANELS_KEY)
+    const stored = safeLocal.getItem(PINNED_PANELS_KEY)
     if (!stored) return []
     const panels = JSON.parse(stored) as DetachedPanel[]
     // Re-assign zIndexes and counter to avoid conflicts
@@ -158,24 +159,24 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   setDynamicPanelMode: (mode) => {
     set({ dynamicPanelMode: mode })
-    try { localStorage.setItem(PANEL_MODE_KEY, mode) } catch { /* noop */ }
+    try { safeLocal.setItem(PANEL_MODE_KEY, mode) } catch { /* noop */ }
   },
 
   toggleDynamicPanelMode: () => {
     const newMode = get().dynamicPanelMode === 'docked' ? 'full' : 'docked'
     set({ dynamicPanelMode: newMode })
-    try { localStorage.setItem(PANEL_MODE_KEY, newMode) } catch { /* noop */ }
+    try { safeLocal.setItem(PANEL_MODE_KEY, newMode) } catch { /* noop */ }
   },
 
   setDockSide: (side) => {
     set({ dynamicPanelDockSide: side })
-    try { localStorage.setItem(DOCK_SIDE_KEY, side) } catch { /* noop */ }
+    try { safeLocal.setItem(DOCK_SIDE_KEY, side) } catch { /* noop */ }
   },
 
   toggleDockSide: () => {
     const newSide = get().dynamicPanelDockSide === 'left' ? 'right' : 'left'
     set({ dynamicPanelDockSide: newSide })
-    try { localStorage.setItem(DOCK_SIDE_KEY, newSide) } catch { /* noop */ }
+    try { safeLocal.setItem(DOCK_SIDE_KEY, newSide) } catch { /* noop */ }
   },
 
   // Dynamic panel navigation

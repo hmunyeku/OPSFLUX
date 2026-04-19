@@ -61,6 +61,7 @@ import api from '@/lib/api'
 import { resolveApiBaseUrl } from '@/lib/runtimeUrls'
 import type { TicketCreate, TicketType } from '@/services/supportService'
 import mermaid from 'mermaid'
+import { safeLocal } from '@/lib/safeStorage'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -879,8 +880,8 @@ function ChatTab({ currentModule }: { currentModule: string }) {
     abortRef.current = controller
 
     try {
-      const token = localStorage.getItem('access_token')
-      const entityId = localStorage.getItem('entity_id')
+      const token = safeLocal.getItem('access_token')
+      const entityId = safeLocal.getItem('entity_id')
       const baseUrl = resolveApiBaseUrl()
 
       const response = await fetch(`${baseUrl}/api/v1/ai-chat/stream`, {

@@ -33,6 +33,7 @@ import { CommandPalette, useCommandPalette } from '@/components/ui/CommandPalett
 import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
 // NotificationCenter and AnnouncementCenter removed — merged into AssistantPanel
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
+import { safeLocal } from '@/lib/safeStorage'
 
 interface TopbarProps {
   onToggleSidebar: () => void
@@ -307,7 +308,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const toggleLanguage = () => {
     const newLang = i18n.language === 'fr' ? 'en' : 'fr'
     i18n.changeLanguage(newLang)
-    localStorage.setItem('language', newLang)
+    safeLocal.setItem('language', newLang)
   }
 
   // ⌘K opens CommandPalette

@@ -3,6 +3,7 @@
  */
 import React, { useEffect } from 'react'
 import { create } from 'zustand'
+import { safeLocal } from '@/lib/safeStorage'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -13,11 +14,11 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  theme: (localStorage.getItem('theme') as Theme) || 'system',
+  theme: (safeLocal.getItem('theme') as Theme) || 'system',
   resolvedTheme: 'light',
 
   setTheme: (theme: Theme) => {
-    localStorage.setItem('theme', theme)
+    safeLocal.setItem('theme', theme)
     set({ theme })
     applyTheme(theme)
   },

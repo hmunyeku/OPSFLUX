@@ -10,6 +10,7 @@
 import React, { createContext, useEffect } from 'react'
 import { create } from 'zustand'
 import api from '@/lib/api'
+import { safeLocal } from '@/lib/safeStorage'
 
 interface User {
   id: string
@@ -68,12 +69,12 @@ export class MFARequiredError extends Error {
 }
 
 function resolveCurrentEntityId(user: User): string | null {
-  const storedEntityId = localStorage.getItem('entity_id')
+  const storedEntityId = safeLocal.getItem('entity_id')
   if (storedEntityId) {
     return storedEntityId
   }
   if (user.default_entity_id) {
-    localStorage.setItem('entity_id', user.default_entity_id)
+    safeLocal.setItem('entity_id', user.default_entity_id)
     return user.default_entity_id
   }
   return null
@@ -83,20 +84,20 @@ async function resolveAccessibleCurrentEntityId(user: User): Promise<string | nu
   try {
     const { data } = await api.get<AccessibleEntity[]>('/api/v1/auth/me/entities')
     const accessibleIds = new Set((Array.isArray(data) ? data : []).map((entity) => entity.id))
-    const storedEntityId = localStorage.getItem('entity_id')
+    const storedEntityId = safeLocal.getItem('entity_id')
     if (storedEntityId && accessibleIds.has(storedEntityId)) {
       return storedEntityId
     }
     if (user.default_entity_id && accessibleIds.has(user.default_entity_id)) {
-      localStorage.setItem('entity_id', user.default_entity_id)
+      safeLocal.setItem('entity_id', user.default_entity_id)
       return user.default_entity_id
     }
     const fallbackEntityId = (Array.isArray(data) ? data[0]?.id : null) || null
     if (fallbackEntityId) {
-      localStorage.setItem('entity_id', fallbackEntityId)
+      safeLocal.setItem('entity_id', fallbackEntityId)
       return fallbackEntityId
     }
-    localStorage.removeItem('entity_id')
+    safeLocal.removeItem('entity_id')
     return null
   } catch {
     return resolveCurrentEntityId(user)
@@ -125,10 +126,10 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  isAuthenticated: !!localStorage.getItem('access_token'),
+  isAuthenticated: !!safeLocal.getItem('access_token'),
   isLoading: false,
-  currentEntityId: localStorage.getItem('entity_id'),
-  actingContext: localStorage.getItem('acting_context') || 'own',
+  currentEntityId: safeLocal.getItem('entity_id'),
+  actingContext: safeLocal.getItem('acting_context') || 'own',
   mfaToken: null,
   mfaPending: false,
 
@@ -144,8 +145,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     // No MFA — store tokens and fetch user
     const { access_token, refresh_token } = data
-    localStorage.setItem('access_token', access_token)
-    localStorage.setItem('refresh_token', refresh_token)
+    safeLocal.setItem('access_token', access_token)
+    safeLocal.setItem('refresh_token', refresh_token)
     set({ isAuthenticated: true, mfaToken: null, mfaPending: false })
 
     // Reload i18n from server now that we have a token
@@ -165,8 +166,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       code,
     })
     const { access_token, refresh_token } = res.data
-    localStorage.setItem('access_token', access_token)
-    localStorage.setItem('refresh_token', refresh_token)
+    safeLocal.setItem('access_token', access_token)
+    safeLocal.setItem('refresh_token', refresh_token)
     set({ isAuthenticated: true, mfaToken: null, mfaPending: false })
 
     const userRes = await api.get('/api/v1/auth/me')
@@ -177,25 +178,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearMfa: () => set({ mfaToken: null, mfaPending: false }),
 
   setCurrentEntity: (entityId: string) => {
-    localStorage.setItem('entity_id', entityId)
+    safeLocal.setItem('entity_id', entityId)
     set({ currentEntityId: entityId })
   },
 
   setActingContext: (contextKey: string) => {
     const value = contextKey || 'own'
-    localStorage.setItem('acting_context', value)
+    safeLocal.setItem('acting_context', value)
     set({ actingContext: value })
   },
 
   logout: () => {
-    const refreshToken = localStorage.getItem('refresh_token')
+    const refreshToken = safeLocal.getItem('refresh_token')
     if (refreshToken) {
       api.post('/api/v1/auth/logout', { refresh_token: refreshToken }).catch(() => {})
     }
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    localStorage.removeItem('entity_id')
-    localStorage.removeItem('acting_context')
+    safeLocal.removeItem('access_token')
+    safeLocal.removeItem('refresh_token')
+    safeLocal.removeItem('entity_id')
+    safeLocal.removeItem('acting_context')
     set({ user: null, isAuthenticated: false, currentEntityId: null, actingContext: 'own', mfaToken: null, mfaPending: false })
   },
 
@@ -210,9 +211,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const status = (err as { response?: { status?: number } })?.response?.status
       if (status === 401) {
         set({ user: null, isAuthenticated: false, currentEntityId: null, actingContext: 'own' })
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('acting_context')
+        safeLocal.removeItem('access_token')
+        safeLocal.removeItem('refresh_token')
+        safeLocal.removeItem('acting_context')
       }
       // For other errors (500, network), keep current auth state — don't force logout
     } finally {

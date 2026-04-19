@@ -15,6 +15,7 @@ import LanguageDetector from 'i18next-browser-languagedetector'
 
 import fr from '@/locales/fr/common.json'
 import en from '@/locales/en/common.json'
+import { safeLocal } from '@/lib/safeStorage'
 
 const I18N_NAMESPACE = 'app'
 const I18N_HASH_KEY = 'i18n_catalog_hash'
@@ -63,12 +64,12 @@ function unflatten(flat: Record<string, string>): Record<string, unknown> {
 async function fetchServerCatalog(lang: string): Promise<Record<string, string> | null> {
   try {
     const apiBase = import.meta.env.VITE_API_URL || ''
-    const token = localStorage.getItem('access_token')
+    const token = safeLocal.getItem('access_token')
     if (!token) return null // Not authenticated yet — use bundled
 
     // Normalize lang code: "fr-FR" → "fr", "en-US" → "en"
     const shortLang = lang.split('-')[0].toLowerCase()
-    const savedHash = localStorage.getItem(`${I18N_HASH_KEY}_${shortLang}`) || ''
+    const savedHash = safeLocal.getItem(`${I18N_HASH_KEY}_${shortLang}`) || ''
     const url = `${apiBase}/api/v1/i18n/catalog?lang=${shortLang}&namespace=${I18N_NAMESPACE}&if_none_match=${savedHash}`
 
     const resp = await fetch(url, {
@@ -78,7 +79,7 @@ async function fetchServerCatalog(lang: string): Promise<Record<string, string> 
 
     if (resp.status === 304) {
       // Cache still valid — use cached version
-      const cached = localStorage.getItem(`${I18N_CACHE_KEY}_${shortLang}`)
+      const cached = safeLocal.getItem(`${I18N_CACHE_KEY}_${shortLang}`)
       return cached ? JSON.parse(cached) : null
     }
 
@@ -89,8 +90,8 @@ async function fetchServerCatalog(lang: string): Promise<Record<string, string> 
     const hash: string = data.hash || ''
 
     if (Object.keys(messages).length > 0) {
-      localStorage.setItem(`${I18N_HASH_KEY}_${shortLang}`, hash)
-      localStorage.setItem(`${I18N_CACHE_KEY}_${shortLang}`, JSON.stringify(messages))
+      safeLocal.setItem(`${I18N_HASH_KEY}_${shortLang}`, hash)
+      safeLocal.setItem(`${I18N_CACHE_KEY}_${shortLang}`, JSON.stringify(messages))
       return messages
     }
     return null
@@ -165,6 +166,48 @@ i18n.on('languageChanged', (lang) => {
 // Re-load after login (token becomes available)
 export function reloadTranslationsAfterAuth(): void {
   loadServerTranslations().catch(() => {})
+}
+
+// ─── Locale-aware formatting helpers ────────────────────────────────────────
+//
+// Always use these instead of hardcoded `toLocaleDateString('fr-FR')`. The
+// locale follows i18n.language so the same call works correctly in FR, EN,
+// ES, etc. — no user-visible dates break when we flip languages.
+
+function currentLocale(): string {
+  // i18n.language can be 'fr', 'fr-FR', etc. Intl accepts both.
+  return i18n.language || i18n.options.lng as string || 'fr'
+}
+
+/** Format an ISO/Date as a short localised date. Returns '' for null/undefined/invalid. */
+export function formatDate(
+  value: string | Date | null | undefined,
+  opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit' },
+): string {
+  if (!value) return ''
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(currentLocale(), opts)
+}
+
+/** Format an ISO/Date as a short date + time. */
+export function formatDateTime(
+  value: string | Date | null | undefined,
+  opts: Intl.DateTimeFormatOptions = {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  },
+): string {
+  if (!value) return ''
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString(currentLocale(), opts)
+}
+
+/** Format a number with the current locale's grouping/decimal conventions. */
+export function formatNumber(value: number | null | undefined, opts?: Intl.NumberFormatOptions): string {
+  if (value == null || Number.isNaN(value)) return ''
+  return new Intl.NumberFormat(currentLocale(), opts).format(value)
 }
 
 export default i18n

@@ -102,7 +102,7 @@ function InlineEditCell({
           className="flex-1 h-4"
         />
         <span className="text-xs tabular-nums w-8 text-right">{editValue || 0}%</span>
-        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
+        <button type="button" onClick={onCancel} aria-label="Annuler" className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
       </div>
     )
   }
@@ -120,8 +120,8 @@ function InlineEditCell({
           onBlur={() => commit()}
           className="flex-1 bg-background border border-primary/30 rounded px-1 py-0 text-xs outline-none focus:border-primary h-6"
         />
-        <button onClick={() => commit()} className="text-primary hover:text-primary/80"><Check size={11} /></button>
-        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
+        <button type="button" onClick={() => commit()} aria-label="Valider" className="text-primary hover:text-primary/80"><Check size={11} /></button>
+        <button type="button" onClick={onCancel} aria-label="Annuler" className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
       </div>
     )
   }
@@ -144,8 +144,8 @@ function InlineEditCell({
           className="flex-1 bg-transparent border border-primary/30 rounded px-1.5 py-0 text-xs outline-none focus:border-primary h-6 tabular-nums"
         />
         {type === 'hours' && <span className="text-xs text-muted-foreground">h</span>}
-        <button onClick={() => commit()} className="text-primary hover:text-primary/80"><Check size={11} /></button>
-        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
+        <button type="button" onClick={() => commit()} aria-label="Valider" className="text-primary hover:text-primary/80"><Check size={11} /></button>
+        <button type="button" onClick={onCancel} aria-label="Annuler" className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
       </div>
     )
   }
@@ -163,8 +163,8 @@ function InlineEditCell({
         placeholder={editor?.placeholder}
         className="flex-1 bg-transparent border border-primary/30 rounded px-1.5 py-0 text-xs outline-none focus:border-primary h-6"
       />
-      <button onClick={() => commit()} className="text-primary hover:text-primary/80"><Check size={11} /></button>
-      <button onClick={onCancel} className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
+      <button type="button" onClick={() => commit()} aria-label="Valider" className="text-primary hover:text-primary/80"><Check size={11} /></button>
+      <button type="button" onClick={onCancel} aria-label="Annuler" className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
     </div>
   )
 }

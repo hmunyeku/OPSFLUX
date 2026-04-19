@@ -11,6 +11,7 @@ import { Cookie, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
+import { safeLocal } from '@/lib/safeStorage'
 
 const STORAGE_KEY = 'opsflux:cookie-consent'
 
@@ -20,13 +21,13 @@ export default function CookieConsent() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = safeLocal.getItem(STORAGE_KEY)
     if (!stored) setVisible(true)
   }, [])
 
   const handleConsent = useCallback(async (granted: boolean) => {
     const value: ConsentValue = granted ? 'accepted' : 'refused'
-    localStorage.setItem(STORAGE_KEY, value)
+    safeLocal.setItem(STORAGE_KEY, value)
     setVisible(false)
 
     try {

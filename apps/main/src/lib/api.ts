@@ -6,6 +6,7 @@
  */
 import axios, { type AxiosRequestConfig } from 'axios'
 import { resolveApiBaseUrl } from '@/lib/runtimeUrls'
+import { safeLocal } from '@/lib/safeStorage'
 
 const api = axios.create({
   baseURL: resolveApiBaseUrl(),
@@ -16,17 +17,17 @@ const api = axios.create({
 
 // Request interceptor — attach JWT + entity header
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
+  const token = safeLocal.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
 
-  const entityId = localStorage.getItem('entity_id')
+  const entityId = safeLocal.getItem('entity_id')
   if (entityId) {
     config.headers['X-Entity-ID'] = entityId
   }
 
-  const actingContext = localStorage.getItem('acting_context')
+  const actingContext = safeLocal.getItem('acting_context')
   if (actingContext && actingContext !== 'own') {
     config.headers['X-Acting-Context'] = actingContext
   }
@@ -75,7 +76,7 @@ api.interceptors.response.use(
         })
       }
 
-      const refreshToken = localStorage.getItem('refresh_token')
+      const refreshToken = safeLocal.getItem('refresh_token')
       if (refreshToken) {
         isRefreshing = true
         try {
@@ -83,8 +84,8 @@ api.interceptors.response.use(
             refresh_token: refreshToken,
           })
           const { access_token, refresh_token: newRefresh } = res.data
-          localStorage.setItem('access_token', access_token)
-          localStorage.setItem('refresh_token', newRefresh)
+          safeLocal.setItem('access_token', access_token)
+          safeLocal.setItem('refresh_token', newRefresh)
           isRefreshing = false
 
           // Notify all queued requests with the new token
@@ -98,15 +99,15 @@ api.interceptors.response.use(
           isRefreshing = false
           onRefreshFailed()
           // Refresh failed — clear session & redirect to login
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
+          safeLocal.removeItem('access_token')
+          safeLocal.removeItem('refresh_token')
           if (window.location.pathname !== '/login') {
             window.location.href = '/login'
           }
         }
       } else {
         // No refresh token — session expired, redirect to login
-        localStorage.removeItem('access_token')
+        safeLocal.removeItem('access_token')
         if (window.location.pathname !== '/login') {
           window.location.href = '/login'
         }

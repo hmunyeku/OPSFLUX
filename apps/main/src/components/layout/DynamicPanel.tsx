@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import type { DetachedPanel } from '@/stores/uiStore'
 import { ResponsiveActionBar, type ActionItem } from '@/components/shared/ResponsiveActionBar'
+import { safeLocal } from '@/lib/safeStorage'
 
 // Re-export so consumers that already pull DynamicPanelShell from this file
 // can also pick up the typed action item shape without a second import.
@@ -51,7 +52,7 @@ const DEFAULT_WIDTH = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.floor(window.
 
 function getStoredWidth(): number {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = safeLocal.getItem(STORAGE_KEY)
     if (stored) {
       const w = parseInt(stored, 10)
       if (!isNaN(w)) return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, w))
@@ -244,7 +245,7 @@ export function DynamicPanelShell({
   }, [width, dockSide])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(width))
+    safeLocal.setItem(STORAGE_KEY, String(width))
   }, [width])
 
   // Shared button style for header controls
@@ -654,7 +655,7 @@ export function FormSection({
     if (!collapsible) return true
     if (storageKey && resolvedId) {
       try {
-        const stored = localStorage.getItem(storageKey)
+        const stored = safeLocal.getItem(storageKey)
         if (stored) {
           const map = JSON.parse(stored) as Record<string, boolean>
           if (resolvedId in map) return map[resolvedId]
@@ -671,10 +672,10 @@ export function FormSection({
       const next = !prev
       if (storageKey && resolvedId) {
         try {
-          const stored = localStorage.getItem(storageKey)
+          const stored = safeLocal.getItem(storageKey)
           const map = stored ? (JSON.parse(stored) as Record<string, boolean>) : {}
           map[resolvedId] = next
-          localStorage.setItem(storageKey, JSON.stringify(map))
+          safeLocal.setItem(storageKey, JSON.stringify(map))
         } catch { /* ignore */ }
       }
       return next

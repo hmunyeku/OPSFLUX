@@ -360,6 +360,7 @@ export function LoginPage() {
                   {ssoProviders.map((provider) => (
                     <button
                       key={provider.id}
+                      type="button"
                       onClick={() => handleSsoLogin(provider.id)}
                       disabled={ssoLoading === provider.id}
                       className="gl-button gl-button-default w-full h-9 flex items-center justify-center gap-2"
@@ -384,7 +385,9 @@ export function LoginPage() {
             {/* Header with back button */}
             <div className="flex items-center gap-2 mb-4">
               <button
+                type="button"
                 onClick={handleBackToLogin}
+                aria-label={t('common.back') as string}
                 className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft size={14} />

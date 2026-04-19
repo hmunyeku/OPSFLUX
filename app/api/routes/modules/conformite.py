@@ -346,7 +346,7 @@ async def list_compliance_types(
 async def create_compliance_type(
     body: ComplianceTypeCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("conformite.type.create"),
+    _: None = Depends(require_permission("conformite.type.create")),
     db: AsyncSession = Depends(get_db),
 ):
     ct = ComplianceType(entity_id=entity_id, **body.model_dump())
@@ -361,7 +361,7 @@ async def update_compliance_type(
     type_id: UUID,
     body: ComplianceTypeUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("conformite.type.update"),
+    _: None = Depends(require_permission("conformite.type.update")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -382,7 +382,7 @@ async def delete_compliance_type(
     type_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.type.delete"),
+    _: None = Depends(require_permission("conformite.type.delete")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -421,7 +421,7 @@ async def create_compliance_rule(
     body: ComplianceRuleCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.rule.create"),
+    _: None = Depends(require_permission("conformite.rule.create")),
     db: AsyncSession = Depends(get_db),
 ):
     rule = ComplianceRule(entity_id=entity_id, changed_by=current_user.id, **body.model_dump())
@@ -455,7 +455,7 @@ async def update_compliance_rule(
     body: ComplianceRuleUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.rule.update"),
+    _: None = Depends(require_permission("conformite.rule.update")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -500,7 +500,7 @@ async def delete_compliance_rule(
     force: bool = False,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.rule.delete"),
+    _: None = Depends(require_permission("conformite.rule.delete")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -673,7 +673,7 @@ async def create_compliance_record(
     body: ComplianceRecordCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.record.create"),
+    _: None = Depends(require_permission("conformite.record.create")),
     db: AsyncSession = Depends(get_db),
 ):
     data = body.model_dump()
@@ -760,7 +760,7 @@ async def update_compliance_record(
     body: ComplianceRecordUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.record.update"),
+    _: None = Depends(require_permission("conformite.record.update")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -803,7 +803,7 @@ async def delete_compliance_record(
     record_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.record.delete"),
+    _: None = Depends(require_permission("conformite.record.delete")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -1050,7 +1050,7 @@ async def list_job_positions(
 async def create_job_position(
     body: JobPositionCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("conformite.jobposition.create"),
+    _: None = Depends(require_permission("conformite.jobposition.create")),
     db: AsyncSession = Depends(get_db),
 ):
     payload = body.model_dump()
@@ -1067,7 +1067,7 @@ async def update_job_position(
     jp_id: UUID,
     body: JobPositionUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("conformite.jobposition.update"),
+    _: None = Depends(require_permission("conformite.jobposition.update")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -1088,7 +1088,7 @@ async def delete_job_position(
     jp_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.jobposition.delete"),
+    _: None = Depends(require_permission("conformite.jobposition.delete")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -1167,7 +1167,7 @@ async def create_transfer(
     body: TierContactTransferCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.transfer.create"),
+    _: None = Depends(require_permission("conformite.transfer.create")),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a transfer record and update the contact's tier_id."""
@@ -1321,7 +1321,7 @@ async def create_exemption(
     body: ComplianceExemptionCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.exemption.create"),
+    _: None = Depends(require_permission("conformite.exemption.create")),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new compliance exemption (status=pending)."""
@@ -1350,7 +1350,7 @@ async def update_exemption(
     exemption_id: UUID,
     body: ComplianceExemptionUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("conformite.exemption.update"),
+    _: None = Depends(require_permission("conformite.exemption.update")),
     db: AsyncSession = Depends(get_db),
 ):
     """Update an exemption (change status, extend end_date, update conditions)."""
@@ -1375,7 +1375,7 @@ async def approve_exemption(
     exemption_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.exemption.approve"),
+    _: None = Depends(require_permission("conformite.exemption.approve")),
     db: AsyncSession = Depends(get_db),
 ):
     """Approve a pending exemption."""
@@ -1415,7 +1415,7 @@ async def reject_exemption(
     body: RejectExemptionBody,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.exemption.approve"),
+    _: None = Depends(require_permission("conformite.exemption.approve")),
     db: AsyncSession = Depends(get_db),
 ):
     """Reject a pending exemption (requires reason)."""
@@ -1451,7 +1451,7 @@ async def delete_exemption(
     exemption_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.exemption.delete"),
+    _: None = Depends(require_permission("conformite.exemption.delete")),
     db: AsyncSession = Depends(get_db),
 ):
     """Soft-delete an exemption."""
@@ -1492,7 +1492,7 @@ class VerifyAction(BaseModel):
 async def list_pending_verifications(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.verify"),
+    _: None = Depends(require_permission("conformite.verify")),
     db: AsyncSession = Depends(get_db),
 ):
     """List all records across verifiable models that are pending verification.
@@ -1858,7 +1858,7 @@ async def verify_record(
     body: VerifyAction,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.verify"),
+    _: None = Depends(require_permission("conformite.verify")),
     db: AsyncSession = Depends(get_db),
 ):
     """Verify or reject a pending record."""

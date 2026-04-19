@@ -824,7 +824,7 @@ async def list_vectors(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.vector.read"),
+    _: None = Depends(require_permission("travelwiz.vector.read")),
     db: AsyncSession = Depends(get_db),
 ):
     zone_count_sq = (
@@ -887,7 +887,7 @@ async def list_vectors(
 async def create_vector(
     body: VectorCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.vector.create"),
+    _: None = Depends(require_permission("travelwiz.vector.create")),
     db: AsyncSession = Depends(get_db),
 ):
     vector = TransportVector(entity_id=entity_id, **body.model_dump())
@@ -906,7 +906,7 @@ async def get_vector(
     vector_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.vector.read"),
+    _: None = Depends(require_permission("travelwiz.vector.read")),
     db: AsyncSession = Depends(get_db),
 ):
     vector = await _get_vector_or_404(db, vector_id, entity_id)
@@ -936,7 +936,7 @@ async def update_vector(
     vector_id: UUID,
     body: VectorUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.vector.update"),
+    _: None = Depends(require_permission("travelwiz.vector.update")),
     db: AsyncSession = Depends(get_db),
 ):
     vector = await _get_vector_or_404(db, vector_id, entity_id)
@@ -971,7 +971,7 @@ async def archive_vector(
     vector_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.vector.delete"),
+    _: None = Depends(require_permission("travelwiz.vector.delete")),
     db: AsyncSession = Depends(get_db),
 ):
     vector = await _get_vector_or_404(db, vector_id, entity_id)
@@ -988,7 +988,7 @@ async def list_vector_zones(
     vector_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.vector.read"),
+    _: None = Depends(require_permission("travelwiz.vector.read")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_vector_or_404(db, vector_id, entity_id)
@@ -1005,7 +1005,7 @@ async def create_vector_zone(
     vector_id: UUID,
     body: VectorZoneCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.deck.manage"),
+    _: None = Depends(require_permission("travelwiz.deck.manage")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_vector_or_404(db, vector_id, entity_id)
@@ -1022,7 +1022,7 @@ async def update_vector_zone(
     zone_id: UUID,
     body: VectorZoneUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.deck.manage"),
+    _: None = Depends(require_permission("travelwiz.deck.manage")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_vector_or_404(db, vector_id, entity_id)
@@ -1047,7 +1047,7 @@ async def delete_vector_zone(
     zone_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.deck.manage"),
+    _: None = Depends(require_permission("travelwiz.deck.manage")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_vector_or_404(db, vector_id, entity_id)
@@ -1074,7 +1074,7 @@ async def list_vehicle_certifications(
     vector_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.vector.read"),
+    _: None = Depends(require_permission("travelwiz.vector.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """List certifications for a vehicle."""
@@ -1093,7 +1093,7 @@ async def create_vehicle_certification(
     body: VehicleCertificationCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.vector.update"),
+    _: None = Depends(require_permission("travelwiz.vector.update")),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a certification to a vehicle."""
@@ -1112,7 +1112,7 @@ async def update_vehicle_certification(
     body: VehicleCertificationUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.vector.update"),
+    _: None = Depends(require_permission("travelwiz.vector.update")),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a vehicle certification."""
@@ -1138,7 +1138,7 @@ async def delete_vehicle_certification(
     cert_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.vector.update"),
+    _: None = Depends(require_permission("travelwiz.vector.update")),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a vehicle certification."""
@@ -1168,7 +1168,7 @@ async def list_rotations(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
@@ -1201,7 +1201,7 @@ async def list_rotations(
 async def create_rotation(
     body: RotationCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.voyage.create"),
+    _: None = Depends(require_permission("travelwiz.voyage.create")),
     db: AsyncSession = Depends(get_db),
 ):
     rotation = TransportRotation(entity_id=entity_id, **body.model_dump())
@@ -1234,7 +1234,7 @@ async def update_rotation(
     rotation_id: UUID,
     body: RotationUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.voyage.update"),
+    _: None = Depends(require_permission("travelwiz.voyage.update")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -1269,7 +1269,7 @@ async def list_voyages(
     scope: str | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1366,7 +1366,7 @@ async def create_voyage(
     body: VoyageCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.create"),
+    _: None = Depends(require_permission("travelwiz.voyage.create")),
     db: AsyncSession = Depends(get_db),
 ):
     code = await _generate_voyage_code(db, entity_id)
@@ -1411,7 +1411,7 @@ async def get_voyage(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1458,7 +1458,7 @@ async def update_voyage(
     voyage_id: UUID,
     body: VoyageUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.voyage.update"),
+    _: None = Depends(require_permission("travelwiz.voyage.update")),
     db: AsyncSession = Depends(get_db),
 ):
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1482,7 +1482,7 @@ async def update_voyage_status(
     body: VoyageStatusUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.validate"),
+    _: None = Depends(require_permission("travelwiz.voyage.validate")),
     db: AsyncSession = Depends(get_db),
 ):
     """Transition a voyage to a new status with optional departure/arrival timestamps."""
@@ -1652,7 +1652,7 @@ async def archive_voyage(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.delete"),
+    _: None = Depends(require_permission("travelwiz.voyage.delete")),
     db: AsyncSession = Depends(get_db),
 ):
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1666,7 +1666,7 @@ async def download_voyage_pax_manifest_pdf(
     voyage_id: UUID,
     language: str = "fr",
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     from app.core.pdf_templates import render_pdf
@@ -1709,7 +1709,7 @@ async def download_voyage_cargo_manifest_pdf(
     voyage_id: UUID,
     language: str = "fr",
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     from app.core.pdf_templates import render_pdf
@@ -1741,7 +1741,7 @@ async def list_voyage_stops(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1765,7 +1765,7 @@ async def create_voyage_stop(
     voyage_id: UUID,
     body: VoyageStopCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.voyage.update"),
+    _: None = Depends(require_permission("travelwiz.voyage.update")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1784,7 +1784,7 @@ async def update_voyage_stop(
     stop_id: UUID,
     body: VoyageStopUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.voyage.update"),
+    _: None = Depends(require_permission("travelwiz.voyage.update")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1809,7 +1809,7 @@ async def delete_voyage_stop(
     stop_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.update"),
+    _: None = Depends(require_permission("travelwiz.voyage.update")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1836,7 +1836,7 @@ async def list_all_manifests(
     status: Optional[str] = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.manifest.read"),
+    _: None = Depends(require_permission("travelwiz.manifest.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """List all manifests across all voyages (paginated)."""
@@ -1881,7 +1881,7 @@ async def list_manifests(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1927,7 +1927,7 @@ async def get_voyage_cargo_operations_report(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1939,7 +1939,7 @@ async def create_manifest(
     voyage_id: UUID,
     body: ManifestCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.manifest.create"),
+    _: None = Depends(require_permission("travelwiz.manifest.create")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1960,7 +1960,7 @@ async def validate_manifest(
     manifest_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.manifest.validate"),
+    _: None = Depends(require_permission("travelwiz.manifest.validate")),
     db: AsyncSession = Depends(get_db),
 ):
     """Validate a manifest — freezes it for departure.
@@ -2070,7 +2070,7 @@ async def list_passengers(
     manifest_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2088,7 +2088,7 @@ async def add_passenger(
     manifest_id: UUID,
     body: PassengerCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.manifest.create"),
+    _: None = Depends(require_permission("travelwiz.manifest.create")),
     db: AsyncSession = Depends(get_db),
 ):
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2125,7 +2125,7 @@ async def update_passenger(
     passenger_id: UUID,
     body: PassengerUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.boarding.manage"),
+    _: None = Depends(require_permission("travelwiz.boarding.manage")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2161,7 +2161,7 @@ async def remove_passenger(
     passenger_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.manifest.create"),
+    _: None = Depends(require_permission("travelwiz.manifest.create")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2190,7 +2190,7 @@ async def list_cargo_requests(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.read"),
+    _: None = Depends(require_permission("packlog.cargo.read")),
     db: AsyncSession = Depends(get_db),
 ):
     return await list_cargo_requests_impl(
@@ -2207,7 +2207,7 @@ async def create_cargo_request(
     body: CargoRequestCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.create"),
+    _: None = Depends(require_permission("packlog.cargo.create")),
     db: AsyncSession = Depends(get_db),
 ):
     return await create_cargo_request_impl(
@@ -2223,7 +2223,7 @@ async def get_cargo_request(
     request_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.read"),
+    _: None = Depends(require_permission("packlog.cargo.read")),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_cargo_request_impl(request_id=request_id, entity_id=entity_id, db=db)
@@ -2234,7 +2234,7 @@ async def download_cargo_request_lt_pdf(
     request_id: UUID,
     language: str = "fr",
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("packlog.cargo.read"),
+    _: None = Depends(require_permission("packlog.cargo.read")),
     db: AsyncSession = Depends(get_db),
 ):
     return await download_cargo_request_lt_pdf_impl(
@@ -2251,7 +2251,7 @@ async def update_cargo_request(
     body: CargoRequestUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.update"),
+    _: None = Depends(require_permission("packlog.cargo.update")),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_cargo_request_impl(
@@ -2268,7 +2268,7 @@ async def get_cargo_request_loading_options(
     request_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.read"),
+    _: None = Depends(require_permission("packlog.cargo.read")),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_cargo_request_loading_options_impl(request_id=request_id, entity_id=entity_id, db=db)
@@ -2280,7 +2280,7 @@ async def apply_cargo_request_loading_option(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.update"),
+    _: None = Depends(require_permission("packlog.cargo.update")),
     db: AsyncSession = Depends(get_db),
 ):
     return await apply_cargo_request_loading_option_impl(
@@ -2309,7 +2309,7 @@ async def list_cargo(
     scope: str | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("packlog.cargo.read"),
+    _: None = Depends(require_permission("packlog.cargo.read")),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2334,7 +2334,7 @@ async def create_cargo(
     body: CargoCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.create"),
+    _: None = Depends(require_permission("packlog.cargo.create")),
     db: AsyncSession = Depends(get_db),
 ):
     return await create_cargo_impl(
@@ -2350,7 +2350,7 @@ async def get_cargo(
     cargo_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.read"),
+    _: None = Depends(require_permission("packlog.cargo.read")),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_cargo_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
@@ -2361,7 +2361,7 @@ async def list_cargo_attachment_evidence(
     cargo_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.read"),
+    _: None = Depends(require_permission("packlog.cargo.read")),
     db: AsyncSession = Depends(get_db),
 ):
     return await list_cargo_attachment_evidence_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
@@ -2374,7 +2374,7 @@ async def set_cargo_attachment_evidence_type(
     body: CargoAttachmentEvidenceUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.update"),
+    _: None = Depends(require_permission("packlog.cargo.update")),
     db: AsyncSession = Depends(get_db),
 ):
     return await set_cargo_attachment_evidence_type_impl(
@@ -2426,7 +2426,7 @@ async def get_cargo_history(
     cargo_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.read"),
+    _: None = Depends(require_permission("packlog.cargo.read")),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_cargo_history_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
@@ -2437,7 +2437,7 @@ async def update_cargo(
     cargo_id: UUID,
     body: CargoUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("packlog.cargo.update"),
+    _: None = Depends(require_permission("packlog.cargo.update")),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_cargo_impl(cargo_id=cargo_id, body=body, entity_id=entity_id, db=db)
@@ -2449,7 +2449,7 @@ async def update_cargo_workflow_status(
     body: CargoWorkflowStatusUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.update"),
+    _: None = Depends(require_permission("packlog.cargo.update")),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_cargo_workflow_status_impl(
@@ -2467,7 +2467,7 @@ async def update_cargo_status(
     body: CargoStatusUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.update"),
+    _: None = Depends(require_permission("packlog.cargo.update")),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_cargo_status_impl(
@@ -2485,7 +2485,7 @@ async def receive_cargo(
     body: CargoReceiptConfirm | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.receive"),
+    _: None = Depends(require_permission("packlog.cargo.receive")),
     db: AsyncSession = Depends(get_db),
 ):
     return await receive_cargo_impl(
@@ -2507,7 +2507,7 @@ async def list_captain_logs(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2524,7 +2524,7 @@ async def create_captain_log(
     voyage_id: UUID,
     body: CaptainLogCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.boarding.manage"),
+    _: None = Depends(require_permission("travelwiz.boarding.manage")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2545,7 +2545,7 @@ async def check_voyage_capacity(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Check current capacity usage for a voyage."""
@@ -2632,7 +2632,7 @@ async def get_voyage_delay_analysis(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2648,7 +2648,7 @@ async def get_manifest_weight_analysis(
     manifest_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2668,7 +2668,7 @@ async def reassign_delayed_voyage(
     voyage_id: UUID,
     body: VoyageReassignRequest,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.voyage.update"),
+    _: None = Depends(require_permission("travelwiz.voyage.update")),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2696,7 +2696,7 @@ async def list_voyage_events(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """List all journal de bord events for a voyage, ordered chronologically."""
@@ -2746,7 +2746,7 @@ async def create_voyage_event(
     notes: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.boarding.manage"),
+    _: None = Depends(require_permission("travelwiz.boarding.manage")),
     db: AsyncSession = Depends(get_db),
 ):
     """Record a voyage event. Validates prerequisites and updates trip status."""
@@ -2777,7 +2777,7 @@ async def get_trip_kpis(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get computed KPIs for a trip."""
@@ -2794,7 +2794,7 @@ async def close_trip(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.validate"),
+    _: None = Depends(require_permission("travelwiz.voyage.validate")),
     db: AsyncSession = Depends(get_db),
 ):
     """Close a trip -- compute KPIs, update status, emit travelwiz.trip.closed event."""
@@ -2855,7 +2855,7 @@ async def list_deck_layouts(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """List deck zones for the vector assigned to this voyage."""
@@ -2887,7 +2887,7 @@ async def suggest_layout(
     deck_surface_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.deck.manage"),
+    _: None = Depends(require_permission("travelwiz.deck.manage")),
     db: AsyncSession = Depends(get_db),
 ):
     """Run deck placement algorithm for a specific deck surface."""
@@ -2908,7 +2908,7 @@ async def validate_layout(
     deck_surface_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.deck.manage"),
+    _: None = Depends(require_permission("travelwiz.deck.manage")),
     db: AsyncSession = Depends(get_db),
 ):
     """Validate (approve) a deck layout. Marks cargo items as ready_for_loading."""
@@ -2950,7 +2950,7 @@ async def initiate_return(
     body: BackCargoReturnRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.update"),
+    _: None = Depends(require_permission("packlog.cargo.update")),
     db: AsyncSession = Depends(get_db),
 ):
     return await initiate_return_impl(
@@ -2967,7 +2967,7 @@ async def list_package_elements(
     cargo_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.read"),
+    _: None = Depends(require_permission("packlog.cargo.read")),
     db: AsyncSession = Depends(get_db),
 ):
     return await list_package_elements_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
@@ -2982,7 +2982,7 @@ async def add_package_element(
     sap_code: str | None = None,
     notes: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("packlog.cargo.create"),
+    _: None = Depends(require_permission("packlog.cargo.create")),
     db: AsyncSession = Depends(get_db),
 ):
     return await add_package_element_impl(
@@ -3004,7 +3004,7 @@ async def update_package_element_return(
     body: PackageElementReturnUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.update"),
+    _: None = Depends(require_permission("packlog.cargo.update")),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_package_element_return_impl(
@@ -3024,7 +3024,7 @@ async def update_package_element_disposition(
     body: PackageElementDispositionUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.update"),
+    _: None = Depends(require_permission("packlog.cargo.update")),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_package_element_disposition_impl(
@@ -3042,7 +3042,7 @@ async def sap_match(
     description: str,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.create"),
+    _: None = Depends(require_permission("packlog.cargo.create")),
     db: AsyncSession = Depends(get_db),
 ):
     """Find matching SAP codes for a cargo description."""
@@ -3421,7 +3421,7 @@ async def list_articles(
     is_hazmat: bool | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("packlog.cargo.read"),
+    _: None = Depends(require_permission("packlog.cargo.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """List article catalog entries with optional filtering."""
@@ -3482,7 +3482,7 @@ async def create_article(
     is_hazmat: bool = False,
     hazmat_class: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("packlog.cargo.create"),
+    _: None = Depends(require_permission("packlog.cargo.create")),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new article catalog entry."""
@@ -3529,7 +3529,7 @@ async def create_article(
 async def import_articles_csv(
     file: UploadFile = File(...),
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("packlog.cargo.create"),
+    _: None = Depends(require_permission("packlog.cargo.create")),
     db: AsyncSession = Depends(get_db),
 ):
     """Bulk import SAP articles from a CSV file."""
@@ -3633,7 +3633,7 @@ async def import_articles_csv(
 async def trips_today(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get voyages departing or arriving today. Used by dashboard widget."""
@@ -3689,7 +3689,7 @@ async def trips_today(
 async def cargo_pending(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get cargo items awaiting loading. Used by dashboard widget."""
@@ -3729,7 +3729,7 @@ async def cargo_pending(
 async def fleet_kpis(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.voyage.read"),
+    _: None = Depends(require_permission("travelwiz.voyage.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get fleet-level KPIs. Used by dashboard widget."""
@@ -3800,7 +3800,7 @@ async def create_pickup_round(
     body: PickupRoundCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.pickup.create"),
+    _: None = Depends(require_permission("travelwiz.pickup.create")),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a pickup round (bus/4x4 collecting passengers at multiple stops)."""
@@ -3819,7 +3819,7 @@ async def list_pickup_rounds(
     status: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.pickup.read"),
+    _: None = Depends(require_permission("travelwiz.pickup.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """List pickup rounds with optional status filter."""
@@ -3860,7 +3860,7 @@ async def get_pickup_round_details(
     trip_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.pickup.read"),
+    _: None = Depends(require_permission("travelwiz.pickup.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get pickup round details with stops for a trip."""
@@ -3954,7 +3954,7 @@ async def record_pickup_at_stop(
     body: PickupProgressUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.pickup.update"),
+    _: None = Depends(require_permission("travelwiz.pickup.update")),
     db: AsyncSession = Depends(get_db),
 ):
     """Record passenger pickup at a stop during a pickup round."""
@@ -3980,7 +3980,7 @@ async def report_pickup_no_show(
     body: PickupNoShowReport,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.pickup.update"),
+    _: None = Depends(require_permission("travelwiz.pickup.update")),
     db: AsyncSession = Depends(get_db),
 ):
     """Report absent passengers at a pickup stop and alert operators."""
@@ -4005,7 +4005,7 @@ async def close_pickup_round_endpoint(
     trip_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.pickup.update"),
+    _: None = Depends(require_permission("travelwiz.pickup.update")),
     db: AsyncSession = Depends(get_db),
 ):
     """Close a pickup round and compute pickup KPIs."""
@@ -4034,7 +4034,7 @@ async def record_single_position(
     heading: float | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.tracking.update"),
+    _: None = Depends(require_permission("travelwiz.tracking.update")),
     db: AsyncSession = Depends(get_db),
 ):
     """Record a single position (from IoT device or manual entry)."""
@@ -4061,7 +4061,7 @@ async def record_single_position(
 async def bulk_import_ais(
     messages: list[dict],
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.tracking.update"),
+    _: None = Depends(require_permission("travelwiz.tracking.update")),
     db: AsyncSession = Depends(get_db),
 ):
     """Bulk import AIS data. Matches by MMSI to registered vehicles."""
@@ -4076,7 +4076,7 @@ async def bulk_import_ais(
 async def get_fleet_positions_endpoint(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.tracking.read"),
+    _: None = Depends(require_permission("travelwiz.tracking.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get latest positions of all vehicles (for fleet map widget)."""
@@ -4094,7 +4094,7 @@ async def get_vehicle_track_endpoint(
     end: datetime = Query(..., description="End datetime (ISO 8601)"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.tracking.read"),
+    _: None = Depends(require_permission("travelwiz.tracking.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get position history for a vehicle between two timestamps."""
@@ -4106,7 +4106,7 @@ async def get_vehicle_track_endpoint(
 @router.get("/tracking/sse")
 async def tracking_sse(
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.tracking.read"),
+    _: None = Depends(require_permission("travelwiz.tracking.read")),
     current_user: User = Depends(get_current_user),
 ):
     """SSE endpoint streaming position updates for the fleet map.
@@ -4159,7 +4159,7 @@ async def record_weather_observation(
     body: dict,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.weather.create"),
+    _: None = Depends(require_permission("travelwiz.weather.create")),
     db: AsyncSession = Depends(get_db),
 ):
     """Record a weather observation (manual or API-sourced)."""
@@ -4180,7 +4180,7 @@ async def record_weather_observation(
 async def get_all_sites_weather(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.weather.read"),
+    _: None = Depends(require_permission("travelwiz.weather.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get latest weather for all operational sites.
@@ -4234,7 +4234,7 @@ async def get_weather_history(
     limit: int = Query(50, ge=1, le=500),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.weather.read"),
+    _: None = Depends(require_permission("travelwiz.weather.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get weather observation history for a site."""
@@ -4274,7 +4274,7 @@ async def get_flight_conditions(
     asset_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.weather.read"),
+    _: None = Depends(require_permission("travelwiz.weather.read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get current flight conditions (VFR/IFR) for helicopter operations at a site."""

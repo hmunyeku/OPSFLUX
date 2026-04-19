@@ -69,6 +69,7 @@ from app.services.modules.packlog_service import (
     import_packlog_article_catalog_csv,
     list_packlog_article_catalog,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/packlog", tags=["packlog"], dependencies=[require_module_enabled("packlog")])
 
@@ -354,7 +355,11 @@ async def get_cargo_by_tracking_code(
     )
     cargo = row.scalar_one_or_none()
     if cargo is None:
-        raise HTTPException(status_code=404, detail="Cargo not found")
+        raise StructuredHTTPException(
+            404,
+            code="CARGO_NOT_FOUND",
+            message="Cargo not found",
+        )
     return await build_packlog_cargo_read_data(db, cargo)
 
 
@@ -435,9 +440,10 @@ async def confirm_cargo_scan(
             current_user, entity_id, "packlog.cargo.update", db
         )
         if not allowed:
-            raise HTTPException(
-                status_code=403,
-                detail="Permission denied: packlog.cargo.update required to change status via scan",
+            raise StructuredHTTPException(
+                403,
+                code="PERMISSION_DENIED_PACKLOG_CARGO_UPDATE_REQUIRED",
+                message="Permission denied: packlog.cargo.update required to change status via scan",
             )
 
     await confirm_scan(
@@ -626,9 +632,10 @@ async def download_cargo_label_pdf(
         variables=variables,
     )
     if not pdf_bytes:
-        raise HTTPException(
-            status_code=404,
-            detail="Template 'packlog.cargo_label' introuvable — seed via scripts/seed_pdf_templates.",
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_PACKLOG_CARGO_LABEL_INTROUVABLE_SEED",
+            message="Template 'packlog.cargo_label' introuvable — seed via scripts/seed_pdf_templates.",
         )
     # Populate the Redis cache (1h TTL) for subsequent requests.
     if redis is not None:
@@ -881,7 +888,11 @@ async def get_article(
         article_id=article_id,
     )
     if not article:
-        raise HTTPException(status_code=404, detail="Article introuvable")
+        raise StructuredHTTPException(
+            404,
+            code="ARTICLE_INTROUVABLE",
+            message="Article introuvable",
+        )
     return article
 
 

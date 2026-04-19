@@ -16,6 +16,7 @@ from app.core.database import get_db
 from app.models.common import Tag, User
 from app.schemas.common import TagCreate, TagRead, TagTreeRead, TagUpdate
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/tags", tags=["tags"])
 
@@ -149,11 +150,16 @@ async def create_tag(
         parent_result = await db.execute(select(Tag).where(Tag.id == body.parent_id))
         parent = parent_result.scalar_one_or_none()
         if not parent:
-            raise HTTPException(status_code=404, detail="Parent tag not found")
+            raise StructuredHTTPException(
+                404,
+                code="PARENT_TAG_NOT_FOUND",
+                message="Parent tag not found",
+            )
         if parent.owner_type != body.owner_type or parent.owner_id != body.owner_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Parent tag must belong to the same owner",
+            raise StructuredHTTPException(
+                400,
+                code="PARENT_TAG_MUST_BELONG_SAME_OWNER",
+                message="Parent tag must belong to the same owner",
             )
 
     tag = Tag(
@@ -182,7 +188,11 @@ async def update_tag(
     result = await db.execute(select(Tag).where(Tag.id == tag_id))
     tag = result.scalar_one_or_none()
     if not tag:
-        raise HTTPException(status_code=404, detail="Tag not found")
+        raise StructuredHTTPException(
+            404,
+            code="TAG_NOT_FOUND",
+            message="Tag not found",
+        )
 
     if tag.created_by != current_user.id:
         raise HTTPException(
@@ -200,13 +210,21 @@ async def update_tag(
     # Validate parent_id if changing it
     if "parent_id" in update_data and update_data["parent_id"] is not None:
         if update_data["parent_id"] == tag_id:
-            raise HTTPException(status_code=400, detail="A tag cannot be its own parent")
+            raise StructuredHTTPException(
+                400,
+                code="TAG_CANNOT_OWN_PARENT",
+                message="A tag cannot be its own parent",
+            )
         parent_result = await db.execute(
             select(Tag).where(Tag.id == update_data["parent_id"])
         )
         parent = parent_result.scalar_one_or_none()
         if not parent:
-            raise HTTPException(status_code=404, detail="Parent tag not found")
+            raise StructuredHTTPException(
+                404,
+                code="PARENT_TAG_NOT_FOUND",
+                message="Parent tag not found",
+            )
 
     for field, value in update_data.items():
         setattr(tag, field, value)
@@ -226,7 +244,11 @@ async def delete_tag(
     result = await db.execute(select(Tag).where(Tag.id == tag_id))
     tag = result.scalar_one_or_none()
     if not tag:
-        raise HTTPException(status_code=404, detail="Tag not found")
+        raise StructuredHTTPException(
+            404,
+            code="TAG_NOT_FOUND",
+            message="Tag not found",
+        )
 
     if tag.created_by != current_user.id:
         raise HTTPException(

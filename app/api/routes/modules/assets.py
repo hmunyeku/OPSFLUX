@@ -18,6 +18,7 @@ from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
 from app.models.common import User
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/assets", tags=["assets"])
 
@@ -95,5 +96,9 @@ async def get_asset(
     )
     obj = result.scalars().first()
     if not obj:
-        raise HTTPException(status_code=404, detail="Installation not found")
+        raise StructuredHTTPException(
+            404,
+            code="INSTALLATION_NOT_FOUND",
+            message="Installation not found",
+        )
     return obj

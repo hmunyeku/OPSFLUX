@@ -50,6 +50,7 @@ from app.schemas.common import (
     MobilePairingGenerateResponse,
     MobilePairingStatusResponse,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/auth/mobile-pair", tags=["auth", "mobile-pairing"])
 
@@ -117,9 +118,13 @@ async def generate_pairing_token(
         )
     ).scalar_one()
     if pending_count >= MAX_PENDING_PER_USER:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Too many pending pairing tokens (max {MAX_PENDING_PER_USER}). Revoke unused tokens first.",
+        raise StructuredHTTPException(
+            429,
+            code="TOO_MANY_PENDING_PAIRING_TOKENS_MAX",
+            message="Too many pending pairing tokens (max {MAX_PENDING_PER_USER}). Revoke unused tokens first.",
+            params={
+                "MAX_PENDING_PER_USER": MAX_PENDING_PER_USER,
+            },
         )
 
     raw = _generate_raw_token()
@@ -184,10 +189,18 @@ async def get_pairing_status(
         )
     ).scalar_one_or_none()
     if not pair:
-        raise HTTPException(status_code=404, detail="Pairing token not found")
+        raise StructuredHTTPException(
+            404,
+            code="PAIRING_TOKEN_NOT_FOUND",
+            message="Pairing token not found",
+        )
     if pair.user_id != current_user.id:
         # Another user's token — deny
-        raise HTTPException(status_code=403, detail="This pairing token does not belong to you")
+        raise StructuredHTTPException(
+            403,
+            code="PAIRING_TOKEN_DOES_NOT_BELONG_YOU",
+            message="This pairing token does not belong to you",
+        )
 
     # Auto-expire if past TTL
     if pair.status == "pending" and pair.expires_at < datetime.now(UTC):
@@ -216,7 +229,11 @@ async def revoke_pairing_token(
         )
     ).scalar_one_or_none()
     if not pair or pair.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Pairing token not found")
+        raise StructuredHTTPException(
+            404,
+            code="PAIRING_TOKEN_NOT_FOUND",
+            message="Pairing token not found",
+        )
     if pair.status != "pending":
         return  # already settled, no-op
     pair.status = "revoked"
@@ -244,22 +261,41 @@ async def consume_pairing_token(
         )
     ).scalar_one_or_none()
     if not pair:
-        raise HTTPException(status_code=404, detail="Invalid pairing token")
+        raise StructuredHTTPException(
+            404,
+            code="INVALID_PAIRING_TOKEN",
+            message="Invalid pairing token",
+        )
 
     now = datetime.now(UTC)
     if pair.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Pairing token is {pair.status}")
+        raise StructuredHTTPException(
+            400,
+            code="PAIRING_TOKEN",
+            message="Pairing token is {status}",
+            params={
+                "status": pair.status,
+            },
+        )
     if pair.expires_at < now:
         pair.status = "expired"
         await db.commit()
-        raise HTTPException(status_code=410, detail="Pairing token has expired")
+        raise StructuredHTTPException(
+            410,
+            code="PAIRING_TOKEN_HAS_EXPIRED",
+            message="Pairing token has expired",
+        )
 
     # Load user (must still be active)
     user = (
         await db.execute(select(User).where(User.id == pair.user_id))
     ).scalar_one_or_none()
     if not user or not getattr(user, "active", True):
-        raise HTTPException(status_code=403, detail="User account is not active")
+        raise StructuredHTTPException(
+            403,
+            code="USER_ACCOUNT_NOT_ACTIVE",
+            message="User account is not active",
+        )
 
     # Mark consumed
     ip = request.client.host if request.client else None

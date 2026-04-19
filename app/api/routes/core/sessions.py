@@ -16,6 +16,7 @@ from app.core.security import decode_token
 from app.core.config import settings
 from app.models.common import User, UserSession
 from app.schemas.common import SessionRead
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -90,7 +91,11 @@ async def revoke_session(
     )
     session = result.scalar_one_or_none()
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise StructuredHTTPException(
+            404,
+            code="SESSION_NOT_FOUND",
+            message="Session not found",
+        )
 
     # Check if this is the current session
     current_hash = _get_current_token_hash(credentials)

@@ -116,14 +116,26 @@ async def _assert_external_owner_access(
         return
     if owner_type == "user":
         if owner_id != current_user.id:
-            raise HTTPException(status_code=404, detail="Owner not found")
+            raise StructuredHTTPException(
+                404,
+                code="OWNER_NOT_FOUND",
+                message="Owner not found",
+            )
         return
     if owner_type != "tier_contact":
-        raise HTTPException(status_code=403, detail="External users cannot access this owner type")
+        raise StructuredHTTPException(
+            403,
+            code="EXTERNAL_USERS_CANNOT_ACCESS_OWNER_TYPE",
+            message="External users cannot access this owner type",
+        )
 
     linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
     if not linked_tier_ids:
-        raise HTTPException(status_code=404, detail="Owner not found")
+        raise StructuredHTTPException(
+            404,
+            code="OWNER_NOT_FOUND",
+            message="Owner not found",
+        )
     result = await db.execute(
         select(TierContact.id).where(
             TierContact.id == owner_id,
@@ -131,7 +143,11 @@ async def _assert_external_owner_access(
         )
     )
     if result.scalar_one_or_none() is None:
-        raise HTTPException(status_code=404, detail="Owner not found")
+        raise StructuredHTTPException(
+            404,
+            code="OWNER_NOT_FOUND",
+            message="Owner not found",
+        )
 
 
 def _apply_external_record_scope(query, current_user: User, entity_id: UUID):
@@ -369,7 +385,11 @@ async def update_compliance_type(
     )
     ct = result.scalars().first()
     if not ct:
-        raise HTTPException(404, "Compliance type not found")
+        raise StructuredHTTPException(
+            404,
+            code="COMPLIANCE_TYPE_NOT_FOUND",
+            message="Compliance type not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(ct, field, value)
     await db.commit()
@@ -390,7 +410,11 @@ async def delete_compliance_type(
     )
     ct = result.scalars().first()
     if not ct:
-        raise HTTPException(404, "Compliance type not found")
+        raise StructuredHTTPException(
+            404,
+            code="COMPLIANCE_TYPE_NOT_FOUND",
+            message="Compliance type not found",
+        )
     await delete_entity(ct, db, "compliance_type", entity_id=ct.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Compliance type archived"}
@@ -463,7 +487,11 @@ async def update_compliance_rule(
     )
     rule = result.scalars().first()
     if not rule:
-        raise HTTPException(404, "Rule not found")
+        raise StructuredHTTPException(
+            404,
+            code="RULE_NOT_FOUND",
+            message="Rule not found",
+        )
     # Snapshot before update
     db.add(ComplianceRuleHistory(
         rule_id=rule.id, version=rule.version, action="updated",
@@ -508,7 +536,11 @@ async def delete_compliance_rule(
     )
     rule = result.scalars().first()
     if not rule:
-        raise HTTPException(404, "Rule not found")
+        raise StructuredHTTPException(
+            404,
+            code="RULE_NOT_FOUND",
+            message="Rule not found",
+        )
 
     # Determine if this is a draft (v1, never modified, no children) — can always be hard-deleted
     is_draft = rule.version <= 1 and not rule.change_reason
@@ -560,7 +592,11 @@ async def get_rule_history(
         select(ComplianceRule.id).where(ComplianceRule.id == rule_id, ComplianceRule.entity_id == entity_id)
     )
     if not rule_check.scalar_one_or_none():
-        raise HTTPException(404, "Rule not found")
+        raise StructuredHTTPException(
+            404,
+            code="RULE_NOT_FOUND",
+            message="Rule not found",
+        )
     result = await db.execute(
         select(ComplianceRuleHistory)
         .where(ComplianceRuleHistory.rule_id == rule_id)
@@ -688,7 +724,11 @@ async def create_compliance_record(
     # ── Pre-submission validation against ComplianceType + ComplianceRule ──
     ct = await db.get(ComplianceType, data["compliance_type_id"])
     if not ct:
-        raise HTTPException(400, "Type de conformité introuvable")
+        raise StructuredHTTPException(
+            400,
+            code="TYPE_DE_CONFORMIT_INTROUVABLE",
+            message="Type de conformité introuvable",
+        )
 
     now = datetime.now(timezone.utc)
     errors: list[str] = []
@@ -768,7 +808,11 @@ async def update_compliance_record(
     )
     rec = result.scalars().first()
     if not rec:
-        raise HTTPException(404, "Record not found")
+        raise StructuredHTTPException(
+            404,
+            code="RECORD_NOT_FOUND",
+            message="Record not found",
+        )
     await _assert_external_owner_access(
         db,
         current_user,
@@ -811,7 +855,11 @@ async def delete_compliance_record(
     )
     rec = result.scalars().first()
     if not rec:
-        raise HTTPException(404, "Record not found")
+        raise StructuredHTTPException(
+            404,
+            code="RECORD_NOT_FOUND",
+            message="Record not found",
+        )
     await _assert_external_owner_access(
         db,
         current_user,
@@ -828,6 +876,7 @@ async def delete_compliance_record(
 
 
 from datetime import timedelta
+from app.core.errors import StructuredHTTPException
 
 
 class ExpiringRecordRead(BaseModel):
@@ -1075,7 +1124,11 @@ async def update_job_position(
     )
     jp = result.scalars().first()
     if not jp:
-        raise HTTPException(404, "Job position not found")
+        raise StructuredHTTPException(
+            404,
+            code="JOB_POSITION_NOT_FOUND",
+            message="Job position not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(jp, field, value)
     await db.commit()
@@ -1096,7 +1149,11 @@ async def delete_job_position(
     )
     jp = result.scalars().first()
     if not jp:
-        raise HTTPException(404, "Job position not found")
+        raise StructuredHTTPException(
+            404,
+            code="JOB_POSITION_NOT_FOUND",
+            message="Job position not found",
+        )
     await delete_entity(jp, db, "job_position", entity_id=jp.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Job position archived"}
@@ -1179,7 +1236,11 @@ async def create_transfer(
     )
     contact = contact_row.scalar_one_or_none()
     if not contact:
-        raise HTTPException(404, "Contact not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONTACT_NOT_FOUND",
+            message="Contact not found",
+        )
     # Also validate from/to tiers belong to caller's entity.
     tier_check = await db.execute(
         select(Tier.id).where(
@@ -1189,7 +1250,11 @@ async def create_transfer(
     )
     allowed = {row[0] for row in tier_check.all()}
     if body.from_tier_id not in allowed or body.to_tier_id not in allowed:
-        raise HTTPException(404, "Tier not found")
+        raise StructuredHTTPException(
+            404,
+            code="TIER_NOT_FOUND",
+            message="Tier not found",
+        )
     await _assert_external_owner_access(
         db,
         current_user,
@@ -1200,7 +1265,11 @@ async def create_transfer(
     if current_user.user_type == "external":
         linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
         if not linked_tier_ids or body.from_tier_id not in linked_tier_ids or body.to_tier_id not in linked_tier_ids:
-            raise HTTPException(status_code=403, detail="External users cannot transfer contacts outside their company scope")
+            raise StructuredHTTPException(
+                403,
+                code="EXTERNAL_USERS_CANNOT_TRANSFER_CONTACTS_OUTSIDE",
+                message="External users cannot transfer contacts outside their company scope",
+            )
 
     # Create transfer log
     transfer = TierContactTransfer(
@@ -1343,10 +1412,18 @@ async def create_exemption(
     # Validate the compliance record exists and belongs to entity
     rec = await db.get(ComplianceRecord, body.compliance_record_id)
     if not rec or rec.entity_id != entity_id:
-        raise HTTPException(404, "Compliance record not found")
+        raise StructuredHTTPException(
+            404,
+            code="COMPLIANCE_RECORD_NOT_FOUND",
+            message="Compliance record not found",
+        )
 
     if body.end_date <= body.start_date:
-        raise HTTPException(400, "end_date must be after start_date")
+        raise StructuredHTTPException(
+            400,
+            code="END_DATE_MUST_AFTER_START_DATE",
+            message="end_date must be after start_date",
+        )
 
     exemption = ComplianceExemption(
         entity_id=entity_id,
@@ -1377,7 +1454,11 @@ async def update_exemption(
     )
     exemption = result.scalars().first()
     if not exemption:
-        raise HTTPException(404, "Exemption not found")
+        raise StructuredHTTPException(
+            404,
+            code="EXEMPTION_NOT_FOUND",
+            message="Exemption not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(exemption, field, value)
     await db.commit()
@@ -1402,9 +1483,20 @@ async def approve_exemption(
     )
     exemption = result.scalars().first()
     if not exemption:
-        raise HTTPException(404, "Exemption not found")
+        raise StructuredHTTPException(
+            404,
+            code="EXEMPTION_NOT_FOUND",
+            message="Exemption not found",
+        )
     if exemption.status != "pending":
-        raise HTTPException(400, f"Cannot approve exemption with status '{exemption.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_APPROVE_EXEMPTION_STATUS",
+            message="Cannot approve exemption with status '{status}'",
+            params={
+                "status": exemption.status,
+            },
+        )
     exemption.status = "approved"
     exemption.approved_by = current_user.id
     await db.commit()
@@ -1442,9 +1534,20 @@ async def reject_exemption(
     )
     exemption = result.scalars().first()
     if not exemption:
-        raise HTTPException(404, "Exemption not found")
+        raise StructuredHTTPException(
+            404,
+            code="EXEMPTION_NOT_FOUND",
+            message="Exemption not found",
+        )
     if exemption.status != "pending":
-        raise HTTPException(400, f"Cannot reject exemption with status '{exemption.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_REJECT_EXEMPTION_STATUS",
+            message="Cannot reject exemption with status '{status}'",
+            params={
+                "status": exemption.status,
+            },
+        )
     exemption.status = "rejected"
     exemption.approved_by = current_user.id
     exemption.rejection_reason = body.reason
@@ -1478,7 +1581,11 @@ async def delete_exemption(
     )
     exemption = result.scalars().first()
     if not exemption:
-        raise HTTPException(404, "Exemption not found")
+        raise StructuredHTTPException(
+            404,
+            code="EXEMPTION_NOT_FOUND",
+            message="Exemption not found",
+        )
     await delete_entity(exemption, db, "compliance_exemption", entity_id=exemption.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Exemption archived"}
@@ -1894,15 +2001,33 @@ async def verify_record(
 
     Model = MODEL_MAP.get(record_type)
     if not Model:
-        raise HTTPException(400, f"Unknown record type: {record_type}")
+        raise StructuredHTTPException(
+            400,
+            code="UNKNOWN_RECORD_TYPE",
+            message="Unknown record type: {record_type}",
+            params={
+                "record_type": record_type,
+            },
+        )
 
     result = await db.execute(select(Model).where(Model.id == record_id))
     record = result.scalar_one_or_none()
     if not record:
-        raise HTTPException(404, "Record not found")
+        raise StructuredHTTPException(
+            404,
+            code="RECORD_NOT_FOUND",
+            message="Record not found",
+        )
 
     if record.verification_status != "pending":
-        raise HTTPException(400, f"Record is already {record.verification_status}")
+        raise StructuredHTTPException(
+            400,
+            code="RECORD_ALREADY",
+            message="Record is already {verification_status}",
+            params={
+                "verification_status": record.verification_status,
+            },
+        )
 
     # ── Check attachment_required rule before allowing verification ──
     if body.action == "verify":
@@ -1923,9 +2048,10 @@ async def verify_record(
         if pj_required:
             proof_count = await _count_record_proof(db, record_type=record_type, record=record)
             if proof_count <= 0:
-                raise HTTPException(
+                raise StructuredHTTPException(
                     422,
-                    "Impossible de vérifier : aucune pièce jointe. La règle exige au moins un document attaché."
+                    code="IMPOSSIBLE_DE_V_RIFIER_AUCUNE_PI",
+                    message="Impossible de vérifier : aucune pièce jointe. La règle exige au moins un document attaché.",
                 )
 
     now = datetime.now(timezone.utc)
@@ -1944,7 +2070,11 @@ async def verify_record(
         })
     else:
         if not body.rejection_reason:
-            raise HTTPException(400, "rejection_reason is required when rejecting")
+            raise StructuredHTTPException(
+                400,
+                code="REJECTION_REASON_REQUIRED_WHEN_REJECTING",
+                message="rejection_reason is required when rejecting",
+            )
         record.verification_status = "rejected"
         record.verified_by = current_user.id
         record.verified_at = now

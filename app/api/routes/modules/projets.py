@@ -45,6 +45,7 @@ from app.schemas.common import (
     ProjectStatusHistoryRead,
 )
 from app.services.cpm_service import compute_cpm
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"], dependencies=[require_module_enabled("projets")])
 PROJECT_WORKFLOW_SLUG = "project"
@@ -320,7 +321,11 @@ async def _get_project_or_404(db: AsyncSession, project_id: UUID, entity_id: UUI
     )
     project = result.scalars().first()
     if not project:
-        raise HTTPException(404, "Project not found")
+        raise StructuredHTTPException(
+            404,
+            code="PROJECT_NOT_FOUND",
+            message="Project not found",
+        )
     return project
 
 
@@ -672,7 +677,11 @@ async def update_project(
 
     # Guard: project code is immutable after creation (CDC §2.3)
     if "code" in update_data and update_data["code"] != project.code:
-        raise HTTPException(400, "Le code du projet est immutable après création.")
+        raise StructuredHTTPException(
+            400,
+            code="LE_CODE_DU_PROJET_EST_IMMUTABLE",
+            message="Le code du projet est immutable après création.",
+        )
 
     # ── §9 CDC: Status transition validation by project role ──────────
     # Each status transition requires a specific project-level role.
@@ -711,10 +720,15 @@ async def update_project(
         is_authorized = await _check_project_member_role(db, project_id, current_user.id, required)
         if not is_authorized:
             role_labels = ", ".join(required)
-            raise HTTPException(
+            raise StructuredHTTPException(
                 403,
-                f"Transition {old_status} → {new_status} requiert le rôle projet : {role_labels}. "
-                f"Contactez le chef de projet.",
+                code="TRANSITION_REQUIERT_LE_R_LE_PROJET",
+                message="Transition {old_status} → {new_status} requiert le rôle projet : {role_labels}. Contactez le chef de projet.",
+                params={
+                    "old_status": old_status,
+                    "new_status": new_status,
+                    "role_labels": role_labels,
+                },
             )
 
         try:
@@ -914,7 +928,11 @@ async def remove_project_member(
     )
     member = result.scalars().first()
     if not member:
-        raise HTTPException(404, "Member not found")
+        raise StructuredHTTPException(
+            404,
+            code="MEMBER_NOT_FOUND",
+            message="Member not found",
+        )
     await delete_entity(member, db, "project_member", entity_id=member.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Member removed"}
@@ -1010,7 +1028,11 @@ async def update_project_task(
     )
     task = result.scalars().first()
     if not task:
-        raise HTTPException(404, "Task not found")
+        raise StructuredHTTPException(
+            404,
+            code="TASK_NOT_FOUND",
+            message="Task not found",
+        )
 
     # Track changes for historisation
     TRACKED_FIELDS = {"status", "priority", "start_date", "due_date", "assignee_id", "title", "description", "progress", "estimated_hours", "actual_hours", "pob_quota"}
@@ -1083,7 +1105,11 @@ async def delete_project_task(
     )
     task = result.scalars().first()
     if not task:
-        raise HTTPException(404, "Task not found")
+        raise StructuredHTTPException(
+            404,
+            code="TASK_NOT_FOUND",
+            message="Task not found",
+        )
 
     # Hard-delete owned child rows first (FKs have no ON DELETE CASCADE):
     # deliverables, actions, changelog entries. ProjectTaskDependency already
@@ -1173,7 +1199,11 @@ async def update_project_milestone(
     )
     ms = result.scalars().first()
     if not ms:
-        raise HTTPException(404, "Milestone not found")
+        raise StructuredHTTPException(
+            404,
+            code="MILESTONE_NOT_FOUND",
+            message="Milestone not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(ms, field, value)
     await db.commit()
@@ -1196,7 +1226,11 @@ async def delete_project_milestone(
     )
     ms = result.scalars().first()
     if not ms:
-        raise HTTPException(404, "Milestone not found")
+        raise StructuredHTTPException(
+            404,
+            code="MILESTONE_NOT_FOUND",
+            message="Milestone not found",
+        )
     await delete_entity(ms, db, "project_milestone", entity_id=ms.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Milestone deleted"}
@@ -1340,7 +1374,11 @@ async def update_revision(
     )
     rev = result.scalars().first()
     if not rev:
-        raise HTTPException(404, "Revision not found")
+        raise StructuredHTTPException(
+            404,
+            code="REVISION_NOT_FOUND",
+            message="Revision not found",
+        )
 
     # If setting as active, deactivate others
     if body.is_active is True:
@@ -1376,9 +1414,17 @@ async def apply_revision(
     )
     rev = result.scalars().first()
     if not rev:
-        raise HTTPException(404, "Revision not found")
+        raise StructuredHTTPException(
+            404,
+            code="REVISION_NOT_FOUND",
+            message="Revision not found",
+        )
     if not rev.snapshot_data:
-        raise HTTPException(400, "Revision has no snapshot data")
+        raise StructuredHTTPException(
+            400,
+            code="REVISION_HAS_NO_SNAPSHOT_DATA",
+            message="Revision has no snapshot data",
+        )
 
     # Mark as no longer simulation, set as active
     rev.is_simulation = False
@@ -1410,7 +1456,11 @@ async def delete_revision(
     )
     rev = result.scalars().first()
     if not rev:
-        raise HTTPException(404, "Revision not found")
+        raise StructuredHTTPException(
+            404,
+            code="REVISION_NOT_FOUND",
+            message="Revision not found",
+        )
     await delete_entity(rev, db, "planning_revision", entity_id=rev.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Revision deleted"}
@@ -1470,7 +1520,11 @@ async def update_deliverable(
     )
     deliv = result.scalars().first()
     if not deliv:
-        raise HTTPException(404, "Deliverable not found")
+        raise StructuredHTTPException(
+            404,
+            code="DELIVERABLE_NOT_FOUND",
+            message="Deliverable not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(deliv, field, value)
     await db.commit()
@@ -1494,7 +1548,11 @@ async def delete_deliverable(
     )
     deliv = result.scalars().first()
     if not deliv:
-        raise HTTPException(404, "Deliverable not found")
+        raise StructuredHTTPException(
+            404,
+            code="DELIVERABLE_NOT_FOUND",
+            message="Deliverable not found",
+        )
     await delete_entity(deliv, db, "task_deliverable", entity_id=deliv.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Deliverable deleted"}
@@ -1568,7 +1626,11 @@ async def update_action(
     )
     action = result.scalars().first()
     if not action:
-        raise HTTPException(404, "Action not found")
+        raise StructuredHTTPException(
+            404,
+            code="ACTION_NOT_FOUND",
+            message="Action not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(action, field, value)
     if body.completed is True and not action.completed_at:
@@ -1598,7 +1660,11 @@ async def delete_action(
     )
     action = result.scalars().first()
     if not action:
-        raise HTTPException(404, "Action not found")
+        raise StructuredHTTPException(
+            404,
+            code="ACTION_NOT_FOUND",
+            message="Action not found",
+        )
     await delete_entity(action, db, "task_action", entity_id=action.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Action deleted"}
@@ -1678,10 +1744,21 @@ async def create_task_dependency(
             select(ProjectTask).where(ProjectTask.id == tid, ProjectTask.project_id == project_id)
         )
         if not task_result.scalar_one_or_none():
-            raise HTTPException(status_code=404, detail=f"Task {tid} not found in project")
+            raise StructuredHTTPException(
+                404,
+                code="TASK_NOT_FOUND_PROJECT",
+                message="Task {tid} not found in project",
+                params={
+                    "tid": tid,
+                },
+            )
 
     if body.from_task_id == body.to_task_id:
-        raise HTTPException(status_code=400, detail="A task cannot depend on itself")
+        raise StructuredHTTPException(
+            400,
+            code="TASK_CANNOT_DEPEND_ITSELF",
+            message="A task cannot depend on itself",
+        )
 
     # Check for circular dependency
     visited = set()
@@ -1689,7 +1766,11 @@ async def create_task_dependency(
     while queue:
         current = queue.pop(0)
         if current == body.from_task_id:
-            raise HTTPException(status_code=400, detail="Circular dependency detected")
+            raise StructuredHTTPException(
+                400,
+                code="CIRCULAR_DEPENDENCY_DETECTED",
+                message="Circular dependency detected",
+            )
         if current in visited:
             continue
         visited.add(current)
@@ -1708,7 +1789,11 @@ async def create_task_dependency(
         )
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Dependency already exists")
+        raise StructuredHTTPException(
+            409,
+            code="DEPENDENCY_ALREADY_EXISTS",
+            message="Dependency already exists",
+        )
 
     dep = ProjectTaskDependency(**body.model_dump())
     db.add(dep)
@@ -1733,7 +1818,11 @@ async def delete_task_dependency(
     )
     dep = result.scalar_one_or_none()
     if not dep:
-        raise HTTPException(status_code=404, detail="Dependency not found")
+        raise StructuredHTTPException(
+            404,
+            code="DEPENDENCY_NOT_FOUND",
+            message="Dependency not found",
+        )
     await delete_entity(dep, db, "project_task_dependency", entity_id=dep.id, user_id=current_user.id)
     await db.commit()
 
@@ -1818,7 +1907,11 @@ async def create_wbs_node(
             )
         )).scalar_one_or_none()
         if parent is None:
-            raise HTTPException(400, "parent_id must belong to the same project")
+            raise StructuredHTTPException(
+                400,
+                code="PARENT_ID_MUST_BELONG_SAME_PROJECT",
+                message="parent_id must belong to the same project",
+            )
     node = ProjectWBSNode(project_id=project_id, **body.model_dump())
     db.add(node)
     await db.commit()
@@ -1843,11 +1936,19 @@ async def update_wbs_node(
     )
     node = result.scalar_one_or_none()
     if not node:
-        raise HTTPException(404, "WBS node not found")
+        raise StructuredHTTPException(
+            404,
+            code="WBS_NODE_NOT_FOUND",
+            message="WBS node not found",
+        )
     # Prevent setting its own parent to itself or a descendant (simple check: no self)
     payload = body.model_dump(exclude_unset=True)
     if payload.get("parent_id") == node.id:
-        raise HTTPException(400, "A WBS node cannot be its own parent")
+        raise StructuredHTTPException(
+            400,
+            code="WBS_NODE_CANNOT_OWN_PARENT",
+            message="A WBS node cannot be its own parent",
+        )
     for k, v in payload.items():
         setattr(node, k, v)
     await db.commit()
@@ -1872,7 +1973,11 @@ async def delete_wbs_node(
     )
     node = result.scalar_one_or_none()
     if not node:
-        raise HTTPException(404, "WBS node not found")
+        raise StructuredHTTPException(
+            404,
+            code="WBS_NODE_NOT_FOUND",
+            message="WBS node not found",
+        )
     # Soft-archive: set active=False so cascades don't wipe linked tasks
     node.active = False
     await db.commit()
@@ -1924,7 +2029,11 @@ async def add_task_assignee(
     await _get_project_or_404(db, project_id, entity_id)
     existing = (await db.execute(select(ProjectTaskAssignee).where(ProjectTaskAssignee.task_id == task_id, ProjectTaskAssignee.user_id == body.user_id))).scalar_one_or_none()
     if existing:
-        raise HTTPException(409, "User already assigned")
+        raise StructuredHTTPException(
+            409,
+            code="USER_ALREADY_ASSIGNED",
+            message="User already assigned",
+        )
     a = ProjectTaskAssignee(task_id=task_id, user_id=body.user_id, role=body.role)
     db.add(a); await db.commit(); await db.refresh(a)
     u = await db.get(User, body.user_id)
@@ -1978,7 +2087,11 @@ async def remove_task_assignee(
 ):
     await _get_project_or_404(db, project_id, entity_id)
     a = (await db.execute(select(ProjectTaskAssignee).where(ProjectTaskAssignee.id == assignee_id))).scalar_one_or_none()
-    if not a: raise HTTPException(404, "Assignee not found")
+    if not a: raise StructuredHTTPException(
+        404,
+        code="ASSIGNEE_NOT_FOUND",
+        message="Assignee not found",
+    )
     await db.delete(a); await db.commit()
 
 
@@ -2052,7 +2165,11 @@ async def delete_comment(
 ):
     await _get_project_or_404(db, project_id, entity_id)
     comment = (await db.execute(select(ProjectComment).where(ProjectComment.id == comment_id))).scalar_one_or_none()
-    if not comment: raise HTTPException(404, "Comment not found")
+    if not comment: raise StructuredHTTPException(
+        404,
+        code="COMMENT_NOT_FOUND",
+        message="Comment not found",
+    )
     comment.active = False; await db.commit()
 
 
@@ -2319,7 +2436,11 @@ async def send_tasks_to_planner(
     project = await _get_project_or_404(db, project_id, entity_id)
     asset_id = body.asset_id or project.asset_id
     if not asset_id:
-        raise HTTPException(400, "Le projet doit avoir un site (asset) pour envoyer au Planner.")
+        raise StructuredHTTPException(
+            400,
+            code="LE_PROJET_DOIT_AVOIR_UN_SITE",
+            message="Le projet doit avoir un site (asset) pour envoyer au Planner.",
+        )
 
     from app.models.planner import PlannerActivity
 
@@ -2426,7 +2547,11 @@ async def create_from_template(
     """Clone a project from a template."""
     from app.models.common import ProjectTemplate, ProjectWBSNode
     tpl = (await db.execute(select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.entity_id == entity_id))).scalar_one_or_none()
-    if not tpl: raise HTTPException(404, "Template not found")
+    if not tpl: raise StructuredHTTPException(
+        404,
+        code="TEMPLATE_NOT_FOUND",
+        message="Template not found",
+    )
     snap = tpl.snapshot
     code = await generate_reference("PRJ", db, entity_id=entity_id)
     project = Project(entity_id=entity_id, code=code, name=name, project_type=snap.get("project", {}).get("project_type", "project"), priority=snap.get("project", {}).get("priority", "medium"), weather=snap.get("project", {}).get("weather", "sunny"), description=snap.get("project", {}).get("description"), status="draft")
@@ -2451,7 +2576,11 @@ async def create_from_template(
 async def delete_template(template_id: UUID, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.delete"), db: AsyncSession = Depends(get_db)):
     from app.models.common import ProjectTemplate
     tpl = (await db.execute(select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.entity_id == entity_id))).scalar_one_or_none()
-    if not tpl: raise HTTPException(404, "Template not found")
+    if not tpl: raise StructuredHTTPException(
+        404,
+        code="TEMPLATE_NOT_FOUND",
+        message="Template not found",
+    )
     tpl.active = False; await db.commit()
 
 
@@ -2501,7 +2630,11 @@ async def export_project_pdf(project_id: UUID, entity_id: UUID = Depends(get_cur
     }
     pdf_bytes = await render_pdf(db, slug="project.report", entity_id=entity_id, variables=variables, language="fr")
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'project.report' introuvable. Créez-le dans Paramètres > Modèles PDF.")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_PDF_PROJECT_REPORT_INTROUVABLE_CR",
+            message="Template PDF 'project.report' introuvable. Créez-le dans Paramètres > Modèles PDF.",
+        )
     return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename={project.code}_report.pdf'})
 
 
@@ -2618,12 +2751,20 @@ async def export_projects_gantt_pdf(
             },
         )
     except Exception as e:
-        raise HTTPException(500, f"PDF generation failed: {e}")
+        raise StructuredHTTPException(
+            500,
+            code="PDF_GENERATION_FAILED",
+            message="PDF generation failed: {e}",
+            params={
+                "e": e,
+            },
+        )
 
     if pdf_bytes is None:
-        raise HTTPException(
+        raise StructuredHTTPException(
             404,
-            "PDF template 'planner.gantt_export' not found. Run the seed_pdf_templates job.",
+            code="PDF_TEMPLATE_PLANNER_GANTT_EXPORT_NOT",
+            message="PDF template 'planner.gantt_export' not found. Run the seed_pdf_templates job.",
         )
 
     filename = f"projets-gantt-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.pdf"

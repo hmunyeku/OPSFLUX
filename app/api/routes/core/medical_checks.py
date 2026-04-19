@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import MedicalCheck, User
 from app.schemas.common import MedicalCheckCreate, MedicalCheckRead, MedicalCheckUpdate
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/medical-checks", tags=["medical-checks"])
 
@@ -55,11 +56,19 @@ async def update_medical_check(
     result = await db.execute(select(MedicalCheck).where(MedicalCheck.id == check_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Medical check not found")
+        raise StructuredHTTPException(
+            404,
+            code="MEDICAL_CHECK_NOT_FOUND",
+            message="Medical check not found",
+        )
     await check_verified_lock(obj, current_user, db=db)
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise StructuredHTTPException(
+            400,
+            code="NO_FIELDS_UPDATE",
+            message="No fields to update",
+        )
     for field, value in update_data.items():
         setattr(obj, field, value)
     await db.commit()
@@ -76,7 +85,11 @@ async def delete_medical_check(
     result = await db.execute(select(MedicalCheck).where(MedicalCheck.id == check_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Medical check not found")
+        raise StructuredHTTPException(
+            404,
+            code="MEDICAL_CHECK_NOT_FOUND",
+            message="Medical check not found",
+        )
     await check_verified_lock(obj, current_user, db=db)
     await delete_entity(obj, db, "medical_check", entity_id=obj.id, user_id=current_user.id)
     await db.commit()

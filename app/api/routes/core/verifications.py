@@ -42,6 +42,7 @@ from app.schemas.common import (
     VerificationStartEmailRequest,
     VerificationStartPhoneRequest,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/verifications", tags=["verifications"])
 
@@ -172,9 +173,17 @@ async def start_phone_verification(
         await db.execute(select(Phone).where(Phone.id == body.phone_id))
     ).scalar_one_or_none()
     if not phone:
-        raise HTTPException(status_code=404, detail="Phone not found")
+        raise StructuredHTTPException(
+            404,
+            code="PHONE_NOT_FOUND",
+            message="Phone not found",
+        )
     if phone.owner_type == "user" and str(phone.owner_id) != str(current_user.id):
-        raise HTTPException(status_code=403, detail="Phone does not belong to you")
+        raise StructuredHTTPException(
+            403,
+            code="PHONE_DOES_NOT_BELONG_YOU",
+            message="Phone does not belong to you",
+        )
 
     # Enforce OTP rate-limits (SMS billing DoS protection).
     await _check_otp_rate_limit(current_user.id, f"phone:{phone.id}")
@@ -236,19 +245,42 @@ async def confirm_phone_verification(
         )
     ).scalar_one_or_none()
     if not verification or verification.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Verification not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERIFICATION_NOT_FOUND",
+            message="Verification not found",
+        )
     if verification.type != "phone":
-        raise HTTPException(status_code=400, detail="Not a phone verification")
+        raise StructuredHTTPException(
+            400,
+            code="NOT_PHONE_VERIFICATION",
+            message="Not a phone verification",
+        )
     if verification.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Verification is {verification.status}")
+        raise StructuredHTTPException(
+            400,
+            code="VERIFICATION",
+            message="Verification is {status}",
+            params={
+                "status": verification.status,
+            },
+        )
     if verification.expires_at and verification.expires_at < datetime.now(UTC):
         verification.status = "expired"
         await db.commit()
-        raise HTTPException(status_code=410, detail="Code has expired")
+        raise StructuredHTTPException(
+            410,
+            code="CODE_HAS_EXPIRED",
+            message="Code has expired",
+        )
 
     expected_hash = (verification.evidence or {}).get("otp_hash")
     if not expected_hash or _hash_otp(body.otp) != expected_hash:
-        raise HTTPException(status_code=400, detail="Invalid code")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_CODE",
+            message="Invalid code",
+        )
 
     verification.status = "verified"
     verification.verified_at = datetime.now(UTC)
@@ -285,7 +317,11 @@ async def start_email_verification(
         )
     ).scalar_one_or_none()
     if not email or email.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Email not found")
+        raise StructuredHTTPException(
+            404,
+            code="EMAIL_NOT_FOUND",
+            message="Email not found",
+        )
 
     # Same rate-limit regime as phone OTP (no per-email SMS billing
     # concern, but we don't want to become a mailer-loop gateway).
@@ -341,19 +377,42 @@ async def confirm_email_verification(
         )
     ).scalar_one_or_none()
     if not verification or verification.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Verification not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERIFICATION_NOT_FOUND",
+            message="Verification not found",
+        )
     if verification.type != "email":
-        raise HTTPException(status_code=400, detail="Not an email verification")
+        raise StructuredHTTPException(
+            400,
+            code="NOT_EMAIL_VERIFICATION",
+            message="Not an email verification",
+        )
     if verification.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Verification is {verification.status}")
+        raise StructuredHTTPException(
+            400,
+            code="VERIFICATION",
+            message="Verification is {status}",
+            params={
+                "status": verification.status,
+            },
+        )
     if verification.expires_at and verification.expires_at < datetime.now(UTC):
         verification.status = "expired"
         await db.commit()
-        raise HTTPException(status_code=410, detail="Code has expired")
+        raise StructuredHTTPException(
+            410,
+            code="CODE_HAS_EXPIRED",
+            message="Code has expired",
+        )
 
     expected_hash = (verification.evidence or {}).get("otp_hash")
     if not expected_hash or _hash_otp(body.otp) != expected_hash:
-        raise HTTPException(status_code=400, detail="Invalid code")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_CODE",
+            message="Invalid code",
+        )
 
     verification.status = "verified"
     verification.verified_at = datetime.now(UTC)
@@ -469,9 +528,20 @@ async def operator_approve(
         )
     ).scalar_one_or_none()
     if not verification:
-        raise HTTPException(status_code=404, detail="Verification not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERIFICATION_NOT_FOUND",
+            message="Verification not found",
+        )
     if verification.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Verification is {verification.status}")
+        raise StructuredHTTPException(
+            400,
+            code="VERIFICATION",
+            message="Verification is {status}",
+            params={
+                "status": verification.status,
+            },
+        )
 
     verification.status = "verified"
     verification.verified_at = datetime.now(UTC)
@@ -511,9 +581,20 @@ async def operator_reject(
         )
     ).scalar_one_or_none()
     if not verification:
-        raise HTTPException(status_code=404, detail="Verification not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERIFICATION_NOT_FOUND",
+            message="Verification not found",
+        )
     if verification.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Verification is {verification.status}")
+        raise StructuredHTTPException(
+            400,
+            code="VERIFICATION",
+            message="Verification is {status}",
+            params={
+                "status": verification.status,
+            },
+        )
 
     verification.status = "rejected"
     verification.rejection_reason = reason

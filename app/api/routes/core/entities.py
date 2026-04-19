@@ -20,6 +20,7 @@ from app.models.common import (
     UserGroupRole,
 )
 from app.schemas.common import OpsFluxSchema, PaginatedResponse
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/entities", tags=["entities"])
 
@@ -295,7 +296,14 @@ async def create_entity(
     # Check uniqueness of code
     existing = await db.execute(select(Entity).where(Entity.code == body.code))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"Entity code '{body.code}' already exists")
+        raise StructuredHTTPException(
+            400,
+            code="ENTITY_CODE_ALREADY_EXISTS",
+            message="Entity code '{code}' already exists",
+            params={
+                "code": body.code,
+            },
+        )
 
     entity = Entity(code=body.code, name=body.name)
     _apply_create_or_update(entity, body.model_dump(exclude_unset=True, exclude={"code", "name"}))
@@ -346,7 +354,11 @@ async def get_entity(
     row = result.one_or_none()
 
     if not row:
-        raise HTTPException(status_code=404, detail="Entity not found")
+        raise StructuredHTTPException(
+            404,
+            code="ENTITY_NOT_FOUND",
+            message="Entity not found",
+        )
 
     # Get parent name if parent_id is set
     parent_name = None
@@ -382,7 +394,11 @@ async def update_entity(
     result = await db.execute(select(Entity).where(Entity.id == entity_id))
     entity = result.scalar_one_or_none()
     if not entity:
-        raise HTTPException(status_code=404, detail="Entity not found")
+        raise StructuredHTTPException(
+            404,
+            code="ENTITY_NOT_FOUND",
+            message="Entity not found",
+        )
 
     update_data = body.model_dump(exclude_unset=True)
 
@@ -425,7 +441,11 @@ async def delete_entity_endpoint(
     result = await db.execute(select(Entity).where(Entity.id == entity_id))
     entity = result.scalar_one_or_none()
     if not entity:
-        raise HTTPException(status_code=404, detail="Entity not found")
+        raise StructuredHTTPException(
+            404,
+            code="ENTITY_NOT_FOUND",
+            message="Entity not found",
+        )
 
     await delete_entity_service(entity, db, "entity", entity_id=entity.id, user_id=current_user.id)
     await db.commit()
@@ -450,7 +470,11 @@ async def list_entity_users(
     # Verify entity exists
     entity_result = await db.execute(select(Entity).where(Entity.id == entity_id))
     if not entity_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Entity not found")
+        raise StructuredHTTPException(
+            404,
+            code="ENTITY_NOT_FOUND",
+            message="Entity not found",
+        )
 
     # Get distinct users who are members of groups in this entity
     stmt = (
@@ -512,13 +536,21 @@ async def add_user_to_entity(
     entity_result = await db.execute(select(Entity).where(Entity.id == entity_id))
     entity = entity_result.scalar_one_or_none()
     if not entity:
-        raise HTTPException(status_code=404, detail="Entity not found")
+        raise StructuredHTTPException(
+            404,
+            code="ENTITY_NOT_FOUND",
+            message="Entity not found",
+        )
 
     # Verify user exists
     user_result = await db.execute(select(User).where(User.id == body.user_id))
     user = user_result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     # Check if user already belongs to any group in this entity
     existing = await db.execute(
@@ -530,7 +562,11 @@ async def add_user_to_entity(
         )
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="User already belongs to this entity")
+        raise StructuredHTTPException(
+            400,
+            code="USER_ALREADY_BELONGS_ENTITY",
+            message="User already belongs to this entity",
+        )
 
     # Find or create a default group for this entity
     default_group_result = await db.execute(
@@ -582,7 +618,11 @@ async def remove_user_from_entity(
     # Verify entity exists
     entity_result = await db.execute(select(Entity).where(Entity.id == entity_id))
     if not entity_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Entity not found")
+        raise StructuredHTTPException(
+            404,
+            code="ENTITY_NOT_FOUND",
+            message="Entity not found",
+        )
 
     # Find all memberships for this user in groups belonging to this entity
     memberships_stmt = (
@@ -597,7 +637,11 @@ async def remove_user_from_entity(
     memberships = memberships_result.scalars().all()
 
     if not memberships:
-        raise HTTPException(status_code=404, detail="User not found in this entity")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND_ENTITY",
+            message="User not found in this entity",
+        )
 
     for membership in memberships:
         await delete_entity_service(membership, db, "user_group_member", entity_id=membership.id, user_id=current_user.id)

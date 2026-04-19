@@ -73,6 +73,7 @@ from app.schemas.asset_registry import (
     ColumnSectionCreate, ColumnSectionUpdate, ColumnSectionRead,
     AssetChangeLogRead,
 )
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,14 @@ async def _get_or_404(db: AsyncSession, model, obj_id: UUID, entity_id: UUID, la
     )
     obj = result.scalars().first()
     if not obj:
-        raise HTTPException(404, f"{label} not found")
+        raise StructuredHTTPException(
+            404,
+            code="NOT_FOUND",
+            message="{label} not found",
+            params={
+                "label": label,
+            },
+        )
     return obj
 
 
@@ -386,7 +394,14 @@ async def delete_field(
         select(sqla_func.count()).select_from(OilSite).where(OilSite.field_id == field_id, OilSite.archived == False)
     )).scalar() or 0
     if child_count > 0:
-        raise HTTPException(409, f"Cannot archive field: {child_count} active site(s) reference it. Remove or reassign them first.")
+        raise StructuredHTTPException(
+            409,
+            code="CANNOT_ARCHIVE_FIELD_ACTIVE_SITE_S",
+            message="Cannot archive field: {child_count} active site(s) reference it. Remove or reassign them first.",
+            params={
+                "child_count": child_count,
+            },
+        )
     obj.archived = True
     await _log_ar_changes(db, "ar_field", field_id, obj.code, {"archived": False}, {"archived": True}, current_user.id, entity_id, "archive")
     await db.commit()
@@ -443,7 +458,11 @@ async def update_field_license(
     )
     obj = result.scalars().first()
     if not obj:
-        raise HTTPException(404, "License not found")
+        raise StructuredHTTPException(
+            404,
+            code="LICENSE_NOT_FOUND",
+            message="License not found",
+        )
     updates = body.model_dump(exclude_unset=True)
     old_data = _snapshot_fields(obj, list(updates.keys()))
     for key, value in updates.items():
@@ -468,7 +487,11 @@ async def delete_field_license(
     )
     obj = result.scalars().first()
     if not obj:
-        raise HTTPException(404, "License not found")
+        raise StructuredHTTPException(
+            404,
+            code="LICENSE_NOT_FOUND",
+            message="License not found",
+        )
     await db.delete(obj)
     await db.commit()
     return {"detail": "License deleted"}
@@ -566,7 +589,14 @@ async def delete_site(
         select(sqla_func.count()).select_from(Installation).where(Installation.site_id == site_id, Installation.archived == False)
     )).scalar() or 0
     if child_count > 0:
-        raise HTTPException(409, f"Cannot archive site: {child_count} active installation(s) reference it. Remove or reassign them first.")
+        raise StructuredHTTPException(
+            409,
+            code="CANNOT_ARCHIVE_SITE_ACTIVE_INSTALLATION_S",
+            message="Cannot archive site: {child_count} active installation(s) reference it. Remove or reassign them first.",
+            params={
+                "child_count": child_count,
+            },
+        )
     obj.archived = True
     await _log_ar_changes(db, "ar_site", site_id, obj.code, {"archived": False}, {"archived": True}, current_user.id, entity_id, "archive")
     await db.commit()
@@ -718,7 +748,14 @@ async def delete_installation(
         )
     )).scalar() or 0
     if child_count > 0:
-        raise HTTPException(409, f"Cannot archive installation: {child_count} active equipment(s) reference it. Remove or reassign them first.")
+        raise StructuredHTTPException(
+            409,
+            code="CANNOT_ARCHIVE_INSTALLATION_ACTIVE_EQUIPMENT_S",
+            message="Cannot archive installation: {child_count} active equipment(s) reference it. Remove or reassign them first.",
+            params={
+                "child_count": child_count,
+            },
+        )
     obj.archived = True
     await _log_ar_changes(db, "ar_installation", installation_id, obj.code, {"archived": False}, {"archived": True}, current_user.id, entity_id, "archive")
     await db.commit()
@@ -779,7 +816,14 @@ async def upsert_type_details(
     inst = await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
     type_model = INSTALLATION_TYPE_MODEL_MAP.get(inst.installation_type)
     if not type_model:
-        raise HTTPException(400, f"No type details for installation_type '{inst.installation_type}'")
+        raise StructuredHTTPException(
+            400,
+            code="NO_TYPE_DETAILS_INSTALLATION_TYPE",
+            message="No type details for installation_type '{installation_type}'",
+            params={
+                "installation_type": inst.installation_type,
+            },
+        )
     return await _upsert_1to1_detail(db, type_model, installation_id, body)
 
 
@@ -837,7 +881,11 @@ async def update_installation_deck(
     )
     deck = result.scalars().first()
     if not deck:
-        raise HTTPException(404, "Deck not found")
+        raise StructuredHTTPException(
+            404,
+            code="DECK_NOT_FOUND",
+            message="Deck not found",
+        )
     updates = body.model_dump(exclude_unset=True)
     old_data = _snapshot_fields(deck, list(updates.keys()))
     for key, value in updates.items():
@@ -865,7 +913,11 @@ async def delete_installation_deck(
     )
     deck = result.scalars().first()
     if not deck:
-        raise HTTPException(404, "Deck not found")
+        raise StructuredHTTPException(
+            404,
+            code="DECK_NOT_FOUND",
+            message="Deck not found",
+        )
     await db.delete(deck)
     await db.commit()
     return {"detail": "Deck deleted"}
@@ -1066,7 +1118,11 @@ async def get_pipeline(
     )
     pipe = result.scalars().first()
     if not pipe:
-        raise HTTPException(404, "Pipeline not found")
+        raise StructuredHTTPException(
+            404,
+            code="PIPELINE_NOT_FOUND",
+            message="Pipeline not found",
+        )
     return {
         **PipelineRead.model_validate(pipe).model_dump(),
         "waypoints": [
@@ -1334,7 +1390,11 @@ async def _verify_equipment_entity(db: AsyncSession, equipment_id: UUID, entity_
     )
     obj = result.scalars().first()
     if not obj:
-        raise HTTPException(404, "Equipment not found")
+        raise StructuredHTTPException(
+            404,
+            code="EQUIPMENT_NOT_FOUND",
+            message="Equipment not found",
+        )
     return obj
 
 
@@ -1347,7 +1407,14 @@ async def _submodel_crud_get(db, model, fk_col, parent_id, item_id, label="Item"
     result = await db.execute(select(model).where(model.id == item_id, fk_col == parent_id))
     obj = result.scalars().first()
     if not obj:
-        raise HTTPException(404, f"{label} not found")
+        raise StructuredHTTPException(
+            404,
+            code="NOT_FOUND",
+            message="{label} not found",
+            params={
+                "label": label,
+            },
+        )
     return obj
 
 
@@ -1805,7 +1872,11 @@ async def _verify_config_entity(db: AsyncSession, equipment_id: UUID, config_id:
     )
     cfg = result.scalars().first()
     if not cfg:
-        raise HTTPException(404, "Configuration not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONFIGURATION_NOT_FOUND",
+            message="Configuration not found",
+        )
     return cfg
 
 
@@ -1969,17 +2040,39 @@ async def kmz_preview(
     from app.services.kmz_parser import parse_kmz_preview
 
     if not file.filename or not file.filename.lower().endswith(".kmz"):
-        raise HTTPException(400, "File must be a .kmz archive")
+        raise StructuredHTTPException(
+            400,
+            code="FILE_MUST_KMZ_ARCHIVE",
+            message="File must be a .kmz archive",
+        )
     content = await file.read()
     if len(content) > 100 * 1024 * 1024:
-        raise HTTPException(400, "KMZ too large (max 100 MB)")
+        raise StructuredHTTPException(
+            400,
+            code="KMZ_TOO_LARGE_MAX_100_MB",
+            message="KMZ too large (max 100 MB)",
+        )
     try:
         preview = parse_kmz_preview(content)
     except ValueError as exc:
-        raise HTTPException(400, f"Invalid KMZ: {exc}") from exc
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_KMZ",
+            message="Invalid KMZ: {exc}",
+            params={
+                "exc": exc,
+            },
+        ) from exc
     except Exception as exc:  # noqa: BLE001
         logger.exception("KMZ preview failed for %s", file.filename)
-        raise HTTPException(500, f"Parse error: {exc}") from exc
+        raise StructuredHTTPException(
+            500,
+            code="PARSE_ERROR",
+            message="Parse error: {exc}",
+            params={
+                "exc": exc,
+            },
+        ) from exc
     preview["uploaded_by"] = str(current_user.id)
     preview["entity_id"] = str(entity_id)
     preview["filename"] = file.filename
@@ -2001,7 +2094,14 @@ async def kmz_export(
         kmz_bytes = await build_kmz(db, entity_id, title=f"OpsFlux — Asset Registry ({current_user.first_name or ''})")
     except Exception as exc:  # noqa: BLE001
         logger.exception("KMZ export failed for entity %s", entity_id)
-        raise HTTPException(500, f"Export error: {exc}") from exc
+        raise StructuredHTTPException(
+            500,
+            code="EXPORT_ERROR",
+            message="Export error: {exc}",
+            params={
+                "exc": exc,
+            },
+        ) from exc
 
     filename = "opsflux-assets.kmz"
     return Response(
@@ -2029,10 +2129,18 @@ async def kmz_import(
     from app.services.kmz_import import import_kmz
 
     if not file.filename or not file.filename.lower().endswith(".kmz"):
-        raise HTTPException(400, "File must be a .kmz archive")
+        raise StructuredHTTPException(
+            400,
+            code="FILE_MUST_KMZ_ARCHIVE",
+            message="File must be a .kmz archive",
+        )
     content = await file.read()
     if len(content) > 100 * 1024 * 1024:
-        raise HTTPException(400, "KMZ too large (max 100 MB)")
+        raise StructuredHTTPException(
+            400,
+            code="KMZ_TOO_LARGE_MAX_100_MB",
+            message="KMZ too large (max 100 MB)",
+        )
     try:
         report = await import_kmz(
             db,
@@ -2047,7 +2155,14 @@ async def kmz_import(
     except Exception as exc:  # noqa: BLE001
         await db.rollback()
         logger.exception("KMZ import failed for entity %s", entity_id)
-        raise HTTPException(500, f"Import error: {exc}") from exc
+        raise StructuredHTTPException(
+            500,
+            code="IMPORT_ERROR",
+            message="Import error: {exc}",
+            params={
+                "exc": exc,
+            },
+        ) from exc
 
     await db.commit()
     return report.to_dict()
@@ -2078,7 +2193,11 @@ async def kmz_import_rollback(
         )
     ).scalar_one_or_none()
     if not run:
-        raise HTTPException(404, "Import run not found")
+        raise StructuredHTTPException(
+            404,
+            code="IMPORT_RUN_NOT_FOUND",
+            message="Import run not found",
+        )
     if run.rolled_back_at is not None:
         return {"detail": "Already rolled back", "rolled_back_at": run.rolled_back_at.isoformat()}
 

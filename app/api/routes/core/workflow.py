@@ -36,6 +36,7 @@ from app.schemas.workflow import (
 from app.schemas.common import PaginatedResponse
 from app.services.core.delete_service import delete_entity
 from app.services.core.fsm_service import FSMError, FSMPermissionError, fsm_service
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/workflow", tags=["workflow"])
 logger = logging.getLogger(__name__)
@@ -258,7 +259,11 @@ async def get_definition(
     )
     definition = result.scalar_one_or_none()
     if not definition:
-        raise HTTPException(status_code=404, detail="Workflow definition not found")
+        raise StructuredHTTPException(
+            404,
+            code="WORKFLOW_DEFINITION_NOT_FOUND",
+            message="Workflow definition not found",
+        )
     return definition
 
 
@@ -280,7 +285,11 @@ async def update_definition(
     )
     definition = result.scalar_one_or_none()
     if not definition:
-        raise HTTPException(status_code=404, detail="Workflow definition not found")
+        raise StructuredHTTPException(
+            404,
+            code="WORKFLOW_DEFINITION_NOT_FOUND",
+            message="Workflow definition not found",
+        )
 
     if definition.status != "draft":
         raise HTTPException(
@@ -338,7 +347,11 @@ async def publish_definition(
     )
     definition = result.scalar_one_or_none()
     if not definition:
-        raise HTTPException(status_code=404, detail="Workflow definition not found")
+        raise StructuredHTTPException(
+            404,
+            code="WORKFLOW_DEFINITION_NOT_FOUND",
+            message="Workflow definition not found",
+        )
 
     if definition.status != "draft":
         raise HTTPException(
@@ -391,7 +404,11 @@ async def archive_definition(
     )
     definition = result.scalar_one_or_none()
     if not definition:
-        raise HTTPException(status_code=404, detail="Workflow definition not found")
+        raise StructuredHTTPException(
+            404,
+            code="WORKFLOW_DEFINITION_NOT_FOUND",
+            message="Workflow definition not found",
+        )
 
     if definition.status != "published":
         raise HTTPException(
@@ -446,7 +463,11 @@ async def delete_definition(
     )
     definition = result.scalar_one_or_none()
     if not definition:
-        raise HTTPException(status_code=404, detail="Workflow definition not found")
+        raise StructuredHTTPException(
+            404,
+            code="WORKFLOW_DEFINITION_NOT_FOUND",
+            message="Workflow definition not found",
+        )
 
     if definition.status != "draft":
         raise HTTPException(
@@ -513,7 +534,11 @@ async def clone_definition(
     )
     source = result.scalar_one_or_none()
     if not source:
-        raise HTTPException(status_code=404, detail="Workflow definition not found")
+        raise StructuredHTTPException(
+            404,
+            code="WORKFLOW_DEFINITION_NOT_FOUND",
+            message="Workflow definition not found",
+        )
 
     # Determine next version number for this slug within this entity
     max_version_result = await db.execute(
@@ -626,7 +651,11 @@ async def create_instance(
     )
     definition = def_result.scalar_one_or_none()
     if not definition:
-        raise HTTPException(status_code=404, detail="Workflow definition not found")
+        raise StructuredHTTPException(
+            404,
+            code="WORKFLOW_DEFINITION_NOT_FOUND",
+            message="Workflow definition not found",
+        )
 
     if definition.status != "published":
         raise HTTPException(
@@ -686,7 +715,11 @@ async def get_instance(
     )
     instance = result.scalar_one_or_none()
     if not instance:
-        raise HTTPException(status_code=404, detail="Workflow instance not found")
+        raise StructuredHTTPException(
+            404,
+            code="WORKFLOW_INSTANCE_NOT_FOUND",
+            message="Workflow instance not found",
+        )
 
     # Load definition for name/slug and allowed transitions
     def_result = await db.execute(
@@ -740,7 +773,11 @@ async def get_instance_history(
         )
     )
     if not inst_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Workflow instance not found")
+        raise StructuredHTTPException(
+            404,
+            code="WORKFLOW_INSTANCE_NOT_FOUND",
+            message="Workflow instance not found",
+        )
 
     result = await db.execute(
         select(WorkflowTransition)
@@ -778,7 +815,11 @@ async def execute_transition(
     )
     instance = inst_result.scalar_one_or_none()
     if not instance:
-        raise HTTPException(status_code=404, detail="Workflow instance not found")
+        raise StructuredHTTPException(
+            404,
+            code="WORKFLOW_INSTANCE_NOT_FOUND",
+            message="Workflow instance not found",
+        )
 
     from_state = instance.current_state
 

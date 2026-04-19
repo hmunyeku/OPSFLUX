@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import OpeningHour, User
 from app.schemas.common import OpeningHourCreate, OpeningHourRead, OpeningHourUpdate
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/opening-hours", tags=["opening-hours"])
 
@@ -53,7 +54,11 @@ async def update_opening_hour(
     result = await db.execute(select(OpeningHour).where(OpeningHour.id == item_id))
     oh = result.scalar_one_or_none()
     if not oh:
-        raise HTTPException(status_code=404, detail="Opening hour not found")
+        raise StructuredHTTPException(
+            404,
+            code="OPENING_HOUR_NOT_FOUND",
+            message="Opening hour not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(oh, field, value)
     await db.commit()
@@ -70,6 +75,10 @@ async def delete_opening_hour(
     result = await db.execute(select(OpeningHour).where(OpeningHour.id == item_id))
     oh = result.scalar_one_or_none()
     if not oh:
-        raise HTTPException(status_code=404, detail="Opening hour not found")
+        raise StructuredHTTPException(
+            404,
+            code="OPENING_HOUR_NOT_FOUND",
+            message="Opening hour not found",
+        )
     await delete_entity(oh, db, "opening_hour", entity_id=oh.id, user_id=current_user.id)
     await db.commit()

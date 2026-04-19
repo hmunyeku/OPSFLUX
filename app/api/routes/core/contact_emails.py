@@ -19,6 +19,7 @@ from app.core.database import get_db
 from app.models.common import ContactEmail, User
 from app.schemas.common import ContactEmailCreate, ContactEmailRead, ContactEmailUpdate
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/contact-emails", tags=["contact-emails"])
 
@@ -86,13 +87,21 @@ async def update_contact_email(
     result = await db.execute(select(ContactEmail).where(ContactEmail.id == email_id))
     contact_email = result.scalar_one_or_none()
     if not contact_email:
-        raise HTTPException(status_code=404, detail="Contact email not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONTACT_EMAIL_NOT_FOUND",
+            message="Contact email not found",
+        )
 
     await check_polymorphic_owner_access(contact_email.owner_type, contact_email.owner_id, current_user, db, request, write=True)
 
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise StructuredHTTPException(
+            400,
+            code="NO_FIELDS_UPDATE",
+            message="No fields to update",
+        )
 
     if update_data.get("is_default"):
         existing = await db.execute(
@@ -125,7 +134,11 @@ async def delete_contact_email(
     result = await db.execute(select(ContactEmail).where(ContactEmail.id == email_id))
     contact_email = result.scalar_one_or_none()
     if not contact_email:
-        raise HTTPException(status_code=404, detail="Contact email not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONTACT_EMAIL_NOT_FOUND",
+            message="Contact email not found",
+        )
 
     await check_polymorphic_owner_access(contact_email.owner_type, contact_email.owner_id, current_user, db, request, write=True)
     await delete_entity(contact_email, db, "contact_email", entity_id=email_id, user_id=current_user.id)
@@ -145,7 +158,11 @@ async def send_email_verification(
     result = await db.execute(select(ContactEmail).where(ContactEmail.id == email_id))
     contact_email = result.scalar_one_or_none()
     if not contact_email:
-        raise HTTPException(status_code=404, detail="Contact email not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONTACT_EMAIL_NOT_FOUND",
+            message="Contact email not found",
+        )
 
     if contact_email.verified:
         return {"message": "Email already verified", "email_id": str(email_id)}
@@ -201,7 +218,11 @@ async def send_email_verification(
         )
 
     if not sent:
-        raise HTTPException(status_code=503, detail="Email template unavailable for verification flow")
+        raise StructuredHTTPException(
+            503,
+            code="EMAIL_TEMPLATE_UNAVAILABLE_VERIFICATION_FLOW",
+            message="Email template unavailable for verification flow",
+        )
 
     return {"message": "Verification email sent", "email_id": str(email_id)}
 
@@ -218,23 +239,39 @@ async def verify_contact_email(
 
     token = body.get("token", "")
     if not token:
-        raise HTTPException(status_code=400, detail="Token is required")
+        raise StructuredHTTPException(
+            400,
+            code="TOKEN_REQUIRED",
+            message="Token is required",
+        )
 
     result = await db.execute(select(ContactEmail).where(ContactEmail.id == email_id))
     contact_email = result.scalar_one_or_none()
     if not contact_email:
-        raise HTTPException(status_code=404, detail="Contact email not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONTACT_EMAIL_NOT_FOUND",
+            message="Contact email not found",
+        )
 
     if contact_email.verified:
         return {"message": "Email already verified", "email_id": str(email_id)}
 
     # Validate token
     if not contact_email.verification_token or contact_email.verification_token != token:
-        raise HTTPException(status_code=400, detail="Invalid verification token")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_VERIFICATION_TOKEN",
+            message="Invalid verification token",
+        )
 
     # Check expiry
     if contact_email.verification_expires_at and contact_email.verification_expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Verification token expired")
+        raise StructuredHTTPException(
+            400,
+            code="VERIFICATION_TOKEN_EXPIRED",
+            message="Verification token expired",
+        )
 
     contact_email.verified = True
     contact_email.verified_at = datetime.now(timezone.utc)
@@ -257,16 +294,28 @@ async def verify_email_callback(
     result = await db.execute(select(ContactEmail).where(ContactEmail.id == id))
     contact_email = result.scalar_one_or_none()
     if not contact_email:
-        raise HTTPException(status_code=404, detail="Contact email not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONTACT_EMAIL_NOT_FOUND",
+            message="Contact email not found",
+        )
 
     if contact_email.verified:
         return {"message": "Email already verified", "verified": True}
 
     if not contact_email.verification_token or contact_email.verification_token != token:
-        raise HTTPException(status_code=400, detail="Invalid verification token")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_VERIFICATION_TOKEN",
+            message="Invalid verification token",
+        )
 
     if contact_email.verification_expires_at and contact_email.verification_expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Verification token expired")
+        raise StructuredHTTPException(
+            400,
+            code="VERIFICATION_TOKEN_EXPIRED",
+            message="Verification token expired",
+        )
 
     contact_email.verified = True
     contact_email.verified_at = datetime.now(timezone.utc)

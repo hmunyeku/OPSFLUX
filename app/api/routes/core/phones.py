@@ -17,6 +17,7 @@ from app.core.database import get_db
 from app.models.common import Phone, User
 from app.schemas.common import PhoneCreate, PhoneRead, PhoneUpdate
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/phones", tags=["phones"])
 
@@ -107,13 +108,21 @@ async def update_phone(
     result = await db.execute(select(Phone).where(Phone.id == phone_id))
     phone = result.scalar_one_or_none()
     if not phone:
-        raise HTTPException(status_code=404, detail="Phone not found")
+        raise StructuredHTTPException(
+            404,
+            code="PHONE_NOT_FOUND",
+            message="Phone not found",
+        )
 
     await check_polymorphic_owner_access(phone.owner_type, phone.owner_id, current_user, db, request, write=True)
 
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise StructuredHTTPException(
+            400,
+            code="NO_FIELDS_UPDATE",
+            message="No fields to update",
+        )
 
     # Handle default toggle
     if update_data.get("is_default"):
@@ -147,7 +156,11 @@ async def delete_phone(
     result = await db.execute(select(Phone).where(Phone.id == phone_id))
     phone = result.scalar_one_or_none()
     if not phone:
-        raise HTTPException(status_code=404, detail="Phone not found")
+        raise StructuredHTTPException(
+            404,
+            code="PHONE_NOT_FOUND",
+            message="Phone not found",
+        )
 
     await check_polymorphic_owner_access(phone.owner_type, phone.owner_id, current_user, db, request, write=True)
     await delete_entity(phone, db, "phone", entity_id=phone_id, user_id=current_user.id)
@@ -167,7 +180,11 @@ async def send_phone_verification(
     result = await db.execute(select(Phone).where(Phone.id == phone_id))
     phone = result.scalar_one_or_none()
     if not phone:
-        raise HTTPException(status_code=404, detail="Phone not found")
+        raise StructuredHTTPException(
+            404,
+            code="PHONE_NOT_FOUND",
+            message="Phone not found",
+        )
 
     if phone.verified:
         return {"message": "Phone already verified", "phone_id": str(phone_id)}
@@ -209,23 +226,39 @@ async def verify_phone(
 
     code = body.get("code", "")
     if not code:
-        raise HTTPException(status_code=400, detail="Code is required")
+        raise StructuredHTTPException(
+            400,
+            code="CODE_REQUIRED",
+            message="Code is required",
+        )
 
     result = await db.execute(select(Phone).where(Phone.id == phone_id))
     phone = result.scalar_one_or_none()
     if not phone:
-        raise HTTPException(status_code=404, detail="Phone not found")
+        raise StructuredHTTPException(
+            404,
+            code="PHONE_NOT_FOUND",
+            message="Phone not found",
+        )
 
     if phone.verified:
         return {"message": "Phone already verified", "phone_id": str(phone_id)}
 
     # Validate code
     if not phone.verification_code or phone.verification_code != code:
-        raise HTTPException(status_code=400, detail="Invalid verification code")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_VERIFICATION_CODE",
+            message="Invalid verification code",
+        )
 
     # Check expiry (10 minutes)
     if phone.verification_expires_at and phone.verification_expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Verification code expired")
+        raise StructuredHTTPException(
+            400,
+            code="VERIFICATION_CODE_EXPIRED",
+            message="Verification code expired",
+        )
 
     phone.verified = True
     phone.verified_at = datetime.now(timezone.utc)

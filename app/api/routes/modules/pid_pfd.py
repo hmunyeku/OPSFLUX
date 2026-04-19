@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -606,7 +607,11 @@ async def execute_pid_transition(
 
     to_state = body.get("to_state")
     if not to_state:
-        raise HTTPException(400, "to_state is required")
+        raise StructuredHTTPException(
+            400,
+            code="STATE_REQUIRED",
+            message="to_state is required",
+        )
 
     return await svc_transition(
         pid_id=pid_id,
@@ -670,7 +675,11 @@ async def sync_pid(
 
     pid = await svc_get(pid_id, entity_id, db)
     if not pid.xml_content:
-        raise HTTPException(400, "PID has no XML content to sync")
+        raise StructuredHTTPException(
+            400,
+            code="PID_HAS_NO_XML_CONTENT_SYNC",
+            message="PID has no XML content to sync",
+        )
 
     return await svc_sync(
         pid_id=pid_id,
@@ -965,13 +974,24 @@ async def sync_xml_to_db(
 
     pid = await svc_get(pid_id, entity_id, db)
     if not pid.xml_content:
-        raise HTTPException(400, "PID has no XML content to sync")
+        raise StructuredHTTPException(
+            400,
+            code="PID_HAS_NO_XML_CONTENT_SYNC",
+            message="PID has no XML content to sync",
+        )
 
     # Parse the XML
     try:
         root = ET.fromstring(pid.xml_content)
     except ET.ParseError as exc:
-        raise HTTPException(400, f"Invalid XML: {exc}") from exc
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_XML",
+            message="Invalid XML: {exc}",
+            params={
+                "exc": exc,
+            },
+        ) from exc
 
     # Find all mxCell elements (draw.io stores cells inside <root> or <mxGraphModel>)
     cells = root.findall(".//mxCell")

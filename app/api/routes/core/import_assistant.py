@@ -31,6 +31,7 @@ from app.services.modules.import_service import (
     get_target_objects,
     validate_import,
 )
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,14 @@ async def execute_import_data(
     """Execute the import with permission check based on target_object."""
     perm = _PERMISSION_MAP.get(body.target_object)
     if perm and not await has_user_permission(current_user, entity_id, perm, db):
-        raise HTTPException(status_code=403, detail=f"Permission denied: {perm}")
+        raise StructuredHTTPException(
+            403,
+            code="PERMISSION_DENIED",
+            message="Permission denied: {perm}",
+            params={
+                "perm": perm,
+            },
+        )
 
     result = await execute_import(
         target_object=body.target_object,
@@ -243,7 +251,11 @@ async def update_mapping(
     )
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Mapping not found")
+        raise StructuredHTTPException(
+            404,
+            code="MAPPING_NOT_FOUND",
+            message="Mapping not found",
+        )
 
     if body.name is not None:
         obj.name = body.name
@@ -280,7 +292,11 @@ async def delete_mapping(
     )
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Mapping not found")
+        raise StructuredHTTPException(
+            404,
+            code="MAPPING_NOT_FOUND",
+            message="Mapping not found",
+        )
 
     obj.archived = True
     await db.commit()

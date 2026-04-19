@@ -58,25 +58,45 @@ async def adminer_proxy(
         token = request.query_params.get("token")
 
     if not token:
-        raise HTTPException(status_code=401, detail="Authentication required")
+        raise StructuredHTTPException(
+            401,
+            code="AUTHENTICATION_REQUIRED",
+            message="Authentication required",
+        )
 
     try:
         payload = decode_token(token)
         user_id = payload.get("sub")
         if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise StructuredHTTPException(
+                401,
+                code="INVALID_TOKEN",
+                message="Invalid token",
+            )
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise StructuredHTTPException(
+            401,
+            code="INVALID_TOKEN",
+            message="Invalid token",
+        )
 
     # Verify user exists and has admin.system permission
     user = await db.get(User, UUID(user_id))
     if not user or not user.active:
-        raise HTTPException(status_code=401, detail="User not found or inactive")
+        raise StructuredHTTPException(
+            401,
+            code="USER_NOT_FOUND_INACTIVE",
+            message="User not found or inactive",
+        )
 
     from app.api.deps import has_user_permission
     entity_id = user.default_entity_id
     if not entity_id or not await has_user_permission(user, entity_id, "admin.system", db):
-        raise HTTPException(status_code=403, detail="Admin access required")
+        raise StructuredHTTPException(
+            403,
+            code="ADMIN_ACCESS_REQUIRED",
+            message="Admin access required",
+        )
 
     # Strip token from query params before proxying
     query_parts = [f"{k}={v}" for k, v in request.query_params.items() if k != "token"]
@@ -395,6 +415,7 @@ from datetime import datetime, timezone
 from fastapi import UploadFile, File as FastAPIFile
 from fastapi.responses import FileResponse
 from pathlib import Path
+from app.core.errors import StructuredHTTPException
 
 # Use the same static directory as main.py mounts
 STATIC_ROOT = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))).resolve() / "static"
@@ -475,7 +496,11 @@ async def fs_upload(
     rel_path = path.lstrip("/")
     target_dir = _safe_resolve(rel_path)
     if not target_dir:
-        raise HTTPException(400, "Invalid path")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_PATH",
+            message="Invalid path",
+        )
     target_dir.mkdir(parents=True, exist_ok=True)
 
     file_path = target_dir / (file.filename or "upload")
@@ -494,7 +519,11 @@ async def fs_download(
     rel_path = path.lstrip("/")
     target = _safe_resolve(rel_path)
     if not target or not target.is_file():
-        raise HTTPException(404, "File not found")
+        raise StructuredHTTPException(
+            404,
+            code="FILE_NOT_FOUND",
+            message="File not found",
+        )
 
     content_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
     return FileResponse(str(target), media_type=content_type, filename=target.name)
@@ -511,9 +540,17 @@ async def fs_delete(
     rel_path = path.lstrip("/")
     target = _safe_resolve(rel_path)
     if not target or not target.exists():
-        raise HTTPException(404, "Not found")
+        raise StructuredHTTPException(
+            404,
+            code="NOT_FOUND",
+            message="Not found",
+        )
     if target == STATIC_ROOT:
-        raise HTTPException(400, "Cannot delete root")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_DELETE_ROOT",
+            message="Cannot delete root",
+        )
 
     if target.is_dir():
         shutil.rmtree(str(target))
@@ -532,7 +569,11 @@ async def fs_mkdir(
     rel_path = path.lstrip("/")
     target = _safe_resolve(rel_path)
     if not target:
-        raise HTTPException(400, "Invalid path")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_PATH",
+            message="Invalid path",
+        )
     target.mkdir(parents=True, exist_ok=True)
     return {"message": "Created", "path": "/" + str(target.relative_to(STATIC_ROOT)).replace("\\", "/")}
 
@@ -548,10 +589,18 @@ async def fs_rename(
     rel_path = path.lstrip("/")
     target = _safe_resolve(rel_path)
     if not target or not target.exists():
-        raise HTTPException(404, "Not found")
+        raise StructuredHTTPException(
+            404,
+            code="NOT_FOUND",
+            message="Not found",
+        )
 
     new_target = target.parent / new_name
     if new_target.exists():
-        raise HTTPException(400, "Name already exists")
+        raise StructuredHTTPException(
+            400,
+            code="NAME_ALREADY_EXISTS",
+            message="Name already exists",
+        )
     target.rename(new_target)
     return {"message": "Renamed", "path": "/" + str(new_target.relative_to(STATIC_ROOT)).replace("\\", "/")}

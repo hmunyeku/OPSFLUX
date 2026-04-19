@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import DictionaryEntry, User
 from app.schemas.common import DictionaryEntryCreate, DictionaryEntryRead, DictionaryEntryUpdate
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/dictionary", tags=["dictionary"])
 
@@ -63,10 +64,18 @@ async def update_entry(
     result = await db.execute(select(DictionaryEntry).where(DictionaryEntry.id == entry_id))
     entry = result.scalar_one_or_none()
     if not entry:
-        raise HTTPException(status_code=404, detail="Entry not found")
+        raise StructuredHTTPException(
+            404,
+            code="ENTRY_NOT_FOUND",
+            message="Entry not found",
+        )
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise StructuredHTTPException(
+            400,
+            code="NO_FIELDS_UPDATE",
+            message="No fields to update",
+        )
     for field, value in update_data.items():
         setattr(entry, field, value)
     await db.commit()
@@ -87,7 +96,11 @@ async def delete_entry(
     result = await db.execute(select(DictionaryEntry).where(DictionaryEntry.id == entry_id))
     entry = result.scalar_one_or_none()
     if not entry:
-        raise HTTPException(status_code=404, detail="Entry not found")
+        raise StructuredHTTPException(
+            404,
+            code="ENTRY_NOT_FOUND",
+            message="Entry not found",
+        )
     await delete_entity(entry, db, "dictionary_entry", entity_id=entry.id, user_id=current_user.id)
     await db.commit()
 

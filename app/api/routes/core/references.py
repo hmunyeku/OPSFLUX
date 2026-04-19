@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.core.references import DEFAULT_TEMPLATE, generate_reference, preview_reference
 from app.models.common import ExternalReference, Setting, User
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/references", tags=["references"])
 
@@ -283,7 +284,11 @@ async def delete_external_reference(
     )
     ext_ref = result.scalar_one_or_none()
     if not ext_ref:
-        raise HTTPException(status_code=404, detail="External reference not found")
+        raise StructuredHTTPException(
+            404,
+            code="EXTERNAL_REFERENCE_NOT_FOUND",
+            message="External reference not found",
+        )
 
     await delete_entity(ext_ref, db, "external_reference", entity_id=id, user_id=current_user.id)
     await db.commit()

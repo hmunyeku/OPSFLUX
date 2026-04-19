@@ -20,6 +20,7 @@ from app.core.storage_service import store_file, get_file_path, get_download_url
 from app.models.common import Attachment, User
 from app.schemas.common import AttachmentRead
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/attachments", tags=["attachments"])
 
@@ -110,7 +111,11 @@ async def download_attachment(
     )
     attachment = result.scalar_one_or_none()
     if not attachment:
-        raise HTTPException(status_code=404, detail="Attachment not found")
+        raise StructuredHTTPException(
+            404,
+            code="ATTACHMENT_NOT_FOUND",
+            message="Attachment not found",
+        )
 
     await check_polymorphic_owner_access(attachment.owner_type, attachment.owner_id, current_user, db, request, write=False)
 
@@ -122,7 +127,11 @@ async def download_attachment(
     # Local: serve file directly
     local_path = await get_file_path(attachment.storage_path)
     if not local_path:
-        raise HTTPException(status_code=404, detail="File not found on disk")
+        raise StructuredHTTPException(
+            404,
+            code="FILE_NOT_FOUND_DISK",
+            message="File not found on disk",
+        )
 
     return FileResponse(
         local_path,
@@ -145,7 +154,11 @@ async def delete_attachment(
     )
     attachment = result.scalar_one_or_none()
     if not attachment:
-        raise HTTPException(status_code=404, detail="Attachment not found")
+        raise StructuredHTTPException(
+            404,
+            code="ATTACHMENT_NOT_FOUND",
+            message="Attachment not found",
+        )
 
     await check_polymorphic_owner_access(attachment.owner_type, attachment.owner_id, current_user, db, request, write=True)
 

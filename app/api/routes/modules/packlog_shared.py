@@ -64,6 +64,7 @@ from app.services.modules.packlog_service import (
     update_packlog_cargo_status,
     try_packlog_workflow_transition,
 )
+from app.core.errors import StructuredHTTPException
 
 
 def _serialize_package_element(element: PackageElement) -> dict:
@@ -115,7 +116,11 @@ async def _get_voyage_or_404(db: AsyncSession, voyage_id: UUID, entity_id: UUID)
     )
     voyage = result.scalars().first()
     if not voyage:
-        raise HTTPException(404, "Voyage not found")
+        raise StructuredHTTPException(
+            404,
+            code="VOYAGE_NOT_FOUND",
+            message="Voyage not found",
+        )
     return voyage
 
 
@@ -128,31 +133,59 @@ async def _validate_cargo_dossier_refs(
     if getattr(payload, "request_id", None):
         cargo_request = await db.get(CargoRequest, payload.request_id)
         if not cargo_request or cargo_request.entity_id != entity_id or not cargo_request.active:
-            raise HTTPException(400, "Demande d'expédition introuvable ou inactive")
+            raise StructuredHTTPException(
+                400,
+                code="DEMANDE_D_EXP_DITION_INTROUVABLE_OU",
+                message="Demande d'expédition introuvable ou inactive",
+            )
     if payload.imputation_reference_id:
         imputation = await db.get(ImputationReference, payload.imputation_reference_id)
         if not imputation or imputation.entity_id != entity_id or not imputation.active:
-            raise HTTPException(400, "Imputation introuvable ou inactive")
+            raise StructuredHTTPException(
+                400,
+                code="IMPUTATION_INTROUVABLE_OU_INACTIVE",
+                message="Imputation introuvable ou inactive",
+            )
     if payload.pickup_contact_user_id:
         pickup_user = await db.get(User, payload.pickup_contact_user_id)
         if not pickup_user or not pickup_user.active:
-            raise HTTPException(400, "Utilisateur d'enlèvement introuvable ou inactif")
+            raise StructuredHTTPException(
+                400,
+                code="UTILISATEUR_D_ENL_VEMENT_INTROUVABLE_OU",
+                message="Utilisateur d'enlèvement introuvable ou inactif",
+            )
     if payload.pickup_contact_tier_contact_id:
         pickup_contact = await db.get(TierContact, payload.pickup_contact_tier_contact_id)
         if not pickup_contact or not pickup_contact.active:
-            raise HTTPException(400, "Contact d'enlèvement introuvable ou inactif")
+            raise StructuredHTTPException(
+                400,
+                code="CONTACT_D_ENL_VEMENT_INTROUVABLE_OU",
+                message="Contact d'enlèvement introuvable ou inactif",
+            )
     if getattr(payload, "planned_zone_id", None):
         zone = await db.get(TransportVectorZone, payload.planned_zone_id)
         if not zone or not zone.active:
-            raise HTTPException(400, "Zone de chargement introuvable ou inactive")
+            raise StructuredHTTPException(
+                400,
+                code="ZONE_DE_CHARGEMENT_INTROUVABLE_OU_INACTIVE",
+                message="Zone de chargement introuvable ou inactive",
+            )
         manifest_id = getattr(payload, "manifest_id", None)
         if manifest_id:
             manifest = await db.get(VoyageManifest, manifest_id)
             if not manifest:
-                raise HTTPException(400, "Manifeste introuvable pour la zone de chargement")
+                raise StructuredHTTPException(
+                    400,
+                    code="MANIFESTE_INTROUVABLE_POUR_LA_ZONE_DE",
+                    message="Manifeste introuvable pour la zone de chargement",
+                )
             voyage = await db.get(Voyage, manifest.voyage_id)
             if not voyage or zone.vector_id != voyage.vector_id:
-                raise HTTPException(400, "La zone de chargement ne correspond pas au vecteur du manifeste")
+                raise StructuredHTTPException(
+                    400,
+                    code="LA_ZONE_DE_CHARGEMENT_NE_CORRESPOND",
+                    message="La zone de chargement ne correspond pas au vecteur du manifeste",
+                )
 
 
 async def _generate_cargo_code(db: AsyncSession, entity_id: UUID) -> str:
@@ -195,23 +228,47 @@ async def _validate_cargo_request_refs(
     if imputation_reference_id:
         imputation = await db.get(ImputationReference, imputation_reference_id)
         if not imputation or imputation.entity_id != entity_id or not imputation.active:
-            raise HTTPException(400, "Imputation introuvable ou inactive")
+            raise StructuredHTTPException(
+                400,
+                code="IMPUTATION_INTROUVABLE_OU_INACTIVE",
+                message="Imputation introuvable ou inactive",
+            )
     if sender_tier_id:
         sender_tier = await db.get(Tier, sender_tier_id)
         if not sender_tier or sender_tier.entity_id != entity_id or not sender_tier.active:
-            raise HTTPException(400, "Entreprise expéditrice introuvable ou inactive")
+            raise StructuredHTTPException(
+                400,
+                code="ENTREPRISE_EXP_DITRICE_INTROUVABLE_OU_INACTIVE",
+                message="Entreprise expéditrice introuvable ou inactive",
+            )
     if requester_user_id:
         requester = await db.get(User, requester_user_id)
         if not requester or not requester.active or not await _user_has_access_to_entity(db, user_id=requester_user_id, entity_id=entity_id):
-            raise HTTPException(400, "Demandeur introuvable ou hors entité")
+            raise StructuredHTTPException(
+                400,
+                code="DEMANDEUR_INTROUVABLE_OU_HORS_ENTIT",
+                message="Demandeur introuvable ou hors entité",
+            )
     if sender_contact_tier_contact_id:
         sender_contact = await db.get(TierContact, sender_contact_tier_contact_id)
         if not sender_contact or not sender_contact.active:
-            raise HTTPException(400, "Contact entreprise introuvable ou inactif")
+            raise StructuredHTTPException(
+                400,
+                code="CONTACT_ENTREPRISE_INTROUVABLE_OU_INACTIF",
+                message="Contact entreprise introuvable ou inactif",
+            )
         if not sender_tier_id:
-            raise HTTPException(400, "Sélectionnez d'abord une entreprise expéditrice")
+            raise StructuredHTTPException(
+                400,
+                code="S_LECTIONNEZ_D_ABORD_UNE_ENTREPRISE",
+                message="Sélectionnez d'abord une entreprise expéditrice",
+            )
         if sender_contact.tier_id != sender_tier_id:
-            raise HTTPException(400, "Le contact entreprise ne correspond pas à l'entreprise expéditrice")
+            raise StructuredHTTPException(
+                400,
+                code="LE_CONTACT_ENTREPRISE_NE_CORRESPOND_PAS",
+                message="Le contact entreprise ne correspond pas à l'entreprise expéditrice",
+            )
 
 
 async def list_cargo_requests_impl(
@@ -374,7 +431,11 @@ async def download_cargo_request_lt_pdf_impl(
         variables=variables,
     )
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'cargo.lt' introuvable. Initialisez-le dans Paramètres > Modèles PDF.")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_PDF_CARGO_LT_INTROUVABLE_INITIALISEZ",
+            message="Template PDF 'cargo.lt' introuvable. Initialisez-le dans Paramètres > Modèles PDF.",
+        )
     filename = f"{cargo_request.request_code}_lt.pdf"
     return Response(
         content=pdf_bytes,
@@ -494,11 +555,19 @@ async def apply_cargo_request_loading_option_impl(
 ):
     cargo_request = await get_packlog_request_or_404(db, request_id, entity_id)
     if cargo_request.status not in {"approved", "assigned"}:
-        raise HTTPException(400, "La demande doit être approuvée avant affectation à un voyage")
+        raise StructuredHTTPException(
+            400,
+            code="LA_DEMANDE_DOIT_TRE_APPROUV_E",
+            message="La demande doit être approuvée avant affectation à un voyage",
+        )
     loading_options = await build_packlog_loading_options(db, cargo_request=cargo_request, entity_id=entity_id)
     selected_option = next((option for option in loading_options if option["voyage_id"] == voyage_id), None)
     if not selected_option:
-        raise HTTPException(404, "Voyage de chargement introuvable")
+        raise StructuredHTTPException(
+            404,
+            code="VOYAGE_DE_CHARGEMENT_INTROUVABLE",
+            message="Voyage de chargement introuvable",
+        )
     if not selected_option["can_load"]:
         raise HTTPException(
             400,
@@ -758,7 +827,11 @@ async def set_cargo_attachment_evidence_type_impl(
     )
     attachment = attachment_result.scalar_one_or_none()
     if not attachment:
-        raise HTTPException(404, "Pièce jointe cargo introuvable")
+        raise StructuredHTTPException(
+            404,
+            code="PI_CE_JOINTE_CARGO_INTROUVABLE",
+            message="Pièce jointe cargo introuvable",
+        )
     evidence_result = await db.execute(
         select(CargoAttachmentEvidence).where(CargoAttachmentEvidence.attachment_id == attachment_id)
     )
@@ -977,7 +1050,14 @@ async def receive_cargo_impl(
 ):
     cargo = await get_packlog_cargo_or_404(db, cargo_id, entity_id)
     if cargo.status not in ("in_transit", "delivered_intermediate"):
-        raise HTTPException(400, f"Cannot receive cargo in status '{cargo.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_RECEIVE_CARGO_STATUS",
+            message="Cannot receive cargo in status '{status}'",
+            params={
+                "status": cargo.status,
+            },
+        )
     receipt = body or CargoReceiptConfirm()
     if receipt.damage_notes and receipt.photo_evidence_count <= 0:
         raise HTTPException(
@@ -1080,9 +1160,17 @@ async def add_package_element_impl(
     await get_packlog_cargo_or_404(db, cargo_id, entity_id)
     normalized_description = description.strip()
     if not normalized_description:
-        raise HTTPException(400, "Description is required")
+        raise StructuredHTTPException(
+            400,
+            code="DESCRIPTION_REQUIRED",
+            message="Description is required",
+        )
     if quantity <= 0:
-        raise HTTPException(400, "Quantity must be greater than zero")
+        raise StructuredHTTPException(
+            400,
+            code="QUANTITY_MUST_GREATER_THAN_ZERO",
+            message="Quantity must be greater than zero",
+        )
     normalized_sap_code = sap_code.strip() if isinstance(sap_code, str) and sap_code.strip() else None
     normalized_notes = notes.strip() if isinstance(notes, str) and notes.strip() else None
     element = PackageElement(
@@ -1267,7 +1355,11 @@ async def get_public_cargo_tracking_impl(*, tracking_code: str, db: AsyncSession
     )
     row = cargo_result.first()
     if not row:
-        raise HTTPException(404, "Cargo tracking not found")
+        raise StructuredHTTPException(
+            404,
+            code="CARGO_TRACKING_NOT_FOUND",
+            message="Cargo tracking not found",
+        )
     cargo, sender_name, destination_name, voyage_code = row
     history_result = await db.execute(
         select(AuditLog)
@@ -1301,7 +1393,11 @@ async def get_public_voyage_cargo_tracking_impl(*, voyage_code: str, db: AsyncSe
     voyage_result = await db.execute(select(Voyage).where(Voyage.code == voyage_code, Voyage.active == True))  # noqa: E712
     voyage = voyage_result.scalar_one_or_none()
     if not voyage:
-        raise HTTPException(404, "Voyage not found")
+        raise StructuredHTTPException(
+            404,
+            code="VOYAGE_NOT_FOUND",
+            message="Voyage not found",
+        )
     cargo_result = await db.execute(
         select(CargoItem, Installation.name.label("destination_name"))
         .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)

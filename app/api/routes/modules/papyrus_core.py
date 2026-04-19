@@ -29,6 +29,7 @@ except ImportError:
 
 from app.core.database import get_db
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,14 @@ async def instantiate_papyrus_preset(
             db=db,
         )
     except KeyError as exc:
-        raise HTTPException(404, f"Papyrus preset '{preset_key}' not found") from exc
+        raise StructuredHTTPException(
+            404,
+            code="PAPYRUS_PRESET_NOT_FOUND",
+            message="Papyrus preset '{preset_key}' not found",
+            params={
+                "preset_key": preset_key,
+            },
+        ) from exc
 
 
 @router.get(
@@ -778,7 +786,11 @@ async def execute_transition(
 
     to_state = body.get("to_state")
     if not to_state:
-        raise HTTPException(400, "to_state is required")
+        raise StructuredHTTPException(
+            400,
+            code="STATE_REQUIRED",
+            message="to_state is required",
+        )
 
     return await svc_transition(
         doc_id=doc_id,
@@ -854,7 +866,11 @@ async def reject_document(
     from app.services.modules.papyrus_document_service import reject_document as svc_reject
     reason = body.get("reason", "")
     if not reason:
-        raise HTTPException(400, "Rejection reason is required")
+        raise StructuredHTTPException(
+            400,
+            code="REJECTION_REASON_REQUIRED",
+            message="Rejection reason is required",
+        )
     return await svc_reject(
         doc_id=doc_id,
         reason=reason,
@@ -979,9 +995,10 @@ async def export_pdf(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     if not pdf_bytes:
-        raise HTTPException(
-            status_code=404,
-            detail="Template PDF 'document.export' introuvable. Créez-le dans Paramètres > Modèles PDF.",
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_PDF_DOCUMENT_EXPORT_INTROUVABLE_CR",
+            message="Template PDF 'document.export' introuvable. Créez-le dans Paramètres > Modèles PDF.",
         )
 
     return Response(
@@ -1008,9 +1025,10 @@ async def export_docx(
     and content paragraphs from the current (or specified) revision.
     """
     if python_docx is None:
-        raise HTTPException(
-            status_code=501,
-            detail="DOCX export not available — install python-docx",
+        raise StructuredHTTPException(
+            501,
+            code="DOCX_EXPORT_NOT_AVAILABLE_INSTALL_PYTHON",
+            message="DOCX export not available — install python-docx",
         )
 
     from app.services.modules.papyrus_document_service import get_document, get_revision
@@ -1066,7 +1084,14 @@ async def export_docx(
 
     except Exception as exc:
         logger.exception("DOCX generation failed for doc %s", doc_id)
-        raise HTTPException(500, f"DOCX generation failed: {exc}") from exc
+        raise StructuredHTTPException(
+            500,
+            code="DOCX_GENERATION_FAILED",
+            message="DOCX generation failed: {exc}",
+            params={
+                "exc": exc,
+            },
+        ) from exc
 
     return StreamingResponse(
         buffer,

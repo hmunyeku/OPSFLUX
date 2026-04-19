@@ -30,6 +30,7 @@ from app.schemas.common import (
     ImputationReferenceRead,
     ImputationReferenceUpdate,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/imputations", tags=["imputations"])
 
@@ -58,15 +59,27 @@ def _serialize_imputation_reference(obj: ImputationReference) -> ImputationRefer
 
 def _validate_validity_window(valid_from: date | None, valid_to: date | None) -> None:
     if valid_from and valid_to and valid_to < valid_from:
-        raise HTTPException(status_code=400, detail="valid_to cannot be earlier than valid_from")
+        raise StructuredHTTPException(
+            400,
+            code="VALID_CANNOT_EARLIER_THAN_VALID",
+            message="valid_to cannot be earlier than valid_from",
+        )
 
 
 def _validate_otp_policy(imputation_type: str, otp_policy: str, otp_template_id: UUID | None) -> None:
     if imputation_type != "CAPEX":
         if otp_policy != "forbidden":
-            raise HTTPException(status_code=400, detail="Only CAPEX imputations may define an OTP policy")
+            raise StructuredHTTPException(
+                400,
+                code="ONLY_CAPEX_IMPUTATIONS_MAY_DEFINE_OTP",
+                message="Only CAPEX imputations may define an OTP policy",
+            )
         if otp_template_id is not None:
-            raise HTTPException(status_code=400, detail="Only CAPEX imputations may reference an OTP template")
+            raise StructuredHTTPException(
+                400,
+                code="ONLY_CAPEX_IMPUTATIONS_MAY_REFERENCE_OTP",
+                message="Only CAPEX imputations may reference an OTP template",
+            )
 
 
 async def _ensure_active_project(project_id: UUID | None, entity_id: UUID, db: AsyncSession) -> None:
@@ -81,7 +94,11 @@ async def _ensure_active_project(project_id: UUID | None, entity_id: UUID, db: A
         )
     )
     if project is None:
-        raise HTTPException(status_code=400, detail="Invalid default_project_id")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_DEFAULT_PROJECT_ID",
+            message="Invalid default_project_id",
+        )
 
 
 async def _ensure_active_cost_center(cost_center_id: UUID | None, entity_id: UUID, db: AsyncSession) -> None:
@@ -95,7 +112,11 @@ async def _ensure_active_cost_center(cost_center_id: UUID | None, entity_id: UUI
         )
     )
     if cost_center is None:
-        raise HTTPException(status_code=400, detail="Invalid default_cost_center_id")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_DEFAULT_COST_CENTER_ID",
+            message="Invalid default_cost_center_id",
+        )
 
 
 async def _ensure_otp_template(otp_template_id: UUID | None, entity_id: UUID, db: AsyncSession) -> None:
@@ -109,7 +130,11 @@ async def _ensure_otp_template(otp_template_id: UUID | None, entity_id: UUID, db
         )
     )
     if template is None:
-        raise HTTPException(status_code=400, detail="Invalid otp_template_id")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_OTP_TEMPLATE_ID",
+            message="Invalid otp_template_id",
+        )
 
 
 async def _validate_reference_payload(
@@ -141,7 +166,11 @@ async def _validate_assignment_target(target_type: str, target_id: UUID, entity_
             )
         )
         if row is None:
-            raise HTTPException(status_code=400, detail="Invalid target for user")
+            raise StructuredHTTPException(
+                400,
+                code="INVALID_TARGET_USER",
+                message="Invalid target for user",
+            )
         return
 
     model_map: dict[str, type] = {
@@ -152,7 +181,14 @@ async def _validate_assignment_target(target_type: str, target_id: UUID, entity_
     model = model_map[target_type]
     row = await db.scalar(select(model).where(model.id == target_id, model.entity_id == entity_id))
     if row is None:
-        raise HTTPException(status_code=400, detail=f"Invalid target for {target_type}")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_TARGET",
+            message="Invalid target for {target_type}",
+            params={
+                "target_type": target_type,
+            },
+        )
 
 
 @router.get("/references", response_model=list[ImputationReferenceRead])
@@ -183,7 +219,11 @@ async def create_imputation_reference(
         )
     )
     if existing:
-        raise HTTPException(status_code=409, detail="Imputation code already exists")
+        raise StructuredHTTPException(
+            409,
+            code="IMPUTATION_CODE_ALREADY_EXISTS",
+            message="Imputation code already exists",
+        )
 
     await _validate_reference_payload(
         entity_id=entity_id,
@@ -233,7 +273,11 @@ async def update_imputation_reference(
         )
     )
     if obj is None:
-        raise HTTPException(status_code=404, detail="Imputation reference not found")
+        raise StructuredHTTPException(
+            404,
+            code="IMPUTATION_REFERENCE_NOT_FOUND",
+            message="Imputation reference not found",
+        )
 
     if body.code and body.code != obj.code:
         existing = await db.scalar(
@@ -244,7 +288,11 @@ async def update_imputation_reference(
             )
         )
         if existing:
-            raise HTTPException(status_code=409, detail="Imputation code already exists")
+            raise StructuredHTTPException(
+                409,
+                code="IMPUTATION_CODE_ALREADY_EXISTS",
+                message="Imputation code already exists",
+            )
 
     imputation_type = body.imputation_type or obj.imputation_type
     otp_policy = body.otp_policy or obj.otp_policy
@@ -291,7 +339,11 @@ async def delete_imputation_reference(
         )
     )
     if obj is None:
-        raise HTTPException(status_code=404, detail="Imputation reference not found")
+        raise StructuredHTTPException(
+            404,
+            code="IMPUTATION_REFERENCE_NOT_FOUND",
+            message="Imputation reference not found",
+        )
     await db.delete(obj)
     await db.commit()
     return None
@@ -325,7 +377,11 @@ async def create_imputation_otp_template(
         )
     )
     if existing:
-        raise HTTPException(status_code=409, detail="OTP template code already exists")
+        raise StructuredHTTPException(
+            409,
+            code="OTP_TEMPLATE_CODE_ALREADY_EXISTS",
+            message="OTP template code already exists",
+        )
     obj = ImputationOtpTemplate(entity_id=entity_id, **body.model_dump())
     db.add(obj)
     await db.commit()
@@ -348,7 +404,11 @@ async def update_imputation_otp_template(
         )
     )
     if obj is None:
-        raise HTTPException(status_code=404, detail="OTP template not found")
+        raise StructuredHTTPException(
+            404,
+            code="OTP_TEMPLATE_NOT_FOUND",
+            message="OTP template not found",
+        )
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(obj, key, value)
     await db.commit()
@@ -370,7 +430,11 @@ async def delete_imputation_otp_template(
         )
     )
     if obj is None:
-        raise HTTPException(status_code=404, detail="OTP template not found")
+        raise StructuredHTTPException(
+            404,
+            code="OTP_TEMPLATE_NOT_FOUND",
+            message="OTP template not found",
+        )
     await db.delete(obj)
     await db.commit()
     return None
@@ -410,7 +474,11 @@ async def create_imputation_assignment(
         )
     )
     if reference is None:
-        raise HTTPException(status_code=400, detail="Invalid imputation_reference_id")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_IMPUTATION_REFERENCE_ID",
+            message="Invalid imputation_reference_id",
+        )
     await _validate_assignment_target(body.target_type, body.target_id, entity_id, db)
     obj = ImputationAssignment(entity_id=entity_id, **body.model_dump())
     db.add(obj)
@@ -434,7 +502,11 @@ async def update_imputation_assignment(
         )
     )
     if obj is None:
-        raise HTTPException(status_code=404, detail="Imputation assignment not found")
+        raise StructuredHTTPException(
+            404,
+            code="IMPUTATION_ASSIGNMENT_NOT_FOUND",
+            message="Imputation assignment not found",
+        )
 
     next_valid_from = body.valid_from if body.valid_from is not None else obj.valid_from
     next_valid_to = body.valid_to if body.valid_to is not None else obj.valid_to
@@ -452,7 +524,11 @@ async def update_imputation_assignment(
         )
     )
     if reference is None:
-        raise HTTPException(status_code=400, detail="Invalid imputation_reference_id")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_IMPUTATION_REFERENCE_ID",
+            message="Invalid imputation_reference_id",
+        )
     await _validate_assignment_target(next_target_type, next_target_id, entity_id, db)
 
     for key, value in body.model_dump(exclude_unset=True).items():
@@ -476,7 +552,11 @@ async def delete_imputation_assignment(
         )
     )
     if obj is None:
-        raise HTTPException(status_code=404, detail="Imputation assignment not found")
+        raise StructuredHTTPException(
+            404,
+            code="IMPUTATION_ASSIGNMENT_NOT_FOUND",
+            message="Imputation assignment not found",
+        )
     await db.delete(obj)
     await db.commit()
     return None

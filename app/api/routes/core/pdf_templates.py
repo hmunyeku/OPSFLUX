@@ -36,6 +36,7 @@ from app.schemas.common import (
     PdfTemplateValidationRequest,
 )
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(
     prefix="/api/v1/pdf-templates",
@@ -135,7 +136,11 @@ async def get_template(
     )
     template = result.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="PDF template not found")
+        raise StructuredHTTPException(
+            404,
+            code="PDF_TEMPLATE_NOT_FOUND",
+            message="PDF template not found",
+        )
     return template
 
 
@@ -211,7 +216,11 @@ async def update_template(
     )
     template = result.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="PDF template not found")
+        raise StructuredHTTPException(
+            404,
+            code="PDF_TEMPLATE_NOT_FOUND",
+            message="PDF template not found",
+        )
 
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(template, field, value)
@@ -239,7 +248,11 @@ async def delete_template(
     )
     template = result.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="PDF template not found")
+        raise StructuredHTTPException(
+            404,
+            code="PDF_TEMPLATE_NOT_FOUND",
+            message="PDF template not found",
+        )
 
     await delete_entity(template, db, "pdf_template", entity_id=template_id, user_id=current_user.id)
     await db.commit()
@@ -262,7 +275,11 @@ async def list_versions(
         )
     )
     if not tpl.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="PDF template not found")
+        raise StructuredHTTPException(
+            404,
+            code="PDF_TEMPLATE_NOT_FOUND",
+            message="PDF template not found",
+        )
 
     result = await db.execute(
         select(PdfTemplateVersion)
@@ -289,7 +306,11 @@ async def create_version(
     )
     template = tpl.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="PDF template not found")
+        raise StructuredHTTPException(
+            404,
+            code="PDF_TEMPLATE_NOT_FOUND",
+            message="PDF template not found",
+        )
 
     # Calculate next version number for this language
     max_version = await db.execute(
@@ -345,7 +366,11 @@ async def update_version(
     )
     template = tpl.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="PDF template not found")
+        raise StructuredHTTPException(
+            404,
+            code="PDF_TEMPLATE_NOT_FOUND",
+            message="PDF template not found",
+        )
 
     result = await db.execute(
         select(PdfTemplateVersion).where(
@@ -355,7 +380,11 @@ async def update_version(
     )
     version = result.scalar_one_or_none()
     if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERSION_NOT_FOUND",
+            message="Version not found",
+        )
 
     payload = body.model_dump(exclude_unset=True)
     if payload.get("is_published"):
@@ -398,7 +427,11 @@ async def publish_version(
     )
     template = tpl_check.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_NOT_FOUND",
+            message="Template not found",
+        )
 
     result = await db.execute(
         select(PdfTemplateVersion).where(
@@ -408,7 +441,11 @@ async def publish_version(
     )
     version = result.scalar_one_or_none()
     if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERSION_NOT_FOUND",
+            message="Version not found",
+        )
 
     _assert_publishable_template_version(
         template=template,
@@ -448,7 +485,11 @@ async def delete_version(
         )
     )
     if not tpl_check.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_NOT_FOUND",
+            message="Template not found",
+        )
 
     result = await db.execute(
         select(PdfTemplateVersion).where(
@@ -458,7 +499,11 @@ async def delete_version(
     )
     version = result.scalar_one_or_none()
     if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERSION_NOT_FOUND",
+            message="Version not found",
+        )
 
     await delete_entity(version, db, "pdf_template", entity_id=version_id, user_id=current_user.id)
     await db.commit()
@@ -488,7 +533,11 @@ async def preview_template(
     )
     template = tpl_result.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_NOT_FOUND",
+            message="Template not found",
+        )
 
     version: PdfTemplateVersion | None = None
     if body.version_id:
@@ -500,7 +549,11 @@ async def preview_template(
         )
         version = result.scalar_one_or_none()
         if not version:
-            raise HTTPException(status_code=404, detail="Version not found")
+            raise StructuredHTTPException(
+                404,
+                code="VERSION_NOT_FOUND",
+                message="Version not found",
+            )
     elif any(
         section is not None
         for section in (body.body_html, body.header_html, body.footer_html)
@@ -550,7 +603,11 @@ async def validate_template_source(
     )
     template = tpl_result.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_NOT_FOUND",
+            message="Template not found",
+        )
 
     return validate_pdf_template_source(
         body_html=body.body_html,

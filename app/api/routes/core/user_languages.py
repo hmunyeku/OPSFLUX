@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import UserLanguage, User
 from app.schemas.common import UserLanguageCreate, UserLanguageRead, UserLanguageUpdate
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/users/{user_id}/languages", tags=["user-languages"])
 
@@ -57,10 +58,18 @@ async def update_language(
     result = await db.execute(select(UserLanguage).where(UserLanguage.id == language_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Language not found")
+        raise StructuredHTTPException(
+            404,
+            code="LANGUAGE_NOT_FOUND",
+            message="Language not found",
+        )
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise StructuredHTTPException(
+            400,
+            code="NO_FIELDS_UPDATE",
+            message="No fields to update",
+        )
     for field, value in update_data.items():
         setattr(obj, field, value)
     await db.commit()
@@ -80,5 +89,9 @@ async def delete_language(
     result = await db.execute(select(UserLanguage).where(UserLanguage.id == language_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Language not found")
+        raise StructuredHTTPException(
+            404,
+            code="LANGUAGE_NOT_FOUND",
+            message="Language not found",
+        )
     await delete_entity(obj, db, "user_language", entity_id=obj.id, user_id=current_user.id)

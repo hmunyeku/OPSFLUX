@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.models.common import CostCenter, Project, Setting, User
 from app.schemas.common import SettingRead, SettingWrite
 from app.services.core.settings_service import upsert_scoped_setting
+from app.core.errors import StructuredHTTPException
 
 # Prefixes that must NEVER be writable at the `user` scope — otherwise a
 # regular user could shadow (for themselves) a connector credential, AI
@@ -34,9 +35,13 @@ def _ensure_user_scope_allowed(key: str) -> None:
     """Block admin-scoped keys from being written as `scope=user`."""
     norm = key.strip().lower()
     if any(norm.startswith(p) for p in _ADMIN_ONLY_PREFIXES):
-        raise HTTPException(
-            status_code=403,
-            detail=f"Setting '{key}' cannot be written at user scope",
+        raise StructuredHTTPException(
+            403,
+            code="SETTING_CANNOT_WRITTEN_USER_SCOPE",
+            message="Setting '{key}' cannot be written at user scope",
+            params={
+                "key": key,
+            },
         )
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"])
@@ -88,22 +93,42 @@ def _redact_setting_value(key: str, value: dict[str, Any]) -> dict[str, Any]:
 
 def _validate_scope(scope: str) -> str:
     if scope not in {"tenant", "entity", "user"}:
-        raise HTTPException(status_code=400, detail="Invalid settings scope")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_SETTINGS_SCOPE",
+            message="Invalid settings scope",
+        )
     return scope
 
 
 def _validate_paxlog_compliance_sequence_setting(value: dict[str, Any]) -> None:
     payload = value.get("v", value)
     if not isinstance(payload, list):
-        raise HTTPException(status_code=400, detail="Invalid paxlog.compliance_sequence payload")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_PAXLOG_COMPLIANCE_SEQUENCE_PAYLOAD",
+            message="Invalid paxlog.compliance_sequence payload",
+        )
     allowed = {"site_requirements", "job_profile", "self_declaration"}
     normalized = [item for item in payload if isinstance(item, str)]
     if len(normalized) != len(payload):
-        raise HTTPException(status_code=400, detail="Invalid paxlog.compliance_sequence values")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_PAXLOG_COMPLIANCE_SEQUENCE_VALUES",
+            message="Invalid paxlog.compliance_sequence values",
+        )
     if len(set(normalized)) != len(normalized):
-        raise HTTPException(status_code=400, detail="Duplicate paxlog.compliance_sequence values are not allowed")
+        raise StructuredHTTPException(
+            400,
+            code="DUPLICATE_PAXLOG_COMPLIANCE_SEQUENCE_VALUES_NOT",
+            message="Duplicate paxlog.compliance_sequence values are not allowed",
+        )
     if set(normalized) != allowed:
-        raise HTTPException(status_code=400, detail="paxlog.compliance_sequence must contain site_requirements, job_profile, self_declaration exactly once")
+        raise StructuredHTTPException(
+            400,
+            code="PAXLOG_COMPLIANCE_SEQUENCE_MUST_CONTAIN_SITE",
+            message="paxlog.compliance_sequence must contain site_requirements, job_profile, self_declaration exactly once",
+        )
 
 
 def _validate_travelwiz_numeric_setting(body: SettingWrite) -> None:
@@ -125,12 +150,35 @@ def _validate_travelwiz_numeric_setting(body: SettingWrite) -> None:
     try:
         numeric_value = float(payload)
     except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid numeric value for {body.key}") from exc
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_NUMERIC_VALUE",
+            message="Invalid numeric value for {key}",
+            params={
+                "key": body.key,
+            },
+        ) from exc
     minimum, maximum = bounds
     if numeric_value < minimum:
-        raise HTTPException(status_code=400, detail=f"{body.key} must be >= {minimum}")
+        raise StructuredHTTPException(
+            400,
+            code="MUST",
+            message="{key} must be >= {minimum}",
+            params={
+                "key": body.key,
+                "minimum": minimum,
+            },
+        )
     if maximum is not None and numeric_value > maximum:
-        raise HTTPException(status_code=400, detail=f"{body.key} must be <= {maximum}")
+        raise StructuredHTTPException(
+            400,
+            code="MUST",
+            message="{key} must be <= {maximum}",
+            params={
+                "key": body.key,
+                "maximum": maximum,
+            },
+        )
 
 
 def _validate_planner_capacity_heatmap_setting(body: SettingWrite) -> None:
@@ -152,31 +200,72 @@ def _validate_planner_capacity_heatmap_setting(body: SettingWrite) -> None:
         try:
             numeric_value = float(payload)
         except (TypeError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=f"Invalid numeric value for {body.key}") from exc
+            raise StructuredHTTPException(
+                400,
+                code="INVALID_NUMERIC_VALUE",
+                message="Invalid numeric value for {key}",
+                params={
+                    "key": body.key,
+                },
+            ) from exc
         minimum, maximum = numeric_constraints[body.key]
         if numeric_value < minimum or numeric_value > maximum:
-            raise HTTPException(status_code=400, detail=f"{body.key} must be between {minimum} and {maximum}")
+            raise StructuredHTTPException(
+                400,
+                code="MUST_BETWEEN",
+                message="{key} must be between {minimum} and {maximum}",
+                params={
+                    "key": body.key,
+                    "minimum": minimum,
+                    "maximum": maximum,
+                },
+            )
         return
     if body.key in color_keys:
         payload = body.value.get("v", body.value)
         if not isinstance(payload, str) or not payload.startswith("#") or len(payload) not in {4, 7}:
-            raise HTTPException(status_code=400, detail=f"Invalid color value for {body.key}")
+            raise StructuredHTTPException(
+                400,
+                code="INVALID_COLOR_VALUE",
+                message="Invalid color value for {key}",
+                params={
+                    "key": body.key,
+                },
+            )
 
 
 async def _require_settings_manage(current_user: User, entity_id: UUID, db: AsyncSession) -> None:
     if not await has_user_permission(current_user, entity_id, "core.settings.manage", db):
-        raise HTTPException(status_code=403, detail="Permission denied: core.settings.manage")
+        raise StructuredHTTPException(
+            403,
+            code="PERMISSION_DENIED_CORE_SETTINGS_MANAGE",
+            message="Permission denied: core.settings.manage",
+        )
 
 
 def _as_uuid_or_none(value: Any, field_name: str) -> UUID | None:
     if value in (None, ""):
         return None
     if not isinstance(value, str):
-        raise HTTPException(status_code=400, detail=f"Invalid {field_name}: expected UUID string")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_EXPECTED_UUID_STRING",
+            message="Invalid {field_name}: expected UUID string",
+            params={
+                "field_name": field_name,
+            },
+        )
     try:
         return UUID(value)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid {field_name}: malformed UUID") from exc
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_MALFORMED_UUID",
+            message="Invalid {field_name}: malformed UUID",
+            params={
+                "field_name": field_name,
+            },
+        ) from exc
 
 
 async def _validate_default_imputation_setting(
@@ -189,7 +278,11 @@ async def _validate_default_imputation_setting(
     if payload in (None, ""):
         return
     if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail="Invalid core.default_imputation payload")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_CORE_DEFAULT_IMPUTATION_PAYLOAD",
+            message="Invalid core.default_imputation payload",
+        )
 
     allowed_keys = {"project_id", "cost_center_id"}
     unknown_keys = set(payload.keys()) - allowed_keys
@@ -212,7 +305,11 @@ async def _validate_default_imputation_setting(
             )
         )
         if project is None:
-            raise HTTPException(status_code=400, detail="Invalid project_id for core.default_imputation")
+            raise StructuredHTTPException(
+                400,
+                code="INVALID_PROJECT_ID_CORE_DEFAULT_IMPUTATION",
+                message="Invalid project_id for core.default_imputation",
+            )
 
     if cost_center_id is not None:
         cost_center = await db.scalar(
@@ -223,7 +320,11 @@ async def _validate_default_imputation_setting(
             )
         )
         if cost_center is None:
-            raise HTTPException(status_code=400, detail="Invalid cost_center_id for core.default_imputation")
+            raise StructuredHTTPException(
+                400,
+                code="INVALID_COST_CENTER_ID_CORE_DEFAULT",
+                message="Invalid cost_center_id for core.default_imputation",
+            )
 
 
 @router.get("", response_model=list[SettingRead])
@@ -277,7 +378,14 @@ async def upsert_setting(
         allowed = {"unlimited", "blocking"}
         v = body.value.get("v", body.value) if isinstance(body.value, dict) else body.value
         if v not in allowed:
-            raise HTTPException(status_code=400, detail=f"paxlog.null_capacity_behavior must be one of: {allowed}")
+            raise StructuredHTTPException(
+                400,
+                code="PAXLOG_NULL_CAPACITY_BEHAVIOR_MUST_ONE",
+                message="paxlog.null_capacity_behavior must be one of: {allowed}",
+                params={
+                    "allowed": allowed,
+                },
+            )
     elif body.key.startswith("travelwiz."):
         _validate_travelwiz_numeric_setting(body)
     elif body.key.startswith("planner.capacity_heatmap_"):

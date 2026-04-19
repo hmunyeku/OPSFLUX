@@ -45,6 +45,7 @@ from app.schemas.common import (
     UserRead,
     UserUpdate,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -58,7 +59,11 @@ async def _ensure_user_membership_in_entity(
     """Ensure a user belongs to an entity through its default group."""
     entity_result = await db.execute(select(Entity).where(Entity.id == entity_id))
     if not entity_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Entity not found")
+        raise StructuredHTTPException(
+            404,
+            code="ENTITY_NOT_FOUND",
+            message="Entity not found",
+        )
 
     existing = await db.execute(
         select(UserGroupMember)
@@ -117,7 +122,11 @@ async def _assert_user_access_in_entity(
         select(User.id).where(User.id == user_id, _user_access_predicate(entity_id))
     )
     if result.scalar_one_or_none() is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
 
 async def _get_current_effective_permissions(
@@ -162,18 +171,34 @@ async def _resolve_delegation_permissions(
     if body.scope_type == "permissions":
         requested = set(body.permission_codes or [])
         if not requested:
-            raise HTTPException(status_code=400, detail="No permission selected")
+            raise StructuredHTTPException(
+                400,
+                code="NO_PERMISSION_SELECTED",
+                message="No permission selected",
+            )
         if not requested.issubset(own_permissions):
-            raise HTTPException(status_code=400, detail="You can only delegate permissions you have")
+            raise StructuredHTTPException(
+                400,
+                code="YOU_CAN_ONLY_DELEGATE_PERMISSIONS_YOU",
+                message="You can only delegate permissions you have",
+            )
         return sorted(requested)
 
     if body.scope_type == "role":
         if not body.role_code:
-            raise HTTPException(status_code=400, detail="Role code is required")
+            raise StructuredHTTPException(
+                400,
+                code="ROLE_CODE_REQUIRED",
+                message="Role code is required",
+            )
 
         current_roles = await _get_current_role_codes(current_user, entity_id, db)
         if body.role_code not in current_roles and "*" not in own_permissions:
-            raise HTTPException(status_code=400, detail="You can only delegate a role you currently hold")
+            raise StructuredHTTPException(
+                400,
+                code="YOU_CAN_ONLY_DELEGATE_ROLE_YOU",
+                message="You can only delegate a role you currently hold",
+            )
 
         result = await db.execute(
             select(RolePermission.permission_code).where(RolePermission.role_code == body.role_code)
@@ -181,7 +206,11 @@ async def _resolve_delegation_permissions(
         role_permissions = {row[0] for row in result.all()}
         return sorted(role_permissions.intersection(own_permissions))
 
-    raise HTTPException(status_code=400, detail="Unsupported delegation scope")
+    raise StructuredHTTPException(
+        400,
+        code="UNSUPPORTED_DELEGATION_SCOPE",
+        message="Unsupported delegation scope",
+    )
 
 
 def _serialize_delegation(
@@ -259,13 +288,21 @@ async def create_user(
     # Check email uniqueness
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Email already registered")
+        raise StructuredHTTPException(
+            409,
+            code="EMAIL_ALREADY_REGISTERED",
+            message="Email already registered",
+        )
 
     target_entity_id = body.default_entity_id or entity_id
     if target_entity_id:
         entity_result = await db.execute(select(Entity).where(Entity.id == target_entity_id))
         if not entity_result.scalar_one_or_none():
-            raise HTTPException(status_code=404, detail="Entity not found")
+            raise StructuredHTTPException(
+                404,
+                code="ENTITY_NOT_FOUND",
+                message="Entity not found",
+            )
 
     user = User(
         email=body.email,
@@ -585,7 +622,11 @@ async def get_user(
     )
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
     return user
 
 
@@ -602,7 +643,11 @@ async def update_user(
     )
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     update_data = body.model_dump(exclude_unset=True)
 
@@ -619,7 +664,11 @@ async def update_user(
     if "email" in update_data and update_data["email"] != user.email:
         dup = await db.execute(select(User).where(User.email == update_data["email"]))
         if dup.scalar_one_or_none():
-            raise HTTPException(status_code=409, detail="Email already registered")
+            raise StructuredHTTPException(
+                409,
+                code="EMAIL_ALREADY_REGISTERED",
+                message="Email already registered",
+            )
 
     for field, value in update_data.items():
         setattr(user, field, value)
@@ -643,7 +692,11 @@ async def verify_user_identity(
     )
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     user.identity_verified = True
     user.identity_verified_by = current_user.id
@@ -665,7 +718,11 @@ async def unverify_user_identity(
     )
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     user.identity_verified = False
     user.identity_verified_by = None
@@ -782,7 +839,11 @@ async def assign_user_to_entity(
     # Verify user exists
     user_result = await db.execute(select(User).where(User.id == user_id))
     if not user_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     existing = await db.execute(
         select(UserGroupMember)
@@ -793,7 +854,11 @@ async def assign_user_to_entity(
         )
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="User already belongs to this entity")
+        raise StructuredHTTPException(
+            400,
+            code="USER_ALREADY_BELONGS_ENTITY",
+            message="User already belongs to this entity",
+        )
 
     await _ensure_user_membership_in_entity(
         user_id=user_id,
@@ -831,7 +896,11 @@ async def remove_user_from_entity(
     memberships = memberships_result.scalars().all()
 
     if not memberships:
-        raise HTTPException(status_code=404, detail="User not found in this entity")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND_ENTITY",
+            message="User not found in this entity",
+        )
 
     for membership in memberships:
         await db.delete(membership)
@@ -996,7 +1065,11 @@ async def list_simulation_candidates(
 ):
     own_permissions = await _get_current_effective_permissions(current_user, entity_id, db)
     if "*" not in own_permissions and "admin.system" not in own_permissions:
-        raise HTTPException(status_code=403, detail="Simulation not allowed")
+        raise StructuredHTTPException(
+            403,
+            code="SIMULATION_NOT_ALLOWED",
+            message="Simulation not allowed",
+        )
 
     query = (
         select(User)
@@ -1077,13 +1150,25 @@ async def create_my_delegation(
     db: AsyncSession = Depends(get_db),
 ):
     if body.delegate_id == current_user.id:
-        raise HTTPException(status_code=400, detail="You cannot delegate to yourself")
+        raise StructuredHTTPException(
+            400,
+            code="YOU_CANNOT_DELEGATE_YOURSELF",
+            message="You cannot delegate to yourself",
+        )
     if body.end_date <= body.start_date:
-        raise HTTPException(status_code=400, detail="Invalid delegation period")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_DELEGATION_PERIOD",
+            message="Invalid delegation period",
+        )
 
     delegate = await db.get(User, body.delegate_id)
     if not delegate or not delegate.active:
-        raise HTTPException(status_code=404, detail="Delegate not found")
+        raise StructuredHTTPException(
+            404,
+            code="DELEGATE_NOT_FOUND",
+            message="Delegate not found",
+        )
     delegate_access = await db.execute(
         select(UserGroup.id)
         .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
@@ -1095,7 +1180,11 @@ async def create_my_delegation(
         .limit(1)
     )
     if delegate_access.scalar_one_or_none() is None and delegate.default_entity_id != entity_id:
-        raise HTTPException(status_code=400, detail="Delegate has no access to this entity")
+        raise StructuredHTTPException(
+            400,
+            code="DELEGATE_HAS_NO_ACCESS_ENTITY",
+            message="Delegate has no access to this entity",
+        )
 
     permissions = await _resolve_delegation_permissions(body, current_user, entity_id, db)
     delegation = UserDelegation(
@@ -1133,7 +1222,11 @@ async def update_my_delegation(
     )
     row = result.one_or_none()
     if row is None:
-        raise HTTPException(status_code=404, detail="Delegation not found")
+        raise StructuredHTTPException(
+            404,
+            code="DELEGATION_NOT_FOUND",
+            message="Delegation not found",
+        )
 
     delegation, delegate = row
     if body.start_date is not None:
@@ -1141,7 +1234,11 @@ async def update_my_delegation(
     if body.end_date is not None:
         delegation.end_date = body.end_date
     if delegation.end_date <= delegation.start_date:
-        raise HTTPException(status_code=400, detail="Invalid delegation period")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_DELEGATION_PERIOD",
+            message="Invalid delegation period",
+        )
     if body.reason is not None:
         delegation.reason = body.reason
     if body.active is not None:
@@ -1168,7 +1265,11 @@ async def delete_my_delegation(
     )
     delegation = result.scalar_one_or_none()
     if delegation is None:
-        raise HTTPException(status_code=404, detail="Delegation not found")
+        raise StructuredHTTPException(
+            404,
+            code="DELEGATION_NOT_FOUND",
+            message="Delegation not found",
+        )
     await db.delete(delegation)
     await db.commit()
 
@@ -1186,7 +1287,11 @@ async def get_user_ip_location(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
     if not user.last_login_ip:
         return {"ip": None, "location": None}
     location = await get_ip_location(user.last_login_ip)
@@ -1205,7 +1310,11 @@ async def get_profile_completeness(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     # Define required profile fields and their labels
     profile_fields = {
@@ -1306,7 +1415,11 @@ async def link_user_to_tier(
     # Verify tier exists
     tier = await db.get(Tier, body.tier_id)
     if not tier or tier.entity_id != entity_id:
-        raise HTTPException(status_code=404, detail="Tier not found")
+        raise StructuredHTTPException(
+            404,
+            code="TIER_NOT_FOUND",
+            message="Tier not found",
+        )
 
     # Check not already linked
     existing = await db.execute(
@@ -1316,7 +1429,11 @@ async def link_user_to_tier(
         )
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="User already linked to this tier")
+        raise StructuredHTTPException(
+            409,
+            code="USER_ALREADY_LINKED_TIER",
+            message="User already linked to this tier",
+        )
 
     link = UserTierLink(user_id=user_id, tier_id=body.tier_id, role=body.role)
     db.add(link)
@@ -1356,7 +1473,11 @@ async def unlink_user_from_tier(
     )
     link_obj = link.scalar_one_or_none()
     if not link_obj:
-        raise HTTPException(status_code=404, detail="Tier link not found")
+        raise StructuredHTTPException(
+            404,
+            code="TIER_LINK_NOT_FOUND",
+            message="Tier link not found",
+        )
 
     await db.delete(link_obj)
     await db.commit()
@@ -1379,11 +1500,19 @@ async def delete_user(
     should deactivate the user instead.
     """
     if user_id == current_user.id:
-        raise HTTPException(400, "Vous ne pouvez pas supprimer votre propre compte.")
+        raise StructuredHTTPException(
+            400,
+            code="VOUS_NE_POUVEZ_PAS_SUPPRIMER_VOTRE",
+            message="Vous ne pouvez pas supprimer votre propre compte.",
+        )
 
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if not user:
-        raise HTTPException(404, "Utilisateur introuvable")
+        raise StructuredHTTPException(
+            404,
+            code="UTILISATEUR_INTROUVABLE",
+            message="Utilisateur introuvable",
+        )
 
     # ── Check all dependency tables ──
     from app.models.common import AuditLog, Note, ProjectTask, UserGroupMember
@@ -1469,10 +1598,18 @@ async def admin_upload_avatar(
     """Admin: upload avatar image for a specific user."""
     user = await db.get(User, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status_code=400, detail="Type d'image invalide. Autorisés: png, jpg, webp")
+        raise StructuredHTTPException(
+            400,
+            code="TYPE_D_IMAGE_INVALIDE_AUTORIS_S",
+            message="Type d'image invalide. Autorisés: png, jpg, webp",
+        )
 
     ext_map = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
     ext = ext_map[file.content_type]
@@ -1514,7 +1651,11 @@ async def admin_set_avatar_from_url(
     """Admin: set avatar from external URL (downloads the image)."""
     user = await db.get(User, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     # Download image from URL
     try:
@@ -1522,11 +1663,19 @@ async def admin_set_avatar_from_url(
             resp = await client.get(body.url, follow_redirects=True)
             resp.raise_for_status()
     except Exception:
-        raise HTTPException(status_code=400, detail="Impossible de télécharger l'image depuis cette URL")
+        raise StructuredHTTPException(
+            400,
+            code="IMPOSSIBLE_DE_T_L_CHARGER_L",
+            message="Impossible de télécharger l'image depuis cette URL",
+        )
 
     content_type = resp.headers.get("content-type", "").split(";")[0].strip()
     if content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status_code=400, detail="Type d'image invalide. Autorisés: png, jpg, webp")
+        raise StructuredHTTPException(
+            400,
+            code="TYPE_D_IMAGE_INVALIDE_AUTORIS_S",
+            message="Type d'image invalide. Autorisés: png, jpg, webp",
+        )
 
     ext_map = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
     ext = ext_map[content_type]

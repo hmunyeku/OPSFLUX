@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import EmergencyContact, User
 from app.schemas.common import EmergencyContactCreate, EmergencyContactRead, EmergencyContactUpdate
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/users/{user_id}/emergency-contacts", tags=["user-emergency-contacts"])
 
@@ -58,10 +59,18 @@ async def update_emergency_contact(
     result = await db.execute(select(EmergencyContact).where(EmergencyContact.id == emergency_contact_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Emergency contact not found")
+        raise StructuredHTTPException(
+            404,
+            code="EMERGENCY_CONTACT_NOT_FOUND",
+            message="Emergency contact not found",
+        )
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise StructuredHTTPException(
+            400,
+            code="NO_FIELDS_UPDATE",
+            message="No fields to update",
+        )
     for field, value in update_data.items():
         setattr(obj, field, value)
     await db.commit()
@@ -81,6 +90,10 @@ async def delete_emergency_contact(
     result = await db.execute(select(EmergencyContact).where(EmergencyContact.id == emergency_contact_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Emergency contact not found")
+        raise StructuredHTTPException(
+            404,
+            code="EMERGENCY_CONTACT_NOT_FOUND",
+            message="Emergency contact not found",
+        )
     await delete_entity(obj, db, "emergency_contact", entity_id=obj.id, user_id=current_user.id)
     await db.commit()

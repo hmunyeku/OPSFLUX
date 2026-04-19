@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import DrivingLicense, User
 from app.schemas.common import DrivingLicenseCreate, DrivingLicenseRead, DrivingLicenseUpdate
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/users/{user_id}/driving-licenses", tags=["user-driving-licenses"])
 
@@ -57,11 +58,19 @@ async def update_driving_license(
     result = await db.execute(select(DrivingLicense).where(DrivingLicense.id == driving_license_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Driving license not found")
+        raise StructuredHTTPException(
+            404,
+            code="DRIVING_LICENSE_NOT_FOUND",
+            message="Driving license not found",
+        )
     await check_verified_lock(obj, current_user, db=db)
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise StructuredHTTPException(
+            400,
+            code="NO_FIELDS_UPDATE",
+            message="No fields to update",
+        )
     for field, value in update_data.items():
         setattr(obj, field, value)
     await db.commit()
@@ -81,6 +90,10 @@ async def delete_driving_license(
     result = await db.execute(select(DrivingLicense).where(DrivingLicense.id == driving_license_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Driving license not found")
+        raise StructuredHTTPException(
+            404,
+            code="DRIVING_LICENSE_NOT_FOUND",
+            message="Driving license not found",
+        )
     await check_verified_lock(obj, current_user, db=db)
     await delete_entity(obj, db, "driving_license", entity_id=obj.id, user_id=current_user.id)

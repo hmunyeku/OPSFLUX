@@ -19,6 +19,7 @@ from app.schemas.common import (
     TokenCreatedResponse,
     TokenRead,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/tokens", tags=["tokens"])
 
@@ -104,7 +105,11 @@ async def revoke_token(
     )
     pat = result.scalar_one_or_none()
     if not pat:
-        raise HTTPException(status_code=404, detail="Token not found")
+        raise StructuredHTTPException(
+            404,
+            code="TOKEN_NOT_FOUND",
+            message="Token not found",
+        )
 
     pat.revoked = True
     await db.commit()

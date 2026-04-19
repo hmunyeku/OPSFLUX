@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.models.common import UserHealthCondition, User
 from app.schemas.common import UserHealthConditionCreate, UserHealthConditionRead
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/users/{user_id}/health-conditions", tags=["user-health-conditions"])
 
@@ -47,7 +48,11 @@ async def add_health_condition(
         )
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Condition already assigned")
+        raise StructuredHTTPException(
+            409,
+            code="CONDITION_ALREADY_ASSIGNED",
+            message="Condition already assigned",
+        )
 
     hc = UserHealthCondition(user_id=user_id, condition_code=body.condition_code)
     db.add(hc)
@@ -73,5 +78,9 @@ async def remove_health_condition(
     )
     hc = result.scalar_one_or_none()
     if not hc:
-        raise HTTPException(status_code=404, detail="Health condition not found")
+        raise StructuredHTTPException(
+            404,
+            code="HEALTH_CONDITION_NOT_FOUND",
+            message="Health condition not found",
+        )
     await delete_entity(hc, db, "user_health_condition", entity_id=hc.id, user_id=current_user.id)

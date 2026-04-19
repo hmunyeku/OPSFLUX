@@ -25,6 +25,7 @@ from app.services.connectors.user_sync_service import (
     PROVIDER_SETTINGS_PREFIX,
     get_provider,
 )
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,14 @@ async def preview_sync(
     prefix = PROVIDER_SETTINGS_PREFIX.get(body.provider)
     if not prefix:
         from fastapi import HTTPException
-        raise HTTPException(400, f"Unknown provider: {body.provider}")
+        raise StructuredHTTPException(
+            400,
+            code="UNKNOWN_PROVIDER",
+            message="Unknown provider: {provider}",
+            params={
+                "provider": body.provider,
+            },
+        )
 
     settings = await _get_provider_settings(db, prefix)
     provider = get_provider(body.provider, settings)
@@ -195,7 +203,14 @@ async def execute_sync(
     prefix = PROVIDER_SETTINGS_PREFIX.get(body.provider)
     if not prefix:
         from fastapi import HTTPException
-        raise HTTPException(400, f"Unknown provider: {body.provider}")
+        raise StructuredHTTPException(
+            400,
+            code="UNKNOWN_PROVIDER",
+            message="Unknown provider: {provider}",
+            params={
+                "provider": body.provider,
+            },
+        )
 
     settings = await _get_provider_settings(db, prefix)
     provider = get_provider(body.provider, settings)

@@ -126,6 +126,7 @@ from app.schemas.common import JobPositionRead
 from app.schemas.common import PaginatedResponse
 from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
 from app.services.modules import paxlog_service
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/pax", tags=["paxlog"], dependencies=[require_module_enabled("paxlog")])
 logger = logging.getLogger(__name__)
@@ -175,9 +176,17 @@ def _decode_ads_boarding_token(token: str) -> dict[str, Any]:
             algorithms=[settings.JWT_ALGORITHM],
         )
     except JWTError as exc:
-        raise HTTPException(status_code=401, detail="QR AdS invalide ou expiré") from exc
+        raise StructuredHTTPException(
+            401,
+            code="QR_ADS_INVALIDE_OU_EXPIR",
+            message="QR AdS invalide ou expiré",
+        ) from exc
     if payload.get("purpose") != "ads_boarding_qr":
-        raise HTTPException(status_code=401, detail="QR AdS invalide")
+        raise StructuredHTTPException(
+            401,
+            code="QR_ADS_INVALIDE",
+            message="QR AdS invalide",
+        )
     return payload
 
 
@@ -325,7 +334,11 @@ async def _assert_external_tier_access(
     if linked_tier_ids is None:
         return
     if tier_id not in linked_tier_ids:
-        raise HTTPException(status_code=404, detail="Company not found")
+        raise StructuredHTTPException(
+            404,
+            code="COMPANY_NOT_FOUND",
+            message="Company not found",
+        )
 
 
 async def _resolve_ads_imputation_suggestion(
@@ -1044,9 +1057,10 @@ async def _apply_ads_site_waitlist_if_needed(
             db, entity_id, "paxlog.null_capacity_behavior", default="unlimited"
         )
         if null_capacity_behavior == "blocking":
-            raise HTTPException(
-                status_code=400,
-                detail="La capacité du site n'est pas configurée. Veuillez configurer la capacité POB dans le registre des assets avant de soumettre cette AdS."
+            raise StructuredHTTPException(
+                400,
+                code="LA_CAPACIT_DU_SITE_N_EST",
+                message="La capacité du site n'est pas configurée. Veuillez configurer la capacité POB dans le registre des assets avant de soumettre cette AdS.",
             )
         # "unlimited" = no limit, skip waitlist
         return {
@@ -1909,15 +1923,27 @@ async def _get_external_link_or_404(db: AsyncSession, token: str) -> ExternalAcc
     )
     link = result.scalar_one_or_none()
     if not link:
-        raise HTTPException(status_code=404, detail="Lien invalide ou expiré")
+        raise StructuredHTTPException(
+            404,
+            code="LIEN_INVALIDE_OU_EXPIR",
+            message="Lien invalide ou expiré",
+        )
 
     expires_at = link.expires_at
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=410, detail="Ce lien a expiré")
+        raise StructuredHTTPException(
+            410,
+            code="CE_LIEN_EXPIR",
+            message="Ce lien a expiré",
+        )
     if link.max_uses and link.use_count >= link.max_uses:
-        raise HTTPException(status_code=410, detail="Ce lien a atteint le nombre maximum d'utilisations")
+        raise StructuredHTTPException(
+            410,
+            code="CE_LIEN_ATTEINT_LE_NOMBRE_MAXIMUM",
+            message="Ce lien a atteint le nombre maximum d'utilisations",
+        )
     return link
 
 
@@ -1932,7 +1958,11 @@ async def _require_external_session(
     if not link.otp_required:
         return link
     if not session_token or not link.session_token_hash:
-        raise HTTPException(status_code=401, detail="Session externe requise")
+        raise StructuredHTTPException(
+            401,
+            code="SESSION_EXTERNE_REQUISE",
+            message="Session externe requise",
+        )
     if _hash_secret(session_token) != link.session_token_hash:
         if request:
             _append_external_access_log(
@@ -1943,9 +1973,17 @@ async def _require_external_session(
                 metadata={"reason": "token_hash_mismatch"},
             )
             await db.commit()
-        raise HTTPException(status_code=401, detail="Session externe invalide")
+        raise StructuredHTTPException(
+            401,
+            code="SESSION_EXTERNE_INVALIDE",
+            message="Session externe invalide",
+        )
     if not link.session_expires_at:
-        raise HTTPException(status_code=401, detail="Session externe expirée")
+        raise StructuredHTTPException(
+            401,
+            code="SESSION_EXTERNE_EXPIR_E",
+            message="Session externe expirée",
+        )
     session_expires_at = link.session_expires_at
     if session_expires_at.tzinfo is None:
         session_expires_at = session_expires_at.replace(tzinfo=timezone.utc)
@@ -1960,7 +1998,11 @@ async def _require_external_session(
                 otp_validated=False,
             )
             await db.commit()
-        raise HTTPException(status_code=401, detail="Session externe expirée")
+        raise StructuredHTTPException(
+            401,
+            code="SESSION_EXTERNE_EXPIR_E",
+            message="Session externe expirée",
+        )
     if request:
         expected_context = _get_latest_external_session_context(link)
         current_context = _get_external_request_context(request)
@@ -1976,7 +2018,11 @@ async def _require_external_session(
                 metadata={"reason": "user_agent_changed"},
             )
             await db.commit()
-            raise HTTPException(status_code=401, detail="Contexte navigateur invalide pour cette session externe")
+            raise StructuredHTTPException(
+                401,
+                code="CONTEXTE_NAVIGATEUR_INVALIDE_POUR_CETTE_SESSION",
+                message="Contexte navigateur invalide pour cette session externe",
+            )
         expected_ip_hash = (expected_context or {}).get("ip_hash")
         if expected_ip_hash and current_context.get("ip_hash") and current_context.get("ip_hash") != expected_ip_hash:
             _append_external_access_log(
@@ -1996,7 +2042,11 @@ async def _get_external_ads_and_context(
 ) -> tuple[Ads, UUID, UUID | None]:
     ads = await db.get(Ads, link.ads_id)
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS introuvable")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_INTROUVABLE",
+            message="AdS introuvable",
+        )
     preconfigured = link.preconfigured_data or {}
     fallback_company_id: UUID | None = None
     raw_company_id = preconfigured.get("target_company_id") or preconfigured.get("company_id")
@@ -2047,7 +2097,11 @@ async def _replace_ads_allowed_companies(
         valid_ids = {row[0] for row in valid_rows}
         missing = [company_id for company_id in unique_company_ids if company_id not in valid_ids]
         if missing:
-            raise HTTPException(status_code=400, detail="Une ou plusieurs entreprises autorisées sont invalides pour cette entité.")
+            raise StructuredHTTPException(
+                400,
+                code="UNE_OU_PLUSIEURS_ENTREPRISES_AUTORIS_ES",
+                message="Une ou plusieurs entreprises autorisées sont invalides pour cette entité.",
+            )
     await db.execute(text("DELETE FROM ads_allowed_companies WHERE ads_id = :ads_id"), {"ads_id": str(ads_id)})
     for company_id in unique_company_ids:
         db.add(AdsAllowedCompany(ads_id=ads_id, company_id=company_id))
@@ -2285,9 +2339,17 @@ async def _resolve_pax_identity(
         result = await db.execute(query)
         entity = result.scalar_one_or_none()
         if not entity:
-            raise HTTPException(status_code=404, detail="PAX user not found")
+            raise StructuredHTTPException(
+                404,
+                code="PAX_USER_NOT_FOUND",
+                message="PAX user not found",
+            )
         if current_user is not None and current_user.user_type == "external" and entity.id != current_user.id:
-            raise HTTPException(status_code=404, detail="PAX user not found")
+            raise StructuredHTTPException(
+                404,
+                code="PAX_USER_NOT_FOUND",
+                message="PAX user not found",
+            )
         return entity, None
     elif pax_source == "contact":
         query = (
@@ -2300,12 +2362,20 @@ async def _resolve_pax_identity(
         result = await db.execute(query)
         row = result.one_or_none()
         if not row:
-            raise HTTPException(status_code=404, detail="PAX contact not found")
+            raise StructuredHTTPException(
+                404,
+                code="PAX_CONTACT_NOT_FOUND",
+                message="PAX contact not found",
+            )
         if current_user is not None and entity_id is not None and row[0].tier_id:
             await _assert_external_tier_access(db, current_user, entity_id, row[0].tier_id)
         return row[0], row[1]
     else:
-        raise HTTPException(status_code=400, detail="pax_source must be 'user' or 'contact'")
+        raise StructuredHTTPException(
+            400,
+            code="PAX_SOURCE_MUST_USER_CONTACT",
+            message="pax_source must be 'user' or 'contact'",
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2914,7 +2984,11 @@ async def validate_credential(
     )
     credential = result.scalar_one_or_none()
     if not credential:
-        raise HTTPException(status_code=404, detail="Credential not found")
+        raise StructuredHTTPException(
+            404,
+            code="CREDENTIAL_NOT_FOUND",
+            message="Credential not found",
+        )
 
     if body.action == "approve":
         credential.status = "valid"
@@ -3000,7 +3074,11 @@ async def delete_compliance_entry(
     )
     entry = result.scalar_one_or_none()
     if not entry:
-        raise HTTPException(status_code=404, detail="Compliance entry not found")
+        raise StructuredHTTPException(
+            404,
+            code="COMPLIANCE_ENTRY_NOT_FOUND",
+            message="Compliance entry not found",
+        )
     # Junction record — physical delete (not policy-managed)
     await db.delete(entry)
     await db.commit()
@@ -3483,7 +3561,11 @@ async def update_ads_waitlist_priority(
     )
     row = result.first()
     if not row:
-        raise HTTPException(status_code=404, detail="Entrée de liste d'attente introuvable.")
+        raise StructuredHTTPException(
+            404,
+            code="ENTR_E_DE_LISTE_D_ATTENTE",
+            message="Entrée de liste d'attente introuvable.",
+        )
 
     entry, ads = row
     if ads.status != "pending_arbitration" or entry.status != "waitlisted":
@@ -3556,7 +3638,11 @@ async def create_ads(
     requester_id = body.requester_id or acting_user_id
     requester = await db.get(User, requester_id)
     if not requester or not requester.active:
-        raise HTTPException(status_code=400, detail="Demandeur invalide pour cette entité.")
+        raise StructuredHTTPException(
+            400,
+            code="DEMANDEUR_INVALIDE_POUR_CETTE_ENTIT",
+            message="Demandeur invalide pour cette entité.",
+        )
 
     ads = Ads(
         entity_id=entity_id,
@@ -3645,7 +3731,11 @@ async def get_ads(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
     return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
@@ -3666,11 +3756,19 @@ async def update_ads(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
     if ads.requester_id != acting_user_id and not can_approve:
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier cette AdS.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_MODIFIER_CETTE",
+            message="Vous ne pouvez pas modifier cette AdS.",
+        )
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -3760,7 +3858,11 @@ async def request_ads_stay_change(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
 
     allowed_statuses = {"submitted", "pending_compliance", "pending_validation", "approved", "in_progress"}
     if ads.status not in allowed_statuses:
@@ -3918,7 +4020,11 @@ async def submit_ads(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -4275,7 +4381,11 @@ async def approve_ads(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
 
     if ads.status == "pending_initiator_review":
         await _assert_ads_initiator_review_access(
@@ -4675,7 +4785,11 @@ async def reject_ads(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
 
     if ads.status == "pending_initiator_review":
         await _assert_ads_initiator_review_access(
@@ -4803,7 +4917,11 @@ async def request_ads_review(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
 
     allowed_statuses = {"submitted", "pending_compliance", "pending_validation", "approved", "in_progress"}
     if ads.status not in allowed_statuses:
@@ -4880,7 +4998,11 @@ async def cancel_ads(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -4971,7 +5093,11 @@ async def complete_ads_manual_departure(
     result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
 
     await paxlog_service.complete_ads_operationally(
         db,
@@ -5005,9 +5131,20 @@ async def start_ads_progress(
     result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     if ads.status != "approved":
-        raise HTTPException(status_code=400, detail=f"Cannot start AdS with status '{ads.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_START_ADS_STATUS",
+            message="Cannot start AdS with status '{status}'",
+            params={
+                "status": ads.status,
+            },
+        )
 
     from_state = ads.status
     await _try_ads_workflow_transition(
@@ -5071,7 +5208,11 @@ async def complete_ads(
     result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
 
     await paxlog_service.complete_ads_operationally(
         db,
@@ -5106,7 +5247,11 @@ async def list_ads_events(
     )
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
     result = await db.execute(
@@ -5134,11 +5279,26 @@ async def resubmit_ads(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas re-soumettre cette AdS.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_RE_SOUMETTRE",
+            message="Vous ne pouvez pas re-soumettre cette AdS.",
+        )
     if ads.status != "requires_review":
-        raise HTTPException(status_code=400, detail=f"Cannot resubmit AdS with status '{ads.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_RESUBMIT_ADS_STATUS",
+            message="Cannot resubmit AdS with status '{status}'",
+            params={
+                "status": ads.status,
+            },
+        )
 
     old_status = ads.status
     pax_entries, has_compliance_issues, target_status = await _run_ads_submission_checks(
@@ -5222,7 +5382,11 @@ async def list_ads_pax(
     )
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
     pax_result = await db.execute(
@@ -5327,7 +5491,11 @@ async def decide_ads_pax(
     )
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     if ads.status not in {"submitted", "pending_validation", "pending_arbitration", "approved"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -5339,7 +5507,11 @@ async def decide_ads_pax(
     )
     entry = pax_result.scalar_one_or_none()
     if not entry:
-        raise HTTPException(status_code=404, detail="PAX entry not found in this AdS")
+        raise StructuredHTTPException(
+            404,
+            code="PAX_ENTRY_NOT_FOUND_ADS",
+            message="PAX entry not found in this AdS",
+        )
     if entry.status in {"approved", "rejected", "no_show"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -5564,9 +5736,17 @@ async def add_pax_to_ads(
     )
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les PAX de cette AdS.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_MODIFIER_LES",
+            message="Vous ne pouvez pas modifier les PAX de cette AdS.",
+        )
     if ads.status not in ("draft", "requires_review"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -5574,18 +5754,34 @@ async def add_pax_to_ads(
         )
 
     if not body.user_id and not body.contact_id:
-        raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
+        raise StructuredHTTPException(
+            400,
+            code="PROVIDE_USER_ID_CONTACT_ID",
+            message="Provide user_id or contact_id",
+        )
     if body.user_id and body.contact_id:
-        raise HTTPException(status_code=400, detail="Provide only one of user_id or contact_id")
+        raise StructuredHTTPException(
+            400,
+            code="PROVIDE_ONLY_ONE_USER_ID_CONTACT",
+            message="Provide only one of user_id or contact_id",
+        )
 
     # Verify the PAX entity exists
     if body.user_id:
         u = await db.get(User, body.user_id)
         if not u:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise StructuredHTTPException(
+                404,
+                code="USER_NOT_FOUND",
+                message="User not found",
+            )
         acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
         if current_user.user_type == "external" and u.id != acting_user_id:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise StructuredHTTPException(
+                404,
+                code="USER_NOT_FOUND",
+                message="User not found",
+            )
         pax_name = f"{u.first_name} {u.last_name}"
         # Check not already in this AdS
         existing = await db.execute(
@@ -5594,7 +5790,11 @@ async def add_pax_to_ads(
     else:
         c = await db.get(TierContact, body.contact_id)
         if not c:
-            raise HTTPException(status_code=404, detail="Contact not found")
+            raise StructuredHTTPException(
+                404,
+                code="CONTACT_NOT_FOUND",
+                message="Contact not found",
+            )
         await _assert_external_tier_access(db, current_user, entity_id, c.tier_id)
         pax_name = f"{c.first_name} {c.last_name}"
         existing = await db.execute(
@@ -5602,7 +5802,11 @@ async def add_pax_to_ads(
         )
 
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Ce PAX est déjà dans cet AdS")
+        raise StructuredHTTPException(
+            409,
+            code="CE_PAX_EST_D_J_DANS",
+            message="Ce PAX est déjà dans cet AdS",
+        )
 
     entry = AdsPax(
         ads_id=ads_id,
@@ -5637,9 +5841,17 @@ async def remove_pax_from_ads(
     )
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les PAX de cette AdS.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_MODIFIER_LES",
+            message="Vous ne pouvez pas modifier les PAX de cette AdS.",
+        )
     result = await db.execute(
         select(AdsPax).where(
             AdsPax.id == entry_id,
@@ -5648,7 +5860,11 @@ async def remove_pax_from_ads(
     )
     entry = result.scalar_one_or_none()
     if not entry:
-        raise HTTPException(status_code=404, detail="PAX entry not found in this AdS")
+        raise StructuredHTTPException(
+            404,
+            code="PAX_ENTRY_NOT_FOUND_ADS",
+            message="PAX entry not found in this AdS",
+        )
     release_slot = entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}
     # Junction record — physical delete (not policy-managed)
     await db.delete(entry)
@@ -5686,7 +5902,14 @@ async def get_ads_by_reference(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail=f"AdS «{reference}» introuvable")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_INTROUVABLE",
+            message="AdS «{reference}» introuvable",
+            params={
+                "reference": reference,
+            },
+        )
     await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
     return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
@@ -5730,7 +5953,11 @@ async def _get_ads_pdf_accessible(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS introuvable")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_INTROUVABLE",
+            message="AdS introuvable",
+        )
     await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
     return ads
 
@@ -5964,7 +6191,11 @@ async def _resolve_ads_boarding_context(
     ads_id = UUID(str(payload["ads_id"]))
     token_entity_id = UUID(str(payload["entity_id"]))
     if token_entity_id != current_entity_id:
-        raise HTTPException(status_code=404, detail="QR AdS non disponible dans cette entité")
+        raise StructuredHTTPException(
+            404,
+            code="QR_ADS_NON_DISPONIBLE_DANS_CETTE",
+            message="QR AdS non disponible dans cette entité",
+        )
     result = await db.execute(
         select(Ads).where(
             Ads.id == ads_id,
@@ -5973,7 +6204,11 @@ async def _resolve_ads_boarding_context(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS introuvable")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_INTROUVABLE",
+            message="AdS introuvable",
+        )
     return ads, _build_ads_boarding_url(token)
 
 
@@ -6269,7 +6504,11 @@ async def update_ads_boarding_scan_passenger(
     )
     row = result.first()
     if not row:
-        raise HTTPException(status_code=404, detail="Passager manifeste introuvable pour cet AdS")
+        raise StructuredHTTPException(
+            404,
+            code="PASSAGER_MANIFESTE_INTROUVABLE_POUR_CET_ADS",
+            message="Passager manifeste introuvable pour cet AdS",
+        )
 
     passenger: ManifestPassenger = row[0]
     passenger.boarding_status = body.boarding_status
@@ -6494,7 +6733,11 @@ async def create_incident(
     )
     row = incident_result.first()
     if not row:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise StructuredHTTPException(
+            404,
+            code="INCIDENT_NOT_FOUND",
+            message="Incident not found",
+        )
 
     logger.info("PAX incident created (%s) by %s", body.severity, current_user.id)
     return _incident_row_to_read(row)
@@ -6518,7 +6761,11 @@ async def resolve_incident(
     )
     incident = result.scalar_one_or_none()
     if not incident:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise StructuredHTTPException(
+            404,
+            code="INCIDENT_NOT_FOUND",
+            message="Incident not found",
+        )
     if incident.resolved_at:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -6556,7 +6803,11 @@ async def list_imputations(
     )
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
     return await list_cost_imputations(
@@ -6579,7 +6830,11 @@ async def get_imputation_suggestion(
     )
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
     return await _resolve_ads_imputation_suggestion(db, ads=ads, entity_id=entity_id)
@@ -6608,7 +6863,11 @@ async def add_imputation(
     )
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     if request is not None:
         can_manage_ads = await _can_manage_ads(
             ads, current_user=current_user, request=request, entity_id=entity_id, db=db
@@ -6618,7 +6877,11 @@ async def add_imputation(
             ads, current_user=current_user, entity_id=entity_id, db=db
         )
     if not can_manage_ads:
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les imputations de cette AdS.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_MODIFIER_LES",
+            message="Vous ne pouvez pas modifier les imputations de cette AdS.",
+        )
 
     body = CostImputationCreate(
         owner_type="ads",
@@ -6656,7 +6919,11 @@ async def delete_imputation(
     )
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     if request is not None:
         can_manage_ads = await _can_manage_ads(
             ads, current_user=current_user, request=request, entity_id=entity_id, db=db
@@ -6666,7 +6933,11 @@ async def delete_imputation(
             ads, current_user=current_user, entity_id=entity_id, db=db
         )
     if not can_manage_ads:
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les imputations de cette AdS.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_MODIFIER_LES",
+            message="Vous ne pouvez pas modifier les imputations de cette AdS.",
+        )
 
     await delete_cost_imputation(
         imputation_id=imputation_id, current_user=current_user, db=db
@@ -6815,7 +7086,11 @@ async def create_rotation_cycle(
     from sqlalchemy import text as sa_text
 
     if not user_id and not contact_id:
-        raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
+        raise StructuredHTTPException(
+            400,
+            code="PROVIDE_USER_ID_CONTACT_ID",
+            message="Provide user_id or contact_id",
+        )
 
     result = await db.execute(
         sa_text(
@@ -6904,7 +7179,11 @@ async def update_rotation_cycle(
         {"cid": str(cycle_id), "eid": str(entity_id)},
     )
     if not check.scalar():
-        raise HTTPException(status_code=404, detail="Rotation cycle not found")
+        raise StructuredHTTPException(
+            404,
+            code="ROTATION_CYCLE_NOT_FOUND",
+            message="Rotation cycle not found",
+        )
 
     updates = []
     params: dict = {"cid": str(cycle_id)}
@@ -6966,7 +7245,11 @@ async def end_rotation_cycle(
         {"cid": str(cycle_id), "eid": str(entity_id)},
     )
     if not result.scalar():
-        raise HTTPException(status_code=404, detail="Rotation cycle not found")
+        raise StructuredHTTPException(
+            404,
+            code="ROTATION_CYCLE_NOT_FOUND",
+            message="Rotation cycle not found",
+        )
     await db.commit()
     return None
 
@@ -7141,7 +7424,11 @@ async def _resolve_external_job_position(
         )
     ).scalar_one_or_none()
     if not job_position:
-        raise HTTPException(status_code=400, detail="Le poste sélectionné n'est pas valide pour cette entité")
+        raise StructuredHTTPException(
+            400,
+            code="LE_POSTE_S_LECTIONN_N_EST",
+            message="Le poste sélectionné n'est pas valide pour cette entité",
+        )
     return job_position
 
 
@@ -7163,7 +7450,11 @@ async def _resolve_external_departure_base(
         )
     ).scalar_one_or_none()
     if not installation:
-        raise HTTPException(status_code=400, detail="Le point de départ sélectionné n'est pas valide pour cette entité")
+        raise StructuredHTTPException(
+            400,
+            code="LE_POINT_DE_D_PART_S",
+            message="Le point de départ sélectionné n'est pas valide pour cette entité",
+        )
     return installation
 
 
@@ -7314,7 +7605,11 @@ async def _apply_external_pax_contact_updates(
 
 async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink) -> None:
     if not link.otp_sent_to:
-        raise HTTPException(status_code=400, detail="Aucun destinataire OTP n'est configuré pour ce lien")
+        raise StructuredHTTPException(
+            400,
+            code="AUCUN_DESTINATAIRE_OTP_N_EST_CONFIGUR",
+            message="Aucun destinataire OTP n'est configuré pour ce lien",
+        )
 
     code = f"{secrets.randbelow(1000000):06d}"
     link.otp_code_hash = _hash_secret(code)
@@ -7356,7 +7651,11 @@ async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink)
 
     sent, _channel = await send_whatsapp_otp(db, to=destination, otp_code=code)
     if not sent:
-        raise HTTPException(status_code=503, detail="Impossible d'envoyer le code OTP")
+        raise StructuredHTTPException(
+            503,
+            code="IMPOSSIBLE_D_ENVOYER_LE_CODE_OTP",
+            message="Impossible d'envoyer le code OTP",
+        )
 
 
 async def _resolve_external_link_recipients(
@@ -7452,13 +7751,25 @@ async def _resolve_external_link_destination(
                 selected = candidate
                 break
         if not selected:
-            raise HTTPException(status_code=400, detail="Le destinataire OTP sélectionné n'est pas valide pour cette AdS.")
+            raise StructuredHTTPException(
+                400,
+                code="LE_DESTINATAIRE_OTP_S_LECTIONN_N",
+                message="Le destinataire OTP sélectionné n'est pas valide pour cette AdS.",
+            )
     elif len(candidates) == 1:
         selected = candidates[0]
     elif len(candidates) > 1:
-        raise HTTPException(status_code=400, detail="Plusieurs destinataires OTP sont disponibles. Sélectionnez le PAX destinataire.")
+        raise StructuredHTTPException(
+            400,
+            code="PLUSIEURS_DESTINATAIRES_OTP_SONT_DISPONIBLES_S",
+            message="Plusieurs destinataires OTP sont disponibles. Sélectionnez le PAX destinataire.",
+        )
     else:
-        raise HTTPException(status_code=400, detail="Aucun destinataire OTP exploitable n'est disponible sur les PAX de cette AdS.")
+        raise StructuredHTTPException(
+            400,
+            code="AUCUN_DESTINATAIRE_OTP_EXPLOITABLE_N_EST",
+            message="Aucun destinataire OTP exploitable n'est disponible sur les PAX de cette AdS.",
+        )
 
     return selected["preferred_destination"], {
         "source": "ads_pax",
@@ -7488,15 +7799,19 @@ async def create_external_link(
     )
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
 
     # External links require at least one allowed company (for contact matching)
     allowed_ids, _ = await _get_ads_allowed_company_scope(db, ads_id=ads.id)
     if not allowed_ids:
-        raise HTTPException(
-            status_code=400,
-            detail="Impossible de créer un lien externe : aucune entreprise autorisée n'est configurée sur cette AdS. "
-                   "Ajoutez au moins une entreprise dans les parametres de l'AdS avant de generer un lien.",
+        raise StructuredHTTPException(
+            400,
+            code="IMPOSSIBLE_DE_CR_ER_UN_LIEN",
+            message="Impossible de créer un lien externe : aucune entreprise autorisée n'est configurée sur cette AdS. Ajoutez au moins une entreprise dans les parametres de l'AdS avant de generer un lien.",
         )
 
     if request is not None:
@@ -7508,7 +7823,11 @@ async def create_external_link(
             ads, current_user=current_user, entity_id=entity_id, db=db
         )
     if not can_manage_ads:
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas créer de lien externe pour cette AdS.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_CR_ER",
+            message="Vous ne pouvez pas créer de lien externe pour cette AdS.",
+        )
 
     otp_sent_to, otp_meta = await _resolve_external_link_destination(
         db,
@@ -7580,7 +7899,11 @@ async def list_ads_external_links(
     ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
     result = await db.execute(
         select(ExternalAccessLink)
@@ -7623,7 +7946,11 @@ async def access_external_link(
                 },
             )
             await db.commit()
-            raise HTTPException(status_code=429, detail="Trop de consultations publiques récentes pour ce lien")
+            raise StructuredHTTPException(
+                429,
+                code="TROP_DE_CONSULTATIONS_PUBLIQUES_R_CENTES",
+                message="Trop de consultations publiques récentes pour ce lien",
+            )
         _append_external_access_log(link, action="public_access", request=request, otp_validated=False)
         await db.commit()
     elif authenticated:
@@ -7666,7 +7993,11 @@ async def send_external_link_otp(
             },
         )
         await db.commit()
-        raise HTTPException(status_code=429, detail="Trop de demandes OTP récentes pour ce lien")
+        raise StructuredHTTPException(
+            429,
+            code="TROP_DE_DEMANDES_OTP_R_CENTES",
+            message="Trop de demandes OTP récentes pour ce lien",
+        )
 
     await _send_external_link_otp(db, link=link)
     _append_external_access_log(link, action="otp_sent", request=request, otp_validated=False)
@@ -7714,7 +8045,11 @@ async def verify_external_link_otp(
             },
         )
         await db.commit()
-        raise HTTPException(status_code=429, detail="Trop de tentatives OTP récentes pour ce lien")
+        raise StructuredHTTPException(
+            429,
+            code="TROP_DE_TENTATIVES_OTP_R_CENTES",
+            message="Trop de tentatives OTP récentes pour ce lien",
+        )
 
     otp_ok, otp_error = paxlog_service.verify_external_otp_code(
         expected_hash=link.otp_code_hash,
@@ -7725,9 +8060,17 @@ async def verify_external_link_otp(
         now=datetime.now(timezone.utc),
     )
     if otp_error == "missing_otp":
-        raise HTTPException(status_code=400, detail="Aucun OTP actif pour ce lien")
+        raise StructuredHTTPException(
+            400,
+            code="AUCUN_OTP_ACTIF_POUR_CE_LIEN",
+            message="Aucun OTP actif pour ce lien",
+        )
     if otp_error == "expired":
-        raise HTTPException(status_code=410, detail="Le code OTP a expiré")
+        raise StructuredHTTPException(
+            410,
+            code="LE_CODE_OTP_EXPIR",
+            message="Le code OTP a expiré",
+        )
     if otp_error == "locked":
         _append_external_access_log(
             link,
@@ -7737,12 +8080,20 @@ async def verify_external_link_otp(
             metadata={"max_attempts": EXTERNAL_OTP_MAX_ATTEMPTS},
         )
         await db.commit()
-        raise HTTPException(status_code=429, detail="Nombre maximal de tentatives OTP atteint")
+        raise StructuredHTTPException(
+            429,
+            code="NOMBRE_MAXIMAL_DE_TENTATIVES_OTP_ATTEINT",
+            message="Nombre maximal de tentatives OTP atteint",
+        )
     if not otp_ok:
         link.otp_attempt_count += 1
         _append_external_access_log(link, action="otp_failed", request=request, otp_validated=False)
         await db.commit()
-        raise HTTPException(status_code=400, detail="Code OTP invalide")
+        raise StructuredHTTPException(
+            400,
+            code="CODE_OTP_INVALIDE",
+            message="Code OTP invalide",
+        )
 
     session_token = secrets.token_urlsafe(32)
     link.otp_code_hash = None
@@ -7948,7 +8299,11 @@ async def update_external_transport_preferences(
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status not in {"draft", "requires_review"}:
-        raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
+        raise StructuredHTTPException(
+            400,
+            code="LE_DOSSIER_N_ACCEPTE_PLUS_DE",
+            message="Le dossier n'accepte plus de modification externe",
+        )
 
     outbound_base = await _resolve_external_departure_base(
         db,
@@ -8001,7 +8356,11 @@ async def find_external_ads_pax_matches(
         session_token=x_external_session,
     )
     if not allowed_company_ids:
-        raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
+        raise StructuredHTTPException(
+            400,
+            code="AUCUNE_ENTREPRISE_CIBLE_N_EST_CONFIGUR",
+            message="Aucune entreprise cible n'est configurée sur ce lien externe",
+        )
     has_lookup_signal = (
         (body.first_name.strip() and body.last_name.strip())
         or bool(body.badge_number)
@@ -8040,9 +8399,17 @@ async def create_external_ads_pax(
         session_token=x_external_session,
     )
     if ads.status not in {"draft", "requires_review"}:
-        raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
+        raise StructuredHTTPException(
+            400,
+            code="LE_DOSSIER_N_ACCEPTE_PLUS_DE",
+            message="Le dossier n'accepte plus de modification externe",
+        )
     if not allowed_company_ids:
-        raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
+        raise StructuredHTTPException(
+            400,
+            code="AUCUNE_ENTREPRISE_CIBLE_N_EST_CONFIGUR",
+            message="Aucune entreprise cible n'est configurée sur ce lien externe",
+        )
     if len(allowed_company_ids) == 1:
         matches = await _find_external_contact_matches(
             db,
@@ -8122,13 +8489,25 @@ async def attach_existing_external_ads_pax(
         session_token=x_external_session,
     )
     if ads.status not in {"draft", "requires_review"}:
-        raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
+        raise StructuredHTTPException(
+            400,
+            code="LE_DOSSIER_N_ACCEPTE_PLUS_DE",
+            message="Le dossier n'accepte plus de modification externe",
+        )
     if not allowed_company_ids:
-        raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
+        raise StructuredHTTPException(
+            400,
+            code="AUCUNE_ENTREPRISE_CIBLE_N_EST_CONFIGUR",
+            message="Aucune entreprise cible n'est configurée sur ce lien externe",
+        )
 
     contact = await db.get(TierContact, contact_id)
     if not contact or contact.tier_id not in allowed_company_ids or not contact.active:
-        raise HTTPException(status_code=404, detail="Contact externe introuvable pour l'entreprise autorisée")
+        raise StructuredHTTPException(
+            404,
+            code="CONTACT_EXTERNE_INTROUVABLE_POUR_L_ENTREPRISE",
+            message="Contact externe introuvable pour l'entreprise autorisée",
+        )
     # Skip match scoring when body is empty (explicit user selection)
     has_identity = body.first_name or body.last_name
     if has_identity:
@@ -8198,7 +8577,11 @@ async def update_external_ads_pax(
         session_token=x_external_session,
     )
     if ads.status not in {"draft", "requires_review"}:
-        raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
+        raise StructuredHTTPException(
+            400,
+            code="LE_DOSSIER_N_ACCEPTE_PLUS_DE",
+            message="Le dossier n'accepte plus de modification externe",
+        )
 
     result = await db.execute(
         select(AdsPax, TierContact)
@@ -8207,10 +8590,18 @@ async def update_external_ads_pax(
     )
     row = result.first()
     if not row:
-        raise HTTPException(status_code=404, detail="PAX externe introuvable sur cette AdS")
+        raise StructuredHTTPException(
+            404,
+            code="PAX_EXTERNE_INTROUVABLE_SUR_CETTE_ADS",
+            message="PAX externe introuvable sur cette AdS",
+        )
     _entry, contact = row
     if allowed_company_ids and contact.tier_id not in allowed_company_ids:
-        raise HTTPException(status_code=403, detail="Ce PAX n'appartient pas à l'entreprise autorisée")
+        raise StructuredHTTPException(
+            403,
+            code="CE_PAX_N_APPARTIENT_PAS_L",
+            message="Ce PAX n'appartient pas à l'entreprise autorisée",
+        )
     linked_user = (
         await db.execute(select(User).where(User.tier_contact_id == contact.id))
     ).scalar_one_or_none()
@@ -8255,7 +8646,11 @@ async def create_external_ads_pax_credential(
         session_token=x_external_session,
     )
     if ads.status not in {"draft", "requires_review"}:
-        raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
+        raise StructuredHTTPException(
+            400,
+            code="LE_DOSSIER_N_ACCEPTE_PLUS_DE",
+            message="Le dossier n'accepte plus de modification externe",
+        )
 
     result = await db.execute(
         select(AdsPax, TierContact)
@@ -8264,10 +8659,18 @@ async def create_external_ads_pax_credential(
     )
     row = result.first()
     if not row:
-        raise HTTPException(status_code=404, detail="PAX externe introuvable sur cette AdS")
+        raise StructuredHTTPException(
+            404,
+            code="PAX_EXTERNE_INTROUVABLE_SUR_CETTE_ADS",
+            message="PAX externe introuvable sur cette AdS",
+        )
     _entry, contact = row
     if allowed_company_ids and contact.tier_id not in allowed_company_ids:
-        raise HTTPException(status_code=403, detail="Ce PAX n'appartient pas à l'entreprise autorisée")
+        raise StructuredHTTPException(
+            403,
+            code="CE_PAX_N_APPARTIENT_PAS_L",
+            message="Ce PAX n'appartient pas à l'entreprise autorisée",
+        )
 
     credential = PaxCredential(
         contact_id=contact.id,
@@ -8395,7 +8798,14 @@ async def submit_external_ads(
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status != "draft":
-        raise HTTPException(status_code=400, detail=f"Impossible de soumettre ce dossier avec le statut '{ads.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="IMPOSSIBLE_DE_SOUMETTRE_CE_DOSSIER_AVEC",
+            message="Impossible de soumettre ce dossier avec le statut '{status}'",
+            params={
+                "status": ads.status,
+            },
+        )
     allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
         db,
         ads=ads,
@@ -8433,7 +8843,14 @@ async def resubmit_external_ads(
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status != "requires_review":
-        raise HTTPException(status_code=400, detail=f"Impossible de re-soumettre ce dossier avec le statut '{ads.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="IMPOSSIBLE_DE_RE_SOUMETTRE_CE_DOSSIER",
+            message="Impossible de re-soumettre ce dossier avec le statut '{status}'",
+            params={
+                "status": ads.status,
+            },
+        )
     allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
         db,
         ads=ads,
@@ -8469,9 +8886,10 @@ STAY_PROGRAM_ACTIVE_ADS_STATUSES = {"draft", "requires_review", "approved", "in_
 
 def _ensure_stay_program_ads_status(ads_status: str) -> None:
     if ads_status not in STAY_PROGRAM_ACTIVE_ADS_STATUSES:
-        raise HTTPException(
-            status_code=400,
-            detail="Le programme de séjour n'est autorisé qu'à partir du statut brouillon.",
+        raise StructuredHTTPException(
+            400,
+            code="LE_PROGRAMME_DE_S_JOUR_N",
+            message="Le programme de séjour n'est autorisé qu'à partir du statut brouillon.",
         )
 
 
@@ -8485,7 +8903,11 @@ async def _get_stay_program_ads_or_404(
     )
     ads = result.scalar_one_or_none()
     if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
     return ads
 
 
@@ -8502,13 +8924,18 @@ async def _ensure_stay_program_target_belongs_to_ads(
     elif contact_id:
         conditions.append(AdsPax.contact_id == contact_id)
     else:
-        raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
+        raise StructuredHTTPException(
+            400,
+            code="PROVIDE_USER_ID_CONTACT_ID",
+            message="Provide user_id or contact_id",
+        )
 
     pax_result = await db.execute(select(AdsPax.id).where(*conditions))
     if not pax_result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=400,
-            detail="Le PAX cible doit déjà appartenir à cette AdS.",
+        raise StructuredHTTPException(
+            400,
+            code="LE_PAX_CIBLE_DOIT_D_J",
+            message="Le PAX cible doit déjà appartenir à cette AdS.",
         )
 
 
@@ -8539,7 +8966,11 @@ async def _assert_ads_read_access(
     db: AsyncSession,
 ) -> None:
     if not await _can_read_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
-        raise HTTPException(status_code=404, detail="AdS not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
 
 
 async def _can_manage_ads(
@@ -8573,7 +9004,11 @@ async def _assert_ads_initiator_review_access(
         acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
     if acting_user_id != ads.requester_id and not can_approve:
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue initiateur.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_VALIDER_CETTE",
+            message="Vous ne pouvez pas valider cette revue initiateur.",
+        )
 
 
 async def _assert_ads_project_review_access(
@@ -8589,7 +9024,11 @@ async def _assert_ads_project_review_access(
         acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     pending_targets = await _get_ads_pending_project_review_targets(db, ads=ads, entity_id=entity_id)
     if not pending_targets:
-        raise HTTPException(status_code=400, detail="Aucune validation projet n'est attendue sur cette AdS.")
+        raise StructuredHTTPException(
+            400,
+            code="AUCUNE_VALIDATION_PROJET_N_EST_ATTENDUE",
+            message="Aucune validation projet n'est attendue sur cette AdS.",
+        )
     can_update_project = await has_user_permission(current_user, entity_id, "project.update", db)
     can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
     current_target = next(
@@ -8597,7 +9036,11 @@ async def _assert_ads_project_review_access(
         None,
     )
     if current_target is None and not can_update_project and not can_approve:
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue projet.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_VALIDER_CETTE",
+            message="Vous ne pouvez pas valider cette revue projet.",
+        )
     if current_target is None:
         return None
     return await db.get(Project, current_target["project_id"])
@@ -8611,7 +9054,11 @@ async def _assert_ads_compliance_review_access(
 ) -> None:
     can_manage_compliance = await has_user_permission(current_user, entity_id, "paxlog.compliance.manage", db)
     if not can_manage_compliance:
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue conformité.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_VALIDER_CETTE",
+            message="Vous ne pouvez pas valider cette revue conformité.",
+        )
 
 
 async def _assert_ads_final_approval_access(
@@ -8622,7 +9069,11 @@ async def _assert_ads_final_approval_access(
 ) -> None:
     can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
     if not can_approve:
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas approuver cette AdS.")
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_APPROUVER_CETTE",
+            message="Vous ne pouvez pas approuver cette AdS.",
+        )
 
 
 async def _get_ads_linked_project_details(
@@ -8960,7 +9411,11 @@ async def _assert_avm_read_access(
     db: AsyncSession,
 ) -> None:
     if not await _can_read_avm(avm, current_user=current_user, entity_id=entity_id, db=db):
-        raise HTTPException(status_code=404, detail="AVM not found")
+        raise StructuredHTTPException(
+            404,
+            code="AVM_NOT_FOUND",
+            message="AVM not found",
+        )
 
 
 async def _get_stay_program_context_or_404(
@@ -8986,7 +9441,11 @@ async def _get_stay_program_context_or_404(
     )
     context = result.first()
     if not context:
-        raise HTTPException(status_code=404, detail="Programme de sejour introuvable")
+        raise StructuredHTTPException(
+            404,
+            code="PROGRAMME_DE_SEJOUR_INTROUVABLE",
+            message="Programme de sejour introuvable",
+        )
     return context
 
 
@@ -9070,7 +9529,11 @@ async def create_stay_program(
     import json
 
     if not user_id and not contact_id:
-        raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
+        raise StructuredHTTPException(
+            400,
+            code="PROVIDE_USER_ID_CONTACT_ID",
+            message="Provide user_id or contact_id",
+        )
 
     ads = await _get_stay_program_ads_or_404(ads_id, entity_id, db)
     _ensure_stay_program_ads_status(ads.status)
@@ -9124,9 +9587,10 @@ async def submit_stay_program(
     context = await _get_stay_program_context_or_404(program_id, entity_id, db)
     _, current_status, ads_id, user_id, contact_id, ads_status = context
     if current_status != "draft":
-        raise HTTPException(
-            status_code=400,
-            detail="Programme introuvable ou non-soumettable (doit etre en brouillon).",
+        raise StructuredHTTPException(
+            400,
+            code="PROGRAMME_INTROUVABLE_OU_NON_SOUMETTABLE_DOIT",
+            message="Programme introuvable ou non-soumettable (doit etre en brouillon).",
         )
     _ensure_stay_program_ads_status(ads_status)
     await _ensure_stay_program_target_belongs_to_ads(
@@ -9145,9 +9609,10 @@ async def submit_stay_program(
         {"pid": str(program_id), "eid": str(entity_id)},
     )
     if not result.scalar():
-        raise HTTPException(
-            status_code=400,
-            detail="Programme introuvable ou non-soumettable (doit etre en brouillon).",
+        raise StructuredHTTPException(
+            400,
+            code="PROGRAMME_INTROUVABLE_OU_NON_SOUMETTABLE_DOIT",
+            message="Programme introuvable ou non-soumettable (doit etre en brouillon).",
         )
     await db.commit()
     return {"id": str(program_id), "status": "submitted"}
@@ -9167,9 +9632,10 @@ async def approve_stay_program(
     context = await _get_stay_program_context_or_404(program_id, entity_id, db)
     _, current_status, ads_id, user_id, contact_id, ads_status = context
     if current_status != "submitted":
-        raise HTTPException(
-            status_code=400,
-            detail="Programme introuvable ou non-approvable (doit etre soumis).",
+        raise StructuredHTTPException(
+            400,
+            code="PROGRAMME_INTROUVABLE_OU_NON_APPROVABLE_DOIT",
+            message="Programme introuvable ou non-approvable (doit etre soumis).",
         )
     _ensure_stay_program_ads_status(ads_status)
     await _ensure_stay_program_target_belongs_to_ads(
@@ -9188,9 +9654,10 @@ async def approve_stay_program(
         {"pid": str(program_id), "eid": str(entity_id), "uid": str(current_user.id)},
     )
     if not result.scalar():
-        raise HTTPException(
-            status_code=400,
-            detail="Programme introuvable ou non-approvable (doit etre soumis).",
+        raise StructuredHTTPException(
+            400,
+            code="PROGRAMME_INTROUVABLE_OU_NON_APPROVABLE_DOIT",
+            message="Programme introuvable ou non-approvable (doit etre soumis).",
         )
     await db.commit()
     return {"id": str(program_id), "status": "approved"}
@@ -9805,7 +10272,11 @@ async def resolve_signalement(
     )
     incident = result.scalar_one_or_none()
     if not incident:
-        raise HTTPException(status_code=404, detail="Signalement not found")
+        raise StructuredHTTPException(
+            404,
+            code="SIGNALEMENT_NOT_FOUND",
+            message="Signalement not found",
+        )
     if incident.resolved_at:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -9889,7 +10360,11 @@ async def validate_signalement(
     )
     incident = result.scalar_one_or_none()
     if not incident:
-        raise HTTPException(status_code=404, detail="Signalement not found")
+        raise StructuredHTTPException(
+            404,
+            code="SIGNALEMENT_NOT_FOUND",
+            message="Signalement not found",
+        )
 
     if decision:
         incident.decision = decision
@@ -9920,7 +10395,11 @@ async def lift_signalement(
     )
     incident = result.scalar_one_or_none()
     if not incident:
-        raise HTTPException(status_code=404, detail="Signalement not found")
+        raise StructuredHTTPException(
+            404,
+            code="SIGNALEMENT_NOT_FOUND",
+            message="Signalement not found",
+        )
 
     incident.resolved_at = func.now()
     incident.resolved_by = current_user.id
@@ -10196,7 +10675,11 @@ async def get_avm(
     )
     avm = result.scalar_one_or_none()
     if not avm:
-        raise HTTPException(status_code=404, detail="AVM not found")
+        raise StructuredHTTPException(
+            404,
+            code="AVM_NOT_FOUND",
+            message="AVM not found",
+        )
     await _assert_avm_read_access(avm, current_user=current_user, entity_id=entity_id, db=db)
     return await _build_avm_read(db, avm)
 
@@ -10222,7 +10705,11 @@ async def get_avm_pdf(
     )
     avm = result.scalar_one_or_none()
     if not avm:
-        raise HTTPException(status_code=404, detail="AVM not found")
+        raise StructuredHTTPException(
+            404,
+            code="AVM_NOT_FOUND",
+            message="AVM not found",
+        )
     await _assert_avm_read_access(avm, current_user=current_user, entity_id=entity_id, db=db)
 
     variables = await _build_avm_pdf_template_variables(db=db, avm=avm, entity_id=entity_id)
@@ -10234,7 +10721,11 @@ async def get_avm_pdf(
         variables=variables,
     )
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'avm.ticket' introuvable. Créez-le dans Paramètres > Modèles PDF.")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_PDF_AVM_TICKET_INTROUVABLE_CR",
+            message="Template PDF 'avm.ticket' introuvable. Créez-le dans Paramètres > Modèles PDF.",
+        )
 
     filename = f"AVM_{avm.reference.replace(' ', '_')}.pdf"
     return Response(
@@ -10262,7 +10753,11 @@ async def update_avm(
     )
     avm = result.scalar_one_or_none()
     if not avm:
-        raise HTTPException(status_code=404, detail="AVM not found")
+        raise StructuredHTTPException(
+            404,
+            code="AVM_NOT_FOUND",
+            message="AVM not found",
+        )
     if avm.status not in ("draft", "in_preparation"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -10310,7 +10805,11 @@ async def submit_avm_route(
         )
         avm = result_check.scalar_one_or_none()
         if not avm:
-            raise HTTPException(status_code=404, detail="AVM not found")
+            raise StructuredHTTPException(
+                404,
+                code="AVM_NOT_FOUND",
+                message="AVM not found",
+            )
         if not await _can_manage_avm(db=db, avm=avm, current_user=current_user, entity_id=entity_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -10397,7 +10896,11 @@ async def cancel_avm(
     )
     avm = result.scalar_one_or_none()
     if not avm:
-        raise HTTPException(status_code=404, detail="AVM not found")
+        raise StructuredHTTPException(
+            404,
+            code="AVM_NOT_FOUND",
+            message="AVM not found",
+        )
     if not await _can_manage_avm(db=db, avm=avm, current_user=current_user, entity_id=entity_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -10564,7 +11067,11 @@ async def modify_active_avm(
     )
     avm = result.scalar_one_or_none()
     if not avm:
-        raise HTTPException(status_code=404, detail="AVM not found")
+        raise StructuredHTTPException(
+            404,
+            code="AVM_NOT_FOUND",
+            message="AVM not found",
+        )
     if avm.status not in ("active", "in_preparation", "ready"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -10578,16 +11085,21 @@ async def modify_active_avm(
 
     update_data = body.model_dump(exclude_unset=True, exclude={"reason"})
     if not update_data:
-        raise HTTPException(status_code=400, detail="No AVM changes provided")
+        raise StructuredHTTPException(
+            400,
+            code="NO_AVM_CHANGES_PROVIDED",
+            message="No AVM changes provided",
+        )
 
     before_values = {key: getattr(avm, key, None) for key in update_data}
     if "planned_start_date" in update_data or "planned_end_date" in update_data:
         start_value = update_data.get("planned_start_date", avm.planned_start_date)
         end_value = update_data.get("planned_end_date", avm.planned_end_date)
         if start_value and end_value and start_value > end_value:
-            raise HTTPException(
-                status_code=400,
-                detail="planned_end_date must be greater than or equal to planned_start_date",
+            raise StructuredHTTPException(
+                400,
+                code="PLANNED_END_DATE_MUST_GREATER_THAN",
+                message="planned_end_date must be greater than or equal to planned_start_date",
             )
 
     for key, value in update_data.items():
@@ -10602,7 +11114,11 @@ async def modify_active_avm(
                 "after": _json_safe(new_value),
             }
     if not changes:
-        raise HTTPException(status_code=400, detail="No AVM changes detected")
+        raise StructuredHTTPException(
+            400,
+            code="NO_AVM_CHANGES_DETECTED",
+            message="No AVM changes detected",
+        )
 
     linked_ads_reviewed = 0
     linked_ads_refs: list[str] = []
@@ -10940,7 +11456,11 @@ async def update_avm_preparation_task(
     )
     avm = avm_result.scalar_one_or_none()
     if not avm:
-        raise HTTPException(status_code=404, detail="AVM not found")
+        raise StructuredHTTPException(
+            404,
+            code="AVM_NOT_FOUND",
+            message="AVM not found",
+        )
     if avm.status not in ("in_preparation", "ready", "active"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -10960,11 +11480,19 @@ async def update_avm_preparation_task(
     )
     task = task_result.scalar_one_or_none()
     if not task:
-        raise HTTPException(status_code=404, detail="Preparation task not found")
+        raise StructuredHTTPException(
+            404,
+            code="PREPARATION_TASK_NOT_FOUND",
+            message="Preparation task not found",
+        )
 
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No preparation task changes provided")
+        raise StructuredHTTPException(
+            400,
+            code="NO_PREPARATION_TASK_CHANGES_PROVIDED",
+            message="No preparation task changes provided",
+        )
 
     if "assigned_to_user_id" in update_data and update_data["assigned_to_user_id"]:
         assigned_user_id = update_data["assigned_to_user_id"]
@@ -10981,9 +11509,10 @@ async def update_avm_preparation_task(
             .limit(1)
         )
         if not assigned_user_result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=400,
-                detail="Assigned user must be active and belong to the current entity",
+            raise StructuredHTTPException(
+                400,
+                code="ASSIGNED_USER_MUST_ACTIVE_BELONG_CURRENT",
+                message="Assigned user must be active and belong to the current entity",
             )
 
     for key, value in update_data.items():

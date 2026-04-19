@@ -362,7 +362,11 @@ async def update_backend(
         )
         backend = result.scalar_one_or_none()
         if not backend:
-            raise HTTPException(404, "Backend not found")
+            raise StructuredHTTPException(
+                404,
+                code="BACKEND_NOT_FOUND",
+                message="Backend not found",
+            )
 
         updates = body.model_dump(exclude_unset=True)
         config_changed = "config" in updates
@@ -396,7 +400,11 @@ async def delete_backend(
         )
         backend = result.scalar_one_or_none()
         if not backend:
-            raise HTTPException(404, "Backend not found")
+            raise StructuredHTTPException(
+                404,
+                code="BACKEND_NOT_FOUND",
+                message="Backend not found",
+            )
         slug = backend.slug
         await pub_session.delete(backend)
         await pub_session.commit()
@@ -426,7 +434,14 @@ async def list_backend_tools(
         backend = result.scalar_one_or_none()
 
     if backend is None:
-        raise HTTPException(404, f"Backend '{backend_slug}' not found or inactive")
+        raise StructuredHTTPException(
+            404,
+            code="BACKEND_NOT_FOUND_INACTIVE",
+            message="Backend '{backend_slug}' not found or inactive",
+            params={
+                "backend_slug": backend_slug,
+            },
+        )
 
     # Native backend — read tools from in-process registry
     if backend.upstream_url.startswith("internal://"):
@@ -436,7 +451,14 @@ async def list_backend_tools(
         except Exception as exc:
             raise HTTPException(503, f"Backend init failed: {str(exc)[:300]}")
         if native is None:
-            raise HTTPException(503, f"Backend '{backend_slug}' not configured")
+            raise StructuredHTTPException(
+                503,
+                code="BACKEND_NOT_CONFIGURED",
+                message="Backend '{backend_slug}' not configured",
+                params={
+                    "backend_slug": backend_slug,
+                },
+            )
         return {"backend": backend_slug, "tools": await native.list_tools()}
 
     # External backend — proxy tools/list via MCP protocol
@@ -519,7 +541,11 @@ async def revoke_token(
         )
         token = result.scalar_one_or_none()
         if not token:
-            raise HTTPException(404, "Token not found")
+            raise StructuredHTTPException(
+                404,
+                code="TOKEN_NOT_FOUND",
+                message="Token not found",
+            )
         token.revoked = True
         await pub_session.commit()
     return {"status": "revoked"}
@@ -538,7 +564,11 @@ async def delete_token(
         )
         token = result.scalar_one_or_none()
         if not token:
-            raise HTTPException(404, "Token not found")
+            raise StructuredHTTPException(
+                404,
+                code="TOKEN_NOT_FOUND",
+                message="Token not found",
+            )
         await pub_session.delete(token)
         await pub_session.commit()
 
@@ -611,14 +641,28 @@ async def list_my_backend_tools(
         backend = result.scalar_one_or_none()
 
     if backend is None:
-        raise HTTPException(404, f"Backend '{backend_slug}' not found or inactive")
+        raise StructuredHTTPException(
+            404,
+            code="BACKEND_NOT_FOUND_INACTIVE",
+            message="Backend '{backend_slug}' not found or inactive",
+            params={
+                "backend_slug": backend_slug,
+            },
+        )
 
     if backend.upstream_url.startswith("internal://"):
         from app.mcp.mcp_native import get_or_create_backend
 
         native = await get_or_create_backend(backend.slug, backend.config or {})
         if native is None:
-            raise HTTPException(503, f"Backend '{backend_slug}' not configured")
+            raise StructuredHTTPException(
+                503,
+                code="BACKEND_NOT_CONFIGURED",
+                message="Backend '{backend_slug}' not configured",
+                params={
+                    "backend_slug": backend_slug,
+                },
+            )
         return {"backend": backend_slug, "tools": await native.list_tools(user_context)}
 
     client = _get_http_client()
@@ -659,9 +703,10 @@ async def create_my_token(
 ):
     tenant_schema = _get_request_tenant_schema(request) or "public"
     if not tenant_schema:
-        raise HTTPException(
-            status_code=400,
-            detail="Tenant context missing. Create the MCP token from the tenant application.",
+        raise StructuredHTTPException(
+            400,
+            code="TENANT_CONTEXT_MISSING_CREATE_MCP_TOKEN",
+            message="Tenant context missing. Create the MCP token from the tenant application.",
         )
 
     raw_token = secrets.token_hex(32)
@@ -708,7 +753,11 @@ async def revoke_my_token(
         )
         token = result.scalar_one_or_none()
         if not token:
-            raise HTTPException(404, "Token not found")
+            raise StructuredHTTPException(
+                404,
+                code="TOKEN_NOT_FOUND",
+                message="Token not found",
+            )
         token.revoked = True
         await pub_session.commit()
     return {"status": "revoked"}
@@ -729,7 +778,11 @@ async def delete_my_token(
         )
         token = result.scalar_one_or_none()
         if not token:
-            raise HTTPException(404, "Token not found")
+            raise StructuredHTTPException(
+                404,
+                code="TOKEN_NOT_FOUND",
+                message="Token not found",
+            )
         await pub_session.delete(token)
         await pub_session.commit()
 
@@ -864,6 +917,7 @@ async def oauth_register(request: Request):
 
 
 from string import Template as _T
+from app.core.errors import StructuredHTTPException
 
 _AUTHORIZE_HTML = _T("""\
 <!DOCTYPE html>

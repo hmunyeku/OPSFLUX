@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.models.common import UserSSOProvider, User
 from app.schemas.common import UserSSOProviderCreate, UserSSOProviderRead
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/users/{user_id}/sso-providers", tags=["user-sso"])
 
@@ -59,5 +60,9 @@ async def delete_sso_provider(
     result = await db.execute(select(UserSSOProvider).where(UserSSOProvider.id == provider_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="SSO provider link not found")
+        raise StructuredHTTPException(
+            404,
+            code="SSO_PROVIDER_LINK_NOT_FOUND",
+            message="SSO provider link not found",
+        )
     await delete_entity(obj, db, "user_sso_provider", entity_id=obj.id, user_id=current_user.id)

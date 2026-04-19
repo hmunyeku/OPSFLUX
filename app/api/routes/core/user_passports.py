@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import UserPassport, User
 from app.schemas.common import UserPassportCreate, UserPassportRead, UserPassportUpdate
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/users/{user_id}/passports", tags=["user-passports"])
 
@@ -58,11 +59,19 @@ async def update_passport(
     result = await db.execute(select(UserPassport).where(UserPassport.id == passport_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Passport not found")
+        raise StructuredHTTPException(
+            404,
+            code="PASSPORT_NOT_FOUND",
+            message="Passport not found",
+        )
     await check_verified_lock(obj, current_user, db=db)
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise StructuredHTTPException(
+            400,
+            code="NO_FIELDS_UPDATE",
+            message="No fields to update",
+        )
     for field, value in update_data.items():
         setattr(obj, field, value)
     await db.commit()
@@ -82,7 +91,11 @@ async def delete_passport(
     result = await db.execute(select(UserPassport).where(UserPassport.id == passport_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Passport not found")
+        raise StructuredHTTPException(
+            404,
+            code="PASSPORT_NOT_FOUND",
+            message="Passport not found",
+        )
     await check_verified_lock(obj, current_user, db=db)
     await delete_entity(obj, db, "user_passport", entity_id=obj.id, user_id=current_user.id)
     await db.commit()

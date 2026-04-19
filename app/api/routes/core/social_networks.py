@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import SocialNetwork, User
 from app.schemas.common import SocialNetworkCreate, SocialNetworkRead, SocialNetworkUpdate
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/social-networks", tags=["social-networks"])
 
@@ -59,7 +60,11 @@ async def update_social_network(
     result = await db.execute(select(SocialNetwork).where(SocialNetwork.id == item_id))
     sn = result.scalar_one_or_none()
     if not sn:
-        raise HTTPException(status_code=404, detail="Social network not found")
+        raise StructuredHTTPException(
+            404,
+            code="SOCIAL_NETWORK_NOT_FOUND",
+            message="Social network not found",
+        )
     await check_polymorphic_owner_access(sn.owner_type, sn.owner_id, current_user, db, request, write=True)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(sn, field, value)
@@ -78,7 +83,11 @@ async def delete_social_network(
     result = await db.execute(select(SocialNetwork).where(SocialNetwork.id == item_id))
     sn = result.scalar_one_or_none()
     if not sn:
-        raise HTTPException(status_code=404, detail="Social network not found")
+        raise StructuredHTTPException(
+            404,
+            code="SOCIAL_NETWORK_NOT_FOUND",
+            message="Social network not found",
+        )
     await check_polymorphic_owner_access(sn.owner_type, sn.owner_id, current_user, db, request, write=True)
     await delete_entity(sn, db, "social_network", entity_id=sn.id, user_id=current_user.id)
     await db.commit()

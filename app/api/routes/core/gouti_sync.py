@@ -13,6 +13,7 @@ from app.api.deps import get_current_entity, get_current_user, require_permissio
 from app.core.database import get_db
 from app.models.common import Project, Setting, User
 from app.services.connectors.gouti_connector import GoutiConnector, create_gouti_connector
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -123,21 +124,22 @@ def _build_connector(settings: dict[str, str]) -> GoutiConnector:
     entity_code = settings.get("entity_code", "")
 
     if not client_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Gouti non configuré : client_id requis. "
-                   "Configurez-le dans Paramètres > Intégrations > Gouti.",
+        raise StructuredHTTPException(
+            400,
+            code="GOUTI_NON_CONFIGUR_CLIENT_ID_REQUIS",
+            message="Gouti non configuré : client_id requis. Configurez-le dans Paramètres > Intégrations > Gouti.",
         )
     if not client_secret and not token:
-        raise HTTPException(
-            status_code=400,
-            detail="Gouti non configuré : client_secret ou token requis. "
-                   "Configurez les credentials dans Paramètres > Intégrations > Gouti.",
+        raise StructuredHTTPException(
+            400,
+            code="GOUTI_NON_CONFIGUR_CLIENT_SECRET_OU",
+            message="Gouti non configuré : client_secret ou token requis. Configurez les credentials dans Paramètres > Intégrations > Gouti.",
         )
     if not entity_code:
-        raise HTTPException(
-            status_code=400,
-            detail="Gouti non configuré : entity_code requis.",
+        raise StructuredHTTPException(
+            400,
+            code="GOUTI_NON_CONFIGUR_ENTITY_CODE_REQUIS",
+            message="Gouti non configuré : entity_code requis.",
         )
 
     return create_gouti_connector(settings)
@@ -1333,9 +1335,10 @@ async def sync_selected(
     """
     selection = await _load_selection(db, entity_id)
     if not selection or not selection.get("projects"):
-        raise HTTPException(
-            status_code=400,
-            detail="Aucune sélection sauvegardée. Ouvrez l'assistant d'import Gouti pour sélectionner les projets.",
+        raise StructuredHTTPException(
+            400,
+            code="AUCUNE_S_LECTION_SAUVEGARD_E_OUVREZ",
+            message="Aucune sélection sauvegardée. Ouvrez l'assistant d'import Gouti pour sélectionner les projets.",
         )
 
     gouti_settings = await _get_gouti_settings(db, entity_id)

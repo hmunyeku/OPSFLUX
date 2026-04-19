@@ -35,6 +35,7 @@ from app.schemas.common import (
     EmailPreviewRequest,
 )
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(
     prefix="/api/v1/email-templates",
@@ -104,7 +105,11 @@ async def get_template(
     )
     template = result.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_NOT_FOUND",
+            message="Template not found",
+        )
     return template
 
 
@@ -180,7 +185,11 @@ async def update_template(
     )
     template = result.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_NOT_FOUND",
+            message="Template not found",
+        )
 
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(template, field, value)
@@ -208,7 +217,11 @@ async def delete_template(
     )
     template = result.scalar_one_or_none()
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_NOT_FOUND",
+            message="Template not found",
+        )
 
     await delete_entity(template, db, "email_template", entity_id=template_id, user_id=current_user.id)
     await db.commit()
@@ -232,7 +245,11 @@ async def list_versions(
         )
     )
     if not tpl.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_NOT_FOUND",
+            message="Template not found",
+        )
 
     result = await db.execute(
         select(EmailTemplateVersion)
@@ -259,7 +276,11 @@ async def create_version(
         )
     )
     if not tpl.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_NOT_FOUND",
+            message="Template not found",
+        )
 
     # Calculate next version number for this language
     max_version = await db.execute(
@@ -310,7 +331,11 @@ async def update_version(
     )
     version = result.scalar_one_or_none()
     if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERSION_NOT_FOUND",
+            message="Version not found",
+        )
 
     update_data = body.model_dump(exclude_unset=True)
 
@@ -343,7 +368,11 @@ async def activate_version(
     )
     version = result.scalar_one_or_none()
     if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERSION_NOT_FOUND",
+            message="Version not found",
+        )
 
     # Deactivate others for same language
     await _deactivate_language_versions(db, template_id, version.language)
@@ -371,7 +400,11 @@ async def delete_version(
     )
     version = result.scalar_one_or_none()
     if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERSION_NOT_FOUND",
+            message="Version not found",
+        )
 
     await delete_entity(version, db, "email_template", entity_id=version_id, user_id=current_user.id)
     await db.commit()
@@ -396,7 +429,11 @@ async def add_link(
         )
     )
     if not tpl.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_NOT_FOUND",
+            message="Template not found",
+        )
 
     link = EmailTemplateLink(
         template_id=template_id,
@@ -426,7 +463,11 @@ async def remove_link(
     )
     link = result.scalar_one_or_none()
     if not link:
-        raise HTTPException(status_code=404, detail="Link not found")
+        raise StructuredHTTPException(
+            404,
+            code="LINK_NOT_FOUND",
+            message="Link not found",
+        )
 
     await delete_entity(link, db, "email_template", entity_id=link_id, user_id=current_user.id)
     await db.commit()
@@ -487,7 +528,11 @@ async def preview_template(
     )
     version = result.scalar_one_or_none()
     if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+        raise StructuredHTTPException(
+            404,
+            code="VERSION_NOT_FOUND",
+            message="Version not found",
+        )
 
     subject = render_template_string(version.subject, body.variables)
     body_html = render_template_string(version.body_html, body.variables)

@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import LegalIdentifier, User
 from app.schemas.common import LegalIdentifierCreate, LegalIdentifierRead, LegalIdentifierUpdate
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/legal-identifiers", tags=["legal-identifiers"])
 
@@ -55,10 +56,18 @@ async def update_legal_identifier(
     result = await db.execute(select(LegalIdentifier).where(LegalIdentifier.id == ident_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Legal identifier not found")
+        raise StructuredHTTPException(
+            404,
+            code="LEGAL_IDENTIFIER_NOT_FOUND",
+            message="Legal identifier not found",
+        )
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise StructuredHTTPException(
+            400,
+            code="NO_FIELDS_UPDATE",
+            message="No fields to update",
+        )
     for field, value in update_data.items():
         setattr(obj, field, value)
     await db.commit()
@@ -75,6 +84,10 @@ async def delete_legal_identifier(
     result = await db.execute(select(LegalIdentifier).where(LegalIdentifier.id == ident_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=404, detail="Legal identifier not found")
+        raise StructuredHTTPException(
+            404,
+            code="LEGAL_IDENTIFIER_NOT_FOUND",
+            message="Legal identifier not found",
+        )
     await delete_entity(obj, db, "legal_identifier", entity_id=obj.id, user_id=current_user.id)
     await db.commit()

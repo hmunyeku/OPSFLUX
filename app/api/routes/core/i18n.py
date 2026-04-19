@@ -50,6 +50,7 @@ from app.schemas.common import (
     I18nMessageUpdate,
     I18nMessageUpsert,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/i18n", tags=["i18n"])
 
@@ -134,7 +135,14 @@ async def get_catalog(
         await db.execute(select(I18nLanguage).where(I18nLanguage.code == lang))
     ).scalar_one_or_none()
     if not lang_row or not lang_row.active:
-        raise HTTPException(status_code=404, detail=f"Language '{lang}' not available")
+        raise StructuredHTTPException(
+            404,
+            code="LANGUAGE_NOT_AVAILABLE",
+            message="Language '{lang}' not available",
+            params={
+                "lang": lang,
+            },
+        )
 
     # Compare hash for conditional response
     meta = (
@@ -229,7 +237,14 @@ async def admin_upsert_message(
         )
     ).scalar_one_or_none()
     if not lang_exists:
-        raise HTTPException(status_code=400, detail=f"Language '{body.language_code}' does not exist")
+        raise StructuredHTTPException(
+            400,
+            code="LANGUAGE_DOES_NOT_EXIST",
+            message="Language '{language_code}' does not exist",
+            params={
+                "language_code": body.language_code,
+            },
+        )
 
     stmt = pg_insert(I18nMessage).values(
         key=body.key,
@@ -270,11 +285,19 @@ async def admin_update_message(
         await db.execute(select(I18nMessage).where(I18nMessage.id == message_id))
     ).scalar_one_or_none()
     if not msg:
-        raise HTTPException(status_code=404, detail="Message not found")
+        raise StructuredHTTPException(
+            404,
+            code="MESSAGE_NOT_FOUND",
+            message="Message not found",
+        )
 
     update = body.model_dump(exclude_unset=True)
     if not update:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise StructuredHTTPException(
+            400,
+            code="NO_FIELDS_UPDATE",
+            message="No fields to update",
+        )
 
     for k, v in update.items():
         setattr(msg, k, v)
@@ -300,7 +323,11 @@ async def admin_delete_message(
         await db.execute(select(I18nMessage).where(I18nMessage.id == message_id))
     ).scalar_one_or_none()
     if not msg:
-        raise HTTPException(status_code=404, detail="Message not found")
+        raise StructuredHTTPException(
+            404,
+            code="MESSAGE_NOT_FOUND",
+            message="Message not found",
+        )
     lang_code, ns = msg.language_code, msg.namespace
     await db.delete(msg)
     await _recompute_hash(db, lang_code, ns)
@@ -325,7 +352,14 @@ async def admin_bulk_upsert(
         )
     ).scalar_one_or_none()
     if not lang_exists:
-        raise HTTPException(status_code=400, detail=f"Language '{body.language_code}' does not exist")
+        raise StructuredHTTPException(
+            400,
+            code="LANGUAGE_DOES_NOT_EXIST",
+            message="Language '{language_code}' does not exist",
+            params={
+                "language_code": body.language_code,
+            },
+        )
 
     if body.replace:
         # Delete keys not present in the incoming payload
@@ -391,7 +425,14 @@ async def admin_create_language(
         await db.execute(select(I18nLanguage).where(I18nLanguage.code == body.code))
     ).scalar_one_or_none()
     if exists:
-        raise HTTPException(status_code=409, detail=f"Language '{body.code}' already exists")
+        raise StructuredHTTPException(
+            409,
+            code="LANGUAGE_ALREADY_EXISTS",
+            message="Language '{code}' already exists",
+            params={
+                "code": body.code,
+            },
+        )
     lang = I18nLanguage(**body.model_dump())
     db.add(lang)
     await db.commit()
@@ -414,7 +455,11 @@ async def admin_update_language(
         await db.execute(select(I18nLanguage).where(I18nLanguage.code == code))
     ).scalar_one_or_none()
     if not lang:
-        raise HTTPException(status_code=404, detail="Language not found")
+        raise StructuredHTTPException(
+            404,
+            code="LANGUAGE_NOT_FOUND",
+            message="Language not found",
+        )
     update = body.model_dump(exclude_unset=True)
     for k, v in update.items():
         setattr(lang, k, v)
@@ -437,7 +482,11 @@ async def admin_delete_language(
         await db.execute(select(I18nLanguage).where(I18nLanguage.code == code))
     ).scalar_one_or_none()
     if not lang:
-        raise HTTPException(status_code=404, detail="Language not found")
+        raise StructuredHTTPException(
+            404,
+            code="LANGUAGE_NOT_FOUND",
+            message="Language not found",
+        )
     await db.delete(lang)
     await db.commit()
 
@@ -499,7 +548,14 @@ async def admin_ai_translate(
         await db.execute(select(I18nLanguage).where(I18nLanguage.code == target_lang))
     ).scalar_one_or_none()
     if not target_lang_row:
-        raise HTTPException(400, f"Target language '{target_lang}' not found")
+        raise StructuredHTTPException(
+            400,
+            code="TARGET_LANGUAGE_NOT_FOUND",
+            message="Target language '{target_lang}' not found",
+            params={
+                "target_lang": target_lang,
+            },
+        )
 
     target_label = target_lang_row.english_label or target_lang
 
@@ -529,9 +585,10 @@ async def admin_ai_translate(
         try:
             ai_cfg = await get_ai_config()
             if not ai_cfg.get("api_key") and ai_cfg.get("provider") != "ollama":
-                raise HTTPException(
-                    status_code=503,
-                    detail="AI provider not configured. Set an API key in Settings > Integrations.",
+                raise StructuredHTTPException(
+                    503,
+                    code="AI_PROVIDER_NOT_CONFIGURED_SET_API",
+                    message="AI provider not configured. Set an API key in Settings > Integrations.",
                 )
             _, llm_kwargs = _normalize_model_config(ai_cfg)
             resp = await litellm.acompletion(

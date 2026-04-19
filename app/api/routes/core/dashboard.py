@@ -83,6 +83,7 @@ from app.services.modules.dashboard_service import (
     update_dashboard as svc_update_dashboard,
     validate_and_execute_widget_sql,
 )
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +104,14 @@ async def _validate_target_module_enabled(
 ) -> str | None:
     normalized = _normalize_module_slug(module_slug)
     if normalized and normalized != "global" and not await is_module_enabled(db, entity_id, normalized):
-        raise HTTPException(status_code=400, detail=f"Module disabled: {normalized}")
+        raise StructuredHTTPException(
+            400,
+            code="MODULE_DISABLED",
+            message="Module disabled: {normalized}",
+            params={
+                "normalized": normalized,
+            },
+        )
     return normalized
 
 
@@ -118,9 +126,13 @@ async def _sanitize_widget_payloads(
         widget_id = get_widget_id_from_payload(widget)
         source_module = get_widget_source_module(str(widget_id)) if widget_id else None
         if source_module and source_module != "core" and not await is_module_enabled(db, entity_id, source_module):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Widget unavailable because its module is disabled: {widget_id}",
+            raise StructuredHTTPException(
+                400,
+                code="WIDGET_UNAVAILABLE_BECAUSE_MODULE_DISABLED",
+                message="Widget unavailable because its module is disabled: {widget_id}",
+                params={
+                    "widget_id": widget_id,
+                },
             )
         sanitized.append(widget)
     return sanitized
@@ -291,7 +303,11 @@ async def fetch_widget_data(
     """Get data for a specific widget instance."""
     source_module = get_widget_source_module(body.widget_id)
     if source_module and source_module != "core" and not await is_module_enabled(db, entity_id, source_module):
-        raise HTTPException(status_code=404, detail="Widget unavailable because its module is disabled")
+        raise StructuredHTTPException(
+            404,
+            code="WIDGET_UNAVAILABLE_BECAUSE_MODULE_DISABLED",
+            message="Widget unavailable because its module is disabled",
+        )
     tenant_id = await _get_tenant_id(entity_id, db)
     response = await get_widget_data(
         widget_id=body.widget_id,

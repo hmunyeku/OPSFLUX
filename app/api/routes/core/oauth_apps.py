@@ -19,6 +19,7 @@ from app.schemas.common import (
     OAuthAppRead,
     OAuthAuthorizationRead,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/oauth", tags=["oauth"])
 
@@ -111,7 +112,11 @@ async def deactivate_oauth_app(
     )
     oauth_app = result.scalar_one_or_none()
     if not oauth_app:
-        raise HTTPException(status_code=404, detail="OAuth application not found")
+        raise StructuredHTTPException(
+            404,
+            code="OAUTH_APPLICATION_NOT_FOUND",
+            message="OAuth application not found",
+        )
 
     oauth_app.active = False
     await db.commit()
@@ -166,7 +171,11 @@ async def revoke_authorization(
     )
     auth = result.scalar_one_or_none()
     if not auth:
-        raise HTTPException(status_code=404, detail="Authorization not found")
+        raise StructuredHTTPException(
+            404,
+            code="AUTHORIZATION_NOT_FOUND",
+            message="Authorization not found",
+        )
 
     auth.revoked = True
     await db.commit()

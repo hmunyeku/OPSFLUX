@@ -70,6 +70,7 @@ from app.schemas.planner import (
 )
 from app.schemas.common import PaginatedResponse
 from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/planner", tags=["planner"], dependencies=[require_module_enabled("planner")])
 logger = logging.getLogger(__name__)
@@ -177,7 +178,11 @@ async def _get_activity_or_404(
     )
     activity = result.scalars().first()
     if not activity:
-        raise HTTPException(404, "Activity not found")
+        raise StructuredHTTPException(
+            404,
+            code="ACTIVITY_NOT_FOUND",
+            message="Activity not found",
+        )
     return activity
 
 
@@ -711,11 +716,22 @@ async def submit_activity(
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
     if activity.status != "draft":
-        raise HTTPException(400, f"Cannot submit activity in status '{activity.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_SUBMIT_ACTIVITY_STATUS",
+            message="Cannot submit activity in status '{status}'",
+            params={
+                "status": activity.status,
+            },
+        )
 
     # Validate required fields
     if not activity.start_date or not activity.end_date:
-        raise HTTPException(400, "Start date and end date are required to submit")
+        raise StructuredHTTPException(
+            400,
+            code="START_DATE_END_DATE_REQUIRED_SUBMIT",
+            message="Start date and end date are required to submit",
+        )
     # For parent activities (has_children), PAX is aggregated from children — skip quota check
     child_count_result = await db.execute(
         select(sqla_func.count()).where(
@@ -725,7 +741,11 @@ async def submit_activity(
     )
     is_parent = (child_count_result.scalar() or 0) > 0
     if not is_parent and (activity.pax_quota or 0) <= 0:
-        raise HTTPException(400, "PAX quota must be greater than 0")
+        raise StructuredHTTPException(
+            400,
+            code="PAX_QUOTA_MUST_GREATER_THAN_0",
+            message="PAX quota must be greater than 0",
+        )
 
     # ── Dependency-chain validation ────────────────────────────────────
     # Enforce FS / SS / FF predecessors with their lag_days:
@@ -875,7 +895,14 @@ async def validate_activity(
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
     if activity.status != "submitted":
-        raise HTTPException(400, f"Cannot validate activity in status '{activity.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_VALIDATE_ACTIVITY_STATUS",
+            message="Cannot validate activity in status '{status}'",
+            params={
+                "status": activity.status,
+            },
+        )
 
     from_state = activity.status
     await _try_workflow_transition(
@@ -936,7 +963,14 @@ async def reject_activity(
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
     if activity.status != "submitted":
-        raise HTTPException(400, f"Cannot reject activity in status '{activity.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_REJECT_ACTIVITY_STATUS",
+            message="Cannot reject activity in status '{status}'",
+            params={
+                "status": activity.status,
+            },
+        )
 
     from_state = activity.status
     await _try_workflow_transition(
@@ -1067,7 +1101,14 @@ async def cancel_activity(
 
     activity = await _get_activity_or_404(db, activity_id, entity_id)
     if activity.status in ("completed", "cancelled"):
-        raise HTTPException(400, f"Cannot cancel activity in status '{activity.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_CANCEL_ACTIVITY_STATUS",
+            message="Cannot cancel activity in status '{status}'",
+            params={
+                "status": activity.status,
+            },
+        )
 
     was_approved = activity.status in ("validated", "in_progress")
     from_state = activity.status
@@ -1144,7 +1185,11 @@ async def create_activity_from_project_task(
     # Load the project
     project = await db.get(Project, project_id)
     if not project or project.entity_id != entity_id:
-        raise HTTPException(404, "Project not found")
+        raise StructuredHTTPException(
+            404,
+            code="PROJECT_NOT_FOUND",
+            message="Project not found",
+        )
 
     # Load the task
     task_result = await db.execute(
@@ -1156,11 +1201,19 @@ async def create_activity_from_project_task(
     )
     task = task_result.scalar_one_or_none()
     if not task:
-        raise HTTPException(404, "Task not found")
+        raise StructuredHTTPException(
+            404,
+            code="TASK_NOT_FOUND",
+            message="Task not found",
+        )
 
     # Determine asset from project
     if not project.asset_id:
-        raise HTTPException(400, "Project must have an asset assigned to push to planner")
+        raise StructuredHTTPException(
+            400,
+            code="PROJECT_MUST_HAVE_ASSET_ASSIGNED_PUSH",
+            message="Project must have an asset assigned to push to planner",
+        )
 
     activity = PlannerActivity(
         entity_id=entity_id,
@@ -1284,9 +1337,20 @@ async def resolve_conflict(
     )
     conflict = result.scalars().first()
     if not conflict:
-        raise HTTPException(404, "Conflict not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONFLICT_NOT_FOUND",
+            message="Conflict not found",
+        )
     if conflict.status != "open":
-        raise HTTPException(400, f"Conflict already in status '{conflict.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CONFLICT_ALREADY_STATUS",
+            message="Conflict already in status '{status}'",
+            params={
+                "status": conflict.status,
+            },
+        )
 
     old_status = conflict.status
     old_resolution = conflict.resolution
@@ -1456,7 +1520,11 @@ async def list_conflict_audit(
     """Return the append-only audit history of a conflict."""
     conflict = await db.get(PlannerConflict, conflict_id)
     if not conflict or conflict.entity_id != entity_id:
-        raise HTTPException(404, "Conflict not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONFLICT_NOT_FOUND",
+            message="Conflict not found",
+        )
 
     rows = (await db.execute(
         select(PlannerConflictAudit)
@@ -1547,7 +1615,11 @@ async def _resolve_revision_signal_target(
                 assignee_name = f"{assignee.first_name} {assignee.last_name}".strip() or assignee.email
             return task.assignee_id, assignee_name
 
-    raise HTTPException(400, "No eligible project manager or assignee found for this revision signal")
+    raise StructuredHTTPException(
+        400,
+        code="NO_ELIGIBLE_PROJECT_MANAGER_ASSIGNEE_FOUND",
+        message="No eligible project manager or assignee found for this revision signal",
+    )
 
 
 async def _get_latest_revision_request_resolution(
@@ -1780,9 +1852,17 @@ async def acknowledge_revision_signal(
     """Mark a project-driven revision signal as reviewed by a Planner arbiter."""
     signal = await db.get(AuditLog, signal_id)
     if not signal or signal.entity_id != entity_id:
-        raise HTTPException(404, "Revision signal not found")
+        raise StructuredHTTPException(
+            404,
+            code="REVISION_SIGNAL_NOT_FOUND",
+            message="Revision signal not found",
+        )
     if signal.action != "project.task.planner_sync_required" or signal.resource_type != "planner_activity":
-        raise HTTPException(400, "Invalid revision signal")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_REVISION_SIGNAL",
+            message="Invalid revision signal",
+        )
 
     existing = await db.execute(
         select(AuditLog).where(
@@ -1828,9 +1908,17 @@ async def get_revision_signal_impact_summary(
     """Return current downstream impact summary for a project-driven revision signal."""
     signal = await db.get(AuditLog, signal_id)
     if not signal or signal.entity_id != entity_id:
-        raise HTTPException(404, "Revision signal not found")
+        raise StructuredHTTPException(
+            404,
+            code="REVISION_SIGNAL_NOT_FOUND",
+            message="Revision signal not found",
+        )
     if signal.action != "project.task.planner_sync_required" or signal.resource_type != "planner_activity":
-        raise HTTPException(400, "Invalid revision signal")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_REVISION_SIGNAL",
+            message="Invalid revision signal",
+        )
 
     details = signal.details or {}
     activity_ids = [UUID(str(v)) for v in (details.get("planner_activity_ids") or [])]
@@ -1982,9 +2070,17 @@ async def request_revision_decision(
 ):
     signal = await db.get(AuditLog, signal_id)
     if not signal or signal.entity_id != entity_id:
-        raise HTTPException(404, "Revision signal not found")
+        raise StructuredHTTPException(
+            404,
+            code="REVISION_SIGNAL_NOT_FOUND",
+            message="Revision signal not found",
+        )
     if signal.action != "project.task.planner_sync_required" or signal.resource_type != "planner_activity":
-        raise HTTPException(400, "Invalid revision signal")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_REVISION_SIGNAL",
+            message="Invalid revision signal",
+        )
 
     target_user_id, target_user_name = await _resolve_revision_signal_target(db, signal=signal, entity_id=entity_id)
     requester_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
@@ -2072,14 +2168,26 @@ async def respond_revision_decision_request(
 ):
     request_row = await db.get(AuditLog, request_id)
     if not request_row or request_row.entity_id != entity_id:
-        raise HTTPException(404, "Revision decision request not found")
+        raise StructuredHTTPException(
+            404,
+            code="REVISION_DECISION_REQUEST_NOT_FOUND",
+            message="Revision decision request not found",
+        )
     if request_row.action != "planner.revision.requested" or request_row.resource_type != "planner_revision_signal":
-        raise HTTPException(400, "Invalid revision decision request")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_REVISION_DECISION_REQUEST",
+            message="Invalid revision decision request",
+        )
 
     request_details = request_row.details or {}
     target_user_id = request_details.get("target_user_id")
     if str(current_user.id) != str(target_user_id):
-        raise HTTPException(403, "Only the targeted reviewer can answer this revision request")
+        raise StructuredHTTPException(
+            403,
+            code="ONLY_TARGETED_REVIEWER_CAN_ANSWER_REVISION",
+            message="Only the targeted reviewer can answer this revision request",
+        )
 
     existing_resolution = await _get_latest_revision_request_resolution(
         db,
@@ -2087,7 +2195,11 @@ async def respond_revision_decision_request(
         request_id=request_id,
     )
     if existing_resolution:
-        raise HTTPException(400, "Revision decision request already resolved")
+        raise StructuredHTTPException(
+            400,
+            code="REVISION_DECISION_REQUEST_ALREADY_RESOLVED",
+            message="Revision decision request already resolved",
+        )
 
     if body.response == "counter_proposed" and not any([
         body.response_note,
@@ -2096,7 +2208,11 @@ async def respond_revision_decision_request(
         body.counter_pax_quota is not None,
         body.counter_status,
     ]):
-        raise HTTPException(400, "Counter proposal details are required")
+        raise StructuredHTTPException(
+            400,
+            code="COUNTER_PROPOSAL_DETAILS_REQUIRED",
+            message="Counter proposal details are required",
+        )
 
     application_result = None
     if body.response == "accepted":
@@ -2164,9 +2280,17 @@ async def force_revision_decision_request(
 ):
     request_row = await db.get(AuditLog, request_id)
     if not request_row or request_row.entity_id != entity_id:
-        raise HTTPException(404, "Revision decision request not found")
+        raise StructuredHTTPException(
+            404,
+            code="REVISION_DECISION_REQUEST_NOT_FOUND",
+            message="Revision decision request not found",
+        )
     if request_row.action != "planner.revision.requested" or request_row.resource_type != "planner_revision_signal":
-        raise HTTPException(400, "Invalid revision decision request")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_REVISION_DECISION_REQUEST",
+            message="Invalid revision decision request",
+        )
 
     existing_resolution = await _get_latest_revision_request_resolution(
         db,
@@ -2174,14 +2298,22 @@ async def force_revision_decision_request(
         request_id=request_id,
     )
     if existing_resolution:
-        raise HTTPException(400, "Revision decision request already resolved")
+        raise StructuredHTTPException(
+            400,
+            code="REVISION_DECISION_REQUEST_ALREADY_RESOLVED",
+            message="Revision decision request already resolved",
+        )
 
     request_details = request_row.details or {}
     due_at_raw = request_details.get("due_at")
     due_at = datetime.fromisoformat(due_at_raw) if isinstance(due_at_raw, str) else None
     now = datetime.now(timezone.utc)
     if due_at and due_at > now:
-        raise HTTPException(400, "Revision decision request is not yet overdue")
+        raise StructuredHTTPException(
+            400,
+            code="REVISION_DECISION_REQUEST_NOT_YET_OVERDUE",
+            message="Revision decision request is not yet overdue",
+        )
 
     await record_audit(
         db,
@@ -2238,23 +2370,43 @@ async def accept_counter_revision_decision_request(
     """
     request_row = await db.get(AuditLog, request_id)
     if not request_row or request_row.entity_id != entity_id:
-        raise HTTPException(404, "Revision decision request not found")
+        raise StructuredHTTPException(
+            404,
+            code="REVISION_DECISION_REQUEST_NOT_FOUND",
+            message="Revision decision request not found",
+        )
     if request_row.action != "planner.revision.requested" or request_row.resource_type != "planner_revision_signal":
-        raise HTTPException(400, "Invalid revision decision request")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_REVISION_DECISION_REQUEST",
+            message="Invalid revision decision request",
+        )
 
     # Only the original requester can accept a counter
     if request_row.user_id != current_user.id:
-        raise HTTPException(403, "Only the original requester can accept a counter-proposal")
+        raise StructuredHTTPException(
+            403,
+            code="ONLY_ORIGINAL_REQUESTER_CAN_ACCEPT_COUNTER",
+            message="Only the original requester can accept a counter-proposal",
+        )
 
     resolution_row = await _get_latest_revision_request_resolution(
         db, entity_id=entity_id, request_id=request_id,
     )
     if not resolution_row:
-        raise HTTPException(400, "No response to accept — revision decision request is still pending")
+        raise StructuredHTTPException(
+            400,
+            code="NO_RESPONSE_ACCEPT_REVISION_DECISION_REQUEST",
+            message="No response to accept — revision decision request is still pending",
+        )
 
     resolution_details = resolution_row.details or {}
     if resolution_details.get("response") != "counter_proposed":
-        raise HTTPException(400, "The response is not a counter-proposal")
+        raise StructuredHTTPException(
+            400,
+            code="RESPONSE_NOT_COUNTER_PROPOSAL",
+            message="The response is not a counter-proposal",
+        )
 
     # Build a synthetic request_details with counter_* values replacing proposed_* values
     request_details = request_row.details or {}
@@ -2329,7 +2481,11 @@ async def get_capacity(
     """
     asset = await db.get(Installation, asset_id)
     if not asset or asset.entity_id != entity_id:
-        raise HTTPException(404, "Installation not found")
+        raise StructuredHTTPException(
+            404,
+            code="INSTALLATION_NOT_FOUND",
+            message="Installation not found",
+        )
 
     from app.services.modules.planner_service import get_current_capacity
 
@@ -2440,10 +2596,18 @@ async def create_dependency(
 ):
     await _get_activity_or_404(db, activity_id, entity_id)
     if body.predecessor_id != activity_id and body.successor_id != activity_id:
-        raise HTTPException(400, "Activity must be either predecessor or successor")
+        raise StructuredHTTPException(
+            400,
+            code="ACTIVITY_MUST_EITHER_PREDECESSOR_SUCCESSOR",
+            message="Activity must be either predecessor or successor",
+        )
     # Prevent self-dependency
     if body.predecessor_id == body.successor_id:
-        raise HTTPException(400, "Activity cannot depend on itself")
+        raise StructuredHTTPException(
+            400,
+            code="ACTIVITY_CANNOT_DEPEND_ITSELF",
+            message="Activity cannot depend on itself",
+        )
     dep = PlannerActivityDependency(**body.model_dump())
     db.add(dep)
     await db.commit()
@@ -2470,7 +2634,11 @@ async def delete_dependency(
     )
     dep = result.scalars().first()
     if not dep:
-        raise HTTPException(404, "Dependency not found")
+        raise StructuredHTTPException(
+            404,
+            code="DEPENDENCY_NOT_FOUND",
+            message="Dependency not found",
+        )
     # Hard delete: dependencies are pure join records between two activities
     # and have no SoftDeleteMixin (no `archived`/`deleted_at` columns), so the
     # generic soft-delete helper would be a no-op and the row would stay in
@@ -2503,7 +2671,11 @@ async def get_availability(
 
     asset = await db.get(Installation, asset_id)
     if not asset or asset.entity_id != entity_id:
-        raise HTTPException(404, "Installation not found")
+        raise StructuredHTTPException(
+            404,
+            code="INSTALLATION_NOT_FOUND",
+            message="Installation not found",
+        )
 
     result = await check_availability(
         db, entity_id, asset_id, start, end, exclude_activity_id
@@ -2605,7 +2777,11 @@ async def create_asset_capacity(
 
     asset = await db.get(Installation, asset_id)
     if not asset or asset.entity_id != entity_id:
-        raise HTTPException(404, "Installation not found")
+        raise StructuredHTTPException(
+            404,
+            code="INSTALLATION_NOT_FOUND",
+            message="Installation not found",
+        )
 
     eff_date = effective_date or date.today()
     pax_company = json.dumps(max_pax_per_company or {})
@@ -2680,10 +2856,13 @@ async def override_priority(
     # Enforce priority floor
     corrected = validate_priority_floor(activity.type, activity.subtype, priority)
     if corrected != priority:
-        raise HTTPException(
+        raise StructuredHTTPException(
             400,
-            f"La priorité minimale pour ce type d'activité est '{corrected}'. "
-            f"Impossible de réduire en dessous.",
+            code="LA_PRIORIT_MINIMALE_POUR_CE_TYPE",
+            message="La priorité minimale pour ce type d'activité est '{corrected}'. Impossible de réduire en dessous.",
+            params={
+                "corrected": corrected,
+            },
         )
 
     activity.priority = priority
@@ -2851,12 +3030,20 @@ async def export_gantt_pdf(
         )
     except Exception as e:
         logger.exception("Failed to render Gantt PDF")
-        raise HTTPException(500, f"PDF generation failed: {e}")
+        raise StructuredHTTPException(
+            500,
+            code="PDF_GENERATION_FAILED",
+            message="PDF generation failed: {e}",
+            params={
+                "e": e,
+            },
+        )
 
     if pdf_bytes is None:
-        raise HTTPException(
+        raise StructuredHTTPException(
             404,
-            "PDF template 'planner.gantt_export' not found. Run the seed_pdf_templates job.",
+            code="PDF_TEMPLATE_PLANNER_GANTT_EXPORT_NOT",
+            message="PDF template 'planner.gantt_export' not found. Run the seed_pdf_templates job.",
         )
 
     filename = f"planner-gantt-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.pdf"
@@ -3027,7 +3214,11 @@ async def set_recurrence(
 
     # Only maintenance and inspection can recur
     if activity.type not in ("maintenance", "inspection", "integrity"):
-        raise HTTPException(400, "Only maintenance/inspection/integrity activities can have recurrence")
+        raise StructuredHTTPException(
+            400,
+            code="ONLY_MAINTENANCE_INSPECTION_INTEGRITY_ACTIVITIES_CAN",
+            message="Only maintenance/inspection/integrity activities can have recurrence",
+        )
 
     # Check if recurrence already exists
     existing = await db.execute(
@@ -3244,7 +3435,11 @@ async def get_reference_scenario(
     )
     scenario = result.scalar_one_or_none()
     if not scenario:
-        raise HTTPException(404, "No reference scenario configured")
+        raise StructuredHTTPException(
+            404,
+            code="NO_REFERENCE_SCENARIO_CONFIGURED",
+            message="No reference scenario configured",
+        )
 
     base = await _build_scenario_read(db, scenario)
     acts_result = await db.execute(
@@ -3274,7 +3469,11 @@ async def get_scenario(
     )
     scenario = result.scalar_one_or_none()
     if not scenario:
-        raise HTTPException(404, "Scenario not found")
+        raise StructuredHTTPException(
+            404,
+            code="SCENARIO_NOT_FOUND",
+            message="Scenario not found",
+        )
 
     base = await _build_scenario_read(db, scenario)
 
@@ -3376,9 +3575,17 @@ async def update_scenario(
     )
     scenario = result.scalar_one_or_none()
     if not scenario:
-        raise HTTPException(404, "Scenario not found")
+        raise StructuredHTTPException(
+            404,
+            code="SCENARIO_NOT_FOUND",
+            message="Scenario not found",
+        )
     if scenario.status == "promoted":
-        raise HTTPException(400, "Cannot modify a promoted scenario")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_MODIFY_PROMOTED_SCENARIO",
+            message="Cannot modify a promoted scenario",
+        )
 
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(scenario, field, value)
@@ -3405,7 +3612,11 @@ async def delete_scenario(
     )
     scenario = result.scalar_one_or_none()
     if not scenario:
-        raise HTTPException(404, "Scenario not found")
+        raise StructuredHTTPException(
+            404,
+            code="SCENARIO_NOT_FOUND",
+            message="Scenario not found",
+        )
     scenario.active = False
     await db.commit()
 
@@ -3432,9 +3643,17 @@ async def add_scenario_activity(
     )
     scenario = result.scalar_one_or_none()
     if not scenario:
-        raise HTTPException(404, "Scenario not found")
+        raise StructuredHTTPException(
+            404,
+            code="SCENARIO_NOT_FOUND",
+            message="Scenario not found",
+        )
     if scenario.status == "promoted":
-        raise HTTPException(400, "Cannot modify a promoted scenario")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_MODIFY_PROMOTED_SCENARIO",
+            message="Cannot modify a promoted scenario",
+        )
 
     act = PlannerScenarioActivity(scenario_id=scenario_id, **body.model_dump())
     db.add(act)
@@ -3462,7 +3681,11 @@ async def update_scenario_activity(
     )
     act = act_result.scalar_one_or_none()
     if not act:
-        raise HTTPException(404, "Scenario activity not found")
+        raise StructuredHTTPException(
+            404,
+            code="SCENARIO_ACTIVITY_NOT_FOUND",
+            message="Scenario activity not found",
+        )
 
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(act, field, value)
@@ -3489,7 +3712,11 @@ async def remove_scenario_activity(
     )
     act = act_result.scalar_one_or_none()
     if not act:
-        raise HTTPException(404, "Scenario activity not found")
+        raise StructuredHTTPException(
+            404,
+            code="SCENARIO_ACTIVITY_NOT_FOUND",
+            message="Scenario activity not found",
+        )
     await db.delete(act)
     await db.commit()
 
@@ -3522,7 +3749,11 @@ async def simulate_scenario_persistent(
     )
     scenario = result.scalar_one_or_none()
     if not scenario:
-        raise HTTPException(404, "Scenario not found")
+        raise StructuredHTTPException(
+            404,
+            code="SCENARIO_NOT_FOUND",
+            message="Scenario not found",
+        )
 
     acts_result = await db.execute(
         select(PlannerScenarioActivity)
@@ -3534,7 +3765,11 @@ async def simulate_scenario_persistent(
     proposed = acts_result.scalars().all()
 
     if not proposed:
-        raise HTTPException(400, "Scenario has no proposed activities to simulate")
+        raise StructuredHTTPException(
+            400,
+            code="SCENARIO_HAS_NO_PROPOSED_ACTIVITIES_SIMULATE",
+            message="Scenario has no proposed activities to simulate",
+        )
 
     # Build the payload for the existing simulate service
     from datetime import timezone as tz
@@ -3593,11 +3828,23 @@ async def promote_scenario(
     )
     scenario = result.scalar_one_or_none()
     if not scenario:
-        raise HTTPException(404, "Scenario not found")
+        raise StructuredHTTPException(
+            404,
+            code="SCENARIO_NOT_FOUND",
+            message="Scenario not found",
+        )
     if scenario.status == "promoted":
-        raise HTTPException(400, "Scenario already promoted")
+        raise StructuredHTTPException(
+            400,
+            code="SCENARIO_ALREADY_PROMOTED",
+            message="Scenario already promoted",
+        )
     if scenario.status == "archived":
-        raise HTTPException(400, "Cannot promote an archived scenario")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_PROMOTE_ARCHIVED_SCENARIO",
+            message="Cannot promote an archived scenario",
+        )
 
     acts_result = await db.execute(
         select(PlannerScenarioActivity)
@@ -3740,9 +3987,17 @@ async def restore_scenario(
     )
     scenario = result.scalar_one_or_none()
     if not scenario:
-        raise HTTPException(404, "Scenario not found")
+        raise StructuredHTTPException(
+            404,
+            code="SCENARIO_NOT_FOUND",
+            message="Scenario not found",
+        )
     if scenario.status != "promoted":
-        raise HTTPException(400, "Only a promoted scenario can be restored")
+        raise StructuredHTTPException(
+            400,
+            code="ONLY_PROMOTED_SCENARIO_CAN_RESTORED",
+            message="Only a promoted scenario can be restored",
+        )
 
     snapshot = scenario.baseline_snapshot or {}
     restored_count = 0

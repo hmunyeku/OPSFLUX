@@ -21,6 +21,7 @@ from app.core.email_templates import render_and_send_email
 from app.models.common import User, UserEmail
 from app.schemas.common import UserEmailCreate, UserEmailRead
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,11 @@ async def _send_verification_email(
     )
 
     if not sent:
-        raise HTTPException(status_code=503, detail="Email template unavailable for verification flow")
+        raise StructuredHTTPException(
+            503,
+            code="EMAIL_TEMPLATE_UNAVAILABLE_VERIFICATION_FLOW",
+            message="Email template unavailable for verification flow",
+        )
 
 
 @router.get("", response_model=list[UserEmailRead])
@@ -153,7 +158,11 @@ async def remove_email(
     )
     user_email = result.scalar_one_or_none()
     if not user_email:
-        raise HTTPException(status_code=404, detail="Email not found")
+        raise StructuredHTTPException(
+            404,
+            code="EMAIL_NOT_FOUND",
+            message="Email not found",
+        )
 
     if user_email.is_primary:
         raise HTTPException(
@@ -195,7 +204,11 @@ async def set_primary_email(
     )
     user_email = result.scalar_one_or_none()
     if not user_email:
-        raise HTTPException(status_code=404, detail="Email not found")
+        raise StructuredHTTPException(
+            404,
+            code="EMAIL_NOT_FOUND",
+            message="Email not found",
+        )
 
     if not user_email.verified:
         raise HTTPException(
@@ -247,7 +260,11 @@ async def resend_verification(
     )
     user_email = result.scalar_one_or_none()
     if not user_email:
-        raise HTTPException(status_code=404, detail="Email not found")
+        raise StructuredHTTPException(
+            404,
+            code="EMAIL_NOT_FOUND",
+            message="Email not found",
+        )
 
     if user_email.verified:
         raise HTTPException(
@@ -283,7 +300,11 @@ async def verify_email_callback(
     )
     user_email = result.scalar_one_or_none()
     if not user_email:
-        raise HTTPException(status_code=404, detail="Invalid verification token")
+        raise StructuredHTTPException(
+            404,
+            code="INVALID_VERIFICATION_TOKEN",
+            message="Invalid verification token",
+        )
 
     if user_email.verified:
         return {"message": "Email already verified", "verified": True}

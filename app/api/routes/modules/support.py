@@ -37,6 +37,7 @@ from app.schemas.support import (
     TodoRead,
     TodoUpdate,
 )
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/support", tags=["support"], dependencies=[require_module_enabled("support")])
@@ -328,7 +329,11 @@ async def get_ticket(
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise StructuredHTTPException(
+            404,
+            code="TICKET_NOT_FOUND",
+            message="Ticket not found",
+        )
 
     # Non-admin can only view own tickets
     if not await _can_access_ticket(
@@ -338,7 +343,11 @@ async def get_ticket(
         entity_id=entity_id,
         db=db,
     ):
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise StructuredHTTPException(
+            403,
+            code="ACCESS_DENIED",
+            message="Access denied",
+        )
 
     user_ids = {ticket.reporter_id}
     if ticket.assignee_id:
@@ -366,7 +375,11 @@ async def update_ticket(
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise StructuredHTTPException(
+            404,
+            code="TICKET_NOT_FOUND",
+            message="Ticket not found",
+        )
 
     is_admin = await has_user_permission(current_user, entity_id, "support.ticket.manage", db)
     acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
@@ -377,14 +390,22 @@ async def update_ticket(
         entity_id=entity_id,
         db=db,
     ):
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise StructuredHTTPException(
+            403,
+            code="ACCESS_DENIED",
+            message="Access denied",
+        )
 
     update_data = body.model_dump(exclude_unset=True)
 
     # Track status change
     if "status" in update_data and update_data["status"] != ticket.status:
         if not is_admin:
-            raise HTTPException(status_code=403, detail="Only admins can change ticket status")
+            raise StructuredHTTPException(
+                403,
+                code="ONLY_ADMINS_CAN_CHANGE_TICKET_STATUS",
+                message="Only admins can change ticket status",
+            )
         await _log_status_change(db, ticket.id, ticket.status, update_data["status"], acting_user_id)
 
     for field, value in update_data.items():
@@ -418,7 +439,11 @@ async def delete_ticket(
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise StructuredHTTPException(
+            404,
+            code="TICKET_NOT_FOUND",
+            message="Ticket not found",
+        )
 
     ticket.archived = True
     await db.commit()
@@ -441,7 +466,11 @@ async def assign_ticket(
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise StructuredHTTPException(
+            404,
+            code="TICKET_NOT_FOUND",
+            message="Ticket not found",
+        )
 
     ticket.assignee_id = body.assignee_id
     if ticket.status == "open":
@@ -476,7 +505,11 @@ async def resolve_ticket(
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise StructuredHTTPException(
+            404,
+            code="TICKET_NOT_FOUND",
+            message="Ticket not found",
+        )
 
     old = ticket.status
     ticket.status = "resolved"
@@ -536,7 +569,11 @@ async def close_ticket(
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise StructuredHTTPException(
+            404,
+            code="TICKET_NOT_FOUND",
+            message="Ticket not found",
+        )
 
     old = ticket.status
     ticket.status = "closed"
@@ -569,7 +606,11 @@ async def reopen_ticket(
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise StructuredHTTPException(
+            404,
+            code="TICKET_NOT_FOUND",
+            message="Ticket not found",
+        )
 
     old = ticket.status
     ticket.status = "open"
@@ -610,7 +651,11 @@ async def list_comments(
     )
     t = ticket.scalar_one_or_none()
     if not t:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise StructuredHTTPException(
+            404,
+            code="TICKET_NOT_FOUND",
+            message="Ticket not found",
+        )
     if not await _can_access_ticket(
         ticket=t,
         request=request,
@@ -618,7 +663,11 @@ async def list_comments(
         entity_id=entity_id,
         db=db,
     ):
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise StructuredHTTPException(
+            403,
+            code="ACCESS_DENIED",
+            message="Access denied",
+        )
 
     is_admin = await has_user_permission(current_user, entity_id, "support.comment.internal", db)
 
@@ -664,7 +713,11 @@ async def add_comment(
     )
     t = ticket.scalar_one_or_none()
     if not t:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise StructuredHTTPException(
+            404,
+            code="TICKET_NOT_FOUND",
+            message="Ticket not found",
+        )
     if not await _can_access_ticket(
         ticket=t,
         request=request,
@@ -672,13 +725,21 @@ async def add_comment(
         entity_id=entity_id,
         db=db,
     ):
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise StructuredHTTPException(
+            403,
+            code="ACCESS_DENIED",
+            message="Access denied",
+        )
 
     # Internal comments require special permission
     if body.is_internal:
         can_internal = await has_user_permission(current_user, entity_id, "support.comment.internal", db)
         if not can_internal:
-            raise HTTPException(status_code=403, detail="Permission denied for internal comments")
+            raise StructuredHTTPException(
+                403,
+                code="PERMISSION_DENIED_INTERNAL_COMMENTS",
+                message="Permission denied for internal comments",
+            )
 
     comment = TicketComment(
         ticket_id=ticket_id,
@@ -855,7 +916,11 @@ async def add_ticket_todo(
         select(SupportTicket).where(SupportTicket.id == ticket_id, SupportTicket.entity_id == entity_id)
     )
     if not ticket.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise StructuredHTTPException(
+            404,
+            code="TICKET_NOT_FOUND",
+            message="Ticket not found",
+        )
 
     todo = TicketTodo(ticket_id=ticket_id, title=body.title, order=body.order)
     db.add(todo)
@@ -884,7 +949,11 @@ async def update_ticket_todo(
     )
     todo = result.scalar_one_or_none()
     if not todo:
-        raise HTTPException(status_code=404, detail="Todo not found")
+        raise StructuredHTTPException(
+            404,
+            code="TODO_NOT_FOUND",
+            message="Todo not found",
+        )
 
     if body.title is not None:
         todo.title = body.title
@@ -923,7 +992,11 @@ async def delete_ticket_todo(
     )
     todo = result.scalar_one_or_none()
     if not todo:
-        raise HTTPException(status_code=404, detail="Todo not found")
+        raise StructuredHTTPException(
+            404,
+            code="TODO_NOT_FOUND",
+            message="Todo not found",
+        )
 
     await db.delete(todo)
     await db.commit()

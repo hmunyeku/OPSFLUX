@@ -18,6 +18,7 @@ from app.core.redis_client import get_redis
 from app.models.common import Notification, User
 from app.schemas.common import NotificationRead, PaginatedResponse
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,11 @@ async def mark_read(
     )
     notif = result.scalar_one_or_none()
     if not notif:
-        raise HTTPException(status_code=404, detail="Notification not found")
+        raise StructuredHTTPException(
+            404,
+            code="NOTIFICATION_NOT_FOUND",
+            message="Notification not found",
+        )
 
     notif.read = True
     notif.read_at = datetime.now(UTC)
@@ -176,7 +181,11 @@ async def delete_notification(
     )
     notif = result.scalar_one_or_none()
     if not notif:
-        raise HTTPException(status_code=404, detail="Notification not found")
+        raise StructuredHTTPException(
+            404,
+            code="NOTIFICATION_NOT_FOUND",
+            message="Notification not found",
+        )
 
     await delete_entity(notif, db, "notification", entity_id=notification_id, user_id=current_user.id)
     await db.commit()

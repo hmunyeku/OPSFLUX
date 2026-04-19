@@ -16,6 +16,7 @@ from app.api.deps import check_polymorphic_owner_access, get_current_entity, get
 from app.core.database import get_db
 from app.models.common import CostCenter, CostImputation, ImputationReference, Project, User
 from app.schemas.common import CostImputationCreate, CostImputationRead, CostImputationUpdate
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/cost-imputations", tags=["cost-imputations"])
 
@@ -336,7 +337,11 @@ async def update_cost_imputation(
     )
     obj = result.scalars().first()
     if not obj:
-        raise HTTPException(status_code=404, detail="Imputation not found")
+        raise StructuredHTTPException(
+            404,
+            code="IMPUTATION_NOT_FOUND",
+            message="Imputation not found",
+        )
 
     await check_polymorphic_owner_access(
         obj.owner_type,
@@ -409,7 +414,11 @@ async def delete_cost_imputation(
     )
     obj = result.scalars().first()
     if not obj:
-        raise HTTPException(status_code=404, detail="Imputation not found")
+        raise StructuredHTTPException(
+            404,
+            code="IMPUTATION_NOT_FOUND",
+            message="Imputation not found",
+        )
 
     await check_polymorphic_owner_access(
         obj.owner_type,

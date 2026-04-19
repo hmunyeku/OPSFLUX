@@ -24,6 +24,7 @@ from app.services.core.delete_service import (
     purge_archived,
     upsert_delete_policy,
 )
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -246,11 +247,29 @@ async def update_delete_policy(
     """Create or update a delete policy for an entity type."""
     registry = _ensure_registry()
     if entity_type not in registry:
-        raise HTTPException(status_code=400, detail=f"Unknown entity type: {entity_type}")
+        raise StructuredHTTPException(
+            400,
+            code="UNKNOWN_ENTITY_TYPE",
+            message="Unknown entity type: {entity_type}",
+            params={
+                "entity_type": entity_type,
+            },
+        )
     if body.mode not in ("soft", "soft_purge", "hard"):
-        raise HTTPException(status_code=400, detail=f"Invalid mode: {body.mode}")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_MODE",
+            message="Invalid mode: {mode}",
+            params={
+                "mode": body.mode,
+            },
+        )
     if body.mode == "soft_purge" and body.retention_days <= 0:
-        raise HTTPException(status_code=400, detail="retention_days must be > 0 for soft_purge mode")
+        raise StructuredHTTPException(
+            400,
+            code="RETENTION_DAYS_MUST_0_SOFT_PURGE",
+            message="retention_days must be > 0 for soft_purge mode",
+        )
 
     await upsert_delete_policy(entity_type, body.mode, body.retention_days, db, entity_id)
 
@@ -282,7 +301,14 @@ async def manual_purge(
     """Manually trigger purge of archived records for a specific entity type."""
     registry = _ensure_registry()
     if entity_type not in registry:
-        raise HTTPException(status_code=400, detail=f"Unknown entity type: {entity_type}")
+        raise StructuredHTTPException(
+            400,
+            code="UNKNOWN_ENTITY_TYPE",
+            message="Unknown entity type: {entity_type}",
+            params={
+                "entity_type": entity_type,
+            },
+        )
 
     policy = await get_delete_policy(entity_type, db, entity_id)
     retention_days = policy.get("retention_days", 0)
@@ -401,7 +427,14 @@ async def run_scheduler_job(
 
     job = scheduler.get_job(body.job_id)
     if not job:
-        raise HTTPException(404, f"Job '{body.job_id}' not found")
+        raise StructuredHTTPException(
+            404,
+            code="JOB_NOT_FOUND",
+            message="Job '{job_id}' not found",
+            params={
+                "job_id": body.job_id,
+            },
+        )
 
     # Run the job function and log execution
     import asyncio
@@ -417,7 +450,14 @@ async def run_scheduler_job(
     except Exception as e:
         finished_at = datetime.now(timezone.utc)
         await log_manual_execution(body.job_id, job.name, started_at, finished_at, "error", e)
-        raise HTTPException(500, f"Job failed: {e}")
+        raise StructuredHTTPException(
+            500,
+            code="JOB_FAILED",
+            message="Job failed: {e}",
+            params={
+                "e": e,
+            },
+        )
 
     return {"detail": f"Job '{body.job_id}' triggered", "job_id": body.job_id}
 
@@ -481,7 +521,14 @@ async def pause_scheduler_job(body: PauseJobRequest):
     from app.tasks.scheduler import scheduler
     job = scheduler.get_job(body.job_id)
     if not job:
-        raise HTTPException(404, f"Job '{body.job_id}' not found")
+        raise StructuredHTTPException(
+            404,
+            code="JOB_NOT_FOUND",
+            message="Job '{job_id}' not found",
+            params={
+                "job_id": body.job_id,
+            },
+        )
     job.pause()
     return {"detail": f"Job '{body.job_id}' paused", "job_id": body.job_id}
 
@@ -495,7 +542,14 @@ async def resume_scheduler_job(body: PauseJobRequest):
     from app.tasks.scheduler import scheduler
     job = scheduler.get_job(body.job_id)
     if not job:
-        raise HTTPException(404, f"Job '{body.job_id}' not found")
+        raise StructuredHTTPException(
+            404,
+            code="JOB_NOT_FOUND",
+            message="Job '{job_id}' not found",
+            params={
+                "job_id": body.job_id,
+            },
+        )
     job.resume()
     return {"detail": f"Job '{body.job_id}' resumed", "job_id": body.job_id}
 
@@ -548,7 +602,14 @@ async def update_security_settings_admin(
     changed = {}
     for key, value in body.settings.items():
         if key not in ALLOWED_KEYS:
-            raise HTTPException(400, f"Unknown security setting: {key}")
+            raise StructuredHTTPException(
+                400,
+                code="UNKNOWN_SECURITY_SETTING",
+                message="Unknown security setting: {key}",
+                params={
+                    "key": key,
+                },
+            )
         db_key = f"auth.{key}"
         # Upsert into Setting table
         existing = await db.execute(
@@ -671,7 +732,11 @@ async def admin_unlock_user(
     result = await db.execute(select(User).where(User.id == user_id, _user_access_predicate(entity_id)))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(404, "User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     user.failed_login_count = 0
     user.locked_until = None
@@ -713,7 +778,11 @@ async def admin_force_password_reset(
     result = await db.execute(select(User).where(User.id == user_id, _user_access_predicate(entity_id)))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(404, "User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     from app.core.security import create_password_reset_token
     token = create_password_reset_token(user_id=user.id, email=user.email)
@@ -739,7 +808,11 @@ async def admin_force_password_reset(
             raise RuntimeError("Template send returned False")
     except Exception:
         logger.exception("Failed to send centralized password reset email to %s", user.email)
-        raise HTTPException(503, "Central email template unavailable for password reset flow")
+        raise StructuredHTTPException(
+            503,
+            code="CENTRAL_EMAIL_TEMPLATE_UNAVAILABLE_PASSWORD_RESET",
+            message="Central email template unavailable for password reset flow",
+        )
 
     from app.core.audit import record_audit
     await record_audit(
@@ -768,12 +841,20 @@ async def admin_deactivate_user(
 ):
     """Deactivate a user account (set active=False, revoke all sessions)."""
     if user_id == current_user.id:
-        raise HTTPException(400, "Vous ne pouvez pas désactiver votre propre compte.")
+        raise StructuredHTTPException(
+            400,
+            code="VOUS_NE_POUVEZ_PAS_D_SACTIVER",
+            message="Vous ne pouvez pas désactiver votre propre compte.",
+        )
 
     result = await db.execute(select(User).where(User.id == user_id, _user_access_predicate(entity_id)))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(404, "User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     user.active = False
     # Revoke all refresh tokens
@@ -812,7 +893,11 @@ async def admin_reactivate_user(
     result = await db.execute(select(User).where(User.id == user_id, _user_access_predicate(entity_id)))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(404, "User not found")
+        raise StructuredHTTPException(
+            404,
+            code="USER_NOT_FOUND",
+            message="User not found",
+        )
 
     user.active = True
 

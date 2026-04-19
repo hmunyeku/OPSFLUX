@@ -151,6 +151,7 @@ from app.api.routes.modules.packlog_shared import (
     update_package_element_disposition_impl,
     update_package_element_return_impl,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/travelwiz", tags=["travelwiz"], dependencies=[require_module_enabled("travelwiz")])
 logger = logging.getLogger(__name__)
@@ -370,7 +371,11 @@ async def _get_vector_or_404(db: AsyncSession, vector_id: UUID, entity_id: UUID)
     )
     vector = result.scalars().first()
     if not vector:
-        raise HTTPException(404, "Vector not found")
+        raise StructuredHTTPException(
+            404,
+            code="VECTOR_NOT_FOUND",
+            message="Vector not found",
+        )
     return vector
 
 
@@ -384,7 +389,11 @@ async def _get_voyage_or_404(db: AsyncSession, voyage_id: UUID, entity_id: UUID)
     )
     voyage = result.scalars().first()
     if not voyage:
-        raise HTTPException(404, "Voyage not found")
+        raise StructuredHTTPException(
+            404,
+            code="VOYAGE_NOT_FOUND",
+            message="Voyage not found",
+        )
     return voyage
 
 
@@ -397,31 +406,59 @@ async def _validate_cargo_dossier_refs(
     if getattr(payload, "request_id", None):
         cargo_request = await db.get(CargoRequest, payload.request_id)
         if not cargo_request or cargo_request.entity_id != entity_id or not cargo_request.active:
-            raise HTTPException(400, "Demande d'expedition introuvable ou inactive")
+            raise StructuredHTTPException(
+                400,
+                code="DEMANDE_D_EXPEDITION_INTROUVABLE_OU_INACTIVE",
+                message="Demande d'expedition introuvable ou inactive",
+            )
     if payload.imputation_reference_id:
         imputation = await db.get(ImputationReference, payload.imputation_reference_id)
         if not imputation or imputation.entity_id != entity_id or not imputation.active:
-            raise HTTPException(400, "Imputation introuvable ou inactive")
+            raise StructuredHTTPException(
+                400,
+                code="IMPUTATION_INTROUVABLE_OU_INACTIVE",
+                message="Imputation introuvable ou inactive",
+            )
     if payload.pickup_contact_user_id:
         pickup_user = await db.get(User, payload.pickup_contact_user_id)
         if not pickup_user or not pickup_user.active:
-            raise HTTPException(400, "Utilisateur d'enlevement introuvable ou inactif")
+            raise StructuredHTTPException(
+                400,
+                code="UTILISATEUR_D_ENLEVEMENT_INTROUVABLE_OU_INACTIF",
+                message="Utilisateur d'enlevement introuvable ou inactif",
+            )
     if payload.pickup_contact_tier_contact_id:
         pickup_contact = await db.get(TierContact, payload.pickup_contact_tier_contact_id)
         if not pickup_contact or not pickup_contact.active:
-            raise HTTPException(400, "Contact d'enlevement introuvable ou inactif")
+            raise StructuredHTTPException(
+                400,
+                code="CONTACT_D_ENLEVEMENT_INTROUVABLE_OU_INACTIF",
+                message="Contact d'enlevement introuvable ou inactif",
+            )
     if getattr(payload, "planned_zone_id", None):
         zone = await db.get(TransportVectorZone, payload.planned_zone_id)
         if not zone or not zone.active:
-            raise HTTPException(400, "Zone de chargement introuvable ou inactive")
+            raise StructuredHTTPException(
+                400,
+                code="ZONE_DE_CHARGEMENT_INTROUVABLE_OU_INACTIVE",
+                message="Zone de chargement introuvable ou inactive",
+            )
         manifest_id = getattr(payload, "manifest_id", None)
         if manifest_id:
             manifest = await db.get(VoyageManifest, manifest_id)
             if not manifest:
-                raise HTTPException(400, "Manifeste introuvable pour la zone de chargement")
+                raise StructuredHTTPException(
+                    400,
+                    code="MANIFESTE_INTROUVABLE_POUR_LA_ZONE_DE",
+                    message="Manifeste introuvable pour la zone de chargement",
+                )
             voyage = await db.get(Voyage, manifest.voyage_id)
             if not voyage or zone.vector_id != voyage.vector_id:
-                raise HTTPException(400, "La zone de chargement ne correspond pas au vecteur du manifeste")
+                raise StructuredHTTPException(
+                    400,
+                    code="LA_ZONE_DE_CHARGEMENT_NE_CORRESPOND",
+                    message="La zone de chargement ne correspond pas au vecteur du manifeste",
+                )
 
 
 def _format_pdf_datetime(value: datetime | None) -> str:
@@ -778,7 +815,11 @@ async def _require_captain_session(
     x_captain_session: str | None,
 ) -> dict:
     if not x_captain_session:
-        raise HTTPException(401, "Captain session required")
+        raise StructuredHTTPException(
+            401,
+            code="CAPTAIN_SESSION_REQUIRED",
+            message="Captain session required",
+        )
     from app.services.modules.travelwiz_service import verify_captain_session_token as _verify
 
     try:
@@ -797,7 +838,11 @@ async def _require_driver_session(
     x_driver_session: str | None,
 ) -> dict:
     if not x_driver_session:
-        raise HTTPException(401, "Driver session required")
+        raise StructuredHTTPException(
+            401,
+            code="DRIVER_SESSION_REQUIRED",
+            message="Driver session required",
+        )
     from app.services.modules.travelwiz_service import verify_driver_session_token as _verify
 
     try:
@@ -1033,7 +1078,11 @@ async def update_vector_zone(
     )
     zone = result.scalars().first()
     if not zone:
-        raise HTTPException(404, "Zone not found")
+        raise StructuredHTTPException(
+            404,
+            code="ZONE_NOT_FOUND",
+            message="Zone not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(zone, field, value)
     await db.commit()
@@ -1058,7 +1107,11 @@ async def delete_vector_zone(
     )
     zone = result.scalars().first()
     if not zone:
-        raise HTTPException(404, "Zone not found")
+        raise StructuredHTTPException(
+            404,
+            code="ZONE_NOT_FOUND",
+            message="Zone not found",
+        )
     await delete_entity(zone, db, "transport_vector_zone", entity_id=zone.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Zone deleted"}
@@ -1124,7 +1177,11 @@ async def update_vehicle_certification(
     )
     cert = result.scalar_one_or_none()
     if not cert:
-        raise HTTPException(404, "Certification not found")
+        raise StructuredHTTPException(
+            404,
+            code="CERTIFICATION_NOT_FOUND",
+            message="Certification not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(cert, field, value)
     await db.commit()
@@ -1150,7 +1207,11 @@ async def delete_vehicle_certification(
     )
     cert = result.scalar_one_or_none()
     if not cert:
-        raise HTTPException(404, "Certification not found")
+        raise StructuredHTTPException(
+            404,
+            code="CERTIFICATION_NOT_FOUND",
+            message="Certification not found",
+        )
     await delete_entity(cert, db, "vehicle_certification", entity_id=cert.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Certification deleted"}
@@ -1244,7 +1305,11 @@ async def update_rotation(
     )
     rotation = result.scalars().first()
     if not rotation:
-        raise HTTPException(404, "Rotation not found")
+        raise StructuredHTTPException(
+            404,
+            code="ROTATION_NOT_FOUND",
+            message="Rotation not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(rotation, field, value)
     await db.commit()
@@ -1502,8 +1567,14 @@ async def update_voyage_status(
     }
     allowed = VALID_TRANSITIONS.get(voyage.status, set())
     if body.status not in allowed:
-        raise HTTPException(
-            400, f"Cannot transition from '{voyage.status}' to '{body.status}'"
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_TRANSITION",
+            message="Cannot transition from '{status}' to '{status_2}'",
+            params={
+                "status": voyage.status,
+                "status_2": body.status,
+            },
         )
 
     # FSM transition (if workflow definition exists)
@@ -1695,7 +1766,11 @@ async def download_voyage_pax_manifest_pdf(
             detail=f"Failed to render PDF: {type(exc).__name__}: {exc}",
         )
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'voyage.manifest' introuvable. Initialisez-le dans Paramètres > Modèles PDF.")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_PDF_VOYAGE_MANIFEST_INTROUVABLE_INITIALISEZ",
+            message="Template PDF 'voyage.manifest' introuvable. Initialisez-le dans Paramètres > Modèles PDF.",
+        )
     filename = f"{voyage.code}_manifest_pax.pdf"
     return Response(
         content=pdf_bytes,
@@ -1724,7 +1799,11 @@ async def download_voyage_cargo_manifest_pdf(
         variables=variables,
     )
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'voyage.cargo_manifest' introuvable. Initialisez-le dans Paramètres > Modèles PDF.")
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_PDF_VOYAGE_CARGO_MANIFEST_INTROUVABLE",
+            message="Template PDF 'voyage.cargo_manifest' introuvable. Initialisez-le dans Paramètres > Modèles PDF.",
+        )
     filename = f"{voyage.code}_manifest_cargo.pdf"
     return Response(
         content=pdf_bytes,
@@ -1793,7 +1872,11 @@ async def update_voyage_stop(
     )
     stop = result.scalars().first()
     if not stop:
-        raise HTTPException(404, "Stop not found")
+        raise StructuredHTTPException(
+            404,
+            code="STOP_NOT_FOUND",
+            message="Stop not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(stop, field, value)
     await db.commit()
@@ -1818,7 +1901,11 @@ async def delete_voyage_stop(
     )
     stop = result.scalars().first()
     if not stop:
-        raise HTTPException(404, "Stop not found")
+        raise StructuredHTTPException(
+            404,
+            code="STOP_NOT_FOUND",
+            message="Stop not found",
+        )
     await delete_entity(stop, db, "voyage_stop", entity_id=stop.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Stop deleted"}
@@ -1983,11 +2070,23 @@ async def validate_manifest(
     )
     manifest = result.scalars().first()
     if not manifest:
-        raise HTTPException(404, "Manifest not found")
+        raise StructuredHTTPException(
+            404,
+            code="MANIFEST_NOT_FOUND",
+            message="Manifest not found",
+        )
     if manifest.status == "validated":
-        raise HTTPException(400, "Manifest already validated")
+        raise StructuredHTTPException(
+            400,
+            code="MANIFEST_ALREADY_VALIDATED",
+            message="Manifest already validated",
+        )
     if manifest.status == "closed":
-        raise HTTPException(400, "Manifest is closed")
+        raise StructuredHTTPException(
+            400,
+            code="MANIFEST_CLOSED",
+            message="Manifest is closed",
+        )
 
     # ── Combined PAX + cargo weight enforcement ─────────────────
     # Read-only safety gate. The function reads ManifestPassenger
@@ -2008,14 +2107,14 @@ async def validate_manifest(
     if weight_check.get("is_blocked"):
         capacity_kg = weight_check.get("weight_capacity_kg")
         current_kg = weight_check.get("current_weight_kg")
-        raise HTTPException(
+        raise StructuredHTTPException(
             400,
-            (
-                f"Cannot validate manifest: combined PAX + cargo weight "
-                f"({current_kg} kg) meets or exceeds the vector capacity "
-                f"({capacity_kg} kg). Reduce PAX, reduce cargo, or reassign "
-                f"to a larger vector before validation."
-            ),
+            code="CANNOT_VALIDATE_MANIFEST_COMBINED_PAX_CARGO",
+            message="Cannot validate manifest: combined PAX + cargo weight ({current_kg} kg) meets or exceeds the vector capacity ({capacity_kg} kg). Reduce PAX, reduce cargo, or reassign to a larger vector before validation.",
+            params={
+                "current_kg": current_kg,
+                "capacity_kg": capacity_kg,
+            },
         )
 
     manifest.status = "validated"
@@ -2100,9 +2199,17 @@ async def add_passenger(
     )
     manifest = result.scalars().first()
     if not manifest:
-        raise HTTPException(404, "Manifest not found")
+        raise StructuredHTTPException(
+            404,
+            code="MANIFEST_NOT_FOUND",
+            message="Manifest not found",
+        )
     if manifest.status != "draft":
-        raise HTTPException(400, "Cannot add passengers to a non-draft manifest")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_ADD_PASSENGERS_NON_DRAFT_MANIFEST",
+            message="Cannot add passengers to a non-draft manifest",
+        )
 
     pax = ManifestPassenger(manifest_id=manifest_id, **body.model_dump())
     db.add(pax)
@@ -2136,7 +2243,11 @@ async def update_passenger(
     )
     pax = result.scalars().first()
     if not pax:
-        raise HTTPException(404, "Passenger not found")
+        raise StructuredHTTPException(
+            404,
+            code="PASSENGER_NOT_FOUND",
+            message="Passenger not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(pax, field, value)
     # Auto-set boarded_at
@@ -2172,7 +2283,11 @@ async def remove_passenger(
     )
     pax = result.scalars().first()
     if not pax:
-        raise HTTPException(404, "Passenger not found")
+        raise StructuredHTTPException(
+            404,
+            code="PASSENGER_NOT_FOUND",
+            message="Passenger not found",
+        )
     await delete_entity(pax, db, "manifest_passenger", entity_id=pax.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Passenger removed"}
@@ -2552,7 +2667,11 @@ async def check_voyage_capacity(
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
     vector = await db.get(TransportVector, voyage.vector_id)
     if not vector:
-        raise HTTPException(404, "Vector not found")
+        raise StructuredHTTPException(
+            404,
+            code="VECTOR_NOT_FOUND",
+            message="Vector not found",
+        )
 
     # Count active PAX on all manifests for this voyage
     pax_result = await db.execute(
@@ -2802,7 +2921,14 @@ async def close_trip(
 
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
     if voyage.status not in ("arrived", "departed"):
-        raise HTTPException(400, f"Cannot close voyage in status '{voyage.status}'")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_CLOSE_VOYAGE_STATUS",
+            message="Cannot close voyage in status '{status}'",
+            params={
+                "status": voyage.status,
+            },
+        )
 
     # Compute KPIs
     try:
@@ -3073,12 +3199,20 @@ async def captain_auth(
 
     result = await _auth(db, access_code=access_code)
     if not result.get("valid"):
-        raise HTTPException(401, "Invalid or expired access code")
+        raise StructuredHTTPException(
+            401,
+            code="INVALID_EXPIRED_ACCESS_CODE",
+            message="Invalid or expired access code",
+        )
     entity_id = result.get("entity_id")
     voyage_id = result.get("voyage_id")
     trip_code_access_id = result.get("trip_code_access_id")
     if not entity_id or not voyage_id or not trip_code_access_id:
-        raise HTTPException(500, "Captain access is missing required session context")
+        raise StructuredHTTPException(
+            500,
+            code="CAPTAIN_ACCESS_MISSING_REQUIRED_SESSION_CONTEXT",
+            message="Captain access is missing required session context",
+        )
     session_minutes = await _get_session_minutes(db, entity_id=entity_id)
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=session_minutes)
     result["session_token"] = _create_session(
@@ -3103,7 +3237,11 @@ async def captain_manifest(
     )
     voyage = voyage_result.scalar_one_or_none()
     if not voyage:
-        raise HTTPException(404, "Voyage not found")
+        raise StructuredHTTPException(
+            404,
+            code="VOYAGE_NOT_FOUND",
+            message="Voyage not found",
+        )
 
     # PAX manifest
     pax_result = await db.execute(
@@ -3186,7 +3324,11 @@ async def captain_event(
     )
     voyage = voyage_result.scalar_one_or_none()
     if not voyage:
-        raise HTTPException(404, "Voyage not found")
+        raise StructuredHTTPException(
+            404,
+            code="VOYAGE_NOT_FOUND",
+            message="Voyage not found",
+        )
 
     try:
         result = await _record_event(
@@ -3225,12 +3367,20 @@ async def driver_auth(
 
     result = await _auth(db, access_code=access_code)
     if not result.get("valid"):
-        raise HTTPException(401, "Invalid or expired access code")
+        raise StructuredHTTPException(
+            401,
+            code="INVALID_EXPIRED_ACCESS_CODE",
+            message="Invalid or expired access code",
+        )
     entity_id = result.get("entity_id")
     voyage_id = result.get("voyage_id")
     trip_code_access_id = result.get("trip_code_access_id")
     if not entity_id or not voyage_id or not trip_code_access_id:
-        raise HTTPException(500, "Driver access is missing required session context")
+        raise StructuredHTTPException(
+            500,
+            code="DRIVER_ACCESS_MISSING_REQUIRED_SESSION_CONTEXT",
+            message="Driver access is missing required session context",
+        )
     session_minutes = await _get_session_minutes(db, entity_id=entity_id)
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=session_minutes)
     result["session_token"] = _create_session(
@@ -3522,7 +3672,14 @@ async def create_article(
             "hazmat_class": row[6],
         }
     except Exception as e:
-        raise HTTPException(500, f"Failed to create article: {e}")
+        raise StructuredHTTPException(
+            500,
+            code="FAILED_CREATE_ARTICLE",
+            message="Failed to create article: {e}",
+            params={
+                "e": e,
+            },
+        )
 
 
 @router.post("/articles/import-csv")
@@ -3534,17 +3691,29 @@ async def import_articles_csv(
 ):
     """Bulk import SAP articles from a CSV file."""
     if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(400, "Le fichier doit être un CSV")
+        raise StructuredHTTPException(
+            400,
+            code="LE_FICHIER_DOIT_TRE_UN_CSV",
+            message="Le fichier doit être un CSV",
+        )
 
     raw_bytes = await file.read()
     try:
         content = raw_bytes.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
-        raise HTTPException(400, "Le fichier CSV doit être encodé en UTF-8") from exc
+        raise StructuredHTTPException(
+            400,
+            code="LE_FICHIER_CSV_DOIT_TRE_ENCOD",
+            message="Le fichier CSV doit être encodé en UTF-8",
+        ) from exc
 
     reader = csv.DictReader(io.StringIO(content))
     if not reader.fieldnames:
-        raise HTTPException(400, "Le fichier CSV est vide")
+        raise StructuredHTTPException(
+            400,
+            code="LE_FICHIER_CSV_EST_VIDE",
+            message="Le fichier CSV est vide",
+        )
 
     imported = 0
     updated = 0
@@ -3873,7 +4042,11 @@ async def get_pickup_round_details(
     )
     pickup_round = round_result.scalar_one_or_none()
     if not pickup_round:
-        raise HTTPException(404, "Pickup round not found for this trip")
+        raise StructuredHTTPException(
+            404,
+            code="PICKUP_ROUND_NOT_FOUND_TRIP",
+            message="Pickup round not found for this trip",
+        )
 
     # Load stops with asset names
     stops_result = await db.execute(
@@ -4042,7 +4215,11 @@ async def record_single_position(
 
     # Validate source
     if source not in ("ais", "gps", "manual"):
-        raise HTTPException(400, "Invalid source. Must be: ais, gps, manual")
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_SOURCE_MUST_AIS_GPS_MANUAL",
+            message="Invalid source. Must be: ais, gps, manual",
+        )
 
     result = await _record(
         db,
@@ -4166,7 +4343,11 @@ async def record_weather_observation(
     from app.services.modules.travelwiz_service import record_weather as _record
 
     if "asset_id" not in body:
-        raise HTTPException(400, "asset_id is required")
+        raise StructuredHTTPException(
+            400,
+            code="ASSET_ID_REQUIRED",
+            message="asset_id is required",
+        )
 
     try:
         result = await _record(db, entity_id=entity_id, data=body)

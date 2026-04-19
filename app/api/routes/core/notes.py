@@ -17,6 +17,7 @@ from app.core.database import get_db
 from app.models.common import Note, Tier, User
 from app.schemas.common import NoteCreate, NoteRead, NoteUpdate
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/notes", tags=["notes"])
 
@@ -73,7 +74,11 @@ async def _assert_owner_in_entity(
         ok = await _check(RegistryPipeline)
     # else: unknown owner_type → deny
     if not ok:
-        raise HTTPException(status_code=404, detail="Owner not found")
+        raise StructuredHTTPException(
+            404,
+            code="OWNER_NOT_FOUND",
+            message="Owner not found",
+        )
 
 
 @router.get("", response_model=list[NoteRead])
@@ -152,7 +157,11 @@ async def update_note(
     )
     note = result.scalar_one_or_none()
     if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise StructuredHTTPException(
+            404,
+            code="NOTE_NOT_FOUND",
+            message="Note not found",
+        )
 
     if note.created_by != current_user.id:
         raise HTTPException(
@@ -188,7 +197,11 @@ async def delete_note(
     result = await db.execute(select(Note).where(Note.id == note_id))
     note = result.scalar_one_or_none()
     if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise StructuredHTTPException(
+            404,
+            code="NOTE_NOT_FOUND",
+            message="Note not found",
+        )
 
     if note.created_by != current_user.id:
         raise HTTPException(

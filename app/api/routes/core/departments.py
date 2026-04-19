@@ -17,6 +17,7 @@ from app.schemas.common import (
     BusinessUnitCreate, BusinessUnitRead, BusinessUnitUpdate,
     CostCenterCreate, CostCenterRead, CostCenterUpdate,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1", tags=["organization"])
 
@@ -65,7 +66,11 @@ async def create_business_unit(
         select(BusinessUnit).where(BusinessUnit.entity_id == entity_id, BusinessUnit.code == body.code)
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Business unit code already exists")
+        raise StructuredHTTPException(
+            409,
+            code="BUSINESS_UNIT_CODE_ALREADY_EXISTS",
+            message="Business unit code already exists",
+        )
 
     bu = BusinessUnit(entity_id=entity_id, **body.model_dump())
     db.add(bu)
@@ -88,7 +93,11 @@ async def update_business_unit(
     )
     bu = result.scalar_one_or_none()
     if not bu:
-        raise HTTPException(status_code=404, detail="Business unit not found")
+        raise StructuredHTTPException(
+            404,
+            code="BUSINESS_UNIT_NOT_FOUND",
+            message="Business unit not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(bu, field, value)
     await db.commit()
@@ -110,7 +119,11 @@ async def delete_business_unit(
     )
     bu = result.scalar_one_or_none()
     if not bu:
-        raise HTTPException(status_code=404, detail="Business unit not found")
+        raise StructuredHTTPException(
+            404,
+            code="BUSINESS_UNIT_NOT_FOUND",
+            message="Business unit not found",
+        )
     await delete_entity(bu, db, "business_unit", entity_id=bu.id, user_id=current_user.id)
     await db.commit()
 
@@ -148,7 +161,11 @@ async def create_cost_center(
         select(CostCenter).where(CostCenter.entity_id == entity_id, CostCenter.code == body.code)
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Cost center code already exists")
+        raise StructuredHTTPException(
+            409,
+            code="COST_CENTER_CODE_ALREADY_EXISTS",
+            message="Cost center code already exists",
+        )
 
     cc = CostCenter(entity_id=entity_id, **body.model_dump())
     db.add(cc)
@@ -171,7 +188,11 @@ async def update_cost_center(
     )
     cc = result.scalar_one_or_none()
     if not cc:
-        raise HTTPException(status_code=404, detail="Cost center not found")
+        raise StructuredHTTPException(
+            404,
+            code="COST_CENTER_NOT_FOUND",
+            message="Cost center not found",
+        )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(cc, field, value)
     await db.commit()
@@ -193,6 +214,10 @@ async def delete_cost_center(
     )
     cc = result.scalar_one_or_none()
     if not cc:
-        raise HTTPException(status_code=404, detail="Cost center not found")
+        raise StructuredHTTPException(
+            404,
+            code="COST_CENTER_NOT_FOUND",
+            message="Cost center not found",
+        )
     await delete_entity(cc, db, "cost_center", entity_id=cc.id, user_id=current_user.id)
     await db.commit()

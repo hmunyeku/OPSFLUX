@@ -31,6 +31,7 @@ from app.models.common import (
 )
 from app.schemas.common import OpsFluxSchema, PaginatedResponse
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/rbac/groups", tags=["rbac-groups"])
 
@@ -186,7 +187,11 @@ async def _build_group_detail(
     result = await db.execute(stmt)
     row = result.one_or_none()
     if not row:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise StructuredHTTPException(
+            404,
+            code="GROUP_NOT_FOUND",
+            message="Group not found",
+        )
 
     group = row.UserGroup
 
@@ -356,7 +361,11 @@ async def create_group(
         )
         asset = asset_result.scalar_one_or_none()
         if not asset:
-            raise HTTPException(status_code=400, detail="Asset scope not found in this entity")
+            raise StructuredHTTPException(
+                400,
+                code="ASSET_SCOPE_NOT_FOUND_ENTITY",
+                message="Asset scope not found in this entity",
+            )
         asset_name = asset.name
 
     group = UserGroup(
@@ -419,7 +428,11 @@ async def update_group(
     )
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise StructuredHTTPException(
+            404,
+            code="GROUP_NOT_FOUND",
+            message="Group not found",
+        )
 
     if body.name is not None:
         group.name = body.name
@@ -434,7 +447,11 @@ async def update_group(
                 )
             )
             if asset_result.scalar_one_or_none() is None:
-                raise HTTPException(status_code=400, detail="Asset scope not found in this entity")
+                raise StructuredHTTPException(
+                    400,
+                    code="ASSET_SCOPE_NOT_FOUND_ENTITY",
+                    message="Asset scope not found in this entity",
+                )
         group.asset_scope = body.asset_scope
     if body.active is not None:
         group.active = body.active
@@ -487,7 +504,11 @@ async def delete_group(
     )
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise StructuredHTTPException(
+            404,
+            code="GROUP_NOT_FOUND",
+            message="Group not found",
+        )
 
     # Delete memberships
     await db.execute(delete(UserGroupMember).where(UserGroupMember.group_id == group_id))
@@ -521,7 +542,11 @@ async def add_members(
     )
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise StructuredHTTPException(
+            404,
+            code="GROUP_NOT_FOUND",
+            message="Group not found",
+        )
 
     # Get existing members to avoid duplicates
     existing = await db.execute(
@@ -566,7 +591,11 @@ async def remove_member(
         )
     )
     if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise StructuredHTTPException(
+            404,
+            code="GROUP_NOT_FOUND",
+            message="Group not found",
+        )
 
     member_result = await db.execute(
         select(UserGroupMember).where(
@@ -576,7 +605,11 @@ async def remove_member(
     )
     member = member_result.scalar_one_or_none()
     if not member:
-        raise HTTPException(status_code=404, detail="Member not found in group")
+        raise StructuredHTTPException(
+            404,
+            code="MEMBER_NOT_FOUND_GROUP",
+            message="Member not found in group",
+        )
 
     await db.delete(member)
     await db.commit()
@@ -599,7 +632,11 @@ async def get_group_permission_overrides(
         select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id)
     )
     if not grp.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise StructuredHTTPException(
+            404,
+            code="GROUP_NOT_FOUND",
+            message="Group not found",
+        )
 
     result = await db.execute(
         select(GroupPermissionOverride)
@@ -625,7 +662,11 @@ async def set_group_permission_overrides(
         select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id)
     )
     if not grp.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise StructuredHTTPException(
+            404,
+            code="GROUP_NOT_FOUND",
+            message="Group not found",
+        )
 
     # Validate permission codes
     if body.overrides:
@@ -675,7 +716,14 @@ async def copy_group_permissions(
             select(UserGroup).where(UserGroup.id == gid, UserGroup.entity_id == entity_id)
         )
         if not result.scalar_one_or_none():
-            raise HTTPException(status_code=404, detail=f"{label} group not found")
+            raise StructuredHTTPException(
+                404,
+                code="GROUP_NOT_FOUND",
+                message="{label} group not found",
+                params={
+                    "label": label,
+                },
+            )
 
     # Load source overrides
     source_result = await db.execute(

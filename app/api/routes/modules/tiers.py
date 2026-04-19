@@ -30,6 +30,7 @@ from app.schemas.common import (
     TierContactPromoteUserRequest,
     UserRead,
 )
+from app.core.errors import StructuredHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -253,7 +254,11 @@ async def get_global_contact(
     result = await db.execute(query)
     row = result.first()
     if not row:
-        raise HTTPException(status_code=404, detail="Contact not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONTACT_NOT_FOUND",
+            message="Contact not found",
+        )
     return _contact_with_tier(row)
 
 
@@ -418,19 +423,32 @@ async def promote_tier_contact_to_user(
     contact = await _get_contact_or_404(db, contact_id, tier_id, include_promoted_user=True)
 
     if not contact.active:
-        raise HTTPException(status_code=409, detail="Inactive contacts cannot be promoted")
+        raise StructuredHTTPException(
+            409,
+            code="INACTIVE_CONTACTS_CANNOT_PROMOTED",
+            message="Inactive contacts cannot be promoted",
+        )
     if not contact.email or not contact.email.strip():
-        raise HTTPException(status_code=400, detail="Contact email is required for promotion")
+        raise StructuredHTTPException(
+            400,
+            code="CONTACT_EMAIL_REQUIRED_PROMOTION",
+            message="Contact email is required for promotion",
+        )
     if contact.promoted_user is not None:
-        raise HTTPException(status_code=409, detail="Contact is already linked to a user")
+        raise StructuredHTTPException(
+            409,
+            code="CONTACT_ALREADY_LINKED_USER",
+            message="Contact is already linked to a user",
+        )
 
     existing_email = await db.execute(
         select(User).where(sqla_func.lower(User.email) == contact.email.strip().lower())
     )
     if existing_email.scalar_one_or_none():
-        raise HTTPException(
-            status_code=409,
-            detail="Another user already exists with this email. Use an explicit reconciliation flow.",
+        raise StructuredHTTPException(
+            409,
+            code="ANOTHER_USER_ALREADY_EXISTS_EMAIL_USE",
+            message="Another user already exists with this email. Use an explicit reconciliation flow.",
         )
 
     user = User(
@@ -657,7 +675,11 @@ async def delete_external_ref(
     )
     ref = result.scalar_one_or_none()
     if not ref:
-        raise HTTPException(status_code=404, detail="External reference not found")
+        raise StructuredHTTPException(
+            404,
+            code="EXTERNAL_REFERENCE_NOT_FOUND",
+            message="External reference not found",
+        )
     await delete_entity(ref, db, "external_reference", entity_id=ref.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "External reference deleted"}
@@ -679,7 +701,11 @@ async def _get_tier_or_404(
     )
     tier = result.scalar_one_or_none()
     if not tier:
-        raise HTTPException(status_code=404, detail="Tier not found")
+        raise StructuredHTTPException(
+            404,
+            code="TIER_NOT_FOUND",
+            message="Tier not found",
+        )
     return tier
 
 
@@ -705,9 +731,10 @@ async def _get_external_user_tier_ids(
 
 def _forbid_external_company_creation(current_user: User) -> None:
     if current_user.user_type == "external":
-        raise HTTPException(
-            status_code=403,
-            detail="External users cannot create companies",
+        raise StructuredHTTPException(
+            403,
+            code="EXTERNAL_USERS_CANNOT_CREATE_COMPANIES",
+            message="External users cannot create companies",
         )
 
 
@@ -721,7 +748,11 @@ async def _assert_external_user_has_tier_access(
     if linked_tier_ids is None:
         return
     if tier_id not in linked_tier_ids:
-        raise HTTPException(status_code=404, detail="Tier not found")
+        raise StructuredHTTPException(
+            404,
+            code="TIER_NOT_FOUND",
+            message="Tier not found",
+        )
 
 
 async def _get_contact_or_404(
@@ -737,7 +768,11 @@ async def _get_contact_or_404(
     result = await db.execute(stmt)
     contact = result.scalar_one_or_none()
     if not contact:
-        raise HTTPException(status_code=404, detail="Contact not found")
+        raise StructuredHTTPException(
+            404,
+            code="CONTACT_NOT_FOUND",
+            message="Contact not found",
+        )
     return contact
 
 

@@ -21,6 +21,7 @@ from app.services.core.module_lifecycle_service import is_module_enabled, normal
 from app.models.asset_registry import Installation
 from app.models.common import Permission, Role, RolePermission, Setting, UserGroup, UserGroupMember, UserGroupRole
 from app.schemas.common import OpsFluxSchema
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/rbac", tags=["rbac"])
 
@@ -197,7 +198,11 @@ async def get_role(
     result = await db.execute(select(Role).where(Role.code == role_code))
     role = result.scalar_one_or_none()
     if not role:
-        raise HTTPException(status_code=404, detail="Role not found")
+        raise StructuredHTTPException(
+            404,
+            code="ROLE_NOT_FOUND",
+            message="Role not found",
+        )
 
     perm_result = await db.execute(
         select(Permission)
@@ -265,7 +270,11 @@ async def update_role(
     result = await db.execute(select(Role).where(Role.code == role_code))
     role = result.scalar_one_or_none()
     if not role:
-        raise HTTPException(status_code=404, detail="Role not found")
+        raise StructuredHTTPException(
+            404,
+            code="ROLE_NOT_FOUND",
+            message="Role not found",
+        )
 
     if body.name is not None:
         role.name = body.name
@@ -298,7 +307,11 @@ async def set_role_permissions(
     result = await db.execute(select(Role).where(Role.code == role_code))
     role = result.scalar_one_or_none()
     if not role:
-        raise HTTPException(status_code=404, detail="Role not found")
+        raise StructuredHTTPException(
+            404,
+            code="ROLE_NOT_FOUND",
+            message="Role not found",
+        )
 
     # Validate all permission codes exist
     perm_result = await db.execute(
@@ -338,11 +351,19 @@ async def delete_role(
     result = await db.execute(select(Role).where(Role.code == role_code))
     role = result.scalar_one_or_none()
     if not role:
-        raise HTTPException(status_code=404, detail="Role not found")
+        raise StructuredHTTPException(
+            404,
+            code="ROLE_NOT_FOUND",
+            message="Role not found",
+        )
 
     # Prevent deleting built-in SUPER_ADMIN role
     if role_code == "SUPER_ADMIN":
-        raise HTTPException(status_code=400, detail="Cannot delete the SUPER_ADMIN role")
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_DELETE_SUPER_ADMIN_ROLE",
+            message="Cannot delete the SUPER_ADMIN role",
+        )
 
     # Delete role-permission associations
     await db.execute(delete(RolePermission).where(RolePermission.role_code == role_code))

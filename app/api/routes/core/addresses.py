@@ -16,6 +16,7 @@ from app.core.database import get_db
 from app.models.common import Address, User
 from app.schemas.common import AddressCreate, AddressRead, AddressUpdate
 from app.services.core.delete_service import delete_entity
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/addresses", tags=["addresses"])
 
@@ -92,7 +93,11 @@ async def update_address(
     )
     address = result.scalar_one_or_none()
     if not address:
-        raise HTTPException(status_code=404, detail="Address not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADDRESS_NOT_FOUND",
+            message="Address not found",
+        )
 
     await check_polymorphic_owner_access(address.owner_type, address.owner_id, current_user, db, request, write=True)
 
@@ -136,7 +141,11 @@ async def delete_address(
     )
     address = result.scalar_one_or_none()
     if not address:
-        raise HTTPException(status_code=404, detail="Address not found")
+        raise StructuredHTTPException(
+            404,
+            code="ADDRESS_NOT_FOUND",
+            message="Address not found",
+        )
 
     await check_polymorphic_owner_access(address.owner_type, address.owner_id, current_user, db, request, write=True)
     await delete_entity(address, db, "address", entity_id=address_id, user_id=current_user.id)

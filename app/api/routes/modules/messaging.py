@@ -33,6 +33,7 @@ from app.schemas.messaging import (
     SecurityRuleRead,
     SecurityRuleUpdate,
 )
+from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/messaging", tags=["messaging"])
 
@@ -256,7 +257,11 @@ async def update_announcement(
     )
     announcement = result.scalar_one_or_none()
     if not announcement:
-        raise HTTPException(status_code=404, detail="Annonce non trouvée")
+        raise StructuredHTTPException(
+            404,
+            code="ANNONCE_NON_TROUV_E",
+            message="Annonce non trouvée",
+        )
 
     update_data = body.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -290,7 +295,11 @@ async def delete_announcement(
     )
     announcement = result.scalar_one_or_none()
     if not announcement:
-        raise HTTPException(status_code=404, detail="Annonce non trouvée")
+        raise StructuredHTTPException(
+            404,
+            code="ANNONCE_NON_TROUV_E",
+            message="Annonce non trouvée",
+        )
 
     await delete_entity(announcement, db, "announcement", entity_id=announcement.id, user_id=current_user.id)
     await db.commit()
@@ -308,7 +317,11 @@ async def dismiss_announcement(
         select(Announcement).where(Announcement.id == announcement_id)
     )
     if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Annonce non trouvée")
+        raise StructuredHTTPException(
+            404,
+            code="ANNONCE_NON_TROUV_E",
+            message="Annonce non trouvée",
+        )
 
     # Check if already dismissed
     existing = await db.execute(
@@ -593,7 +606,11 @@ async def update_security_rule(
     )
     rule = result.scalar_one_or_none()
     if not rule:
-        raise HTTPException(status_code=404, detail="Règle non trouvée")
+        raise StructuredHTTPException(
+            404,
+            code="R_GLE_NON_TROUV_E",
+            message="Règle non trouvée",
+        )
 
     update_data = body.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -624,7 +641,11 @@ async def delete_security_rule(
     )
     rule = result.scalar_one_or_none()
     if not rule:
-        raise HTTPException(status_code=404, detail="Règle non trouvée")
+        raise StructuredHTTPException(
+            404,
+            code="R_GLE_NON_TROUV_E",
+            message="Règle non trouvée",
+        )
 
     await delete_entity(rule, db, "security_rule", entity_id=rule.id, user_id=current_user.id)
     await db.commit()

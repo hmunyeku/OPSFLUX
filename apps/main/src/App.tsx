@@ -8,6 +8,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import CookieConsent from '@/components/layout/CookieConsent'
 import { LoaderFallback } from '@/components/ui/LoaderFallback'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
+import { ApiHealthGate } from '@/components/ui/ApiHealthGate'
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
@@ -71,6 +72,7 @@ export default function App() {
   return (
     <>
     <CookieConsent />
+    <ApiHealthGate>
     <ErrorBoundary>
     <Routes>
       <Route path="/login" element={<Suspense fallback={<LoaderFallback />}><LoginPage /></Suspense>} />
@@ -123,6 +125,7 @@ export default function App() {
       />
     </Routes>
     </ErrorBoundary>
+    </ApiHealthGate>
     </>
   )
 }

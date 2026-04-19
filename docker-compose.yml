@@ -89,7 +89,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: https://api.${DOMAIN:-opsflux.io}
-        BUILD_ID: "20"
+        BUILD_ID: "21"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"

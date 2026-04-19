@@ -52,3 +52,11 @@ alembic/versions/__pycache__/
 
 # Claude
 .claude/
+
+# Debug / scratch scripts (never commit — may contain test credentials)
+/check*.js
+/check*.ps1
+/dok*.js
+/doklogin*
+/commit_msg.txt
+/*.scratch.*

@@ -213,10 +213,18 @@ async def _issue_tokens(
     )
     await db.commit()
 
+    # AUP §5.2 — flag expired passwords so the frontend can force a
+    # change flow. Using the settings snapshot from this request keeps
+    # the cost to a single DB/Redis read per login.
+    from app.services.core.password_policy import is_password_expired
+    auth_cfg = await get_security_settings(db)
+    expired = is_password_expired(user, auth_cfg)
+
     return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        password_expired=expired,
     )
 
 
@@ -822,11 +830,25 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
     auth_cfg = await get_security_settings(db)
     _validate_password_strength(body.new_password, config=auth_cfg)
 
+    # AUP §5.2 — UPN inclusion + history reuse gates.
+    from app.services.core.password_policy import (
+        PasswordPolicyError,
+        check_history_reuse,
+        check_upn_inclusion,
+        record_password_change,
+    )
+    try:
+        await check_upn_inclusion(body.new_password, user, auth_cfg)
+        await check_history_reuse(body.new_password, user, db, auth_cfg)
+    except PasswordPolicyError as e:
+        raise StructuredHTTPException(400, code=e.code, message=e.message) from None
+
     user.hashed_password = hash_password(body.new_password)
     user.password_changed_at = datetime.now(UTC)
     # Reset lockout on password change
     user.failed_login_count = 0
     user.locked_until = None
+    await record_password_change(body.new_password, user, db, auth_cfg)
     await db.commit()
 
     logger.info("Password reset successful for user %s", user.email)
@@ -854,17 +876,26 @@ async def change_password(
             message="Current password is incorrect",
         )
 
-    if body.current_password == body.new_password:
-        raise StructuredHTTPException(
-            400, code="PASSWORD_REUSE",
-            message="New password must be different from current password",
-        )
-
     auth_cfg = await get_security_settings(db)
     _validate_password_strength(body.new_password, config=auth_cfg)
 
+    # AUP §5.2 — UPN inclusion + history reuse gates. The history check
+    # subsumes the simple "new == current" check we used to do inline.
+    from app.services.core.password_policy import (
+        PasswordPolicyError,
+        check_history_reuse,
+        check_upn_inclusion,
+        record_password_change,
+    )
+    try:
+        await check_upn_inclusion(body.new_password, current_user, auth_cfg)
+        await check_history_reuse(body.new_password, current_user, db, auth_cfg)
+    except PasswordPolicyError as e:
+        raise StructuredHTTPException(400, code=e.code, message=e.message) from None
+
     current_user.hashed_password = hash_password(body.new_password)
     current_user.password_changed_at = datetime.now(UTC)
+    await record_password_change(body.new_password, current_user, db, auth_cfg)
     await db.commit()
 
     logger.info("Password changed for user %s", current_user.email)

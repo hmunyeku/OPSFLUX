@@ -62,6 +62,10 @@ class LoginResponse(BaseModel):
     expires_in: int | None = None
     mfa_required: bool = False
     mfa_token: str | None = None
+    # AUP §5.2 — set when the user's password is older than
+    # `auth.password_max_age_days`. Frontend should force the user
+    # through /change-password before showing the main UI.
+    password_expired: bool = False
 
 
 class RefreshRequest(BaseModel):

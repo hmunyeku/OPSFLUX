@@ -534,6 +534,25 @@ class EventStore(Base):
     error: Mapped[str | None] = mapped_column(Text)
 
 
+# ─── Password history ───────────────────────────────────────────────────────
+#
+# AUP §5.2 — "Doit être très différent de vos mots de passe précédents".
+# We keep the last N bcrypt hashes per user so change-password /
+# reset-password can reject any reuse within the retention window.
+# Rotation is handled at write time (keep newest N, delete older).
+
+class PasswordHistory(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "password_history"
+
+    user_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+    )
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
 # ─── Audit Log ───────────────────────────────────────────────────────────────
 
 class AuditLog(UUIDPrimaryKeyMixin, Base):

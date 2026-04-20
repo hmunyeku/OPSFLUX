@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     AUTH_PASSWORD_REQUIRE_SPECIAL: bool = True
     AUTH_PASSWORD_REQUIRE_UPPERCASE: bool = True
     AUTH_PASSWORD_REQUIRE_DIGIT: bool = True
+    # AUP §5.2: reject passwords containing the UPN (= email) or the
+    # local-part of the email. Default on; can be disabled via Setting
+    # for legacy installs.
+    AUTH_PASSWORD_REJECT_UPN: bool = True
+    # AUP §5.2: keep the last N bcrypt hashes and refuse reuse. 0 disables.
+    AUTH_PASSWORD_HISTORY_SIZE: int = 5
+    # AUP §5.2: force a change every N days. 0 disables the expiration check.
+    AUTH_PASSWORD_MAX_AGE_DAYS: int = 180
     AUTH_MAX_FAILED_ATTEMPTS: int = 5
     AUTH_LOCKOUT_DURATION_MIN: int = 15
 

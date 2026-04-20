@@ -30,6 +30,10 @@ _DEFAULTS: dict[str, tuple[str, type, Any]] = {
     "password_require_special":  ("AUTH_PASSWORD_REQUIRE_SPECIAL", bool, True),
     "password_require_uppercase":("AUTH_PASSWORD_REQUIRE_UPPERCASE", bool, True),
     "password_require_digit":    ("AUTH_PASSWORD_REQUIRE_DIGIT", bool, True),
+    # AUP §5.2 — advanced policy
+    "password_reject_upn":       ("AUTH_PASSWORD_REJECT_UPN", bool, True),
+    "password_history_size":     ("AUTH_PASSWORD_HISTORY_SIZE", int, 5),
+    "password_max_age_days":     ("AUTH_PASSWORD_MAX_AGE_DAYS", int, 180),
     "max_failed_attempts":       ("AUTH_MAX_FAILED_ATTEMPTS", int, 5),
     "lockout_duration_min":      ("AUTH_LOCKOUT_DURATION_MIN", int, 15),
     "rate_limit_per_ip":         ("AUTH_LOGIN_RATE_LIMIT_PER_IP", int, 10),

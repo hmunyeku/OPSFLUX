@@ -166,6 +166,140 @@ export async function downloadMOCPdf(
   return response.data as unknown as Blob;
 }
 
+// ─── Phase 2 writes ──────────────────────────────────────────────────────
+
+export type SignatureSlot =
+  | "initiator"
+  | "hierarchy_reviewer"
+  | "site_chief"
+  | "production"
+  | "director"
+  | "process_engineer"
+  | "do"
+  | "dg"
+  | "close";
+
+export interface TransitionPayload {
+  to_status: MOCStatus;
+  comment?: string | null;
+  payload?: Record<string, unknown> | null;
+}
+
+export interface CreateMOCPayload {
+  title?: string | null;
+  nature?: "OPTIMISATION" | "SECURITE" | null;
+  metiers?: string[] | null;
+  installation_id?: string | null;
+  site_label?: string | null;
+  platform_code?: string | null;
+  objectives?: string | null;
+  description?: string | null;
+  current_situation?: string | null;
+  proposed_changes?: string | null;
+  impact_analysis?: string | null;
+  modification_type?: "permanent" | "temporary" | null;
+  initiator_signature?: string | null;
+  initiator_email?: string | null;
+  initiator_function?: string | null;
+  manager_id?: string | null;
+}
+
+/** Fire a FSM transition. Backend enforces preconditions; we surface a
+ *  readable error message when it refuses. */
+export async function transitionMOC(
+  id: string,
+  payload: TransitionPayload,
+): Promise<MOCDetail> {
+  const { data } = await api.post<MOCDetail>(
+    `/api/v1/moc/${id}/transition`,
+    payload,
+  );
+  return data;
+}
+
+/** Store a signature at a named slot. SVG or PNG data URL — the backend
+ *  treats them identically and both render in the PDF. */
+export async function setMOCSignature(
+  id: string,
+  slot: SignatureSlot,
+  signature: string,
+): Promise<MOCDetail> {
+  const { data } = await api.post<MOCDetail>(`/api/v1/moc/${id}/signature`, {
+    slot,
+    signature,
+  });
+  return data;
+}
+
+/** Request a return-for-rework at a specific stage. `stage=validator`
+ *  requires `validation_id`. */
+export async function requestMOCReturn(
+  id: string,
+  payload: {
+    stage: "site_chief" | "production" | "do" | "dg" | "validator";
+    reason: string;
+    validation_id?: string;
+  },
+): Promise<MOCDetail> {
+  const { data } = await api.post<MOCDetail>(
+    `/api/v1/moc/${id}/return`,
+    payload,
+  );
+  return data;
+}
+
+/** Production mise-en-étude (Daxium tab 3). */
+export async function setProductionValidation(
+  id: string,
+  payload: {
+    validated: boolean;
+    comment?: string | null;
+    signature?: string | null;
+    priority?: MOCPriority | null;
+    return_requested?: boolean;
+    return_reason?: string | null;
+  },
+): Promise<MOCDetail> {
+  const { data } = await api.post<MOCDetail>(
+    `/api/v1/moc/${id}/production-validation`,
+    payload,
+  );
+  return data;
+}
+
+/** DO / DG accord or refus (+ optional signature). */
+export async function setExecutionAccord(
+  id: string,
+  payload: {
+    actor: "do" | "dg";
+    accord: boolean;
+    comment?: string | null;
+    signature?: string | null;
+    return_requested?: boolean;
+    return_reason?: string | null;
+  },
+): Promise<MOCDetail> {
+  const { data } = await api.post<MOCDetail>(
+    `/api/v1/moc/${id}/execution-accord`,
+    payload,
+  );
+  return data;
+}
+
+/** Promote a validated MOC to a Project. Idempotent — 409 on re-promote. */
+export async function promoteMOCToProject(id: string): Promise<MOCDetail> {
+  const { data } = await api.post<MOCDetail>(
+    `/api/v1/moc/${id}/promote-to-project`,
+  );
+  return data;
+}
+
+/** Create a new MOC — returns the created record (MOCRead shape). */
+export async function createMOC(payload: CreateMOCPayload): Promise<MOCDetail> {
+  const { data } = await api.post<MOCDetail>(`/api/v1/moc`, payload);
+  return data;
+}
+
 /** Humanised status → FR label (matches the web app). Keep in sync with
  *  `MOC_STATUS_LABELS` in apps/main/src/services/mocService.ts. */
 export const MOC_STATUS_LABELS: Record<MOCStatus, string> = {

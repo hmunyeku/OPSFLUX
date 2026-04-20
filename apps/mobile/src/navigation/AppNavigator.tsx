@@ -62,6 +62,7 @@ import CargoRequestDetailScreen from "../screens/CargoRequestDetailScreen";
 import AdsDetailScreen from "../screens/AdsDetailScreen";
 import MOCListScreen from "../screens/MOCListScreen";
 import MOCDetailScreen from "../screens/MOCDetailScreen";
+import MOCCreateScreen from "../screens/MOCCreateScreen";
 import VoyageDetailScreen from "../screens/VoyageDetailScreen";
 import CargoReceptionScreen from "../screens/CargoReceptionScreen";
 import OnboardingScreen, { isOnboardingComplete } from "../screens/OnboardingScreen";
@@ -244,6 +245,11 @@ function SharedScreens() {
         name="MOCDetail"
         component={MOCDetailScreen as any}
         options={{ title: "Détail MOC" }}
+      />
+      <Stack.Screen
+        name="MOCCreate"
+        component={MOCCreateScreen as any}
+        options={{ title: "Nouveau MOC" }}
       />
       <Stack.Screen
         name="VoyageDetail"

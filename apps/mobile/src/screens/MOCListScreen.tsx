@@ -20,7 +20,6 @@ import {
   Pressable,
   Spinner,
   Text,
-  VStack,
 } from "@gluestack-ui/themed";
 import { useTranslation } from "react-i18next";
 import { MIcon } from "../components/MIcon";
@@ -185,19 +184,34 @@ export default function MOCListScreen({ route, navigation }: Props) {
 
   return (
     <Box flex={1} bg="$backgroundLight50" pt={insets.top + 8}>
-      <Box px="$3.5" mb="$2">
-        <Input borderColor="$borderLight300" bg="$white">
-          <InputSlot pl="$3">
-            <MIcon name="search" color="$textLight400" />
-          </InputSlot>
-          <InputField
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t("moc.searchPlaceholder", "Rechercher un MOC...")}
-            autoCorrect={false}
-          />
-        </Input>
-      </Box>
+      <HStack px="$3.5" mb="$2" space="sm" alignItems="center">
+        <Box flex={1}>
+          <Input borderColor="$borderLight300" bg="$white">
+            <InputSlot pl="$3">
+              <MIcon name="search" color="$textLight400" />
+            </InputSlot>
+            <InputField
+              value={search}
+              onChangeText={setSearch}
+              placeholder={t("moc.searchPlaceholder", "Rechercher un MOC...")}
+              autoCorrect={false}
+            />
+          </Input>
+        </Box>
+        <Pressable
+          onPress={() => navigation.navigate("MOCCreate")}
+          bg="$primary600"
+          borderRadius="$full"
+          w="$10"
+          h="$10"
+          alignItems="center"
+          justifyContent="center"
+          $active-bg="$primary700"
+        >
+          <MIcon name="add" color="$white" size="sm" />
+        </Pressable>
+      </HStack>
+
 
       <Box px="$3.5" mb="$2">
         <FlatList

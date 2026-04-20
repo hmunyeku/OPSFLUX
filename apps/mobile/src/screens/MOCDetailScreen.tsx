@@ -13,8 +13,8 @@
  *   7. Action buttons — Download PDF + refresh. Writes arrive in phase 2.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Alert, ScrollView } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, Modal, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Badge,
@@ -40,9 +40,13 @@ import { downloadAndOpenPdf } from "../services/pdf";
 import {
   getMOC,
   MOC_STATUS_LABELS,
+  setMOCSignature,
+  transitionMOC,
   type MOCDetail,
   type MOCStatus,
+  type SignatureSlot,
 } from "../services/moc";
+import SignaturePad from "../components/SignaturePad";
 
 interface Props {
   route: { params: { mocId: string } };
@@ -157,6 +161,12 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
   const [moc, setMoc] = useState<MOCDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState(false);
+  // Signature modal — shared across all slots the user can sign.
+  const [sigModalSlot, setSigModalSlot] = useState<SignatureSlot | null>(null);
+  const [sigDraft, setSigDraft] = useState<string | null>(null);
+  const [sigSaving, setSigSaving] = useState(false);
+  // Transition runner — one spinner for the whole workflow card.
+  const [txLoading, setTxLoading] = useState<MOCStatus | null>(null);
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -193,6 +203,118 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
       );
     }
   }, [moc, toastShow, t]);
+
+  /** Mirror of apps/main's `missingPrereqsFor` — returns the human list
+   *  of prerequisites missing to execute a given FSM transition. Kept in
+   *  sync with app/services/modules/moc_service.py.
+   */
+  const missingPrereqs = useCallback(
+    (to: MOCStatus): string[] => {
+      if (!moc) return [];
+      const missing: string[] = [];
+      if (to === "approved") {
+        if (!moc.initiator_signature) missing.push("Signature du demandeur");
+        if (moc.is_real_change === null || moc.is_real_change === undefined)
+          missing.push("Revue hiérarchie (Oui/Non)");
+        if (!moc.site_chief_comment?.trim())
+          missing.push("Commentaire du Chef de site");
+      } else if (to === "submitted_to_confirm") {
+        if (!moc.site_chief_signature)
+          missing.push("Signature Chef de site");
+      } else if (to === "validated") {
+        const unapproved = (moc.validations || []).filter(
+          (v) => v.required && !v.approved,
+        );
+        if (unapproved.length > 0)
+          missing.push("Toutes les validations requises");
+      } else if (to === "execution") {
+        if (moc.do_execution_accord !== true) missing.push("Accord D.O");
+        if (moc.dg_execution_accord !== true) missing.push("Accord D.G");
+      } else if (to === "closed") {
+        if (moc.pid_update_required && !moc.pid_update_completed)
+          missing.push("MAJ PID");
+        if (moc.esd_update_required && !moc.esd_update_completed)
+          missing.push("MAJ ESD");
+        // close_signature is checked server-side; we can't know it from
+        // the read payload alone (redacted for most viewers).
+      }
+      return missing;
+    },
+    [moc],
+  );
+
+  /** Allowed transitions from the current status. The server also
+   *  enforces permissions — we can't know the caller's roles here,
+   *  so we show every outgoing transition and let the backend filter.
+   */
+  const outgoingTransitions = useMemo<MOCStatus[]>(() => {
+    if (!moc) return [];
+    // Minimal static FSM mirror — do not call /fsm from the mobile
+    // detail screen; the set of destinations per status is stable.
+    const FSM: Record<string, MOCStatus[]> = {
+      created: ["approved", "cancelled"],
+      approved: ["submitted_to_confirm", "cancelled"],
+      submitted_to_confirm: ["approved_to_study", "stand_by", "cancelled"],
+      stand_by: ["submitted_to_confirm", "cancelled"],
+      approved_to_study: ["under_study"],
+      under_study: ["study_in_validation", "cancelled"],
+      study_in_validation: ["validated", "under_study", "cancelled"],
+      validated: ["execution", "cancelled"],
+      execution: ["executed_docs_pending"],
+      executed_docs_pending: ["closed"],
+    };
+    return FSM[moc.status] ?? [];
+  }, [moc]);
+
+  const runTransition = useCallback(
+    async (to: MOCStatus) => {
+      if (!moc) return;
+      const missing = to === "cancelled" ? [] : missingPrereqs(to);
+      if (missing.length > 0) {
+        Alert.alert(
+          "Prérequis manquants",
+          missing.map((m) => `• ${m}`).join("\n"),
+        );
+        return;
+      }
+      setTxLoading(to);
+      try {
+        const updated = await transitionMOC(moc.id, { to_status: to });
+        setMoc(updated);
+        toastShow(
+          `Statut : ${MOC_STATUS_LABELS[updated.status] ?? updated.status}`,
+          "success",
+        );
+      } catch (err: unknown) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const d = (err as any)?.response?.data?.detail;
+        const msg = typeof d === "string" ? d : d?.message ?? "Transition refusée";
+        Alert.alert("Erreur", msg);
+      } finally {
+        setTxLoading(null);
+      }
+    },
+    [moc, missingPrereqs, toastShow],
+  );
+
+  const saveSignature = useCallback(async () => {
+    if (!moc || !sigModalSlot || !sigDraft) return;
+    setSigSaving(true);
+    try {
+      const updated = await setMOCSignature(moc.id, sigModalSlot, sigDraft);
+      setMoc(updated);
+      toastShow("Signature enregistrée", "success");
+      setSigModalSlot(null);
+      setSigDraft(null);
+    } catch (err: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = (err as any)?.response?.data?.detail;
+      const msg = typeof d === "string" ? d : d?.message ?? "Échec signature";
+      Alert.alert("Erreur", msg);
+    } finally {
+      setSigSaving(false);
+    }
+  }, [moc, sigModalSlot, sigDraft, toastShow]);
 
   if (loading || !moc) {
     return (
@@ -447,6 +569,110 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
         </Box>
       )}
 
+      {/* Workflow — outgoing transitions with precondition hints */}
+      {outgoingTransitions.length > 0 && (
+        <Box
+          bg="$white"
+          borderRadius="$lg"
+          borderWidth={1}
+          borderColor="$borderLight200"
+          p="$3"
+          mb="$2"
+        >
+          <Heading size="sm" mb="$2">
+            Actions workflow
+          </Heading>
+          <VStack space="xs">
+            {outgoingTransitions.map((to) => {
+              const missing = to === "cancelled" ? [] : missingPrereqs(to);
+              const isBlocked = missing.length > 0;
+              const isCancel = to === "cancelled";
+              return (
+                <VStack key={to} space="xs">
+                  <Button
+                    size="sm"
+                    action={isCancel ? "negative" : "primary"}
+                    variant={isCancel ? "outline" : "solid"}
+                    isDisabled={txLoading !== null || isBlocked}
+                    onPress={() => runTransition(to)}
+                  >
+                    {txLoading === to ? <ButtonSpinner mr="$2" /> : null}
+                    <ButtonText>
+                      {MOC_STATUS_LABELS[to] ?? to}
+                    </ButtonText>
+                  </Button>
+                  {isBlocked && (
+                    <Box
+                      bg="$amber50"
+                      borderWidth={1}
+                      borderColor="$amber200"
+                      borderRadius="$md"
+                      px="$2"
+                      py="$1.5"
+                    >
+                      <Text size="2xs" color="$amber900" fontWeight="$bold">
+                        Prérequis manquants :
+                      </Text>
+                      {missing.map((m) => (
+                        <Text key={m} size="2xs" color="$amber800">
+                          • {m}
+                        </Text>
+                      ))}
+                    </Box>
+                  )}
+                </VStack>
+              );
+            })}
+          </VStack>
+        </Box>
+      )}
+
+      {/* Signature slots — tap a row to open the canvas modal */}
+      <Box
+        bg="$white"
+        borderRadius="$lg"
+        borderWidth={1}
+        borderColor="$borderLight200"
+        p="$3"
+        mb="$2"
+      >
+        <Heading size="sm" mb="$2">
+          Signatures
+        </Heading>
+        {(
+          [
+            ["initiator", "Demandeur", moc.initiator_signature],
+            ["hierarchy_reviewer", "Revue hiérarchie", moc.hierarchy_reviewer_signature as string | null],
+            ["site_chief", "Chef de site (accord)", moc.site_chief_signature],
+            ["production", "Production", null],
+            ["process_engineer", "Process Engineer", null],
+            ["do", "D.O", null],
+            ["dg", "D.G", null],
+            ["close", "Clôture CDS", null],
+          ] as Array<[SignatureSlot, string, string | null]>
+        ).map(([slot, label, current]) => (
+          <Button
+            key={slot}
+            size="sm"
+            variant="outline"
+            action="secondary"
+            onPress={() => {
+              setSigModalSlot(slot);
+              setSigDraft(null);
+            }}
+            mb="$1.5"
+          >
+            <ButtonText>
+              {current === "__REDACTED__"
+                ? `${label} — protégée`
+                : current
+                  ? `${label} — déjà signée · changer`
+                  : `Signer ${label}`}
+            </ButtonText>
+          </Button>
+        ))}
+      </Box>
+
       {/* Actions */}
       <VStack space="sm" mt="$2">
         <Button action="primary" onPress={onDownloadPdf} isDisabled={pdfLoading}>
@@ -471,8 +697,65 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
 
       <Divider my="$4" />
       <Text size="2xs" color="$textLight400" textAlign="center">
-        Phase 1 — lecture seule. Signatures et transitions bientôt.
+        Mobile phase 2 — signatures + transitions. Attachements photos arrivent.
       </Text>
+
+      {/* Signature modal — SVG canvas, save via /signature endpoint */}
+      <Modal
+        visible={sigModalSlot !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => !sigSaving && setSigModalSlot(null)}
+      >
+        <Box
+          flex={1}
+          bg="rgba(15, 23, 42, 0.6)"
+          justifyContent="flex-end"
+        >
+          <Box
+            bg="$white"
+            borderTopLeftRadius="$xl"
+            borderTopRightRadius="$xl"
+            p="$4"
+            pb={insets.bottom + 16}
+          >
+            <Heading size="sm" mb="$1">
+              Signer — {sigModalSlot}
+            </Heading>
+            <Text size="2xs" color="$textLight500" mb="$3">
+              Signez dans le cadre ci-dessous avec le doigt ou un stylet.
+            </Text>
+            <SignaturePad
+              value={sigDraft}
+              onChange={setSigDraft}
+              disabled={sigSaving}
+            />
+            <HStack space="sm" mt="$4">
+              <Button
+                flex={1}
+                variant="outline"
+                action="secondary"
+                isDisabled={sigSaving}
+                onPress={() => {
+                  setSigModalSlot(null);
+                  setSigDraft(null);
+                }}
+              >
+                <ButtonText>Annuler</ButtonText>
+              </Button>
+              <Button
+                flex={1}
+                action="primary"
+                isDisabled={!sigDraft || sigSaving}
+                onPress={saveSignature}
+              >
+                {sigSaving ? <ButtonSpinner mr="$2" /> : null}
+                <ButtonText>Enregistrer</ButtonText>
+              </Button>
+            </HStack>
+          </Box>
+        </Box>
+      </Modal>
     </ScrollView>
   );
 }

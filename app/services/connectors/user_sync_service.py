@@ -76,9 +76,18 @@ class UserSyncProvider(ABC):
         ...
 
     @classmethod
+    @abstractmethod
     def from_settings(cls, settings: dict[str, str]) -> "UserSyncProvider":
-        """Factory: build provider from settings dict."""
-        raise NotImplementedError
+        """Factory: build a provider instance from a settings dict.
+
+        Every concrete provider (LDAP / Azure AD / Okta / Keycloak / GouTi /
+        SCIM) overrides this classmethod. Marking it ``@abstractmethod``
+        makes the contract explicit — attempting to subclass without
+        providing a factory will fail at import time rather than at first
+        call. (Was previously a ``raise NotImplementedError`` — same
+        runtime effect, now typechecker-friendly.)
+        """
+        ...
 
 
 # ── LDAP / Active Directory ───────────────────────────────────

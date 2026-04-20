@@ -495,9 +495,6 @@ export interface HierarchyFieldNode {
   sites: HierarchySiteNode[]
 }
 
-/** @deprecated Use HierarchyFieldNode instead */
-export type HierarchyNode = HierarchyFieldNode
-
 // ── Stats ────────────────────────────────────────────────────
 export interface AssetRegistryStats {
   field_count: number

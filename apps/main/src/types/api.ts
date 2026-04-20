@@ -213,13 +213,6 @@ export interface LegalIdentifierUpdate {
   expires_at?: string | null
 }
 
-/** @deprecated Use LegalIdentifier */
-export type TierIdentifier = LegalIdentifier
-/** @deprecated Use LegalIdentifierCreate */
-export type TierIdentifierCreate = LegalIdentifierCreate
-/** @deprecated Use LegalIdentifierUpdate */
-export type TierIdentifierUpdate = LegalIdentifierUpdate
-
 // ── Tier Blocks (Blocking/Unblocking) ───────────────────────
 export interface TierBlock {
   id: string
@@ -606,11 +599,6 @@ export interface MedicalCheckCreate {
   notes?: string | null
   document_url?: string | null
 }
-/** @deprecated Use MedicalCheckRead */
-export type UserMedicalCheckRead = MedicalCheckRead
-/** @deprecated Use MedicalCheckCreate */
-export type UserMedicalCheckCreate = MedicalCheckCreate
-
 // ── User SSO Providers ────────────────────────────────────
 export interface UserSSOProviderRead {
   id: string
@@ -819,13 +807,6 @@ export interface AddressCreate {
 }
 
 export type AddressUpdate = Partial<Omit<AddressCreate, 'owner_type' | 'owner_id'>>
-
-/** @deprecated Use Address instead */
-export type UserAddress = Address
-/** @deprecated Use AddressCreate instead */
-export type UserAddressCreate = AddressCreate
-/** @deprecated Use AddressUpdate instead */
-export type UserAddressUpdate = AddressUpdate
 
 // ── Notification Preferences ───────────────────────────────
 export interface NotificationPreference {

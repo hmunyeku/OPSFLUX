@@ -38,10 +38,11 @@ export function Skeleton({ className, noShimmer }: SkeletonProps) {
 export function SkeletonText({
   lines = 3,
   className,
-  lastLineWidth = '70%',
+  lastLineWidth = 'w-3/4',
 }: {
   lines?: number
   className?: string
+  /** Tailwind width class for the last line — mimics a paragraph tail. */
   lastLineWidth?: string
 }) {
   return (
@@ -49,9 +50,7 @@ export function SkeletonText({
       {Array.from({ length: lines }).map((_, i) => (
         <Skeleton
           key={i}
-          className={cn('h-3', i === lines - 1 ? '' : 'w-full')}
-          // last line shorter to mimic paragraph tail
-          {...(i === lines - 1 ? { className: 'h-3' } : {})}
+          className={cn('h-3', i === lines - 1 ? lastLineWidth : 'w-full')}
         />
       ))}
     </div>

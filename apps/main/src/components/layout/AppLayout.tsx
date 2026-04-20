@@ -35,9 +35,14 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { DetachedPanelsPortal } from './DetachedPanelRenderer'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
-import { FeedbackWidget } from './FeedbackWidget'
 import { HelpProvider, HelpPanel } from './HelpSystem'
 import { AssistantPanel } from './AssistantPanel'
+import { installConsoleIntercept } from '@/lib/consoleCapture'
+
+// Install console intercept once per page load so bug tickets submitted via
+// the Assistant Panel's Ticket tab can auto-attach the capture. Safe to call
+// multiple times — idempotent.
+installConsoleIntercept()
 
 // ── Active Banners — renders banner-type announcements at the top ──
 const BANNER_VARIANT_MAP: Record<string, 'info' | 'warning' | 'danger' | 'success'> = {
@@ -216,7 +221,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Floating detached panels (rendered via portal to body) */}
       <DetachedPanelsPortal />
-      <FeedbackWidget />
+      {/* FeedbackWidget removed — ticket creation now lives in AssistantPanel → Ticket tab */}
       <HelpPanel />
       <AssistantPanel />
     </div>

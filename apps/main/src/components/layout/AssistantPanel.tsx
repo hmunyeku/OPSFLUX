@@ -16,6 +16,7 @@ import React, {
   useCallback,
   useRef,
   useEffect,
+  useLayoutEffect,
   useMemo,
 } from 'react'
 import ReactDOM from 'react-dom'
@@ -37,6 +38,8 @@ import {
   Bug,
   HelpCircle,
   Camera,
+  Video,
+  Square,
   Paperclip,
   CheckCheck,
   ExternalLink,
@@ -62,6 +65,7 @@ import { resolveApiBaseUrl } from '@/lib/runtimeUrls'
 import type { TicketCreate, TicketType } from '@/services/supportService'
 import mermaid from 'mermaid'
 import { safeLocal } from '@/lib/safeStorage'
+import { buildConsoleLogFile, consoleLogBuffer } from '@/lib/consoleCapture'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -530,7 +534,7 @@ function TourSpotlight({
   onClose,
   isLast,
 }: {
-  targetRect: DOMRect
+  targetRect: DOMRect | null
   tooltipContent: { title: string; content: string }
   step: number
   totalSteps: number
@@ -540,86 +544,128 @@ function TourSpotlight({
   isLast: boolean
 }) {
   const padding = 8
-  const cutout = {
+  const cutout = targetRect ? {
     x: targetRect.x - padding,
     y: targetRect.y - padding,
     w: targetRect.width + padding * 2,
     h: targetRect.height + padding * 2,
-  }
+  } : null
 
   // Smart tooltip positioning: handles tall elements (sidebar), wide elements (topbar), small buttons
   const vw = window.innerWidth
   const vh = window.innerHeight
-  const tooltipW = Math.min(300, vw - 32)
-  const tooltipH = 200 // estimated tooltip height
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  // Measure tooltip's real size after mount instead of guessing. Starts at the
+  // typical content size and re-measures on layout. Fixes off-screen tooltips
+  // when the content is longer than the hardcoded 200 estimate, and correctly
+  // clamps the last step tooltip near the viewport edge.
+  const [tipSize, setTipSize] = useState({ w: Math.min(300, vw - 32), h: 200 })
+  useLayoutEffect(() => {
+    if (!tooltipRef.current) return
+    const r = tooltipRef.current.getBoundingClientRect()
+    if (r.width && r.height && (Math.abs(r.width - tipSize.w) > 2 || Math.abs(r.height - tipSize.h) > 4)) {
+      setTipSize({ w: r.width, h: r.height })
+    }
+  })
+  const tooltipW = tipSize.w
+  const tooltipH = tipSize.h
   const gap = 12
-
-  const spaceRight = vw - (cutout.x + cutout.w)
-  const spaceBelow = vh - (cutout.y + cutout.h)
-  const spaceLeft = cutout.x
-  const isTall = cutout.h > vh * 0.5 // element taller than half viewport
+  // Safe zones — never place the tooltip under the system UI (iOS notch / home-indicator)
+  // or the topbar area.
+  const safeTop = 56
+  const safeBottom = 24
 
   const tooltipStyle: React.CSSProperties = { position: 'fixed', width: tooltipW, zIndex: 10001 }
 
-  if (isTall && spaceRight > tooltipW + gap) {
+  const clampX = (x: number) => Math.max(16, Math.min(x, vw - tooltipW - 16))
+  const clampY = (y: number) => Math.max(safeTop, Math.min(y, vh - tooltipH - safeBottom))
+
+  if (!cutout) {
+    // No visible target — center-overlay the tooltip so the step is still reachable.
+    tooltipStyle.top = clampY((vh - tooltipH) / 2)
+    tooltipStyle.left = clampX((vw - tooltipW) / 2)
+  } else { const spaceRight = vw - (cutout.x + cutout.w)
+  const spaceBelow = vh - (cutout.y + cutout.h)
+  const spaceLeft = cutout.x
+  const spaceAbove = cutout.y
+  const isTall = cutout.h > vh * 0.5 // element taller than half viewport
+
+  if (isTall && spaceRight >= tooltipW + gap) {
     // Tall element (sidebar): place tooltip to the right, vertically centered
     tooltipStyle.left = cutout.x + cutout.w + gap
-    tooltipStyle.top = Math.max(60, Math.min(cutout.y + cutout.h / 2 - tooltipH / 2, vh - tooltipH - 16))
-  } else if (isTall && spaceLeft > tooltipW + gap) {
+    tooltipStyle.top = clampY(cutout.y + cutout.h / 2 - tooltipH / 2)
+  } else if (isTall && spaceLeft >= tooltipW + gap) {
     // Tall element but no space right: place to the left
     tooltipStyle.left = cutout.x - tooltipW - gap
-    tooltipStyle.top = Math.max(60, Math.min(cutout.y + cutout.h / 2 - tooltipH / 2, vh - tooltipH - 16))
-  } else if (spaceBelow > tooltipH) {
+    tooltipStyle.top = clampY(cutout.y + cutout.h / 2 - tooltipH / 2)
+  } else if (spaceBelow >= tooltipH + gap + safeBottom) {
     // Normal: place below
-    tooltipStyle.top = cutout.y + cutout.h + gap
-    tooltipStyle.left = Math.max(16, Math.min(cutout.x, vw - tooltipW - 16))
+    tooltipStyle.top = clampY(cutout.y + cutout.h + gap)
+    tooltipStyle.left = clampX(cutout.x)
+  } else if (spaceAbove >= tooltipH + gap + safeTop) {
+    // Place above if there's room — use top (not bottom) to be compatible with
+    // clamping so the tooltip never pokes beyond the viewport.
+    tooltipStyle.top = clampY(cutout.y - tooltipH - gap)
+    tooltipStyle.left = clampX(cutout.x)
   } else {
-    // Fallback: place above
-    tooltipStyle.bottom = vh - cutout.y + gap
-    tooltipStyle.left = Math.max(16, Math.min(cutout.x, vw - tooltipW - 16))
-  }
+    // Neither above nor below fits — center-overlay the tooltip. Better to
+    // cover the target than to render off-screen (happens when the target is
+    // nearly viewport-sized, e.g. main content on mobile).
+    tooltipStyle.top = clampY((vh - tooltipH) / 2)
+    tooltipStyle.left = clampX((vw - tooltipW) / 2)
+  } }
 
   return ReactDOM.createPortal(
     <>
-      {/* Full-screen overlay with cutout */}
-      <svg
-        className="fixed inset-0"
-        style={{ zIndex: 10000, pointerEvents: 'none' }}
-        width="100%" height="100%"
-      >
-        <defs>
-          <mask id="tour-spotlight-mask">
-            <rect width="100%" height="100%" fill="white" />
-            <rect
-              x={cutout.x} y={cutout.y}
-              width={cutout.w} height={cutout.h}
-              rx={8} fill="black"
-            />
-          </mask>
-        </defs>
-        <rect
+      {/* Full-screen overlay with cutout (only when a target is visible) */}
+      {cutout ? (
+        <svg
+          className="fixed inset-0"
+          style={{ zIndex: 10000, pointerEvents: 'none' }}
           width="100%" height="100%"
-          fill="rgba(0,0,0,0.55)"
-          mask="url(#tour-spotlight-mask)"
-          style={{ pointerEvents: 'auto' }}
+        >
+          <defs>
+            <mask id="tour-spotlight-mask">
+              <rect width="100%" height="100%" fill="white" />
+              <rect
+                x={cutout.x} y={cutout.y}
+                width={cutout.w} height={cutout.h}
+                rx={8} fill="black"
+              />
+            </mask>
+          </defs>
+          <rect
+            width="100%" height="100%"
+            fill="rgba(0,0,0,0.55)"
+            mask="url(#tour-spotlight-mask)"
+            style={{ pointerEvents: 'auto' }}
+            onClick={onClose}
+          />
+        </svg>
+      ) : (
+        <div
+          className="fixed inset-0"
+          style={{ zIndex: 10000, background: 'rgba(0,0,0,0.55)' }}
           onClick={onClose}
         />
-      </svg>
+      )}
 
       {/* Highlight ring around target */}
-      <div
-        className="fixed rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-transparent pointer-events-none animate-pulse"
-        style={{
-          zIndex: 10001,
-          left: cutout.x,
-          top: cutout.y,
-          width: cutout.w,
-          height: cutout.h,
-        }}
-      />
+      {cutout && (
+        <div
+          className="fixed rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-transparent pointer-events-none animate-pulse"
+          style={{
+            zIndex: 10001,
+            left: cutout.x,
+            top: cutout.y,
+            width: cutout.w,
+            height: cutout.h,
+          }}
+        />
+      )}
 
       {/* Tooltip */}
-      <div style={tooltipStyle} className="bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto">
+      <div ref={tooltipRef} style={tooltipStyle} className="bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto">
         {/* Progress */}
         <div className="flex items-center gap-1.5 mb-2">
           {Array.from({ length: totalSteps }).map((_, i) => (
@@ -741,9 +787,15 @@ export function AssistantPanel() {
       className={cn(
         'flex flex-col bg-background/95 backdrop-blur-sm border-border shadow-lg',
         'animate-in slide-in-from-right duration-200',
-        panelMode === 'docked' && 'fixed top-[44px] right-0 z-40 h-[calc(100vh-44px)] w-[360px] max-w-[90vw] border-l',
-        panelMode === 'floating' && 'fixed top-[56px] right-4 z-50 h-[calc(100vh-72px)] w-[380px] max-w-[90vw] rounded-xl border shadow-2xl',
-        panelMode === 'compact' && 'fixed bottom-4 right-4 z-50 h-[420px] w-[340px] max-w-[90vw] rounded-xl border shadow-2xl',
+        // On mobile (<sm) the panel takes the full viewport height minus the topbar,
+        // using 100dvh so the URL bar's appearance/disappearance doesn't clip the
+        // input area. From sm+ we fall back to the classic docked/floating/compact modes.
+        'fixed right-0 z-40 w-full max-w-full border-l',
+        'top-[44px] h-[calc(100dvh-44px)]',
+        'sm:w-[360px] sm:max-w-[90vw]',
+        panelMode === 'docked' && 'sm:top-[44px] sm:h-[calc(100dvh-44px)]',
+        panelMode === 'floating' && 'sm:top-[56px] sm:right-4 sm:z-50 sm:h-[calc(100dvh-72px)] sm:w-[380px] sm:rounded-xl sm:border sm:shadow-2xl',
+        panelMode === 'compact' && 'sm:top-auto sm:bottom-4 sm:right-4 sm:z-50 sm:h-[420px] sm:w-[340px] sm:rounded-xl sm:border sm:shadow-2xl',
       )}
     >
       {/* ── Header — height matches page header (h-[38px]) ── */}
@@ -1078,8 +1130,11 @@ function ChatTab({ currentModule }: { currentModule: string }) {
         )}
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-border bg-muted/20 p-3 shrink-0 space-y-2">
+      {/* Input area — extra bottom padding for iOS home-indicator safe area */}
+      <div
+        className="border-t border-border bg-muted/20 p-3 shrink-0 space-y-2"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      >
         {messages.length > 0 && (
           <div className="flex justify-end gap-1.5">
             {streaming && (
@@ -1199,8 +1254,17 @@ function ToursTab({ currentModule }: { currentModule: string }) {
     // Try data-tour attribute first, then CSS selector
     const el = document.querySelector(`[data-tour="${step.target}"]`) || document.querySelector(step.target)
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      // Center the element so the tooltip has room above OR below — block:'nearest'
+      // would leave targets pinned to the viewport edge with no placement space.
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       const rect = el.getBoundingClientRect()
+      // If the element is not visible at all (display:none, parent hidden…)
+      // the rect collapses to width/height 0 at (0,0). Skip the spotlight in
+      // that case — the tooltip will fall back to center-overlay mode.
+      if (rect.width === 0 && rect.height === 0) {
+        setTargetRect(null)
+        return
+      }
       setTargetRect(rect)
       // Focus the element if it's focusable (input, button, etc.)
       if (el instanceof HTMLElement && (el.tabIndex >= 0 || el.tagName === 'INPUT' || el.tagName === 'BUTTON' || el.tagName === 'TEXTAREA')) {
@@ -1248,8 +1312,10 @@ function ToursTab({ currentModule }: { currentModule: string }) {
     setCurrentStep(s => Math.max(0, s - 1))
   }, [])
 
-  // Render spotlight overlay when a tour is active and target is found
-  const spotlightOverlay = activeTour && targetRect ? (
+  // Render spotlight overlay when a tour is active — targetRect may be null
+  // when the anchor is hidden/off-screen (TourSpotlight handles that case by
+  // centering the tooltip over a full-screen backdrop instead of a cutout).
+  const spotlightOverlay = activeTour ? (
     <TourSpotlight
       targetRect={targetRect}
       tooltipContent={activeTour.steps[currentStep]}
@@ -1476,14 +1542,26 @@ function TicketTab() {
   const [attachments, setAttachments] = useState<File[]>([])
   const [previews, setPreviews] = useState<{ name: string; url: string | null; type: string }[]>([])
   const [capturing, setCapturing] = useState(false)
+  const [recording, setRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Screenshot capture
+  // Screenshot capture — hides the Assistant panel so it doesn't appear in
+  // the capture, then restores it.
   const captureScreenshot = useCallback(async () => {
     setCapturing(true)
+    const panelEl = document.querySelector<HTMLElement>('aside[class*="slide-in-from-right"]')
+    const prevVisibility = panelEl?.style.visibility
+    if (panelEl) panelEl.style.visibility = 'hidden'
     try {
+      await new Promise(r => setTimeout(r, 80))
       const html2canvas = (await import('html2canvas')).default
       const canvas = await html2canvas(document.body, { useCORS: true, scale: 0.5, logging: false })
+      if (panelEl) panelEl.style.visibility = prevVisibility ?? ''
       canvas.toBlob((blob) => {
         if (blob) {
           const file = new File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' })
@@ -1493,10 +1571,71 @@ function TicketTab() {
         setCapturing(false)
       }, 'image/png')
     } catch {
+      if (panelEl) panelEl.style.visibility = prevVisibility ?? ''
       toast({ title: "Capture d'écran impossible", variant: 'error' })
       setCapturing(false)
     }
   }, [toast])
+
+  // Screen recording (getDisplayMedia + MediaRecorder) — ported from the
+  // now-removed FeedbackWidget. Output is a .webm (or .mp4 fallback) attached
+  // like any other file.
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { width: 1280, height: 720, frameRate: 15 },
+        audio: false,
+      })
+      streamRef.current = stream
+
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : MediaRecorder.isTypeSupported('video/webm')
+          ? 'video/webm'
+          : 'video/mp4'
+
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 1_000_000 })
+      mediaRecorderRef.current = recorder
+      chunksRef.current = []
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mimeType })
+        const ext = mimeType.includes('webm') ? 'webm' : 'mp4'
+        const file = new File([blob], `recording-${Date.now()}.${ext}`, { type: mimeType })
+        setAttachments(prev => [...prev, file])
+        setPreviews(prev => [...prev, { name: file.name, url: null, type: 'video' }])
+        setRecording(false)
+        setRecordingTime(0)
+        if (timerRef.current) clearInterval(timerRef.current)
+        streamRef.current?.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+      }
+
+      stream.getVideoTracks()[0].onended = () => {
+        if (mediaRecorderRef.current?.state === 'recording') {
+          mediaRecorderRef.current.stop()
+        }
+      }
+
+      recorder.start(1000)
+      setRecording(true)
+      setRecordingTime(0)
+      timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000)
+      toast({ title: 'Enregistrement démarré', description: 'Cliquez sur Stop quand vous avez terminé.', variant: 'success' })
+    } catch {
+      toast({ title: 'Enregistrement impossible', description: "L'accès au partage d'écran a été refusé.", variant: 'error' })
+    }
+  }, [toast])
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop()
+    }
+  }, [])
 
   // File attach
   const handleFileAttach = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1533,19 +1672,30 @@ function TicketTab() {
         },
       })
 
-      // Upload attachments
-      for (const file of attachments) {
+      // Build upload list — user attachments + auto console log for bugs
+      const filesToUpload: { file: File; description: string }[] = attachments.map(f => ({
+        file: f,
+        description: f.type.startsWith('video/') ? 'Enregistrement écran'
+          : f.type.startsWith('image/') ? "Capture d'écran"
+          : 'Pièce jointe',
+      }))
+      if (form.ticket_type === 'bug' && consoleLogBuffer.length > 0) {
+        filesToUpload.push({ file: buildConsoleLogFile(), description: 'Console log (auto-capturé)' })
+      }
+
+      for (const { file, description } of filesToUpload) {
         try {
           const fd = new FormData()
           fd.append('file', file)
           fd.append('owner_type', 'support_ticket')
           fd.append('owner_id', ticket.id)
-          fd.append('description', file.type.startsWith('image/') ? "Capture d'écran" : 'Pièce jointe')
+          fd.append('description', description)
           await api.post('/api/v1/attachments', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
         } catch { /* non-blocking */ }
       }
 
-      toast({ title: 'Ticket créé !', description: `Ref: ${ticket.reference}`, variant: 'success' })
+      const logNote = form.ticket_type === 'bug' ? ' (console log inclus)' : ''
+      toast({ title: 'Ticket créé !', description: `Ref: ${ticket.reference} · ${filesToUpload.length} PJ${logNote}`, variant: 'success' })
       setForm({ title: '', description: '', ticket_type: 'bug', priority: 'medium' })
       setAttachments([])
       setPreviews([])
@@ -1555,7 +1705,10 @@ function TicketTab() {
   }, [form, createTicket, toast, attachments])
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+    <div
+      className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+      style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+    >
       {/* Type selector */}
       <div className="flex gap-1.5">
         {TICKET_TYPE_OPTIONS.map(opt => (
@@ -1603,12 +1756,21 @@ function TicketTab() {
         <option value="critical">Critique</option>
       </select>
 
-      {/* Media buttons */}
+      {/* Media buttons — screenshot, screen-recording, file attach */}
       <div className="flex items-center gap-1.5">
-        <button onClick={captureScreenshot} disabled={capturing} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
+        <button onClick={captureScreenshot} disabled={capturing || recording} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
           {capturing ? <Loader2 size={10} className="animate-spin" /> : <Camera size={10} />} Photo
         </button>
-        <button onClick={() => fileRef.current?.click()} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
+        {recording ? (
+          <button onClick={stopRecording} className="gl-button-sm gl-button-danger flex-1 justify-center text-[10px] animate-pulse">
+            <Square size={10} /> Stop {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+          </button>
+        ) : (
+          <button onClick={startRecording} disabled={capturing} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
+            <Video size={10} /> Vidéo
+          </button>
+        )}
+        <button onClick={() => fileRef.current?.click()} disabled={recording} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
           <Paperclip size={10} /> Fichier
         </button>
         <input ref={fileRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx" className="hidden" onChange={handleFileAttach} />

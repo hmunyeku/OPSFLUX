@@ -165,7 +165,14 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <HelpProvider>
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
+    {/*
+      h-dvh (dynamic viewport height) instead of h-screen so the root
+      layout follows the visible viewport on mobile browsers whose URL
+      bar hides on scroll. h-screen uses the "large" VH which keeps the
+      bottom cut off when the URL bar reappears. Safari fallback:
+      h-screen is still the computed value where dvh is unsupported.
+    */}
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
       {/* ── Zone 1: Topbar ── */}
       <Topbar onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
 

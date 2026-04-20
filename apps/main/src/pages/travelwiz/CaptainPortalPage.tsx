@@ -72,7 +72,7 @@ function CaptainLogin({ onLogin }: { onLogin: (voyageId: string, captainName: st
   }, [code, auth, onLogin])
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
         {/* Logo / Header */}
         <div className="text-center space-y-2">
@@ -191,7 +191,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
 
   if (isLoading || !manifest) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 size={16} className="animate-spin text-primary" />
       </div>
     )
@@ -218,7 +218,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
   )
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       {/* Header */}
       <div className="bg-card border-b border-border px-4 py-3 sticky top-0 z-10">
         <div className="flex items-center justify-between">

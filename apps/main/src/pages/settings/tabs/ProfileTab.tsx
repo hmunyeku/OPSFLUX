@@ -927,7 +927,12 @@ export function ProfileTab() {
 
       {/* Floating save bar — only visible when there are unsaved changes */}
       {isDirty && (
-        <div className="sticky bottom-0 z-30 -mx-6 px-6 py-3 bg-card/95 backdrop-blur border-t border-border shadow-lg flex items-center gap-3">
+        <div
+          className="sticky bottom-0 z-30 -mx-6 px-6 py-3 bg-card/95 backdrop-blur border-t border-border shadow-lg flex items-center gap-3"
+          // Reserve space for the iOS home-indicator so the buttons
+          // don't sit under it on iPhone X+.
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        >
           <div className="flex-1 text-xs text-muted-foreground">Modifications non enregistrées</div>
           <button className="gl-button-sm gl-button-default" onClick={handleCancel}>Annuler</button>
           <button className="gl-button-sm gl-button-confirm" onClick={handleSubmit} disabled={updateProfile.isPending}>

@@ -39,7 +39,7 @@ export function AdsBoardingScanPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
@@ -47,7 +47,7 @@ export function AdsBoardingScanPage() {
 
   if (isError || !data) {
     return (
-      <div className="min-h-screen bg-background px-4 py-10">
+      <div className="min-h-dvh bg-background px-4 py-10">
         <div className="mx-auto max-w-3xl rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
           <div className="flex items-center gap-3 text-lg font-semibold">
             <AlertTriangle className="h-5 w-5" />
@@ -65,7 +65,7 @@ export function AdsBoardingScanPage() {
   const declaredTotal = data.manifests.reduce((sum, manifest) => sum + manifest.passenger_count, 0)
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#e0f2fe,transparent_35%),linear-gradient(180deg,#f8fafc_0%,#ffffff_55%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_100%)]">
+    <div className="min-h-dvh bg-[radial-gradient(circle_at_top,#e0f2fe,transparent_35%),linear-gradient(180deg,#f8fafc_0%,#ffffff_55%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_100%)]">
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="rounded-[28px] border border-border/60 bg-background/95 shadow-xl backdrop-blur">
           <div className="border-b border-border/60 px-5 py-5 sm:px-7">

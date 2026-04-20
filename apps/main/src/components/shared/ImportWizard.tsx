@@ -1760,7 +1760,7 @@ function StepReport({ importResult, isExecuting, onDownloadErrors, t }: {
         <h3 className="text-sm font-semibold">{t('import.report_title')}</h3>
         <p className="text-xs text-muted-foreground">{t('import.rows_processed', { count: importResult.total_processed })}</p>
       </div>
-      <div className="grid grid-cols-4 gap-3 max-w-md mx-auto">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-md mx-auto">
         <StatCard label={t('import.created', { count: importResult.created })} value={importResult.created} color="green" />
         <StatCard label={t('import.updated', { count: importResult.updated })} value={importResult.updated} color="blue" />
         <StatCard label={t('import.skipped', { count: importResult.skipped })} value={importResult.skipped} color="gray" />

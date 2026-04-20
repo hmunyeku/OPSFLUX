@@ -199,7 +199,7 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
                   ? t('settings.imputation_manager.prefilled_project_help')
                   : t('settings.imputation_manager.no_project_help')}
               </p>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
                   <label className="text-[10px] font-medium text-muted-foreground">{t('settings.imputation_manager.reference')}</label>
                   <select className={panelInputClass} value={form.imputation_reference_id} onChange={(e) => setForm({ ...form, imputation_reference_id: e.target.value })}>
@@ -249,7 +249,7 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
       ) : (
         <div className="space-y-1">
           {/* Header */}
-          <div className="grid grid-cols-5 gap-2 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <div className="hidden sm:grid grid-cols-5 gap-2 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             <span>{t('settings.imputation_manager.reference')}</span>
             <span>{t('settings.imputation_manager.project')}</span>
             <span>{t('settings.imputation_manager.cost_center')}</span>
@@ -258,7 +258,7 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
           </div>
           {/* Rows */}
           {imputations.map((imp: CostImputation) => (
-            <div key={imp.id} className="grid grid-cols-5 gap-2 px-2 py-1.5 rounded hover:bg-accent/50 text-xs items-center">
+            <div key={imp.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 px-2 py-1.5 rounded hover:bg-accent/50 text-xs items-center">
               {editingId === imp.id ? (
                 <>
                   <select className={panelInputClass} value={form.imputation_reference_id} onChange={(e) => setForm({ ...form, imputation_reference_id: e.target.value })}>
@@ -339,7 +339,7 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
             </div>
           ))}
           {/* Total row */}
-          <div className="grid grid-cols-5 gap-2 px-2 py-1.5 border-t border-border text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 px-2 py-1.5 border-t border-border text-xs">
             <span className="font-semibold text-foreground col-span-3">{t('common.total')}</span>
             <span className={cn('text-right tabular-nums font-semibold', total === 100 ? 'text-green-600' : 'text-destructive')}>
               {total}%

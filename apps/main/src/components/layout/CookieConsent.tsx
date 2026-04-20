@@ -51,6 +51,9 @@ export default function CookieConsent() {
         'border-t border-border bg-card text-foreground',
         'px-4 py-3 shadow-lg',
       )}
+      // iOS home-indicator reserve — 12px desktop default, pushed to
+      // the safe-area inset on devices with a notch / home bar.
+      style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
     >
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 sm:flex-row sm:gap-4">
         <Cookie className="hidden h-5 w-5 shrink-0 text-muted-foreground sm:block" />

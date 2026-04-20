@@ -496,7 +496,7 @@ export function ExportWizard({
                   <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                     {t('export.format')}
                   </label>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {FORMAT_OPTIONS.map((opt) => {
                       const Icon = opt.icon
                       return (

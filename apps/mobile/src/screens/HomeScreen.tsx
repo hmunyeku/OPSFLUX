@@ -50,6 +50,13 @@ const QUICK_ACTIONS: QuickAction[] = [
     screen: "CargoList",
     color: colors.success,
   },
+  {
+    title: "MOCtrack",
+    description: "Consulter les demandes de modification (MOC)",
+    icon: "MOC",
+    screen: "MOCList",
+    color: colors.info,
+  },
 ];
 
 interface Props {

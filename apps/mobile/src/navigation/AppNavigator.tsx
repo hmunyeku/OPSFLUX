@@ -60,6 +60,8 @@ import MyPickupWaitingScreen from "../screens/MyPickupWaitingScreen";
 import CargoScanAssistantScreen from "../screens/CargoScanAssistantScreen";
 import CargoRequestDetailScreen from "../screens/CargoRequestDetailScreen";
 import AdsDetailScreen from "../screens/AdsDetailScreen";
+import MOCListScreen from "../screens/MOCListScreen";
+import MOCDetailScreen from "../screens/MOCDetailScreen";
 import VoyageDetailScreen from "../screens/VoyageDetailScreen";
 import CargoReceptionScreen from "../screens/CargoReceptionScreen";
 import OnboardingScreen, { isOnboardingComplete } from "../screens/OnboardingScreen";
@@ -232,6 +234,16 @@ function SharedScreens() {
         name="AdsDetail"
         component={AdsDetailScreen as any}
         options={{ title: "Détail ADS" }}
+      />
+      <Stack.Screen
+        name="MOCList"
+        component={MOCListScreen as any}
+        options={{ title: "MOCtrack" }}
+      />
+      <Stack.Screen
+        name="MOCDetail"
+        component={MOCDetailScreen as any}
+        options={{ title: "Détail MOC" }}
       />
       <Stack.Screen
         name="VoyageDetail"

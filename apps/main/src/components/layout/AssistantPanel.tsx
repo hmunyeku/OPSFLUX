@@ -750,6 +750,28 @@ export function AssistantPanel() {
   const { getPref, setPref } = useUserPreferences()
   const panelMode = getPref<PanelMode>('assistantPanelMode', 'docked')
 
+  // ── First-login welcome tour auto-launch ──
+  // On very first session we open the panel on the Tours tab so the user
+  // lands on the `welcome` guided tour. `welcomeTourOffered` is flipped
+  // regardless of whether the user completes or dismisses the tour, so we
+  // only auto-open once — ticks the AUP §7.2 onboarding requirement
+  // without being annoying on every login.
+  const welcomeTourOffered = getPref<boolean>('welcomeTourOffered', false)
+  const completedToursEarly = getPref<string[]>('completedTours', [])
+  useEffect(() => {
+    if (welcomeTourOffered) return
+    if (completedToursEarly.includes('welcome')) {
+      setPref('welcomeTourOffered', true)
+      return
+    }
+    // Open the panel + switch to tours tab (ToursTab auto-starts the
+    // welcome tour when it sees it hasn't been completed).
+    if (!aiPanelOpen) toggleAIPanel()
+    setActiveTab('tours')
+    setPref('welcomeTourOffered', true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const cyclePanelMode = useCallback(() => {
     const next = panelMode === 'docked' ? 'floating' : panelMode === 'floating' ? 'compact' : 'docked'
     setPref('assistantPanelMode', next)
@@ -1291,6 +1313,23 @@ function ToursTab({ currentModule }: { currentModule: string }) {
     setActiveTour(tour)
     setCurrentStep(0)
   }, [])
+
+  // Auto-start the welcome tour the first time the user lands on this tab.
+  // Paired with the AssistantPanel-level effect that auto-opens the panel
+  // on the Tours tab at first login.
+  const autoStartedRef = useRef(false)
+  useEffect(() => {
+    if (autoStartedRef.current) return
+    if (completedTours.includes('welcome')) return
+    const welcome = GUIDED_TOURS.find(t => t.id === 'welcome')
+    if (welcome) {
+      autoStartedRef.current = true
+      // Slight delay so the panel + tabs finish mounting before we
+      // measure the target element.
+      const tm = setTimeout(() => startTour(welcome), 300)
+      return () => clearTimeout(tm)
+    }
+  }, [completedTours, startTour])
 
   const closeTour = useCallback(() => {
     setActiveTour(null)

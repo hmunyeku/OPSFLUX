@@ -68,9 +68,10 @@ const TAB_DEFS: { id: PackLogTab; labelKey: string; icon: typeof LayoutDashboard
 /** Shared StatCard for PackLog tabs — uniform across modules. */
 function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-3">
+    <div className="group relative rounded-xl border border-border/70 bg-gradient-to-br from-background to-background/60 p-3 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-border">
+      <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-primary/80 to-[hsl(var(--highlight))]/40" />
       <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-lg font-semibold tabular-nums ${accent ?? 'text-foreground'}`}>{value}</p>
+      <p className={`mt-1 text-xl font-bold tabular-nums font-display tracking-tight ${accent ?? 'text-foreground'}`}>{value}</p>
     </div>
   )
 }

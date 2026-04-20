@@ -279,12 +279,13 @@ function KpiCard({ label, value, icon: Icon, color }: {
   color: string
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
-      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', color)}>
+    <div className="group relative flex items-center gap-3 rounded-xl border border-border/70 bg-gradient-to-br from-background to-background/60 p-4 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-border">
+      <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-primary/80 to-[hsl(var(--highlight))]/40" />
+      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-transform group-hover:scale-110', color)}>
         <Icon size={18} className="text-white" />
       </div>
       <div>
-        <p className="text-2xl font-semibold text-foreground tabular-nums">{value}</p>
+        <p className="text-2xl font-bold text-foreground tabular-nums font-display tracking-tight">{value}</p>
         <p className="text-xs text-muted-foreground">{label}</p>
       </div>
     </div>

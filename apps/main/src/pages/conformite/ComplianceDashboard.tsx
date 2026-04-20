@@ -24,13 +24,14 @@ interface StatCardProps {
 
 function StatCard({ label, value, icon: Icon, color, bgColor, subtitle }: StatCardProps) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', bgColor)}>
+    <div className="group relative flex items-center gap-3 rounded-xl border border-border/70 bg-gradient-to-br from-card to-card/60 px-4 py-3 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-border">
+      <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-primary/80 to-[hsl(var(--highlight))]/40" />
+      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-transform group-hover:scale-110', bgColor)}>
         <Icon size={20} className={color} />
       </div>
       <div className="min-w-0">
         <p className="text-xs text-muted-foreground truncate">{label}</p>
-        <p className={cn('text-xl font-semibold tabular-nums', color)}>{value}</p>
+        <p className={cn('text-xl font-bold tabular-nums font-display tracking-tight', color)}>{value}</p>
         {subtitle && <p className="text-[10px] text-muted-foreground">{subtitle}</p>}
       </div>
     </div>

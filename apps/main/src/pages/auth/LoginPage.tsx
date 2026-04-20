@@ -375,14 +375,22 @@ export function LoginPage() {
                       type="button"
                       onClick={() => handleSsoLogin(provider.id)}
                       disabled={ssoLoading === provider.id}
-                      className="gl-button gl-button-default w-full h-9 flex items-center justify-center gap-2"
+                      className="group relative w-full h-10 rounded-xl border border-border/70 bg-card/60 backdrop-blur-sm flex items-center justify-center gap-2 text-sm text-foreground transition-all hover:border-border hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
                     >
-                      {ssoLoading === provider.id ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        SSO_ICONS[provider.icon] || null
-                      )}
-                      {t('auth.sso_continue_with', { provider: provider.name })}
+                      {/* Shine sweep on hover — same effect as gl-button-premium */}
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 motion-reduce:hidden"
+                        style={{ background: 'linear-gradient(100deg, transparent 30%, hsl(var(--primary)/0.12) 50%, transparent 70%)' }}
+                      />
+                      <span className="relative flex items-center gap-2">
+                        {ssoLoading === provider.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          SSO_ICONS[provider.icon] || null
+                        )}
+                        {t('auth.sso_continue_with', { provider: provider.name })}
+                      </span>
                     </button>
                   ))}
                 </div>

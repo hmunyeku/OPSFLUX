@@ -1405,7 +1405,7 @@ async def request_moc_return(
 @router.post(
     "/{moc_id}/production-validation",
     response_model=MOCReadWithDetails,
-    dependencies=[require_permission("moc.update")],
+    dependencies=[require_permission("moc.production.validate")],
 )
 async def set_production_validation(
     moc_id: UUID,
@@ -1506,7 +1506,7 @@ async def set_moc_signature(
 @router.post(
     "/{moc_id}/promote-to-project",
     response_model=MOCReadWithDetails,
-    dependencies=[require_permission("moc.update")],
+    dependencies=[require_permission("moc.promote")],
 )
 async def promote_moc_to_project(
     moc_id: UUID,
@@ -1598,7 +1598,7 @@ async def promote_moc_to_project(
     "/{moc_id}/validations/invite",
     response_model=MOCValidationRead,
     status_code=201,
-    dependencies=[require_permission("moc.manage")],
+    dependencies=[require_permission("moc.validator.invite")],
 )
 async def invite_moc_validator(
     moc_id: UUID,

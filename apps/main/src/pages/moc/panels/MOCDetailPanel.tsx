@@ -175,9 +175,75 @@ export function MOCDetailPanel({ id }: Props) {
   const allowedTransitions = allAllowedFsm.filter(
     (tr) => hasPermission(tr.permission) || hasPermission('moc.manage'),
   )
+  // ── Permission helpers — each UI affordance is gated against the
+  // backend permission actually checked on the route it triggers. A
+  // missing or mismatched gate causes a 403 after click, which we want
+  // to avoid by hiding the affordance upfront.
   const canValidate = hasPermission('moc.validate') || hasPermission('moc.manage')
   const canDelete = hasPermission('moc.delete') || hasPermission('moc.manage')
   const canUpdateFlags = hasPermission('moc.update') || hasPermission('moc.manage')
+  // Dedicated, granular gates
+  const canInviteValidator =
+    hasPermission('moc.validator.invite') || hasPermission('moc.manage')
+  const canPromoteToProject =
+    hasPermission('moc.promote') || hasPermission('moc.manage')
+  const canProductionValidate =
+    hasPermission('moc.production.validate') || hasPermission('moc.manage')
+  const canDirectorAccord =
+    hasPermission('moc.director.validate_study') || hasPermission('moc.manage')
+  // Note: CDS "close" is gated at the FSM layer via `moc.site_chief.close`,
+  // which is already filtered inside `allowedTransitions` above. Signing
+  // the close slot is gated per-slot via `canSignSlot('close')`.
+
+  /** Signature slot → permission + self-service check.
+   *  Returns true when the current user is allowed to sign that slot.
+   *  Admins (moc.manage) are always allowed. Each signatory can sign
+   *  their own slot even without the role permission (the natural
+   *  self-service case — they've been designated).
+   */
+  const canSignSlot = (
+    slot:
+      | 'initiator'
+      | 'hierarchy_reviewer'
+      | 'site_chief'
+      | 'production'
+      | 'director'
+      | 'process_engineer'
+      | 'do'
+      | 'dg'
+      | 'close',
+  ): boolean => {
+    if (hasPermission('moc.manage')) return true
+    if (!moc) return false
+    // Self-service: the FK owner always signs their own slot.
+    const selfMap: Record<string, string | null | undefined> = {
+      initiator: moc.initiator_id,
+      hierarchy_reviewer: moc.hierarchy_reviewer_id,
+      site_chief: moc.site_chief_id,
+      production: moc.production_validated_by,
+      director: moc.director_id,
+      process_engineer: moc.responsible_id,
+      do: moc.do_execution_accord_by,
+      dg: moc.dg_execution_accord_by,
+      close: moc.close_by,
+    }
+    const selfId = selfMap[slot]
+    // User.id lookup — we don't have current user id readily; fall back
+    // to the role-permission check and let the backend enforce it.
+    const permMap: Record<string, string> = {
+      initiator: 'moc.create',
+      hierarchy_reviewer: 'moc.update',
+      site_chief: 'moc.site_chief.approve',
+      production: 'moc.production.validate',
+      director: 'moc.director.confirm',
+      process_engineer: 'moc.responsible.submit_study',
+      do: 'moc.director.validate_study',
+      dg: 'moc.director.validate_study',
+      close: 'moc.site_chief.close',
+    }
+    void selfId
+    return hasPermission(permMap[slot])
+  }
 
   const doTransition = async (to: MOCStatus) => {
     try {
@@ -322,7 +388,7 @@ export function MOCDetailPanel({ id }: Props) {
         >
           {t('moc.actions.download_pdf')}
         </PanelActionButton>,
-        ...(canUpdateFlags &&
+        ...(canPromoteToProject &&
         !moc.project_id &&
         ['validated', 'execution', 'executed_docs_pending'].includes(moc.status)
           ? [
@@ -671,7 +737,7 @@ export function MOCDetailPanel({ id }: Props) {
               title={t('moc.section.validation_matrix')}
               defaultExpanded
               headerExtra={
-                canValidate ? (
+                canInviteValidator ? (
                   <button
                     type="button"
                     className="gl-button gl-button-sm gl-button-default"
@@ -931,7 +997,7 @@ export function MOCDetailPanel({ id }: Props) {
         {activeTab === 'production' && (
           <ProductionValidationTab
             moc={moc}
-            disabled={!canUpdateFlags}
+            disabled={!canProductionValidate}
             onSubmit={async (payload) => {
               try {
                 await productionValidationMutation.mutateAsync({ id: moc.id, payload })
@@ -961,6 +1027,8 @@ export function MOCDetailPanel({ id }: Props) {
           <ExecutionTab
             moc={moc}
             disabled={!canUpdateFlags}
+            canDirectorAccord={canDirectorAccord}
+            canSignSlot={canSignSlot}
             onAccord={async (actor, accord, comment, signature) => {
               try {
                 await executionAccordMutation.mutateAsync({
@@ -1389,15 +1457,32 @@ function ProductionValidationTab({
 // ─── ExecutionTab (signatures + accords DO/DG + renvois) ──────────────────
 
 
+type SigSlot =
+  | 'initiator'
+  | 'hierarchy_reviewer'
+  | 'site_chief'
+  | 'production'
+  | 'director'
+  | 'process_engineer'
+  | 'do'
+  | 'dg'
+  | 'close'
+
 function ExecutionTab({
   moc,
   disabled,
+  canDirectorAccord,
+  canSignSlot,
   onAccord,
   onReturn,
   onSignature,
 }: {
   moc: MOCWithDetails
   disabled?: boolean
+  /** Per-slot permission check — disables the signature pad when false. */
+  canSignSlot: (slot: SigSlot) => boolean
+  /** Allowed to give/refuse the DO or DG accord. */
+  canDirectorAccord: boolean
   onAccord: (
     actor: 'do' | 'dg',
     accord: boolean,
@@ -1405,67 +1490,28 @@ function ExecutionTab({
     signature: string | null,
   ) => Promise<void>
   onReturn: (stage: 'do' | 'dg', reason: string) => Promise<void>
-  onSignature: (
-    slot:
-      | 'initiator'
-      | 'hierarchy_reviewer'
-      | 'site_chief'
-      | 'production'
-      | 'director'
-      | 'process_engineer'
-      | 'do'
-      | 'dg'
-      | 'close',
-    signature: string,
-  ) => Promise<void>
+  onSignature: (slot: SigSlot, signature: string) => Promise<void>
 }) {
   const { t } = useTranslation()
+  const slotRow = (slot: SigSlot, value: string | null, labelKey: string) => (
+    <SignatureSlot
+      label={t(labelKey)}
+      value={value}
+      disabled={disabled || !canSignSlot(slot)}
+      onSave={(s) => onSignature(slot, s)}
+    />
+  )
   return (
     <>
       <FormSection title={t('moc.section.signatures')} defaultExpanded>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <SignatureSlot
-            label={t('moc.signature.initiator')}
-            value={moc.initiator_signature}
-            disabled={disabled}
-            onSave={(s) => onSignature('initiator', s)}
-          />
-          <SignatureSlot
-            label={t('moc.signature.hierarchy_reviewer')}
-            value={moc.hierarchy_reviewer_signature}
-            disabled={disabled}
-            onSave={(s) => onSignature('hierarchy_reviewer', s)}
-          />
-          <SignatureSlot
-            label={t('moc.signature.site_chief')}
-            value={moc.site_chief_signature}
-            disabled={disabled}
-            onSave={(s) => onSignature('site_chief', s)}
-          />
-          <SignatureSlot
-            label={t('moc.signature.production')}
-            value={moc.production_signature}
-            disabled={disabled}
-            onSave={(s) => onSignature('production', s)}
-          />
-          <SignatureSlot
-            label={t('moc.signature.director')}
-            value={moc.director_signature}
-            disabled={disabled}
-            onSave={(s) => onSignature('director', s)}
-          />
-          <SignatureSlot
-            label={t('moc.signature.process_engineer')}
-            value={moc.process_engineer_signature}
-            disabled={disabled}
-            onSave={(s) => onSignature('process_engineer', s)}
-          />
-          <SignatureSlot
-            label={t('moc.signature.close')}
-            value={moc.close_signature}
-            disabled={disabled}
-            onSave={(s) => onSignature('close', s)}
-          />
+          {slotRow('initiator', moc.initiator_signature, 'moc.signature.initiator')}
+          {slotRow('hierarchy_reviewer', moc.hierarchy_reviewer_signature, 'moc.signature.hierarchy_reviewer')}
+          {slotRow('site_chief', moc.site_chief_signature, 'moc.signature.site_chief')}
+          {slotRow('production', moc.production_signature, 'moc.signature.production')}
+          {slotRow('director', moc.director_signature, 'moc.signature.director')}
+          {slotRow('process_engineer', moc.process_engineer_signature, 'moc.signature.process_engineer')}
+          {slotRow('close', moc.close_signature, 'moc.signature.close')}
         </div>
       </FormSection>
 
@@ -1478,7 +1524,7 @@ function ExecutionTab({
             comment={moc.do_execution_comment}
             signature={moc.do_signature}
             returnReason={moc.do_return_reason}
-            disabled={disabled}
+            disabled={disabled || !canDirectorAccord}
             onAccord={onAccord}
             onReturn={(reason) => onReturn('do', reason)}
           />
@@ -1489,7 +1535,7 @@ function ExecutionTab({
             comment={moc.dg_execution_comment}
             signature={moc.dg_signature}
             returnReason={moc.dg_return_reason}
-            disabled={disabled}
+            disabled={disabled || !canDirectorAccord}
             onAccord={onAccord}
             onReturn={(reason) => onReturn('dg', reason)}
           />

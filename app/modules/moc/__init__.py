@@ -54,6 +54,18 @@ MANIFEST = ModuleManifest(
         # SITE_CHIEF, DIRECTOR, DO/DG, HSE, LEAD_PROCESS, MAINTENANCE and
         # ADMIN roles since they need to verify upstream visas.
         "moc.signature.view",
+        # Project promotion — creating a Project from a validated MOC.
+        # Granular so an org can allow a PMO to promote without giving
+        # them moc.manage (which unlocks destructive operations).
+        "moc.promote",
+        # Production mise-en-étude — tab 3 of the Daxium form. Distinct
+        # permission so a Production Manager can validate without being
+        # granted the generic moc.update on the whole module.
+        "moc.production.validate",
+        # Inviting an ad-hoc validator — currently gated on moc.manage at
+        # the backend; declared here so the UI can show/hide the button
+        # correctly and admins can delegate.
+        "moc.validator.invite",
     ],
     roles=[
         {
@@ -76,6 +88,10 @@ MANIFEST = ModuleManifest(
                 "moc.site_chief.complete_execution",
                 "moc.site_chief.close",
                 "moc.signature.view",
+                # CDS acts as the operational lead on-site — typically
+                # allowed to promote a validated MOC into a project and
+                # to invite additional validators when needed.
+                "moc.promote", "moc.validator.invite",
             ],
         },
         {
@@ -88,6 +104,7 @@ MANIFEST = ModuleManifest(
                 "moc.director.stand_by", "moc.director.resume",
                 "moc.director.validate_study", "moc.director.return_for_rework",
                 "moc.signature.view",
+                "moc.promote", "moc.validator.invite",
             ],
         },
         {
@@ -99,6 +116,9 @@ MANIFEST = ModuleManifest(
                 "moc.lead_process.start_study",
                 "moc.validate", "moc.metier.validate",
                 "moc.signature.view",
+                # Lead process coordinates the study — can invite extra
+                # validators when the matrix misses a discipline.
+                "moc.validator.invite",
             ],
         },
         {
@@ -109,6 +129,18 @@ MANIFEST = ModuleManifest(
                 "moc.read", "moc.update", "moc.transition",
                 "moc.responsible.submit_study", "moc.responsible.cancel",
                 "moc.responsible.close",
+                "moc.signature.view",
+            ],
+        },
+        {
+            "code": "PRODUCTION_MANAGER",
+            "name": "Production Manager — MOC",
+            "description": (
+                "Valide la mise en étude des MOC sur son périmètre "
+                "production (Daxium onglet 3)."
+            ),
+            "permissions": [
+                "moc.read", "moc.validate", "moc.production.validate",
                 "moc.signature.view",
             ],
         },
@@ -157,6 +189,8 @@ MANIFEST = ModuleManifest(
                 "moc.hse.validate", "moc.maintenance.validate",
                 "moc.metier.validate", "moc.initiator.cancel",
                 "moc.signature.view",
+                "moc.promote", "moc.production.validate",
+                "moc.validator.invite",
             ],
         },
     ],

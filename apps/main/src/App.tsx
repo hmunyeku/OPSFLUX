@@ -40,6 +40,7 @@ const FileManagerPage = lazy(() => import('@/pages/files/FileManagerPage'))
 const SupportPage = lazy(() => import('@/pages/support/SupportPage').then(m => ({ default: m.SupportPage })))
 const MOCPage = lazy(() => import('@/pages/moc/MOCPage').then(m => ({ default: m.MOCPage })))
 const HomePage = lazy(() => import('@/pages/home/HomePage').then(m => ({ default: m.HomePage })))
+const NotFoundPage = lazy(() => import('@/pages/errors/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -121,6 +122,10 @@ export default function App() {
                   <Route path="/workflows/*" element={<Navigate to="/workflow" replace />} />
                   <Route path="/fichiers/*" element={<Navigate to="/files" replace />} />
                   <Route path="/entites/*" element={<Navigate to="/entities" replace />} />
+                  {/* 404 catch-all — kept last so every defined route
+                      matches first. Wrapped by AppLayout so sidebar/topbar
+                      stay visible and the user can navigate away. */}
+                  <Route path="*" element={<NotFoundPage />} />
                 </Routes>
               </Suspense>
             </AppLayout>

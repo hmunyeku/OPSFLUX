@@ -346,9 +346,16 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       <header
         role="banner"
         data-tour="topbar"
-        className="flex h-11 items-center border-b border-border bg-chrome px-2 sm:px-3 shrink-0 gap-1 sm:gap-2"
+        // Subtle gradient + backdrop-blur gives the topbar some depth
+        // against the noise-textured body. 1px gradient line at the
+        // bottom instead of a flat border for a softer horizon.
+        className="relative flex h-11 items-center bg-chrome/90 backdrop-blur-md px-2 sm:px-3 shrink-0 gap-1 sm:gap-2 supports-[backdrop-filter]:bg-chrome/80"
         style={{ zIndex: 'var(--z-topbar)' }}
       >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-border to-transparent"
+        />
         {/* ── Left: Logo + mobile menu ── */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
@@ -395,7 +402,10 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
               placeholder={placeholder}
               autoComplete="off"
               name="opsflux-global-search"
-              className="w-full h-8 rounded-lg border border-border bg-chrome px-3 pl-9 pr-16 text-sm text-foreground placeholder:text-muted-foreground hover:bg-chrome-hover hover:border-border focus:bg-background focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-colors outline-none"
+              // Rounded pill + subtle inner shadow + primary-tinted
+              // focus ring. Polishes the global search without losing
+              // its scannable compact height.
+              className="w-full h-8 rounded-full border border-border/60 bg-chrome/80 px-3 pl-9 pr-16 text-sm text-foreground placeholder:text-muted-foreground hover:bg-chrome-hover hover:border-border focus:bg-background focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all outline-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
             />
             {globalSearch && (
               <button

@@ -780,8 +780,13 @@ export function DataTable<TData>({
                 <tr
                   key={row.id}
                   className={cn(
-                    'border-b border-border/60 transition-colors',
-                    isSelected ? 'bg-primary/[0.06]' : 'hover:bg-accent/40',
+                    'group/row relative border-b border-border/60 transition-colors',
+                    // Selected: primary-tinted gradient + left accent strip.
+                    // Hover: subtle accent wash — brightens the row without
+                    // hiding zebra striping or data density.
+                    isSelected
+                      ? 'bg-gradient-to-r from-primary/[0.10] to-[hsl(var(--highlight))]/[0.04]'
+                      : 'hover:bg-accent/40',
                     (onRowClick || selectionMode) && 'cursor-pointer',
                     selectionMode && 'select-none',
                   )}

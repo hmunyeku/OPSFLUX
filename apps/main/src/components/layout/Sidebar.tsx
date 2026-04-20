@@ -128,23 +128,39 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         key={item.path}
         onClick={() => { navigate(item.path); onClose?.() }}
         className={cn(
-          'group relative flex w-full items-center gap-2.5 rounded-lg h-8 text-sm transition-colors duration-150',
+          'group relative flex w-full items-center gap-2.5 rounded-lg h-8 text-sm transition-all duration-200',
+          // Active: gradient primary → highlight tint, subtle glow.
+          // Hover: soft chrome bg, icon scales slightly, tint strip
+          // slides in from the left.
           isActive
-            ? 'bg-primary/[0.16] text-foreground font-medium'
+            ? 'bg-gradient-to-r from-primary/[0.18] to-[hsl(var(--highlight))]/[0.10] text-foreground font-medium shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.12)]'
             : 'text-muted-foreground hover:bg-chrome-hover hover:text-foreground',
           collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2',
         )}
         title={collapsed ? t(item.labelKey) : undefined}
       >
+        {/* Active accent strip — gradient so it aligns with the StatCard
+            vocabulary. Slightly thicker than before for better read. */}
         {isActive && !collapsed && (
-          <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary" />
+          <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full bg-gradient-to-b from-primary to-[hsl(var(--highlight))]" />
         )}
-        <Icon size={16} className="shrink-0" />
+        {/* Hover accent strip — fades in on non-active items so users
+            get a consistent visual cue. */}
+        {!isActive && !collapsed && (
+          <span className="absolute left-0 top-1 bottom-1 w-[2px] rounded-r-full bg-primary/0 group-hover:bg-primary/40 transition-colors duration-200" />
+        )}
+        <Icon
+          size={16}
+          className={cn(
+            'shrink-0 transition-transform duration-200',
+            isActive ? 'text-primary' : 'group-hover:scale-110',
+          )}
+        />
         {!collapsed && (
           <>
             <span className="truncate flex-1 text-left">{t(item.labelKey)}</span>
             {item.badge !== undefined && item.badge > 0 && (
-              <span className="ml-auto h-4 min-w-[16px] flex items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground px-1">
+              <span className="ml-auto h-4 min-w-[16px] flex items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground px-1 shadow-sm">
                 {item.badge > 99 ? '99+' : item.badge}
               </span>
             )}

@@ -76,7 +76,8 @@ export async function uploadAttachmentDirect(
   uri: string,
   ownerType: string,
   ownerId: string,
-  description?: string
+  description?: string,
+  category?: string,
 ): Promise<UploadResult> {
   const { accessToken, entityId, baseUrl } = useAuthStore.getState();
   if (!accessToken) {
@@ -93,6 +94,7 @@ export async function uploadAttachmentDirect(
   form.append("owner_type", ownerType);
   form.append("owner_id", ownerId);
   if (description) form.append("description", description);
+  if (category) form.append("category", category);
 
   try {
     const resp = await fetch(`${baseUrl}/api/v1/attachments`, {
@@ -144,7 +146,8 @@ export async function uploadAttachment(
   uri: string,
   ownerType: string,
   ownerId: string,
-  description?: string
+  description?: string,
+  category?: string,
 ): Promise<UploadResult> {
   const { isOnline } = useOfflineStore.getState();
 
@@ -152,7 +155,13 @@ export async function uploadAttachment(
   // immediately.
   if (!isOnline) {
     try {
-      const queueId = await queueUpload(uri, ownerType, ownerId, description);
+      const queueId = await queueUpload(
+        uri,
+        ownerType,
+        ownerId,
+        description,
+        category,
+      );
       return { success: false, queued: true, queueId, uri };
     } catch (err: any) {
       return {
@@ -163,7 +172,13 @@ export async function uploadAttachment(
     }
   }
 
-  const result = await uploadAttachmentDirect(uri, ownerType, ownerId, description);
+  const result = await uploadAttachmentDirect(
+    uri,
+    ownerType,
+    ownerId,
+    description,
+    category,
+  );
   if (result.success) return result;
 
   // Only queue on actual network failures — a 4xx from the server

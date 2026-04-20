@@ -36,10 +36,14 @@ import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../components/Toast";
 
 const useToastShow = () => useToast((s) => s.show);
+import { api } from "../services/api";
 import { downloadAndOpenPdf } from "../services/pdf";
 import {
   getMOC,
   MOC_STATUS_LABELS,
+  promoteMOCToProject,
+  requestMOCReturn,
+  setExecutionAccord,
   setMOCSignature,
   transitionMOC,
   type MOCDetail,
@@ -47,6 +51,7 @@ import {
   type SignatureSlot,
 } from "../services/moc";
 import SignaturePad from "../components/SignaturePad";
+import MOCAttachmentsSection from "../components/MOCAttachmentsSection";
 
 interface Props {
   route: { params: { mocId: string } };
@@ -297,6 +302,104 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
     [moc, missingPrereqs, toastShow],
   );
 
+  const onPromote = useCallback(async () => {
+    if (!moc) return;
+    try {
+      const updated = await promoteMOCToProject(moc.id);
+      setMoc(updated);
+      toastShow(
+        `Projet créé — ${updated.linked_project?.code ?? "OK"}`,
+        "success",
+      );
+    } catch (err: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = (err as any)?.response?.data?.detail;
+      const msg =
+        typeof d === "string" ? d : d?.message ?? "Échec de la promotion";
+      Alert.alert("Erreur", msg);
+    }
+  }, [moc, toastShow]);
+
+  const onDirectorAccord = useCallback(
+    async (actor: "do" | "dg", accord: boolean) => {
+      if (!moc) return;
+      try {
+        const updated = await setExecutionAccord(moc.id, {
+          actor,
+          accord,
+        });
+        setMoc(updated);
+        toastShow(
+          `${actor.toUpperCase()} — ${accord ? "Accord" : "Refus"} enregistré`,
+          "success",
+        );
+      } catch (err: unknown) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const d = (err as any)?.response?.data?.detail;
+        const msg =
+          typeof d === "string" ? d : d?.message ?? "Échec accord";
+        Alert.alert("Erreur", msg);
+      }
+    },
+    [moc, toastShow],
+  );
+
+  const onValidatorTap = useCallback(
+    async (validationId: string, approved: boolean) => {
+      if (!moc) return;
+      Alert.alert(
+        approved ? "Valider" : "Renvoyer",
+        approved
+          ? "Confirmer la validation de cette ligne ?"
+          : "Confirmer le renvoi pour modification ?",
+        [
+          { text: "Annuler", style: "cancel" },
+          {
+            text: approved ? "Valider" : "Renvoyer",
+            style: approved ? "default" : "destructive",
+            onPress: async () => {
+              try {
+                if (approved) {
+                  // Upsert the validation row as approved — keyed by role +
+                  // metier_code + target_validator_id (the row owner).
+                  const v = moc.validations.find((x) => x.id === validationId);
+                  if (!v) return;
+                  await api.post(`/api/v1/moc/${moc.id}/validations`, {
+                    role: v.role,
+                    metier_code: (
+                      v as unknown as { metier_code?: string }
+                    ).metier_code,
+                    approved: true,
+                    target_validator_id: v.validator_id,
+                  });
+                  toastShow("Validation enregistrée", "success");
+                } else {
+                  await requestMOCReturn(moc.id, {
+                    stage: "validator",
+                    reason: "Renvoyé depuis mobile",
+                    validation_id: validationId,
+                  });
+                  toastShow("Renvoi enregistré", "success");
+                }
+                const fresh = await getMOC(moc.id);
+                setMoc(fresh);
+              } catch (err: unknown) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const d = (err as any)?.response?.data?.detail;
+                const msg =
+                  typeof d === "string"
+                    ? d
+                    : d?.message ?? "Échec de l'action";
+                Alert.alert("Erreur", msg);
+              }
+            },
+          },
+        ],
+      );
+    },
+    [moc, toastShow],
+  );
+
   const saveSignature = useCallback(async () => {
     if (!moc || !sigModalSlot || !sigDraft) return;
     setSigSaving(true);
@@ -490,16 +593,58 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
             Validations ({moc.validations.length})
           </Heading>
           {moc.validations.map((v) => (
-            <RoleLine
+            <VStack
               key={v.id}
-              label={`${v.role}${v.metier_name ? ` — ${v.metier_name}` : ""}`}
-              value={
-                v.return_requested
-                  ? "Renvoi demandé"
-                  : v.validator_name || "—"
-              }
-              ok={v.approved}
-            />
+              py="$1.5"
+              borderBottomWidth={1}
+              borderBottomColor="$borderLight100"
+              space="xs"
+            >
+              <HStack justifyContent="space-between" alignItems="center">
+                <Text size="xs" fontWeight="$medium" flex={1}>
+                  {v.role}
+                  {v.metier_name ? ` — ${v.metier_name}` : ""}
+                </Text>
+                {v.approved === true && (
+                  <MIcon name="check-circle" size="2xs" color="$emerald600" />
+                )}
+                {v.approved === false && (
+                  <MIcon name="cancel" size="2xs" color="$red600" />
+                )}
+                {v.return_requested && (
+                  <Badge action="warning" variant="outline" size="sm">
+                    <BadgeText>Renvoi</BadgeText>
+                  </Badge>
+                )}
+              </HStack>
+              {v.validator_name && (
+                <Text size="2xs" color="$textLight500">
+                  {v.validator_name}
+                </Text>
+              )}
+              {v.approved !== true && !v.return_requested && (
+                <HStack space="sm">
+                  <Button
+                    size="xs"
+                    action="positive"
+                    variant="outline"
+                    flex={1}
+                    onPress={() => onValidatorTap(v.id, true)}
+                  >
+                    <ButtonText>Valider</ButtonText>
+                  </Button>
+                  <Button
+                    size="xs"
+                    action="negative"
+                    variant="outline"
+                    flex={1}
+                    onPress={() => onValidatorTap(v.id, false)}
+                  >
+                    <ButtonText>Renvoyer</ButtonText>
+                  </Button>
+                </HStack>
+              )}
+            </VStack>
           ))}
         </Box>
       )}
@@ -568,6 +713,93 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
           </Text>
         </Box>
       )}
+
+      {/* Promote to project — visible only when validated+ and not already promoted */}
+      {!moc.project_id &&
+        ["validated", "execution", "executed_docs_pending"].includes(
+          moc.status,
+        ) && (
+          <Button action="primary" onPress={onPromote} mb="$2">
+            <MIcon name="rocket-launch" color="$white" size="sm" />
+            <ButtonText>Promouvoir en projet</ButtonText>
+          </Button>
+        )}
+
+      {/* DO / DG accords — visible when status=validated awaiting accords */}
+      {["validated", "execution"].includes(moc.status) && (
+        <Box
+          bg="$white"
+          borderRadius="$lg"
+          borderWidth={1}
+          borderColor="$borderLight200"
+          p="$3"
+          mb="$2"
+        >
+          <Heading size="sm" mb="$2">
+            Accords exécution (D.O / D.G)
+          </Heading>
+          {(["do", "dg"] as const).map((actor) => {
+            const accord =
+              actor === "do"
+                ? moc.do_execution_accord
+                : moc.dg_execution_accord;
+            return (
+              <VStack
+                key={actor}
+                py="$1.5"
+                borderBottomWidth={1}
+                borderBottomColor="$borderLight100"
+              >
+                <HStack alignItems="center" justifyContent="space-between">
+                  <Text size="xs" fontWeight="$medium">
+                    {actor.toUpperCase()}
+                  </Text>
+                  {accord === true && (
+                    <Badge action="success" size="sm">
+                      <BadgeText>Accord</BadgeText>
+                    </Badge>
+                  )}
+                  {accord === false && (
+                    <Badge action="error" size="sm">
+                      <BadgeText>Refus</BadgeText>
+                    </Badge>
+                  )}
+                  {accord === null && (
+                    <Badge action="muted" size="sm">
+                      <BadgeText>En attente</BadgeText>
+                    </Badge>
+                  )}
+                </HStack>
+                {accord !== true && (
+                  <HStack space="sm" mt="$1.5">
+                    <Button
+                      size="xs"
+                      action="positive"
+                      variant="outline"
+                      flex={1}
+                      onPress={() => onDirectorAccord(actor, true)}
+                    >
+                      <ButtonText>Accord</ButtonText>
+                    </Button>
+                    <Button
+                      size="xs"
+                      action="negative"
+                      variant="outline"
+                      flex={1}
+                      onPress={() => onDirectorAccord(actor, false)}
+                    >
+                      <ButtonText>Refus</ButtonText>
+                    </Button>
+                  </HStack>
+                )}
+              </VStack>
+            );
+          })}
+        </Box>
+      )}
+
+      {/* Attachments — typed photo uploader (PID / schémas / photos) */}
+      <MOCAttachmentsSection mocId={moc.id} />
 
       {/* Workflow — outgoing transitions with precondition hints */}
       {outgoingTransitions.length > 0 && (

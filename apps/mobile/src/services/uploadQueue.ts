@@ -55,6 +55,8 @@ export interface QueuedUpload {
   ownerType: string;
   ownerId: string;
   description?: string;
+  /** Optional typed category (e.g. 'pid_initial' for MOC attachments). */
+  category?: string;
   createdAt: number;
   retries: number;
 }
@@ -121,7 +123,8 @@ export async function queueUpload(
   sourceUri: string,
   ownerType: string,
   ownerId: string,
-  description?: string
+  description?: string,
+  category?: string,
 ): Promise<string> {
   await ensureDir();
 
@@ -142,6 +145,7 @@ export async function queueUpload(
     ownerType,
     ownerId,
     description,
+    category,
     createdAt: Date.now(),
     retries: 0,
   };
@@ -236,7 +240,8 @@ export async function flushUploadQueue(): Promise<{
         item.localPath,
         item.ownerType,
         item.ownerId,
-        item.description
+        item.description,
+        item.category,
       );
 
       if (result.success) {

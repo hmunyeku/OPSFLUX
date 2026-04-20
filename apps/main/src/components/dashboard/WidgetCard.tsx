@@ -282,7 +282,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
             </div>
           )}
           <span className={cn(
-            'text-[10.5px] font-semibold tracking-[0.07em] uppercase truncate flex-1',
+            'text-[10.5px] font-semibold tracking-[0.07em] uppercase truncate flex-1 font-display',
             hasBgColor ? 'text-white/80' : 'text-muted-foreground',
           )}>
             {widget.title}
@@ -330,7 +330,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
         <div className="w-full max-w-6xl h-full max-h-[90vh] bg-card rounded-2xl shadow-2xl border flex flex-col overflow-hidden">
           <div className="flex items-center h-12 px-5 border-b shrink-0">
             <WidgetTypeIcon type={widget.type} className="h-4 w-4 text-primary mr-2" />
-            <span className="text-sm font-semibold flex-1">{widget.title}</span>
+            <span className="text-sm font-semibold flex-1 font-display tracking-tight">{widget.title}</span>
             <button onClick={() => refetch()} className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors mr-1">
               <RefreshCw className={cn('h-3.5 w-3.5 text-muted-foreground', isLoading && 'animate-spin')} />
             </button>

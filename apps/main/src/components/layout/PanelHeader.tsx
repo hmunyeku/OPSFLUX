@@ -18,7 +18,10 @@ export function PanelHeader({ icon: Icon, title, subtitle, children }: PanelHead
     <div className="flex h-10 items-center justify-between border-b border-border bg-background px-4 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         {Icon && <Icon size={16} className="text-muted-foreground shrink-0" />}
-        <h1 className="text-sm font-semibold text-foreground truncate">{title}</h1>
+        {/* Display font (Archivo) for page titles — gives the header
+            a bit of character vs. all-Inter body. Wide letter shapes
+            read well at 14px even with the grotesk weight. */}
+        <h1 className="text-sm font-semibold text-foreground truncate font-display tracking-tight">{title}</h1>
         {subtitle && (
           <>
             <span className="text-muted-foreground text-xs">·</span>

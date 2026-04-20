@@ -67,10 +67,18 @@ export default {
         },
       },
       fontFamily: {
-        /* Pajamas: GitLab Sans = Inter-based */
+        /* Body — dense, readable. Pajamas: GitLab Sans = Inter-based */
         sans: [
           'Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"',
           'Roboto', '"Noto Sans"', 'Ubuntu', 'sans-serif',
+        ],
+        /* Display — H1/H2 on page headers + dashboard titles. Archivo
+           is a wide industrial grotesk that gives the product some
+           character without clashing with Inter. Use `font-display`
+           sparingly — only for titles, never body. */
+        display: [
+          'Archivo', 'Inter', '-apple-system', 'BlinkMacSystemFont',
+          '"Segoe UI"', 'sans-serif',
         ],
         mono: ['"JetBrains Mono"', '"Fira Code"', 'monospace'],
       },

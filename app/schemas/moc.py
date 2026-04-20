@@ -30,6 +30,7 @@ class MOCCreate(BaseModel):
     initiator_external_name: str | None = Field(default=None, max_length=200)
     initiator_external_function: str | None = Field(default=None, max_length=200)
     initiator_signature: str | None = None
+    manager_id: UUID | None = None
     site_label: str | None = Field(default=None, max_length=100)
     site_id: UUID | None = None
     platform_code: str | None = Field(default=None, max_length=60)
@@ -73,6 +74,7 @@ class MOCUpdate(BaseModel):
     initiator_external_name: str | None = None
     initiator_external_function: str | None = None
     initiator_signature: str | None = None
+    manager_id: UUID | None = None
     site_label: str | None = None
     site_id: UUID | None = None
     platform_code: str | None = None
@@ -426,6 +428,10 @@ class MOCRead(BaseModel):
     initiator_external_name: str | None = None
     initiator_external_function: str | None = None
     initiator_signature: str | None = None
+    # Chef de projet MOC
+    manager_id: UUID | None = None
+    # Linked project (when promoted)
+    project_id: UUID | None = None
 
     # Content
     objectives: str | None

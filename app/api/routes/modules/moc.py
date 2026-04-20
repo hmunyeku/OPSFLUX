@@ -379,6 +379,7 @@ async def create_moc(
         initiator_external_name=body.initiator_external_name,
         initiator_external_function=body.initiator_external_function,
         initiator_signature=body.initiator_signature,
+        manager_id=body.manager_id,
         title=(body.title.strip() if body.title else None),
         nature=body.nature,
         metiers=body.metiers,
@@ -1494,6 +1495,97 @@ async def set_moc_signature(
         action=f"moc.signature.{body.slot}",
         resource_type="moc", resource_id=str(moc.id),
         details={"slot": body.slot},
+    )
+    await db.commit()
+    return await get_moc(moc_id=moc.id, entity_id=entity_id, current_user=current_user, db=db)
+
+
+# ─── Promote a validated MOC to a Project ────────────────────────────────────
+
+
+@router.post(
+    "/{moc_id}/promote-to-project",
+    response_model=MOCReadWithDetails,
+    dependencies=[require_permission("moc.update")],
+)
+async def promote_moc_to_project(
+    moc_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Spawn a Project entity from a MOC once it has been validated.
+
+    The project inherits:
+      • code  = MOC reference  (e.g. `MOC_001_BRF1`)
+      • name  = MOC title or objectives
+      • description = MOC description
+      • manager_id = MOC manager_id (fallback to current user)
+      • asset_id = MOC installation_id (when set)
+      • start_date = planned_implementation_date
+    Subsequent project progress updates will be mirrored onto the MOC
+    through the usual project progress roll-up (see `_sync_moc_progress`).
+
+    Allowed only when the MOC is in one of the following statuses:
+      validated · execution · executed_docs_pending
+    — earlier states can't be promoted, closed ones are already done.
+    """
+    from datetime import UTC, datetime as _dt
+    from app.models.common import Project
+
+    moc = await _get_or_404(db, moc_id, entity_id)
+    if moc.status not in ("validated", "execution", "executed_docs_pending"):
+        raise StructuredHTTPException(
+            400, code="MOC_NOT_PROMOTABLE",
+            message=(
+                "Promotion en projet possible uniquement quand le MOC est "
+                "validé, en exécution, ou en mise à jour documentaire."
+            ),
+        )
+    if moc.project_id:
+        raise StructuredHTTPException(
+            409, code="MOC_ALREADY_PROMOTED",
+            message="Ce MOC est déjà lié à un projet.",
+            params={"project_id": str(moc.project_id)},
+        )
+
+    project = Project(
+        entity_id=entity_id,
+        code=moc.reference,
+        name=(moc.title or moc.objectives or moc.reference)[:300],
+        description=moc.description,
+        project_type="project",
+        status="active",
+        priority=(
+            "high" if moc.priority == "1"
+            else "medium" if moc.priority == "2"
+            else "low" if moc.priority == "3"
+            else "medium"
+        ),
+        manager_id=moc.manager_id or current_user.id,
+        asset_id=moc.installation_id,
+        start_date=(
+            _dt.combine(moc.planned_implementation_date, _dt.min.time()).replace(tzinfo=UTC)
+            if moc.planned_implementation_date
+            else _dt.now(UTC)
+        ),
+        external_ref=f"moc:{moc.id}",
+    )
+    db.add(project)
+    await db.flush()
+    moc.project_id = project.id
+    if not moc.manager_id:
+        moc.manager_id = current_user.id
+
+    await record_audit(
+        db, user_id=current_user.id, entity_id=entity_id,
+        action="moc.promoted_to_project",
+        resource_type="moc", resource_id=str(moc.id),
+        details={
+            "reference": moc.reference,
+            "project_id": str(project.id),
+            "project_code": project.code,
+        },
     )
     await db.commit()
     return await get_moc(moc_id=moc.id, entity_id=entity_id, current_user=current_user, db=db)

@@ -154,6 +154,18 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     initiator_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
+    # Chef de projet MOC — designated as the operational owner, often set
+    # once the MOC reaches `approved_to_study`. May coincide with the
+    # initiator, the process engineer, or be a third party.
+    manager_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
+    )
+    # Optional link to a Project spawned from this MOC via the promote
+    # endpoint. Once set, the project's progress mirrors the MOC
+    # execution phase.
+    project_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True,
+    )
     initiator_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     initiator_function: Mapped[str | None] = mapped_column(String(200), nullable=True)
     initiator_email: Mapped[str | None] = mapped_column(String(200), nullable=True)

@@ -234,6 +234,21 @@ async def _update_project_progress(db: AsyncSession, project_id: UUID) -> None:
     elif any(s in ("in_progress", "review") for s in statuses) and project.status in ("draft", "planned"):
         project.status = "active"
 
+    # ── Mirror project progress/status onto the linked MOC (if any) ──
+    # When the project was spawned from a MOC via promote-to-project, the
+    # MOC's execution phase mirrors the project: progress = project.progress,
+    # and the MOC auto-advances executed_docs_pending → closed when the
+    # project reaches `completed`. Kept fire-and-forget: MOC sync failures
+    # must not rollback the project progress computation.
+    try:
+        from app.services.modules.moc_sync import sync_moc_from_project
+        await sync_moc_from_project(db, project)
+    except Exception:  # noqa: BLE001 — defensive, failures only logged
+        import logging as _log
+        _log.getLogger(__name__).exception(
+            "MOC sync failed for project %s", project.id,
+        )
+
 
 async def _rollup_parent_dates(db: AsyncSession, task: ProjectTask) -> None:
     """Recursively update parent task dates from children's min(start)/max(end).

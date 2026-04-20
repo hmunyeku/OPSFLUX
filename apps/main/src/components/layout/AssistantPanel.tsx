@@ -599,6 +599,17 @@ const GUIDED_TOURS: GuidedTour[] = [
       { target: 'main-content', title: 'Capacités & POB', content: 'Chaque site a une capacité maximale (POB) qui alimente automatiquement les vérifications dans PaxLog — un dépassement bloque la validation des AdS.' },
     ],
   },
+  {
+    id: 'support-basics',
+    title: 'Signaler un problème ou poser une question',
+    description: 'Bugs, améliorations, questions — tout passe par ce même flux.',
+    module: 'support',
+    steps: [
+      { target: 'assistant-button', title: 'Le panel d\'assistance', content: 'Ce bouton (ou le raccourci clavier) ouvre l\'assistant OpsFlux. L\'onglet Ticket regroupe tout ce qu\'il faut pour signaler un problème sans quitter votre page.' },
+      { target: 'main-content', title: 'Mes tickets', content: 'La page Support liste tous vos tickets avec leur statut (Nouveau, En cours, Résolu). Cliquez pour voir l\'échange, les pièces jointes et les notes de résolution.' },
+      { target: 'assistant-button', title: 'Capture d\'écran + vidéo', content: 'Depuis l\'onglet Ticket du panel, vous pouvez joindre une capture d\'écran, un enregistrement vidéo, ou un fichier. Les bugs embarquent en plus un log console auto-capturé — très utile pour le support.' },
+    ],
+  },
 ]
 
 // ── Tour Spotlight Overlay (renders outside the panel via portal) ──

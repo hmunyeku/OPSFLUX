@@ -282,11 +282,19 @@ async def create_ticket(
     ref = await _next_reference(db, entity_id)
     acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
 
+    # AUP §4.6 — auto-redact anything that looks like a password, API key,
+    # JWT or credit-card number. Applied to both title and description
+    # before the row is persisted. The redaction is idempotent so
+    # comments added later go through the same filter.
+    from app.services.core.secret_redaction import redact_secrets
+    safe_title = redact_secrets(body.title) or body.title
+    safe_description = redact_secrets(body.description)
+
     ticket = SupportTicket(
         entity_id=entity_id,
         reference=ref,
-        title=body.title,
-        description=body.description,
+        title=safe_title,
+        description=safe_description,
         ticket_type=body.ticket_type,
         priority=body.priority,
         source_url=body.source_url,
@@ -741,10 +749,15 @@ async def add_comment(
                 message="Permission denied for internal comments",
             )
 
+    # AUP §4.6 — same redaction as ticket creation. Keeps the audit trail
+    # clean even if users paste secrets into follow-up comments.
+    from app.services.core.secret_redaction import redact_secrets
+    safe_body = redact_secrets(body.body) or body.body
+
     comment = TicketComment(
         ticket_id=ticket_id,
         author_id=acting_user_id,
-        body=body.body,
+        body=safe_body,
         is_internal=body.is_internal,
         attachment_ids=[str(a) for a in body.attachment_ids] if body.attachment_ids else None,
     )

@@ -211,6 +211,18 @@ def _register_jobs() -> None:
     from app.tasks.jobs.archived_purge import purge_archived_records
     scheduler.add_job(purge_archived_records, trigger=CronTrigger(hour=4, minute=0, day_of_week="sun"), id="archived_purge", name="Purge archived records past retention period", replace_existing=True, max_instances=1)
 
+    # AUP §7.1 — audit-log retention (1-year default). Runs daily at 03:15
+    # so it precedes the GDPR purge at 03:00 without contending with it.
+    from app.tasks.jobs.audit_log_retention import purge_old_audit_logs
+    scheduler.add_job(
+        purge_old_audit_logs,
+        trigger=CronTrigger(hour=3, minute=15),
+        id="audit_log_retention",
+        name="AUP: purge audit_log au-delà de la rétention configurée",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     # GDPR retention enforcement — daily at 03:00
     from app.tasks.jobs.gdpr_purge import gdpr_retention_purge
     scheduler.add_job(gdpr_retention_purge, trigger=CronTrigger(hour=3, minute=0), id="gdpr_purge", name="RGPD: purge données hors rétention", replace_existing=True, max_instances=1)

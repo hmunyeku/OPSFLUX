@@ -9,7 +9,7 @@
  * (Fiche | Validation | Commentaires | Documents | Historique) — see
  * MOCDetailPanel.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -55,6 +55,12 @@ export function MOCPage() {
   const { hasPermission } = usePermission()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const panelMode = useUIStore((s) => s.dynamicPanelMode)
+  // Full-panel takes over the main area (auto on mobile < 768px via the
+  // DynamicPanelShell itself). Hide the page content side-by-side so the
+  // detail / create panel actually gets the full width.
+  const isFullPanel =
+    panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'moc'
 
   const urlTab = (searchParams.get('tab') as MOCTab) || 'dashboard'
   const activeTab = (['dashboard', 'list'] as MOCTab[]).includes(urlTab)
@@ -72,36 +78,38 @@ export function MOCPage() {
   const canCreate = hasPermission('moc.create')
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 gap-3">
-      <div className="flex flex-1 min-w-0 flex-col">
-        <PanelHeader
-          icon={ClipboardList}
-          title={t('moc.page_title')}
-          subtitle={t('moc.page_subtitle')}
-        >
-          {canCreate && (
-            <ToolbarButton
-              icon={Plus}
-              label={t('moc.actions.new')}
-              onClick={() => openDynamicPanel({ type: 'create', module: 'moc' })}
-            />
-          )}
-        </PanelHeader>
+    <div className="flex h-full">
+      {!isFullPanel && (
+        <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
+          <PanelHeader
+            icon={ClipboardList}
+            title={t('moc.page_title')}
+            subtitle={t('moc.page_subtitle')}
+          >
+            {canCreate && (
+              <ToolbarButton
+                icon={Plus}
+                label={t('moc.actions.new')}
+                onClick={() => openDynamicPanel({ type: 'create', module: 'moc' })}
+              />
+            )}
+          </PanelHeader>
 
-        <PageNavBar
-          items={tabItems}
-          activeId={activeTab}
-          onTabChange={setActiveTab}
-          rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-moc" /> : null}
-        />
+          <PageNavBar
+            items={tabItems}
+            activeId={activeTab}
+            onTabChange={setActiveTab}
+            rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-moc" /> : null}
+          />
 
-        <PanelContent scroll={activeTab === 'dashboard'}>
-          {activeTab === 'dashboard' && (
-            <ModuleDashboard module="moc" toolbarPortalId="dash-toolbar-moc" />
-          )}
-          {activeTab === 'list' && <MOCListTab />}
-        </PanelContent>
-      </div>
+          <PanelContent scroll={activeTab === 'dashboard'}>
+            {activeTab === 'dashboard' && (
+              <ModuleDashboard module="moc" toolbarPortalId="dash-toolbar-moc" />
+            )}
+            {activeTab === 'list' && <MOCListTab />}
+          </PanelContent>
+        </div>
+      )}
 
       {dynamicPanel?.module === 'moc' && renderRegisteredPanel(dynamicPanel)}
     </div>
@@ -113,6 +121,7 @@ export function MOCPage() {
 function MOCListTab() {
   const { t } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const setNavItems = useUIStore((s) => s.setDynamicPanelNavItems)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
   const [search, setSearch] = useState('')
@@ -131,6 +140,14 @@ function MOCListTab() {
     priority: priorityFilter as '1' | '2' | '3' | undefined,
     search: search || undefined,
   })
+
+  // Feed the currently-visible row IDs to the dynamic panel so its header
+  // exposes the prev/next/first/last navigation (convention used by every
+  // other module — projets, tiers, packlog…).
+  useEffect(() => {
+    if (data?.items) setNavItems(data.items.map((i) => i.id))
+    return () => setNavItems([])
+  }, [data?.items, setNavItems])
 
   const statusOptions = useMemo(
     () =>

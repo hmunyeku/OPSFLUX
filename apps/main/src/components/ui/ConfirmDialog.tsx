@@ -171,22 +171,27 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in-0 duration-150"
+      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 backdrop-blur-md animate-in fade-in-0 duration-200"
       onClick={onCancel}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <div
-        className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4 animate-in zoom-in-95 duration-150"
+        className="relative bg-gradient-to-br from-card to-card/80 border border-border/70 rounded-2xl shadow-2xl shadow-black/20 w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Top accent strip — matches Sidebar active + StatCard vocabulary */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary/80 via-primary to-[hsl(var(--highlight))]/40"
+        />
         {/* Header */}
         <div className="flex items-center gap-3 p-4 pb-2">
-          <div className={cn('p-2 rounded-lg bg-muted', config.iconClass)}>
+          <div className={cn('p-2 rounded-lg bg-muted/60 ring-1 ring-border/60', config.iconClass)}>
             <Icon size={18} />
           </div>
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <h3 className="text-sm font-semibold text-foreground font-display tracking-tight">{title}</h3>
         </div>
 
         {/* Message — whitespace-pre-line so callers can pass multi-line text */}
@@ -195,7 +200,7 @@ export function ConfirmDialog({
         )}
 
         {/* Actions — cancel is hidden when cancelLabel is empty (info dialog) */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/30 rounded-b-xl">
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border/60 bg-gradient-to-b from-transparent to-muted/30 rounded-b-2xl">
           {cancelLabel && (
             <button onClick={onCancel} className="gl-button-sm gl-button-default">
               {cancelLabel}

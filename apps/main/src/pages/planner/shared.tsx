@@ -8,6 +8,7 @@
 import { CalendarRange, ListTodo, AlertTriangle, BarChart3, Calendar, Wrench, HardHat, Gauge, Shield, Drill, Eye, GanttChart, FlaskConical, TrendingUp, LayoutDashboard } from 'lucide-react'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
 import { cn } from '@/lib/utils'
+import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 
 // ── Tab definitions ───────────────────────────────────────────
 
@@ -272,7 +273,11 @@ export function StatCard({ label, value, icon: Icon, accent }: {
         <Icon size={13} />
         <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
       </div>
-      <p className={cn('text-xl font-bold tabular-nums font-display tracking-tight', accent || 'text-foreground')}>{value}</p>
+      <p className={cn('text-xl font-bold tabular-nums font-display tracking-tight', accent || 'text-foreground')}>
+        {typeof value === 'number'
+          ? <AnimatedCounter value={value} />
+          : value}
+      </p>
     </div>
   )
 }

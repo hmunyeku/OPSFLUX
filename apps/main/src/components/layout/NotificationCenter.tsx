@@ -81,14 +81,15 @@ export function NotificationCenter() {
   })
   const unreadCount: number = countData?.unread_count ?? 0
 
-  // Mirror the unread count in document.title — helps users pinned to
-  // another tab notice fresh notifications. Title format: "(3) OpsFlux …".
-  // Keeps the original title when count is 0 so the browser history &
-  // bookmarks stay clean. Runs in a useEffect so SSR / initial mount
-  // still gets a stable title.
+  // Mirror the unread count in document.title AND the favicon — helps
+  // users pinned to another tab notice fresh notifications. Title:
+  // "(3) OpsFlux …"; favicon: brand square + red badge with digit.
+  // Both restore when the count drops to 0.
   useEffect(() => {
     const base = document.title.replace(/^\(\d+\)\s*/, '') || 'OpsFlux'
     document.title = unreadCount > 0 ? `(${unreadCount > 99 ? '99+' : unreadCount}) ${base}` : base
+    // Fire-and-forget — favicon update shouldn't block render
+    import('@/lib/favicon').then(m => m.updateFaviconBadge(unreadCount)).catch(() => { /* ignore */ })
   }, [unreadCount])
 
   // Full notification list (fetched when popover opens)

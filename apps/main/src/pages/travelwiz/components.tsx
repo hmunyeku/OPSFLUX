@@ -4,6 +4,7 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react'
 import { cn } from '@/lib/utils'
 import type { Plane } from 'lucide-react'
+import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 
 export function StatusBadge({ status, labels, badges }: { status: string; labels: Record<string, string>; badges: Record<string, string> }) {
   return (
@@ -22,7 +23,9 @@ export function StatCard({ label, value, icon: Icon, accent }: { label: string; 
         <Icon size={13} className={accent} />
         <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
       </div>
-      <p className="text-xl font-bold text-foreground tabular-nums font-display tracking-tight">{value}</p>
+      <p className="text-xl font-bold text-foreground tabular-nums font-display tracking-tight">
+        {typeof value === 'number' ? <AnimatedCounter value={value} /> : value}
+      </p>
     </div>
   )
 }

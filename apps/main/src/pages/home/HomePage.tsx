@@ -22,9 +22,9 @@
  */
 
 import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import { usePermission } from '@/hooks/usePermission'
 import { useModules } from '@/hooks/useModules'
 import { useAuthStore } from '@/stores/authStore'
@@ -113,7 +113,7 @@ const TINTS: Record<Tile['tint'], { bg: string; icon: string; ring: string }> = 
 
 function TileButton({ tile, index }: { tile: Tile; index: number }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
+  const navigate = useViewTransitionNavigate()
   const Icon = tile.icon
   const style = TINTS[tile.tint]
   return (

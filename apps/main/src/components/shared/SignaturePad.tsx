@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Eraser, PenLine } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ProtectedSignature } from '@/components/shared/ProtectedSignature'
 
 interface SignaturePadProps {
   value?: string | null
@@ -111,22 +112,18 @@ export function SignaturePad({
     ctx.fillRect(0, 0, canvas.width, canvas.height)
   }, [isEditing, width, height])
 
-  // Display mode: show existing signature as an image
+  // Display mode — render via ProtectedSignature so the base64 PNG is
+  // hidden from DevTools DOM / right-click / drag, greyscale-dimmed and
+  // overlaid with a traceable watermark (viewer email + timestamp).
   if (!isEditing && value) {
     return (
       <div className={cn('space-y-1', className)}>
-        {label && <div className="text-[10px] font-medium text-muted-foreground">{label}</div>}
-        <div
-          className="border border-border rounded bg-white"
-          style={{ width, height }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={value}
-            alt="Signature"
-            className="w-full h-full object-contain"
-          />
-        </div>
+        <ProtectedSignature
+          value={value}
+          width={width}
+          height={height}
+          label={label}
+        />
         {!readOnly && !disabled && (
           <button
             type="button"
@@ -143,18 +140,18 @@ export function SignaturePad({
     )
   }
 
-  // Empty + read-only → placeholder
+  // Empty + read-only → protected placeholder (no raw "not signed" text in
+  // an img-friendly element; ProtectedSignature handles both redacted and
+  // empty cases).
   if (readOnly) {
     return (
-      <div className={cn('space-y-1', className)}>
-        {label && <div className="text-[10px] font-medium text-muted-foreground">{label}</div>}
-        <div
-          className="border border-dashed border-border rounded bg-muted/20 flex items-center justify-center text-[10px] text-muted-foreground italic"
-          style={{ width, height }}
-        >
-          {t('common.not_signed', '— non signé —')}
-        </div>
-      </div>
+      <ProtectedSignature
+        value={value ?? null}
+        width={width}
+        height={height}
+        label={label}
+        className={className}
+      />
     )
   }
 

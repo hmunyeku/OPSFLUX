@@ -134,6 +134,83 @@ def _enrich(moc: MOC, names: dict[UUID, str]) -> dict[str, Any]:
     return d
 
 
+# Fixed signature slots stored inline on the MOC row (base64 PNG data URLs).
+# Kept as a tuple so the redaction helper hits every one.
+_MOC_SIGNATURE_FIELDS: tuple[str, ...] = (
+    "initiator_signature",
+    "site_chief_signature",
+    "director_signature",
+    "process_engineer_signature",
+    "production_signature",
+    "do_signature",
+    "dg_signature",
+)
+_MOC_SIGNATURE_SIGNER_FK: dict[str, str] = {
+    "initiator_signature": "initiator_id",
+    "site_chief_signature": "site_chief_id",
+    "director_signature": "director_id",
+    "process_engineer_signature": "responsible_id",
+    "production_signature": "production_validated_by",
+    "do_signature": "do_execution_accord_by",
+    "dg_signature": "dg_execution_accord_by",
+}
+
+
+async def _redact_signatures(
+    d: dict[str, Any],
+    *,
+    moc: MOC,
+    user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Replace signature PNG data URLs with a sentinel when the current
+    user is not authorised to view them.
+
+    A user is authorised when any of these is true:
+      • they hold `moc.signature.view` (granular opt-in permission)
+      • they hold `moc.manage` (admin override)
+      • they are the signer themselves (FK check against the slot owner)
+      • for a given per-validator row, they are the validator_id
+
+    The sentinel `__REDACTED__` is recognised by the frontend
+    ProtectedSignature component, which shows "— protégée —" instead.
+
+    Dict is mutated in-place and returned for convenience.
+    """
+    from app.api.deps import has_user_permission
+
+    # Fast path — admins/signature-viewers see everything.
+    if await has_user_permission(user, entity_id, "moc.manage", db):
+        return d
+    can_view_all = await has_user_permission(
+        user, entity_id, "moc.signature.view", db,
+    )
+    if can_view_all:
+        return d
+
+    # Per-slot check: own signature always visible to its signer.
+    for field in _MOC_SIGNATURE_FIELDS:
+        if d.get(field) is None:
+            continue
+        fk = _MOC_SIGNATURE_SIGNER_FK[field]
+        owner_id = getattr(moc, fk, None)
+        if owner_id and owner_id == user.id:
+            continue
+        d[field] = "__REDACTED__"
+
+    # Per-validator signatures on the validations matrix (when present).
+    for v in d.get("validations") or []:
+        sig = v.get("signature")
+        if not sig:
+            continue
+        if v.get("validator_id") and str(v["validator_id"]) == str(user.id):
+            continue
+        v["signature"] = "__REDACTED__"
+
+    return d
+
+
 # ─── List ────────────────────────────────────────────────────────────────────
 
 
@@ -194,7 +271,14 @@ async def list_mocs(
             if fk:
                 uids.add(fk)
     names = await _user_display(db, uids)
-    page["items"] = [_enrich(m, names) for m in mocs]
+    enriched: list[dict[str, Any]] = []
+    for m in mocs:
+        d = _enrich(m, names)
+        await _redact_signatures(
+            d, moc=m, user=current_user, entity_id=entity_id, db=db,
+        )
+        enriched.append(d)
+    page["items"] = enriched
     return page
 
 
@@ -727,6 +811,7 @@ async def delete_moc_type_rule(
 async def get_moc(
     moc_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     moc = await _get_or_404(db, moc_id, entity_id, with_details=True)
@@ -757,6 +842,11 @@ async def get_moc(
         MOCValidationRead.model_validate(v).model_dump()
         for v in moc.validations
     ]
+    # Redact signature data URLs for users without moc.signature.view
+    # (own signature + moc.manage stay visible).
+    await _redact_signatures(
+        d, moc=moc, user=current_user, entity_id=entity_id, db=db,
+    )
     return d
 
 
@@ -1030,6 +1120,23 @@ async def export_moc_pdf(
             return None
         return d.strftime("%d/%m/%Y") if hasattr(d, "strftime") else str(d)
 
+    # Signature redaction context computed up-front so both the fixed
+    # slots (_sig below) and per-validator signatures share the same rule.
+    from app.api.deps import has_user_permission as _has_perm
+    _can_sigs = (
+        await _has_perm(current_user, entity_id, "moc.signature.view", db)
+        or await _has_perm(current_user, entity_id, "moc.manage", db)
+    )
+
+    def _vsig(v: "MOCValidation") -> str | None:
+        if not v.signature:
+            return None
+        if _can_sigs:
+            return v.signature
+        if v.validator_id and v.validator_id == current_user.id:
+            return v.signature
+        return None  # redacted in the PDF
+
     validations_payload = []
     for v in moc.validations or []:
         validations_payload.append({
@@ -1040,7 +1147,7 @@ async def export_moc_pdf(
             "validated_at": _fmt_date(v.validated_at),
             "approved": v.approved,
             "level": v.level,
-            "signature": v.signature,
+            "signature": _vsig(v),
             "return_requested": v.return_requested,
             "return_reason": v.return_reason,
         })
@@ -1052,6 +1159,21 @@ async def export_moc_pdf(
             select(MOCType.label).where(MOCType.id == moc.moc_type_id)
         )).scalar_one_or_none()
         moc_type_label = row
+
+    # Signature redaction in the PDF — same rule as the UI. `_can_sigs` was
+    # already computed up-front for the validations_payload; we reuse it.
+    def _sig(field_name: str, signer_fk: str | None = None) -> str | None:
+        raw = getattr(moc, field_name, None)
+        if not raw:
+            return None
+        if _can_sigs:
+            return raw
+        # Always allow the signer to see their own signature in the PDF
+        if signer_fk:
+            owner = getattr(moc, signer_fk, None)
+            if owner and owner == current_user.id:
+                return raw
+        return None  # redacted — template renders an empty visa box
 
     variables = {
         "reference": moc.reference,
@@ -1069,7 +1191,7 @@ async def export_moc_pdf(
         ),
         "initiator_function": moc.initiator_external_function or moc.initiator_function,
         "initiator_email": moc.initiator_email,
-        "initiator_signature": moc.initiator_signature,
+        "initiator_signature": _sig("initiator_signature", "initiator_id"),
         "created_at": _fmt_date(moc.created_at),
         "objectives": moc.objectives,
         "description": render_markdown(moc.description) if moc.description else None,
@@ -1089,20 +1211,20 @@ async def export_moc_pdf(
         "site_chief_display": names.get(moc.site_chief_id) if moc.site_chief_id else None,
         "site_chief_approved_at": _fmt_date(moc.site_chief_approved_at),
         "site_chief_comment": moc.site_chief_comment,
-        "site_chief_signature": moc.site_chief_signature,
+        "site_chief_signature": _sig("site_chief_signature", "site_chief_id"),
         "site_chief_return_requested": moc.site_chief_return_requested,
         "site_chief_return_reason": moc.site_chief_return_reason,
         # Production mise-en-étude (Daxium tab 3)
         "production_validated": moc.production_validated,
         "production_validated_at": _fmt_date(moc.production_validated_at),
         "production_comment": moc.production_comment,
-        "production_signature": moc.production_signature,
+        "production_signature": _sig("production_signature", "production_validated_by"),
         "production_return_requested": moc.production_return_requested,
         "production_return_reason": moc.production_return_reason,
         "director_display": names.get(moc.director_id) if moc.director_id else None,
         "director_confirmed_at": _fmt_date(moc.director_confirmed_at),
         "director_comment": moc.director_comment,
-        "director_signature": moc.director_signature,
+        "director_signature": _sig("director_signature", "director_id"),
         "priority": moc.priority,
         "estimated_cost_mxaf": float(moc.estimated_cost_mxaf) if moc.estimated_cost_mxaf is not None else None,
         "cost_bucket_label": COST_BUCKET_LABELS.get(moc.cost_bucket) if moc.cost_bucket else None,
@@ -1118,19 +1240,19 @@ async def export_moc_pdf(
         "esd_update_completed": moc.esd_update_completed,
         "study_conclusion": render_markdown(moc.study_conclusion) if moc.study_conclusion else None,
         "responsible_display": names.get(moc.responsible_id) if moc.responsible_id else None,
-        "process_engineer_signature": moc.process_engineer_signature,
+        "process_engineer_signature": _sig("process_engineer_signature", "responsible_id"),
         "study_completed_at": _fmt_date(moc.study_completed_at),
         "validations": validations_payload,
         "do_execution_accord": moc.do_execution_accord,
         "do_execution_accord_at": _fmt_date(moc.do_execution_accord_at),
         "do_execution_comment": moc.do_execution_comment,
-        "do_signature": moc.do_signature,
+        "do_signature": _sig("do_signature", "do_execution_accord_by"),
         "do_return_requested": moc.do_return_requested,
         "do_return_reason": moc.do_return_reason,
         "dg_execution_accord": moc.dg_execution_accord,
         "dg_execution_accord_at": _fmt_date(moc.dg_execution_accord_at),
         "dg_execution_comment": moc.dg_execution_comment,
-        "dg_signature": moc.dg_signature,
+        "dg_signature": _sig("dg_signature", "dg_execution_accord_by"),
         "dg_return_requested": moc.dg_return_requested,
         "dg_return_reason": moc.dg_return_reason,
         "entity": {

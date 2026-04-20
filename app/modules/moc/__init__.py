@@ -44,6 +44,12 @@ MANIFEST = ModuleManifest(
         "moc.maintenance.validate",
         "moc.metier.validate",
         "moc.stats.read",
+        # Signature confidentiality — granular opt-in. Holders see the raw
+        # PNG data URL; everyone else gets a __REDACTED__ sentinel that the
+        # UI renders as a generic "protégée" placeholder. Bundled in
+        # SITE_CHIEF, DIRECTOR, DO/DG, HSE, LEAD_PROCESS, MAINTENANCE and
+        # ADMIN roles since they need to verify upstream visas.
+        "moc.signature.view",
     ],
     roles=[
         {
@@ -64,6 +70,7 @@ MANIFEST = ModuleManifest(
                 "moc.site_chief.approve", "moc.site_chief.submit",
                 "moc.site_chief.cancel", "moc.site_chief.start_execution",
                 "moc.site_chief.complete_execution",
+                "moc.signature.view",
             ],
         },
         {
@@ -75,6 +82,7 @@ MANIFEST = ModuleManifest(
                 "moc.director.confirm", "moc.director.cancel",
                 "moc.director.stand_by", "moc.director.resume",
                 "moc.director.validate_study", "moc.director.return_for_rework",
+                "moc.signature.view",
             ],
         },
         {
@@ -85,6 +93,7 @@ MANIFEST = ModuleManifest(
                 "moc.read", "moc.update", "moc.transition",
                 "moc.lead_process.start_study",
                 "moc.validate", "moc.metier.validate",
+                "moc.signature.view",
             ],
         },
         {
@@ -95,6 +104,7 @@ MANIFEST = ModuleManifest(
                 "moc.read", "moc.update", "moc.transition",
                 "moc.responsible.submit_study", "moc.responsible.cancel",
                 "moc.responsible.close",
+                "moc.signature.view",
             ],
         },
         {
@@ -103,6 +113,7 @@ MANIFEST = ModuleManifest(
             "description": "Valide le volet HSE (HAZOP/HAZID/Environmental)",
             "permissions": [
                 "moc.read", "moc.validate", "moc.hse.validate",
+                "moc.signature.view",
             ],
         },
         {
@@ -111,6 +122,7 @@ MANIFEST = ModuleManifest(
             "description": "Valide l'impact maintenance",
             "permissions": [
                 "moc.read", "moc.validate", "moc.maintenance.validate",
+                "moc.signature.view",
             ],
         },
         {
@@ -139,6 +151,7 @@ MANIFEST = ModuleManifest(
                 "moc.responsible.close",
                 "moc.hse.validate", "moc.maintenance.validate",
                 "moc.metier.validate", "moc.initiator.cancel",
+                "moc.signature.view",
             ],
         },
     ],

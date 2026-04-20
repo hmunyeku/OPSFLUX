@@ -849,43 +849,10 @@ export function MOCDetailPanel({ id }: Props) {
               </div>
             </FormSection>
 
-            {/* "Réalisation du MOC" — DO + DG dual sign-off (paper form p.5) */}
-            <FormSection
-              title={t('moc.section.execution_accord')}
-              defaultExpanded
-            >
-              <p className="mb-2 text-[11px] text-muted-foreground">
-                {t('moc.section.execution_accord_hint')}
-              </p>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                <ExecutionAccordRow
-                  label={t('moc.roles.do_full')}
-                  accord={moc.do_execution_accord}
-                  accordAt={moc.do_execution_accord_at}
-                  comment={moc.do_execution_comment}
-                  disabled={executionAccordMutation.isPending}
-                  onAccord={(accord, comment) =>
-                    executionAccordMutation.mutate({
-                      id: moc.id,
-                      payload: { actor: 'do', accord, comment },
-                    })
-                  }
-                />
-                <ExecutionAccordRow
-                  label={t('moc.roles.dg_full')}
-                  accord={moc.dg_execution_accord}
-                  accordAt={moc.dg_execution_accord_at}
-                  comment={moc.dg_execution_comment}
-                  disabled={executionAccordMutation.isPending}
-                  onAccord={(accord, comment) =>
-                    executionAccordMutation.mutate({
-                      id: moc.id,
-                      payload: { actor: 'dg', accord, comment },
-                    })
-                  }
-                />
-              </div>
-            </FormSection>
+            {/* DO/DG accord moved to the "Exécution" tab — that tab provides
+                the full flow (signature + motif de renvoi + accord/refus)
+                wired through the new execution-accord + signature endpoints.
+                Keeping both here would duplicate state and confuse the user. */}
           </>
         )}
 
@@ -1127,80 +1094,6 @@ function ValidationRow({
         <div className="mt-1 text-[10px] text-muted-foreground">
           {entry.validator_name} · {formatDateTime(entry.validated_at)}
           {entry.level ? ` · Niveau ${entry.level}` : ''}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ExecutionAccordRow({
-  label,
-  accord,
-  accordAt,
-  comment,
-  disabled,
-  onAccord,
-}: {
-  label: string
-  accord: boolean | null
-  accordAt: string | null
-  comment: string | null
-  disabled?: boolean
-  onAccord: (accord: boolean, comment: string | null) => void
-}) {
-  const { t } = useTranslation()
-  const [commentDraft, setCommentDraft] = useState(comment ?? '')
-  return (
-    <div className="rounded-md border border-border/60 bg-card p-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-foreground">{label}</span>
-        {accord === null ? (
-          <span className="text-[10px] text-muted-foreground">En attente</span>
-        ) : (
-          <span
-            className={`gl-badge ${
-              accord ? 'gl-badge-success' : 'gl-badge-danger'
-            }`}
-          >
-            {accord ? 'Accord' : 'Refus'}
-          </span>
-        )}
-      </div>
-      <div className="mt-2">
-        <RichTextField
-          value={commentDraft}
-          onChange={setCommentDraft}
-          disabled={disabled}
-          rows={2}
-          compact
-          placeholder={t('moc.fields.comment_ph') as string}
-        />
-      </div>
-      <div className="mt-2 flex gap-2">
-        <button
-          type="button"
-          className={`gl-button gl-button-sm ${
-            accord === true ? 'gl-button-confirm' : 'gl-button-default'
-          }`}
-          disabled={disabled}
-          onClick={() => onAccord(true, commentDraft.trim() || null)}
-        >
-          <CheckCircle2 size={12} /> Accord
-        </button>
-        <button
-          type="button"
-          className={`gl-button gl-button-sm ${
-            accord === false ? 'gl-button-danger' : 'gl-button-default'
-          }`}
-          disabled={disabled}
-          onClick={() => onAccord(false, commentDraft.trim() || null)}
-        >
-          <XCircle size={12} /> Refus
-        </button>
-      </div>
-      {accordAt && (
-        <div className="mt-1 text-[10px] text-muted-foreground">
-          {formatDateTime(accordAt)}
         </div>
       )}
     </div>

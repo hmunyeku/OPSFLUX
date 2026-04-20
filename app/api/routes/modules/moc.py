@@ -19,7 +19,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -42,7 +42,6 @@ from app.models.moc import (
     MOCTypeValidationRule,
     MOC_STATUSES,
 )
-from app.schemas.common import PaginatedResponse
 from app.schemas.moc import (
     MOCCreate,
     MOCExecutionAccord,
@@ -60,7 +59,6 @@ from app.schemas.moc import (
     MOCStatusHistoryRead,
     MOCTransition,
     MOCTypeCreate,
-    MOCTypeRead,
     MOCTypeReadWithRules,
     MOCTypeUpdate,
     MOCTypeValidationRuleCreate,
@@ -73,7 +71,6 @@ from app.schemas.moc import (
 )
 from app.services.modules.moc_service import (
     FSM,
-    allowed_transitions,
     generate_reference,
     invite_validator,
     seed_matrix_from_type,
@@ -138,21 +135,25 @@ def _enrich(moc: MOC, names: dict[UUID, str]) -> dict[str, Any]:
 # Kept as a tuple so the redaction helper hits every one.
 _MOC_SIGNATURE_FIELDS: tuple[str, ...] = (
     "initiator_signature",
+    "hierarchy_reviewer_signature",
     "site_chief_signature",
     "director_signature",
     "process_engineer_signature",
     "production_signature",
     "do_signature",
     "dg_signature",
+    "close_signature",
 )
 _MOC_SIGNATURE_SIGNER_FK: dict[str, str] = {
     "initiator_signature": "initiator_id",
+    "hierarchy_reviewer_signature": "hierarchy_reviewer_id",
     "site_chief_signature": "site_chief_id",
     "director_signature": "director_id",
     "process_engineer_signature": "responsible_id",
     "production_signature": "production_validated_by",
     "do_signature": "do_execution_accord_by",
     "dg_signature": "dg_execution_accord_by",
+    "close_signature": "close_by",
 }
 
 
@@ -1211,7 +1212,9 @@ async def export_moc_pdf(
         "site_chief_display": names.get(moc.site_chief_id) if moc.site_chief_id else None,
         "site_chief_approved_at": _fmt_date(moc.site_chief_approved_at),
         "site_chief_comment": moc.site_chief_comment,
+        "hierarchy_reviewer_signature": _sig("hierarchy_reviewer_signature", "hierarchy_reviewer_id"),
         "site_chief_signature": _sig("site_chief_signature", "site_chief_id"),
+        "close_signature": _sig("close_signature", "close_by"),
         "site_chief_return_requested": moc.site_chief_return_requested,
         "site_chief_return_reason": moc.site_chief_return_reason,
         # Production mise-en-étude (Daxium tab 3)
@@ -1471,12 +1474,14 @@ async def set_moc_signature(
     moc = await _get_or_404(db, moc_id, entity_id)
     slot_map = {
         "initiator": "initiator_signature",
+        "hierarchy_reviewer": "hierarchy_reviewer_signature",
         "site_chief": "site_chief_signature",
         "production": "production_signature",
         "director": "director_signature",
         "process_engineer": "process_engineer_signature",
         "do": "do_signature",
         "dg": "dg_signature",
+        "close": "close_signature",
     }
     column = slot_map.get(body.slot)
     if not column:

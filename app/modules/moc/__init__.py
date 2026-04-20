@@ -29,6 +29,10 @@ MANIFEST = ModuleManifest(
         "moc.site_chief.cancel",
         "moc.site_chief.start_execution",
         "moc.site_chief.complete_execution",
+        # CDS final closure — formal visa that the MOC can be archived
+        # (PID/ESD updated, documentation filed). Distinct from the
+        # execution-completion transition.
+        "moc.site_chief.close",
         "moc.director.confirm",
         "moc.director.cancel",
         "moc.director.stand_by",
@@ -70,6 +74,7 @@ MANIFEST = ModuleManifest(
                 "moc.site_chief.approve", "moc.site_chief.submit",
                 "moc.site_chief.cancel", "moc.site_chief.start_execution",
                 "moc.site_chief.complete_execution",
+                "moc.site_chief.close",
                 "moc.signature.view",
             ],
         },
@@ -142,7 +147,7 @@ MANIFEST = ModuleManifest(
                 "moc.transition", "moc.validate", "moc.stats.read",
                 "moc.site_chief.approve", "moc.site_chief.submit",
                 "moc.site_chief.cancel", "moc.site_chief.start_execution",
-                "moc.site_chief.complete_execution",
+                "moc.site_chief.complete_execution", "moc.site_chief.close",
                 "moc.director.confirm", "moc.director.cancel",
                 "moc.director.stand_by", "moc.director.resume",
                 "moc.director.validate_study", "moc.director.return_for_rework",

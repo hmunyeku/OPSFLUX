@@ -81,7 +81,12 @@ FSM: dict[str, dict[str, str]] = {
         "executed_docs_pending": "moc.site_chief.complete_execution",
     },
     "executed_docs_pending": {
-        "closed": "moc.responsible.close",
+        # Per Perenco SOW: the Chef de Site formally closes the MOC once
+        # every PID/ESD update has landed, not the process engineer. We
+        # keep `moc.responsible.close` as an alias for backward compat
+        # (granted to both roles below) but the canonical permission is
+        # `moc.site_chief.close`.
+        "closed": "moc.site_chief.close",
     },
 }
 
@@ -256,10 +261,25 @@ async def transition(
             except ValueError:
                 raise HTTPException(400, "Invalid actual_implementation_date") from None
     elif to_status == "closed":
+        # CDS closure: PID/ESD must be up to date AND the CDS must have
+        # apposed their closing signature at some point. The signature can
+        # either be set via POST /moc/{id}/signature (slot=close) before
+        # the transition, or captured inline in the transition payload.
         if moc.pid_update_required and not moc.pid_update_completed:
             raise HTTPException(400, "Cannot close: PID update still required.")
         if moc.esd_update_required and not moc.esd_update_completed:
             raise HTTPException(400, "Cannot close: ESD update still required.")
+        inline_sig = payload.get("close_signature") if isinstance(payload, dict) else None
+        if inline_sig:
+            moc.close_signature = inline_sig
+        if not moc.close_signature:
+            raise HTTPException(
+                400,
+                "Clôture impossible — la signature de clôture du Chef de Site "
+                "est requise (slot=close).",
+            )
+        moc.close_by = actor.id
+        moc.closed_at = now
 
     moc.status = to_status
     moc.status_changed_at = now

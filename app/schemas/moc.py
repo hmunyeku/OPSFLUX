@@ -94,6 +94,7 @@ class MOCUpdate(BaseModel):
     # Hierarchy / site chief review
     is_real_change: bool | None = None
     hierarchy_review_comment: str | None = None
+    hierarchy_reviewer_signature: str | None = None
     site_chief_approved: bool | None = None
     site_chief_comment: str | None = None
     site_chief_signature: str | None = None
@@ -342,9 +343,12 @@ class MOCSignatureUpdate(BaseModel):
 
     slot: str = Field(
         ...,
-        pattern="^(initiator|site_chief|production|director|process_engineer|do|dg)$",
+        pattern="^(initiator|hierarchy_reviewer|site_chief|production|director|process_engineer|do|dg|close)$",
     )
-    signature: str = Field(..., min_length=10)
+    # Hard cap at 600 KB of base64 — a decent pen-stroke signature on a
+    # 400×150 canvas never exceeds 40 KB; 600 KB leaves ample room and
+    # caps the DoS vector (9 slots × 600 KB = max 5.4 MB per MOC row).
+    signature: str = Field(..., min_length=30, max_length=600_000)
 
 
 # ─── Site assignments (CDC §4.4 "contacts des valideurs") ─────────────────────
@@ -439,6 +443,7 @@ class MOCRead(BaseModel):
     hierarchy_reviewer_id: UUID | None
     hierarchy_review_at: datetime | None
     hierarchy_review_comment: str | None
+    hierarchy_reviewer_signature: str | None = None
 
     # Site chief
     site_chief_approved: bool | None
@@ -509,6 +514,13 @@ class MOCRead(BaseModel):
     execution_supervisor_id: UUID | None
     planned_implementation_date: date | None
     actual_implementation_date: date | None
+
+    # Final CDS closure — distinct from the execution-supervisor's sign-off.
+    # The Chef de Site signs off once every PID/ESD update is done and
+    # the MOC can be archived.
+    close_signature: str | None = None
+    close_by: UUID | None = None
+    closed_at: datetime | None = None
 
     tags: list | None
     # Avoids Pydantic reading SQLAlchemy's `Base.metadata` (a MetaData

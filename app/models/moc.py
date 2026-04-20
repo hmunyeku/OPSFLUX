@@ -200,6 +200,10 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     hierarchy_review_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Row 8 of the paper form — distinct from the CDS "Accord de Principe"
+    # below, because the hierarchy reviewer is not always the same person as
+    # the Chef de Site (e.g. direct supervisor, head of discipline).
+    hierarchy_reviewer_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Site chief approval (step 3) ──
     site_chief_approved: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
@@ -324,6 +328,15 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     process_engineer_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
     do_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
     dg_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Final CDS closure visa — apposed at the `executed_docs_pending → closed`
+    # transition, distinct from the CDS's initial accord de principe.
+    close_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    close_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True,
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
 
     # ── Status ──
     status: Mapped[str] = mapped_column(

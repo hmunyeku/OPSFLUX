@@ -3686,7 +3686,7 @@ _MOC_REPORT_BODY_FR = r"""\
     <td>
       <span class="label">Signature :</span>
       <div class="sig-wrap">
-        {% if site_chief_signature %}<img src="{{ site_chief_signature }}" alt=""/>{% endif %}
+        {% if hierarchy_reviewer_signature %}<img src="{{ hierarchy_reviewer_signature }}" alt=""/>{% endif %}
       </div>
     </td>
   </tr>

@@ -43,7 +43,7 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { TabBar } from '@/components/ui/Tabs'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
-import { MarkdownDisplay } from '@/components/shared/MarkdownField'
+import { RichTextDisplay } from '@/components/shared/RichTextField'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
@@ -60,12 +60,14 @@ import {
   useMOCProductionValidation,
   useMOCReturnRequest,
   useMOCSignature,
+  useMOCTypes,
   useTransitionMOC,
   useUpdateMOC,
   useUpsertMOCValidation,
 } from '@/hooks/useMOC'
 import { UserPicker } from '@/components/shared/UserPicker'
 import { SignaturePad } from '@/components/shared/SignaturePad'
+import { RichTextField } from '@/components/shared/RichTextField'
 import {
   MOC_STATUS_COLOURS,
   MOC_STATUS_LABELS,
@@ -134,6 +136,8 @@ export function MOCDetailPanel({ id }: Props) {
   const productionValidationMutation = useMOCProductionValidation()
   const returnMutation = useMOCReturnRequest()
   const signatureMutation = useMOCSignature()
+  // MOC types catalogue — to resolve moc_type_id → label and allow edit.
+  const { data: mocTypes = [] } = useMOCTypes(false)
 
   // Inline ad-hoc invite form state (scoped to the validation tab)
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -434,14 +438,85 @@ export function MOCDetailPanel({ id }: Props) {
                   label={t('moc.fields.platform')}
                   value={moc.platform_code}
                 />
+                {moc.title && (
+                  <ReadOnlyRow label={t('moc.fields.title')} value={moc.title} />
+                )}
+                {/* Type de MOC — editable while status = created via <select>,
+                    read-only after (status locked) */}
+                {moc.status === 'created' && canUpdateFlags ? (
+                  <ReadOnlyRow
+                    label={t('moc.fields.moc_type')}
+                    value={
+                      <select
+                        className={panelInputClass}
+                        value={moc.moc_type_id || ''}
+                        onChange={(e) =>
+                          updateMutation.mutate({
+                            id: moc.id,
+                            payload: { moc_type_id: e.target.value || null },
+                          })
+                        }
+                      >
+                        <option value="">—</option>
+                        {mocTypes.map((tp) => (
+                          <option key={tp.id} value={tp.id}>
+                            {tp.label}
+                          </option>
+                        ))}
+                      </select>
+                    }
+                  />
+                ) : (
+                  <ReadOnlyRow
+                    label={t('moc.fields.moc_type')}
+                    value={
+                      mocTypes.find((t2) => t2.id === moc.moc_type_id)?.label ||
+                      '—'
+                    }
+                  />
+                )}
+                {moc.nature && (
+                  <ReadOnlyRow
+                    label={t('moc.fields.nature')}
+                    value={t(`moc.nature.${moc.nature}`)}
+                  />
+                )}
+                {moc.metiers && moc.metiers.length > 0 && (
+                  <ReadOnlyRow
+                    label={t('moc.fields.metiers')}
+                    value={moc.metiers.join(', ')}
+                  />
+                )}
                 <ReadOnlyRow
                   label={t('moc.fields.initiator')}
-                  value={moc.initiator_display || moc.initiator_name || '—'}
+                  value={
+                    moc.initiator_external_name ||
+                    moc.initiator_display ||
+                    moc.initiator_name ||
+                    '—'
+                  }
                 />
                 <ReadOnlyRow
                   label={t('moc.fields.initiator_function')}
-                  value={moc.initiator_function || '—'}
+                  value={
+                    moc.initiator_external_function ||
+                    moc.initiator_function ||
+                    '—'
+                  }
                 />
+                {moc.initiator_email && (
+                  <ReadOnlyRow
+                    label={t('moc.fields.initiator_email')}
+                    value={
+                      <a
+                        href={`mailto:${moc.initiator_email}`}
+                        className="text-primary underline"
+                      >
+                        {moc.initiator_email}
+                      </a>
+                    }
+                  />
+                )}
                 <ReadOnlyRow
                   label={t('moc.fields.modification_type')}
                   value={
@@ -486,19 +561,19 @@ export function MOCDetailPanel({ id }: Props) {
                 />
                 <ReadOnlyRow
                   label={t('moc.fields.description')}
-                  value={<MarkdownDisplay value={moc.description} />}
+                  value={<RichTextDisplay value={moc.description} />}
                 />
                 <ReadOnlyRow
                   label={t('moc.fields.current_situation')}
-                  value={<MarkdownDisplay value={moc.current_situation} />}
+                  value={<RichTextDisplay value={moc.current_situation} />}
                 />
                 <ReadOnlyRow
                   label={t('moc.fields.proposed_changes')}
-                  value={<MarkdownDisplay value={moc.proposed_changes} />}
+                  value={<RichTextDisplay value={moc.proposed_changes} />}
                 />
                 <ReadOnlyRow
                   label={t('moc.fields.impact_analysis')}
-                  value={<MarkdownDisplay value={moc.impact_analysis} />}
+                  value={<RichTextDisplay value={moc.impact_analysis} />}
                 />
               </DetailFieldGrid>
             </FormSection>
@@ -1060,6 +1135,7 @@ function ExecutionAccordRow({
   disabled?: boolean
   onAccord: (accord: boolean, comment: string | null) => void
 }) {
+  const { t } = useTranslation()
   const [commentDraft, setCommentDraft] = useState(comment ?? '')
   return (
     <div className="rounded-md border border-border/60 bg-card p-3">
@@ -1077,14 +1153,16 @@ function ExecutionAccordRow({
           </span>
         )}
       </div>
-      <textarea
-        className="gl-form-input mt-2 text-xs"
-        rows={2}
-        value={commentDraft}
-        disabled={disabled}
-        onChange={(e) => setCommentDraft(e.target.value)}
-        placeholder="Commentaire (optionnel)"
-      />
+      <div className="mt-2">
+        <RichTextField
+          value={commentDraft}
+          onChange={setCommentDraft}
+          disabled={disabled}
+          rows={2}
+          compact
+          placeholder={t('moc.fields.comment_ph') as string}
+        />
+      </div>
       <div className="mt-2 flex gap-2">
         <button
           type="button"
@@ -1239,12 +1317,13 @@ function ProductionValidationTab({
             <label className="text-[10px] text-muted-foreground">
               {t('moc.fields.comment')}
             </label>
-            <textarea
-              className="gl-form-input w-full text-xs"
-              rows={3}
+            <RichTextField
               value={comment}
-              onChange={(e) => setComment(e.target.value)}
+              onChange={setComment}
               disabled={disabled}
+              rows={3}
+              compact
+              placeholder={t('moc.fields.comment_ph') as string}
             />
           </div>
 
@@ -1513,13 +1592,13 @@ function DirectorAccordBlock({
         </div>
       </div>
 
-      <textarea
-        className="gl-form-input w-full text-xs"
-        rows={2}
+      <RichTextField
         value={draftComment}
-        onChange={(e) => setDraftComment(e.target.value)}
-        placeholder={t('moc.fields.comment_ph') as string}
+        onChange={setDraftComment}
         disabled={disabled}
+        rows={2}
+        compact
+        placeholder={t('moc.fields.comment_ph') as string}
       />
 
       <SignaturePad

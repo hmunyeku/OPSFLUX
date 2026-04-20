@@ -936,25 +936,40 @@ async def export_moc_pdf(
     from app.models.common import Entity
 
     def render_markdown(txt: str | None) -> str | None:
-        """Minimal markdown → HTML for the PDF body. Keeps line breaks and
-        bullet lists readable without pulling in a full markdown lib."""
+        """Pass-through + migration helper.
+
+        Since the frontend moved to Tiptap, every new record ships HTML
+        already. Legacy records may still contain a plain-text or very
+        simple Markdown string (lists with `- `, paragraphs separated by
+        blank lines). We detect HTML by a quick "<" sniff and:
+          * return HTML as-is → WeasyPrint renders it
+          * otherwise, convert line-by-line (bullets → ul/li, else <p>)
+            to keep the PDF readable for old rows.
+        Templates always feed the output through Jinja's `| safe` filter,
+        so WeasyPrint receives consumable HTML in both cases.
+        """
         if not txt:
             return None
+        stripped = txt.strip()
+        # Tiptap output always starts with a block tag; treat as HTML.
+        if stripped.startswith("<"):
+            return stripped
+        # Legacy plain-text / markdown fallback.
         lines = txt.splitlines()
         out: list[str] = []
         in_list = False
         for line in lines:
-            stripped = line.lstrip()
-            if stripped.startswith(("- ", "* ")):
+            s = line.lstrip()
+            if s.startswith(("- ", "* ")):
                 if not in_list:
                     out.append("<ul>")
                     in_list = True
-                out.append(f"<li>{_html_escape(stripped[2:])}</li>")
+                out.append(f"<li>{_html_escape(s[2:])}</li>")
             else:
                 if in_list:
                     out.append("</ul>")
                     in_list = False
-                if stripped:
+                if s:
                     out.append(f"<p>{_html_escape(line)}</p>")
         if in_list:
             out.append("</ul>")

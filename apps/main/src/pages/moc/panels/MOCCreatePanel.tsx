@@ -18,7 +18,7 @@ import {
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { AssetPicker } from '@/components/shared/AssetPicker'
-import { MarkdownField } from '@/components/shared/MarkdownField'
+import { RichTextField } from '@/components/shared/RichTextField'
 import { SignaturePad } from '@/components/shared/SignaturePad'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
@@ -301,39 +301,35 @@ export function MOCCreatePanel() {
               placeholder={t('moc.fields.objectives_ph') as string}
             />
           </DynamicPanelField>
-          {/* Multi-paragraph fields use MarkdownField — edit/preview toggle,
+          {/* Multi-paragraph fields use RichTextField (Tiptap) — rich formatting,
               bullet lists, tables, inline code, etc. */}
           <DynamicPanelField label={t('moc.fields.description')} span="full">
-            <MarkdownField
+            <RichTextField
               value={description}
               onChange={setDescription}
               rows={5}
-              hint={t('common.markdown_hint') as string}
             />
           </DynamicPanelField>
           <DynamicPanelField label={t('moc.fields.current_situation')} span="full">
-            <MarkdownField
+            <RichTextField
               value={currentSituation}
               onChange={setCurrentSituation}
               rows={4}
-              hint={t('common.markdown_hint') as string}
             />
           </DynamicPanelField>
           <DynamicPanelField label={t('moc.fields.proposed_changes')} span="full">
-            <MarkdownField
+            <RichTextField
               value={proposedChanges}
               onChange={setProposedChanges}
               rows={4}
-              hint={t('common.markdown_hint') as string}
             />
           </DynamicPanelField>
           <DynamicPanelField label={t('moc.fields.impact_analysis')} span="full">
-            <MarkdownField
+            <RichTextField
               value={impactAnalysis}
               onChange={setImpactAnalysis}
               rows={4}
               placeholder={t('moc.fields.impact_analysis_ph') as string}
-              hint={t('common.markdown_hint') as string}
             />
           </DynamicPanelField>
         </FormSection>

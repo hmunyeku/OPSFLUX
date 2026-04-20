@@ -121,29 +121,61 @@ function TileButton({ tile, index }: { tile: Tile; index: number }) {
       type="button"
       onClick={() => navigate(tile.path)}
       className={cn(
-        'group relative flex flex-col items-start gap-3 p-4 sm:p-5',
-        'rounded-2xl border border-border bg-card hover:bg-card/80',
-        'text-left transition-all duration-200',
-        'ring-1 ring-transparent hover:ring-2 hover:-translate-y-0.5',
+        'group relative overflow-hidden flex flex-col items-start gap-3 p-4 sm:p-5',
+        // Glassy card: slight gradient + soft border + layered shadow.
+        // Hover = lift + glow + shine sweep.
+        'rounded-2xl border border-border/70',
+        'bg-gradient-to-br from-card to-card/60 backdrop-blur-sm',
+        'shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-xl hover:shadow-primary/5',
+        'text-left transition-all duration-300 ease-out',
+        'hover:-translate-y-1 hover:border-border motion-safe:hover:scale-[1.015]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
         'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300',
-        style.ring,
       )}
       style={{ animationDelay: `${Math.min(index * 30, 240)}ms` }}
     >
+      {/* Shine sweep — a diagonal white streak that slides across the
+          card on hover. Pure CSS, no JS. Respects reduce-motion. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 motion-reduce:hidden -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out"
+        style={{
+          background: 'linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.12) 50%, transparent 80%)',
+        }}
+      />
+      {/* Icon — tinted + glow ring on hover */}
       <div className={cn(
-        'flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl shrink-0',
+        'relative flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl shrink-0',
+        'transition-all duration-300 ease-out',
+        'group-hover:scale-110 group-hover:rotate-[-4deg]',
         style.bg,
       )}>
         <Icon className={cn('h-5 w-5 sm:h-6 sm:w-6', style.icon)} />
+        {/* Glow behind icon on hover */}
+        <div
+          aria-hidden="true"
+          className={cn(
+            'absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-md -z-10',
+            style.bg,
+          )}
+        />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 relative">
         <div className="text-sm sm:text-base font-semibold text-foreground font-display tracking-tight">
           {t(tile.labelKey)}
         </div>
         <div className="mt-0.5 text-[11px] sm:text-xs text-muted-foreground line-clamp-2">
           {t(tile.descKey, { defaultValue: '' })}
         </div>
+      </div>
+      {/* Corner arrow indicator — fades in on hover */}
+      <div
+        aria-hidden="true"
+        className="absolute top-4 right-4 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors duration-300"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7 17 17 7" /><path d="M7 7h10v10" />
+        </svg>
       </div>
     </button>
   )
@@ -206,12 +238,39 @@ export function HomePage() {
   const firstName = user?.first_name || ''
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
+    <div className="relative flex-1 overflow-y-auto">
+      {/*
+        Hero backdrop — three radial-gradient blobs mimicking a light
+        mesh gradient, tinted to match the primary + highlight colors.
+        Positioned behind the hero header only (top 400px, fades out
+        below) so the rest of the launcher stays calm. Blurred + low
+        opacity so it never fights with the tiles for attention.
+        Disabled under `prefers-reduced-motion` — no animation but no
+        blobs either, so the taste is consistent.
+      */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[420px] overflow-hidden motion-reduce:hidden"
+      >
+        <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-primary/25 blur-3xl motion-safe:animate-[pulse_8s_ease-in-out_infinite]" />
+        <div className="absolute -top-8 right-0 h-80 w-80 rounded-full bg-[hsl(var(--highlight))]/20 blur-3xl motion-safe:animate-[pulse_10s_ease-in-out_infinite]" style={{ animationDelay: '-3s' }} />
+        <div className="absolute top-24 left-1/3 h-60 w-60 rounded-full bg-cyan-400/20 blur-3xl motion-safe:animate-[pulse_12s_ease-in-out_infinite]" style={{ animationDelay: '-6s' }} />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/40 to-background" />
+      </div>
+
+      <div className="relative mx-auto w-full max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
         {/* Hero — greeting + date */}
-        <header className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-display tracking-tight">
-            {greeting}{firstName && `, ${firstName}`}
+        <header className="space-y-1 relative">
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground font-display tracking-tight">
+            {greeting}
+            {firstName && (
+              <>
+                ,{' '}
+                <span className="bg-gradient-to-br from-primary to-[hsl(var(--highlight))] bg-clip-text text-transparent">
+                  {firstName}
+                </span>
+              </>
+            )}
           </h1>
           <p className="text-sm text-muted-foreground">
             {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}

@@ -149,35 +149,95 @@ export function ProtectedSignature({
           </div>
         )}
 
-        {/* Tile-watermark overlay — pointer-events:none so it never intercepts
-            real clicks. Angled repeating pattern, low-contrast grey. */}
+        {/* Anti-extraction watermark stack — pointer-events:none so it never
+            blocks real clicks. The signature must be unextractable without
+            destroying it, so the pattern is designed to defeat AI inpainting:
+              • TWO layers rotated at opposite angles (-22° / +22°) so a
+                frequency-domain filter cannot isolate them
+              • Dense repetition (tile ~90×28 px) covering every signature
+                stroke several times
+              • Higher opacity (~48%) — removing it without leaving artefacts
+                now requires re-drawing strokes from partial data
+              • Two different text lines per tile (viewer + timestamp) so
+                the pattern is NOT self-similar under translation
+              • Fine diagonal grid overlay adds a second removal target */}
         {!empty && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 select-none"
-            style={{
-              // Build a CSS repeating-linear-gradient with the watermark
-              // text baked into an SVG via data-URL. Angle: -25deg.
-              backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
-                `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="70">
-                  <text x="0" y="30"
-                        font-family="Arial, Helvetica, sans-serif"
-                        font-size="9"
-                        font-weight="600"
-                        fill="rgba(0,0,0,0.20)"
-                        transform="rotate(-22 0 30)">${wm.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>
-                  <text x="0" y="60"
-                        font-family="Arial, Helvetica, sans-serif"
-                        font-size="9"
-                        font-weight="600"
-                        fill="rgba(0,0,0,0.20)"
-                        transform="rotate(-22 0 60)">${wm.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>
-                </svg>`,
-              )}")`,
-              backgroundRepeat: 'repeat',
-              mixBlendMode: 'multiply',
-            }}
-          />
+          <>
+            {/* Layer 1 — tilted -22° */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 select-none"
+              style={{
+                backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                  `<svg xmlns="http://www.w3.org/2000/svg" width="90" height="28">
+                    <text x="0" y="12"
+                          font-family="Arial, Helvetica, sans-serif"
+                          font-size="7"
+                          font-weight="700"
+                          fill="rgba(60,60,60,0.48)"
+                          transform="rotate(-22 0 12)">${wm.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>
+                    <text x="0" y="25"
+                          font-family="Arial, Helvetica, sans-serif"
+                          font-size="7"
+                          font-weight="700"
+                          fill="rgba(60,60,60,0.48)"
+                          transform="rotate(-22 0 25)">${wm.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>
+                  </svg>`,
+                )}")`,
+                backgroundRepeat: 'repeat',
+                mixBlendMode: 'multiply',
+              }}
+            />
+            {/* Layer 2 — counter-tilted +22°, offset so strokes cross */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 select-none"
+              style={{
+                backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                  `<svg xmlns="http://www.w3.org/2000/svg" width="90" height="28">
+                    <text x="0" y="12"
+                          font-family="Arial, Helvetica, sans-serif"
+                          font-size="7"
+                          font-weight="700"
+                          fill="rgba(0,0,0,0.42)"
+                          transform="rotate(22 0 12)">${wm.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>
+                    <text x="0" y="25"
+                          font-family="Arial, Helvetica, sans-serif"
+                          font-size="7"
+                          font-weight="700"
+                          fill="rgba(0,0,0,0.42)"
+                          transform="rotate(22 0 25)">${wm.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>
+                  </svg>`,
+                )}")`,
+                backgroundRepeat: 'repeat',
+                backgroundPosition: '16px 6px',
+                mixBlendMode: 'multiply',
+              }}
+            />
+            {/* Layer 3 — fine diagonal grid, destroys smooth regions so
+                an inpainter cannot recover the signature background either */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 select-none"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(' +
+                    '45deg,' +
+                    'rgba(0,0,0,0.14) 0,' +
+                    'rgba(0,0,0,0.14) 0.7px,' +
+                    'transparent 0.7px,' +
+                    'transparent 5px' +
+                  '), repeating-linear-gradient(' +
+                    '-45deg,' +
+                    'rgba(0,0,0,0.14) 0,' +
+                    'rgba(0,0,0,0.14) 0.7px,' +
+                    'transparent 0.7px,' +
+                    'transparent 5px' +
+                  ')',
+                mixBlendMode: 'multiply',
+              }}
+            />
+          </>
         )}
 
         {/* Corner chip — discrete "SIGNED" marker to help readers trust

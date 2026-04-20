@@ -948,7 +948,7 @@ async def transition_moc(
         details={"reference": moc.reference, "to": body.to_status},
     )
     await db.commit()
-    return await get_moc(moc_id=moc.id, entity_id=entity_id, db=db)
+    return await get_moc(moc_id=moc.id, entity_id=entity_id, current_user=current_user, db=db)
 
 
 # ─── Validation matrix upsert ─────────────────────────────────────────────────
@@ -1392,7 +1392,7 @@ async def request_moc_return(
         },
     )
     await db.commit()
-    return await get_moc(moc_id=moc.id, entity_id=entity_id, db=db)
+    return await get_moc(moc_id=moc.id, entity_id=entity_id, current_user=current_user, db=db)
 
 
 # ─── Production mise-en-étude (Daxium tab 3 "Validation pour mise en étude") ─
@@ -1444,7 +1444,7 @@ async def set_production_validation(
         },
     )
     await db.commit()
-    return await get_moc(moc_id=moc.id, entity_id=entity_id, db=db)
+    return await get_moc(moc_id=moc.id, entity_id=entity_id, current_user=current_user, db=db)
 
 
 # ─── Signature capture at a named slot ─────────────────────────────────────
@@ -1491,7 +1491,7 @@ async def set_moc_signature(
         details={"slot": body.slot},
     )
     await db.commit()
-    return await get_moc(moc_id=moc.id, entity_id=entity_id, db=db)
+    return await get_moc(moc_id=moc.id, entity_id=entity_id, current_user=current_user, db=db)
 
 
 # ─── Invite validator (ad-hoc, on top of the matrix) ─────────────────────────
@@ -1660,7 +1660,7 @@ async def set_execution_accord(
         },
     )
     await db.commit()
-    return await get_moc(moc_id=moc.id, entity_id=entity_id, db=db)
+    return await get_moc(moc_id=moc.id, entity_id=entity_id, current_user=current_user, db=db)
 
 
 # ─── Site assignments (CDC §4.4 "contacts des valideurs") ───────────────────

@@ -172,9 +172,17 @@ export function AppLayout({ children }: AppLayoutProps) {
       bottom cut off when the URL bar reappears. Safari fallback:
       h-screen is still the computed value where dvh is unsupported.
     */}
+    {/*
+      Staggered reveal on mount — topbar, sidebar then main each slide
+      in sequence (80 ms apart). Runs once per AppLayout mount (page
+      refresh / route change into a protected area). Disabled by
+      prefers-reduced-motion via the `motion-safe:` Tailwind prefix.
+    */}
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
       {/* ── Zone 1: Topbar ── */}
-      <Topbar onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
+      <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2 motion-safe:duration-300">
+        <Topbar onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
+      </div>
 
       {/* ── Global banner zone ── */}
       {import.meta.env.DEV && (
@@ -199,12 +207,13 @@ export function AppLayout({ children }: AppLayoutProps) {
           />
         )}
 
-        {/* ── Zone 2: Sidebar ── */}
+        {/* ── Zone 2: Sidebar — 80ms after topbar so the reveal staggers. ── */}
         <div
           className={cn(
             'fixed inset-y-0 left-0 lg:relative lg:z-auto',
             'transition-transform duration-200 lg:transition-none lg:translate-x-0',
             mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+            'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-left-2 motion-safe:duration-300 motion-safe:delay-75',
           )}
           style={{ zIndex: 'var(--z-sidebar)', top: mobileSidebarOpen ? 0 : undefined }}
         >
@@ -215,12 +224,12 @@ export function AppLayout({ children }: AppLayoutProps) {
           />
         </div>
 
-        {/* ── Zones 3+4+5: Main area — pages render static + dynamic panels ── */}
+        {/* ── Zones 3+4+5: Main area — 150ms after topbar so content lands last. ── */}
         <main
           role="main"
           id="main-content"
           data-tour="main-content"
-          className="flex-1 overflow-hidden min-w-0"
+          className="flex-1 overflow-hidden min-w-0 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:delay-150"
         >
           {children}
         </main>

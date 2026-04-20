@@ -49,6 +49,15 @@
     --accent: 220 14% 93%;
     --accent-foreground: 220 15% 13%;
 
+    /* ── Emphasis — for highlights / premium chips / hotline / spotlight
+         events. One of the `frontend-design` skill's P1 recommendations
+         (docs/check/22) — an officially named accent so code stops
+         reaching for purple-/violet- when it wants a non-primary
+         standout colour. Hue is amber-orange, non-clashing with
+         primary blue. */
+    --highlight: 24 95% 55%;
+    --highlight-foreground: 0 0% 100%;
+
     /* ── Semantic status ───────────────────────────────── */
     --destructive: 0 68% 55%;
     --destructive-foreground: 0 0% 100%;
@@ -113,6 +122,11 @@
     --accent: 222 20% 18%;
     --accent-foreground: 210 20% 93%;
 
+    /* Dark mode — slightly softer amber so it doesn't scream against
+       the dark surface. Same hue, lower saturation + luminance. */
+    --highlight: 24 85% 60%;
+    --highlight-foreground: 222 28% 7%;
+
     --destructive: 0 55% 48%;
     --destructive-foreground: 210 20% 93%;
     --warning: 33 90% 50%;
@@ -145,6 +159,18 @@
     -moz-osx-font-smoothing: grayscale;
     font-size: 1rem;
     line-height: 1.5;
+    /* Subtle noise overlay — gives the surface organic texture without
+       hurting legibility. 3% opacity SVG turbulence repeated 64×64. Cost:
+       one inline data URI (~300 bytes), zero network. Turn off via
+       `prefers-reduced-motion` so users who opt out of motion also get
+       a clean, non-textured background. */
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='64' height='64' filter='url(%23n)' opacity='0.035'/></svg>");
+    background-repeat: repeat;
+    background-attachment: fixed;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body { background-image: none; }
   }
 }
 

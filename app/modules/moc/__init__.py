@@ -66,7 +66,7 @@ MANIFEST = ModuleManifest(
             ],
         },
         {
-            "code": "MOC_SITE_CHIEF",
+            "code": "SITE_CHIEF",
             "name": "Chef de site (OM/CDS) — MOC",
             "description": "Approuve/soumet les MOC initiés sur son site, pilote l'exécution",
             "permissions": [
@@ -79,7 +79,7 @@ MANIFEST = ModuleManifest(
             ],
         },
         {
-            "code": "MOC_DIRECTOR",
+            "code": "DIRECTOR",
             "name": "Directeur Production / Gaz — MOC",
             "description": "Confirme ou annule les MOC, définit la priorité, valide l'étude",
             "permissions": [
@@ -91,7 +91,7 @@ MANIFEST = ModuleManifest(
             ],
         },
         {
-            "code": "MOC_LEAD_PROCESS",
+            "code": "LEAD_PROCESS",
             "name": "Lead Process — MOC",
             "description": "Démarre les études, désigne le responsable process engineer",
             "permissions": [
@@ -102,7 +102,7 @@ MANIFEST = ModuleManifest(
             ],
         },
         {
-            "code": "MOC_PROCESS_ENGINEER",
+            "code": "PROCESS_ENGINEER",
             "name": "Process Engineer (Responsable MOC)",
             "description": "Conduit l'étude, coordonne, clôture après MAJ documentaire",
             "permissions": [
@@ -113,7 +113,7 @@ MANIFEST = ModuleManifest(
             ],
         },
         {
-            "code": "MOC_HSE",
+            "code": "HSE",
             "name": "HSE / Safety Process — MOC",
             "description": "Valide le volet HSE (HAZOP/HAZID/Environmental)",
             "permissions": [
@@ -122,7 +122,7 @@ MANIFEST = ModuleManifest(
             ],
         },
         {
-            "code": "MOC_MAINTENANCE_MANAGER",
+            "code": "MAINTENANCE_MANAGER",
             "name": "Maintenance Manager — MOC",
             "description": "Valide l'impact maintenance",
             "permissions": [

@@ -503,17 +503,17 @@ async def invite_validator(
 # Map destination roles per target status. Notifications are sent to every
 # user holding the corresponding OpsFlux role on the MOC's entity.
 NOTIFY_ROLES_BY_STATUS: dict[str, list[str]] = {
-    "created": ["MOC_SITE_CHIEF"],
-    "approved": ["MOC_DIRECTOR"],
-    "submitted_to_confirm": ["MOC_DIRECTOR"],
-    "approved_to_study": ["MOC_LEAD_PROCESS"],
-    "under_study": ["MOC_PROCESS_ENGINEER"],
+    "created": ["SITE_CHIEF"],
+    "approved": ["DIRECTOR"],
+    "submitted_to_confirm": ["DIRECTOR"],
+    "approved_to_study": ["LEAD_PROCESS"],
+    "under_study": ["PROCESS_ENGINEER"],
     "study_in_validation": [
-        "MOC_HSE", "MOC_MAINTENANCE_MANAGER", "MOC_DIRECTOR", "MOC_LEAD_PROCESS",
+        "HSE", "MAINTENANCE_MANAGER", "DIRECTOR", "LEAD_PROCESS",
     ],
-    "validated": ["MOC_SITE_CHIEF"],
-    "execution": ["MOC_SITE_CHIEF"],
-    "executed_docs_pending": ["MOC_PROCESS_ENGINEER"],
+    "validated": ["SITE_CHIEF"],
+    "execution": ["SITE_CHIEF"],
+    "executed_docs_pending": ["PROCESS_ENGINEER"],
 }
 
 
@@ -544,20 +544,20 @@ async def _notify_transition(
     # without touching UserGroupRole tables here. Fall back to permission-
     # based addressing using canonical permissions.
     ROLE_TO_PERM = {
-        "MOC_SITE_CHIEF": "moc.site_chief.approve",
-        "MOC_DIRECTOR": "moc.director.confirm",
-        "MOC_LEAD_PROCESS": "moc.lead_process.start_study",
-        "MOC_PROCESS_ENGINEER": "moc.responsible.submit_study",
-        "MOC_HSE": "moc.hse.validate",
-        "MOC_MAINTENANCE_MANAGER": "moc.maintenance.validate",
+        "SITE_CHIEF": "moc.site_chief.approve",
+        "DIRECTOR": "moc.director.confirm",
+        "LEAD_PROCESS": "moc.lead_process.start_study",
+        "PROCESS_ENGINEER": "moc.responsible.submit_study",
+        "HSE": "moc.hse.validate",
+        "MAINTENANCE_MANAGER": "moc.maintenance.validate",
     }
     # Map MOC_* role → moc_site_assignments role (for site-scoped filtering)
     ROLE_TO_SITE_ROLE = {
-        "MOC_SITE_CHIEF": "site_chief",
-        "MOC_DIRECTOR": "director",
-        "MOC_LEAD_PROCESS": "lead_process",
-        "MOC_HSE": "hse",
-        "MOC_MAINTENANCE_MANAGER": "maintenance_manager",
+        "SITE_CHIEF": "site_chief",
+        "DIRECTOR": "director",
+        "LEAD_PROCESS": "lead_process",
+        "HSE": "hse",
+        "MAINTENANCE_MANAGER": "maintenance_manager",
     }
     perms_to_test = {ROLE_TO_PERM[r] for r in target_roles if r in ROLE_TO_PERM}
     site_roles = {

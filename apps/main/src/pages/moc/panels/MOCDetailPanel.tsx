@@ -517,16 +517,37 @@ export function MOCDetailPanel({ id }: Props) {
                       const isReturn =
                         tr.to === 'under_study' && moc.status === 'study_in_validation'
                       const IconComp = isCancel || isReturn ? XCircle : Send
+                      // Pre-flight — if the backend would reject this
+                      // transition, show the missing items inline and
+                      // disable the button rather than round-trip a 400.
+                      const missing = missingPrereqsFor(
+                        tr.to as MOCStatus,
+                        moc,
+                        transitionNote,
+                        priorityPick,
+                      )
+                      const isBlocked = !isCancel && missing.length > 0
                       return (
-                        <PanelActionButton
-                          key={tr.to}
-                          icon={<IconComp size={12} />}
-                          variant={isCancel ? 'danger' : isReturn ? 'default' : 'primary'}
-                          onClick={() => doTransition(tr.to)}
-                          disabled={transitionMutation.isPending}
-                        >
-                          {statusLabels[tr.to] ?? MOC_STATUS_LABELS[tr.to]}
-                        </PanelActionButton>
+                        <div key={tr.to} className="flex flex-col gap-1">
+                          <PanelActionButton
+                            icon={<IconComp size={12} />}
+                            variant={isCancel ? 'danger' : isReturn ? 'default' : 'primary'}
+                            onClick={() => doTransition(tr.to)}
+                            disabled={transitionMutation.isPending || isBlocked}
+                          >
+                            {statusLabels[tr.to] ?? MOC_STATUS_LABELS[tr.to]}
+                          </PanelActionButton>
+                          {isBlocked && (
+                            <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 max-w-[28ch]">
+                              <strong>{t('moc.transition.prereqs_missing')} :</strong>
+                              <ul className="list-disc pl-4 mt-0.5">
+                                {missing.map((m) => (
+                                  <li key={m}>{t(m)}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
                       )
                     })}
                   </div>
@@ -1869,4 +1890,53 @@ function LinkedProjectCard({ project }: { project: MOCLinkedProject }) {
       </div>
     </div>
   )
+}
+
+
+// ─── Transition preconditions — mirror the backend guards ─────────────────
+// Returns the i18n keys of missing prerequisites for a given target status.
+// Must stay in sync with the gates declared in app/services/modules/moc_service.py
+// under `async def transition`. If the list is non-empty, the UI disables
+// the transition button and surfaces the blockers inline.
+
+function missingPrereqsFor(
+  to: MOCStatus,
+  moc: MOCWithDetails,
+  transitionNote: string,
+  priority: '1' | '2' | '3',
+): string[] {
+  const missing: string[] = []
+  if (to === 'approved') {
+    if (!moc.initiator_signature) missing.push('moc.prereq.initiator_signature')
+    if (moc.is_real_change === null || moc.is_real_change === undefined) {
+      missing.push('moc.prereq.is_real_change')
+    }
+    if (
+      !moc.site_chief_comment?.trim() &&
+      !transitionNote.trim()
+    ) {
+      missing.push('moc.prereq.site_chief_comment')
+    }
+  } else if (to === 'submitted_to_confirm') {
+    if (!moc.site_chief_signature) missing.push('moc.prereq.site_chief_signature')
+  } else if (to === 'approved_to_study') {
+    if (!['1', '2', '3'].includes(priority)) missing.push('moc.prereq.priority')
+  } else if (to === 'validated') {
+    const unapproved = (moc.validations || []).filter(
+      (v) => v.required && !v.approved,
+    )
+    if (unapproved.length > 0) missing.push('moc.prereq.all_validators_approved')
+  } else if (to === 'execution') {
+    if (moc.do_execution_accord !== true) missing.push('moc.prereq.do_accord')
+    if (moc.dg_execution_accord !== true) missing.push('moc.prereq.dg_accord')
+  } else if (to === 'closed') {
+    if (moc.pid_update_required && !moc.pid_update_completed) {
+      missing.push('moc.prereq.pid_update')
+    }
+    if (moc.esd_update_required && !moc.esd_update_completed) {
+      missing.push('moc.prereq.esd_update')
+    }
+    if (!moc.close_signature) missing.push('moc.prereq.close_signature')
+  }
+  return missing
 }

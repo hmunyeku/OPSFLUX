@@ -91,8 +91,13 @@ export function useDeleteMOC() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => mocService.remove(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.all })
+    onSuccess: (_d, id) => {
+      // Only invalidate the list + stats — the detail query for the
+      // just-deleted MOC is pointless to refetch (would return 404)
+      // and we remove it from cache to stop any active subscribers.
+      qc.invalidateQueries({ queryKey: [...keys.all, 'list'] })
+      qc.invalidateQueries({ queryKey: keys.stats() })
+      qc.removeQueries({ queryKey: keys.detail(id) })
     },
   })
 }

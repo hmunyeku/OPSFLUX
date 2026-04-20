@@ -5655,6 +5655,22 @@
       "only_promoted": "Uniquement promus",
       "only_not_promoted": "Non encore promus"
     },
+    "transition": {
+      "prereqs_missing": "Prérequis manquants"
+    },
+    "prereq": {
+      "initiator_signature": "Signature du demandeur",
+      "is_real_change": "Revue hiérarchie : véritable changement ? (Oui/Non)",
+      "site_chief_comment": "Commentaire du Chef de site",
+      "site_chief_signature": "Signature Chef de site",
+      "priority": "Priorité (1/2/3)",
+      "all_validators_approved": "Toutes les validations requises approuvées",
+      "do_accord": "Accord du D.O",
+      "dg_accord": "Accord du D.G",
+      "pid_update": "Mise à jour PID achevée",
+      "esd_update": "Mise à jour ESD achevée",
+      "close_signature": "Signature de clôture (CDS)"
+    },
     "fields": {
       "status": "Statut",
       "site": "Site",

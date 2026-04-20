@@ -4845,6 +4845,22 @@
       "only_promoted": "Promoted only",
       "only_not_promoted": "Not yet promoted"
     },
+    "transition": {
+      "prereqs_missing": "Missing prerequisites"
+    },
+    "prereq": {
+      "initiator_signature": "Initiator signature",
+      "is_real_change": "Hierarchy review: real MOC change? (Yes/No)",
+      "site_chief_comment": "Site chief comment",
+      "site_chief_signature": "Site chief signature",
+      "priority": "Priority (1/2/3)",
+      "all_validators_approved": "All required validators approved",
+      "do_accord": "D.O accord",
+      "dg_accord": "D.G accord",
+      "pid_update": "P&ID update completed",
+      "esd_update": "ESD update completed",
+      "close_signature": "Closure signature (CDS)"
+    },
     "fields": {
       "status": "Status",
       "site": "Site",

@@ -203,7 +203,7 @@ export function HomePage() {
   const admin = useMemo(() => filterTiles(ADMINISTRATION), [enabledModules, hasPermission, hasAny])
 
   const greeting = useGreeting()
-  const firstName = user?.first_name || user?.full_name?.split(' ')[0] || ''
+  const firstName = user?.first_name || ''
 
   return (
     <div className="flex-1 overflow-y-auto">

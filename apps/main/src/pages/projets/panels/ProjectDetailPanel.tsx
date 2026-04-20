@@ -144,7 +144,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
         value={form.title}
         onChange={(e) => setForm({ ...form, title: e.target.value })}
         className={`${panelInputClass} w-full text-xs`}
-        placeholder="Titre de la tâche *"
+        placeholder={t('projets.placeholders.task_title')}
         autoFocus
       />
 
@@ -152,7 +152,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
         value={form.description}
         onChange={(e) => setForm({ ...form, description: e.target.value })}
         className={`${panelInputClass} w-full text-xs min-h-[40px] resize-y`}
-        placeholder="Description..."
+        placeholder={t('projets.placeholders.description')}
         rows={2}
       />
 
@@ -183,7 +183,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
         />
         <div className="w-20 shrink-0">
           <label className="text-[10px] text-muted-foreground mb-0.5 block">Heures est.</label>
-          <input type="number" step="0.5" min="0" value={form.estimated_hours} onChange={(e) => setForm({ ...form, estimated_hours: e.target.value })} className={`${panelInputClass} w-full text-xs`} placeholder="0" />
+          <input type="number" step="0.5" min="0" value={form.estimated_hours} onChange={(e) => setForm({ ...form, estimated_hours: e.target.value })} className={`${panelInputClass} w-full text-xs`} placeholder={t('projets.placeholders.estimated_hours')} />
         </div>
       </div>
 
@@ -330,7 +330,7 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
               value={depForm.lag_days}
               onChange={e => setDepForm(f => ({ ...f, lag_days: Number(e.target.value) || 0 }))}
               className={`${panelInputClass} text-xs`}
-              placeholder="Lag j"
+              placeholder={t('projets.placeholders.lag_days')}
             />
           </div>
           <div className="flex justify-end gap-1">
@@ -357,6 +357,7 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
 }
 
 function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; projectId: string }) {
+  const { t } = useTranslation()
   const { data: deliverables = [] } = useTaskDeliverables(projectId, task.id)
   const createD = useCreateDeliverable()
   const updateD = useUpdateDeliverable()
@@ -410,7 +411,7 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
           onChange={e => setNewName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
           className={`${panelInputClass} flex-1 text-[11px]`}
-          placeholder="Nouveau livrable…"
+          placeholder={t('projets.placeholders.new_deliverable')}
         />
         <button
           onClick={handleAdd}
@@ -425,6 +426,7 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
 }
 
 function TaskActionsSection({ task, projectId }: { task: ProjectTask; projectId: string }) {
+  const { t } = useTranslation()
   const { data: actions = [] } = useTaskActions(projectId, task.id)
   const createA = useCreateAction()
   const updateA = useUpdateAction()
@@ -483,7 +485,7 @@ function TaskActionsSection({ task, projectId }: { task: ProjectTask; projectId:
           onChange={e => setNewTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
           className={`${panelInputClass} flex-1 text-[11px]`}
-          placeholder="Nouvelle action…"
+          placeholder={t('projets.placeholders.new_action')}
         />
         <button
           onClick={handleAdd}
@@ -574,6 +576,7 @@ function TaskRow({
   allTasks: ProjectTask[]
   depth?: number
 }) {
+  const { t } = useTranslation()
   const updateTask = useUpdateProjectTask()
   const deleteTask = useDeleteProjectTask()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -715,7 +718,7 @@ function TaskRow({
               onBlur={(e) => handleFieldSave('description', e.target.value || null)}
               className={`${panelInputClass} w-full text-xs min-h-[36px] resize-y`}
               rows={2}
-              placeholder="Description de la tâche..."
+              placeholder={t('projets.placeholders.task_description')}
             />
           </div>
 
@@ -781,6 +784,7 @@ function MilestoneRow({ ms, projectId }: { ms: ProjectMilestoneType; projectId: 
 // -- Milestone Quick Add -----------------------------------------------------
 
 function MilestoneQuickAdd({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [dueDate, setDueDate] = useState('')
@@ -816,7 +820,7 @@ function MilestoneQuickAdd({ projectId }: { projectId: string }) {
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') { setOpen(false); setName(''); setDueDate('') } }}
         className={`${panelInputClass} flex-1 text-xs`}
-        placeholder="Nom du jalon..."
+        placeholder={t('projets.placeholders.milestone_name')}
         autoFocus
       />
       <input
@@ -866,6 +870,7 @@ function MemberRow({ member, projectId }: { member: ProjectMemberType; projectId
 // -- Member Quick Add --------------------------------------------------------
 
 function MemberQuickAdd({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedUserId, setSelectedUserId] = useState('')
@@ -917,7 +922,7 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
             if (e.key === 'Escape') { setOpen(false); setSearch(''); setSelectedUserId('') }
           }}
           className={`${panelInputClass} w-full text-xs`}
-          placeholder="Rechercher un utilisateur..."
+          placeholder={t('projets.placeholders.search_user')}
           autoFocus
         />
         {showDropdown && search.length > 0 && users.length > 0 && (
@@ -1080,8 +1085,8 @@ function TemplatesSection({ projectId }: { projectId: string }) {
           </button>
         ) : (
           <div className="space-y-2 border rounded p-2 bg-muted/30">
-            <input value={tplName} onChange={(e) => setTplName(e.target.value)} placeholder="Nom du template" className={panelInputClass} />
-            <input value={tplDesc} onChange={(e) => setTplDesc(e.target.value)} placeholder="Description (optionnel)" className={panelInputClass} />
+            <input value={tplName} onChange={(e) => setTplName(e.target.value)} placeholder={t('projets.placeholders.template_name')} className={panelInputClass} />
+            <input value={tplDesc} onChange={(e) => setTplDesc(e.target.value)} placeholder={t('projets.placeholders.template_desc_optional')} className={panelInputClass} />
             <div className="flex gap-2">
               <button onClick={handleSave} disabled={saveAsTemplate.isPending || !tplName.trim()} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-50">
                 {saveAsTemplate.isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} Sauvegarder
@@ -1104,7 +1109,7 @@ function TemplatesSection({ projectId }: { projectId: string }) {
                 <option key={t.id} value={t.id}>{t.name} {t.category ? `(${t.category})` : ''} — {t.usage_count} utilisation(s)</option>
               ))}
             </select>
-            <input value={cloneName} onChange={(e) => setCloneName(e.target.value)} placeholder="Nom du nouveau projet" className={panelInputClass} />
+            <input value={cloneName} onChange={(e) => setCloneName(e.target.value)} placeholder={t('projets.placeholders.clone_name')} className={panelInputClass} />
             <div className="flex gap-2">
               <button onClick={handleClone} disabled={cloneFromTemplate.isPending || !selectedTpl || !cloneName.trim()} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-50">
                 {cloneFromTemplate.isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} Créer
@@ -1308,7 +1313,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
               value={body}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="Ajouter un commentaire... (@mention)"
+              placeholder={t('projets.placeholders.comment_with_mention')}
               rows={2}
               className={cn(panelInputClass, 'flex-1 resize-none')}
             />
@@ -1608,7 +1613,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                         )
                         onDone()
                       }}
-                      placeholder="Sélectionner un site..."
+                      placeholder={t('projets.placeholders.select_site')}
                       clearable
                     />
                   )}
@@ -1877,7 +1882,7 @@ function WbsSection({ projectId }: { projectId: string }) {
               value={form.code}
               onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
               className={`${panelInputClass} text-xs`}
-              placeholder="Code (1.2.3) *"
+              placeholder={t('projets.placeholders.lot_code')}
               autoFocus
             />
             <input
@@ -1885,7 +1890,7 @@ function WbsSection({ projectId }: { projectId: string }) {
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               className={`${panelInputClass} text-xs`}
-              placeholder="Nom du lot *"
+              placeholder={t('projets.placeholders.lot_name')}
             />
           </div>
           <input
@@ -1893,7 +1898,7 @@ function WbsSection({ projectId }: { projectId: string }) {
             value={form.budget}
             onChange={e => setForm(f => ({ ...f, budget: e.target.value }))}
             className={`${panelInputClass} w-full text-xs`}
-            placeholder="Budget (XAF)"
+            placeholder={t('projets.placeholders.lot_budget')}
             step="any"
           />
           <div className="flex justify-end gap-1">
@@ -2142,14 +2147,14 @@ function PlanningRevisionsSection({ projectId }: { projectId: string }) {
             value={revName}
             onChange={e => setRevName(e.target.value)}
             className={`${panelInputClass} w-full text-xs`}
-            placeholder="Nom de la révision *"
+            placeholder={t('projets.placeholders.revision_name')}
             autoFocus
           />
           <textarea
             value={revDesc}
             onChange={e => setRevDesc(e.target.value)}
             className={`${panelInputClass} w-full text-xs min-h-[36px] resize-y`}
-            placeholder="Description (optionnel)…"
+            placeholder={t('projets.placeholders.revision_desc_optional')}
             rows={2}
           />
           <div className="flex justify-end gap-1">

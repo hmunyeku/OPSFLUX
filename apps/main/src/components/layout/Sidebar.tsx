@@ -20,6 +20,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { useModules } from '@/hooks/useModules'
 import {
   LayoutDashboard,
+  LayoutGrid,
   Landmark,
   Building2,
   Globe,
@@ -68,6 +69,7 @@ export interface NavItemDef {
 // Core navigation items — sourced from module manifests
 // Each item requires at least one .read permission from its module to be visible.
 const moduleNavItems: NavItemDef[] = [
+  { path: '/home', icon: LayoutGrid, labelKey: 'nav.home', module: 'core', order: 5 },
   { path: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', module: 'dashboard', order: 10, requiredPermission: 'dashboard.read' },
   { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', module: 'tiers', order: 30, requiredPermission: 'tier.read' },
   { path: '/projets', icon: FolderKanban, labelKey: 'nav.projets', module: 'projets', order: 38, requiredPermission: 'project.read' },

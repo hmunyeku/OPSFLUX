@@ -39,6 +39,7 @@ const TVModePage = lazy(() => import('@/pages/dashboard/TVModePage').then(m => (
 const FileManagerPage = lazy(() => import('@/pages/files/FileManagerPage'))
 const SupportPage = lazy(() => import('@/pages/support/SupportPage').then(m => ({ default: m.SupportPage })))
 const MOCPage = lazy(() => import('@/pages/moc/MOCPage').then(m => ({ default: m.MOCPage })))
+const HomePage = lazy(() => import('@/pages/home/HomePage').then(m => ({ default: m.HomePage })))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -50,14 +51,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function RequirePermission({ permission, children }: { permission: string; children: React.ReactNode }) {
   const { hasPermission, loading } = usePermission()
   if (loading) return <div className="flex items-center justify-center h-full"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
-  if (!hasPermission(permission)) return <Navigate to="/dashboard" replace />
+  if (!hasPermission(permission)) return <Navigate to="/home" replace />
   return <>{children}</>
 }
 
 function RequireAnyPermission({ permissions, children }: { permissions: string[]; children: React.ReactNode }) {
   const { hasAny, loading } = usePermission()
   if (loading) return <div className="flex items-center justify-center h-full"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
-  if (!hasAny(permissions)) return <Navigate to="/dashboard" replace />
+  if (!hasAny(permissions)) return <Navigate to="/home" replace />
   return <>{children}</>
 }
 
@@ -65,7 +66,7 @@ function RequireModuleEnabled({ module, children }: { module: string; children: 
   const { data: modules = [], isLoading } = useModules()
   if (isLoading) return <div className="flex items-center justify-center h-full"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
   const enabled = modules.some((entry) => entry.slug === module && entry.enabled)
-  if (!enabled) return <Navigate to="/dashboard" replace />
+  if (!enabled) return <Navigate to="/home" replace />
   return <>{children}</>
 }
 
@@ -90,7 +91,8 @@ export default function App() {
             <AppLayout>
               <Suspense fallback={<LoaderFallback />}>
                 <Routes>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/" element={<Navigate to="/home" replace />} />
+                  <Route path="/home" element={<HomePage />} />
                   <Route path="/comptes" element={<Navigate to="/users" replace />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/search" element={<SearchPage />} />

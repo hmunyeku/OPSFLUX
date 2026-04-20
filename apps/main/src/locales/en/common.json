@@ -4,6 +4,7 @@
     "tagline": "Operations ERP Platform"
   },
   "nav": {
+    "home": "Home",
     "dashboard": "Dashboard",
     "assets": "Assets",
     "tiers": "Companies",
@@ -34,6 +35,41 @@
     "collapse": "Collapse",
     "expand": "Expand",
     "moc": "MOCTrack"
+  },
+  "home": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "night": "Late night"
+    },
+    "section": {
+      "operations": "Operations",
+      "transverse": "Transverse modules",
+      "administration": "Administration"
+    },
+    "no_modules": "No module available for your account. Contact your administrator.",
+    "desc": {
+      "dashboard": "Overview, KPIs and live widgets",
+      "projets": "Gantt, tasks, milestones, budget and team",
+      "planner": "Activity planning, capacity and what-if",
+      "paxlog": "Stay requests and passenger management",
+      "travelwiz": "Voyages, vectors and captain portal",
+      "packlog": "Shipment requests, cargo and tracking",
+      "moc": "Change requests (Management of Change)",
+      "tiers": "Companies and external contacts directory",
+      "imputations": "Cost allocations and analytical references",
+      "papyrus": "PDF templates and document generation",
+      "pid_pfd": "Process & instrumentation diagrams",
+      "workflow": "Visual workflow editor for validations",
+      "conformite": "Certifications, medical visits, authorisations",
+      "assets": "Fields, platforms and equipment hierarchy",
+      "entities": "Companies, subsidiaries and data isolation",
+      "accounts": "User accounts, roles and permissions",
+      "support": "Tickets, announcements and feedback",
+      "files": "Central file manager",
+      "settings": "Application configuration"
+    }
   },
   "auth": {
     "login": "Login",

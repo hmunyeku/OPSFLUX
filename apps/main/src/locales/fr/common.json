@@ -4,6 +4,7 @@
     "tagline": "Plateforme ERP opérations"
   },
   "nav": {
+    "home": "Accueil",
     "dashboard": "Tableau de bord",
     "assets": "Assets",
     "tiers": "Tiers",
@@ -34,6 +35,41 @@
     "collapse": "Réduire",
     "expand": "Étendre",
     "moc": "MOCTrack"
+  },
+  "home": {
+    "greeting": {
+      "morning": "Bonjour",
+      "afternoon": "Bon après-midi",
+      "evening": "Bonsoir",
+      "night": "Belle nuit"
+    },
+    "section": {
+      "operations": "Opérations",
+      "transverse": "Modules transverses",
+      "administration": "Administration"
+    },
+    "no_modules": "Aucun module accessible pour votre compte. Contactez votre administrateur.",
+    "desc": {
+      "dashboard": "Vue d'ensemble, KPI et widgets temps réel",
+      "projets": "Gantt, tâches, jalons, budget et équipe",
+      "planner": "Planification des activités, capacité et what-if",
+      "paxlog": "Avis de séjour et gestion passagers",
+      "travelwiz": "Voyages, vecteurs et portail capitaine",
+      "packlog": "Demandes d'expédition, colis et tracking",
+      "moc": "Demandes de modification (Management of Change)",
+      "tiers": "Annuaire entreprises et contacts externes",
+      "imputations": "Références analytiques et centres de coût",
+      "papyrus": "Modèles PDF et génération de documents",
+      "pid_pfd": "Schémas process et instrumentation",
+      "workflow": "Éditeur visuel de workflows de validation",
+      "conformite": "Certifications, visites médicales, habilitations",
+      "assets": "Hiérarchie des champs, plateformes et équipements",
+      "entities": "Sociétés, filiales et isolation des données",
+      "accounts": "Comptes utilisateurs, rôles et permissions",
+      "support": "Tickets, annonces et feedback",
+      "files": "Gestionnaire de fichiers centralisé",
+      "settings": "Configuration de l'application"
+    }
   },
   "auth": {
     "login": "Connexion",

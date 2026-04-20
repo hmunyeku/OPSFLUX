@@ -5649,6 +5649,12 @@
       "linked_project_chip": "Ouvrir",
       "created_at": "Créé le"
     },
+    "filters": {
+      "mine_as_manager": "Mes MOC (chef de projet)",
+      "all_projects": "Tous — promus ou non",
+      "only_promoted": "Uniquement promus",
+      "only_not_promoted": "Non encore promus"
+    },
     "fields": {
       "status": "Statut",
       "site": "Site",

@@ -563,6 +563,11 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
         "packlog_overview": "kpi", "packlog_catalog_overview": "kpi",
         "packlog_requests_by_status": "chart", "packlog_cargo_by_status": "chart",
         "packlog_tracking": "table", "packlog_alerts": "table",
+        # MOC
+        "moc_overview": "kpi", "moc_awaiting_validation": "kpi",
+        "moc_by_status": "chart", "moc_by_site": "chart",
+        "moc_by_priority": "chart", "moc_by_manager": "chart",
+        "moc_promotion_ratio": "kpi", "moc_recent": "table",
     }
 
     def _make_widget(widget_type: str, title: str, config: dict, position: dict) -> dict:
@@ -1074,10 +1079,17 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
                 _make_widget("moc_by_site", "Répartition par site",
                              {"source": "moc", "chart_type": "bar",
                               "x_field": "name", "y_fields": ["value"]},
-                             {"x": 0, "y": 4, "w": 6, "h": 4}),
+                             {"x": 0, "y": 4, "w": 4, "h": 4}),
+                _make_widget("moc_by_manager", "Top chefs de projet",
+                             {"source": "moc", "chart_type": "bar",
+                              "x_field": "name", "y_fields": ["value"]},
+                             {"x": 4, "y": 4, "w": 4, "h": 4}),
+                _make_widget("moc_promotion_ratio", "MOCs promus en projet",
+                             {"source": "moc", "icon_color": "emerald"},
+                             {"x": 8, "y": 4, "w": 4, "h": 4}),
                 _make_widget("moc_recent", "MOCs récents",
                              {"source": "moc"},
-                             {"x": 6, "y": 4, "w": 6, "h": 4}),
+                             {"x": 0, "y": 8, "w": 12, "h": 4}),
             ],
         },
     ]

@@ -4839,6 +4839,12 @@
       "linked_project_chip": "Open",
       "created_at": "Created"
     },
+    "filters": {
+      "mine_as_manager": "My MOCs (as manager)",
+      "all_projects": "All — promoted or not",
+      "only_promoted": "Promoted only",
+      "only_not_promoted": "Not yet promoted"
+    },
     "fields": {
       "status": "Status",
       "site": "Site",

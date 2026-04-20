@@ -401,6 +401,11 @@ export interface MOCListFilters {
   priority?: MOCPriority
   search?: string
   initiator_id?: string
+  manager_id?: string
+  /** Shortcut to filter MOCs where the caller is chef de projet. */
+  mine_as_manager?: boolean
+  /** true = only promoted, false = only not promoted, undefined = both. */
+  has_project?: boolean
   page?: number
   page_size?: number
 }

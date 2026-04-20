@@ -2457,6 +2457,96 @@ async def provider_moc_awaiting_validation(
     }
 
 
+async def provider_moc_by_manager(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Bar chart: top chefs de projet by MOC count (open MOCs only).
+
+    Shows the 10 users who currently manage the most open MOCs. "Open"
+    = status NOT IN ('closed', 'cancelled'). Unassigned MOCs (no
+    manager_id) are aggregated under "— Non assigné —".
+    """
+    if entity_id is None:
+        return {"labels": [], "datasets": [{"data": []}]}
+    rows = await db.execute(
+        text(
+            """
+            SELECT
+                COALESCE(
+                    NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''),
+                    u.email,
+                    '— Non assigné —'
+                ) AS name,
+                COUNT(*) AS count
+            FROM mocs m
+            LEFT JOIN users u ON u.id = m.manager_id
+            WHERE m.entity_id = :eid
+              AND m.archived = FALSE
+              AND m.status NOT IN ('closed', 'cancelled')
+            GROUP BY u.id, u.first_name, u.last_name, u.email
+            ORDER BY count DESC
+            LIMIT 10
+            """
+        ),
+        {"eid": str(entity_id)},
+    )
+    data = rows.mappings().all()
+    return {
+        "labels": [r["name"] for r in data],
+        "datasets": [{"data": [r["count"] for r in data]}],
+    }
+
+
+async def provider_moc_promotion_ratio(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI: how many validated/executing MOCs have been promoted to a
+    project vs. still unpromoted. The ratio matters for operational
+    visibility — a validated MOC without a project has no scheduled
+    execution owner.
+    """
+    if entity_id is None:
+        return {"value": 0, "label": "MOCs promus", "breakdown": []}
+    row = await db.execute(
+        text(
+            """
+            SELECT
+                COUNT(*) FILTER (
+                    WHERE status IN ('validated', 'execution', 'executed_docs_pending')
+                      AND project_id IS NOT NULL
+                ) AS promoted,
+                COUNT(*) FILTER (
+                    WHERE status IN ('validated', 'execution', 'executed_docs_pending')
+                      AND project_id IS NULL
+                ) AS unpromoted,
+                COUNT(*) FILTER (
+                    WHERE status = 'closed' AND project_id IS NOT NULL
+                ) AS closed_with_project
+            FROM mocs
+            WHERE entity_id = :eid AND archived = FALSE
+            """
+        ),
+        {"eid": str(entity_id)},
+    )
+    r = row.mappings().one()
+    total_active = (r["promoted"] or 0) + (r["unpromoted"] or 0)
+    ratio = (
+        round(100 * (r["promoted"] or 0) / total_active) if total_active else 0
+    )
+    return {
+        "value": r["promoted"] or 0,
+        "label": f"{ratio}% des MOCs actifs promus",
+        "breakdown": [
+            {"label": "Promus (actifs)", "value": r["promoted"]},
+            {"label": "Non promus", "value": r["unpromoted"]},
+            {"label": "Clôturés avec projet", "value": r["closed_with_project"]},
+        ],
+    }
+
+
+
 _PROVIDER_MAP: dict[str, Any] = {
     # ── Core / cross-module ──
     "pax_on_site": provider_pax_on_site,
@@ -2547,6 +2637,8 @@ _PROVIDER_MAP: dict[str, Any] = {
     "moc_by_priority": provider_moc_by_priority,
     "moc_recent": provider_moc_recent,
     "moc_awaiting_validation": provider_moc_awaiting_validation,
+    "moc_by_manager": provider_moc_by_manager,
+    "moc_promotion_ratio": provider_moc_promotion_ratio,
 }
 
 

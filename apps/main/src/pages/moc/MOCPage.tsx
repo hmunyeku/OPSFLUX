@@ -128,6 +128,8 @@ function MOCListTab() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
   const [siteFilter, setSiteFilter] = useState<string | undefined>(undefined)
   const [priorityFilter, setPriorityFilter] = useState<string | undefined>(undefined)
+  const [mineAsManager, setMineAsManager] = useState(false)
+  const [projectFilter, setProjectFilter] = useState<'all' | 'promoted' | 'not_promoted'>('all')
 
   const siteOptions = useDictionaryOptions('moc_site')
   const priorityOptions = useDictionaryOptions('moc_priority')
@@ -139,6 +141,11 @@ function MOCListTab() {
     site_label: siteFilter,
     priority: priorityFilter as '1' | '2' | '3' | undefined,
     search: search || undefined,
+    mine_as_manager: mineAsManager || undefined,
+    has_project:
+      projectFilter === 'promoted' ? true
+      : projectFilter === 'not_promoted' ? false
+      : undefined,
   })
 
   // Feed the currently-visible row IDs to the dynamic panel so its header
@@ -322,6 +329,34 @@ function MOCListTab() {
         setSearch(v)
         setPage(1)
       }}
+      toolbarLeft={
+        <div className="flex items-center gap-2">
+          <label className="inline-flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5"
+              checked={mineAsManager}
+              onChange={(e) => {
+                setMineAsManager(e.target.checked)
+                setPage(1)
+              }}
+            />
+            {t('moc.filters.mine_as_manager')}
+          </label>
+          <select
+            className="gl-form-input h-6 text-[11px] px-1.5 py-0"
+            value={projectFilter}
+            onChange={(e) => {
+              setProjectFilter(e.target.value as 'all' | 'promoted' | 'not_promoted')
+              setPage(1)
+            }}
+          >
+            <option value="all">{t('moc.filters.all_projects')}</option>
+            <option value="promoted">{t('moc.filters.only_promoted')}</option>
+            <option value="not_promoted">{t('moc.filters.only_not_promoted')}</option>
+          </select>
+        </div>
+      }
       pagination={
         data
           ? {

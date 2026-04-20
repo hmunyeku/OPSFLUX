@@ -596,6 +596,8 @@ const WIDGET_ICON_MAP: Record<string, React.ElementType> = {
   moc_by_status: PieChart,
   moc_by_site: BarChart3,
   moc_by_priority: BarChart3,
+  moc_by_manager: Users,
+  moc_promotion_ratio: CheckCircle2,
   moc_recent: ClipboardList,
 }
 
@@ -627,9 +629,12 @@ const WIDGET_COLOR_MAP: Record<string, string> = {
   assets_overview: 'slate',
   // pickup / quick KPIs → pink
   pickup_progress: 'pink',
-  // MOCtrack — blue for overview, orange for backlog/attente
+  // MOCtrack — blue for overview, orange for backlog/attente,
+  // violet for people-oriented, green for promotion success
   moc_overview: 'blue',
   moc_awaiting_validation: 'orange',
+  moc_by_manager: 'violet',
+  moc_promotion_ratio: 'green',
 }
 
 function KPIWidget({

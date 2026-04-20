@@ -227,6 +227,21 @@ async def list_mocs(
     priority: str | None = Query(None, pattern="^[123]$"),
     search: str | None = Query(None, description="Full-text on reference/objectives/description"),
     initiator_id: UUID | None = None,
+    manager_id: UUID | None = Query(None, description="Filter by chef de projet MOC"),
+    mine_as_manager: bool = Query(
+        False,
+        description=(
+            "Shortcut — only return MOCs the caller is the chef de projet of. "
+            "Combines with other filters."
+        ),
+    ),
+    has_project: bool | None = Query(
+        None,
+        description=(
+            "When true, only MOCs already promoted to a project; when false, "
+            "only MOCs not yet promoted; leave unset for both."
+        ),
+    ),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -253,12 +268,21 @@ async def list_mocs(
         query = query.where(MOC.priority == priority)
     if initiator_id:
         query = query.where(MOC.initiator_id == initiator_id)
+    if manager_id:
+        query = query.where(MOC.manager_id == manager_id)
+    if mine_as_manager:
+        query = query.where(MOC.manager_id == current_user.id)
+    if has_project is True:
+        query = query.where(MOC.project_id.is_not(None))
+    elif has_project is False:
+        query = query.where(MOC.project_id.is_(None))
     if search:
         q = f"%{search.strip()}%"
         query = query.where(
             or_(
                 MOC.reference.ilike(q),
                 MOC.objectives.ilike(q),
+                MOC.title.ilike(q),
                 MOC.description.ilike(q),
             )
         )

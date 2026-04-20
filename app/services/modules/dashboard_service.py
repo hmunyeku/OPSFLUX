@@ -507,6 +507,14 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
         "type": "kpi", "title": "MOCs en attente d'action", "source": "moc",
         "roles": ["*"], "permissions": ["moc.read"],
     },
+    "moc_by_manager": {
+        "type": "chart", "title": "Top chefs de projet MOC", "source": "moc",
+        "roles": ["*"], "permissions": ["moc.read"],
+    },
+    "moc_promotion_ratio": {
+        "type": "kpi", "title": "MOCs promus en projet", "source": "moc",
+        "roles": ["*"], "permissions": ["moc.read"],
+    },
 }
 
 

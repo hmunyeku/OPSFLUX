@@ -1222,7 +1222,7 @@ function ValidationRow({
                       | null,
                   })
                 }
-                title="Niveau de validation (DO/DG/DO+DG)"
+                title={t('moc.field.approval_level_tooltip')}
               >
                 <option value="">—</option>
                 <option value="DO">DO</option>

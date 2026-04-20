@@ -395,14 +395,14 @@ function MOCListTab() {
         exportFormats: ['csv', 'xlsx', 'pdf'],
         filenamePrefix: 'moc',
         exportHeaders: {
-          reference: 'Référence',
-          objectives: 'Objectifs',
-          site_label: 'Site',
-          platform_code: 'Plateforme',
-          status: 'Statut',
-          priority: 'Priorité',
-          initiator_display: 'Initiateur',
-          created_at: 'Créé le',
+          reference: t('moc.columns.reference'),
+          objectives: t('moc.columns.objectives'),
+          site_label: t('moc.columns.site'),
+          platform_code: t('moc.columns.platform'),
+          status: t('moc.columns.status'),
+          priority: t('moc.columns.priority'),
+          initiator_display: t('moc.columns.initiator'),
+          created_at: t('moc.columns.created_at'),
         },
       }}
       onRowClick={(row: MOC) =>

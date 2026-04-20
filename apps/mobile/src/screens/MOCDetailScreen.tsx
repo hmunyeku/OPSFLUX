@@ -40,7 +40,6 @@ import { api } from "../services/api";
 import { downloadAndOpenPdf } from "../services/pdf";
 import {
   getMOC,
-  MOC_STATUS_LABELS,
   promoteMOCToProject,
   requestMOCReturn,
   setExecutionAccord,
@@ -289,7 +288,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
         setMoc(updated);
         toastShow(
           t("moc.transition.statusToast", {
-            label: MOC_STATUS_LABELS[updated.status] ?? updated.status,
+            label: t(`moc.status.${updated.status}`, updated.status),
           }),
           "success",
         );
@@ -836,7 +835,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                   >
                     {txLoading === to ? <ButtonSpinner mr="$2" /> : null}
                     <ButtonText>
-                      {MOC_STATUS_LABELS[to] ?? to}
+                      {t(`moc.status.${to}`, to)}
                     </ButtonText>
                   </Button>
                   {isBlocked && (

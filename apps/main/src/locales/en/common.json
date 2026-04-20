@@ -4981,7 +4981,12 @@
       "section_location": "Location",
       "section_initiator": "Initiator",
       "section_objectives": "MOC content",
-      "section_type": "Type & duration"
+      "section_type": "Type & duration",
+      "failed": "Creation failed"
+    },
+    "field": {
+      "platformPlaceholder": "BRF1, INF1, DS1, …",
+      "approval_level_tooltip": "Approval level (DO/DG/DO+DG)"
     },
     "delete": {
       "confirm_title": "Delete MOC?",

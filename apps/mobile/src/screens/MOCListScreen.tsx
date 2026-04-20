@@ -28,7 +28,6 @@ import { SkeletonCard } from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
 import {
   listMOCs,
-  MOC_STATUS_LABELS,
   type MOCSummary,
   type MOCStatus,
 } from "../services/moc";

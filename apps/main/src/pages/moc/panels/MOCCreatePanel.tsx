@@ -121,7 +121,7 @@ export function MOCCreatePanel() {
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: { message?: string } } } })
-          ?.response?.data?.detail?.message || 'Échec de la création'
+          ?.response?.data?.detail?.message || t('moc.create.failed')
       toast({ title: msg, variant: 'error' })
     }
   }
@@ -221,7 +221,7 @@ export function MOCCreatePanel() {
                       className={panelInputClass}
                       value={platform}
                       onChange={(e) => setPlatform(e.target.value)}
-                      placeholder="BRF1, INF1, DS1, …"
+                      placeholder={t('moc.field.platformPlaceholder') as string}
                     />
                   </DynamicPanelField>
                 </FormGrid>

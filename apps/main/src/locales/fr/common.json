@@ -5791,7 +5791,12 @@
       "section_location": "Localisation",
       "section_initiator": "Demandeur",
       "section_objectives": "Contenu du MOC",
-      "section_type": "Type & durée"
+      "section_type": "Type & durée",
+      "failed": "Échec de la création"
+    },
+    "field": {
+      "platformPlaceholder": "BRF1, INF1, DS1, …",
+      "approval_level_tooltip": "Niveau de validation (DO/DG/DO+DG)"
     },
     "delete": {
       "confirm_title": "Supprimer le MOC ?",

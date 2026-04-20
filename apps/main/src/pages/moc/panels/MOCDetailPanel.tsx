@@ -725,30 +725,38 @@ export function MOCDetailPanel({ id }: Props) {
               </DetailFieldGrid>
             </FormSection>
 
-            {/* Content — multi-paragraph fields rendered as Markdown */}
+            {/* Content — rich multi-paragraph fields laid out full-width.
+                A 2-column DetailFieldGrid made the prose columns ~240px
+                wide, which is unreadable for anything longer than a few
+                lines (and these fields routinely carry markdown, lists,
+                tables). Each field is a stacked block taking the whole
+                section width. `objectives` is short enough to stay
+                inline with its label; the others get a labelled block. */}
             <FormSection title={t('moc.section.content')} defaultExpanded>
-              <DetailFieldGrid>
-                <ReadOnlyRow
-                  label={t('moc.fields.objectives')}
-                  value={moc.objectives || '—'}
-                />
-                <ReadOnlyRow
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1">
+                    {t('moc.fields.objectives')}
+                  </div>
+                  <div className="text-sm">{moc.objectives || '—'}</div>
+                </div>
+                <FullWidthRichRow
                   label={t('moc.fields.description')}
-                  value={<RichTextDisplay value={moc.description} />}
+                  value={moc.description}
                 />
-                <ReadOnlyRow
+                <FullWidthRichRow
                   label={t('moc.fields.current_situation')}
-                  value={<RichTextDisplay value={moc.current_situation} />}
+                  value={moc.current_situation}
                 />
-                <ReadOnlyRow
+                <FullWidthRichRow
                   label={t('moc.fields.proposed_changes')}
-                  value={<RichTextDisplay value={moc.proposed_changes} />}
+                  value={moc.proposed_changes}
                 />
-                <ReadOnlyRow
+                <FullWidthRichRow
                   label={t('moc.fields.impact_analysis')}
-                  value={<RichTextDisplay value={moc.impact_analysis} />}
+                  value={moc.impact_analysis}
                 />
-              </DetailFieldGrid>
+              </div>
             </FormSection>
           </>
         )}
@@ -1939,4 +1947,33 @@ function missingPrereqsFor(
     if (!moc.close_signature) missing.push('moc.prereq.close_signature')
   }
   return missing
+}
+
+
+// ─── FullWidthRichRow — labelled block for multi-paragraph rich text ─────
+// Used instead of ReadOnlyRow inside a DetailFieldGrid when the value is
+// long-form rich HTML that needs the whole section width to breathe.
+
+function FullWidthRichRow({
+  label,
+  value,
+}: {
+  label: string
+  value: string | null | undefined
+}) {
+  const hasContent = !!(value && value.trim() && value.trim() !== '<p></p>')
+  return (
+    <div>
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1">
+        {label}
+      </div>
+      <div className="rounded border border-border bg-muted/10 px-3 py-2">
+        {hasContent ? (
+          <RichTextDisplay value={value} />
+        ) : (
+          <span className="text-xs italic text-muted-foreground">—</span>
+        )}
+      </div>
+    </div>
+  )
 }

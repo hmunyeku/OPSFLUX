@@ -48,6 +48,7 @@ import {
   CheckCircle2,
   UserCheck,
   AlertCircle,
+  ClipboardList,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
@@ -589,6 +590,13 @@ const WIDGET_ICON_MAP: Record<string, React.ElementType> = {
   workflow_overview: Zap,
   workflow_by_definition: BarChart3,
   workflow_pending: Clock,
+  // MOCtrack — Management of Change
+  moc_overview: ClipboardList,
+  moc_awaiting_validation: Clock,
+  moc_by_status: PieChart,
+  moc_by_site: BarChart3,
+  moc_by_priority: BarChart3,
+  moc_recent: ClipboardList,
 }
 
 // Semantic color map — widget_id → color preset key
@@ -619,6 +627,9 @@ const WIDGET_COLOR_MAP: Record<string, string> = {
   assets_overview: 'slate',
   // pickup / quick KPIs → pink
   pickup_progress: 'pink',
+  // MOCtrack — blue for overview, orange for backlog/attente
+  moc_overview: 'blue',
+  moc_awaiting_validation: 'orange',
 }
 
 function KPIWidget({

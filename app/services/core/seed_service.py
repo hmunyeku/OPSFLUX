@@ -1047,6 +1047,39 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
                              {"x": 0, "y": 4, "w": 12, "h": 5}),
             ],
         },
+        # MOCtrack module dashboard — Management of Change KPIs.
+        # Layout mirrors the Daxium MOC reporting page:
+        #   row 1: MOCs totaux, en attente d'action, répartition par statut, par priorité
+        #   row 2: répartition par site (pie), MOCs récents (table)
+        {
+            "name": "MOCtrack",
+            "target_role": None,
+            "target_module": "moc",
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("moc_overview", "MOCs",
+                             {"source": "moc", "icon_color": "blue"},
+                             {"x": 0, "y": 0, "w": 3, "h": 4}),
+                _make_widget("moc_awaiting_validation", "En attente d'action",
+                             {"source": "moc", "icon_color": "orange"},
+                             {"x": 3, "y": 0, "w": 3, "h": 4}),
+                _make_widget("moc_by_status", "Par statut",
+                             {"source": "moc", "chart_type": "pie",
+                              "x_field": "name", "y_fields": ["value"]},
+                             {"x": 6, "y": 0, "w": 3, "h": 4}),
+                _make_widget("moc_by_priority", "En cours — priorité",
+                             {"source": "moc", "chart_type": "bar",
+                              "x_field": "name", "y_fields": ["value"]},
+                             {"x": 9, "y": 0, "w": 3, "h": 4}),
+                _make_widget("moc_by_site", "Répartition par site",
+                             {"source": "moc", "chart_type": "bar",
+                              "x_field": "name", "y_fields": ["value"]},
+                             {"x": 0, "y": 4, "w": 6, "h": 4}),
+                _make_widget("moc_recent", "MOCs récents",
+                             {"source": "moc"},
+                             {"x": 6, "y": 4, "w": 6, "h": 4}),
+            ],
+        },
     ]
 
     # ── Bulk UPSERT via raw SQL — updates widgets on re-seed ──────────

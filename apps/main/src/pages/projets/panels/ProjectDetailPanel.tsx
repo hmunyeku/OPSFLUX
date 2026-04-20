@@ -680,7 +680,7 @@ function TaskRow({
           />
 
           {/* Progress + Hours */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
               <label className="text-[10px] text-muted-foreground block mb-0.5">Progression %</label>
               <input
@@ -1950,7 +1950,7 @@ function CpmSection({ projectId }: { projectId: string }) {
       )}
       {cpm && cpm.tasks.length > 0 && (
         <div className="space-y-2">
-          <div className="grid grid-cols-3 gap-2 text-[11px]">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
             <div className="border border-primary/30 bg-primary/5 rounded p-2">
               <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Durée totale</div>
               <div className="text-lg font-semibold tabular-nums text-primary">{cpm.project_duration_days} j</div>

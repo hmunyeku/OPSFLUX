@@ -459,7 +459,9 @@ export function VoyageDetailPanel({ id }: { id: string }) {
 
         {detailTab === 'manifestes' && (
           <FormSection title={`Manifestes PAX (${manifests?.length ?? 0})`} collapsible defaultExpanded>
-            <div className="grid grid-cols-3 gap-2 mb-2">
+            <div className="grid grid-cols-3 gap-2 mb-2 sm:grid-cols-3">
+              {/* 3 cols of small stat cards — keep 3-col on very small
+                  widths; each card is ~80px which fits even 320px. */}
               <div className="text-center p-2 rounded bg-muted/50">
                 <p className="text-sm font-semibold tabular-nums">{paxSummary.confirmed}</p>
                 <p className="text-[10px] text-muted-foreground">Confirmes</p>

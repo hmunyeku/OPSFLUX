@@ -281,6 +281,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             positionClasses[position],
             'z-[var(--z-toast)] flex flex-col gap-2 w-[380px] max-w-[calc(100vw-2rem)] outline-none',
           )}
+          // Push bottom-anchored toasts above the iPhone X+ home
+          // indicator. Top-anchored positions don't need this — the
+          // notch is handled by status-bar translucency.
+          style={position.startsWith('bottom')
+            ? { paddingBottom: 'env(safe-area-inset-bottom)' }
+            : undefined}
         />
       </ToastPrimitive.Provider>
     </ToastContext.Provider>

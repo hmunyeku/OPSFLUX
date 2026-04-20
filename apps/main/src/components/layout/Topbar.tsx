@@ -353,7 +353,11 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             onClick={onToggleSidebar}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors lg:hidden"
+            // Touch target ≥ 36px on mobile/tablet (WCAG 2.5.5 minimum
+            // 24px, Apple HIG recommends 44pt, we land on 36px as the
+            // design compromise). Reverts to the dense 28px footprint
+            // from `lg:` up where pointer devices dominate.
+            className="flex h-9 w-9 lg:h-7 lg:w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors lg:hidden"
             aria-label="Toggle sidebar"
           >
             <Menu size={16} />
@@ -413,10 +417,11 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
         {/* ── Right: Actions ── */}
         <div className="flex items-center shrink-0">
-          {/* Mobile-only search trigger — opens the slide-down overlay */}
+          {/* Mobile-only search trigger — opens the slide-down overlay.
+              36px target for the same WCAG 2.5.5 reason as the burger. */}
           <button
             onClick={() => setMobileSearchOpen(true)}
-            className="sm:hidden flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors"
+            className="sm:hidden flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors"
             aria-label={t('common.search')}
           >
             <Search size={15} />

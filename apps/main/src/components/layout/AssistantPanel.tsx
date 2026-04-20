@@ -533,14 +533,14 @@ export function AssistantPanel() {
         <div className="flex items-center gap-0.5 shrink-0">
           <button
             onClick={cyclePanelMode}
-            className="gl-button gl-button-sm gl-button-default h-6 w-6 flex"
+            className="gl-button gl-button-sm gl-button-default h-9 w-9 sm:h-6 sm:w-6 flex"
             title={modeLabel}
           >
             <ModeIcon size={12} />
           </button>
           <button
             onClick={toggleAIPanel}
-            className="gl-button gl-button-sm gl-button-default h-6 w-6 flex"
+            className="gl-button gl-button-sm gl-button-default h-9 w-9 sm:h-6 sm:w-6 flex"
             aria-label="Fermer l'assistant"
           >
             <X size={12} />

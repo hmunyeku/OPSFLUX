@@ -90,6 +90,10 @@
     "delete": "Delete",
     "edit": "Edit",
     "create": "Create",
+    "clear": "Clear",
+    "draw_hint": "Click and drag to sign",
+    "send": "Send",
+    "not_signed": "— not signed —",
     "search": "Search...",
     "min_chars": "min. {{count}} chars",
     "loading": "Loading...",
@@ -4891,8 +4895,23 @@
       "comment": "Comment",
       "comment_ph": "Comment (optional)",
       "return_reason": "Return reason",
-      "return_reason_ph": "Explain why the MOC is being returned…"
+      "return_reason_ph": "Explain why the MOC is being returned…",
+      "required": "Required",
+      "completed": "Completed",
+      "necessary": "Necessary"
     },
+    "flags": {
+      "hazop": "HAZOP",
+      "hazid": "HAZID",
+      "environmental": "Environmental assessment",
+      "pid_update": "P&ID update",
+      "esd_update": "ESD update"
+    },
+    "roles": {
+      "do_full": "Operations Director (D.O)",
+      "dg_full": "Managing Director (D.G)"
+    },
+    "invited_user_default": "Invited user",
     "nature": {
       "OPTIMISATION": "Optimisation",
       "SECURITE": "Safety"
@@ -4969,7 +4988,8 @@
       "request_return": "Return for modification",
       "send_return": "Send return",
       "accord": "Approve",
-      "refuse": "Refuse"
+      "refuse": "Refuse",
+      "save_signature": "Save signature"
     },
     "detail_tab": {
       "fiche": "Record",

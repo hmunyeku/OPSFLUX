@@ -152,7 +152,7 @@ export function SignaturePad({
           className="border border-dashed border-border rounded bg-muted/20 flex items-center justify-center text-[10px] text-muted-foreground italic"
           style={{ width, height }}
         >
-          — non signé —
+          {t('common.not_signed', '— non signé —')}
         </div>
       </div>
     )

@@ -90,6 +90,10 @@
     "delete": "Supprimer",
     "edit": "Modifier",
     "create": "Créer",
+    "clear": "Effacer",
+    "draw_hint": "Cliquez et glissez pour signer",
+    "send": "Envoyer",
+    "not_signed": "— non signé —",
     "search": "Rechercher...",
     "min_chars": "min. {{count}} car.",
     "loading": "Chargement...",
@@ -5701,8 +5705,23 @@
       "comment": "Commentaire",
       "comment_ph": "Commentaire (optionnel)",
       "return_reason": "Motif de renvoi",
-      "return_reason_ph": "Expliquez pourquoi le MOC est renvoyé…"
+      "return_reason_ph": "Expliquez pourquoi le MOC est renvoyé…",
+      "required": "Requis",
+      "completed": "Réalisé",
+      "necessary": "Nécessaire"
     },
+    "flags": {
+      "hazop": "HAZOP",
+      "hazid": "HAZID",
+      "environmental": "Étude environnementale",
+      "pid_update": "MAJ PID",
+      "esd_update": "MAJ ESD"
+    },
+    "roles": {
+      "do_full": "Directeur Opérations (D.O)",
+      "dg_full": "Directeur Général (D.G)"
+    },
+    "invited_user_default": "Utilisateur invité",
     "nature": {
       "OPTIMISATION": "Optimisation",
       "SECURITE": "Sécurité"
@@ -5779,7 +5798,8 @@
       "request_return": "Renvoyer pour modification",
       "send_return": "Envoyer le renvoi",
       "accord": "Accord",
-      "refuse": "Refus"
+      "refuse": "Refus",
+      "save_signature": "Enregistrer la signature"
     },
     "detail_tab": {
       "fiche": "Fiche",

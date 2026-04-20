@@ -649,7 +649,7 @@ export function MOCDetailPanel({ id }: Props) {
                       <ValidationRow
                         key={v.id}
                         label={
-                          (v.validator_name || 'Utilisateur invité') +
+                          (v.validator_name || t('moc.invited_user_default')) +
                           ' — ' +
                           (roleLabels[v.role] ?? ROLE_LABELS[v.role])
                         }
@@ -677,7 +677,7 @@ export function MOCDetailPanel({ id }: Props) {
             <FormSection title={t('moc.section.flags')} defaultExpanded>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 <FlagRow
-                  label="HAZOP"
+                  label={t('moc.flags.hazop')}
                   required={moc.hazop_required}
                   completed={moc.hazop_completed}
                   disabled={!canUpdateFlags}
@@ -685,7 +685,7 @@ export function MOCDetailPanel({ id }: Props) {
                   onToggleCompleted={(v) => toggleFlag('hazop_completed', v)}
                 />
                 <FlagRow
-                  label="HAZID"
+                  label={t('moc.flags.hazid')}
                   required={moc.hazid_required}
                   completed={moc.hazid_completed}
                   disabled={!canUpdateFlags}
@@ -693,7 +693,7 @@ export function MOCDetailPanel({ id }: Props) {
                   onToggleCompleted={(v) => toggleFlag('hazid_completed', v)}
                 />
                 <FlagRow
-                  label="Environmental"
+                  label={t('moc.flags.environmental')}
                   required={moc.environmental_required}
                   completed={moc.environmental_completed}
                   disabled={!canUpdateFlags}
@@ -701,7 +701,7 @@ export function MOCDetailPanel({ id }: Props) {
                   onToggleCompleted={(v) => toggleFlag('environmental_completed', v)}
                 />
                 <FlagRow
-                  label="MAJ PID"
+                  label={t('moc.flags.pid_update')}
                   required={moc.pid_update_required}
                   completed={moc.pid_update_completed}
                   disabled={!canUpdateFlags}
@@ -709,7 +709,7 @@ export function MOCDetailPanel({ id }: Props) {
                   onToggleCompleted={(v) => toggleFlag('pid_update_completed', v)}
                 />
                 <FlagRow
-                  label="MAJ ESD"
+                  label={t('moc.flags.esd_update')}
                   required={moc.esd_update_required}
                   completed={moc.esd_update_completed}
                   disabled={!canUpdateFlags}
@@ -771,7 +771,7 @@ export function MOCDetailPanel({ id }: Props) {
               </p>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 <ExecutionAccordRow
-                  label="Directeur Opérations (D.O)"
+                  label={t('moc.roles.do_full')}
                   accord={moc.do_execution_accord}
                   accordAt={moc.do_execution_accord_at}
                   comment={moc.do_execution_comment}
@@ -784,7 +784,7 @@ export function MOCDetailPanel({ id }: Props) {
                   }
                 />
                 <ExecutionAccordRow
-                  label="Directeur Gaz (D.G)"
+                  label={t('moc.roles.dg_full')}
                   accord={moc.dg_execution_accord}
                   accordAt={moc.dg_execution_accord_at}
                   comment={moc.dg_execution_comment}
@@ -955,6 +955,7 @@ function ValidationRow({
   disabled: boolean
   readOnly?: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="rounded-md border border-border/60 bg-card px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -967,7 +968,7 @@ function ValidationRow({
               disabled={disabled}
               onChange={(e) => !readOnly && onChange({ required: e.target.checked })}
             />
-            Requis
+            {t('moc.fields.required')}
           </label>
           <label className="flex items-center gap-1 text-xs">
             <input
@@ -976,7 +977,7 @@ function ValidationRow({
               disabled={disabled}
               onChange={(e) => !readOnly && onChange({ completed: e.target.checked })}
             />
-            Réalisé
+            {t('moc.fields.completed')}
           </label>
           {!readOnly && (
             <>
@@ -1130,6 +1131,7 @@ function FlagRow({
   onToggleRequired: (v: boolean) => void
   onToggleCompleted: (v: boolean) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center justify-between rounded-md border border-border/60 bg-card px-3 py-2 text-xs">
       <span className="font-medium">{label}</span>
@@ -1141,7 +1143,7 @@ function FlagRow({
             disabled={disabled}
             onChange={(e) => onToggleRequired(e.target.checked)}
           />
-          Nécessaire
+          {t('moc.fields.necessary')}
         </label>
         <label className="flex items-center gap-1">
           <input
@@ -1150,7 +1152,7 @@ function FlagRow({
             disabled={disabled}
             onChange={(e) => onToggleCompleted(e.target.checked)}
           />
-          Réalisé
+          {t('moc.fields.completed')}
         </label>
       </div>
     </div>
@@ -1400,7 +1402,7 @@ function ExecutionTab({
         <div className="space-y-3">
           <DirectorAccordBlock
             actor="do"
-            label="Directeur Opérations (D.O)"
+            label={t('moc.roles.do_full')}
             accord={moc.do_execution_accord}
             comment={moc.do_execution_comment}
             signature={moc.do_signature}
@@ -1411,7 +1413,7 @@ function ExecutionTab({
           />
           <DirectorAccordBlock
             actor="dg"
-            label="Directeur Général (D.G)"
+            label={t('moc.roles.dg_full')}
             accord={moc.dg_execution_accord}
             comment={moc.dg_execution_comment}
             signature={moc.dg_signature}
@@ -1437,6 +1439,7 @@ function SignatureSlot({
   disabled?: boolean
   onSave: (signature: string) => Promise<void>
 }) {
+  const { t } = useTranslation()
   const [draft, setDraft] = useState<string | null>(value)
   return (
     <div className="space-y-1">
@@ -1454,7 +1457,7 @@ function SignatureSlot({
             if (draft) await onSave(draft)
           }}
         >
-          <CheckCircle2 size={11} /> Enregistrer la signature
+          <CheckCircle2 size={11} /> {t('moc.actions.save_signature')}
         </button>
       )}
     </div>

@@ -2,7 +2,12 @@
 <html lang="fr" class="">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover is required for iOS safe-area-inset-* env
+         vars to return non-zero values. Without it the AssistantPanel
+         Send button and any other *-safe padding silently degrade to 0
+         on iPhone X+ — the bottom controls end up under the home
+         indicator. See apps/main/src/components/layout/AssistantPanel.tsx. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1e40af" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

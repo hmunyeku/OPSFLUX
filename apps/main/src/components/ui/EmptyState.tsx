@@ -30,7 +30,9 @@ type EmptyStateSize = 'compact' | 'default' | 'large'
 interface EmptyStateAction {
   label: string
   onClick: () => void
-  variant?: 'primary' | 'default'
+  /** `premium` uses the gradient CTA (primary → highlight) — reserve it
+   *  for hero empty-states where the action is the page's main purpose. */
+  variant?: 'primary' | 'default' | 'premium'
 }
 
 interface EmptyStateProps {
@@ -88,10 +90,13 @@ const sizeConfig: Record<EmptyStateSize, {
     btnClass: 'gl-button-sm',
   },
   large: {
-    container: 'py-20 px-8 gap-4',
+    container: 'py-20 px-8 gap-4 relative',
     iconSize: 48,
-    iconWrapper: 'mb-2 p-4 rounded-2xl bg-muted/50',
-    titleClass: 'text-lg font-semibold text-foreground',
+    // Glassy tinted halo backing the icon — matches the 2026 warmer
+    // aesthetic. A soft primary gradient behind gives depth; the icon
+    // still inherits the variant colour so the semantic stays legible.
+    iconWrapper: 'mb-2 p-5 rounded-3xl bg-gradient-to-br from-primary/8 to-[hsl(var(--highlight))]/8 ring-1 ring-primary/10 shadow-[0_10px_40px_-15px_hsl(var(--primary)/0.25)] backdrop-blur-sm',
+    titleClass: 'text-xl font-bold text-foreground font-display tracking-tight',
     descClass: 'text-base text-muted-foreground max-w-md',
     btnClass: 'gl-button-sm',
   },
@@ -148,9 +153,11 @@ export function EmptyState({
               onClick={action.onClick}
               className={cn(
                 config.btnClass,
-                action.variant === 'primary' || !action.variant
-                  ? 'gl-button-confirm'
-                  : 'gl-button-default',
+                action.variant === 'premium'
+                  ? 'gl-button-premium'
+                  : action.variant === 'primary' || !action.variant
+                    ? 'gl-button-confirm'
+                    : 'gl-button-default',
               )}
             >
               {action.label}

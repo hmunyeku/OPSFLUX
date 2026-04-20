@@ -256,12 +256,23 @@ export function StatCard({ label, value, icon: Icon, accent }: {
   accent?: string
 }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-3">
+    <div className="group relative rounded-xl border border-border/70 bg-gradient-to-br from-background to-background/60 p-3 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-border">
+      {/* Top accent bar — tinted to the stat's accent colour, fades on
+          hover to give the card a heartbeat. 2px tall so it reads as
+          a highlight strip, not a separator. */}
+      <div className={cn(
+        'absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r',
+        accent?.includes('red') || accent?.includes('destructive') ? 'from-red-500/80 to-red-400/40'
+        : accent?.includes('amber') || accent?.includes('yellow')  ? 'from-amber-500/80 to-amber-400/40'
+        : accent?.includes('emerald') || accent?.includes('green') ? 'from-emerald-500/80 to-emerald-400/40'
+        : accent?.includes('violet') || accent?.includes('purple') ? 'from-violet-500/80 to-violet-400/40'
+        : 'from-primary/80 to-[hsl(var(--highlight))]/40',
+      )} />
       <div className="flex items-center gap-2 text-muted-foreground mb-1">
         <Icon size={13} />
         <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
       </div>
-      <p className={cn('text-lg font-semibold tabular-nums', accent || 'text-foreground')}>{value}</p>
+      <p className={cn('text-xl font-bold tabular-nums font-display tracking-tight', accent || 'text-foreground')}>{value}</p>
     </div>
   )
 }

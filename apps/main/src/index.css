@@ -254,6 +254,34 @@
   .gl-button-danger:hover {
     @apply bg-destructive text-destructive-foreground;
   }
+  /* Premium CTA — reserved for the top-of-page primary action on
+     marketing / hero / empty-state contexts. Uses the primary→highlight
+     gradient, a soft shadow, and a shine sweep on hover. Keep this to
+     ONE button per page so it actually stands out. */
+  .gl-button-premium {
+    @apply relative overflow-hidden text-primary-foreground shadow-lg shadow-primary/20;
+    background-image: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--highlight)));
+    border: 0.8px solid hsl(var(--primary-hover));
+  }
+  .gl-button-premium:hover {
+    box-shadow: 0 10px 25px -5px hsl(var(--primary) / 0.35);
+    filter: brightness(1.05);
+  }
+  .gl-button-premium::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.28) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.7s ease-out;
+    pointer-events: none;
+  }
+  .gl-button-premium:hover::after {
+    transform: translateX(100%);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .gl-button-premium::after { display: none; }
+  }
 
   /* ── Form inputs (inset box-shadow border like GitLab) ───── */
   /* Mobile bumps the height to 40px so taps land cleanly on iOS

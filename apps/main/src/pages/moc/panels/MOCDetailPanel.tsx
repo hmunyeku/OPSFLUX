@@ -44,7 +44,6 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { TabBar } from '@/components/ui/Tabs'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
-import { RichTextDisplay } from '@/components/shared/RichTextField'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
@@ -70,12 +69,10 @@ import {
 import { UserPicker } from '@/components/shared/UserPicker'
 import { SignaturePad } from '@/components/shared/SignaturePad'
 import { RichTextField } from '@/components/shared/RichTextField'
-import { cn } from '@/lib/utils'
 import {
   MOC_STATUS_COLOURS,
   MOC_STATUS_LABELS,
   mocService,
-  type MOCLinkedProject,
   type MOCStatus,
   type MOCValidation,
   type MOCValidationRole,

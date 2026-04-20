@@ -656,6 +656,7 @@ function CreateUserPanel() {
 // ── User Entities Tab ───────────────────────────────────────
 
 function UserEntitiesTab({ userId }: { userId: string }) {
+  const { t } = useTranslation()
   const { data: entities, isLoading } = useUserEntities(userId)
   const assignToEntity = useAssignUserToEntity()
   const removeFromEntity = useRemoveUserFromEntity()

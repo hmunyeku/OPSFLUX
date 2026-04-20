@@ -288,7 +288,7 @@ function WorkflowActions({ docId }: { docId: string }) {
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Motif (obligatoire)..."
+            placeholder={t('papyrus.placeholders.reject_reason_required')}
             className="w-full min-h-[60px] rounded-md border border-border bg-background px-2 py-1.5 text-sm resize-y focus:outline-none focus:ring-1 focus:ring-primary"
             rows={3}
           />
@@ -969,19 +969,19 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   value={papyrusFormName}
                   onChange={(e) => setPapyrusFormName(e.target.value)}
                   className={panelInputClass}
-                  placeholder="Nom du formulaire"
+                  placeholder={t('papyrus.placeholders.form_name')}
                 />
                 <textarea
                   value={papyrusFormDescription}
                   onChange={(e) => setPapyrusFormDescription(e.target.value)}
                   className={cn(panelInputClass, 'min-h-[90px]')}
-                  placeholder="Description optionnelle"
+                  placeholder={t('papyrus.placeholders.form_description_optional')}
                 />
                 <textarea
                   value={epicollectImportJson}
                   onChange={(e) => setEpicollectImportJson(e.target.value)}
                   className={cn(panelInputClass, 'min-h-[140px] font-mono text-xs')}
-                  placeholder="Coller ici un JSON EpiCollect5 pour import"
+                  placeholder={t('papyrus.placeholders.epicollect_json')}
                 />
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1121,13 +1121,13 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 value={scheduleForm.cron ?? ''}
                 onChange={(e) => setScheduleForm((current) => ({ ...current, cron: e.target.value }))}
                 className={panelInputClass}
-                placeholder="0 6 * * 1-5"
+                placeholder={t('papyrus.placeholders.cron_example')}
               />
               <input
                 value={scheduleForm.timezone ?? ''}
                 onChange={(e) => setScheduleForm((current) => ({ ...current, timezone: e.target.value }))}
                 className={panelInputClass}
-                placeholder="Africa/Kinshasa"
+                placeholder={t('papyrus.placeholders.tz_example')}
               />
               <input
                 type="number"
@@ -1136,7 +1136,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 value={scheduleForm.grace_minutes}
                 onChange={(e) => setScheduleForm((current) => ({ ...current, grace_minutes: Number(e.target.value || 15) }))}
                 className={panelInputClass}
-                placeholder="Délai (minutes)"
+                placeholder={t('papyrus.placeholders.delay_minutes')}
               />
               <input
                 value={scheduleForm.channel.subject ?? ''}
@@ -1145,7 +1145,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   channel: { ...current.channel, subject: e.target.value },
                 }))}
                 className={panelInputClass}
-                placeholder="Sujet ex: Rapport {{ document.title }} - {{ date }}"
+                placeholder={t('papyrus.placeholders.email_subject_example')}
               />
             </div>
 
@@ -1294,7 +1294,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       className="w-full min-h-[60px] rounded-md border border-border bg-background px-2 py-1.5 text-sm resize-y focus:outline-none focus:ring-1 focus:ring-primary"
-                      placeholder="Indiquez le motif du rejet..."
+                      placeholder={t('papyrus.placeholders.reject_reason')}
                       rows={2}
                     />
                     <div className="flex gap-2">
@@ -2127,7 +2127,7 @@ function CreateDocumentPanel() {
                       value={form.title}
                       onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                       className={panelInputClass}
-                      placeholder="Titre du document"
+                      placeholder={t('papyrus.placeholders.document_title')}
                     />
                   </DynamicPanelField>
                   <DynamicPanelField label="Type de document" required>
@@ -2253,16 +2253,16 @@ function CreateDocTypePanel() {
               <FormSection title="Identification">
                 <FormGrid>
                   <DynamicPanelField label="Code">
-                    <input type="text" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={cn(panelInputClass, 'font-mono')} placeholder="Auto-généré" />
+                    <input type="text" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={cn(panelInputClass, 'font-mono')} placeholder={t('papyrus.placeholders.code_auto')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Nom (FR)" required>
-                    <input type="text" required value={form.name_fr} onChange={(e) => setForm(f => ({ ...f, name_fr: e.target.value }))} className={panelInputClass} placeholder="Note technique" />
+                    <input type="text" required value={form.name_fr} onChange={(e) => setForm(f => ({ ...f, name_fr: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.doctype_name_fr_example')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Nom (EN)">
-                    <input type="text" value={form.name_en} onChange={(e) => setForm(f => ({ ...f, name_en: e.target.value }))} className={panelInputClass} placeholder="Technical Note" />
+                    <input type="text" value={form.name_en} onChange={(e) => setForm(f => ({ ...f, name_en: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.doctype_name_en_example')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Discipline">
-                    <input type="text" value={form.discipline} onChange={(e) => setForm(f => ({ ...f, discipline: e.target.value }))} className={panelInputClass} placeholder="MECA, ELEC, PROC..." />
+                    <input type="text" value={form.discipline} onChange={(e) => setForm(f => ({ ...f, discipline: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.discipline_example')} />
                   </DynamicPanelField>
                 </FormGrid>
               </FormSection>
@@ -2271,7 +2271,7 @@ function CreateDocTypePanel() {
               <FormSection title="Nomenclature">
                 <FormGrid>
                   <DynamicPanelField label="Pattern de nomenclature" required span="full">
-                    <input type="text" required value={form.nomenclature_pattern} onChange={(e) => setForm(f => ({ ...f, nomenclature_pattern: e.target.value }))} className={panelInputClass} placeholder="{ENTITY}-{DOCTYPE}-{SEQ:4}" />
+                    <input type="text" required value={form.nomenclature_pattern} onChange={(e) => setForm(f => ({ ...f, nomenclature_pattern: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.nomenclature_example')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Schéma de révision">
                     <select value={form.revision_scheme} onChange={(e) => setForm(f => ({ ...f, revision_scheme: e.target.value as 'alpha' | 'numeric' | 'semver' }))} className={panelInputClass}>
@@ -2359,7 +2359,7 @@ function CreateTemplatePanel() {
           <FormSection title="Informations">
             <FormGrid>
               <DynamicPanelField label="Nom" required span="full">
-                <input type="text" required value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} className={panelInputClass} placeholder="Nom du template" />
+                <input type="text" required value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.template_name')} />
               </DynamicPanelField>
               <DynamicPanelField label="Type de document">
                 <select value={form.doc_type_id} onChange={(e) => setForm(f => ({ ...f, doc_type_id: e.target.value }))} className={panelInputClass}>
@@ -2370,7 +2370,7 @@ function CreateTemplatePanel() {
                 </select>
               </DynamicPanelField>
               <DynamicPanelField label="Description" span="full">
-                <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} className={panelInputClass + ' min-h-[60px]'} placeholder="Description du template..." rows={3} />
+                <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} className={panelInputClass + ' min-h-[60px]'} placeholder={t('papyrus.placeholders.template_description')} rows={3} />
               </DynamicPanelField>
             </FormGrid>
           </FormSection>

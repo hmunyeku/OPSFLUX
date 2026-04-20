@@ -150,10 +150,10 @@ export function CreateCargoRequestPanel() {
             <FormSection title="Demande d’expédition">
               <FormGrid>
                 <DynamicPanelField label="Intitulé" required>
-                  <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder="Demande d’expédition équipements forage" />
+                  <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder={t('packlog.placeholders.request_title_example')} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Projet">
-                  <ProjectPicker value={form.project_id ?? null} onChange={(projectId) => setForm({ ...form, project_id: projectId ?? null })} clearable placeholder="Sélectionner un projet..." />
+                  <ProjectPicker value={form.project_id ?? null} onChange={(projectId) => setForm({ ...form, project_id: projectId ?? null })} clearable placeholder={t('packlog.placeholders.select_project')} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Description" span="full">
                   <textarea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value || null })} className={`${panelInputClass} min-h-[72px] resize-y`} rows={3} />
@@ -164,25 +164,25 @@ export function CreateCargoRequestPanel() {
             <FormSection title="Contexte logistique">
               <FormGrid>
                 <DynamicPanelField label="Imputation">
-                  <ImputationPicker value={form.imputation_reference_id ?? null} onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })} placeholder="Sélectionner une imputation..." />
+                  <ImputationPicker value={form.imputation_reference_id ?? null} onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })} placeholder={t('packlog.placeholders.select_imputation')} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Entreprise expéditrice">
-                  <CompanyPicker value={form.sender_tier_id ?? null} onChange={(id) => setForm({ ...form, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })} placeholder="Sélectionner une entreprise..." />
+                  <CompanyPicker value={form.sender_tier_id ?? null} onChange={(id) => setForm({ ...form, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })} placeholder={t('packlog.placeholders.select_company')} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Contact entreprise">
-                  <ContactPicker value={form.sender_contact_tier_contact_id ?? null} onChange={(id) => setForm({ ...form, sender_contact_tier_contact_id: id ?? null })} placeholder="Sélectionner un contact..." tierId={form.sender_tier_id ?? null} />
+                  <ContactPicker value={form.sender_contact_tier_contact_id ?? null} onChange={(id) => setForm({ ...form, sender_contact_tier_contact_id: id ?? null })} placeholder={t('packlog.placeholders.select_contact')} tierId={form.sender_tier_id ?? null} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Destinataire">
                   <input type="text" value={form.receiver_name ?? ''} onChange={(e) => setForm({ ...form, receiver_name: e.target.value || null })} className={panelInputClass} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Installation de destination" span="full">
-                  <AssetPicker value={form.destination_asset_id ?? null} onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })} clearable placeholder="Sélectionner l'installation de destination..." />
+                  <AssetPicker value={form.destination_asset_id ?? null} onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })} clearable placeholder={t('packlog.placeholders.select_destination_asset')} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Demandeur">
-                  <UserPicker value={form.requester_user_id ?? null} onChange={(id) => setForm({ ...form, requester_user_id: id ?? null })} placeholder="Sélectionner un utilisateur..." />
+                  <UserPicker value={form.requester_user_id ?? null} onChange={(id) => setForm({ ...form, requester_user_id: id ?? null })} placeholder={t('packlog.placeholders.select_user')} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Demandeur libre">
-                  <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si le demandeur n'existe pas dans le référentiel" />
+                  <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.requester_fallback')} />
                 </DynamicPanelField>
               </FormGrid>
             </FormSection>
@@ -331,13 +331,13 @@ export function CreateCargoPanel() {
                     </select>
                   </DynamicPanelField>
                   <DynamicPanelField label="Désignation">
-                    <input type="text" value={form.designation ?? ''} onChange={(e) => setForm({ ...form, designation: e.target.value || null })} className={panelInputClass} placeholder="Désignation courte du colis" />
+                    <input type="text" value={form.designation ?? ''} onChange={(e) => setForm({ ...form, designation: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.cargo_designation')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Article SAP">
-                    <input type="text" value={form.sap_article_code ?? ''} onChange={(e) => setForm({ ...form, sap_article_code: e.target.value || null })} className={panelInputClass} placeholder="MAT-00001" />
+                    <input type="text" value={form.sap_article_code ?? ''} onChange={(e) => setForm({ ...form, sap_article_code: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.sap_code_example')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Description" required span="full">
-                    <textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${panelInputClass} min-h-[60px] resize-y`} placeholder="Description opérationnelle du colis, de l’unité ou du lot..." rows={3} />
+                    <textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${panelInputClass} min-h-[60px] resize-y`} placeholder={t('packlog.placeholders.cargo_description')} rows={3} />
                   </DynamicPanelField>
                 </FormGrid>
                 {selectedRequest && (
@@ -442,7 +442,7 @@ export function CreateCargoPanel() {
               <FormSection title="Enlèvement et preuves" collapsible defaultExpanded>
                 <FormGrid>
                   <DynamicPanelField label="Lieu d’enlèvement" span="full">
-                    <input type="text" value={form.pickup_location_label ?? ''} onChange={(e) => setForm({ ...form, pickup_location_label: e.target.value || null })} className={panelInputClass} placeholder="Base, quai, magasin, yard..." />
+                    <input type="text" value={form.pickup_location_label ?? ''} onChange={(e) => setForm({ ...form, pickup_location_label: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.pickup_location_example')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Latitude">
                     <input type="number" step="any" value={form.pickup_latitude ?? ''} onChange={(e) => setForm({ ...form, pickup_latitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
@@ -468,19 +468,19 @@ export function CreateCargoPanel() {
                     )}
                   </DynamicPanelField>
                   <DynamicPanelField label="Contact utilisateur">
-                    <UserPicker value={form.pickup_contact_user_id ?? null} onChange={(id) => setForm({ ...form, pickup_contact_user_id: id ?? null })} placeholder="Sélectionner un utilisateur..." />
+                    <UserPicker value={form.pickup_contact_user_id ?? null} onChange={(id) => setForm({ ...form, pickup_contact_user_id: id ?? null })} placeholder={t('packlog.placeholders.select_user')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Contact entreprise">
-                    <ContactPicker value={form.pickup_contact_tier_contact_id ?? null} onChange={(id) => setForm({ ...form, pickup_contact_tier_contact_id: id ?? null })} placeholder="Sélectionner un contact..." tierId={form.sender_tier_id ?? null} />
+                    <ContactPicker value={form.pickup_contact_tier_contact_id ?? null} onChange={(id) => setForm({ ...form, pickup_contact_tier_contact_id: id ?? null })} placeholder={t('packlog.placeholders.select_contact')} tierId={form.sender_tier_id ?? null} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Nom libre du contact">
-                    <input type="text" value={form.pickup_contact_name ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si hors référentiel" />
+                    <input type="text" value={form.pickup_contact_name ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_name: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.pickup_contact_fallback')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Téléphone contact">
-                    <input type="text" value={form.pickup_contact_phone ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_phone: e.target.value || null })} className={panelInputClass} placeholder="+237..." />
+                    <input type="text" value={form.pickup_contact_phone ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_phone: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.phone_example')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Moyen de levage fourni par">
-                    <input type="text" value={form.lifting_provider ?? ''} onChange={(e) => setForm({ ...form, lifting_provider: e.target.value || null })} className={panelInputClass} placeholder="Entreprise, site, prestataire..." />
+                    <input type="text" value={form.lifting_provider ?? ''} onChange={(e) => setForm({ ...form, lifting_provider: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.lifting_provider_example')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Oreilles de levage certifiées">
                     <label className="inline-flex items-center gap-2 text-xs">

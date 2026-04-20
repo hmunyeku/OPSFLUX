@@ -627,7 +627,7 @@ function CreateUserPanel() {
                       value={form.password || ''}
                       onChange={(e) => setForm({ ...form, password: e.target.value })}
                       className={panelInputClass}
-                      placeholder="Min. 8 caractères"
+                      placeholder={t('users.min_8_caracteres')}
                     />
                     <p className="text-xs text-muted-foreground mt-1">Vide = mot de passe temporaire auto-généré.</p>
                   </td>
@@ -732,7 +732,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
             value={pickerSearch}
             onChange={(e) => setPickerSearch(e.target.value)}
             className={panelInputClass}
-            placeholder="Rechercher une entité..."
+            placeholder={t('users.rechercher_une_entite')}
             autoFocus
           />
           <div className="max-h-40 overflow-y-auto space-y-1">
@@ -856,7 +856,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
               value={tierSearch}
               onChange={(e) => setTierSearch(e.target.value)}
               className={panelInputClass}
-              placeholder="Rechercher par nom ou code…"
+              placeholder={t('users.rechercher_par_nom_ou_code')}
               autoFocus
             />
             <div className="max-h-40 overflow-y-auto space-y-1">
@@ -1366,12 +1366,12 @@ function UserDetailPanel({ id }: { id: string }) {
                     <InlineEditableRow label="Genre" value={user.gender || ''} onSave={(v) => updateUser.mutate({ id, payload: { gender: v || null } })} />
                   )}
                 {nationalityOptions.length > 0 ? (
-                  <InlineEditableCombobox label="Nationalité" value={user.nationality || ''} options={nationalityOptions} onSave={(v) => updateUser.mutate({ id, payload: { nationality: v || null } })} placeholder="Rechercher une nationalité..." />
+                  <InlineEditableCombobox label="Nationalité" value={user.nationality || ''} options={nationalityOptions} onSave={(v) => updateUser.mutate({ id, payload: { nationality: v || null } })} placeholder={t('users.rechercher_une_nationalite')} />
                 ) : (
                   <InlineEditableRow label="Nationalité" value={user.nationality || ''} onSave={(v) => updateUser.mutate({ id, payload: { nationality: v || null } })} />
                 )}
                 {countryOptions.length > 0 ? (
-                  <InlineEditableCombobox label="Pays de naissance" value={user.birth_country || ''} options={countryOptions} onSave={(v) => updateUser.mutate({ id, payload: { birth_country: v || null } })} placeholder="Rechercher un pays..." />
+                  <InlineEditableCombobox label="Pays de naissance" value={user.birth_country || ''} options={countryOptions} onSave={(v) => updateUser.mutate({ id, payload: { birth_country: v || null } })} placeholder={t('users.rechercher_un_pays')} />
                 ) : (
                   <InlineEditableRow label="Pays de naissance" value={user.birth_country || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_country: v || null } })} />
                 )}
@@ -1389,7 +1389,7 @@ function UserDetailPanel({ id }: { id: string }) {
                     <InlineEditableRow label="Type" value={user.user_type || 'internal'} onSave={(v) => updateUser.mutate({ id, payload: { user_type: v || 'internal' } })} />
                   )}
                 {jobPositionOptions.length > 0 ? (
-                  <InlineEditableCombobox label="Poste / Fonction" value={user.job_position_id || ''} options={jobPositionOptions} onSave={(v) => updateUser.mutate({ id, payload: { job_position_id: v || null } })} placeholder="Sélectionner un poste..." />
+                  <InlineEditableCombobox label="Poste / Fonction" value={user.job_position_id || ''} options={jobPositionOptions} onSave={(v) => updateUser.mutate({ id, payload: { job_position_id: v || null } })} placeholder={t('users.selectionner_un_poste')} />
                   ) : (
                     <ReadOnlyRow label="Poste / Fonction" value={<span className="text-xs text-muted-foreground">Aucun poste défini</span>} />
                   )}
@@ -1483,12 +1483,12 @@ function UserDetailPanel({ id }: { id: string }) {
               {/* Voyage & Transport */}
               <FormSection title="Voyage & Transport" collapsible storageKey="panel.user.sections" id="user-travel">
                 {airportOptions.length > 0 ? (
-                  <InlineEditableCombobox label="Aéroport contractuel" value={user.contractual_airport || ''} options={airportOptions} onSave={(v) => updateUser.mutate({ id, payload: { contractual_airport: v || null } })} placeholder="Rechercher un aéroport..." />
+                  <InlineEditableCombobox label="Aéroport contractuel" value={user.contractual_airport || ''} options={airportOptions} onSave={(v) => updateUser.mutate({ id, payload: { contractual_airport: v || null } })} placeholder={t('users.rechercher_un_aeroport')} />
                 ) : (
                   <InlineEditableRow label="Aéroport contractuel" value={user.contractual_airport || ''} onSave={(v) => updateUser.mutate({ id, payload: { contractual_airport: v || null } })} />
                 )}
                 {airportOptions.length > 0 ? (
-                  <InlineEditableCombobox label="Aéroport le plus proche" value={user.nearest_airport || ''} options={airportOptions} onSave={(v) => updateUser.mutate({ id, payload: { nearest_airport: v || null } })} placeholder="Rechercher un aéroport..." />
+                  <InlineEditableCombobox label="Aéroport le plus proche" value={user.nearest_airport || ''} options={airportOptions} onSave={(v) => updateUser.mutate({ id, payload: { nearest_airport: v || null } })} placeholder={t('users.rechercher_un_aeroport')} />
                 ) : (
                   <InlineEditableRow label="Aéroport le plus proche" value={user.nearest_airport || ''} onSave={(v) => updateUser.mutate({ id, payload: { nearest_airport: v || null } })} />
                 )}

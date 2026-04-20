@@ -1039,6 +1039,7 @@
     "retirer_de_cette_entite": "Retirer de cette entité",
     "entreprises_liees": "Entreprises liées",
     "rechercher_une_entreprise": "Rechercher une entreprise",
+    "rechercher_une_entite": "Rechercher une entité...",
     "rechercher_par_nom_ou_code": "Rechercher par nom ou code…",
     "retirer_le_lien": "Retirer le lien",
     "tableau_de_correspondance_des_tailles": "Tableau de correspondance des tailles",
@@ -3545,6 +3546,25 @@
   "papyrus": {
     "title": "Papyrus",
     "subtitle": "Rédaction, documentation et workflows éditoriaux",
+    "placeholders": {
+      "reject_reason_required": "Motif (obligatoire)...",
+      "form_name": "Nom du formulaire",
+      "form_description_optional": "Description optionnelle",
+      "epicollect_json": "Coller ici un JSON EpiCollect5 pour import",
+      "cron_example": "0 6 * * 1-5",
+      "tz_example": "Africa/Kinshasa",
+      "delay_minutes": "Délai (minutes)",
+      "email_subject_example": "Sujet ex: Rapport {{ document.title }} - {{ date }}",
+      "reject_reason": "Indiquez le motif du rejet...",
+      "document_title": "Titre du document",
+      "code_auto": "Auto-généré",
+      "doctype_name_fr_example": "Note technique",
+      "doctype_name_en_example": "Technical Note",
+      "discipline_example": "MECA, ELEC, PROC...",
+      "nomenclature_example": "{ENTITY}-{DOCTYPE}-{SEQ:4}",
+      "template_name": "Nom du template",
+      "template_description": "Description du template..."
+    },
     "columns": {
       "number": "Numéro",
       "title": "Titre",
@@ -5283,6 +5303,23 @@
   "packlog": {
     "title": "PackLog",
     "subtitle": "Demandes d'expédition, colis, catalogue SAP et tracking",
+    "placeholders": {
+      "request_title_example": "Demande d'expédition équipements forage",
+      "select_project": "Sélectionner un projet...",
+      "select_imputation": "Sélectionner une imputation...",
+      "select_company": "Sélectionner une entreprise...",
+      "select_contact": "Sélectionner un contact...",
+      "select_destination_asset": "Sélectionner l'installation de destination...",
+      "select_user": "Sélectionner un utilisateur...",
+      "requester_fallback": "Fallback si le demandeur n'existe pas dans le référentiel",
+      "cargo_designation": "Désignation courte du colis",
+      "sap_code_example": "MAT-00001",
+      "cargo_description": "Description opérationnelle du colis, de l'unité ou du lot...",
+      "pickup_location_example": "Base, quai, magasin, yard...",
+      "pickup_contact_fallback": "Fallback si hors référentiel",
+      "phone_example": "+237...",
+      "lifting_provider_example": "Entreprise, site, prestataire..."
+    },
     "tabs": {
       "dashboard": "Dashboard",
       "requests": "Demandes",

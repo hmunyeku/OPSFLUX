@@ -406,7 +406,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                       sender_contact_tier_contact_id: null,
                     })
                   }
-                  placeholder="Sélectionner une entreprise..."
+                  placeholder={t('packlog.placeholders.select_company')}
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Contact entreprise">
@@ -415,7 +415,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   onChange={(id) =>
                     setEditForm({ ...editForm, sender_contact_tier_contact_id: id ?? null })
                   }
-                  placeholder="Sélectionner un contact..."
+                  placeholder={t('packlog.placeholders.select_contact')}
                   tierId={editForm.sender_tier_id ?? null}
                 />
               </DynamicPanelField>
@@ -435,7 +435,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   onChange={(id) =>
                     setEditForm({ ...editForm, imputation_reference_id: id ?? null })
                   }
-                  placeholder="Sélectionner une imputation..."
+                  placeholder={t('packlog.placeholders.select_imputation')}
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Demandeur">
@@ -444,7 +444,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   onChange={(id) =>
                     setEditForm({ ...editForm, requester_user_id: id ?? null })
                   }
-                  placeholder="Sélectionner un utilisateur..."
+                  placeholder={t('packlog.placeholders.select_user')}
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Demandeur libre">
@@ -455,7 +455,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                     setEditForm({ ...editForm, requester_name: e.target.value || null })
                   }
                   className={panelInputClass}
-                  placeholder="Fallback si pas dans le référentiel"
+                  placeholder={t('packlog.placeholders.requester_fallback')}
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Installation de destination" span="full">
@@ -465,7 +465,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                     setEditForm({ ...editForm, destination_asset_id: assetId ?? null })
                   }
                   clearable
-                  placeholder="Sélectionner l'installation de destination..."
+                  placeholder={t('packlog.placeholders.select_destination_asset')}
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Projet" span="full">
@@ -475,7 +475,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                     setEditForm({ ...editForm, project_id: projectId ?? null })
                   }
                   clearable
-                  placeholder="Sélectionner un projet..."
+                  placeholder={t('packlog.placeholders.select_project')}
                 />
               </DynamicPanelField>
             </FormGrid>

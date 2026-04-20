@@ -263,13 +263,25 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
       <div
         ref={cardRef}
         className={cn(
-          'group flex flex-col h-full rounded-xl overflow-hidden',
+          'group relative flex flex-col h-full rounded-xl overflow-hidden',
           'border transition-all duration-200',
-          !hasBgColor && 'bg-card border-border shadow-[0_1px_3px_0_rgb(0,0,0,0.06)] hover:shadow-[0_4px_16px_0_rgb(0,0,0,0.09)] hover:border-primary/25',
+          // Glassy gradient background + layered shadow for depth. Hover
+          // lifts + intensifies primary-tinted shadow (aligns with the
+          // StatCard / HomePage vocabulary introduced this sprint).
+          !hasBgColor && 'bg-gradient-to-br from-card to-card/70 border-border/70 shadow-[0_1px_3px_0_rgb(0,0,0,0.06)] hover:shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.18)] hover:border-border',
           hasBgColor && 'border-transparent shadow-md',
         )}
         style={{ ...cssVars, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
       >
+        {/* 2px accent strip on top — only when the widget isn't already
+            saturated with a background colour (hasBgColor). Keeps the
+            visual language consistent with StatCards. */}
+        {!hasBgColor && (
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary/70 via-primary/30 to-[hsl(var(--highlight))]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          />
+        )}
         {/* Header — uppercase label + divider + hover toolbar */}
         <div className={cn(
           'flex items-center px-3 py-1.5 gap-2 shrink-0 border-b',

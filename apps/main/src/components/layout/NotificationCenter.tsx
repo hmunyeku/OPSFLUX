@@ -139,11 +139,28 @@ export function NotificationCenter() {
         aria-label={t('nav.notifications')}
         title={t('nav.notifications')}
       >
-        <Bell size={15} />
+        {/* Bell wobbles slightly when there are unreads (calls
+            attention without being obnoxious). Pauses when the popover
+            opens and in prefers-reduced-motion. */}
+        <Bell
+          size={15}
+          className={cn(
+            'transition-transform',
+            unreadCount > 0 && !open && 'motion-safe:animate-[opsflux-bell-wobble_3s_ease-in-out_infinite]',
+          )}
+        />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
+          <>
+            {/* Ripple halo behind the badge — slow pulse so it's not
+                distracting during long sessions. */}
+            <span
+              aria-hidden="true"
+              className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-red-500/60 motion-safe:animate-ping opacity-75 motion-reduce:hidden"
+            />
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 shadow-sm z-[1]">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          </>
         )}
       </button>
 

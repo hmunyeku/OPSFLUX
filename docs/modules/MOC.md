@@ -2,8 +2,10 @@
 
 Module OpsFlux reproduisant le **Formulaire MOC Perenco** (rev. 06, octobre
 2025) tel qu'il est aujourd'hui captué dans Daxium. Parité fonctionnelle
-complète — 6 onglets du Daxium, 8 signatures électroniques, renvoi +
-motif à chaque étape, export PDF.
+complète — 6 onglets du Daxium, **9 signatures électroniques** (initiator,
+hierarchy_reviewer, site_chief, production, director, process_engineer,
+DO, DG, close), renvoi + motif à chaque étape, promotion en projet,
+export PDF fidèle au gabarit imposé.
 
 ## Flow
 
@@ -29,19 +31,20 @@ motif à chaque étape, export PDF.
 
 | Méthode | Chemin | Description |
 |---------|--------|-------------|
-| GET | `/api/v1/moc` | Liste paginée (filtres : status, site, platform, priority, initiator, search) |
-| POST | `/api/v1/moc` | Créer un MOC (tous les champs Daxium) |
-| GET | `/api/v1/moc/{id}` | Détail avec history + validations |
+| GET | `/api/v1/moc` | Liste paginée (filtres : status, site, platform, priority, initiator, manager, `mine_as_manager`, `has_project`, search) |
+| POST | `/api/v1/moc` | Créer un MOC (tous les champs Daxium + manager_id + signature initiator) |
+| GET | `/api/v1/moc/{id}` | Détail avec history + validations + `linked_project` si promu |
 | PATCH | `/api/v1/moc/{id}` | Update (limite rôle+status) |
 | DELETE | `/api/v1/moc/{id}` | Soft delete |
-| POST | `/api/v1/moc/{id}/transition` | FSM transition |
-| POST | `/api/v1/moc/{id}/validations` | Upsert d'une ligne validation (comment, approved, signature, return) |
+| POST | `/api/v1/moc/{id}/transition` | FSM transition (préconditions backend : signature initiator / revue hiérarchie / commentaire CDS / priorité / etc.) |
+| POST | `/api/v1/moc/{id}/validations` | Upsert d'une ligne validation (comment, approved, signature, return_requested/reason) |
 | POST | `/api/v1/moc/{id}/validations/invite` | Inviter un user comme validateur ad-hoc |
 | POST | `/api/v1/moc/{id}/execution-accord` | Accord/refus D.O ou D.G (+ signature + return) |
 | POST | `/api/v1/moc/{id}/production-validation` | Validation production (Daxium tab 3) |
 | POST | `/api/v1/moc/{id}/return` | Renvoi + motif (stage: site_chief / production / do / dg / validator) |
-| POST | `/api/v1/moc/{id}/signature` | Enregistrer une signature (slot: initiator / site_chief / production / director / process_engineer / do / dg) |
-| GET | `/api/v1/moc/{id}/pdf` | Export PDF du formulaire |
+| POST | `/api/v1/moc/{id}/signature` | Enregistrer une signature (slot: initiator / hierarchy_reviewer / site_chief / production / director / process_engineer / do / dg / close) |
+| POST | `/api/v1/moc/{id}/promote-to-project` | Crée un Project lié (code = référence MOC, manager = MOC.manager_id), idempotent — 409 si déjà promu |
+| GET | `/api/v1/moc/{id}/pdf` | Export PDF du formulaire (layout Perenco rev.06 — bandes teal `#11A09E`, cases à cocher, filigrane anti-extraction sur signatures) |
 | GET/POST/PATCH/DELETE | `/api/v1/moc/types(/...)` | CRUD catalogue des types + règles |
 | GET/POST/DELETE | `/api/v1/moc/site-assignments` | Mapping user→rôle→site (notifs) |
 | GET | `/api/v1/moc/fsm` | Description FSM |
@@ -81,26 +84,94 @@ motif à chaque étape, export PDF.
 
 ## Permissions
 
-- `moc.read` — voir la liste & le détail.
-- `moc.create` — créer.
-- `moc.update` — modifier, signer un slot, valider production, renvoyer.
-- `moc.delete` — archiver.
-- `moc.transition` — déclencher une transition FSM.
-- `moc.validate` — upsert d'une ligne de validation.
-- `moc.manage` — catalogue de types, invitation, site_assignments, édition forcée.
-- `moc.{role}.{action}` — permissions fines par étape (cf. FSM).
+### Granulaires (routes)
+
+| Permission | Route gatée |
+|---|---|
+| `moc.read` | GET liste + détail + PDF + fsm + stats + site-assignments |
+| `moc.create` | POST création |
+| `moc.update` | PATCH, `/signature`, `/return` (chaque étape valide via la sous-permission métier) |
+| `moc.delete` | DELETE soft |
+| `moc.transition` | `/transition` (le FSM applique la perm spécifique) |
+| `moc.validate` | `/validations` upsert |
+| `moc.validator.invite` | `/validations/invite` |
+| `moc.production.validate` | `/production-validation` (Daxium tab 3) |
+| `moc.promote` | `/promote-to-project` |
+| `moc.signature.view` | Voir le PNG brut des signatures (sinon `__REDACTED__`) |
+| `moc.manage` | Catalogue types / site-assignments / override admin |
+| `moc.{role}.{action}` | Transitions FSM (cf. `GET /moc/fsm`) |
+
+### Rôles système
+
+Les rôles sont déclarés au niveau **système** (pas `MOC_*`) pour être
+réutilisables par d'autres modules :
+
+- `SITE_CHIEF` — approuve, soumet, lance l'exécution, clôture, **promote**, invite
+- `DIRECTOR` — confirme, priorise, valide l'étude, DO/DG accord, **promote**, invite
+- `LEAD_PROCESS` — démarre l'étude, invite
+- `PROCESS_ENGINEER` — pilote l'étude, soumet, ferme docs
+- `PRODUCTION_MANAGER` — `moc.production.validate`
+- `HSE`, `MAINTENANCE_MANAGER` — valident leur volet + `moc.signature.view`
+- `MOC_INITIATOR` — crée et suit ses propres MOC
+- `MOC_METIER` — valide un volet métier (discipline)
+- `MOC_ADMIN` — toutes les perms du module
 
 ## Signatures électroniques
 
 Le composant `<SignaturePad>` (canvas, multi-touch + souris + stylet)
-retourne une data URL base64 PNG. Stockées inline :
-- **7 slots fixes** sur la fiche MOC : initiator, site_chief, production,
-  director, process_engineer, do, dg.
-- **1 slot par ligne de validation** (HSE, Lead, Production Mgr, Gaz Mgr,
-  Maintenance, Métier, invités).
+retourne une data URL base64 PNG. Protégées côté affichage par
+`<ProtectedSignature>` (background-image, pas d'`<img>` crawlable,
+context-menu/drag/copy désactivés, filigrane 3 couches anti-inpaint :
+texte rotation +/-22° + grille diagonale, auto-flou quand la fenêtre
+perd le focus).
 
-Ce ne sont pas des signatures cryptographiques autoritaires —
-elles reproduisent la signature papier pour complétude du PDF.
+**9 slots fixes** sur la fiche MOC : `initiator`, `hierarchy_reviewer`,
+`site_chief`, `production`, `director`, `process_engineer`, `do`, `dg`,
+`close`.
+
+**1 slot par ligne de validation** (HSE, Lead, Production Mgr, Gaz Mgr,
+Maintenance, Métier, invités).
+
+Côté backend, la redaction route-level (`_redact_signatures` dans
+`app/api/routes/modules/moc.py`) remplace les data URL par le sentinel
+`__REDACTED__` pour les users sans `moc.signature.view` ni `moc.manage`,
+sauf auto-service (le signataire voit toujours la sienne).
+
+Ce ne sont pas des signatures cryptographiques autoritaires — elles
+reproduisent la signature papier pour complétude du PDF Perenco. Un
+OS-level screenshot reste techniquement impossible à bloquer depuis un
+navigateur web ; la défense repose sur le filigrane traçable
+(email_viewer + timestamp + réf) qui permet de remonter à l'origine
+d'une fuite.
+
+## MOC ↔ Project
+
+Une fois un MOC dans l'un des statuts `validated`, `execution` ou
+`executed_docs_pending`, il peut être promu en Project :
+
+```
+POST /api/v1/moc/{id}/promote-to-project
+```
+
+Crée une row `projects` avec :
+- `code` = `MOC_NNN_PF`
+- `name` = `title` ou `objectives`
+- `manager_id` = `moc.manager_id` (ou caller par défaut)
+- `asset_id` = installation_id du MOC
+- `priority` = mapping 1→high / 2→medium / 3→low
+- `external_ref` = `moc:<uuid>`
+
+Le MOC est lié dans les deux sens : `mocs.project_id` + `projects.external_ref`.
+
+**Synchronisation progress** (sens unique Project → MOC, cf.
+`app/services/modules/moc_sync.py`) :
+
+- `project.progress` → `moc.metadata_['execution_progress']`
+- `project.status == 'completed'` + `moc.status == 'execution'` →
+  auto-avancement à `executed_docs_pending` (le CDS doit ensuite
+  clôturer formellement avec `close_signature`)
+- `project.status == 'cancelled'` → log d'avertissement, pas d'action
+  automatique (trop destructif)
 
 ## Tests
 
@@ -111,6 +182,8 @@ TOKEN="$(your-login-flow)" ENTITY_ID="your-entity-uuid" \
   ./scripts/smoke_moc.sh https://api.opsflux.io
 ```
 
-Il vérifie : list, types CRUD, create avec tous les nouveaux champs,
-signature slot, production-validation, upsert validation avec signature,
-return stage=site_chief, export PDF (Content-Type application/pdf).
+13 étapes : list, types CRUD, create avec tous les champs Daxium
+(title/nature/metiers/signature), get détail, signatures (site_chief,
+hierarchy_reviewer, close), production-validation, upsert validation,
+return stage=site_chief, filtres list (mine_as_manager, has_project),
+promote-to-project, widget catalog, export PDF.

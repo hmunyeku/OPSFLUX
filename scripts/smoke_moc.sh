@@ -136,7 +136,51 @@ code=$(req POST "/api/v1/moc/$MOC_ID/return" \
   '{"stage":"site_chief","reason":"Besoin détail supplémentaire"}')
 [[ "$code" == "200" ]] && ok "return site_chief 200" || { ko "return $code"; cat "$TMP/body"; }
 
-# ── 9. PDF export ──────────────────────────────────────────
+# ── 9. Signature slot hierarchy_reviewer + close ───────────
+step "POST /moc/$MOC_ID/signature (slot=hierarchy_reviewer)"
+code=$(req POST "/api/v1/moc/$MOC_ID/signature" "{\"slot\":\"hierarchy_reviewer\",\"signature\":\"$SIG\"}")
+[[ "$code" == "200" ]] && ok "hierarchy signature 200" || ko "hierarchy $code"
+
+step "POST /moc/$MOC_ID/signature (slot=close)"
+code=$(req POST "/api/v1/moc/$MOC_ID/signature" "{\"slot\":\"close\",\"signature\":\"$SIG\"}")
+[[ "$code" == "200" ]] && ok "close signature 200" || ko "close $code"
+
+# ── 10. List filters (manager + has_project) ───────────────
+step "GET /moc?mine_as_manager=true"
+code=$(req GET "/api/v1/moc?mine_as_manager=true&page=1&page_size=5")
+[[ "$code" == "200" ]] && ok "filter mine_as_manager 200" || ko "mine_as_manager $code"
+
+step "GET /moc?has_project=false"
+code=$(req GET "/api/v1/moc?has_project=false&page=1&page_size=5")
+[[ "$code" == "200" ]] && ok "filter has_project=false 200" || ko "has_project $code"
+
+# ── 11. Promote to project (only if status allows) ─────────
+step "POST /moc/$MOC_ID/promote-to-project"
+code=$(req POST "/api/v1/moc/$MOC_ID/promote-to-project")
+if [[ "$code" == "200" ]]; then
+  ok "promote 200"
+elif [[ "$code" == "400" ]]; then
+  ok "promote 400 — MOC not in validated/execution/executed_docs_pending (expected in a fresh MOC)"
+elif [[ "$code" == "403" ]]; then
+  ok "promote 403 — missing moc.promote permission (expected for non-SITE_CHIEF/DIRECTOR)"
+else
+  ko "promote $code"; cat "$TMP/body"
+fi
+
+# ── 12. Widget catalog — new MOC widgets are visible ───────
+step "GET /dashboard/widgets/catalog (check moc_by_manager exposure)"
+code=$(req GET "/api/v1/dashboard/widgets/catalog")
+if [[ "$code" == "200" ]]; then
+  if grep -q '"moc_by_manager"' "$TMP/body" && grep -q '"moc_promotion_ratio"' "$TMP/body"; then
+    ok "catalog exposes moc_by_manager + moc_promotion_ratio"
+  else
+    ko "catalog missing new widgets"
+  fi
+else
+  ko "catalog $code"
+fi
+
+# ── 13. PDF export ─────────────────────────────────────────
 step "GET /moc/$MOC_ID/pdf"
 ct=$(curl -sS -o "$TMP/moc.pdf" -w "%{content_type}" -H "$H_AUTH" -H "$H_ENTITY" \
   "$BASE/api/v1/moc/$MOC_ID/pdf")

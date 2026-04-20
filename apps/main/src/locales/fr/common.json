@@ -5762,6 +5762,7 @@
       "production_validation": "Validation pour mise en étude (Production)",
       "signatures": "Signatures",
       "execution_accord": "Réalisation du MOC — Accords D.O / D.G",
+      "workflow_stepper": "Progression du workflow",
       "flags": "HAZOP / HAZID / Documents",
       "attachments": "Pièces jointes",
       "timeline": "Historique des statuts",

@@ -23,7 +23,6 @@
 import { useEffect } from 'react'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import DOMPurify from 'dompurify'
 import {
@@ -109,14 +108,17 @@ export function RichTextField({
 }: RichTextFieldProps) {
   const editor = useEditor({
     extensions: [
+      // StarterKit v3 already bundles Link, Heading, Bold, Italic, Strike,
+      // Code, BulletList, OrderedList, Blockquote, HorizontalRule, History.
+      // We only tune Link behaviour (external target, no auto-open on click).
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         codeBlock: false, // keep it simple — inline `code` only
-      }),
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
+        link: {
+          openOnClick: false,
+          autolink: true,
+          HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
+        },
       }),
       Placeholder.configure({
         placeholder: placeholder ?? '',

@@ -68,6 +68,7 @@ import {
 import { UserPicker } from '@/components/shared/UserPicker'
 import { SignaturePad } from '@/components/shared/SignaturePad'
 import { RichTextField } from '@/components/shared/RichTextField'
+import { cn } from '@/lib/utils'
 import {
   MOC_STATUS_COLOURS,
   MOC_STATUS_LABELS,
@@ -371,6 +372,18 @@ export function MOCDetailPanel({ id }: Props) {
       <PanelContentLayout>
         {activeTab === 'fiche' && (
           <>
+            {/* FSM stepper — shows the 7 milestones of the Daxium/CDC flow
+                so the user understands where the MOC stands and what's
+                coming next. Hidden for terminal states (cancelled). */}
+            {moc.status !== 'cancelled' && (
+              <FormSection
+                title={t('moc.section.workflow_stepper')}
+                defaultExpanded
+              >
+                <MOCStepper status={moc.status} />
+              </FormSection>
+            )}
+
             {/* Allowed workflow actions */}
             {allowedTransitions.length > 0 && (
               <FormSection title={t('moc.section.workflow')} defaultExpanded>
@@ -1673,6 +1686,84 @@ function DirectorAccordBlock({
           <strong>{t('moc.fields.return_reason')} :</strong> {returnReason}
         </div>
       )}
+    </div>
+  )
+}
+
+
+// ─── MOCStepper — visible 7-step workflow ladder (Daxium-aligned) ──────────
+// Groups the 12 FSM statuses into the 7 business milestones of the
+// Perenco/CDC flow so the user always knows where the MOC is vs. what
+// comes next. A terminal "cancelled" MOC hides the stepper entirely.
+
+const STEPPER_MILESTONES: {
+  id: string
+  label: string
+  statuses: MOCStatus[]
+}[] = [
+  { id: 'request', label: 'Demande', statuses: ['created'] },
+  { id: 'site_chief', label: 'Chef de Site', statuses: ['approved'] },
+  {
+    id: 'direction',
+    label: 'Direction',
+    statuses: ['submitted_to_confirm', 'stand_by', 'approved_to_study'],
+  },
+  { id: 'study', label: 'Étude Process', statuses: ['under_study'] },
+  {
+    id: 'validation',
+    label: 'Validation parallèle',
+    statuses: ['study_in_validation', 'validated'],
+  },
+  { id: 'execution', label: 'Exécution', statuses: ['execution'] },
+  {
+    id: 'close',
+    label: 'Clôture',
+    statuses: ['executed_docs_pending', 'closed'],
+  },
+]
+
+function MOCStepper({ status }: { status: MOCStatus }) {
+  const activeIndex = STEPPER_MILESTONES.findIndex((m) =>
+    m.statuses.includes(status),
+  )
+  return (
+    <div className="flex flex-wrap items-center gap-1 text-[10px] select-none">
+      {STEPPER_MILESTONES.map((m, i) => {
+        const done = i < activeIndex
+        const active = i === activeIndex
+        return (
+          <div key={m.id} className="flex items-center gap-1">
+            <div
+              className={cn(
+                'flex items-center gap-1.5 rounded-full px-2.5 py-1 transition-colors',
+                active && 'bg-primary text-primary-foreground font-semibold shadow-sm',
+                done && 'bg-primary/20 text-primary',
+                !active && !done && 'bg-muted text-muted-foreground',
+              )}
+            >
+              <span
+                className={cn(
+                  'flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold',
+                  active && 'bg-primary-foreground/20',
+                  done && 'bg-primary/30',
+                  !active && !done && 'bg-background/50',
+                )}
+              >
+                {done ? '✓' : i + 1}
+              </span>
+              <span>{m.label}</span>
+            </div>
+            {i < STEPPER_MILESTONES.length - 1 && (
+              <span
+                className={cn(
+                  'h-px w-3',
+                  i < activeIndex ? 'bg-primary' : 'bg-border',
+                )}
+              />
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

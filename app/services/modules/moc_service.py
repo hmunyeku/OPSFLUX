@@ -141,20 +141,62 @@ async def transition(
     now = datetime.now(UTC)
     payload = payload or {}
 
-    # ── Per-transition side-effects on the MOC record ──
+    # ── Per-transition preconditions + side-effects ──
+    # Each branch first validates the business rules (hard gate, raises 400
+    # with a human-readable explanation) and only then mutates the record.
+    # This mirrors the Daxium workflow: no step can be skipped without
+    # filling the prerequisite fields that will be rendered on the PDF.
     if to_status == "approved":
+        # "Approuver" = accord de principe du Chef de Site (étape 2 Daxium).
+        # Prérequis : le demandeur a signé, la revue hiérarchie a répondu
+        # oui/non sur le caractère "véritable MOC", et le commentaire
+        # d'accord de principe est renseigné.
+        errors: list[str] = []
+        if not moc.initiator_signature:
+            errors.append("la signature du demandeur est requise")
+        if moc.is_real_change is None:
+            errors.append(
+                "la revue hiérarchie doit répondre "
+                "« véritable Changement au sens MOC ? » (Oui/Non)"
+            )
+        if not (moc.site_chief_comment or (comment and comment.strip())):
+            errors.append(
+                "un commentaire ou avis du Chef de Site est attendu "
+                "avant l'accord de principe"
+            )
+        if errors:
+            raise HTTPException(
+                400,
+                "Approbation impossible — il manque : "
+                + "; ".join(errors) + ".",
+            )
         moc.site_chief_id = actor.id
         moc.site_chief_approved_at = now
         moc.site_chief_approved = True
         if comment:
             moc.site_chief_comment = comment
+    elif to_status == "submitted_to_confirm":
+        # Le CDS transmet à la Direction pour confirmation. Prérequis :
+        # une signature CDS est apposée (sinon le PDF n'a pas de visa).
+        if not moc.site_chief_signature:
+            raise HTTPException(
+                400,
+                "Transmission à la Direction impossible — "
+                "la signature du Chef de Site est manquante.",
+            )
     elif to_status == "approved_to_study":
+        # Directeur confirme la mise à l'étude + fixe la priorité.
+        if not payload.get("priority") or payload.get("priority") not in {"1", "2", "3"}:
+            raise HTTPException(
+                400,
+                "Confirmation à étudier impossible — la priorité "
+                "(1=haute, 2=normale, 3=basse) doit être renseignée.",
+            )
         moc.director_id = actor.id
         moc.director_confirmed_at = now
         if comment:
             moc.director_comment = comment
-        if payload.get("priority") in {"1", "2", "3"}:
-            moc.priority = payload["priority"]
+        moc.priority = payload["priority"]
     elif to_status == "stand_by":
         moc.director_id = moc.director_id or actor.id
         if comment:

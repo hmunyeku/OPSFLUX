@@ -4952,6 +4952,7 @@
       "production_validation": "Validation for study (Production)",
       "signatures": "Signatures",
       "execution_accord": "MOC Execution — DO / DG accords",
+      "workflow_stepper": "Workflow progress",
       "flags": "HAZOP / HAZID / Documents",
       "attachments": "Attachments",
       "timeline": "Status history",

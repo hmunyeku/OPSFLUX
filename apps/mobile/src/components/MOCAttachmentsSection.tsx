@@ -26,6 +26,7 @@ import {
   Text,
   VStack,
 } from "@gluestack-ui/themed";
+import { useTranslation } from "react-i18next";
 import { MIcon } from "./MIcon";
 import {
   listAttachments,
@@ -42,25 +43,23 @@ type MOCAttachmentCategory =
   | "study"
   | "other";
 
-const CATEGORIES: Array<{ value: MOCAttachmentCategory; label: string }> = [
-  { value: "pid_initial", label: "PID initial" },
-  { value: "pid_modified", label: "PID modifié" },
-  { value: "esd_initial", label: "ESD initial" },
-  { value: "esd_modified", label: "ESD modifié" },
-  { value: "photo", label: "Photo" },
-  { value: "study", label: "Étude" },
-  { value: "other", label: "Autre" },
+const CATEGORY_VALUES: MOCAttachmentCategory[] = [
+  "pid_initial",
+  "pid_modified",
+  "esd_initial",
+  "esd_modified",
+  "photo",
+  "study",
+  "other",
 ];
-
-const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
-  CATEGORIES.map((c) => [c.value, c.label]),
-);
 
 interface Props {
   mocId: string;
 }
 
 export default function MOCAttachmentsSection({ mocId }: Props) {
+  const { t } = useTranslation();
+  const categoryLabel = (v: string) => t(`moc.attachment.category.${v}`, { defaultValue: v });
   const [items, setItems] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -89,10 +88,10 @@ export default function MOCAttachmentsSection({ mocId }: Props) {
           : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         Alert.alert(
-          "Permission requise",
+          t("moc.attachment.permTitle"),
           source === "camera"
-            ? "L'application a besoin d'accéder à la caméra."
-            : "L'application a besoin d'accéder à la galerie.",
+            ? t("moc.attachment.permCamera")
+            : t("moc.attachment.permGallery"),
         );
         return;
       }
@@ -112,23 +111,23 @@ export default function MOCAttachmentsSection({ mocId }: Props) {
           uri,
           "moc",
           mocId,
-          CATEGORY_LABEL[category],
+          categoryLabel(category),
           category,
         );
         if (res.queued) {
           Alert.alert(
-            "Hors-ligne",
-            "Photo enregistrée localement, envoi dès le retour du réseau.",
+            t("moc.attachment.offlineTitle"),
+            t("moc.attachment.queued"),
           );
         } else if (!res.success) {
-          Alert.alert("Échec upload", res.error ?? "Erreur inconnue");
+          Alert.alert(t("moc.attachment.uploadFailed"), res.error ?? t("moc.attachment.unknownError"));
         }
         reload();
       } finally {
         setUploading(false);
       }
     },
-    [category, mocId, reload],
+    [category, mocId, reload, t],
   );
 
   return (
@@ -141,7 +140,7 @@ export default function MOCAttachmentsSection({ mocId }: Props) {
       mb="$2"
     >
       <Heading size="sm" mb="$2">
-        Pièces jointes
+        {t("moc.section.attachments")}
       </Heading>
 
       {/* Category chips — pick the type, then snap / pick a file */}
@@ -151,14 +150,14 @@ export default function MOCAttachmentsSection({ mocId }: Props) {
         style={{ marginBottom: 12 }}
       >
         <HStack space="sm">
-          {CATEGORIES.map((c) => (
+          {CATEGORY_VALUES.map((v) => (
             <Pressable
-              key={c.value}
-              onPress={() => setCategory(c.value)}
-              bg={category === c.value ? "$primary600" : "$white"}
+              key={v}
+              onPress={() => setCategory(v)}
+              bg={category === v ? "$primary600" : "$white"}
               borderWidth={1}
               borderColor={
-                category === c.value ? "$primary600" : "$borderLight200"
+                category === v ? "$primary600" : "$borderLight200"
               }
               px="$3"
               py="$1.5"
@@ -167,9 +166,9 @@ export default function MOCAttachmentsSection({ mocId }: Props) {
               <Text
                 size="xs"
                 fontWeight="$semibold"
-                color={category === c.value ? "$white" : "$textLight700"}
+                color={category === v ? "$white" : "$textLight700"}
               >
-                {c.label}
+                {categoryLabel(v)}
               </Text>
             </Pressable>
           ))}
@@ -187,7 +186,7 @@ export default function MOCAttachmentsSection({ mocId }: Props) {
         >
           {uploading ? <ButtonSpinner mr="$2" /> : null}
           <ButtonIcon as={MIcon as any} />
-          <ButtonText>Caméra</ButtonText>
+          <ButtonText>{t("moc.action.camera")}</ButtonText>
         </Button>
         <Button
           flex={1}
@@ -197,18 +196,18 @@ export default function MOCAttachmentsSection({ mocId }: Props) {
           isDisabled={uploading}
           onPress={() => pick("library")}
         >
-          <ButtonText>Galerie</ButtonText>
+          <ButtonText>{t("moc.action.gallery")}</ButtonText>
         </Button>
       </HStack>
 
       {/* List */}
       {loading ? (
         <Text size="xs" color="$textLight400">
-          Chargement…
+          {t("moc.attachment.loading")}
         </Text>
       ) : items.length === 0 ? (
         <Text size="xs" color="$textLight400" fontStyle="italic">
-          Aucune pièce jointe
+          {t("moc.attachment.empty")}
         </Text>
       ) : (
         <VStack space="xs">
@@ -241,11 +240,10 @@ export default function MOCAttachmentsSection({ mocId }: Props) {
                   {(a as Attachment & { category?: string }).category && (
                     <Badge action="info" variant="outline" size="sm">
                       <BadgeText>
-                        {CATEGORY_LABEL[
+                        {categoryLabel(
                           (a as Attachment & { category?: string })
-                            .category as string
-                        ] ??
-                          (a as Attachment & { category?: string }).category}
+                            .category as string,
+                        )}
                       </BadgeText>
                     </Badge>
                   )}

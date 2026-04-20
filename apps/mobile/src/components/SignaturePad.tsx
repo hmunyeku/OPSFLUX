@@ -22,6 +22,7 @@ import { View, StyleSheet } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Path } from "react-native-svg";
 import { Button, ButtonText, Text } from "@gluestack-ui/themed";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   value?: string | null;
@@ -109,6 +110,7 @@ export default function SignaturePad({
   height = 140,
   disabled,
 }: Props) {
+  const { t } = useTranslation();
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [active, setActive] = useState<Stroke>([]);
 
@@ -181,7 +183,7 @@ export default function SignaturePad({
               color="$textLight400"
               fontStyle="italic"
             >
-              Signez ici
+              {t("moc.signature.hint")}
             </Text>
           )}
         </View>
@@ -195,7 +197,7 @@ export default function SignaturePad({
           mt="$1.5"
           alignSelf="flex-start"
         >
-          <ButtonText>Effacer</ButtonText>
+          <ButtonText>{t("moc.action.eraser")}</ButtonText>
         </Button>
       )}
     </View>

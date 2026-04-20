@@ -58,10 +58,10 @@ interface Props {
   navigation: any;
 }
 
-const PRIORITY_LABEL: Record<string, string> = {
-  "1": "Priorité haute",
-  "2": "Priorité normale",
-  "3": "Priorité basse",
+const PRIORITY_KEY: Record<string, string> = {
+  "1": "moc.priority.high",
+  "2": "moc.priority.normal",
+  "3": "moc.priority.low",
 };
 const PRIORITY_COLOR: Record<string, string> = {
   "1": "$red500",
@@ -126,6 +126,7 @@ function Flag({
   required: boolean;
   completed: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <HStack
       justifyContent="space-between"
@@ -143,14 +144,14 @@ function Flag({
           variant="outline"
           size="sm"
         >
-          <BadgeText>{required ? "Nécessaire" : "—"}</BadgeText>
+          <BadgeText>{required ? t("moc.flag.necessary") : "—"}</BadgeText>
         </Badge>
         <Badge
           action={completed ? "success" : "muted"}
           variant="outline"
           size="sm"
         >
-          <BadgeText>{completed ? "Réalisé" : "—"}</BadgeText>
+          <BadgeText>{completed ? t("moc.flag.done") : "—"}</BadgeText>
         </Badge>
       </HStack>
     </HStack>
@@ -218,34 +219,34 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
       if (!moc) return [];
       const missing: string[] = [];
       if (to === "approved") {
-        if (!moc.initiator_signature) missing.push("Signature du demandeur");
+        if (!moc.initiator_signature) missing.push(t("moc.transition.prereq.initiatorSignature"));
         if (moc.is_real_change === null || moc.is_real_change === undefined)
-          missing.push("Revue hiérarchie (Oui/Non)");
+          missing.push(t("moc.transition.prereq.isRealChange"));
         if (!moc.site_chief_comment?.trim())
-          missing.push("Commentaire du Chef de site");
+          missing.push(t("moc.transition.prereq.siteChiefComment"));
       } else if (to === "submitted_to_confirm") {
         if (!moc.site_chief_signature)
-          missing.push("Signature Chef de site");
+          missing.push(t("moc.transition.prereq.siteChiefSignature"));
       } else if (to === "validated") {
         const unapproved = (moc.validations || []).filter(
           (v) => v.required && !v.approved,
         );
         if (unapproved.length > 0)
-          missing.push("Toutes les validations requises");
+          missing.push(t("moc.transition.prereq.allValidators"));
       } else if (to === "execution") {
-        if (moc.do_execution_accord !== true) missing.push("Accord D.O");
-        if (moc.dg_execution_accord !== true) missing.push("Accord D.G");
+        if (moc.do_execution_accord !== true) missing.push(t("moc.transition.prereq.doAccord"));
+        if (moc.dg_execution_accord !== true) missing.push(t("moc.transition.prereq.dgAccord"));
       } else if (to === "closed") {
         if (moc.pid_update_required && !moc.pid_update_completed)
-          missing.push("MAJ PID");
+          missing.push(t("moc.transition.prereq.pidUpdate"));
         if (moc.esd_update_required && !moc.esd_update_completed)
-          missing.push("MAJ ESD");
+          missing.push(t("moc.transition.prereq.esdUpdate"));
         // close_signature is checked server-side; we can't know it from
         // the read payload alone (redacted for most viewers).
       }
       return missing;
     },
-    [moc],
+    [moc, t],
   );
 
   /** Allowed transitions from the current status. The server also
@@ -277,7 +278,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
       const missing = to === "cancelled" ? [] : missingPrereqs(to);
       if (missing.length > 0) {
         Alert.alert(
-          "Prérequis manquants",
+          t("moc.transition.prereqsMissing"),
           missing.map((m) => `• ${m}`).join("\n"),
         );
         return;
@@ -287,19 +288,21 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
         const updated = await transitionMOC(moc.id, { to_status: to });
         setMoc(updated);
         toastShow(
-          `Statut : ${MOC_STATUS_LABELS[updated.status] ?? updated.status}`,
+          t("moc.transition.statusToast", {
+            label: MOC_STATUS_LABELS[updated.status] ?? updated.status,
+          }),
           "success",
         );
       } catch (err: unknown) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const d = (err as any)?.response?.data?.detail;
-        const msg = typeof d === "string" ? d : d?.message ?? "Transition refusée";
-        Alert.alert("Erreur", msg);
+        const msg = typeof d === "string" ? d : d?.message ?? t("moc.transition.refused");
+        Alert.alert(t("moc.errorGeneric"), msg);
       } finally {
         setTxLoading(null);
       }
     },
-    [moc, missingPrereqs, toastShow],
+    [moc, missingPrereqs, toastShow, t],
   );
 
   const onPromote = useCallback(async () => {
@@ -308,17 +311,17 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
       const updated = await promoteMOCToProject(moc.id);
       setMoc(updated);
       toastShow(
-        `Projet créé — ${updated.linked_project?.code ?? "OK"}`,
+        t("moc.promote.success", { code: updated.linked_project?.code ?? "OK" }),
         "success",
       );
     } catch (err: unknown) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const d = (err as any)?.response?.data?.detail;
       const msg =
-        typeof d === "string" ? d : d?.message ?? "Échec de la promotion";
-      Alert.alert("Erreur", msg);
+        typeof d === "string" ? d : d?.message ?? t("moc.promote.failed");
+      Alert.alert(t("moc.errorGeneric"), msg);
     }
-  }, [moc, toastShow]);
+  }, [moc, toastShow, t]);
 
   const onDirectorAccord = useCallback(
     async (actor: "do" | "dg", accord: boolean) => {
@@ -330,32 +333,35 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
         });
         setMoc(updated);
         toastShow(
-          `${actor.toUpperCase()} — ${accord ? "Accord" : "Refus"} enregistré`,
+          t("moc.accord.saved", {
+            actor: actor.toUpperCase(),
+            verdict: accord ? t("moc.badge.accord") : t("moc.badge.refus"),
+          }),
           "success",
         );
       } catch (err: unknown) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const d = (err as any)?.response?.data?.detail;
         const msg =
-          typeof d === "string" ? d : d?.message ?? "Échec accord";
-        Alert.alert("Erreur", msg);
+          typeof d === "string" ? d : d?.message ?? t("moc.accord.failed");
+        Alert.alert(t("moc.errorGeneric"), msg);
       }
     },
-    [moc, toastShow],
+    [moc, toastShow, t],
   );
 
   const onValidatorTap = useCallback(
     async (validationId: string, approved: boolean) => {
       if (!moc) return;
       Alert.alert(
-        approved ? "Valider" : "Renvoyer",
+        approved ? t("moc.action.validate") : t("moc.action.send_return"),
         approved
-          ? "Confirmer la validation de cette ligne ?"
-          : "Confirmer le renvoi pour modification ?",
+          ? t("moc.action.confirmValidate")
+          : t("moc.action.confirmReturn"),
         [
-          { text: "Annuler", style: "cancel" },
+          { text: t("moc.action.cancel"), style: "cancel" },
           {
-            text: approved ? "Valider" : "Renvoyer",
+            text: approved ? t("moc.action.validate") : t("moc.action.send_return"),
             style: approved ? "default" : "destructive",
             onPress: async () => {
               try {
@@ -372,14 +378,14 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                     approved: true,
                     target_validator_id: v.validator_id,
                   });
-                  toastShow("Validation enregistrée", "success");
+                  toastShow(t("moc.validation.saved"), "success");
                 } else {
                   await requestMOCReturn(moc.id, {
                     stage: "validator",
-                    reason: "Renvoyé depuis mobile",
+                    reason: t("moc.validation.returnReasonDefault"),
                     validation_id: validationId,
                   });
-                  toastShow("Renvoi enregistré", "success");
+                  toastShow(t("moc.validation.returnSaved"), "success");
                 }
                 const fresh = await getMOC(moc.id);
                 setMoc(fresh);
@@ -389,15 +395,15 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                 const msg =
                   typeof d === "string"
                     ? d
-                    : d?.message ?? "Échec de l'action";
-                Alert.alert("Erreur", msg);
+                    : d?.message ?? t("moc.actionFailed");
+                Alert.alert(t("moc.errorGeneric"), msg);
               }
             },
           },
         ],
       );
     },
-    [moc, toastShow],
+    [moc, toastShow, t],
   );
 
   const saveSignature = useCallback(async () => {
@@ -406,18 +412,18 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
     try {
       const updated = await setMOCSignature(moc.id, sigModalSlot, sigDraft);
       setMoc(updated);
-      toastShow("Signature enregistrée", "success");
+      toastShow(t("moc.signature.saved"), "success");
       setSigModalSlot(null);
       setSigDraft(null);
     } catch (err: unknown) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const d = (err as any)?.response?.data?.detail;
-      const msg = typeof d === "string" ? d : d?.message ?? "Échec signature";
-      Alert.alert("Erreur", msg);
+      const msg = typeof d === "string" ? d : d?.message ?? t("moc.signature.error");
+      Alert.alert(t("moc.errorGeneric"), msg);
     } finally {
       setSigSaving(false);
     }
-  }, [moc, sigModalSlot, sigDraft, toastShow]);
+  }, [moc, sigModalSlot, sigDraft, toastShow, t]);
 
   if (loading || !moc) {
     return (
@@ -475,7 +481,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                 bg={PRIORITY_COLOR[moc.priority] ?? "$textLight400"}
               />
               <Text size="2xs" color="$textLight600">
-                {PRIORITY_LABEL[moc.priority]}
+                {t(PRIORITY_KEY[moc.priority] ?? "")}
               </Text>
             </HStack>
           )}
@@ -488,14 +494,14 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
             <Badge action="muted" variant="outline" size="sm">
               <BadgeText>
                 {moc.modification_type === "permanent"
-                  ? "Permanent"
-                  : "Temporaire"}
+                  ? t("moc.type.permanent")
+                  : t("moc.type.temporary")}
               </BadgeText>
             </Badge>
           )}
           {moc.project_id && (
             <Badge action="success" variant="solid" size="sm">
-              <BadgeText>Promu en projet</BadgeText>
+              <BadgeText>{t("moc.badge.promoted")}</BadgeText>
             </Badge>
           )}
         </HStack>
@@ -511,24 +517,24 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
         mb="$2"
       >
         <Heading size="sm" mb="$2">
-          Identification
+          {t("moc.section.identification")}
         </Heading>
-        <RoleLine label="Site" value={moc.site_label} />
-        <RoleLine label="Plateforme" value={moc.platform_code} />
+        <RoleLine label={t("moc.field.site")} value={moc.site_label} />
+        <RoleLine label={t("moc.field.platform")} value={moc.platform_code} />
         <RoleLine
-          label="Demandeur"
+          label={t("moc.field.requester")}
           value={moc.initiator_display || moc.initiator_email || "—"}
         />
         {moc.manager_id && (
-          <RoleLine label="Chef de projet" value="Assigné" ok={true} />
+          <RoleLine label={t("moc.field.projectManager")} value={t("moc.field.manager_assigned")} ok={true} />
         )}
         {moc.metiers && moc.metiers.length > 0 && (
-          <RoleLine label="Métiers" value={moc.metiers.join(", ")} />
+          <RoleLine label={t("moc.field.metiers")} value={moc.metiers.join(", ")} />
         )}
         {moc.modification_type === "temporary" &&
           (moc.temporary_start_date || moc.temporary_end_date) && (
             <RoleLine
-              label="Période"
+              label={t("moc.field.period")}
               value={`${moc.temporary_start_date ?? "?"} → ${moc.temporary_end_date ?? "?"}`}
             />
           )}
@@ -544,13 +550,13 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
         mb="$2"
       >
         <Heading size="sm" mb="$2">
-          Contenu
+          {t("moc.section.content")}
         </Heading>
         <VStack space="sm">
           {moc.objectives && (
             <VStack>
               <Text size="2xs" color="$textLight500" mb="$0.5">
-                OBJECTIFS
+                {t("moc.field.objectives")}
               </Text>
               <Text size="xs" color="$textLight900">
                 {moc.objectives}
@@ -559,10 +565,10 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
           )}
           {(
             [
-              ["DESCRIPTION", moc.description],
-              ["SITUATION ACTUELLE", moc.current_situation],
-              ["MODIFICATIONS PROPOSÉES", moc.proposed_changes],
-              ["ANALYSE D'IMPACT", moc.impact_analysis],
+              [t("moc.field.description"), moc.description],
+              [t("moc.field.currentSituation"), moc.current_situation],
+              [t("moc.field.proposedChanges"), moc.proposed_changes],
+              [t("moc.field.impact"), moc.impact_analysis],
             ] as Array<[string, string | null]>
           )
             .filter(([, v]) => v && v.trim())
@@ -590,7 +596,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
           mb="$2"
         >
           <Heading size="sm" mb="$2">
-            Validations ({moc.validations.length})
+            {t("moc.section.validations")} ({moc.validations.length})
           </Heading>
           {moc.validations.map((v) => (
             <VStack
@@ -613,7 +619,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                 )}
                 {v.return_requested && (
                   <Badge action="warning" variant="outline" size="sm">
-                    <BadgeText>Renvoi</BadgeText>
+                    <BadgeText>{t("moc.badge.returnChip")}</BadgeText>
                   </Badge>
                 )}
               </HStack>
@@ -631,7 +637,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                     flex={1}
                     onPress={() => onValidatorTap(v.id, true)}
                   >
-                    <ButtonText>Valider</ButtonText>
+                    <ButtonText>{t("moc.action.validate")}</ButtonText>
                   </Button>
                   <Button
                     size="xs"
@@ -640,7 +646,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                     flex={1}
                     onPress={() => onValidatorTap(v.id, false)}
                   >
-                    <ButtonText>Renvoyer</ButtonText>
+                    <ButtonText>{t("moc.action.send_return")}</ButtonText>
                   </Button>
                 </HStack>
               )}
@@ -659,30 +665,30 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
         mb="$2"
       >
         <Heading size="sm" mb="$2">
-          Prérequis sécurité / documentaire
+          {t("moc.section.flags")}
         </Heading>
         <Flag
-          label="HAZOP"
+          label={t("moc.flag.hazop")}
           required={moc.hazop_required}
           completed={moc.hazop_completed}
         />
         <Flag
-          label="HAZID"
+          label={t("moc.flag.hazid")}
           required={moc.hazid_required}
           completed={moc.hazid_completed}
         />
         <Flag
-          label="Étude environnementale"
+          label={t("moc.flag.environmental")}
           required={moc.environmental_required}
           completed={moc.environmental_completed}
         />
         <Flag
-          label="MAJ PID"
+          label={t("moc.flag.pidUpdate")}
           required={moc.pid_update_required}
           completed={moc.pid_update_completed}
         />
         <Flag
-          label="MAJ ESD"
+          label={t("moc.flag.esdUpdate")}
           required={moc.esd_update_required}
           completed={moc.esd_update_completed}
         />
@@ -701,7 +707,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
           <HStack alignItems="center" space="xs" mb="$2">
             <MIcon name="rocket-launch" size="sm" color="$emerald700" />
             <Heading size="sm" color="$emerald900">
-              Projet lié
+              {t("moc.section.linked_project")}
             </Heading>
           </HStack>
           <Text size="xs" color="$emerald900" fontWeight="$bold">
@@ -721,7 +727,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
         ) && (
           <Button action="primary" onPress={onPromote} mb="$2">
             <MIcon name="rocket-launch" color="$white" size="sm" />
-            <ButtonText>Promouvoir en projet</ButtonText>
+            <ButtonText>{t("moc.action.promote")}</ButtonText>
           </Button>
         )}
 
@@ -736,7 +742,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
           mb="$2"
         >
           <Heading size="sm" mb="$2">
-            Accords exécution (D.O / D.G)
+            {t("moc.section.executionAccord")}
           </Heading>
           {(["do", "dg"] as const).map((actor) => {
             const accord =
@@ -756,17 +762,17 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                   </Text>
                   {accord === true && (
                     <Badge action="success" size="sm">
-                      <BadgeText>Accord</BadgeText>
+                      <BadgeText>{t("moc.badge.accord")}</BadgeText>
                     </Badge>
                   )}
                   {accord === false && (
                     <Badge action="error" size="sm">
-                      <BadgeText>Refus</BadgeText>
+                      <BadgeText>{t("moc.badge.refus")}</BadgeText>
                     </Badge>
                   )}
                   {accord === null && (
                     <Badge action="muted" size="sm">
-                      <BadgeText>En attente</BadgeText>
+                      <BadgeText>{t("moc.badge.waiting")}</BadgeText>
                     </Badge>
                   )}
                 </HStack>
@@ -779,7 +785,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                       flex={1}
                       onPress={() => onDirectorAccord(actor, true)}
                     >
-                      <ButtonText>Accord</ButtonText>
+                      <ButtonText>{t("moc.action.approve")}</ButtonText>
                     </Button>
                     <Button
                       size="xs"
@@ -788,7 +794,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                       flex={1}
                       onPress={() => onDirectorAccord(actor, false)}
                     >
-                      <ButtonText>Refus</ButtonText>
+                      <ButtonText>{t("moc.action.refuse")}</ButtonText>
                     </Button>
                   </HStack>
                 )}
@@ -812,7 +818,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
           mb="$2"
         >
           <Heading size="sm" mb="$2">
-            Actions workflow
+            {t("moc.section.actions")}
           </Heading>
           <VStack space="xs">
             {outgoingTransitions.map((to) => {
@@ -843,7 +849,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                       py="$1.5"
                     >
                       <Text size="2xs" color="$amber900" fontWeight="$bold">
-                        Prérequis manquants :
+                        {t("moc.transition.prereqsMissing")} :
                       </Text>
                       {missing.map((m) => (
                         <Text key={m} size="2xs" color="$amber800">
@@ -869,18 +875,18 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
         mb="$2"
       >
         <Heading size="sm" mb="$2">
-          Signatures
+          {t("moc.section.signatures")}
         </Heading>
         {(
           [
-            ["initiator", "Demandeur", moc.initiator_signature],
-            ["hierarchy_reviewer", "Revue hiérarchie", moc.hierarchy_reviewer_signature as string | null],
-            ["site_chief", "Chef de site (accord)", moc.site_chief_signature],
-            ["production", "Production", null],
-            ["process_engineer", "Process Engineer", null],
-            ["do", "D.O", null],
-            ["dg", "D.G", null],
-            ["close", "Clôture CDS", null],
+            ["initiator", t("moc.signature.slot.initiator"), moc.initiator_signature],
+            ["hierarchy_reviewer", t("moc.signature.slot.hierarchy_reviewer"), moc.hierarchy_reviewer_signature as string | null],
+            ["site_chief", t("moc.signature.slot.site_chief"), moc.site_chief_signature],
+            ["production", t("moc.signature.slot.production"), null],
+            ["process_engineer", t("moc.signature.slot.process_engineer"), null],
+            ["do", t("moc.signature.slot.do"), null],
+            ["dg", t("moc.signature.slot.dg"), null],
+            ["close", t("moc.signature.slot.close"), null],
           ] as Array<[SignatureSlot, string, string | null]>
         ).map(([slot, label, current]) => (
           <Button
@@ -896,10 +902,10 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
           >
             <ButtonText>
               {current === "__REDACTED__"
-                ? `${label} — protégée`
+                ? `${label} — ${t("moc.badge.protected")}`
                 : current
-                  ? `${label} — déjà signée · changer`
-                  : `Signer ${label}`}
+                  ? `${label} — ${t("moc.badge.signed")}`
+                  : `${t("moc.badge.sign")} ${label}`}
             </ButtonText>
           </Button>
         ))}
@@ -923,13 +929,13 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
             fetchDetail();
           }}
         >
-          <ButtonText>{t("common.refresh", "Actualiser")}</ButtonText>
+          <ButtonText>{t("moc.action.refresh")}</ButtonText>
         </Button>
       </VStack>
 
       <Divider my="$4" />
       <Text size="2xs" color="$textLight400" textAlign="center">
-        Mobile phase 2 — signatures + transitions. Attachements photos arrivent.
+        {t("moc.phase2Note")}
       </Text>
 
       {/* Signature modal — SVG canvas, save via /signature endpoint */}
@@ -952,10 +958,10 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
             pb={insets.bottom + 16}
           >
             <Heading size="sm" mb="$1">
-              Signer — {sigModalSlot}
+              {t("moc.signature.modalTitle", { slot: sigModalSlot ? t(`moc.signature.slot.${sigModalSlot}`) : "" })}
             </Heading>
             <Text size="2xs" color="$textLight500" mb="$3">
-              Signez dans le cadre ci-dessous avec le doigt ou un stylet.
+              {t("moc.signature.modalHint")}
             </Text>
             <SignaturePad
               value={sigDraft}
@@ -973,7 +979,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                   setSigDraft(null);
                 }}
               >
-                <ButtonText>Annuler</ButtonText>
+                <ButtonText>{t("moc.action.cancel")}</ButtonText>
               </Button>
               <Button
                 flex={1}
@@ -982,7 +988,7 @@ export default function MOCDetailScreen({ route, navigation }: Props) {
                 onPress={saveSignature}
               >
                 {sigSaving ? <ButtonSpinner mr="$2" /> : null}
-                <ButtonText>Enregistrer</ButtonText>
+                <ButtonText>{t("moc.action.save")}</ButtonText>
               </Button>
             </HStack>
           </Box>

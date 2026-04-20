@@ -266,7 +266,10 @@ export function MOCDetailPanel({ id }: Props) {
     } catch (err: unknown) {
       const d = (err as { response?: { data?: { detail?: { message?: string } | string } } })
         ?.response?.data?.detail
-      const msg = typeof d === 'string' ? d : d?.message || 'Transition refusée'
+      const msg =
+        typeof d === 'string'
+          ? d
+          : d?.message || (t('moc.transition.refused') as string)
       toast({ title: msg, variant: 'error' })
     }
   }
@@ -1254,7 +1257,7 @@ function ValidationRow({
                 entry.approved ? 'gl-badge-success' : 'gl-badge-danger'
               }`}
             >
-              {entry.approved ? 'Approuvé' : 'Rejeté'}
+              {entry.approved ? t('moc.approved') : t('moc.rejected')}
               {entry.level ? ` — ${entry.level}` : ''}
             </span>
           )}
@@ -1759,31 +1762,32 @@ function DirectorAccordBlock({
 
 const STEPPER_MILESTONES: {
   id: string
-  label: string
+  i18nKey: string
   statuses: MOCStatus[]
 }[] = [
-  { id: 'request', label: 'Demande', statuses: ['created'] },
-  { id: 'site_chief', label: 'Chef de Site', statuses: ['approved'] },
+  { id: 'request', i18nKey: 'moc.stepper.request', statuses: ['created'] },
+  { id: 'site_chief', i18nKey: 'moc.stepper.site_chief', statuses: ['approved'] },
   {
     id: 'direction',
-    label: 'Direction',
+    i18nKey: 'moc.stepper.direction',
     statuses: ['submitted_to_confirm', 'stand_by', 'approved_to_study'],
   },
-  { id: 'study', label: 'Étude Process', statuses: ['under_study'] },
+  { id: 'study', i18nKey: 'moc.stepper.study', statuses: ['under_study'] },
   {
     id: 'validation',
-    label: 'Validation parallèle',
+    i18nKey: 'moc.stepper.validation',
     statuses: ['study_in_validation', 'validated'],
   },
-  { id: 'execution', label: 'Exécution', statuses: ['execution'] },
+  { id: 'execution', i18nKey: 'moc.stepper.execution', statuses: ['execution'] },
   {
     id: 'close',
-    label: 'Clôture',
+    i18nKey: 'moc.stepper.close',
     statuses: ['executed_docs_pending', 'closed'],
   },
 ]
 
 function MOCStepper({ status }: { status: MOCStatus }) {
+  const { t } = useTranslation()
   const activeIndex = STEPPER_MILESTONES.findIndex((m) =>
     m.statuses.includes(status),
   )
@@ -1812,7 +1816,7 @@ function MOCStepper({ status }: { status: MOCStatus }) {
               >
                 {done ? '✓' : i + 1}
               </span>
-              <span>{m.label}</span>
+              <span>{t(m.i18nKey)}</span>
             </div>
             {i < STEPPER_MILESTONES.length - 1 && (
               <span

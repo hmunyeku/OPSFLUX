@@ -157,7 +157,7 @@ export default function MOCListScreen({ route, navigation }: Props) {
           numberOfLines={2}
           fontWeight="$medium"
         >
-          {item.title || t("moc.list.untitled", "MOC sans titre")}
+          {item.title || t("moc.untitled", "MOC sans titre")}
         </Text>
         {/* Row 3: site + platform + initiator */}
         <HStack alignItems="center" space="sm" mt="$0.5">
@@ -284,7 +284,7 @@ export default function MOCListScreen({ route, navigation }: Props) {
               title={
                 search
                   ? t("moc.emptySearch", "Aucun MOC ne correspond")
-                  : t("moc.emptyTitle", "Aucun MOC")
+                  : t("moc.empty", "Aucun MOC")
               }
               description={
                 search

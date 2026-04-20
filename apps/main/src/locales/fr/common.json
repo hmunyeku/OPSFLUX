@@ -5656,7 +5656,19 @@
       "only_not_promoted": "Non encore promus"
     },
     "transition": {
-      "prereqs_missing": "Prérequis manquants"
+      "prereqs_missing": "Prérequis manquants",
+      "refused": "Transition refusée"
+    },
+    "approved": "Approuvé",
+    "rejected": "Rejeté",
+    "stepper": {
+      "request": "Demande",
+      "site_chief": "Chef de Site",
+      "direction": "Direction",
+      "study": "Étude Process",
+      "validation": "Validation parallèle",
+      "execution": "Exécution",
+      "close": "Clôture"
     },
     "prereq": {
       "initiator_signature": "Signature du demandeur",

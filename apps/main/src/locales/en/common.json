@@ -4846,7 +4846,19 @@
       "only_not_promoted": "Not yet promoted"
     },
     "transition": {
-      "prereqs_missing": "Missing prerequisites"
+      "prereqs_missing": "Missing prerequisites",
+      "refused": "Transition refused"
+    },
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "stepper": {
+      "request": "Request",
+      "site_chief": "Site Chief",
+      "direction": "Direction",
+      "study": "Process study",
+      "validation": "Parallel validation",
+      "execution": "Execution",
+      "close": "Closure"
     },
     "prereq": {
       "initiator_signature": "Initiator signature",

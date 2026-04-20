@@ -47,9 +47,9 @@ const MOD_TYPES: Array<"permanent" | "temporary"> = [
   "permanent",
   "temporary",
 ];
-const MOD_TYPE_LABEL: Record<string, string> = {
-  permanent: "Permanent",
-  temporary: "Temporaire",
+const MOD_TYPE_KEY: Record<string, string> = {
+  permanent: "moc.type.permanent",
+  temporary: "moc.type.temporary",
 };
 
 export default function MOCCreateScreen({ navigation }: Props) {
@@ -95,7 +95,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
         initiator_signature: signature,
       };
       const moc = await createMOC(payload);
-      toastShow(`MOC ${moc.reference} créé`, "success");
+      toastShow(t("moc.create.success", { ref: moc.reference }), "success");
       navigation.replace("MOCDetail", { mocId: moc.id });
     } catch (err: unknown) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,8 +103,8 @@ export default function MOCCreateScreen({ navigation }: Props) {
       const msg =
         typeof d === "string"
           ? d
-          : d?.message ?? "Impossible de créer le MOC.";
-      Alert.alert("Erreur", msg);
+          : d?.message ?? t("moc.create.failed");
+      Alert.alert(t("moc.errorGeneric"), msg);
     } finally {
       setSaving(false);
     }
@@ -123,6 +123,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
     signature,
     toastShow,
     navigation,
+    t,
   ]);
 
   const chip = (
@@ -164,7 +165,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
         keyboardShouldPersistTaps="handled"
       >
         <Heading size="md" mb="$2">
-          Nouveau MOC
+          {t("moc.create.title")}
         </Heading>
 
         {/* Localisation */}
@@ -177,24 +178,24 @@ export default function MOCCreateScreen({ navigation }: Props) {
           mb="$2"
         >
           <Text size="2xs" color="$textLight500" mb="$0.5">
-            SITE *
+            {t("moc.create.field.site")}
           </Text>
           <Input borderColor="$borderLight300" bg="$white" mb="$2">
             <InputField
               value={site}
               onChangeText={setSite}
-              placeholder="RDR EAST, RDR WEST, SOUTH…"
+              placeholder={t("moc.field.sitePlaceholder")}
               autoCapitalize="characters"
             />
           </Input>
           <Text size="2xs" color="$textLight500" mb="$0.5">
-            PLATEFORME *
+            {t("moc.create.field.platform")}
           </Text>
           <Input borderColor="$borderLight300" bg="$white">
             <InputField
               value={platform}
               onChangeText={setPlatform}
-              placeholder="BRF1, INF1, DS1…"
+              placeholder={t("moc.field.platformPlaceholder")}
               autoCapitalize="characters"
             />
           </Input>
@@ -210,23 +211,23 @@ export default function MOCCreateScreen({ navigation }: Props) {
           mb="$2"
         >
           <Text size="2xs" color="$textLight500" mb="$0.5">
-            TITRE DU MOC
+            {t("moc.create.field.title")}
           </Text>
           <Input borderColor="$borderLight300" bg="$white" mb="$2">
             <InputField
               value={title}
               onChangeText={setTitle}
-              placeholder="Ex. Remplacement du compresseur K-101"
+              placeholder={t("moc.field.titlePlaceholder")}
             />
           </Input>
           <Text size="2xs" color="$textLight500" mb="$0.5">
-            OBJECTIFS *
+            {t("moc.create.field.objectives")}
           </Text>
           <Textarea>
             <TextareaInput
               value={objectives}
               onChangeText={setObjectives}
-              placeholder="Brève description des objectifs de la modification"
+              placeholder={t("moc.field.objectivesPlaceholder")}
               multiline
               numberOfLines={3}
             />
@@ -243,7 +244,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
           mb="$2"
         >
           <Text size="2xs" color="$textLight500" mb="$1">
-            NATURE
+            {t("moc.create.field.nature")}
           </Text>
           <HStack space="sm" flexWrap="wrap" mb="$2">
             {NATURES.map((n) =>
@@ -253,11 +254,11 @@ export default function MOCCreateScreen({ navigation }: Props) {
             )}
           </HStack>
           <Text size="2xs" color="$textLight500" mb="$1">
-            TYPE DE MODIFICATION
+            {t("moc.create.field.modType")}
           </Text>
           <HStack space="sm" flexWrap="wrap">
             {MOD_TYPES.map((mt) =>
-              chip(MOD_TYPE_LABEL[mt], modType === mt, () =>
+              chip(t(MOD_TYPE_KEY[mt]), modType === mt, () =>
                 setModType(modType === mt ? null : mt),
               ),
             )}
@@ -274,7 +275,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
           mb="$2"
         >
           <Text size="2xs" color="$textLight500" mb="$0.5">
-            DESCRIPTION
+            {t("moc.create.field.description")}
           </Text>
           <Textarea mb="$2">
             <TextareaInput
@@ -285,7 +286,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
             />
           </Textarea>
           <Text size="2xs" color="$textLight500" mb="$0.5">
-            SITUATION ACTUELLE
+            {t("moc.create.field.situation")}
           </Text>
           <Textarea mb="$2">
             <TextareaInput
@@ -296,7 +297,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
             />
           </Textarea>
           <Text size="2xs" color="$textLight500" mb="$0.5">
-            MODIFICATIONS PROPOSÉES
+            {t("moc.create.field.proposed")}
           </Text>
           <Textarea mb="$2">
             <TextareaInput
@@ -307,7 +308,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
             />
           </Textarea>
           <Text size="2xs" color="$textLight500" mb="$0.5">
-            ANALYSE D'IMPACT
+            {t("moc.create.field.impact")}
           </Text>
           <Textarea>
             <TextareaInput
@@ -329,7 +330,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
           mb="$2"
         >
           <Text size="2xs" color="$textLight500" mb="$1">
-            SIGNATURE DEMANDEUR
+            {t("moc.create.section.signature")}
           </Text>
           <SignaturePad
             value={signature}
@@ -349,7 +350,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
           >
             {saving ? <ButtonSpinner mr="$2" /> : null}
             <ButtonText>
-              {saving ? "Création…" : "Créer le MOC"}
+              {saving ? t("moc.action.creating") : t("moc.action.create")}
             </ButtonText>
           </Button>
           <Button
@@ -357,7 +358,7 @@ export default function MOCCreateScreen({ navigation }: Props) {
             variant="outline"
             onPress={() => navigation.goBack()}
           >
-            <ButtonText>{t("common.cancel", "Annuler")}</ButtonText>
+            <ButtonText>{t("moc.action.cancel")}</ButtonText>
           </Button>
         </VStack>
       </ScrollView>

@@ -3477,404 +3477,506 @@ _MOC_REPORT_BODY_FR = r"""\
 <head>
 <meta charset="utf-8"/>
 <style>
-  @page { size: A4 portrait; margin: 15mm 12mm 18mm 12mm; }
+  @page {
+    size: A4 portrait;
+    margin: 16mm 13mm 18mm 13mm;
+    @bottom-center {
+      content: "Formulaire MOC — Rev. 06 / Octobre 2025 — Page " counter(page) " / " counter(pages);
+      font-family: "Times New Roman", serif;
+      font-size: 8pt;
+      color: #555;
+    }
+  }
   * { box-sizing: border-box; }
-  body { font-family: "Times New Roman", serif; font-size: 9pt; color: #111; margin: 0; }
-  h1 { font-size: 14pt; margin: 0 0 2mm 0; text-align: center; text-transform: uppercase; letter-spacing: 0.5pt; }
-  .rev { text-align: right; font-size: 8pt; color: #555; margin-bottom: 3mm; }
-  .meta { display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 3mm; }
-  table.moc { width: 100%; border-collapse: collapse; margin-bottom: 4mm; font-size: 9pt; }
-  table.moc th, table.moc td { border: 0.5pt solid #333; padding: 2mm 3mm; vertical-align: top; }
-  table.moc th { background: #e8eef5; text-align: left; font-weight: 700; }
-  table.moc td.label { background: #f6f7f9; font-weight: 600; width: 35%; }
-  table.moc td.value { width: 65%; }
-  table.moc .section-title { background: #cbd6e5; font-weight: 700; text-transform: uppercase; font-size: 8.5pt; letter-spacing: 0.3pt; }
-  .rich { white-space: pre-wrap; }
-  .check { display: inline-block; width: 9pt; height: 9pt; border: 0.7pt solid #333; margin: 0 2pt -1pt 0; text-align: center; line-height: 9pt; }
-  .check.on { background: #333; color: #fff; }
-  .check.on::after { content: "\2713"; color: #fff; font-weight: 900; font-size: 7pt; }
-  .sig { min-height: 14mm; }
-  .sig img { max-height: 18mm; max-width: 45mm; }
-  .return-box { border-left: 2pt solid #b92020; background: #fdf1f1; padding: 1.5mm 3mm; margin-top: 1.5mm; font-size: 8pt; }
-  .return-box strong { color: #b92020; }
-  .three-col { display: flex; gap: 2mm; }
-  .three-col > div { flex: 1; border: 0.5pt solid #333; padding: 2mm 3mm; }
-  .three-col .lbl { font-weight: 600; font-size: 8pt; color: #444; }
-  .matrix td { font-size: 8.5pt; }
-  .matrix th { background: #e8eef5; text-align: left; font-weight: 700; }
-  .matrix td.role { width: 25%; font-weight: 600; background: #f6f7f9; }
-  .footer-note { margin-top: 3mm; font-size: 7.5pt; color: #666; font-style: italic; text-align: center; }
-  .status-chip { display: inline-block; padding: 1mm 3mm; background: #2a4a7f; color: #fff; border-radius: 2pt; font-size: 8pt; font-weight: 700; }
-  .yn { display: inline-block; margin-right: 4mm; }
+  body {
+    font-family: "Times New Roman", serif;
+    font-size: 10pt;
+    color: #000;
+    margin: 0;
+    line-height: 1.25;
+  }
+  h1 {
+    font-size: 15pt;
+    text-align: center;
+    margin: 0 0 4mm 0;
+    font-weight: 700;
+    letter-spacing: 0.3pt;
+  }
+  .rev {
+    text-align: right;
+    font-size: 8.5pt;
+    color: #333;
+    margin: 0 0 4mm 0;
+  }
+  table.moc {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 5mm 0;
+    font-size: 10pt;
+    table-layout: fixed;
+  }
+  table.moc td, table.moc th {
+    border: 0.5pt solid #000;
+    padding: 1.8mm 2mm;
+    vertical-align: top;
+    word-wrap: break-word;
+  }
+  /* Teal section band — Perenco brand accent */
+  .band {
+    background: #11A09E;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 10.5pt;
+    text-align: left;
+    padding: 2mm 2.5mm;
+  }
+  /* Light-grey sub-rows (flag questions / cost buckets) */
+  .grey    { background: #F2F2F2; }
+  /* Medium-grey sub-header (Nécessaire/Réalisé) */
+  .greymid { background: #A6A6A6; font-weight: 700; text-align: center; }
+  .label   { font-weight: 700; }
+  .center  { text-align: center; }
+  .rich    { font-size: 10pt; }
+  .rich p  { margin: 0 0 1.5mm 0; }
+  .rich ul, .rich ol { margin: 0 0 1.5mm 4mm; padding: 0; }
+  .rich li { margin: 0 0 0.5mm 0; }
+  /* Checkbox glyph */
+  .cb {
+    display: inline-block;
+    width: 10pt;
+    height: 10pt;
+    border: 0.7pt solid #000;
+    margin: 0 2pt -1pt 0;
+    text-align: center;
+    line-height: 10pt;
+    font-size: 8pt;
+    font-weight: 900;
+    color: #000;
+  }
+  .cb.on::after { content: "\2713"; }
+  /* Signature block */
+  .sig-wrap  { min-height: 14mm; }
+  .sig-wrap img { max-height: 14mm; max-width: 45mm; }
+  .meta-small { font-size: 8.5pt; color: #333; }
+  /* Inline return-motive highlight */
+  .renvoi {
+    border-left: 2pt solid #B22222;
+    background: #FDF4F4;
+    padding: 1.5mm 2mm;
+    margin-top: 1.5mm;
+    font-size: 9pt;
+  }
+  .renvoi strong { color: #B22222; }
 </style>
 </head>
 <body>
 
-<div class="rev">Formulaire MOC — Rev. 06 / Octobre 2025</div>
+<div class="rev">Rev. 06 I Octobre 2025</div>
 <h1>Formulaire MOC</h1>
 
-<div class="meta">
-  <div><strong>Référence :</strong> {{ reference }} &nbsp;&nbsp;
-       <span class="status-chip">{{ status_label }}</span></div>
-  <div><strong>Site :</strong> {{ site_label }} — {{ platform_code }}</div>
-</div>
-
-<!-- ══════════════════  1. DEMANDE DE MODIFICATIONS  ══════════════════ -->
+<!-- ══════════════ TABLEAU 1 — DEMANDE DE MODIFICATIONS ══════════════ -->
 <table class="moc">
-  <tr><td colspan="2" class="section-title">I. Demande de modifications</td></tr>
+  <colgroup>
+    <col style="width: 34%" />
+    <col style="width: 33%" />
+    <col style="width: 33%" />
+  </colgroup>
+
+  <!-- R0 — ID + titre section -->
   <tr>
-    <td class="label">MOC ID</td>
-    <td class="value">{{ reference }}</td>
-  </tr>
-  {% if title %}
-  <tr>
-    <td class="label">Nom du MOC</td>
-    <td class="value"><strong>{{ title }}</strong></td>
-  </tr>
-  {% endif %}
-  {% if moc_type_label %}
-  <tr>
-    <td class="label">Type de MOC</td>
-    <td class="value">{{ moc_type_label }}</td>
-  </tr>
-  {% endif %}
-  {% if nature %}
-  <tr>
-    <td class="label">Nature</td>
-    <td class="value">{{ nature }}</td>
-  </tr>
-  {% endif %}
-  {% if metiers %}
-  <tr>
-    <td class="label">Métiers</td>
-    <td class="value">{{ metiers | join(', ') }}</td>
-  </tr>
-  {% endif %}
-  <tr>
-    <td class="label">Changement envisagé</td>
-    <td class="value">
-      Les modifications des installations visent à améliorer la sécurité,
-      l'environnement, la production, les coûts ou la fiabilité — cf. CDC §2.
+    <td colspan="3">
+      <strong>MOC ID N°</strong> {{ reference }}
+      {% if title %} — <em>{{ title }}</em>{% endif %}
+      <span class="meta-small">&nbsp;&nbsp;·&nbsp;&nbsp;I. Demande de modifications</span>
     </td>
   </tr>
+
+  <!-- R1 — Band teal "Changement Envisagé" -->
+  <tr><td colspan="3" class="band">Changement Envisagé</td></tr>
+
+  <!-- R2 — Demandeur / Date / Signature (3 cols) -->
   <tr>
-    <td class="label">Demandeur</td>
-    <td class="value">
-      <strong>{{ initiator_display or '—' }}</strong>
-      {% if initiator_function %} — {{ initiator_function }}{% endif %}
-      {% if initiator_email %}<br/><span style="color:#555;">{{ initiator_email }}</span>{% endif %}
-      <br/><span style="color:#555;">Date : {{ created_at }}</span>
-      {% if initiator_signature %}
-        <div class="sig"><img src="{{ initiator_signature }}"/></div>
+    <td>
+      <span class="label">Demandeur :</span><br/>
+      {{ initiator_display or '—' }}
+      {% if initiator_function %}<br/><span class="meta-small">{{ initiator_function }}</span>{% endif %}
+      {% if initiator_email %}<br/><span class="meta-small">{{ initiator_email }}</span>{% endif %}
+    </td>
+    <td>
+      <span class="label">Date :</span><br/>
+      {{ created_at or '—' }}
+    </td>
+    <td>
+      <span class="label">Signature :</span>
+      <div class="sig-wrap">
+        {% if initiator_signature %}<img src="{{ initiator_signature }}" alt=""/>{% endif %}
+      </div>
+    </td>
+  </tr>
+
+  <!-- R3 — Objectif(s) des Modifications -->
+  <tr>
+    <td colspan="3">
+      <span class="label">Objectif(s) des Modifications (brève description)</span>
+      <div class="rich">{{ objectives or '—' }}</div>
+    </td>
+  </tr>
+
+  <!-- R4 — Situation actuelle + schéma / Présentation + schéma -->
+  <tr>
+    <td colspan="3">
+      <span class="label">Situation actuelle</span>
+      <div class="rich">{{ current_situation | safe if current_situation else '—' }}</div>
+      <div style="margin-top:3mm;"></div>
+      <span class="label">Présentation des modifications proposées</span>
+      <div class="rich">{{ proposed_changes | safe if proposed_changes else '—' }}</div>
+      {% if impact_analysis %}
+        <div style="margin-top:3mm;"></div>
+        <span class="label">Analyse d'impact</span>
+        <div class="rich">{{ impact_analysis | safe }}</div>
       {% endif %}
     </td>
   </tr>
+
+  <!-- R5 — Type de Modification -->
   <tr>
-    <td class="label">Objectif(s) des modifications</td>
-    <td class="value rich">{{ objectives or '—' }}</td>
-  </tr>
-  <tr>
-    <td class="label">Description</td>
-    <td class="value">{{ description | safe if description else '—' }}</td>
-  </tr>
-  <tr>
-    <td class="label">Situation actuelle</td>
-    <td class="value">{{ current_situation | safe if current_situation else '—' }}</td>
-  </tr>
-  <tr>
-    <td class="label">Modifications proposées</td>
-    <td class="value">{{ proposed_changes | safe if proposed_changes else '—' }}</td>
-  </tr>
-  <tr>
-    <td class="label">Analyse d'impact</td>
-    <td class="value">{{ impact_analysis | safe if impact_analysis else '—' }}</td>
-  </tr>
-  <tr>
-    <td class="label">Type de modification</td>
-    <td class="value">
-      <span class="yn"><span class="check {% if modification_type_label == 'Permanent' %}on{% endif %}"></span> Permanent</span>
-      <span class="yn"><span class="check {% if modification_type_label == 'Temporaire' %}on{% endif %}"></span> Temporaire</span>
+    <td colspan="3">
+      <span class="label">Type de Modification (cocher la case appropriée)</span><br/>
+      <span class="cb {% if modification_type_label == 'Permanent' %}on{% endif %}"></span> Permanent
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <span class="cb {% if modification_type_label == 'Temporaire' %}on{% endif %}"></span> Temporaire
       {% if temporary_start_date or temporary_end_date %}
-      <br/><span style="color:#555;">
-        Période : du {{ temporary_start_date or '?' }} au {{ temporary_end_date or '?' }}
-      </span>
+        <span class="meta-small">&nbsp;&nbsp;—&nbsp; du {{ temporary_start_date or '?' }} au {{ temporary_end_date or '?' }}</span>
+      {% endif %}
+      {% if nature %}
+        <br/><span class="meta-small">Nature : <strong>{{ nature }}</strong></span>
+      {% endif %}
+      {% if metiers %}
+        <br/><span class="meta-small">Métiers : {{ metiers | join(', ') }}</span>
       {% endif %}
     </td>
   </tr>
-</table>
 
-<!-- ══════════════════  2. REVUE HIÉRARCHIE + CHEF DE SITE  ══════════════════ -->
-<table class="moc">
-  <tr><td colspan="2" class="section-title">II. Revue préalable de la hiérarchie</td></tr>
+  <!-- R6 — Band teal "Revue préalable de la Hiérarchie" -->
+  <tr><td colspan="3" class="band">Revue préalable de la Hiérarchie</td></tr>
+
+  <!-- R7 — Véritable changement au sens MOC ? -->
   <tr>
-    <td class="label">Les modifications constituent-elles un véritable changement au sens MOC ?</td>
-    <td class="value">
-      <span class="yn"><span class="check {% if is_real_change == True %}on{% endif %}"></span> Oui</span>
-      <span class="yn"><span class="check {% if is_real_change == False %}on{% endif %}"></span> Non</span>
+    <td colspan="3">
+      <span class="label">Les modifications constituent-elles un véritable Changement au sens MOC&nbsp;?</span> (cocher)<br/>
+      <span class="cb {% if is_real_change == True %}on{% endif %}"></span> Oui
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <span class="cb {% if is_real_change == False %}on{% endif %}"></span> Non
+      {% if hierarchy_review_comment %}
+        <div class="rich" style="margin-top:2mm;">{{ hierarchy_review_comment | safe }}</div>
+      {% endif %}
     </td>
   </tr>
+
+  <!-- R8 — Hiérarchie / Date / Signature -->
   <tr>
-    <td class="label">Commentaires hiérarchie</td>
-    <td class="value rich">{{ hierarchy_review_comment or '—' }}</td>
-  </tr>
-  <tr><td colspan="2" class="section-title">Approbation préalable du chef de site (CDS / OM)</td></tr>
-  <tr>
-    <td class="label">Accord de principe</td>
-    <td class="value">
-      <span class="yn"><span class="check {% if site_chief_approved == True %}on{% endif %}"></span> Oui</span>
-      <span class="yn"><span class="check {% if site_chief_approved == False %}on{% endif %}"></span> Non</span>
+    <td>
+      <span class="label">Hiérarchie :</span><br/>
+      {{ site_chief_display or '—' }} &amp; Chef de site
     </td>
-  </tr>
-  <tr>
-    <td class="label">Commentaires CDS</td>
-    <td class="value rich">{{ site_chief_comment or '—' }}</td>
-  </tr>
-  <tr>
-    <td class="label">Nom du CDS / OM</td>
-    <td class="value">
-      <strong>{{ site_chief_display or '—' }}</strong>
-      {% if site_chief_approved_at %}<br/><span style="color:#555;">Date : {{ site_chief_approved_at }}</span>{% endif %}
-      <div class="sig">
-        {% if site_chief_signature %}<img src="{{ site_chief_signature }}"/>{% endif %}
+    <td>
+      <span class="label">Date (jj/mm/aa) :</span><br/>
+      {{ site_chief_approved_at or '—' }}
+    </td>
+    <td>
+      <span class="label">Signature :</span>
+      <div class="sig-wrap">
+        {% if site_chief_signature %}<img src="{{ site_chief_signature }}" alt=""/>{% endif %}
       </div>
+    </td>
+  </tr>
+
+  <!-- R9 — Band teal "Approbation préalable du Chef de Site" -->
+  <tr><td colspan="3" class="band">Approbation préalable du Chef de Site (CDS/OM)</td></tr>
+
+  <!-- R10 — Commentaires CDS -->
+  <tr>
+    <td colspan="3">
+      <span class="label">Commentaires :</span>
+      <div class="rich">{{ site_chief_comment | safe if site_chief_comment else '—' }}</div>
       {% if site_chief_return_requested and site_chief_return_reason %}
-        <div class="return-box"><strong>Renvoi pour modification :</strong> {{ site_chief_return_reason }}</div>
+        <div class="renvoi"><strong>Renvoi pour modification :</strong> {{ site_chief_return_reason }}</div>
       {% endif %}
     </td>
   </tr>
-</table>
 
-<!-- ══════════════════  II-bis. PRODUCTION — MISE EN ÉTUDE  ══════════════════ -->
-{% if production_validated is not none or production_comment or production_signature %}
-<table class="moc">
-  <tr><td colspan="2" class="section-title">II-bis. Validation pour mise en étude (Production)</td></tr>
+  <!-- R11 — Accord de Principe -->
   <tr>
-    <td class="label">Mise en étude validée ?</td>
-    <td class="value">
-      <span class="yn"><span class="check {% if production_validated == True %}on{% endif %}"></span> Oui</span>
-      <span class="yn"><span class="check {% if production_validated == False %}on{% endif %}"></span> Non</span>
-      {% if production_validated_at %}<br/><span style="color:#555;">Date : {{ production_validated_at }}</span>{% endif %}
+    <td colspan="3">
+      <span class="label">Accord de Principe ?</span> (cocher)<br/>
+      <span class="cb {% if site_chief_approved == True %}on{% endif %}"></span> Oui
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <span class="cb {% if site_chief_approved == False %}on{% endif %}"></span> Non
     </td>
   </tr>
-  {% if production_comment %}
-  <tr>
-    <td class="label">Commentaire production</td>
-    <td class="value rich">{{ production_comment }}</td>
-  </tr>
-  {% endif %}
-  {% if production_signature %}
-  <tr>
-    <td class="label">Signature Production</td>
-    <td class="value"><div class="sig"><img src="{{ production_signature }}"/></div></td>
-  </tr>
-  {% endif %}
-  {% if production_return_requested and production_return_reason %}
-  <tr>
-    <td class="label">Renvoi pour modification</td>
-    <td class="value">
-      <div class="return-box"><strong>Motif :</strong> {{ production_return_reason }}</div>
-    </td>
-  </tr>
-  {% endif %}
-</table>
-{% endif %}
 
-<!-- ══════════════════  3. CONFIRMATION DIRECTEUR  ══════════════════ -->
-{% if director_display or director_confirmed_at %}
-<table class="moc">
-  <tr><td colspan="2" class="section-title">III. Confirmation à étudier (Direction)</td></tr>
+  <!-- R12 — Nom du CDS / Date / Signature -->
   <tr>
-    <td class="label">Directeur</td>
-    <td class="value">
-      <strong>{{ director_display or '—' }}</strong>
-      {% if director_confirmed_at %}<br/><span style="color:#555;">Date : {{ director_confirmed_at }}</span>{% endif %}
-    </td>
-  </tr>
-  <tr>
-    <td class="label">Priorité</td>
-    <td class="value">{% if priority == '1' %}1 — Haute{% elif priority == '2' %}2 — Normale{% elif priority == '3' %}3 — Basse{% else %}—{% endif %}</td>
-  </tr>
-  <tr>
-    <td class="label">Commentaires directeur</td>
-    <td class="value rich">{{ director_comment or '—' }}</td>
-  </tr>
-  {% if director_signature %}
-  <tr>
-    <td class="label">Signature Directeur</td>
-    <td class="value"><div class="sig"><img src="{{ director_signature }}"/></div></td>
-  </tr>
-  {% endif %}
-</table>
-{% endif %}
-
-<!-- ══════════════════  4. CONCLUSIONS PROCESS ENGINEER  ══════════════════ -->
-<table class="moc">
-  <tr>
-    <th style="width:25%;">Entité</th>
-    <th>Conclusions MOC — à transmettre au site après étude</th>
-    <th style="width:22%;">Date / visa</th>
-  </tr>
-  <tr>
-    <td class="role">Process Engineer</td>
     <td>
-      {{ study_conclusion | safe if study_conclusion else '—' }}
-      <br/><br/>
-      <strong>Préalables à prendre en compte :</strong><br/>
-      <table class="matrix" style="width:100%; border-collapse:collapse;">
-        <tr><th>Étape</th><th>Nécessaire</th><th>Réalisé</th></tr>
-        <tr>
-          <td>HAZOP / HAZID</td>
-          <td><span class="check {% if hazop_required or hazid_required %}on{% endif %}"></span> Oui
-              <span class="check {% if not (hazop_required or hazid_required) %}on{% endif %}"></span> Non</td>
-          <td><span class="check {% if hazop_completed or hazid_completed %}on{% endif %}"></span> Oui
-              <span class="check {% if not (hazop_completed or hazid_completed) %}on{% endif %}"></span> Non</td>
-        </tr>
-        <tr>
-          <td>Environmental assessment</td>
-          <td><span class="check {% if environmental_required %}on{% endif %}"></span> Oui
-              <span class="check {% if not environmental_required %}on{% endif %}"></span> Non</td>
-          <td><span class="check {% if environmental_completed %}on{% endif %}"></span> Oui
-              <span class="check {% if not environmental_completed %}on{% endif %}"></span> Non</td>
-        </tr>
-        <tr>
-          <td>MAJ PID</td>
-          <td><span class="check {% if pid_update_required %}on{% endif %}"></span> Oui
-              <span class="check {% if not pid_update_required %}on{% endif %}"></span> Non</td>
-          <td><span class="check {% if pid_update_completed %}on{% endif %}"></span> Oui
-              <span class="check {% if not pid_update_completed %}on{% endif %}"></span> Non</td>
-        </tr>
-        <tr>
-          <td>MAJ ESD</td>
-          <td><span class="check {% if esd_update_required %}on{% endif %}"></span> Oui
-              <span class="check {% if not esd_update_required %}on{% endif %}"></span> Non</td>
-          <td><span class="check {% if esd_update_completed %}on{% endif %}"></span> Oui
-              <span class="check {% if not esd_update_completed %}on{% endif %}"></span> Non</td>
-        </tr>
-      </table>
+      <span class="label">Nom du CDS (OM) :</span><br/>
+      {{ site_chief_display or '—' }}
     </td>
     <td>
-      <strong>{{ responsible_display or '—' }}</strong>
-      {% if study_completed_at %}<br/><span style="color:#555;">{{ study_completed_at }}</span>{% endif %}
-      <div class="sig">
-        {% if process_engineer_signature %}<img src="{{ process_engineer_signature }}"/>{% endif %}
+      <span class="label">Date (jj/mm/aa) :</span><br/>
+      {{ site_chief_approved_at or '—' }}
+    </td>
+    <td>
+      <span class="label">Signature :</span>
+      <div class="sig-wrap">
+        {% if site_chief_signature %}<img src="{{ site_chief_signature }}" alt=""/>{% endif %}
       </div>
     </td>
   </tr>
 </table>
 
-<!-- ══════════════════  5. MATRICE DE VALIDATION PARALLÈLE  ══════════════════ -->
-<table class="moc matrix">
+<!-- ══════════════ TABLEAU 2 — CONCLUSIONS MOC (Process Engineer + drapeaux) ══════════════ -->
+<table class="moc">
+  <colgroup>
+    <col style="width: 24%" />
+    <col style="width: 27%" />
+    <col style="width: 27%" />
+    <col style="width: 22%" />
+  </colgroup>
+
   <tr>
-    <th>Entité</th>
-    <th>Commentaires / recommandations</th>
-    <th style="width:22%;">Date / visa</th>
+    <th class="band">Entité</th>
+    <th class="band" colspan="2">Conclusions MOC — à transmettre au site après étude.<br/>Préalables à prendre en compte avant réalisations sur site.</th>
+    <th class="band">Date / visa</th>
   </tr>
+
+  <tr>
+    <td class="label">Process Engineer</td>
+    <td colspan="2">
+      <div class="rich">{{ study_conclusion | safe if study_conclusion else '—' }}</div>
+    </td>
+    <td>
+      {{ study_completed_at or '—' }}
+      <div class="sig-wrap">
+        {% if process_engineer_signature %}<img src="{{ process_engineer_signature }}" alt=""/>{% endif %}
+      </div>
+      <span class="meta-small">{{ responsible_display or '' }}</span>
+    </td>
+  </tr>
+
+  <!-- Sub-header Nécessaire / Réalisé -->
+  <tr>
+    <td class="label">Process Engineer</td>
+    <td class="greymid">Nécessaire</td>
+    <td class="greymid">Réalisé</td>
+    <td></td>
+  </tr>
+
+  <tr>
+    <td class="grey label">HAZOP / HAZID</td>
+    <td class="grey center">
+      <span class="cb {% if hazop_required or hazid_required %}on{% endif %}"></span> Oui
+      &nbsp;
+      <span class="cb {% if not (hazop_required or hazid_required) %}on{% endif %}"></span> Non
+    </td>
+    <td class="grey center">
+      <span class="cb {% if hazop_completed or hazid_completed %}on{% endif %}"></span> Oui
+      &nbsp;
+      <span class="cb {% if not (hazop_completed or hazid_completed) %}on{% endif %}"></span> Non
+    </td>
+    <td></td>
+  </tr>
+
+  <tr>
+    <td class="grey label">ENVIRONMENTAL ASSESSMENT</td>
+    <td class="grey center">
+      <span class="cb {% if environmental_required %}on{% endif %}"></span> Oui
+      &nbsp;
+      <span class="cb {% if not environmental_required %}on{% endif %}"></span> Non
+    </td>
+    <td class="grey center">
+      <span class="cb {% if environmental_completed %}on{% endif %}"></span> Oui
+      &nbsp;
+      <span class="cb {% if not environmental_completed %}on{% endif %}"></span> Non
+    </td>
+    <td></td>
+  </tr>
+
+  <tr>
+    <td class="grey label">MAJ PID</td>
+    <td class="grey center">
+      <span class="cb {% if pid_update_required %}on{% endif %}"></span> Oui
+      &nbsp;
+      <span class="cb {% if not pid_update_required %}on{% endif %}"></span> Non
+    </td>
+    <td class="grey center">
+      <span class="cb {% if pid_update_completed %}on{% endif %}"></span> Oui
+      &nbsp;
+      <span class="cb {% if not pid_update_completed %}on{% endif %}"></span> Non
+    </td>
+    <td></td>
+  </tr>
+
+  <tr>
+    <td class="grey label">MAJ ESD</td>
+    <td class="grey center">
+      <span class="cb {% if esd_update_required %}on{% endif %}"></span> Oui
+      &nbsp;
+      <span class="cb {% if not esd_update_required %}on{% endif %}"></span> Non
+    </td>
+    <td class="grey center">
+      <span class="cb {% if esd_update_completed %}on{% endif %}"></span> Oui
+      &nbsp;
+      <span class="cb {% if not esd_update_completed %}on{% endif %}"></span> Non
+    </td>
+    <td></td>
+  </tr>
+</table>
+
+<!-- ══════════════ TABLEAU 3 — MATRICE DE VALIDATION PARALLÈLE ══════════════ -->
+<table class="moc">
+  <colgroup>
+    <col style="width: 26%" />
+    <col style="width: 52%" />
+    <col style="width: 22%" />
+  </colgroup>
+
+  <tr>
+    <th class="band">Entité</th>
+    <th class="band">Commentaires / recommandations</th>
+    <th class="band">Date / visa</th>
+  </tr>
+
   {% for v in validations %}
   <tr>
-    <td class="role">
+    <td class="label">
       {{ v.role_label }}
-      {% if v.metier_name %}<br/><span style="color:#555; font-size:7.5pt;">{{ v.metier_name }}</span>{% endif %}
-    </td>
-    <td class="rich">
-      {{ v.comments | safe if v.comments else '—' }}
-      {% if v.level %}<br/><span style="font-size:7.5pt; color:#2a4a7f;">Niveau : {{ v.level }}</span>{% endif %}
+      {% if v.metier_name %}<br/><span class="meta-small">{{ v.metier_name }}</span>{% endif %}
     </td>
     <td>
-      <strong>{{ v.validator_name or '—' }}</strong>
-      {% if v.validated_at %}<br/><span style="color:#555;">{{ v.validated_at }}</span>{% endif %}
-      {% if v.approved == True %}<br/><span style="color:#2f7a3e; font-weight:700;">✓ Approuvé</span>
-      {% elif v.approved == False %}<br/><span style="color:#b92020; font-weight:700;">✗ Refusé</span>
-      {% endif %}
-      <div class="sig">
-        {% if v.signature %}<img src="{{ v.signature }}"/>{% endif %}
-      </div>
+      <div class="rich">{{ v.comments | safe if v.comments else '—' }}</div>
+      {% if v.level %}<div class="meta-small">Niveau : <strong>{{ v.level }}</strong></div>{% endif %}
       {% if v.return_requested and v.return_reason %}
-        <div class="return-box"><strong>Renvoi :</strong> {{ v.return_reason }}</div>
+        <div class="renvoi"><strong>Renvoi :</strong> {{ v.return_reason }}</div>
       {% endif %}
+    </td>
+    <td>
+      {{ v.validated_at or '' }}
+      {% if v.approved == True %}<div class="meta-small" style="color:#0a6b2e;"><strong>✓ Approuvé</strong></div>
+      {% elif v.approved == False %}<div class="meta-small" style="color:#B22222;"><strong>✗ Refusé</strong></div>
+      {% endif %}
+      <div class="sig-wrap">
+        {% if v.signature %}<img src="{{ v.signature }}" alt=""/>{% endif %}
+      </div>
+      <span class="meta-small">{{ v.validator_name or '' }}</span>
     </td>
   </tr>
   {% else %}
-  <tr><td colspan="3" style="text-align:center; color:#777;">— Aucune validation enregistrée —</td></tr>
+  <tr><td colspan="3" class="center" style="color:#666; font-style:italic;">Aucune validation enregistrée.</td></tr>
   {% endfor %}
 </table>
 
-<!-- ══════════════════  6. COÛT + ACCORDS DO/DG  ══════════════════ -->
+<!-- ══════════════ TABLEAU 4 — COÛT DU MOC / NIVEAU DE VALIDATION ══════════════ -->
 <table class="moc">
-  <tr><th>Coût du MOC</th><th>Niveau de validation</th></tr>
+  <colgroup>
+    <col style="width: 60%" />
+    <col style="width: 40%" />
+  </colgroup>
+
   <tr>
-    <td><span class="check {% if cost_bucket_label == '< 20 MXAF' %}on{% endif %}"></span> 0 &lt; X &lt; 20 MXAF</td>
-    <td>D.O</td>
+    <th class="band">Coût du MOC</th>
+    <th class="band">Niveau Validation</th>
   </tr>
   <tr>
-    <td><span class="check {% if cost_bucket_label == '20 – 50 MXAF' %}on{% endif %}"></span> 20 &lt; X &lt; 50 MXAF</td>
-    <td>D.O</td>
+    <td class="grey">
+      <span class="cb {% if cost_bucket_label == '< 20 MXAF' %}on{% endif %}"></span>
+      0 &lt; X &lt; 20 MXAF
+    </td>
+    <td class="center">D.O</td>
   </tr>
   <tr>
-    <td><span class="check {% if cost_bucket_label == '50 – 100 MXAF' %}on{% endif %}"></span> 50 &lt; X &lt; 100 MXAF</td>
-    <td>D.O</td>
+    <td class="grey">
+      <span class="cb {% if cost_bucket_label == '20 – 50 MXAF' %}on{% endif %}"></span>
+      20 MXAF &lt; X &lt; 50 MXAF
+    </td>
+    <td class="center">D.O</td>
   </tr>
   <tr>
-    <td><span class="check {% if cost_bucket_label == '> 100 MXAF' %}on{% endif %}"></span> X &gt; 100 MXAF</td>
-    <td>D.O + D.G</td>
+    <td class="grey">
+      <span class="cb {% if cost_bucket_label == '50 – 100 MXAF' %}on{% endif %}"></span>
+      50 MXAF &lt; X &lt; 100 MXAF
+    </td>
+    <td class="center">D.O</td>
+  </tr>
+  <tr>
+    <td class="grey">
+      <span class="cb {% if cost_bucket_label == '> 100 MXAF' %}on{% endif %}"></span>
+      X &gt; 100 MXAF
+    </td>
+    <td class="center">D.O + D.G</td>
   </tr>
   {% if estimated_cost_mxaf %}
   <tr>
-    <td colspan="2" style="background:#f6f7f9;">
-      <strong>Coût estimé :</strong> {{ estimated_cost_mxaf }} MXAF
+    <td colspan="2" class="meta-small">
+      <strong>Coût estimé saisi :</strong> {{ estimated_cost_mxaf }} MXAF
     </td>
   </tr>
   {% endif %}
 </table>
 
-<h1 style="margin-top:5mm;">Formulaire validation MOC</h1>
+<h1 style="margin-top:8mm;">Formulaire Validation MOC</h1>
 
+<!-- ══════════════ TABLEAU 5 — RÉALISATION DU MOC (Accords DO/DG) ══════════════ -->
 <table class="moc">
+  <colgroup>
+    <col style="width: 18%" />
+    <col style="width: 60%" />
+    <col style="width: 22%" />
+  </colgroup>
+
   <tr>
-    <th>Entité</th>
-    <th>Réalisation du MOC</th>
-    <th style="width:22%;">Date / visa</th>
+    <th class="band">Entité</th>
+    <th class="band">Réalisation du MOC</th>
+    <th class="band">Date / visa</th>
   </tr>
+
   <tr>
-    <td class="role">D.O</td>
-    <td>
-      <span class="yn"><span class="check {% if do_execution_accord == True %}on{% endif %}"></span> Accord</span>
-      <span class="yn"><span class="check {% if do_execution_accord == False %}on{% endif %}"></span> Refus</span>
-      {% if do_execution_comment %}<div class="rich" style="margin-top:2mm;">{{ do_execution_comment }}</div>{% endif %}
+    <td class="label">D.O</td>
+    <td class="grey">
+      <span class="cb {% if do_execution_accord == True %}on{% endif %}"></span> Accord
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <span class="cb {% if do_execution_accord == False %}on{% endif %}"></span> Refus
+      {% if do_execution_comment %}<div class="rich" style="margin-top:2mm;">{{ do_execution_comment | safe }}</div>{% endif %}
       {% if do_return_requested and do_return_reason %}
-        <div class="return-box"><strong>Renvoi :</strong> {{ do_return_reason }}</div>
+        <div class="renvoi"><strong>Renvoi :</strong> {{ do_return_reason }}</div>
       {% endif %}
     </td>
     <td>
-      {% if do_execution_accord_at %}<span style="color:#555;">{{ do_execution_accord_at }}</span>{% endif %}
-      <div class="sig">
-        {% if do_signature %}<img src="{{ do_signature }}"/>{% endif %}
+      {{ do_execution_accord_at or '' }}
+      <div class="sig-wrap">
+        {% if do_signature %}<img src="{{ do_signature }}" alt=""/>{% endif %}
       </div>
     </td>
   </tr>
+
   <tr>
-    <td class="role">D.G</td>
-    <td>
-      <span class="yn"><span class="check {% if dg_execution_accord == True %}on{% endif %}"></span> Accord</span>
-      <span class="yn"><span class="check {% if dg_execution_accord == False %}on{% endif %}"></span> Refus</span>
-      {% if dg_execution_comment %}<div class="rich" style="margin-top:2mm;">{{ dg_execution_comment }}</div>{% endif %}
+    <td class="label">D.G</td>
+    <td class="grey">
+      <span class="cb {% if dg_execution_accord == True %}on{% endif %}"></span> Accord
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <span class="cb {% if dg_execution_accord == False %}on{% endif %}"></span> Refus
+      {% if dg_execution_comment %}<div class="rich" style="margin-top:2mm;">{{ dg_execution_comment | safe }}</div>{% endif %}
       {% if dg_return_requested and dg_return_reason %}
-        <div class="return-box"><strong>Renvoi :</strong> {{ dg_return_reason }}</div>
+        <div class="renvoi"><strong>Renvoi :</strong> {{ dg_return_reason }}</div>
       {% endif %}
     </td>
     <td>
-      {% if dg_execution_accord_at %}<span style="color:#555;">{{ dg_execution_accord_at }}</span>{% endif %}
-      <div class="sig">
-        {% if dg_signature %}<img src="{{ dg_signature }}"/>{% endif %}
+      {{ dg_execution_accord_at or '' }}
+      <div class="sig-wrap">
+        {% if dg_signature %}<img src="{{ dg_signature }}" alt=""/>{% endif %}
       </div>
     </td>
   </tr>
 </table>
-
-<div class="footer-note">
-  Document généré le {{ generated_at }} par OpsFlux MOCtrack —
-  {% if entity and entity.name %}{{ entity.name }}{% endif %}.
-  Ce formulaire reproduit le Rapport MOC Perenco (rev. 06 / octobre 2025).
-</div>
 
 </body>
 </html>"""

@@ -39,12 +39,14 @@ export type MOCValidationRole =
 export type MOCNature = 'OPTIMISATION' | 'SECURITE'
 export type MOCSignatureSlot =
   | 'initiator'
+  | 'hierarchy_reviewer'
   | 'site_chief'
   | 'production'
   | 'director'
   | 'process_engineer'
   | 'do'
   | 'dg'
+  | 'close'
 export type MOCReturnStage =
   | 'site_chief'
   | 'production'
@@ -186,6 +188,10 @@ export interface MOC {
   initiator_external_function: string | null
   initiator_signature: string | null
   initiator_display: string | null
+  // Chef de projet MOC (assignable at any point)
+  manager_id: string | null
+  // Optional linked project once the MOC has been promoted
+  project_id: string | null
   // Content
   objectives: string | null
   description: string | null
@@ -201,6 +207,7 @@ export interface MOC {
   hierarchy_reviewer_id: string | null
   hierarchy_review_at: string | null
   hierarchy_review_comment: string | null
+  hierarchy_reviewer_signature: string | null
   // Site chief
   site_chief_approved: boolean | null
   site_chief_id: string | null
@@ -267,6 +274,10 @@ export interface MOC {
   do_return_reason: string | null
   dg_return_requested: boolean
   dg_return_reason: string | null
+  // Final CDS closure visa
+  close_signature: string | null
+  close_by: string | null
+  closed_at: string | null
   // Extras
   tags: string[] | null
   metadata: Record<string, unknown> | null
@@ -287,6 +298,7 @@ export interface MOCCreatePayload {
   initiator_external_name?: string | null
   initiator_external_function?: string | null
   initiator_signature?: string | null
+  manager_id?: string | null
   // Either installation_id alone (backend auto-derives site/platform from
   // the asset registry hierarchy) OR both site_label + platform_code.
   site_label?: string | null
@@ -544,6 +556,14 @@ export const mocService = {
 
   deleteTypeRule: async (typeId: string, ruleId: string): Promise<void> => {
     await api.delete(`${BASE}/types/${typeId}/rules/${ruleId}`)
+  },
+
+  // ── Promote a validated MOC to a Project ──
+  promoteToProject: async (id: string): Promise<MOCWithDetails> => {
+    const { data } = await api.post<MOCWithDetails>(
+      `${BASE}/${id}/promote-to-project`,
+    )
+    return data
   },
 
   // ── Renvoi pour modification ──

@@ -25,6 +25,7 @@ import {
   Loader2,
   MessageSquare,
   PlayCircle,
+  Rocket,
   Send,
   FileDown,
   Trash2,
@@ -61,6 +62,7 @@ import {
   useMOCReturnRequest,
   useMOCSignature,
   useMOCTypes,
+  usePromoteMOCToProject,
   useTransitionMOC,
   useUpdateMOC,
   useUpsertMOCValidation,
@@ -137,6 +139,7 @@ export function MOCDetailPanel({ id }: Props) {
   const productionValidationMutation = useMOCProductionValidation()
   const returnMutation = useMOCReturnRequest()
   const signatureMutation = useMOCSignature()
+  const promoteMutation = usePromoteMOCToProject()
   // MOC types catalogue — to resolve moc_type_id → label and allow edit.
   const { data: mocTypes = [] } = useMOCTypes(false)
 
@@ -319,6 +322,35 @@ export function MOCDetailPanel({ id }: Props) {
         >
           {t('moc.actions.download_pdf')}
         </PanelActionButton>,
+        ...(canUpdateFlags &&
+        !moc.project_id &&
+        ['validated', 'execution', 'executed_docs_pending'].includes(moc.status)
+          ? [
+              <PanelActionButton
+                key="promote"
+                icon={<Rocket size={12} />}
+                variant="primary"
+                disabled={promoteMutation.isPending}
+                onClick={async () => {
+                  try {
+                    await promoteMutation.mutateAsync(moc.id)
+                    toast({
+                      title: t('moc.toast.promoted'),
+                      variant: 'success',
+                    })
+                  } catch (err) {
+                    const msg =
+                      (err as { response?: { data?: { detail?: { message?: string } } } })
+                        ?.response?.data?.detail?.message ||
+                      t('moc.toast.error_generic')
+                    toast({ title: msg, variant: 'error' })
+                  }
+                }}
+              >
+                {t('moc.actions.promote_to_project')}
+              </PanelActionButton>,
+            ]
+          : []),
         ...(canDelete
           ? [
               <DangerConfirmButton
@@ -526,6 +558,46 @@ export function MOCDetailPanel({ id }: Props) {
                         className="text-primary underline"
                       >
                         {moc.initiator_email}
+                      </a>
+                    }
+                  />
+                )}
+                {/* Chef de projet MOC — assignable by anyone with moc.update
+                    while the MOC isn't closed. */}
+                <ReadOnlyRow
+                  label={t('moc.fields.manager')}
+                  value={
+                    canUpdateFlags && moc.status !== 'closed' && moc.status !== 'cancelled' ? (
+                      <UserPicker
+                        value={moc.manager_id}
+                        onChange={(uid) =>
+                          updateMutation.mutate({
+                            id: moc.id,
+                            payload: { manager_id: uid || null },
+                          })
+                        }
+                        placeholder={t('moc.fields.manager_ph') as string}
+                      />
+                    ) : (
+                      <span>
+                        {moc.manager_id
+                          ? moc.manager_id
+                          : '—'}
+                      </span>
+                    )
+                  }
+                />
+                {/* Lien projet — read-only once promoted. */}
+                {moc.project_id && (
+                  <ReadOnlyRow
+                    label={t('moc.fields.linked_project')}
+                    value={
+                      <a
+                        href={`/projets?id=${moc.project_id}`}
+                        className="text-primary underline inline-flex items-center gap-1"
+                      >
+                        <Rocket size={12} />
+                        {t('moc.fields.linked_project_view')}
                       </a>
                     }
                   />
@@ -1336,12 +1408,14 @@ function ExecutionTab({
   onSignature: (
     slot:
       | 'initiator'
+      | 'hierarchy_reviewer'
       | 'site_chief'
       | 'production'
       | 'director'
       | 'process_engineer'
       | 'do'
-      | 'dg',
+      | 'dg'
+      | 'close',
     signature: string,
   ) => Promise<void>
 }) {
@@ -1355,6 +1429,12 @@ function ExecutionTab({
             value={moc.initiator_signature}
             disabled={disabled}
             onSave={(s) => onSignature('initiator', s)}
+          />
+          <SignatureSlot
+            label={t('moc.signature.hierarchy_reviewer')}
+            value={moc.hierarchy_reviewer_signature}
+            disabled={disabled}
+            onSave={(s) => onSignature('hierarchy_reviewer', s)}
           />
           <SignatureSlot
             label={t('moc.signature.site_chief')}
@@ -1379,6 +1459,12 @@ function ExecutionTab({
             value={moc.process_engineer_signature}
             disabled={disabled}
             onSave={(s) => onSignature('process_engineer', s)}
+          />
+          <SignatureSlot
+            label={t('moc.signature.close')}
+            value={moc.close_signature}
+            disabled={disabled}
+            onSave={(s) => onSignature('close', s)}
           />
         </div>
       </FormSection>

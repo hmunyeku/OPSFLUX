@@ -250,6 +250,20 @@ export function useDeleteMOCTypeRule() {
   })
 }
 
+// ── Promote to Project ──
+
+export function usePromoteMOCToProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => mocService.promoteToProject(id),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: keys.detail(id) })
+      qc.invalidateQueries({ queryKey: [...keys.all, 'list'] })
+      qc.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+}
+
 // ── Renvoi + Production validation + Signature ──
 
 export function useMOCReturnRequest() {

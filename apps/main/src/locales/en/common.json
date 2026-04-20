@@ -4898,7 +4898,11 @@
       "return_reason_ph": "Explain why the MOC is being returned…",
       "required": "Required",
       "completed": "Completed",
-      "necessary": "Necessary"
+      "necessary": "Necessary",
+      "manager": "MOC project manager",
+      "manager_ph": "Assign a manager…",
+      "linked_project": "Linked project",
+      "linked_project_view": "Open the project"
     },
     "flags": {
       "hazop": "HAZOP",
@@ -4923,12 +4927,14 @@
     },
     "signature": {
       "initiator": "Initiator signature",
+      "hierarchy_reviewer": "Hierarchy review signature",
       "site_chief": "Site chief signature",
       "production": "Production signature",
       "director": "Director signature",
       "process_engineer": "Process Engineer signature",
       "do": "DO signature",
-      "dg": "DG signature"
+      "dg": "DG signature",
+      "close": "Closure signature (Site chief)"
     },
     "create": {
       "title": "New MOC",
@@ -4978,12 +4984,14 @@
       "pdf_failed": "PDF generation failed",
       "production_saved": "Production validation saved",
       "accord_saved": "Accord saved",
-      "return_sent": "Return recorded"
+      "return_sent": "Return recorded",
+      "promoted": "MOC promoted to project"
     },
     "actions": {
       "invite_validator": "Invite validator",
       "send_invite": "Send invitation",
       "download_pdf": "PDF Form",
+      "promote_to_project": "Promote to project",
       "production_validate": "Approve for study",
       "production_refuse": "Refuse",
       "request_return": "Return for modification",

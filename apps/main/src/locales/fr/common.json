@@ -5708,7 +5708,11 @@
       "return_reason_ph": "Expliquez pourquoi le MOC est renvoyé…",
       "required": "Requis",
       "completed": "Réalisé",
-      "necessary": "Nécessaire"
+      "necessary": "Nécessaire",
+      "manager": "Chef de projet MOC",
+      "manager_ph": "Assigner un responsable…",
+      "linked_project": "Projet lié",
+      "linked_project_view": "Ouvrir le projet"
     },
     "flags": {
       "hazop": "HAZOP",
@@ -5733,12 +5737,14 @@
     },
     "signature": {
       "initiator": "Signature Demandeur",
+      "hierarchy_reviewer": "Signature Revue Hiérarchie",
       "site_chief": "Signature CDS / OM",
       "production": "Signature Production",
       "director": "Signature Directeur",
       "process_engineer": "Signature Ingénieur Process",
       "do": "Signature D.O",
-      "dg": "Signature D.G"
+      "dg": "Signature D.G",
+      "close": "Signature Clôture (CDS)"
     },
     "create": {
       "title": "Nouveau MOC",
@@ -5788,12 +5794,14 @@
       "pdf_failed": "Échec de la génération du PDF",
       "production_saved": "Validation production enregistrée",
       "accord_saved": "Accord enregistré",
-      "return_sent": "Renvoi enregistré"
+      "return_sent": "Renvoi enregistré",
+      "promoted": "MOC promu en projet"
     },
     "actions": {
       "invite_validator": "Inviter un validateur",
       "send_invite": "Envoyer l'invitation",
       "download_pdf": "Formulaire PDF",
+      "promote_to_project": "Promouvoir en projet",
       "production_validate": "Valider la mise en étude",
       "production_refuse": "Refuser",
       "request_return": "Renvoyer pour modification",

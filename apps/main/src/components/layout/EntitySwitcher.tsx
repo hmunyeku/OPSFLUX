@@ -108,7 +108,7 @@ export function EntitySwitcher() {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 w-64 rounded-lg border bg-popover shadow-lg">
+        <div className="absolute left-0 top-full mt-1 z-50 w-64 rounded-xl border border-border/70 bg-popover/95 backdrop-blur-md shadow-xl shadow-black/5 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-150">
           {/* Search — show if >5 entities */}
           {entities.length > 5 && (
             <div className="p-2 border-b">

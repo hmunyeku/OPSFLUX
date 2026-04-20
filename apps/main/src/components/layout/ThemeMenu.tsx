@@ -52,7 +52,7 @@ export function ThemeMenu() {
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 w-44 rounded-lg border bg-popover shadow-lg py-1"
+          className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-border/70 bg-popover/95 backdrop-blur-md shadow-xl shadow-black/5 py-1 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-150"
           style={{ zIndex: 'var(--z-dropdown)' }}
         >
           {THEME_OPTIONS.map(({ value, icon: Icon, labelKey }) => (

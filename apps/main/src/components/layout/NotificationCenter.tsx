@@ -167,7 +167,7 @@ export function NotificationCenter() {
       {/* Popover */}
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 w-80 rounded-lg border bg-popover shadow-lg flex flex-col max-h-[420px]"
+          className="absolute right-0 top-full mt-1 w-80 rounded-xl border border-border/70 bg-popover/95 backdrop-blur-md shadow-xl shadow-black/5 flex flex-col max-h-[420px] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-150"
           style={{ zIndex: 'var(--z-dropdown)' }}
         >
           {/* Header */}

@@ -173,11 +173,14 @@ export function useToast(): ToastContextValue {
 }
 
 // ── Variant styling ────────────────────────────────────────
+// Glassy cards with a left accent strip (left 3px bar) — matches the
+// Sidebar / StatCard language. Backdrop-blur so toasts overlaid on
+// busy content keep their legibility.
 const variantStyles: Record<ToastVariant, string> = {
-  default: 'border-border bg-card text-foreground',
-  success: 'border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-900 dark:text-green-200',
-  error: 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/50 text-red-900 dark:text-red-200',
-  warning: 'border-yellow-300 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950/50 text-yellow-900 dark:text-yellow-200',
+  default: 'border-border/60 bg-card/90 backdrop-blur-md text-foreground border-l-[3px] border-l-primary shadow-lg shadow-primary/10',
+  success: 'border-green-300/70 dark:border-green-800/70 bg-green-50/90 dark:bg-green-950/80 backdrop-blur-md text-green-900 dark:text-green-200 border-l-[3px] border-l-green-500 shadow-lg shadow-green-500/15',
+  error: 'border-red-300/70 dark:border-red-800/70 bg-red-50/90 dark:bg-red-950/80 backdrop-blur-md text-red-900 dark:text-red-200 border-l-[3px] border-l-red-500 shadow-lg shadow-red-500/15',
+  warning: 'border-yellow-300/70 dark:border-yellow-800/70 bg-yellow-50/90 dark:bg-yellow-950/80 backdrop-blur-md text-yellow-900 dark:text-yellow-200 border-l-[3px] border-l-yellow-500 shadow-lg shadow-yellow-500/15',
 }
 
 const variantIcons: Record<ToastVariant, typeof Info> = {

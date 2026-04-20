@@ -319,24 +319,30 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       className="fixed inset-0 z-modal flex items-start justify-center pt-[15vh] px-4"
       onKeyDown={handleBackdropKeyDown}
     >
-      {/* Backdrop */}
+      {/* Backdrop — matches ConfirmDialog vocabulary (opacity/50 + blur-md) */}
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/50 backdrop-blur-md animate-in fade-in-0 duration-200"
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
 
-      {/* Modal */}
+      {/* Modal — glassy, rounded-2xl, animated entrance */}
       <div
         className={cn(
           'relative w-full max-w-xl',
-          'bg-popover text-popover-foreground',
-          'rounded-lg shadow-pajamas-lg',
-          'border border-border',
+          'bg-popover/95 backdrop-blur-md text-popover-foreground',
+          'rounded-2xl shadow-2xl shadow-primary/5',
+          'border border-border/70',
           'flex flex-col overflow-hidden',
+          'motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:slide-in-from-top-2 motion-safe:duration-200',
         )}
         onKeyDown={handleKeyDown}
       >
+        {/* Top accent strip — matches vocabulary of Sidebar / StatCard / ConfirmDialog */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary/70 via-primary to-[hsl(var(--highlight))]/40"
+        />
         {/* ── Search input ─────────────────────────────────── */}
         <div className="flex items-center gap-3 px-4 border-b border-border">
           <Search

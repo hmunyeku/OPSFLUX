@@ -127,6 +127,16 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
       <button
         key={item.path}
         onClick={() => { navigate(item.path); onClose?.() }}
+        // Prefetch module chunk on hover/focus so activation feels
+        // instant. Imported dynamically to keep Sidebar's own bundle
+        // light (the prefetch helper is ~3KB, only loaded if sidebar
+        // is ever rendered).
+        onMouseEnter={() => {
+          import('@/lib/routePrefetch').then(m => m.prefetchRoute(item.path)).catch(() => {})
+        }}
+        onFocus={() => {
+          import('@/lib/routePrefetch').then(m => m.prefetchRoute(item.path)).catch(() => {})
+        }}
         className={cn(
           'group relative flex w-full items-center gap-2.5 rounded-lg h-8 text-sm transition-all duration-200',
           // Active: gradient primary → highlight tint, subtle glow.

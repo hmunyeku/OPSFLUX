@@ -844,6 +844,30 @@ async def get_moc(
         MOCValidationRead.model_validate(v).model_dump()
         for v in moc.validations
     ]
+    # ── Linked project summary (set when the MOC has been promoted) ──
+    # Exposed as a compact object the UI can render in the Exécution
+    # tab without a second fetch. Keeps the contract lightweight:
+    # code / name / status / progress + start/end dates.
+    if moc.project_id:
+        from app.models.common import Project as _Project
+        proj = (await db.execute(
+            select(_Project).where(_Project.id == moc.project_id)
+        )).scalar_one_or_none()
+        if proj:
+            d["linked_project"] = {
+                "id": str(proj.id),
+                "code": proj.code,
+                "name": proj.name,
+                "status": proj.status,
+                "progress": proj.progress,
+                "start_date": proj.start_date.isoformat() if proj.start_date else None,
+                "end_date": proj.end_date.isoformat() if proj.end_date else None,
+                "actual_end_date": (
+                    proj.actual_end_date.isoformat()
+                    if proj.actual_end_date else None
+                ),
+                "manager_id": str(proj.manager_id) if proj.manager_id else None,
+            }
     # Redact signature data URLs for users without moc.signature.view
     # (own signature + moc.manage stay visible).
     await _redact_signatures(

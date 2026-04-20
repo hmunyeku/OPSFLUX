@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/react-table'
-import { ClipboardList, LayoutDashboard, Plus } from 'lucide-react'
+import { ClipboardList, LayoutDashboard, Plus, Rocket, UserCircle2 } from 'lucide-react'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
@@ -260,6 +260,41 @@ function MOCListTab() {
             {row.original.initiator_display || row.original.initiator_name || '—'}
           </span>
         ),
+      },
+      {
+        // Chef de projet MOC — only the UUID is in the list payload, so we
+        // fall back to an "assigné" chip when present and a dash otherwise.
+        // Clicking the full MOC detail resolves the name via the users list.
+        accessorKey: 'manager_id',
+        header: t('moc.columns.manager'),
+        size: 120,
+        cell: ({ row }) =>
+          row.original.manager_id ? (
+            <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+              <UserCircle2 size={11} />
+              {t('moc.columns.manager_assigned')}
+            </span>
+          ) : (
+            <span className="text-[10px] text-muted-foreground italic">—</span>
+          ),
+      },
+      {
+        // Link to the promoted project (if any). Shown as a rocket chip.
+        id: 'project',
+        header: t('moc.columns.linked_project'),
+        size: 110,
+        cell: ({ row }) =>
+          row.original.project_id ? (
+            <a
+              href={`/projets?id=${row.original.project_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300"
+            >
+              <Rocket size={11} /> {t('moc.columns.linked_project_chip')}
+            </a>
+          ) : (
+            <span className="text-[10px] text-muted-foreground italic">—</span>
+          ),
       },
       {
         accessorKey: 'created_at',

@@ -140,6 +140,7 @@
     "start_date": "Start date",
     "due_date": "Due date",
     "end_date": "End date",
+    "actual_end": "Actual end",
     "or": "or",
     "refresh": "Refresh",
     "reset": "Reset",
@@ -4832,6 +4833,10 @@
       "status": "Status",
       "priority": "Priority",
       "initiator": "Initiator",
+      "manager": "Project manager",
+      "manager_assigned": "Assigned",
+      "linked_project": "Project",
+      "linked_project_chip": "Open",
       "created_at": "Created"
     },
     "fields": {
@@ -4959,6 +4964,7 @@
       "signatures": "Signatures",
       "execution_accord": "MOC Execution — DO / DG accords",
       "workflow_stepper": "Workflow progress",
+      "linked_project": "Linked project",
       "flags": "HAZOP / HAZID / Documents",
       "attachments": "Attachments",
       "timeline": "Status history",

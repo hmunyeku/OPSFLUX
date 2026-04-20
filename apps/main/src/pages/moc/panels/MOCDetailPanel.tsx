@@ -75,6 +75,7 @@ import {
   MOC_STATUS_COLOURS,
   MOC_STATUS_LABELS,
   mocService,
+  type MOCLinkedProject,
   type MOCStatus,
   type MOCValidation,
   type MOCValidationRole,
@@ -1503,6 +1504,12 @@ function ExecutionTab({
   )
   return (
     <>
+      {moc.linked_project && (
+        <FormSection title={t('moc.section.linked_project')} defaultExpanded>
+          <LinkedProjectCard project={moc.linked_project} />
+        </FormSection>
+      )}
+
       <FormSection title={t('moc.section.signatures')} defaultExpanded>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {slotRow('initiator', moc.initiator_signature, 'moc.signature.initiator')}
@@ -1789,6 +1796,77 @@ function MOCStepper({ status }: { status: MOCStatus }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+
+// ─── LinkedProjectCard — summary of the project spawned from the MOC ───
+// Shown on top of the Exécution tab when `moc.linked_project` is set.
+// Displays code, name, status badge, progress bar and key dates. Clicking
+// "Ouvrir" navigates to the project page.
+
+function LinkedProjectCard({ project }: { project: MOCLinkedProject }) {
+  const { t } = useTranslation()
+  const statusClass =
+    project.status === 'completed'
+      ? 'bg-green-600 text-white'
+      : project.status === 'cancelled'
+        ? 'bg-destructive text-destructive-foreground'
+        : project.status === 'on_hold'
+          ? 'bg-amber-500 text-white'
+          : 'bg-primary text-primary-foreground'
+  return (
+    <div className="rounded-md border border-border bg-card p-3 space-y-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">
+          {project.code}
+        </span>
+        <strong className="truncate">{project.name}</strong>
+        <span
+          className={cn(
+            'rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase',
+            statusClass,
+          )}
+        >
+          {project.status}
+        </span>
+        <a
+          href={`/projets?id=${project.id}`}
+          className="ml-auto text-primary underline inline-flex items-center gap-1"
+        >
+          {t('moc.fields.linked_project_view')}
+        </a>
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-1 text-[10px] text-muted-foreground">
+          <span>{t('common.progress')}</span>
+          <span>{project.progress}%</span>
+        </div>
+        <div className="h-1.5 bg-muted rounded overflow-hidden">
+          <div
+            className="h-full bg-primary transition-all"
+            style={{ width: `${Math.max(0, Math.min(100, project.progress))}%` }}
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+        {project.start_date && (
+          <span>
+            {t('common.start_date')} : {formatDate(project.start_date)}
+          </span>
+        )}
+        {project.end_date && (
+          <span>
+            {t('common.end_date')} : {formatDate(project.end_date)}
+          </span>
+        )}
+        {project.actual_end_date && (
+          <span>
+            {t('common.actual_end')} : {formatDate(project.actual_end_date)}
+          </span>
+        )}
+      </div>
     </div>
   )
 }

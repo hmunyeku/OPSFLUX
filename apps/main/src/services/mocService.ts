@@ -283,9 +283,23 @@ export interface MOC {
   metadata: Record<string, unknown> | null
 }
 
+export interface MOCLinkedProject {
+  id: string
+  code: string
+  name: string
+  status: string
+  progress: number
+  start_date: string | null
+  end_date: string | null
+  actual_end_date: string | null
+  manager_id: string | null
+}
+
 export interface MOCWithDetails extends MOC {
   status_history: MOCStatusHistoryEntry[]
   validations: MOCValidation[]
+  /** Populated when `project_id` is set, to avoid a second fetch. */
+  linked_project?: MOCLinkedProject | null
 }
 
 export interface MOCCreatePayload {

@@ -618,7 +618,7 @@ export function DataTableToolbar({
                       Actions <ChevronDown size={10} />
                     </button>
                     {dropdown.type === 'action' && dropdown.id === '_batch' && (
-                      <div className="absolute right-0 top-full mt-1 z-50 min-w-[200px] rounded-md border bg-popover shadow-lg py-1">
+                      <div className="absolute right-0 top-full mt-1 z-50 min-w-[200px] max-w-[calc(100vw-1.5rem)] max-h-[min(65vh,30rem)] overflow-y-auto rounded-md border bg-popover shadow-lg py-1">
                         {batchActions.map((action) => {
                           const Icon = typeof action.icon === 'function' ? action.icon : null
                           return (
@@ -701,7 +701,7 @@ export function DataTableToolbar({
               <Columns3 size={13} />
             </button>
             {dropdown.type === 'action' && dropdown.id === '_columns' && (
-              <div className="absolute right-0 top-full mt-1 z-50 min-w-[170px] rounded-md border bg-popover shadow-lg py-1">
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[170px] max-w-[calc(100vw-1.5rem)] max-h-[min(65vh,30rem)] overflow-y-auto rounded-md border bg-popover shadow-lg py-1">
                 <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border/50 mb-0.5">
                   Colonnes visibles
                 </p>
@@ -740,7 +740,7 @@ export function DataTableToolbar({
               <Download size={13} />
             </button>
             {dropdown.type === 'action' && dropdown.id === '_export' && (
-              <div className="absolute right-0 top-full mt-1 z-50 min-w-[150px] rounded-md border bg-popover shadow-lg py-1">
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[150px] max-w-[calc(100vw-1.5rem)] max-h-[min(65vh,30rem)] overflow-y-auto rounded-md border bg-popover shadow-lg py-1">
                 <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border/50 mb-0.5">
                   Exporter en
                 </p>
@@ -797,7 +797,7 @@ export function DataTableToolbar({
               <Upload size={13} />
             </button>
             {!importExport?.importWizardTarget && dropdown.type === 'action' && dropdown.id === '_import' && (
-              <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-md border bg-popover shadow-lg py-1">
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] max-w-[calc(100vw-1.5rem)] max-h-[min(65vh,30rem)] overflow-y-auto rounded-md border bg-popover shadow-lg py-1">
                 <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border/50 mb-0.5">
                   Importer
                 </p>

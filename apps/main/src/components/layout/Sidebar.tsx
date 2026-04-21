@@ -208,6 +208,17 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
 
       {/* Bottom section: admin + help + network status + collapse toggle */}
       <div className="border-t border-border px-1.5 py-1.5 space-y-0.5 shrink-0">
+        {/* Section label — mirrors the "Navigation" label up top so
+            both sections of the sidebar feel like sibling groupings
+            rather than one main list + a stray footer. Only rendered
+            when the sidebar is expanded. */}
+        {!collapsed && filteredAdminItems.length > 0 && (
+          <div className="px-1.5 pb-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              {t('nav.admin_section_label', 'Administration')}
+            </span>
+          </div>
+        )}
         {filteredAdminItems.map(renderNavItem)}
 
         <button

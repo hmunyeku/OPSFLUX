@@ -246,7 +246,7 @@ export function HomePage() {
   const firstName = user?.first_name || ''
 
   return (
-    <div className="relative flex-1 overflow-y-auto">
+    <div className="relative h-full overflow-y-auto">
       {/*
         Hero backdrop — three radial-gradient blobs mimicking a light
         mesh gradient, tinted to match the primary + highlight colors.

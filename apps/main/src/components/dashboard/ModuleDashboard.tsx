@@ -203,9 +203,15 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
     )
   }
 
-  // Default: no separate toolbar bar — it floats inside content
+  // Default: no separate toolbar bar — it floats inside content.
+  //
+  // `flex-1 min-h-0 overflow-y-auto` is required here so the
+  // dashboard scrolls inside pages that place it inside a
+  // `overflow-hidden` parent (e.g. SupportPage, UsersPage). Without
+  // those, tall dashboards were clipped at the viewport with no way
+  // to reach the widgets below.
   return (
-    <div className={cn('flex flex-col', className)}>
+    <div className={cn('flex flex-1 min-h-0 flex-col overflow-y-auto', className)}>
       {content}
     </div>
   )

@@ -1628,12 +1628,19 @@ function TableWidget({
                     <td
                       key={col.key}
                       className={cn(
-                        'px-3 py-1.5 whitespace-nowrap max-w-[200px] border-b border-border/10',
+                        // `overflow-hidden text-ellipsis` on top of the
+                        // existing whitespace-nowrap + max-width ensures
+                        // long cell content (e.g. verbose task names)
+                        // truncates inside its own column instead of
+                        // spilling into the next column and colliding
+                        // with the date beside it.
+                        'px-3 py-1.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-[200px] border-b border-border/10',
                         'first:pl-4 last:pr-4',
                         isNum ? 'text-right tabular-nums' : 'text-left',
                         crossFilterEnabled && 'cursor-pointer',
                         isActive && 'bg-primary/10',
                       )}
+                      title={typeof cellValue === 'string' || typeof cellValue === 'number' ? String(cellValue) : undefined}
                       onClick={() => handleCellClick(col.key, cellValue)}
                     >
                       {renderCell(cellValue, col.key, colIdx)}

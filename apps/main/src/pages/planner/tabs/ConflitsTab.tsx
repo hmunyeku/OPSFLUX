@@ -373,9 +373,11 @@ export function ConflitsTab() {
         <StatCard label={t('planner.stats.deferred')} value={stats.deferred} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
       </div>
 
-      {/* Filter bar */}
-      <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto">
+      {/* Filter bar — wraps to 2 rows on narrow viewports so the
+          status tabs stop colliding with the type dropdown and the
+          conflict counter on mobile. */}
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-9 sm:py-0 sm:flex-nowrap shrink-0">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
           {conflictStatusOptions.map((opt) => (
             <button
               key={opt.value}
@@ -392,7 +394,7 @@ export function ConflitsTab() {
         <select
           value={conflictFilters.conflictTypeFilter}
           onChange={(e) => updateConflictFilter('conflictTypeFilter', e.target.value)}
-          className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary min-w-0 flex-shrink"
           title="Filtrer par type de conflit"
         >
           <option value="">{t('planner.filters.all_types')}</option>
@@ -412,9 +414,11 @@ export function ConflitsTab() {
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} conflits</span>}
       </div>
 
-      {/* Advanced filter row (asset, date range) */}
-      <div className="flex items-center gap-2 border-b border-border px-3.5 h-10 shrink-0 bg-background-subtle">
-        <div className="flex-1 min-w-0 max-w-[300px]">
+      {/* Advanced filter row (asset, date range) — wraps on mobile
+          so the asset picker and the date range don't squash each
+          other down to unusable widths. */}
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-10 sm:py-0 sm:flex-nowrap shrink-0 bg-background-subtle">
+        <div className="flex-1 min-w-[200px] max-w-[300px]">
           <AssetPicker
             value={conflictFilters.assetId}
             onChange={(id) => updateConflictFilter('assetId', id)}
@@ -422,11 +426,11 @@ export function ConflitsTab() {
             clearable
           />
         </div>
-        <div className="flex items-center gap-1.5 ml-auto shrink-0">
+        <div className="flex items-center gap-1.5 sm:ml-auto shrink-0">
           <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">Période</span>
           <input
             type="date"
-            className="gl-form-input text-xs h-7 w-[130px]"
+            className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
             value={conflictFilters.dateFrom ?? ''}
             onChange={(e) => updateConflictFilter('dateFrom', e.target.value || null)}
             title="Début"
@@ -434,7 +438,7 @@ export function ConflitsTab() {
           <span className="text-muted-foreground text-xs">→</span>
           <input
             type="date"
-            className="gl-form-input text-xs h-7 w-[130px]"
+            className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
             value={conflictFilters.dateTo ?? ''}
             onChange={(e) => updateConflictFilter('dateTo', e.target.value || null)}
             min={conflictFilters.dateFrom ?? undefined}

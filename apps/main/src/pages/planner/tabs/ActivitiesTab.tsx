@@ -327,9 +327,10 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
         <StatCard label={t('planner.stats.pax_planned')} value={stats.totalPax} icon={Users} />
       </div>
 
-      {/* Filter bar */}
-      <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto">
+      {/* Filter bar — wraps on narrow viewports so status chips +
+          type/priority selects don't squash each other. */}
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-9 sm:py-0 sm:flex-nowrap shrink-0">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
           {activityStatusOptions.map((opt) => (
             <button
               key={opt.value}
@@ -376,9 +377,10 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} activites</span>}
       </div>
 
-      {/* Advanced filter row (asset, project, date range) */}
-      <div className="flex items-center gap-2 border-b border-border px-3.5 h-10 shrink-0 bg-background-subtle">
-        <div className="flex-1 min-w-0 max-w-[260px]">
+      {/* Advanced filter row (asset, project, date range) — wraps
+          to 2 rows on mobile so each picker has room to breathe. */}
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-10 sm:py-0 sm:flex-nowrap shrink-0 bg-background-subtle">
+        <div className="flex-1 min-w-[180px] max-w-[260px]">
           <AssetPicker
             value={filters.assetId}
             onChange={(id) => updateFilter('assetId', id)}
@@ -386,7 +388,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
             clearable
           />
         </div>
-        <div className="flex-1 min-w-0 max-w-[260px]">
+        <div className="flex-1 min-w-[180px] max-w-[260px]">
           <ProjectPicker
             value={filters.projectId}
             onChange={(id) => updateFilter('projectId', id)}
@@ -394,11 +396,11 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
             clearable
           />
         </div>
-        <div className="flex items-center gap-1.5 ml-auto shrink-0">
+        <div className="flex items-center gap-1.5 sm:ml-auto shrink-0">
           <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">Période</span>
           <input
             type="date"
-            className="gl-form-input text-xs h-7 w-[130px]"
+            className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
             value={filters.startDate ?? ''}
             onChange={(e) => updateFilter('startDate', e.target.value || null)}
             title="Début"
@@ -406,7 +408,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           <span className="text-muted-foreground text-xs">→</span>
           <input
             type="date"
-            className="gl-form-input text-xs h-7 w-[130px]"
+            className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
             value={filters.endDate ?? ''}
             onChange={(e) => updateFilter('endDate', e.target.value || null)}
             min={filters.startDate ?? undefined}

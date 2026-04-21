@@ -611,17 +611,24 @@ function TrackingTab() {
                 <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.loading')}</p>
               ) : scanCandidates.length > 0 ? (
                 scanCandidates.map((item) => (
+                  // Not using .gl-button here: its fixed height (h-8 /
+                  // h-10) clips the 3-line cargo description and the
+                  // overflowing text was rendering ON TOP of the next
+                  // result card. Custom auto-height button keeps the
+                  // same outlined look while letting content size
+                  // itself naturally.
                   <button
                     key={item.id}
-                    className="gl-button gl-button-default flex w-full justify-between text-left"
+                    type="button"
+                    className="flex w-full items-start justify-between gap-3 text-left rounded-lg border border-border/70 bg-background px-3 py-2 hover:bg-chrome hover:border-border transition-colors cursor-pointer"
                     onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}
                   >
-                    <div>
-                      <p className="font-mono text-xs text-foreground">{item.tracking_code}</p>
-                      <p className="mt-1 text-sm font-medium text-foreground">{item.designation || item.description}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{item.request_code ?? '—'} · {item.voyage_code ?? t('packlog.tracking.scan_results.no_voyage')}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-xs text-foreground truncate">{item.tracking_code}</p>
+                      <p className="mt-1 text-sm font-medium text-foreground truncate">{item.designation || item.description}</p>
+                      <p className="mt-1 text-xs text-muted-foreground truncate">{item.request_code ?? '—'} · {item.voyage_code ?? t('packlog.tracking.scan_results.no_voyage')}</p>
                     </div>
-                    <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[item.status] ?? item.status}</span>
+                    <span className="gl-badge gl-badge-neutral shrink-0">{cargoStatusLabels[item.status] ?? item.status}</span>
                   </button>
                 ))
               ) : (

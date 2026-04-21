@@ -16,15 +16,22 @@ interface PanelHeaderProps {
 export function PanelHeader({ icon: Icon, title, subtitle, children }: PanelHeaderProps) {
   return (
     <div className="flex h-10 items-center justify-between border-b border-border bg-background px-4 shrink-0">
-      <div className="flex items-center gap-2 min-w-0">
-        {Icon && <Icon size={16} className="text-muted-foreground shrink-0" />}
+      <div className="flex items-center gap-2.5 min-w-0">
+        {Icon && (
+          // Icon sits inside a soft primary-tinted chip — reads as a
+          // proper page identifier rather than a floating glyph, and
+          // lines up visually with the sidebar active item accent.
+          <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/[0.08] ring-1 ring-inset ring-primary/10">
+            <Icon size={14} className="text-primary" />
+          </span>
+        )}
         {/* Display font (Archivo) for page titles — gives the header
             a bit of character vs. all-Inter body. Wide letter shapes
             read well at 14px even with the grotesk weight. */}
         <h1 className="text-sm font-semibold text-foreground truncate font-display tracking-tight">{title}</h1>
         {subtitle && (
           <>
-            <span className="text-muted-foreground text-xs">·</span>
+            <span className="text-muted-foreground/60 text-xs">·</span>
             <span className="text-xs text-muted-foreground truncate hidden sm:block">{subtitle}</span>
           </>
         )}

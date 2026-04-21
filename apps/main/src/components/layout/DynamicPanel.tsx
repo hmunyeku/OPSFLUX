@@ -690,31 +690,44 @@ export function FormSection({
     <fieldset className={cn('space-y-4', className)}>
       {(title || headerExtra) && (
         collapsible ? (
-          <div className="flex items-center gap-1.5 w-full">
+          <div className="group/section flex items-center gap-3 w-full">
             <button
               type="button"
               onClick={toggle}
-              className="flex items-center gap-1.5 flex-1 text-left group cursor-pointer select-none"
+              className="flex items-center gap-2.5 text-left cursor-pointer select-none"
             >
+              {/* Gradient accent strip — matches the sidebar active
+                  indicator so sections feel anchored rather than
+                  floating. */}
+              <span
+                aria-hidden="true"
+                className="inline-block h-4 w-[3px] rounded-full bg-gradient-to-b from-primary to-highlight shrink-0"
+              />
               <ChevronRight
                 size={13}
                 className={cn(
-                  'shrink-0 text-muted-foreground transition-transform duration-200',
+                  'shrink-0 text-muted-foreground/70 transition-transform duration-200',
                   expanded && 'rotate-90',
                 )}
               />
-              <legend className="text-sm font-semibold text-foreground">
+              <legend className="text-[13px] font-semibold font-display tracking-tight text-foreground">
                 {title}
               </legend>
             </button>
-            {headerExtra && <span className="ml-auto">{headerExtra}</span>}
+            <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border/60 to-transparent" />
+            {headerExtra && <span>{headerExtra}</span>}
           </div>
         ) : (
-          <div className="flex items-center gap-2 pb-2">
-            <legend className="text-sm font-semibold text-foreground flex-1">
+          <div className="flex items-center gap-3 pb-2">
+            <span
+              aria-hidden="true"
+              className="inline-block h-4 w-[3px] rounded-full bg-gradient-to-b from-primary to-highlight shrink-0"
+            />
+            <legend className="text-[13px] font-semibold font-display tracking-tight text-foreground">
               {title}
             </legend>
-            {headerExtra && <span className="ml-auto">{headerExtra}</span>}
+            <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border/60 to-transparent" />
+            {headerExtra && <span>{headerExtra}</span>}
           </div>
         )
       )}

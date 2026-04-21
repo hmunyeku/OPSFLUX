@@ -6,9 +6,7 @@ import {
   Loader2,
   MapPin,
   Package,
-  Pencil,
   Plus,
-  Save,
   Truck,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -192,6 +190,11 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
       })
     }
   }
+
+  // Silence "declared but never used" — helpers kept for future
+  // inline-edit re-wire.
+  void startEdit
+  void handleSave
 
   const actionItems = useMemo<ActionItem[]>(() => {
     // OpsFlux pattern: no "Modifier" button — inline edit on

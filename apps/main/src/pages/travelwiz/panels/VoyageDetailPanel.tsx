@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Plane, Package, FileText, Users, MapPin, Weight,
-  Loader2, Pencil, Trash2, Save, CheckCircle2,
+  Loader2, Trash2, CheckCircle2,
   Info, BookOpen, Paperclip,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'

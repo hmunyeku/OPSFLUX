@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Route, Loader2, Pencil, Save,
+  Route, Loader2,
   Info, Paperclip,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
@@ -61,6 +61,10 @@ export function RotationDetailPanel({ id }: { id: string }) {
 
   // OpsFlux pattern: no "Modifier" button — inline editing on
   // permissioned fields only. Removed edit/cancel/save trio.
+  // Silence unused-var warnings on helpers kept for future re-wire.
+  void startEdit
+  void handleSave
+  void closeDynamicPanel
   const rotationDetailActions = useMemo<ActionItem[]>(() => {
     return [] as ActionItem[]
   }, [])

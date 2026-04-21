@@ -1,5 +1,26 @@
 import { cn } from '@/lib/utils'
 
+/**
+ * Helper to build a style object for a loader square. CSS custom
+ * properties (--dx/--dy/--rot) must go through a Record<string, string>
+ * cast to avoid the TypeScript "multiple properties with the same
+ * name" error that fires when using `['--x' as 'width']` patterns.
+ */
+function makeSquareStyle(
+  origin: readonly [number, number],
+  s: number,
+  dx: string,
+  dy: string,
+  rot: string,
+  delay: string,
+): React.CSSProperties {
+  return {
+    transformOrigin: `${origin[0] + s / 2}px ${origin[1] + s / 2}px`,
+    animationDelay: delay,
+    ...({ '--dx': dx, '--dy': dy, '--rot': rot } as Record<string, string>),
+  } as React.CSSProperties
+}
+
 interface LoaderFallbackProps {
   /** Inline = shows in the current container; full-screen otherwise. */
   variant?: 'full' | 'inline'
@@ -95,7 +116,7 @@ function OrderLoader({ size }: { size: 'small' | 'large' }) {
           height={s}
           rx={radius}
           fill={`url(#opsflux-loader-${id}-a)`}
-          style={{ transformOrigin: `${tl[0] + s / 2}px ${tl[1] + s / 2}px`, ['--dx' as 'width']: `-${s * 0.7}px`, ['--dy' as 'width']: `-${s * 0.5}px`, ['--rot' as 'width']: '-22deg', animationDelay: '0ms' } as React.CSSProperties}
+          style={makeSquareStyle(tl, s, `-${s * 0.7}px`, `-${s * 0.5}px`, '-22deg', '0ms')}
         />
         <rect
           className="opsflux-loader-square"
@@ -105,7 +126,7 @@ function OrderLoader({ size }: { size: 'small' | 'large' }) {
           height={s}
           rx={radius}
           fill={`url(#opsflux-loader-${id}-b)`}
-          style={{ transformOrigin: `${tr[0] + s / 2}px ${tr[1] + s / 2}px`, ['--dx' as 'width']: `${s * 0.6}px`, ['--dy' as 'width']: `-${s * 0.6}px`, ['--rot' as 'width']: '18deg', animationDelay: '150ms' } as React.CSSProperties}
+          style={makeSquareStyle(tr, s, `${s * 0.6}px`, `-${s * 0.6}px`, '18deg', '150ms')}
         />
         <rect
           className="opsflux-loader-square"
@@ -115,7 +136,7 @@ function OrderLoader({ size }: { size: 'small' | 'large' }) {
           height={s}
           rx={radius}
           fill={`url(#opsflux-loader-${id}-a)`}
-          style={{ transformOrigin: `${bl[0] + s / 2}px ${bl[1] + s / 2}px`, ['--dx' as 'width']: `-${s * 0.5}px`, ['--dy' as 'width']: `${s * 0.7}px`, ['--rot' as 'width']: '12deg', animationDelay: '300ms' } as React.CSSProperties}
+          style={makeSquareStyle(bl, s, `-${s * 0.5}px`, `${s * 0.7}px`, '12deg', '300ms')}
         />
         <rect
           className="opsflux-loader-square"
@@ -125,7 +146,7 @@ function OrderLoader({ size }: { size: 'small' | 'large' }) {
           height={s}
           rx={radius}
           fill={`url(#opsflux-loader-${id}-b)`}
-          style={{ transformOrigin: `${br[0] + s / 2}px ${br[1] + s / 2}px`, ['--dx' as 'width']: `${s * 0.7}px`, ['--dy' as 'width']: `${s * 0.5}px`, ['--rot' as 'width']: '-20deg', animationDelay: '450ms' } as React.CSSProperties}
+          style={makeSquareStyle(br, s, `${s * 0.7}px`, `${s * 0.5}px`, '-20deg', '450ms')}
         />
       </svg>
     </div>

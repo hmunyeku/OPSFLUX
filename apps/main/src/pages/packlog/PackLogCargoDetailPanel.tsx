@@ -7,9 +7,7 @@ import {
   Loader2,
   MapPin,
   Package,
-  Pencil,
   Printer,
-  Save,
   Search,
   Undo2,
 } from 'lucide-react'
@@ -380,6 +378,12 @@ export function CargoDetailPanel({ id }: { id: string }) {
   const cargoRequest = cargo?.request_id
     ? cargoRequests.find((request) => request.id === cargo.request_id) ?? null
     : null
+
+  // Silence "declared but never used" — these helpers still live in
+  // the file so we can easily re-enable inline-edit mode later; the
+  // action bar no longer has a trigger for them.
+  void startEdit
+  void handleSave
 
   // OpsFlux pattern: no edit-mode switch — inline edit directly on
   // permissioned fields (double-click InlineEditable rows). Only

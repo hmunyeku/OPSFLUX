@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Ship, MapPin, Loader2, Pencil, Trash2, Save,
+  Ship, MapPin, Loader2, Trash2,
   Info, Settings, Paperclip,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -75,7 +75,10 @@ export function VectorDetailPanel({ id }: { id: string }) {
   // rows). Annuler/Enregistrer were the paired form-mode buttons
   // and are no longer needed either. If fields on this panel are
   // still ReadOnlyRow they need migrating to InlineEditableRow to
-  // restore editability.
+  // restore editability. Helpers kept for easy re-wire.
+  void startEdit
+  void handleSave
+  void canUpdate
   const vectorDetailActions = useMemo<ActionItem[]>(() => {
     const items: ActionItem[] = []
     if (canDelete) {

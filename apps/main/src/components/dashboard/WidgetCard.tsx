@@ -299,23 +299,29 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
           )}>
             {widget.title}
           </span>
-          {/* Toolbar — always faintly visible, full opacity on hover */}
+          {/* Toolbar — readable at rest (60% opacity), full on
+              hover. Icons bumped from 10px → 13px so they actually
+              render inside their 20px button without needing the
+              user to hover to find them. Removed `.gl-button` on
+              Download/Remove — its 32/40px target was being
+              force-collapsed to 20px which was clipping the icon
+              to invisibility. */}
           <div className={cn(
             'flex items-center gap-0.5 transition-opacity',
-            mode !== 'edit' ? 'opacity-20 group-hover:opacity-100' : 'opacity-80',
+            mode !== 'edit' ? 'opacity-60 group-hover:opacity-100' : 'opacity-90',
           )}>
             <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Actualiser">
-              <RefreshCw className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/70' : 'text-muted-foreground', isLoading && 'animate-spin')} />
+              <RefreshCw className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground', isLoading && 'animate-spin')} />
             </button>
-            <button onClick={handleExport} className="gl-button gl-button-default h-5 w-5 dark:hover:bg-white/10" title="Exporter">
-              <Download className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/70' : 'text-muted-foreground')} />
+            <button onClick={handleExport} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Exporter">
+              <Download className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground')} />
             </button>
             <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Plein écran">
-              <Maximize2 className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/70' : 'text-muted-foreground')} />
+              <Maximize2 className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground')} />
             </button>
             {mode === 'edit' && onRemove && (
-              <button onClick={onRemove} className="gl-button gl-button-danger h-5 w-5" title="Supprimer">
-                <X className="h-2.5 w-2.5 text-destructive/60" />
+              <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/10 transition-colors" title="Supprimer">
+                <X className="h-3 w-3 text-destructive/80" />
               </button>
             )}
           </div>

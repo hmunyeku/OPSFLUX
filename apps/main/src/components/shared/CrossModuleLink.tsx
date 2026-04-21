@@ -292,13 +292,20 @@ export function CrossModuleLink({
       <button
         onClick={handleClick}
         className={cn(
-          'group/cml relative inline-flex items-center gap-1 text-primary hover:text-primary/80 hover:underline underline-offset-2 transition-colors text-left',
+          // `max-w-full` + `text-left` lets the label wrap on narrow
+          // panels (detail-panel mobile, side-docked view). Previously
+          // the inner <span> had `truncate` which forced single-line
+          // ellipsis and clipped long cross-module references like
+          // "ASP-1 Dewatering Process (KRRDD098)". `break-words` + the
+          // inline-flex with items-start keeps the external-link icon
+          // at the top of the text block when it wraps.
+          'group/cml relative inline-flex items-start gap-1 max-w-full text-primary hover:text-primary/80 hover:underline underline-offset-2 transition-colors text-left',
           mono && 'font-mono',
           className,
         )}
       >
-        <span className="truncate">{label}</span>
-        {showIcon && <ExternalLink size={10} className="shrink-0 opacity-60" />}
+        <span className="break-words min-w-0">{label}</span>
+        {showIcon && <ExternalLink size={10} className="shrink-0 opacity-60 mt-[3px]" />}
       </button>
 
       {/* Rich hover popover */}

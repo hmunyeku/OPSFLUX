@@ -333,7 +333,7 @@ export function HelpPanel() {
             </kbd>
             <button
               onClick={toggleHelp}
-              className="gl-button gl-button-sm gl-button-default w-7 flex"
+              className="h-7 w-7 inline-flex items-center justify-center rounded-lg border border-border-strong bg-background text-muted-foreground hover:bg-chrome hover:text-foreground transition-colors"
               aria-label={t('help_system.close')}
             >
               <X size={14} />

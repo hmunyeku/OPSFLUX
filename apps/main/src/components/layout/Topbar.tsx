@@ -416,7 +416,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 <X size={14} />
               </button>
             )}
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 select-none items-center rounded-sm border border-border bg-chrome px-1.5 font-mono text-xs text-muted-foreground">
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 select-none items-center rounded-md border border-border/70 bg-background/80 backdrop-blur-sm px-1.5 font-mono text-[11px] tracking-tight text-muted-foreground shadow-[inset_0_-1px_0_hsl(var(--border)/0.6),0_1px_0_hsl(var(--border)/0.5)]">
               ⌘K
             </kbd>
           </div>

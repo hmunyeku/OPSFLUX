@@ -264,7 +264,7 @@ function ConnectivityLED() {
 }
 
 export function Topbar({ onToggleSidebar }: TopbarProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user, logout, actingContext, setActingContext } = useAuthStore()
   const qc = useQueryClient()

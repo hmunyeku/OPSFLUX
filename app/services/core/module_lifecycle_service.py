@@ -15,7 +15,14 @@ from app.models.dashboard import Dashboard, DashboardTab, UserDashboardTab
 from app.services.core.settings_service import get_scoped_setting_row, upsert_scoped_setting
 
 MODULE_DISABLED_SETTING_KEY = "core.modules.disabled"
-PROTECTED_MODULES = {"dashboard", "workflow"}
+PROTECTED_MODULES = {"dashboard", "workflow", "users"}
+# `users` is declared as widget source_module in the seed catalog
+# but it is a CORE feature, not a separately-registered module.
+# Without it in the protected list, `filter_widgets_for_entity` →
+# `is_module_enabled` returns False (ModuleRegistry has no entry)
+# and the Comptes dashboard widgets get silently stripped — the
+# "Vue d'ensemble" tab ends up empty even though the tab + 6
+# widgets exist in the DB.
 MODULE_ALIASES = {
     "asset-registry": "asset_registry",
     "pid-pfd": "pid_pfd",

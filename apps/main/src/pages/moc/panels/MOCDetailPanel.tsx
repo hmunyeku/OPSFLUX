@@ -522,6 +522,34 @@ export function MOCDetailPanel({ id }: Props) {
                       ))}
                     </div>
                   )}
+                  {/* `is_real_change` (revue hiérarchie: véritable MOC ?)
+                      — required by the backend before an "Approve" transition.
+                      Previously there was NO UI to set this: the user saw
+                      "Prérequis manquants" but no control to answer. Radio
+                      updates the record immediately via a PATCH so the
+                      pre-flight re-runs on the next render and unlocks the
+                      button. */}
+                  {allowedTransitions.some((tr) => tr.to === 'approved') && (
+                    <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 px-3 py-2">
+                      <span className="text-xs font-medium text-foreground">
+                        {t('moc.fields.is_real_change')}
+                      </span>
+                      {[
+                        { val: true,  label: t('common.yes', 'Oui') },
+                        { val: false, label: t('common.no', 'Non') },
+                      ].map(({ val, label }) => (
+                        <label key={String(val)} className="flex items-center gap-1 text-xs cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={moc.is_real_change === val}
+                            onChange={() => updateMutation.mutate({ id: moc.id, payload: { is_real_change: val } })}
+                            disabled={updateMutation.isPending}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {allowedTransitions.map((tr) => {
                       const isCancel = tr.to === 'cancelled'

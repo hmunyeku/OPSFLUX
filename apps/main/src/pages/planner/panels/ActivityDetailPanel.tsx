@@ -361,6 +361,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
     })
     setEditing(true)
   }, [activity])
+  void startEdit // kept for future inline-edit trigger wiring
 
   const doSave = useCallback(() => {
     updateActivity.mutate(
@@ -656,15 +657,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
         },
       ]
     : [
-        ...(canUpdate
-          ? [{
-              id: 'edit',
-              label: 'Modifier',
-              icon: Pencil,
-              onClick: startEdit,
-              priority: 60,
-            } as ActionItem]
-          : []),
+        // OpsFlux pattern: no "Modifier" button — inline edit via double-click.
         ...(canUpdate && st === 'draft'
           ? [{
               id: 'submit',

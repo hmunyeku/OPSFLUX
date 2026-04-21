@@ -2426,12 +2426,12 @@ function DocTypeDetailPanel({ id }: { id: string }) {
     }
   }, [docType, form, updateDocType, toast, t])
 
+  // OpsFlux pattern: no "Modifier" button — inline edit via double-click.
+  // When in edit mode we only expose Annuler/Enregistrer.
   const docTypeDetailActions = useMemo<ActionItem[]>(() => editing ? [
     { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) },
     { id: 'save', label: 'Enregistrer', variant: 'primary', priority: 100, loading: updateDocType.isPending, disabled: updateDocType.isPending, onClick: handleSave },
-  ] : [
-    { id: 'edit', label: 'Modifier', variant: 'default', priority: 80, onClick: () => setEditing(true) },
-  ], [editing, updateDocType.isPending, handleSave])
+  ] : [], [editing, updateDocType.isPending, handleSave])
 
   if (isLoading) {
     return (
@@ -2566,12 +2566,11 @@ function TemplateDetailPanel({ id }: { id: string }) {
     }
   }, [template, form, updateTemplate, toast, t])
 
+  // OpsFlux pattern: no "Modifier" button — inline edit via double-click.
   const templateDetailActions = useMemo<ActionItem[]>(() => editing ? [
     { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) },
     { id: 'save', label: 'Enregistrer', variant: 'primary', priority: 100, loading: updateTemplate.isPending, disabled: updateTemplate.isPending, onClick: handleSave },
-  ] : [
-    { id: 'edit', label: 'Modifier', variant: 'default', priority: 80, onClick: () => setEditing(true) },
-  ], [editing, updateTemplate.isPending, handleSave])
+  ] : [], [editing, updateTemplate.isPending, handleSave])
 
   if (isLoading) {
     return (

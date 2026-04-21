@@ -202,7 +202,7 @@ function RequestsTab() {
         <StatCard label={t('packlog.requests.stats.blocked')} value={stats.blocked} accent="text-amber-600" />
         <StatCard label={t('packlog.requests.stats.submitted')} value={stats.submitted} />
       </div>
-      <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-9 sm:py-0 sm:flex-nowrap shrink-0">
         <div className="flex flex-wrap gap-1">
           {[{ value: '', label: t('packlog.common.all') }, ...requestStatusOptions].map((option) => (
             <button
@@ -273,7 +273,7 @@ function CargoTab() {
         <StatCard label={t('packlog.cargo.stats.delivered')} value={stats.delivered} accent="text-emerald-600" />
         <StatCard label={t('packlog.cargo.stats.incidents')} value={stats.incidents} accent="text-destructive" />
       </div>
-      <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-9 sm:py-0 sm:flex-nowrap shrink-0">
         <div className="flex flex-wrap gap-1">
           {[{ value: '', label: t('packlog.common.all') }, ...cargoStatusOptions].map((option) => (
             <button

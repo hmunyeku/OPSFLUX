@@ -114,7 +114,7 @@ export function AvmTab({ openDetail, requesterOnly = false, validatorOnly = fals
         <StatCard label={t('paxlog.avm.kpis.ready')} value={avmStats.ready} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
         <StatCard label={t('paxlog.avm.kpis.planned_pax')} value={avmStats.paxPlanned} icon={Users} />
       </div>
-      <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-9 sm:py-0 sm:flex-nowrap shrink-0">
         <div className="flex items-center gap-1">
           {avmStatusOptions.map((opt) => (
             <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}

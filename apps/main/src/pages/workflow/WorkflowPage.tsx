@@ -889,8 +889,11 @@ export function WorkflowPage() {
       </PanelHeader>
 
       <PanelContent className="p-4">
-        {/* ── Top bar: Tabs only (search comes from topbar) ── */}
-        <div className="flex items-center gap-4 mb-3">
+        {/* ── Top bar: Tabs + optional status filter + entity type.
+            On mobile the status filter pills and entity-type select
+            would collide with the main tab segmented control on the
+            same row — flex-wrap lets them drop to a second line. ── */}
+        <div className="flex flex-wrap items-center gap-3 gap-y-2 sm:gap-4 mb-3">
           <div className="flex items-center gap-0.5 bg-accent/30 rounded-lg p-0.5">
             <button
               onClick={() => setActiveTab('dashboard')}
@@ -937,7 +940,7 @@ export function WorkflowPage() {
               <select
                 value={entityTypeFilter}
                 onChange={(e) => setEntityTypeFilter(e.target.value)}
-                className="gl-form-input h-8 w-[210px] text-xs"
+                className="gl-form-input h-8 w-full sm:w-[210px] text-xs"
               >
                 <option value="">{t('workflow.all_entity_types')}</option>
                 {entityTypeOptions.map((option) => (

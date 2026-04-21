@@ -181,11 +181,6 @@ export function ConfirmDialog({
         className="relative bg-gradient-to-br from-card to-card/80 border border-border/70 rounded-2xl shadow-2xl shadow-black/20 w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top accent strip — matches Sidebar active + StatCard vocabulary */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary/80 via-primary to-highlight/40"
-        />
         {/* Header */}
         <div className="flex items-center gap-3 p-4 pb-2">
           <div className={cn('p-2 rounded-lg bg-muted/60 ring-1 ring-border/60', config.iconClass)}>

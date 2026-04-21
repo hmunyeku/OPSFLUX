@@ -142,7 +142,7 @@ export function TabButton({
         <span
           className={cn(
             'gl-tab-badge',
-            active ? 'bg-primary/10 text-primary' : 'bg-accent text-muted-foreground',
+            active ? "bg-white/25 text-primary-foreground" : "bg-accent text-muted-foreground",
           )}
         >
           {badge}
@@ -198,7 +198,7 @@ export function PageNavBar<T extends string = string>({
                   <span
                     className={cn(
                       'gl-tab-badge',
-                      isActive ? 'bg-primary/10 text-primary' : 'bg-accent text-muted-foreground',
+                      isActive ? "bg-white/25 text-primary-foreground" : "bg-accent text-muted-foreground",
                     )}
                   >
                     {item.badge}

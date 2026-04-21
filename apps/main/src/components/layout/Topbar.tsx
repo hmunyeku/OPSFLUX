@@ -23,6 +23,7 @@ import {
   Settings,
   X,
   Sparkles,
+  LayoutGrid,
 } from 'lucide-react'
 import { useState, useRef, useEffect, useSyncExternalStore, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -268,6 +269,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const qc = useQueryClient()
   const globalSearch = useUIStore((s) => s.globalSearch)
   const setGlobalSearch = useUIStore((s) => s.setGlobalSearch)
+  const sidebarExpanded = useUIStore((s) => s.sidebarExpanded)
   const [showUserMenu, setShowUserMenu] = useState(false)
   // ── Mobile search overlay state ─────────────────────────────
   // On screens < sm we hide the inline search input from the
@@ -381,6 +383,22 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           </button>
 
           <ConnectivityLED />
+
+          {/* Home shortcut — only rendered when the sidebar is
+              collapsed (nav icons only) so users can always jump
+              back to the launcher page and navigate to any module
+              from there, even without expanding the sidebar. */}
+          {!sidebarExpanded && (
+            <button
+              onClick={() => navigate('/home')}
+              className="hidden lg:flex h-7 w-7 ml-0.5 items-center justify-center rounded-lg text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors"
+              title={t('nav.home', 'Accueil')}
+              aria-label="Accueil"
+            >
+              <LayoutGrid size={15} />
+            </button>
+          )}
+
           <div className="mx-1 h-4 w-px bg-border hidden lg:block" />
           <EntitySwitcher />
         </div>

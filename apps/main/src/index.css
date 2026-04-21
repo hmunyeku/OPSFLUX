@@ -632,3 +632,48 @@
   position: relative;
   z-index: 0;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+ * OpsFlux loader — "chaos → ordre"
+ * ═══════════════════════════════════════════════════════════════
+ * Four squares scattered + rotated snap back into a 2×2 grid over
+ * 1.6s, then repeat. Each square reads its own --dx/--dy/--rot
+ * custom properties (set inline from LoaderFallback.tsx) so the
+ * 4 cells scatter in different directions.
+ *
+ * Under prefers-reduced-motion we keep the squares aligned and
+ * instead pulse their opacity gently — no movement, but still a
+ * heartbeat so the user knows something is loading.
+ */
+@keyframes opsflux-loader-scatter {
+  0% {
+    transform: translate(var(--dx, 0), var(--dy, 0)) rotate(var(--rot, 0deg));
+    opacity: 0.55;
+  }
+  45% {
+    transform: translate(var(--dx, 0), var(--dy, 0)) rotate(var(--rot, 0deg));
+    opacity: 0.7;
+  }
+  65%, 85% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx, 0), var(--dy, 0)) rotate(var(--rot, 0deg));
+    opacity: 0.55;
+  }
+}
+
+.opsflux-loader-square {
+  animation: opsflux-loader-scatter 1.8s cubic-bezier(0.65, 0.05, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes opsflux-loader-scatter {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  .opsflux-loader-square {
+    animation-duration: 2.2s;
+  }
+}

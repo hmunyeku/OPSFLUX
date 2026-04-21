@@ -280,21 +280,17 @@ export function VoyageDetailPanel({ id }: { id: string }) {
     })) ?? []
   ), [cargoOperationsReport?.items, cargoStatusLabels, cargoWorkflowLabels, packageReturnStatusLabels])
 
+  // OpsFlux pattern: no "Modifier" button — inline edit on
+  // permissioned fields only. Kept the domain actions that can't
+  // be expressed inline (print manifests, cloture, delete).
   const voyageDetailActions = useMemo<ActionItem[]>(() => {
     const items: ActionItem[] = []
-    if (!editing && canUpdate) items.push({ id: 'edit', label: 'Modifier', icon: Pencil, variant: 'default', priority: 80, onClick: startEdit })
-    if (editing) {
-      items.push({ id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) })
-      items.push({ id: 'save', label: 'Enregistrer', icon: Save, variant: 'primary', priority: 100, loading: updateVoyage.isPending, disabled: updateVoyage.isPending, onClick: handleSave })
-    }
-    if (!editing) {
-      items.push({ id: 'pax-manifest', label: 'Manifeste PAX', icon: FileText, variant: 'default', priority: 60, loading: downloadPaxManifestPdf.isPending, disabled: downloadPaxManifestPdf.isPending, onClick: handlePrintPaxManifest })
-      items.push({ id: 'cargo-manifest', label: 'Manifeste cargo', icon: FileText, variant: 'default', priority: 60, loading: downloadCargoManifestPdf.isPending, disabled: downloadCargoManifestPdf.isPending, onClick: handlePrintCargoManifest })
-    }
-    if (!editing && canUpdate && (voyage?.status === 'arrived')) {
+    items.push({ id: 'pax-manifest', label: 'Manifeste PAX', icon: FileText, variant: 'default', priority: 60, loading: downloadPaxManifestPdf.isPending, disabled: downloadPaxManifestPdf.isPending, onClick: handlePrintPaxManifest })
+    items.push({ id: 'cargo-manifest', label: 'Manifeste cargo', icon: FileText, variant: 'default', priority: 60, loading: downloadCargoManifestPdf.isPending, disabled: downloadCargoManifestPdf.isPending, onClick: handlePrintCargoManifest })
+    if (canUpdate && (voyage?.status === 'arrived')) {
       items.push({ id: 'close', label: 'Cloturer', icon: CheckCircle2, variant: 'default', priority: 70, loading: closeTrip.isPending, disabled: closeTrip.isPending, onClick: handleClose })
     }
-    if (!editing && canDelete) {
+    if (canDelete) {
       items.push({ id: 'delete', label: 'Supprimer', icon: Trash2, variant: 'danger', priority: 20, confirm: { title: 'Supprimer le voyage', message: 'Supprimer ce voyage ?', confirmLabel: 'Supprimer', variant: 'danger' }, onClick: handleDelete })
     }
     return items

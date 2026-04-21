@@ -70,18 +70,19 @@ export function VectorDetailPanel({ id }: { id: string }) {
     catch { toast({ title: t('travelwiz.toast.vector_deletion_error'), variant: 'error' }) }
   }
 
+  // NOTE: the "Modifier" button was removed — OpsFlux pattern is
+  // inline edit on permissioned fields (double-click InlineEditable
+  // rows). Annuler/Enregistrer were the paired form-mode buttons
+  // and are no longer needed either. If fields on this panel are
+  // still ReadOnlyRow they need migrating to InlineEditableRow to
+  // restore editability.
   const vectorDetailActions = useMemo<ActionItem[]>(() => {
     const items: ActionItem[] = []
-    if (!editing && canUpdate) items.push({ id: 'edit', label: 'Modifier', icon: Pencil, variant: 'default', priority: 80, onClick: startEdit })
-    if (editing) {
-      items.push({ id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) })
-      items.push({ id: 'save', label: 'Enregistrer', icon: Save, variant: 'primary', priority: 100, loading: updateVector.isPending, disabled: updateVector.isPending, onClick: handleSave })
-    }
-    if (!editing && canDelete) {
+    if (canDelete) {
       items.push({ id: 'delete', label: 'Supprimer', icon: Trash2, variant: 'danger', priority: 20, confirm: { title: 'Supprimer le vecteur', message: 'Supprimer ce vecteur ?', confirmLabel: 'Supprimer', variant: 'danger' }, onClick: handleDelete })
     }
     return items
-  }, [editing, canUpdate, canDelete, startEdit, updateVector.isPending, handleSave, handleDelete])
+  }, [canDelete, handleDelete])
 
   if (isLoading || !vector) {
     return (

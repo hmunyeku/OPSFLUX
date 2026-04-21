@@ -151,7 +151,7 @@ export function VoyagesTab() {
         <StatCard label={t('travelwiz.stats.pax_boarded')} value={stats.totalPax} icon={Users} accent="text-blue-500" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-9 sm:py-0 sm:flex-nowrap shrink-0">
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto">
           {voyageStatusOptions.map((opt) => (
             <button

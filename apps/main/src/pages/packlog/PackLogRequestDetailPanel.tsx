@@ -194,61 +194,38 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
   }
 
   const actionItems = useMemo<ActionItem[]>(() => {
-    if (!editing) {
-      return [
-        {
-          id: 'add-colis',
-          label: 'Ajouter un colis',
-          icon: Plus,
-          variant: 'primary',
-          priority: 100,
-          onClick: () =>
-            useUIStore.getState().openDynamicPanel({
-              type: 'create',
-              module: panelModule,
-              meta: {
-                subtype: 'cargo',
-                requestId: id,
-                requestTitle: cargoRequest?.title,
-                requestCode: cargoRequest?.request_code,
-              },
-            }),
-        },
-        {
-          id: 'print-lt',
-          label: 'Imprimer LT',
-          icon: FileText,
-          priority: 60,
-          loading: downloadCargoRequestLtPdf.isPending,
-          onClick: handlePrintLt,
-        },
-        {
-          id: 'edit',
-          label: 'Modifier',
-          icon: Pencil,
-          priority: 80,
-          onClick: startEdit,
-        },
-      ]
-    }
+    // OpsFlux pattern: no "Modifier" button — inline edit on
+    // permissioned fields only. Kept the domain actions (add cargo,
+    // print LT) that can't be expressed inline.
     return [
       {
-        id: 'cancel',
-        label: 'Annuler',
-        priority: 40,
-        onClick: () => setEditing(false),
-      },
-      {
-        id: 'save',
-        label: 'Enregistrer',
-        icon: Save,
+        id: 'add-colis',
+        label: 'Ajouter un colis',
+        icon: Plus,
         variant: 'primary',
         priority: 100,
-        loading: updateCargoRequest.isPending,
-        onClick: handleSave,
+        onClick: () =>
+          useUIStore.getState().openDynamicPanel({
+            type: 'create',
+            module: panelModule,
+            meta: {
+              subtype: 'cargo',
+              requestId: id,
+              requestTitle: cargoRequest?.title,
+              requestCode: cargoRequest?.request_code,
+            },
+          }),
+      },
+      {
+        id: 'print-lt',
+        label: 'Imprimer LT',
+        icon: FileText,
+        priority: 60,
+        loading: downloadCargoRequestLtPdf.isPending,
+        onClick: handlePrintLt,
       },
     ]
-  }, [editing, panelModule, id, cargoRequest, downloadCargoRequestLtPdf.isPending, handlePrintLt, startEdit, updateCargoRequest.isPending, handleSave])
+  }, [panelModule, id, cargoRequest, downloadCargoRequestLtPdf.isPending, handlePrintLt])
 
   if (isLoading || !cargoRequest) {
     return (

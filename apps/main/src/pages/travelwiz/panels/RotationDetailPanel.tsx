@@ -59,16 +59,11 @@ export function RotationDetailPanel({ id }: { id: string }) {
     }
   }
 
+  // OpsFlux pattern: no "Modifier" button — inline editing on
+  // permissioned fields only. Removed edit/cancel/save trio.
   const rotationDetailActions = useMemo<ActionItem[]>(() => {
-    const items: ActionItem[] = []
-    if (!editing) items.push({ id: 'edit', label: 'Modifier', icon: Pencil, variant: 'default', priority: 80, onClick: startEdit })
-    if (editing) {
-      items.push({ id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) })
-      items.push({ id: 'save', label: 'Enregistrer', icon: Save, variant: 'primary', priority: 100, loading: updateRotation.isPending, disabled: updateRotation.isPending, onClick: handleSave })
-    }
-    if (!editing) items.push({ id: 'close', label: 'Fermer', variant: 'default', priority: 50, onClick: closeDynamicPanel })
-    return items
-  }, [editing, startEdit, updateRotation.isPending, handleSave, closeDynamicPanel])
+    return [] as ActionItem[]
+  }, [])
 
   if (isLoading || !rotation) {
     return (

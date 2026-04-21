@@ -329,7 +329,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
 
       {/* Filter bar — wraps on narrow viewports so status chips +
           type/priority selects don't squash each other. */}
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-9 sm:py-0 sm:flex-nowrap shrink-0">
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
           {activityStatusOptions.map((opt) => (
             <button
@@ -379,7 +379,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
 
       {/* Advanced filter row (asset, project, date range) — wraps
           to 2 rows on mobile so each picker has room to breathe. */}
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-10 sm:py-0 sm:flex-nowrap shrink-0 bg-background-subtle">
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-10 shrink-0 bg-background-subtle">
         <div className="flex-1 min-w-[180px] max-w-[260px]">
           <AssetPicker
             value={filters.assetId}

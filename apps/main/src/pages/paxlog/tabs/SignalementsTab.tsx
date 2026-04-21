@@ -107,7 +107,7 @@ export function SignalementsTab() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 sm:h-9 sm:py-0 sm:flex-nowrap shrink-0">
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
         <button onClick={() => setActiveOnly(!activeOnly)}
           className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors', activeOnly ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
           {t('paxlog.signalements.active_only')}

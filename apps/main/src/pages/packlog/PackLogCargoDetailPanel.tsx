@@ -381,59 +381,36 @@ export function CargoDetailPanel({ id }: { id: string }) {
     ? cargoRequests.find((request) => request.id === cargo.request_id) ?? null
     : null
 
+  // OpsFlux pattern: no edit-mode switch — inline edit directly on
+  // permissioned fields (double-click InlineEditable rows). Only
+  // domain actions that can't be expressed inline remain.
   const actionItems = useMemo<ActionItem[]>(() => {
-    if (!editing) {
-      const items: ActionItem[] = []
-      if (cargoRequest) {
-        items.push({
-          id: 'open-request',
-          label: 'Ouvrir la demande',
-          icon: FileText,
-          priority: 50,
-          onClick: () =>
-            useUIStore.getState().openDynamicPanel({
-              type: 'detail',
-              module: panelModule,
-              id: cargoRequest.id,
-              meta: { subtype: 'cargo-request' },
-            }),
-        })
-      }
+    const items: ActionItem[] = []
+    if (cargoRequest) {
       items.push({
-        id: 'label-pdf',
-        label: 'Etiquette PDF',
-        icon: Printer,
-        loading: labelPdf.isPending,
-        priority: 60,
-        onClick: () => labelPdf.mutate({ id }),
+        id: 'open-request',
+        label: 'Ouvrir la demande',
+        icon: FileText,
+        priority: 50,
+        onClick: () =>
+          useUIStore.getState().openDynamicPanel({
+            type: 'detail',
+            module: panelModule,
+            id: cargoRequest.id,
+            meta: { subtype: 'cargo-request' },
+          }),
       })
-      items.push({
-        id: 'edit',
-        label: 'Modifier',
-        icon: Pencil,
-        priority: 80,
-        onClick: startEdit,
-      })
-      return items
     }
-    return [
-      {
-        id: 'cancel',
-        label: 'Annuler',
-        priority: 40,
-        onClick: () => setEditing(false),
-      },
-      {
-        id: 'save',
-        label: 'Enregistrer',
-        icon: Save,
-        loading: updateCargo.isPending,
-        variant: 'primary',
-        priority: 100,
-        onClick: handleSave,
-      },
-    ]
-  }, [editing, cargoRequest, panelModule, id, labelPdf, startEdit, updateCargo.isPending, handleSave])
+    items.push({
+      id: 'label-pdf',
+      label: 'Etiquette PDF',
+      icon: Printer,
+      loading: labelPdf.isPending,
+      priority: 60,
+      onClick: () => labelPdf.mutate({ id }),
+    })
+    return items
+  }, [cargoRequest, panelModule, id, labelPdf])
 
   if (isLoading || !cargo) {
     return (

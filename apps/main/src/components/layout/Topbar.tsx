@@ -481,14 +481,22 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
             {showUserMenu && (
               <div
-                className="absolute right-0 top-full mt-1 w-56 rounded-lg bg-popover py-1 shadow-pajamas"
-                style={{ zIndex: 'var(--z-dropdown)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+                // Glassy backdrop + accent strip vocabulary — matches
+                // NotificationCenter / ThemeMenu / AnnouncementCenter.
+                // motion-safe entrance: slight fade + 4px slide.
+                className="absolute right-0 top-full mt-1.5 w-60 rounded-xl bg-popover/95 backdrop-blur-md py-1 overflow-hidden border border-border/60 shadow-[0_10px_32px_-8px_rgba(0,0,0,0.25)] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150"
+                style={{ zIndex: 'var(--z-dropdown)' }}
               >
+                {/* Top accent strip — primary → highlight, 2px */}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary via-primary to-[hsl(var(--highlight))]"
+                />
                 {user && (
-                  <div className="px-3 py-2.5 border-b border-border flex items-center gap-3">
-                    <UserAvatar size={32} />
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{user.first_name} {user.last_name}</p>
+                  <div className="px-3 py-2.5 border-b border-border/60 flex items-center gap-3 bg-gradient-to-br from-primary/[0.04] to-transparent">
+                    <UserAvatar size={36} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground truncate font-display tracking-tight">{user.first_name} {user.last_name}</p>
                       <p className="text-xs text-muted-foreground truncate">@{user.email?.split('@')[0]}</p>
                     </div>
                   </div>
@@ -527,24 +535,24 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 <div className="py-1">
                   <button
                     onClick={() => { setShowUserMenu(false); navigate(ROUTES.settings) }}
-                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent rounded-sm mx-0 transition-colors"
+                    className="group flex w-full items-center gap-2.5 px-3 py-2 text-sm text-popover-foreground hover:bg-accent/60 hover:text-foreground hover:pl-3.5 rounded-md mx-1 transition-all"
                   >
                     <UserIcon size={14} />
                     {t('nav.profile')}
                   </button>
                   <button
                     onClick={() => { setShowUserMenu(false); navigate(ROUTES.settings) }}
-                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent rounded-sm mx-0 transition-colors"
+                    className="group flex w-full items-center gap-2.5 px-3 py-2 text-sm text-popover-foreground hover:bg-accent/60 hover:text-foreground hover:pl-3.5 rounded-md mx-1 transition-all"
                   >
                     <Settings size={14} />
                     {t('nav.settings')}
                   </button>
                 </div>
-                <div className="my-0.5 h-px bg-border" />
+                <div className="my-0.5 h-px bg-border/60" />
                 <div className="py-1">
                   <button
                     onClick={() => { setShowUserMenu(false); logout(); navigate(ROUTES.login) }}
-                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-destructive hover:bg-accent rounded-sm mx-0 transition-colors"
+                    className="group flex w-full items-center gap-2.5 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 hover:pl-3.5 rounded-md mx-1 transition-all"
                   >
                     <LogOut size={14} />
                     {t('nav.logout')}

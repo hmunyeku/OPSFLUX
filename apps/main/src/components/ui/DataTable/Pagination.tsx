@@ -62,9 +62,11 @@ export function DataTablePaginationBar({
               key={p}
               onClick={() => onPageChange(p as number)}
               className={cn(
-                'min-w-[28px] sm:min-w-[22px] h-[28px] sm:h-[22px] rounded text-[11px] font-medium transition-colors tabular-nums',
+                'min-w-[28px] sm:min-w-[22px] h-[28px] sm:h-[22px] rounded-md text-[11px] font-semibold transition-all tabular-nums',
                 p === page
-                  ? 'bg-primary/10 text-primary'
+                  // Active page: gradient primary → primary-hover, soft
+                  // shadow — consistent with PageNavBar active pills.
+                  ? 'text-primary-foreground shadow-[0_1px_4px_-1px_hsl(var(--primary)/0.35)] bg-gradient-to-br from-primary to-primary-hover'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
             >

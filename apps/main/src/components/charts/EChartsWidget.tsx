@@ -26,16 +26,47 @@ export interface EChartsWidgetProps {
   onChartClick?: (params: Record<string, unknown>) => void
 }
 
-// OpsFlux design-system palette — rich, distinct, high-contrast
-const COLOR_PALETTE = [
-  '#3b82f6', // blue-500
+// Read an HSL CSS custom property (e.g. "24 95% 55%") and convert to #rrggbb.
+// Returns null if running SSR or the property isn't set.
+function hslVarToHex(varName: string): string | null {
+  if (typeof window === 'undefined') return null
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim()
+  // Expected form: "H S% L%" — e.g. "220 90% 56%"
+  const m = raw.match(/^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/)
+  if (!m) return null
+  const h = Number(m[1]) / 360
+  const s = Number(m[2]) / 100
+  const l = Number(m[3]) / 100
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1
+    if (t > 1) t -= 1
+    if (t < 1 / 6) return p + (q - p) * 6 * t
+    if (t < 1 / 2) return q
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+    return p
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+  const p = 2 * l - q
+  const r = Math.round(hue2rgb(p, q, h + 1 / 3) * 255)
+  const g = Math.round(hue2rgb(p, q, h) * 255)
+  const b = Math.round(hue2rgb(p, q, h - 1 / 3) * 255)
+  const toHex = (n: number) => n.toString(16).padStart(2, '0')
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+// OpsFlux design-system palette — lead with brand --primary / --highlight so
+// charts "feel OpsFlux" at a glance, then expand into a rich categorical
+// set for multi-series diversity. The two brand hues are resolved lazily
+// so theme swaps (light/dark) pick up correctly.
+const FALLBACK_PRIMARY = '#3b82f6'
+const FALLBACK_HIGHLIGHT = '#f97316'
+const EXTRA_PALETTE = [
   '#22c55e', // green-500
-  '#f59e0b', // amber-500
-  '#ef4444', // red-500
   '#8b5cf6', // violet-500
   '#14b8a6', // teal-500
+  '#ef4444', // red-500
   '#ec4899', // pink-500
-  '#f97316', // orange-500
+  '#f59e0b', // amber-500
   '#06b6d4', // cyan-500
   '#a855f7', // purple-500
   '#84cc16', // lime-500
@@ -43,6 +74,12 @@ const COLOR_PALETTE = [
   '#d946ef', // fuchsia-500
   '#64748b', // slate-500
 ]
+
+function buildPalette(): string[] {
+  const primary = hslVarToHex('--primary') || FALLBACK_PRIMARY
+  const highlight = hslVarToHex('--highlight') || FALLBACK_HIGHLIGHT
+  return [primary, highlight, ...EXTRA_PALETTE]
+}
 
 // Semantic colors for known status/weather/category names
 // Keys are lowercased + non-alphanumeric chars replaced by _ (matching getDataColor normalisation)
@@ -92,9 +129,9 @@ const SEMANTIC_COLORS: Record<string, string> = {
 }
 
 /** Get color for a data point name — semantic first, then palette fallback */
-function getDataColor(name: string, index: number): string {
+function getDataColor(palette: string[], name: string, index: number): string {
   const key = String(name).toLowerCase().replace(/[^a-z0-9_]/g, '_')
-  return SEMANTIC_COLORS[key] || COLOR_PALETTE[index % COLOR_PALETTE.length]
+  return SEMANTIC_COLORS[key] || palette[index % palette.length]
 }
 
 export function EChartsWidget({
@@ -116,6 +153,9 @@ export function EChartsWidget({
 
   const option = useMemo(() => {
     if (!Array.isArray(data) || data.length === 0) return null
+    // Rebuild palette per option calculation so theme swaps pick up the
+    // correct --primary / --highlight values.
+    const COLOR_PALETTE = buildPalette()
 
     const baseTextStyle = {
       color: isDark ? '#a1a1aa' : '#6b7280',
@@ -196,7 +236,7 @@ export function EChartsWidget({
               data: data.map((d, j) => ({
                 value: d[field] ?? 0,
                 // Single series: each bar gets a different color from palette
-                ...(isSingleSeries ? { itemStyle: { color: getDataColor(String(d[xField] ?? ''), j) } } : {}),
+                ...(isSingleSeries ? { itemStyle: { color: getDataColor(COLOR_PALETTE, String(d[xField] ?? ''), j) } } : {}),
               })),
               barMaxWidth: 32,
               barMinHeight: 3,
@@ -390,7 +430,7 @@ export function EChartsWidget({
               data: data.map((d, i) => ({
                 name: String(d[xField] ?? ''),
                 value: d[yFields[0]] ?? 0,
-                itemStyle: { color: getDataColor(String(d[xField] ?? ''), i) },
+                itemStyle: { color: getDataColor(COLOR_PALETTE, String(d[xField] ?? ''), i) },
               })),
             },
           ],
@@ -561,7 +601,7 @@ export function EChartsWidget({
               data: data.map((d, i) => ({
                 name: String(d[xField] ?? ''),
                 value: d[yFields[0]] ?? 0,
-                itemStyle: { color: getDataColor(String(d[xField] ?? ''), i) },
+                itemStyle: { color: getDataColor(COLOR_PALETTE, String(d[xField] ?? ''), i) },
               })),
               label: { show: true, fontSize: 10, color: '#fff' },
               breadcrumb: { show: false },

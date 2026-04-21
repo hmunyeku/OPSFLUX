@@ -551,7 +551,11 @@ export function SectionColumns({
         // with its internal DetailFieldGrid providing up to 2-col layout.
         // This keeps max 2 data columns total (was 4 before: 2 side-sections
         // × 2 fields each).
-        'grid gap-y-5 grid-cols-1',
+        //
+        // gap-y-8 (was 5): sections need proper breathing room so each
+        // group of fields reads as its own thing rather than running
+        // into the next section.
+        'grid gap-y-8 grid-cols-1',
         className,
       )}
     >
@@ -576,13 +580,13 @@ export function DetailFieldGrid({
   return (
     <div
       className={cn(
-        'grid gap-x-8 gap-y-0 grid-cols-1',
-        // 2 cols once the container is at least 500px wide so each field has
-        // ~240px for its value — enough for typical dates / labels without
-        // breaking long strings character-by-character.
-        // Capped at 2 columns max per UX request: more columns made labels
-        // hard to scan and value columns too narrow on dense forms.
-        '@[500px]:grid-cols-2',
+        'grid gap-x-10 gap-y-0 grid-cols-1',
+        // 2 cols once the container is at least 700px wide. Each field
+        // row has a 160px label + ~150px min value + 40px gap, so two
+        // columns need ≥680px to sit side-by-side without cramping the
+        // label into ellipsis. Below that we stack single-column which
+        // is more readable on narrow detail panels.
+        '@[700px]:grid-cols-2',
         className,
       )}
     >
@@ -788,7 +792,7 @@ export const panelInputClass = 'gl-form-input'
 export function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0">
-      <span className="text-sm text-muted-foreground w-28 shrink-0 truncate" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0">{value}</span>
     </div>
   )
@@ -796,8 +800,18 @@ export function DetailRow({ label, value }: { label: string; value: React.ReactN
 
 export function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-sm font-semibold text-foreground pt-2 pb-1">
-      {children}
+    <div className="relative flex items-center gap-3 pt-3 pb-2 mt-2 first:mt-0">
+      {/* Left accent strip — same gradient vocabulary as the sidebar
+          active indicator, giving sections a clear anchor without
+          stealing visual weight. */}
+      <span
+        aria-hidden="true"
+        className="inline-block h-4 w-[3px] rounded-full bg-gradient-to-b from-primary to-highlight"
+      />
+      <span className="text-[13px] font-semibold font-display tracking-tight text-foreground">
+        {children}
+      </span>
+      <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border/60 to-transparent" />
     </div>
   )
 }
@@ -950,7 +964,7 @@ export function InlineEditableRow({
   if (editing) {
     return (
       <div className="flex items-center gap-3 py-1.5 border-b border-border/50">
-        <span className="text-sm text-muted-foreground w-28 shrink-0 truncate" title={label}>{label}</span>
+        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
         <div className="flex-1 flex items-center gap-1.5">
           <input
             type={type}
@@ -987,7 +1001,7 @@ export function InlineEditableRow({
       onDoubleClick={startEdit}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-sm text-muted-foreground w-28 shrink-0 truncate" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}{suffix && value ? ` ${suffix}` : ''}</span>
       {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
@@ -1030,7 +1044,7 @@ export function InlineEditableSelect({
   if (editing && !disabled) {
     return (
       <div className="flex items-center gap-3 py-1.5 border-b border-border/50">
-        <span className="text-sm text-muted-foreground w-28 shrink-0 truncate" title={label}>{label}</span>
+        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
         <div className="flex-1">
           <select
             value={draft}
@@ -1057,7 +1071,7 @@ export function InlineEditableSelect({
       onDoubleClick={startEdit}
       title={disabled ? undefined : 'Double-cliquer pour modifier'}
     >
-      <span className="text-sm text-muted-foreground w-28 shrink-0 truncate" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}</span>
       {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
@@ -1145,7 +1159,7 @@ export function InlineEditableCombobox({
   if (editing) {
     return (
       <div ref={containerRef} className="flex items-center gap-3 py-1.5 border-b border-border/50 relative">
-        <span className="text-sm text-muted-foreground w-28 shrink-0 truncate" title={label}>{label}</span>
+        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
         <div className="flex-1 relative">
           <div className="flex items-center gap-1">
             <input
@@ -1185,7 +1199,7 @@ export function InlineEditableCombobox({
       onDoubleClick={startEdit}
       title="Double-cliquer pour modifier"
     >
-      <span className="text-sm text-muted-foreground w-28 shrink-0 truncate" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayLabel || '—'}</span>
       <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />
     </div>
@@ -1281,7 +1295,7 @@ export function InlineEditableTags({
       onDoubleClick={() => !disabled && setEditing(true)}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-sm text-muted-foreground w-28 shrink-0 truncate" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0">
         <span className="gl-badge gl-badge-neutral">{displayLabel}</span>
       </span>
@@ -1295,7 +1309,7 @@ export function InlineEditableTags({
 export function ReadOnlyRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0">
-      <span className="text-sm text-muted-foreground w-28 shrink-0 truncate" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0">{value}</span>
     </div>
   )

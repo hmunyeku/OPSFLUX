@@ -714,7 +714,7 @@ export function FormSection({
                 {title}
               </legend>
             </button>
-            <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border/60 to-transparent" />
+            <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border-strong/70 via-border to-transparent" />
             {headerExtra && <span>{headerExtra}</span>}
           </div>
         ) : (
@@ -726,7 +726,7 @@ export function FormSection({
             <legend className="text-[13px] font-semibold font-display tracking-tight text-foreground">
               {title}
             </legend>
-            <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border/60 to-transparent" />
+            <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border-strong/70 via-border to-transparent" />
             {headerExtra && <span>{headerExtra}</span>}
           </div>
         )
@@ -824,7 +824,7 @@ export function SectionHeader({ children }: { children: React.ReactNode }) {
       <span className="text-[13px] font-semibold font-display tracking-tight text-foreground">
         {children}
       </span>
-      <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border/60 to-transparent" />
+      <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border-strong/70 via-border to-transparent" />
     </div>
   )
 }

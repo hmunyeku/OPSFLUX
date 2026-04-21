@@ -111,7 +111,7 @@ function RegistryTree({
   t: (key: string) => string
 }) {
   return (
-    <aside className="w-72 shrink-0 border-r border-border bg-background-subtle/40 p-3">
+    <aside className="w-full sm:w-72 shrink-0 border-b sm:border-b-0 sm:border-r border-border bg-background-subtle/40 p-3 max-h-[40vh] sm:max-h-none overflow-y-auto">
       <div className="space-y-1">
         <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('settings.imputations.references_title')}
@@ -321,7 +321,11 @@ function RegistryTab() {
       : t('settings.imputations.assignments_description')
 
   return (
-    <div className="flex h-full min-h-0">
+    // On mobile the side-tree + main-content split collapses into a
+    // vertical stack so the main content gets full viewport width
+    // (was squashed to ~100px next to a 288px fixed aside on 390px
+    // viewports). Desktop keeps the familiar two-pane layout.
+    <div className="flex flex-col sm:flex-row h-full min-h-0">
       <RegistryTree
         section={section}
         filter={filter}

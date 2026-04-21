@@ -804,8 +804,8 @@ export const panelInputClass = 'gl-form-input'
 
 export function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0">
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
+    <div className="flex items-start gap-4 py-2 border-b border-border/50 last:border-0">
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0">{value}</span>
     </div>
   )
@@ -977,7 +977,7 @@ export function InlineEditableRow({
   if (editing) {
     return (
       <div className="flex items-center gap-3 py-1.5 border-b border-border/50">
-        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
+        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
         <div className="flex-1 flex items-center gap-1.5">
           <input
             type={type}
@@ -1008,13 +1008,13 @@ export function InlineEditableRow({
   return (
     <div
       className={cn(
-        "group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
+        "group flex items-start gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
         !disabled && "hover:bg-accent/50 cursor-pointer",
       )}
       onDoubleClick={startEdit}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}{suffix && value ? ` ${suffix}` : ''}</span>
       {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
@@ -1057,7 +1057,7 @@ export function InlineEditableSelect({
   if (editing && !disabled) {
     return (
       <div className="flex items-center gap-3 py-1.5 border-b border-border/50">
-        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
+        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
         <div className="flex-1">
           <select
             value={draft}
@@ -1078,13 +1078,13 @@ export function InlineEditableSelect({
   return (
     <div
       className={cn(
-        'group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors',
+        'group flex items-start gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors',
         !disabled && 'hover:bg-accent/50 cursor-pointer',
       )}
       onDoubleClick={startEdit}
       title={disabled ? undefined : 'Double-cliquer pour modifier'}
     >
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}</span>
       {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
@@ -1172,7 +1172,7 @@ export function InlineEditableCombobox({
   if (editing) {
     return (
       <div ref={containerRef} className="flex items-center gap-3 py-1.5 border-b border-border/50 relative">
-        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
+        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
         <div className="flex-1 relative">
           <div className="flex items-center gap-1">
             <input
@@ -1208,11 +1208,11 @@ export function InlineEditableCombobox({
 
   return (
     <div
-      className="group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg hover:bg-accent/50 -mx-2 px-2 cursor-pointer transition-colors"
+      className="group flex items-start gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg hover:bg-accent/50 -mx-2 px-2 cursor-pointer transition-colors"
       onDoubleClick={startEdit}
       title="Double-cliquer pour modifier"
     >
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayLabel || '—'}</span>
       <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />
     </div>
@@ -1302,13 +1302,13 @@ export function InlineEditableTags({
   return (
     <div
       className={cn(
-        "group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
+        "group flex items-start gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
         !disabled && "hover:bg-accent/50 cursor-pointer",
       )}
       onDoubleClick={() => !disabled && setEditing(true)}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0">
         <span className="gl-badge gl-badge-neutral">{displayLabel}</span>
       </span>
@@ -1321,8 +1321,8 @@ export function InlineEditableTags({
 
 export function ReadOnlyRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0">
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 truncate" title={label}>{label}</span>
+    <div className="flex items-start gap-4 py-2 border-b border-border/50 last:border-0">
+      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0">{value}</span>
     </div>
   )

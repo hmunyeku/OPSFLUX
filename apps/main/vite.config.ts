@@ -167,15 +167,17 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_DEV_PROXY_TARGET || 'http://localhost:8000',
         changeOrigin: true,
+        secure: false,
       },
       '/static': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_DEV_PROXY_TARGET || 'http://localhost:8000',
         changeOrigin: true,
+        secure: false,
       },
       '/ws': {
-        target: 'ws://localhost:8000',
+        target: process.env.VITE_DEV_PROXY_TARGET || 'ws://localhost:8000',
         ws: true,
       },
     },

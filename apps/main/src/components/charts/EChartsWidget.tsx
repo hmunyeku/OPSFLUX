@@ -633,7 +633,13 @@ export function EChartsWidget({
   return (
     <ReactECharts
       option={{ ...option, animation: true, animationDuration: 800, animationEasing: 'cubicOut', animationDurationUpdate: 400 }}
-      style={{ width: '100%', height }}
+      // `touchAction: 'pan-y'` lets the page keep scrolling vertically
+      // when the user swipes up/down over a chart on mobile. Without
+      // it, ECharts' internal touch handlers swallowed the gesture —
+      // the chart would try to pan, the page would stay put, and the
+      // dashboard read as "scroll bloqué" whenever a chart widget
+      // happened to be under the user's thumb.
+      style={{ width: '100%', height, touchAction: 'pan-y' }}
       theme={isDark ? 'dark' : undefined}
       opts={{ renderer: 'canvas' }}
       notMerge

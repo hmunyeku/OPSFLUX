@@ -828,7 +828,7 @@ function KPISparkline({ data, color }: { data: number[]; color: string }) {
     animation: false,
   }), [data, color])
 
-  return <ReactECharts option={option} style={{ height: '100%', width: '100%' }} opts={{ renderer: 'svg' }} />
+  return <ReactECharts option={option} style={{ height: '100%', width: '100%', touchAction: 'pan-y' }} opts={{ renderer: 'svg' }} />
 }
 
 // ── Group Widget — Container for mini-KPI tiles ────────────────
@@ -1245,7 +1245,7 @@ function GanttWidget({ data }: { data: unknown[] }) {
 
   return (
     <div className="flex flex-col h-full">
-      <ReactECharts option={option} style={{ height: '100%', width: '100%' }} opts={{ renderer: 'svg' }} />
+      <ReactECharts option={option} style={{ height: '100%', width: '100%', touchAction: 'pan-y' }} opts={{ renderer: 'svg' }} />
       {/* Status legend — ultra-compact */}
       <div className="flex items-center gap-2 flex-wrap px-1 pb-0.5 shrink-0 border-t border-border/40 pt-0.5 mt-0.5">
         {([['in_progress', 'En cours'], ['completed', 'Terminé'], ['planned', 'Planifié'], ['draft', 'Brouillon']] as [string, string][]).map(([k, l]) => (

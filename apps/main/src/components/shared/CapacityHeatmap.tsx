@@ -567,7 +567,7 @@ export function CapacityHeatmap({
       <div style={{ width: totalChartWidth, minWidth: '100%', height: chartHeight }}>
         <ReactECharts
           option={option}
-          style={{ height: '100%', width: '100%' }}
+          style={{ height: '100%', width: '100%', touchAction: 'pan-y' }}
           opts={{ renderer: 'canvas' }}
           notMerge
           lazyUpdate

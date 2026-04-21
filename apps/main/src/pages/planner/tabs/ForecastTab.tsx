@@ -116,7 +116,7 @@ export function ForecastTab() {
               <TrendingUp size={13} className="text-primary" /> {t('planner.forecast.cumulative_title')}
             </div>
             <ReactECharts
-              style={{ height: 300 }}
+              style={{ height: 300, touchAction: 'pan-y' }}
               option={{
                 tooltip: { trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: '#94a3b8' } } },
                 legend: {

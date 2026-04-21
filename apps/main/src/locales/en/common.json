@@ -1359,7 +1359,7 @@
     "tabs": {
       "projets": "Projects",
       "tableur": "Spreadsheet",
-      "planning": "Planning"
+      "planning": "Gantt"
     },
     "fields": {
       "project_code": "Project code",

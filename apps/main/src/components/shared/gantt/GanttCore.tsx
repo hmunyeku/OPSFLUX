@@ -125,6 +125,7 @@ export function GanttCore(props: GanttCoreProps) {
     minHeight = 400,
     className,
     extraSettingsContent,
+    leadingToolbar,
     footerRow,
     workloadShowCumulative,
     workloadBarWidthPct,
@@ -969,7 +970,13 @@ export function GanttCore(props: GanttCoreProps) {
     >
       {/* ── Toolbar ──────────────────────────────────────────── */}
       {showToolbar && (
-        <div data-gantt-toolbar className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30 shrink-0">
+        <div data-gantt-toolbar className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b bg-muted/30 shrink-0">
+          {/* Host-provided leading slot (e.g. project summary chips) */}
+          {leadingToolbar && (
+            <div className="flex items-center gap-2 pr-2 mr-1 border-r border-border/40 shrink-0">
+              {leadingToolbar}
+            </div>
+          )}
           {/* Navigation */}
           <button onClick={() => shift(-1)} className="p-1 rounded hover:bg-muted" title="Précédent">
             <ChevronLeft className="h-4 w-4" />

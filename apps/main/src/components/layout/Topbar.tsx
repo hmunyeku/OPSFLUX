@@ -34,6 +34,7 @@ import { CommandPalette, useCommandPalette } from '@/components/ui/CommandPalett
 import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
 // NotificationCenter and AnnouncementCenter removed — merged into AssistantPanel
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
+import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { safeLocal } from '@/lib/safeStorage'
 import { ROUTES } from '@/lib/routes'
 
@@ -466,13 +467,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             <ThemeMenu />
           </span>
 
-          <button
-            onClick={toggleLanguage}
-            className="hidden sm:flex h-7 items-center rounded-lg px-1.5 text-xs font-medium text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors uppercase"
-            title={i18n.language === 'fr' ? 'English' : 'Français'}
-          >
-            {i18n.language}
-          </button>
+          <LanguageSwitcher />
 
           <button
             data-tour="assistant-button"

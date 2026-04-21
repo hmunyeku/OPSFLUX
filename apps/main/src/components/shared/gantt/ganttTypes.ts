@@ -353,6 +353,15 @@ export interface GanttCoreProps {
    */
   extraSettingsContent?: ReactNode | ((settings: GanttSettings) => ReactNode)
   /**
+   * Extra content rendered at the very start of the toolbar row
+   * (before scale switcher / actions). Use for per-host chips that
+   * belong on the same visual line as the Gantt controls instead
+   * of eating a separate strip above the chart — e.g. the
+   * Projets "1 projet(s) · 0 tâches" summary was moved here so
+   * the Planning tab doesn't waste a full row on two tiny pills.
+   */
+  leadingToolbar?: ReactNode
+  /**
    * Optional sticky footer row rendered at the bottom of the gantt
    * body. Layout works identically to a regular GanttRow (label on the
    * panel, heatmap cells on the body) but the footer is PINNED to the

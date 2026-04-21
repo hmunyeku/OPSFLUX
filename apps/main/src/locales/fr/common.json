@@ -1439,7 +1439,7 @@
       "projets": "Projets",
       "tableur": "Tableur",
       "kanban": "Kanban",
-      "planning": "Planning"
+      "planning": "Gantt"
     },
     "columns": {
       "code": "Code",

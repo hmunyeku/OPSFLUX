@@ -940,20 +940,28 @@ export function ProjectGanttWrapper() {
 
   const isLoading = projLoading || taskQueries.some(q => q.isLoading)
 
+  // Project selector + summary chips are now rendered as a
+  // leadingToolbar slot inside the Gantt toolbar so the Planning
+  // tab doesn't waste a full row above the chart.
+  const leadingToolbar = (
+    <>
+      <button
+        onClick={() => setShowProjectSelector(true)}
+        className="text-xs px-2.5 py-1 rounded-md border border-border hover:bg-muted transition-colors"
+      >
+        {projectSelection.mode === 'all' ? 'Tous les projets' : `${projectSelection.projectIds.length} projet(s)`}
+      </button>
+      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+        {projects.length} projets · {rows.length - projects.length} tâches
+      </span>
+    </>
+  )
+
   return (
     <>
-      <div className="mb-2 flex items-center gap-2">
-        <button
-          onClick={() => setShowProjectSelector(true)}
-          className="text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted"
-        >
-          {projectSelection.mode === 'all' ? 'Tous les projets' : `${projectSelection.projectIds.length} projet(s)`}
-        </button>
-        <span className="text-xs text-muted-foreground">{projects.length} projets · {rows.length - projects.length} tâches</span>
-      </div>
-
       <div className="flex-1 min-h-[400px]">
         <GanttCore
+          leadingToolbar={leadingToolbar}
           rows={rows}
           bars={bars}
           dependencies={deps}

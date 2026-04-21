@@ -71,7 +71,7 @@ export function LanguageSwitcher() {
 
   // If the user has a preferred language on their profile we apply
   // it silently at app start — no chip in the header needed.
-  if (user?.preferred_language) return null
+  if (user?.language) return null
 
   // If only one language is active there is nothing to switch to.
   if (languages.length < 2) return null

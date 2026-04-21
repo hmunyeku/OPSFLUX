@@ -309,11 +309,10 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     qc.invalidateQueries({ queryKey: ['acting-context'] })
   }
 
-  const toggleLanguage = () => {
-    const newLang = i18n.language === 'fr' ? 'en' : 'fr'
-    i18n.changeLanguage(newLang)
-    safeLocal.setItem('language', newLang)
-  }
+  // `toggleLanguage` was the old hardcoded fr↔en handler for the
+  // removed topbar button. LanguageSwitcher now owns this behaviour
+  // and reads the full enabled-languages list from the API.
+
 
   // ⌘K opens CommandPalette
   useEffect(() => {

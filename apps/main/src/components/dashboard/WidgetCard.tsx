@@ -722,9 +722,16 @@ function KPIWidget({
     <div className="flex flex-col h-full">
       {/* ── Top section: icon + value + trend (shrink-0) ── */}
       <div className="flex items-start gap-3 shrink-0">
-        {/* Icon badge */}
-        <div className={cn('h-8 w-8 rounded-md flex items-center justify-center shrink-0', iconPreset.bg)}>
-          <IconComp className={cn('h-4 w-4', iconPreset.fg)} />
+        {/* Icon badge — slightly larger (40px) with a layered look
+            (ring + subtle gradient) so it reads as a first-class
+            visual element next to the big KPI number instead of a
+            tiny decorative chip. */}
+        <div className={cn(
+          'h-10 w-10 rounded-lg flex items-center justify-center shrink-0',
+          'bg-gradient-to-br from-white/40 to-transparent dark:from-white/[0.04]',
+          iconPreset.bg,
+        )}>
+          <IconComp className={cn('h-[18px] w-[18px]', iconPreset.fg)} />
         </div>
         {/* Value + trend */}
         <div className="flex-1 min-w-0">

@@ -957,4 +957,45 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     ],
     elementHelp: {},
   },
+  moc: {
+    title: 'MOCTrack — Management of Change',
+    icon: '🔀',
+    description:
+      "Gérer le cycle de vie des modifications : enregistrement, évaluation des risques, approbations hiérarchiques, mise en œuvre et clôture avec retour d'expérience.",
+    workflows: [
+      {
+        title: 'Créer et soumettre un MOC',
+        requiredPermission: 'moc.create',
+        steps: [
+          'Cliquez sur "Nouveau MOC" depuis la liste',
+          'Remplissez titre, description, justification métier',
+          'Indiquez si c\'est un véritable changement (Oui/Non) pour débloquer la revue hiérarchique',
+          'Classifiez (type, catégorie, urgence) et associez le site / projet impacté',
+          'Complétez l\'analyse de risques : probabilité × gravité = niveau global',
+          'Soumettez : le workflow route automatiquement vers le validateur compétent',
+        ],
+      },
+      {
+        title: 'Valider ou rejeter un MOC',
+        requiredAnyPermissions: ['moc.validate', 'moc.approve'],
+        steps: [
+          'Ouvrez le MOC depuis votre corbeille ou depuis la liste',
+          'Revoyez l\'analyse de risques, les pièces jointes, l\'impact opérationnel',
+          'Ajoutez vos commentaires dans la zone de revue',
+          'Cliquez "Approuver" pour avancer, "Rejeter" pour renvoyer avec demande de compléments',
+          'La prochaine étape est déterminée par le workflow configuré (peut être multi-niveaux)',
+        ],
+      },
+    ],
+    tips: [
+      'Le champ "véritable changement" est déterminant : un MOC marqué Non contourne la revue hiérarchique complète',
+      'Les pièces jointes acceptent PDF, images, tableurs — limitez à 25 Mo par fichier',
+      'Une fois approuvé, le MOC passe en phase de mise en œuvre : mettez à jour les jalons depuis l\'onglet Suivi',
+      'La clôture déclenche une revue post-implémentation obligatoire (REX / lessons learned)',
+    ],
+    elementHelp: {
+      is_real_change: 'Cochez Oui si ce MOC induit un changement réel par rapport au processus existant. Non = simple clarification / mise en forme, contourne la revue hiérarchique.',
+      risk_level: 'Calculé automatiquement à partir de la probabilité et de la gravité. Au-dessus d\'un seuil (configurable), une revue supplémentaire est requise.',
+    },
+  },
 }

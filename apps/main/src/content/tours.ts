@@ -161,4 +161,59 @@ export const GUIDED_TOURS: GuidedTour[] = [
       { target: 'assistant-button', title: 'Capture d\'écran + vidéo', content: 'Depuis l\'onglet Ticket du panel, vous pouvez joindre une capture d\'écran, un enregistrement vidéo, ou un fichier. Les bugs embarquent en plus un log console auto-capturé — très utile pour le support.' },
     ],
   },
+  {
+    id: 'tiers-basics',
+    title: 'Premiers pas avec les Tiers',
+    description: 'Annuaire unifié : entreprises, sous-traitants, fournisseurs, contacts.',
+    module: 'tiers',
+    steps: [
+      { target: 'main-content', title: 'Entreprises & contacts', content: 'Le module Tiers centralise toutes vos relations externes : clients, sous-traitants, fournisseurs, partenaires. Chaque entreprise a sa fiche, ses adresses, ses identifiants légaux et ses contacts.' },
+      { target: 'search-bar', title: 'Recherche rapide', content: 'Tapez un nom, un code (TIR-YYYY-NNNN), un SIRET ou un domaine pour retrouver instantanément une entreprise. Ctrl+K ouvre la palette globale.' },
+      { target: 'main-content', title: 'Blocage & conformité', content: 'Un tier peut être bloqué (ne plus apparaître dans les sélecteurs) ou associé à des exigences de conformité (assurance, KYC). Les règles vivent dans l\'onglet Conformité.' },
+    ],
+  },
+  {
+    id: 'workflow-basics',
+    title: 'Premiers pas avec les Workflows',
+    description: 'Visualiser et configurer les chaînes d\'approbation.',
+    module: 'workflow',
+    steps: [
+      { target: 'main-content', title: 'Définitions de workflow', content: 'Chaque module (ADS, MOC, Cargo…) peut être régi par un workflow. Une définition décrit les états possibles, les transitions permises et qui peut les déclencher.' },
+      { target: 'main-content', title: 'Steps & assignations', content: 'Un step représente un nœud : qui valide, dans quel délai, avec quelle action (approuver / rejeter / demander des compléments). Les assignations peuvent être nominatives, par rôle, ou dynamiques (hiérarchie, manager, responsable site).' },
+      { target: 'main-content', title: 'Instances en cours', content: 'L\'onglet Instances montre toutes les demandes en cours d\'approbation : qui doit agir, depuis quand, quel retard. C\'est votre vue "corbeille globale" des décisions en attente.' },
+    ],
+  },
+  {
+    id: 'dashboard-basics',
+    title: 'Personnaliser votre Tableau de bord',
+    description: 'Widgets, disposition, partage entre équipes.',
+    module: 'dashboard',
+    steps: [
+      { target: 'main-content', title: 'Widgets modulaires', content: 'Le dashboard est composé de widgets autonomes. Chaque module expose les siens (KPIs PaxLog, courbe Conformité, carte PackLog…). Vous pouvez les mélanger librement.' },
+      { target: 'main-content', title: 'Mode édition', content: 'Le bouton "Modifier" active le mode édition : glissez-déposez, redimensionnez, ajoutez depuis le catalogue, ou retirez les widgets non pertinents. Chaque utilisateur a sa propre disposition.' },
+      { target: 'main-content', title: 'Rafraîchissement', content: 'Les widgets se rafraîchissent en arrière-plan. Pour un refresh forcé, utilisez l\'icône circulaire sur le widget concerné.' },
+    ],
+  },
+  {
+    id: 'imputations-basics',
+    title: 'Premiers pas avec les Imputations',
+    description: 'Plan analytique : BU, entités, centres de coût, références budgétaires.',
+    module: 'imputations',
+    steps: [
+      { target: 'main-content', title: 'Arbre analytique', content: 'Les Imputations structurent votre plan de coûts : BU → entité → centre de coût → référence. Toutes les saisies de PaxLog, PackLog, Planner y pointent pour alimenter le reporting financier.' },
+      { target: 'search-bar', title: 'Rechercher une référence', content: 'Cherchez par code ou par libellé. Les références inactives ne remontent pas dans les formulaires — désactivez plutôt que supprimer pour conserver l\'historique.' },
+      { target: 'main-content', title: 'Imports CSV', content: 'Pour initialiser ou mettre à jour en masse, utilisez l\'import CSV : un template pré-rempli est disponible et le système détecte doublons et références orphelines avant commit.' },
+    ],
+  },
+  {
+    id: 'settings-basics',
+    title: 'Naviguer dans les Paramètres',
+    description: 'RBAC, dictionnaires, intégrations, modèles d\'e-mail et PDF.',
+    module: 'settings',
+    steps: [
+      { target: 'main-content', title: 'Permissions & rôles', content: 'L\'onglet RBAC liste tous les rôles et leurs permissions. Un rôle est un sac de permissions ; assignez-le à un utilisateur ou à un groupe. Les permissions wildcard (*) réservent l\'accès total aux administrateurs.' },
+      { target: 'main-content', title: 'Dictionnaires configurables', content: 'Catégories de visite, modes de transport, classifications HAZMAT… ces listes vivent dans l\'onglet Dictionnaire et sont traduites par langue. Modifier une valeur se répercute instantanément dans tous les formulaires.' },
+      { target: 'main-content', title: 'Modèles e-mail & PDF', content: 'Personnalisez les notifications et les exports PDF avec votre charte : logo, couleurs, variables Jinja. Les templates supportent les traductions par langue (fallback FR).' },
+    ],
+  },
 ]

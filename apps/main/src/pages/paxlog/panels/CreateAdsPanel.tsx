@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import { useCreateAds } from '@/hooks/usePaxlog'
 import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
-import { useProjects } from '@/hooks/useProjets'
 import { useState } from 'react'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormSection, FormGrid, DynamicPanelField, TagSelector, panelInputClass } from '@/components/layout/DynamicPanel'
@@ -20,7 +19,6 @@ export function CreateAdsPanel() {
   const createAds = useCreateAds()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const currentUser = useAuthStore((s) => s.user)
-  const { data: projects } = useProjects({ page: 1, page_size: 100 })
   const [companySearch, setCompanySearch] = useState('')
   const visitCategoryOptions = useDictionaryOptions('visit_category')
   const transportModeOptions = useDictionaryOptions('transport_mode')
@@ -52,20 +50,19 @@ export function CreateAdsPanel() {
     is_round_trip_no_overnight: false,
   })
 
-  const adsChecklist = [
-    { label: t('paxlog.create_ads.checklist.destination'), done: !!form.site_entry_asset_id },
-    { label: t('paxlog.create_ads.checklist.category'), done: !!form.visit_category },
-    { label: t('paxlog.create_ads.checklist.period'), done: !!form.start_date && !!form.end_date },
-    { label: t('paxlog.create_ads.checklist.purpose'), done: form.visit_purpose.trim().length > 0 },
+  // Minimal pre-flight — used to enable/disable the Create button.
+  // The 4 gates match the backend's required fields; displayed as a
+  // compact progress counter at the top of the form rather than 4
+  // separate cards + 5 summary tiles which felt heavy and duplicated
+  // the form below.
+  const adsChecks = [
+    !!form.site_entry_asset_id,
+    !!form.visit_category,
+    !!form.start_date && !!form.end_date,
+    form.visit_purpose.trim().length > 0,
   ]
-  const adsReady = adsChecklist.every((item) => item.done)
-  const selectedVisitCategory = visitCategoryOptions.find((option) => option.value === form.visit_category)?.label || t('paxlog.create_ads.summary.undefined')
-  const selectedProjectLabel = (projects?.items ?? []).find((project) => project.id === form.project_id)
-  const selectedOutboundMode = transportModeOptions.find((option) => option.value === form.outbound_transport_mode)?.label || t('paxlog.create_ads.summary.to_define')
-  const selectedReturnMode = transportModeOptions.find((option) => option.value === form.return_transport_mode)?.label || t('paxlog.create_ads.summary.to_define')
-  const selectedAllowedCompaniesLabel = allowedCompanies.length > 0
-    ? allowedCompanies.map((company) => company.name).join(', ')
-    : t('common.none')
+  const adsReady = adsChecks.every(Boolean)
+  const adsProgress = adsChecks.filter(Boolean).length
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,42 +100,20 @@ export function CreateAdsPanel() {
       <form id="create-ads-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
         <FormSection title={t('paxlog.create_ads.sections.request')}>
-          <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
               {t('paxlog.create_ads.intro')}
             </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {adsChecklist.map((item) => (
-                <div key={item.label} className="flex items-center gap-2 text-xs">
-                  <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300')}>
-                    {item.done ? '✓' : '•'}
-                  </span>
-                  <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-md border border-border bg-card px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.format')}</p>
-              <p className="mt-1 text-sm font-semibold text-foreground">{form.type === 'individual' ? t('paxlog.create_ads.type.individual') : t('paxlog.create_ads.type.team')}</p>
-            </div>
-            <div className="rounded-md border border-border bg-card px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.category')}</p>
-              <p className="mt-1 text-sm font-semibold text-foreground">{selectedVisitCategory}</p>
-            </div>
-            <div className="rounded-md border border-border bg-card px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.project')}</p>
-              <p className="mt-1 text-sm font-semibold text-foreground truncate">{selectedProjectLabel ? `${selectedProjectLabel.code} — ${selectedProjectLabel.name}` : t('paxlog.create_ads.summary.bu_entity_imputation')}</p>
-            </div>
-            <div className="rounded-md border border-border bg-card px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.transports')}</p>
-              <p className="mt-1 text-sm font-semibold text-foreground truncate">{selectedOutboundMode} / {selectedReturnMode}</p>
-            </div>
-            <div className="rounded-md border border-border bg-card px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.allowed_companies')}</p>
-              <p className="mt-1 text-sm font-semibold text-foreground truncate">{selectedAllowedCompaniesLabel}</p>
-            </div>
+            <span
+              className={cn(
+                'shrink-0 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium',
+                adsReady
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+              )}
+            >
+              {adsProgress}/4
+            </span>
           </div>
         </FormSection>
 

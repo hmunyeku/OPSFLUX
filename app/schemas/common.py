@@ -1161,7 +1161,7 @@ class NotificationPreferenceUpdate(BaseModel):
 class ProfileUpdate(BaseModel):
     first_name: str | None = Field(None, min_length=1, max_length=100)
     last_name: str | None = Field(None, min_length=1, max_length=100)
-    language: str | None = Field(None, pattern="^(fr|en)$")
+    language: str | None = Field(None, pattern="^[a-z]{2}(-[A-Z]{2})?$")
     # HR Identity (self-service)
     passport_name: str | None = None
     gender: str | None = None
@@ -1270,7 +1270,7 @@ class EmailTemplateUpdate(BaseModel):
 
 
 class EmailTemplateVersionCreate(BaseModel):
-    language: str = Field(default="fr", pattern="^(fr|en)$")
+    language: str = Field(default="fr", pattern="^[a-z]{2}(-[A-Z]{2})?$")
     subject: str = Field(..., min_length=1, max_length=500)
     body_html: str = Field(..., min_length=1)
     is_active: bool = False
@@ -2120,7 +2120,7 @@ class PdfTemplateUpdate(BaseModel):
 
 
 class PdfTemplateVersionCreate(BaseModel):
-    language: str = Field(default="fr", pattern="^(fr|en)$")
+    language: str = Field(default="fr", pattern="^[a-z]{2}(-[A-Z]{2})?$")
     body_html: str = Field(..., min_length=1)
     header_html: str | None = None
     footer_html: str | None = None

@@ -95,7 +95,6 @@ async def on_planner_activity_validated(event: OpsFluxEvent) -> None:
                         db,
                         slug="planner.activity.validated",
                         entity_id=eid,
-                        language="fr",
                         to=email,
                         variables={
                             "reference": reference,
@@ -173,7 +172,6 @@ async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
                                 db,
                                 slug="planner.activity.cancelled",
                                 entity_id=eid,
-                                language="fr",
                                 to=email,
                                 variables={
                                     "reference": payload.get("reference", ""),
@@ -245,7 +243,6 @@ async def on_planner_conflict_detected(event: OpsFluxEvent) -> None:
                         db,
                         slug="planner.conflict.detected",
                         entity_id=eid,
-                        language="fr",
                         to=email,
                         variables={
                             "conflict_id": str(conflict_id),
@@ -559,7 +556,6 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
                     db,
                     slug="ads.approved",
                     entity_id=eid,
-                    language="fr",
                     to=email,
                     variables={
                         "reference": ads.reference,
@@ -936,7 +932,6 @@ async def on_compliance_rule_changed(event: OpsFluxEvent) -> None:
                         db,
                         slug="conformite.rule.changed",
                         entity_id=eid,
-                        language="fr",
                         to=email,
                         variables={
                             "rule_id": str(rule_id),
@@ -1096,7 +1091,6 @@ async def on_compliance_expired(event: OpsFluxEvent) -> None:
                         db,
                         slug="conformite.record.expired",
                         entity_id=UUID(str(entity_id)),
-                        language="fr",
                         to=email,
                         variables={
                             "record_id": str(record_id),
@@ -1250,7 +1244,6 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
                         db,
                         slug="project.status.changed",
                         entity_id=UUID(str(entity_id)),
-                        language="fr",
                         to=email,
                         variables={
                             "project_id": str(project_id),

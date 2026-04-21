@@ -20,16 +20,41 @@ router = APIRouter(prefix="/api/v1/dictionary", tags=["dictionary"])
 async def list_entries(
     category: str | None = Query(None, description="Filter by category"),
     active_only: bool = Query(False, description="Only active entries"),
+    language: str | None = Query(
+        None,
+        description="Override the display language. Defaults to the user's profile language.",
+        pattern="^[a-z]{2}(-[A-Z]{2})?$",
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """List dictionary entries with `label` localised to the user's
+    language when a translation exists in `translations` JSONB.
+
+    Resolution order:
+      1. explicit `language` query param
+      2. `current_user.language`
+      3. fallback: stored `label` (historically FR)
+    """
     query = select(DictionaryEntry).order_by(DictionaryEntry.category, DictionaryEntry.sort_order, DictionaryEntry.label)
     if category:
         query = query.where(DictionaryEntry.category == category)
     if active_only:
         query = query.where(DictionaryEntry.active == True)  # noqa: E712
     result = await db.execute(query)
-    return result.scalars().all()
+    entries = result.scalars().all()
+
+    # Localise labels. Mutates the ORM objects in-memory (they are not
+    # flushed — read-only transaction) so the Pydantic serialiser picks
+    # up the translated label automatically.
+    target_lang = (language or getattr(current_user, "language", None) or "fr").split("-")[0].lower()
+    if target_lang != "fr":  # fr is the stored default — skip work.
+        for e in entries:
+            if isinstance(e.translations, dict):
+                translated = e.translations.get(target_lang) or e.translations.get(target_lang.split("-")[0])
+                if isinstance(translated, str) and translated.strip():
+                    e.label = translated
+    return entries
 
 
 @router.post(

@@ -2336,12 +2336,48 @@ async def render_email(
     return subject, body_html
 
 
+async def _resolve_recipient_language(
+    db: AsyncSession,
+    *,
+    user_id: UUID | None,
+    to: str,
+    fallback: str = "fr",
+) -> str:
+    """Resolve the best language for an email recipient.
+
+    Order:
+      1. `user_id` → user.language if set
+      2. Look up user by `to` email → user.language if set
+      3. `fallback` (defaults to 'fr' for legacy reasons)
+
+    Normalises to a 2-letter code ('fr-FR' → 'fr') so the template
+    resolver can match its stored `language` field.
+    """
+    from app.models.common import User
+
+    lang: str | None = None
+    if user_id is not None:
+        res = await db.execute(select(User.language).where(User.id == user_id))
+        lang = res.scalar_one_or_none()
+    if not lang:
+        res = await db.execute(
+            select(User.language).where(
+                User.email == to,
+                User.active == True,  # noqa: E712
+            )
+        )
+        lang = res.scalar_one_or_none()
+    if not lang:
+        return fallback
+    return (lang.split("-")[0] or fallback).lower()
+
+
 async def render_and_send_email(
     db: AsyncSession,
     *,
     slug: str,
     entity_id: UUID | None,
-    language: str = "fr",
+    language: str | None = None,
     to: str,
     variables: dict | None = None,
     from_name: str | None = None,
@@ -2351,8 +2387,19 @@ async def render_and_send_email(
 ) -> bool:
     """Resolve, render, and send a templated email.
 
+    If `language` is None, the recipient's user.language is resolved
+    (by user_id or email) with a 'fr' fallback — so every caller
+    that used to pass `language="fr"` now gets the recipient's
+    preferred language without changing its call site.
+
     Returns True if sent, False if template not found/disabled.
     """
+    # Auto-resolve from user when the caller didn't specify a lang.
+    if not language:
+        language = await _resolve_recipient_language(
+            db, user_id=user_id, to=to,
+        )
+
     result = await render_email(
         db, slug=slug, entity_id=entity_id, language=language, variables=variables,
     )

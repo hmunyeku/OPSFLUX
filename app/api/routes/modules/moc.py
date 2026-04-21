@@ -1059,7 +1059,7 @@ async def upsert_moc_validation(
 )
 async def export_moc_pdf(
     moc_id: UUID,
-    language: str = Query("fr", pattern="^(fr|en)$"),
+    language: str | None = Query(None, pattern="^[a-z]{2}(-[A-Z]{2})?$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -1070,6 +1070,11 @@ async def export_moc_pdf(
     `moc.report`) without touching the code. Body variables are documented
     in `DEFAULT_PDF_TEMPLATES` for the slug.
     """
+    # Resolve language: explicit query param wins, otherwise fall back
+    # to the user's profile preference, with 'fr' as last-resort.
+    # Normalised to a 2-letter code so the template resolver can match.
+    if not language:
+        language = (getattr(current_user, "language", None) or "fr").split("-")[0].lower()
     from datetime import UTC, datetime as _dt
     from html import escape as _html_escape
     from app.core.pdf_templates import render_pdf

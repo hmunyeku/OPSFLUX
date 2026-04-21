@@ -58,23 +58,27 @@ export function DashboardGrid({ widgets: rawWidgets, mode, onRemoveWidget, onUpd
   const widgets = Array.isArray(rawWidgets) ? rawWidgets : []
   const { cols, scale } = useResponsiveCols()
 
-  // On small screens, reflow widgets: scale x/w proportionally, stack vertically
+  // On small screens, reflow widgets: stack full-width vertically.
+  //
+  // The previous logic scaled widget width proportionally (a widget
+  // of w=4 on a 12-col desktop became w=2 on a 6-col tablet) which
+  // rendered as a narrow left column with massive empty space to
+  // the right on tablets — not what users expect. A calm stack at
+  // full grid width is both more readable and more consistent with
+  // mobile behaviour.
   const responsiveWidgets = useMemo(() => {
-    if (scale >= 1) return widgets // desktop — no change
-    // Sort by original position (top-to-bottom, left-to-right)
+    if (scale >= 1) return widgets // desktop — honour user layout
+    // Sort by original position (top-to-bottom, left-to-right) so
+    // stacking preserves the visual hierarchy the user designed.
     const sorted = [...widgets].sort((a, b) => {
       const ay = a.position?.y ?? 0, by = b.position?.y ?? 0
       if (ay !== by) return ay - by
       return (a.position?.x ?? 0) - (b.position?.x ?? 0)
     })
-    // Reflow: stack widgets in order, full-width on mobile, half on tablet
     let currentY = 0
     return sorted.map((w) => {
-      const origW = w.position?.w ?? 4
       const origH = w.position?.h ?? 4
-      const newW = cols === COLS_MOBILE ? cols : Math.max(2, Math.min(cols, Math.round(origW * scale)))
-      const newX = 0 // stack left-aligned
-      const pos = { x: newX, y: currentY, w: newW, h: origH }
+      const pos = { x: 0, y: currentY, w: cols, h: origH }
       currentY += origH
       return { ...w, position: pos }
     })

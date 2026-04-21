@@ -89,7 +89,7 @@ function StatCard({
 }) {
   return (
     <div className="group relative rounded-xl border border-border/70 bg-gradient-to-br from-card to-card/60 p-4 flex flex-col gap-2 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-border">
-      <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-primary/80 to-[hsl(var(--highlight))]/40" />
+      <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-primary/80 to-highlight/40" />
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
         <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110', color)}>

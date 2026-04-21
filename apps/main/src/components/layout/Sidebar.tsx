@@ -143,7 +143,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
           // Hover: soft chrome bg, icon scales slightly, tint strip
           // slides in from the left.
           isActive
-            ? 'bg-gradient-to-r from-primary/[0.18] to-[hsl(var(--highlight))]/[0.10] text-foreground font-medium shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.12)]'
+            ? 'bg-gradient-to-r from-primary/[0.18] to-highlight/[0.10] text-foreground font-medium shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.12)]'
             : 'text-muted-foreground hover:bg-chrome-hover hover:text-foreground',
           collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2',
         )}
@@ -152,7 +152,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         {/* Active accent strip — gradient so it aligns with the StatCard
             vocabulary. Slightly thicker than before for better read. */}
         {isActive && !collapsed && (
-          <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full bg-gradient-to-b from-primary to-[hsl(var(--highlight))]" />
+          <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full bg-gradient-to-b from-primary to-highlight" />
         )}
         {/* Hover accent strip — fades in on non-active items so users
             get a consistent visual cue. */}

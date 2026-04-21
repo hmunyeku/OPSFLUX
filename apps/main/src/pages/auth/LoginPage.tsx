@@ -250,14 +250,14 @@ export function LoginPage() {
           login card stays the star. Pauses under prefers-reduced-motion. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 motion-reduce:hidden">
         <div className="absolute -top-24 -left-16 h-80 w-80 rounded-full bg-primary/30 blur-3xl motion-safe:animate-[pulse_9s_ease-in-out_infinite]" />
-        <div className="absolute -bottom-16 -right-16 h-96 w-96 rounded-full bg-[hsl(var(--highlight))]/25 blur-3xl motion-safe:animate-[pulse_11s_ease-in-out_infinite]" style={{ animationDelay: '-4s' }} />
+        <div className="absolute -bottom-16 -right-16 h-96 w-96 rounded-full bg-highlight/25 blur-3xl motion-safe:animate-[pulse_11s_ease-in-out_infinite]" style={{ animationDelay: '-4s' }} />
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl motion-safe:animate-[pulse_13s_ease-in-out_infinite]" style={{ animationDelay: '-7s' }} />
       </div>
 
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold tracking-tight font-display bg-gradient-to-br from-primary to-[hsl(var(--highlight))] bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold tracking-tight font-display bg-gradient-to-br from-primary to-highlight bg-clip-text text-transparent">
             OpsFlux
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{t('app.tagline')}</p>

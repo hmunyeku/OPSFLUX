@@ -95,7 +95,7 @@ const sizeConfig: Record<EmptyStateSize, {
     // Glassy tinted halo backing the icon — matches the 2026 warmer
     // aesthetic. A soft primary gradient behind gives depth; the icon
     // still inherits the variant colour so the semantic stays legible.
-    iconWrapper: 'mb-2 p-5 rounded-3xl bg-gradient-to-br from-primary/8 to-[hsl(var(--highlight))]/8 ring-1 ring-primary/10 shadow-[0_10px_40px_-15px_hsl(var(--primary)/0.25)] backdrop-blur-sm',
+    iconWrapper: 'mb-2 p-5 rounded-3xl bg-gradient-to-br from-primary/8 to-highlight/8 ring-1 ring-primary/10 shadow-[0_10px_40px_-15px_hsl(var(--primary)/0.25)] backdrop-blur-sm',
     titleClass: 'text-xl font-bold text-foreground font-display tracking-tight',
     descClass: 'text-base text-muted-foreground max-w-md',
     btnClass: 'gl-button-sm',

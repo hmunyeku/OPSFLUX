@@ -37,7 +37,7 @@ function LoaderOrb({ size }: { size: 'small' | 'large' }) {
   return (
     <div className={cn('relative', dim)} role="status" aria-label="Loading">
       {/* Soft primary → highlight halo behind the orb */}
-      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-[hsl(var(--highlight))]/20 blur-md motion-safe:animate-pulse" />
+      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-highlight/20 blur-md motion-safe:animate-pulse" />
       {/* Orbital ring — rotates slowly. Top-arc darker for a heartbeat feel. */}
       <div
         className="absolute inset-0 rounded-full border-2 border-transparent motion-safe:animate-spin motion-reduce:animate-pulse"
@@ -49,7 +49,7 @@ function LoaderOrb({ size }: { size: 'small' | 'large' }) {
       />
       {/* Core dot — gradient, no spin, for visual anchor */}
       <div className={cn(
-        'absolute inset-0 m-auto rounded-full bg-gradient-to-br from-primary to-[hsl(var(--highlight))] shadow-md shadow-primary/30',
+        'absolute inset-0 m-auto rounded-full bg-gradient-to-br from-primary to-highlight shadow-md shadow-primary/30',
         size === 'large' ? 'h-4 w-4' : 'h-2 w-2',
       )} />
     </div>

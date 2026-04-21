@@ -490,7 +490,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 {/* Top accent strip — primary → highlight, 2px */}
                 <span
                   aria-hidden="true"
-                  className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary via-primary to-[hsl(var(--highlight))]"
+                  className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary via-primary to-highlight"
                 />
                 {user && (
                   <div className="px-3 py-2.5 border-b border-border/60 flex items-center gap-3 bg-gradient-to-br from-primary/[0.04] to-transparent">

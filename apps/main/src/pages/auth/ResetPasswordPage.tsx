@@ -55,12 +55,16 @@ export function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background-subtle p-4">
-        <div className="w-full max-w-sm">
+      <div className="relative flex min-h-dvh items-center justify-center bg-background-subtle p-4 overflow-hidden">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 motion-reduce:hidden">
+          <div className="absolute -top-24 -left-16 h-80 w-80 rounded-full bg-primary/30 blur-3xl motion-safe:animate-[pulse_9s_ease-in-out_infinite]" />
+          <div className="absolute -bottom-16 -right-16 h-96 w-96 rounded-full bg-highlight/25 blur-3xl motion-safe:animate-[pulse_11s_ease-in-out_infinite]" style={{ animationDelay: '-4s' }} />
+        </div>
+        <div className="relative w-full max-w-sm">
           <div className="mb-6 text-center">
-            <h1 className="text-xl font-semibold text-primary">OpsFlux</h1>
+            <h1 className="text-3xl font-bold tracking-tight font-display bg-gradient-to-br from-primary to-highlight bg-clip-text text-transparent">OpsFlux</h1>
           </div>
-          <div className="rounded border border-border bg-card p-5 text-center">
+          <div className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur-md p-6 shadow-xl shadow-primary/5 text-center">
             <AlertTriangle size={24} className="mx-auto text-amber-500 mb-3" />
             <h2 className="text-sm font-medium text-foreground mb-2">{t('auth.reset_password_invalid_link')}</h2>
             <p className="text-xs text-muted-foreground mb-4">
@@ -79,15 +83,20 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background-subtle p-4">
-      <div className="w-full max-w-sm">
+    <div className="relative flex min-h-dvh items-center justify-center bg-background-subtle p-4 overflow-hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 motion-reduce:hidden">
+        <div className="absolute -top-24 -left-16 h-80 w-80 rounded-full bg-primary/30 blur-3xl motion-safe:animate-[pulse_9s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-16 -right-16 h-96 w-96 rounded-full bg-highlight/25 blur-3xl motion-safe:animate-[pulse_11s_ease-in-out_infinite]" style={{ animationDelay: '-4s' }} />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl motion-safe:animate-[pulse_13s_ease-in-out_infinite]" style={{ animationDelay: '-7s' }} />
+      </div>
+      <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="mb-6 text-center">
-          <h1 className="text-xl font-semibold text-primary">OpsFlux</h1>
+          <h1 className="text-3xl font-bold tracking-tight font-display bg-gradient-to-br from-primary to-highlight bg-clip-text text-transparent">OpsFlux</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{t('app.tagline')}</p>
         </div>
 
-        <div className="rounded border border-border bg-card p-5">
+        <div className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur-md p-6 shadow-xl shadow-primary/5">
           {success ? (
             /* Success state */
             <div className="text-center py-4">

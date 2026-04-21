@@ -267,7 +267,7 @@ export function StatCard({ label, value, icon: Icon, accent }: {
         : accent?.includes('amber') || accent?.includes('yellow')  ? 'from-amber-500/80 to-amber-400/40'
         : accent?.includes('emerald') || accent?.includes('green') ? 'from-emerald-500/80 to-emerald-400/40'
         : accent?.includes('violet') || accent?.includes('purple') ? 'from-violet-500/80 to-violet-400/40'
-        : 'from-primary/80 to-[hsl(var(--highlight))]/40',
+        : 'from-primary/80 to-highlight/40',
       )} />
       <div className="flex items-center gap-2 text-muted-foreground mb-1">
         <Icon size={13} />

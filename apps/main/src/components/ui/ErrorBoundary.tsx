@@ -31,12 +31,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
               further via a vignette so the error card stays legible. */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 motion-reduce:hidden">
             <div className="absolute -top-24 -left-16 h-80 w-80 rounded-full bg-destructive/25 blur-3xl motion-safe:animate-[pulse_9s_ease-in-out_infinite]" />
-            <div className="absolute -bottom-16 -right-16 h-96 w-96 rounded-full bg-[hsl(var(--highlight))]/20 blur-3xl motion-safe:animate-[pulse_11s_ease-in-out_infinite]" style={{ animationDelay: '-4s' }} />
+            <div className="absolute -bottom-16 -right-16 h-96 w-96 rounded-full bg-highlight/20 blur-3xl motion-safe:animate-[pulse_11s_ease-in-out_infinite]" style={{ animationDelay: '-4s' }} />
           </div>
 
           <div className="relative w-full max-w-md rounded-2xl border border-border/70 bg-card/90 backdrop-blur-md p-8 shadow-xl shadow-destructive/10 text-center motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-200">
             {/* Tinted halo behind the icon */}
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-destructive/15 to-[hsl(var(--highlight))]/10 ring-1 ring-destructive/20 shadow-[0_10px_40px_-15px_hsl(var(--destructive)/0.3)]">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-destructive/15 to-highlight/10 ring-1 ring-destructive/20 shadow-[0_10px_40px_-15px_hsl(var(--destructive)/0.3)]">
               <AlertTriangle size={32} className="text-destructive" strokeWidth={1.8} />
             </div>
             <h2 className="text-xl font-bold font-display tracking-tight">Une erreur est survenue</h2>

@@ -18,7 +18,7 @@ export function StatCard({ label, value, icon: Icon, accent }: { label: string; 
   return (
     <div className="group relative rounded-xl border border-border/70 bg-gradient-to-br from-background to-background/60 p-3 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-border">
       {/* Accent strip — see planner/shared.tsx for the full palette. */}
-      <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-primary/80 to-[hsl(var(--highlight))]/40" />
+      <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-primary/80 to-highlight/40" />
       <div className="flex items-center gap-2 text-muted-foreground mb-1">
         <Icon size={13} className={accent} />
         <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>

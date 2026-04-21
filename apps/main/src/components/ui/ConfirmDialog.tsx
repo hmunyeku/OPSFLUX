@@ -184,7 +184,7 @@ export function ConfirmDialog({
         {/* Top accent strip — matches Sidebar active + StatCard vocabulary */}
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary/80 via-primary to-[hsl(var(--highlight))]/40"
+          className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary/80 via-primary to-highlight/40"
         />
         {/* Header */}
         <div className="flex items-center gap-3 p-4 pb-2">

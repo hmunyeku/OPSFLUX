@@ -279,7 +279,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
         {!hasBgColor && (
           <div
             aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary/70 via-primary/30 to-[hsl(var(--highlight))]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary/70 via-primary/30 to-highlight/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
           />
         )}
         {/* Header — uppercase label + divider + hover toolbar */}

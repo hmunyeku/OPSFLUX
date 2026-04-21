@@ -62,15 +62,19 @@ export default function VerifyEmailPage() {
   }, [token, id])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <div className="w-full max-w-md rounded-xl border bg-card p-8 shadow-sm text-center">
+    <div className="relative flex min-h-dvh items-center justify-center bg-background-subtle p-4 overflow-hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 motion-reduce:hidden">
+        <div className="absolute -top-24 -left-16 h-80 w-80 rounded-full bg-primary/30 blur-3xl motion-safe:animate-[pulse_9s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-16 -right-16 h-96 w-96 rounded-full bg-highlight/25 blur-3xl motion-safe:animate-[pulse_11s_ease-in-out_infinite]" style={{ animationDelay: '-4s' }} />
+      </div>
+      <div className="relative w-full max-w-md rounded-2xl border border-border/70 bg-card/80 backdrop-blur-md p-8 shadow-xl shadow-primary/5 text-center">
         <div className="flex justify-center mb-6">
-          <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary/20 to-highlight/15 flex items-center justify-center ring-1 ring-primary/15">
             <Mail size={28} className="text-primary" />
           </div>
         </div>
 
-        <h1 className="text-xl font-semibold mb-2">Vérification d'email</h1>
+        <h1 className="text-xl font-semibold font-display tracking-tight mb-2">Vérification d'email</h1>
 
         {status === 'loading' && (
           <div className="py-8">

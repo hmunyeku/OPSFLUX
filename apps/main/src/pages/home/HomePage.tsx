@@ -261,7 +261,7 @@ export function HomePage() {
         className="pointer-events-none absolute inset-x-0 top-0 h-[420px] overflow-hidden motion-reduce:hidden"
       >
         <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-primary/25 blur-3xl motion-safe:animate-[pulse_8s_ease-in-out_infinite]" />
-        <div className="absolute -top-8 right-0 h-80 w-80 rounded-full bg-[hsl(var(--highlight))]/20 blur-3xl motion-safe:animate-[pulse_10s_ease-in-out_infinite]" style={{ animationDelay: '-3s' }} />
+        <div className="absolute -top-8 right-0 h-80 w-80 rounded-full bg-highlight/20 blur-3xl motion-safe:animate-[pulse_10s_ease-in-out_infinite]" style={{ animationDelay: '-3s' }} />
         <div className="absolute top-24 left-1/3 h-60 w-60 rounded-full bg-cyan-400/20 blur-3xl motion-safe:animate-[pulse_12s_ease-in-out_infinite]" style={{ animationDelay: '-6s' }} />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/40 to-background" />
       </div>
@@ -274,7 +274,7 @@ export function HomePage() {
             {firstName && (
               <>
                 ,{' '}
-                <span className="bg-gradient-to-br from-primary to-[hsl(var(--highlight))] bg-clip-text text-transparent">
+                <span className="bg-gradient-to-br from-primary to-highlight bg-clip-text text-transparent">
                   {firstName}
                 </span>
               </>

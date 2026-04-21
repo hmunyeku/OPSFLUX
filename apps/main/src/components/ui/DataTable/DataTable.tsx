@@ -785,7 +785,7 @@ export function DataTable<TData>({
                     // Hover: subtle accent wash — brightens the row without
                     // hiding zebra striping or data density.
                     isSelected
-                      ? 'bg-gradient-to-r from-primary/[0.10] to-[hsl(var(--highlight))]/[0.04]'
+                      ? 'bg-gradient-to-r from-primary/[0.10] to-highlight/[0.04]'
                       : 'hover:bg-accent/40',
                     (onRowClick || selectionMode) && 'cursor-pointer',
                     selectionMode && 'select-none',

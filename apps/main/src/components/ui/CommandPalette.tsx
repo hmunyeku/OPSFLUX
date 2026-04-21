@@ -341,7 +341,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         {/* Top accent strip — matches vocabulary of Sidebar / StatCard / ConfirmDialog */}
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary/70 via-primary to-[hsl(var(--highlight))]/40"
+          className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary/70 via-primary to-highlight/40"
         />
         {/* ── Search input ─────────────────────────────────── */}
         <div className="flex items-center gap-3 px-4 border-b border-border">

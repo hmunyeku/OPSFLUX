@@ -22,6 +22,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
+import { runSmartDetectors, type SmartItem } from '@/components/ui/smartSearchDetectors'
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -37,6 +38,9 @@ interface CommandItem {
   url: string
   subtitle?: string
   category: string
+  /** When 'copy' the item copies `copyValue` to clipboard on Enter. */
+  action?: 'copy' | 'navigate'
+  copyValue?: string
 }
 
 interface SearchResult {
@@ -137,12 +141,23 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       }
       PAGES.forEach((p) => items.push(p))
     } else {
-      // Filter static pages by query
+      // ── Smart detectors (calc, code, action, module jump) ──
+      // These appear FIRST so the most relevant action is always the
+      // top of the list and Enter triggers it immediately.
+      const smart: SmartItem[] = runSmartDetectors(query)
+      smart.forEach((s) => items.push(s))
+
+      // Filter static pages by query (only if no code/action match —
+      // otherwise the page list duplicates what the module-jump
+      // detector already surfaced).
       const q = query.toLowerCase()
-      const matchedPages = PAGES.filter((p) =>
-        p.label.toLowerCase().includes(q),
-      )
-      matchedPages.forEach((p) => items.push(p))
+      const hasModuleJump = smart.some((s) => s.category === 'Navigation')
+      if (!hasModuleJump) {
+        const matchedPages = PAGES.filter((p) =>
+          p.label.toLowerCase().includes(q),
+        )
+        matchedPages.forEach((p) => items.push(p))
+      }
 
       // Append API search results
       searchResults.forEach((r) => items.push(r))
@@ -230,9 +245,18 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     }
   }, [open])
 
-  // ── Navigation action ───────────────────────────────────────
+  // ── Navigation / copy action ────────────────────────────────
   const selectItem = useCallback(
     (item: CommandItem) => {
+      // Calculator / copy-action items: just copy the value and
+      // keep the palette open so the user can chain operations.
+      if (item.action === 'copy' && item.copyValue !== undefined) {
+        if (navigator.clipboard?.writeText) {
+          void navigator.clipboard.writeText(item.copyValue)
+        }
+        return
+      }
+
       // Persist to recents (use original page id for static pages)
       const pageId = item.id.startsWith('recent-')
         ? item.id.replace('recent-', '')
@@ -243,7 +267,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       }
 
       onOpenChange(false)
-      navigate(item.url)
+      if (item.url) navigate(item.url)
     },
     [navigate, onOpenChange],
   )

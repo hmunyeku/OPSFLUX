@@ -404,6 +404,8 @@ function CatalogTab() {
   )
 }
 
+type TrackingSubView = 'manifests' | 'cargo'
+
 function TrackingTab() {
   const { t, i18n } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -414,6 +416,7 @@ function TrackingTab() {
   const [scanInput, setScanInput] = useState('')
   const [scanTracking, setScanTracking] = useState('')
   const [scannedCargoId, setScannedCargoId] = useState<string | null>(null)
+  const [subView, setSubView] = useState<TrackingSubView>('manifests')
   const debouncedSearch = useDebounce(search, 250)
   const debouncedScan = useDebounce(scanTracking, 150)
   const { data, isLoading } = usePackLogCargo({ page, page_size: pageSize, search: debouncedSearch || undefined })
@@ -421,7 +424,7 @@ function TrackingTab() {
   const { data: scannedCargo } = usePackLogCargoItem(scannedCargoId ?? undefined)
   const { data: scanMatches, isLoading: isScanLoading } = usePackLogCargo({
     page: 1,
-    page_size: 8,
+    page_size: 6,
     search: debouncedScan || undefined,
   })
   const locale = i18n.language?.startsWith('fr') ? 'fr-FR' : 'en-US'
@@ -555,19 +558,37 @@ function TrackingTab() {
     { id: 'received_at', header: t('packlog.tracking.columns.last_event'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateTimeShort(row.original.received_at ?? row.original.created_at, locale)}</span> },
   ], [cargoStatusLabels, locale, t])
 
+  const pendingManifests = manifestGroups.filter((group) => group.actionableItems.length > 0)
+
+  // Compact stat pill — much tighter than the card variant so the
+  // tracking UI leaves room for the actual working area below.
+  const StatPill = ({ label, value, accent }: { label: string; value: number; accent?: string }) => (
+    <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-border/60 bg-card">
+      <span className={`text-base font-bold tabular-nums font-display ${accent ?? 'text-foreground'}`}>{value}</span>
+      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+    </div>
+  )
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label={t('packlog.tracking.stats.tracked')} value={stats.tracked} />
-        <StatCard label={t('packlog.tracking.stats.assigned')} value={stats.assigned} />
-        <StatCard label={t('packlog.tracking.stats.received')} value={stats.received} accent="text-emerald-600" />
-        <StatCard label={t('packlog.tracking.stats.pending_receipt')} value={stats.pendingReceipt} accent="text-amber-600" />
+      {/* ── Compact stats strip ───────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border">
+        <StatPill label={t('packlog.tracking.stats.tracked')} value={stats.tracked} />
+        <StatPill label={t('packlog.tracking.stats.assigned')} value={stats.assigned} />
+        <StatPill label={t('packlog.tracking.stats.received')} value={stats.received} accent="text-emerald-600" />
+        <StatPill label={t('packlog.tracking.stats.pending_receipt')} value={stats.pendingReceipt} accent="text-amber-600" />
       </div>
-      <div className="border-b border-border px-4 py-3">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-          <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.scan.title')}</p>
-            <div className="mt-2 flex gap-2">
+
+      {/* ── Two-column working area ──────────────────────── */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* LEFT rail — persistent field scanner */}
+        <aside className="shrink-0 lg:w-[340px] border-b lg:border-b-0 lg:border-r border-border bg-muted/10 flex flex-col">
+          <div className="px-4 py-3 border-b border-border/60 flex items-center gap-2">
+            <ScanSearch size={14} className="text-primary" />
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.scan.title')}</p>
+          </div>
+          <div className="px-4 py-3 space-y-3 overflow-y-auto">
+            <div className="flex gap-2">
               <input
                 type="text"
                 value={scanInput}
@@ -575,26 +596,32 @@ function TrackingTab() {
                 onKeyDown={(event) => { if (event.key === 'Enter') handleScanSubmit() }}
                 className="gl-form-input"
                 placeholder={t('packlog.tracking.scan.placeholder')}
+                autoFocus
               />
               <button className="gl-button-sm gl-button-default" onClick={handleScanSubmit}>
                 {t('packlog.tracking.scan.action')}
               </button>
             </div>
+
+            {/* Quick action target — highlighted result */}
             {quickTarget && (
-              <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-mono text-xs text-foreground">{quickTarget.tracking_code}</p>
-                    <p className="mt-1 text-sm font-medium text-foreground">{quickTarget.designation || quickTarget.description}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
+              <div className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-mono text-[11px] text-foreground truncate">{quickTarget.tracking_code}</p>
+                    <p className="mt-0.5 text-sm font-medium text-foreground truncate">{quickTarget.designation || quickTarget.description}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
                       {quickTarget.request_code ?? t('packlog.tracking.scan.no_request')} · {quickTarget.destination_name ?? quickTarget.receiver_name ?? t('packlog.tracking.scan.no_destination')}
                     </p>
                   </div>
-                  <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[quickTarget.status] ?? quickTarget.status}</span>
+                  <span className="gl-badge gl-badge-neutral shrink-0">{cargoStatusLabels[quickTarget.status] ?? quickTarget.status}</span>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('received')} disabled={receiveCargo.isPending || isCargoReceivedLike(quickTarget)}>
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                  <button className="gl-button-sm gl-button-confirm" onClick={() => handleQuickStatus('received')} disabled={receiveCargo.isPending || isCargoReceivedLike(quickTarget)}>
                     {t('packlog.tracking.actions.receive')}
+                  </button>
+                  <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: quickTarget.id, meta: { subtype: 'cargo' } })}>
+                    {t('packlog.tracking.actions.open')}
                   </button>
                   <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('damaged')} disabled={updateCargoStatus.isPending || isCargoReceivedLike(quickTarget)}>
                     {t('packlog.tracking.actions.damaged')}
@@ -602,120 +629,138 @@ function TrackingTab() {
                   <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('missing')} disabled={updateCargoStatus.isPending || isCargoReceivedLike(quickTarget)}>
                     {t('packlog.tracking.actions.missing')}
                   </button>
-                  <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: quickTarget.id, meta: { subtype: 'cargo' } })}>
-                    {t('packlog.tracking.actions.open')}
-                  </button>
                 </div>
               </div>
             )}
-          </div>
-          <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.scan_results.title')}</p>
-            <div className="mt-2 space-y-2">
-              {isScanLoading && debouncedScan ? (
-                <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.loading')}</p>
-              ) : scanCandidates.length > 0 ? (
-                scanCandidates.map((item) => (
-                  // Not using .gl-button here: its fixed height (h-8 /
-                  // h-10) clips the 3-line cargo description and the
-                  // overflowing text was rendering ON TOP of the next
-                  // result card. Custom auto-height button keeps the
-                  // same outlined look while letting content size
-                  // itself naturally.
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="flex w-full items-start justify-between gap-3 text-left rounded-lg border border-border/70 bg-background px-3 py-2 hover:bg-chrome hover:border-border transition-colors cursor-pointer"
-                    onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-mono text-xs text-foreground truncate">{item.tracking_code}</p>
-                      <p className="mt-1 text-sm font-medium text-foreground truncate">{item.designation || item.description}</p>
-                      <p className="mt-1 text-xs text-muted-foreground truncate">{item.request_code ?? '—'} · {item.voyage_code ?? t('packlog.tracking.scan_results.no_voyage')}</p>
-                    </div>
-                    <span className="gl-badge gl-badge-neutral shrink-0">{cargoStatusLabels[item.status] ?? item.status}</span>
-                  </button>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.empty')}</p>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="mt-3 rounded-lg border border-border/60 bg-card px-3 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.manifests.title')}</p>
-            <span className="text-xs text-muted-foreground">{t('packlog.tracking.manifests.count', { count: manifestGroups.filter((group) => group.actionableItems.length > 0).length })}</span>
-          </div>
-          <div className="mt-3 space-y-3">
-            {manifestGroups.some((group) => group.actionableItems.length > 0) ? (
-              manifestGroups.map((group) => {
-                if (group.actionableItems.length === 0) return null
-                const receivedCount = group.items.filter((item) => isCargoReceivedLike(item)).length
-                return (
-                  <div key={group.manifestId} className="rounded-lg border border-border/60 px-3 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-foreground">{group.manifest?.reference || group.manifestId}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {t('packlog.tracking.manifests.summary', { voyage: group.items[0]?.voyage_code ?? '—', received: receivedCount, total: group.items.length, pending: group.actionableItems.length })}
-                        </p>
+
+            {/* Type-ahead candidates — only when user typed & no exact match */}
+            {debouncedScan && !quickTarget && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.scan_results.title')}</p>
+                {isScanLoading ? (
+                  <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.loading')}</p>
+                ) : scanCandidates.length > 0 ? (
+                  scanCandidates.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="flex w-full items-start justify-between gap-2 text-left rounded-md border border-border/60 bg-background px-2.5 py-2 hover:bg-chrome hover:border-border transition-colors cursor-pointer"
+                      onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono text-[11px] text-foreground truncate">{item.tracking_code}</p>
+                        <p className="mt-0.5 text-xs font-medium text-foreground truncate">{item.designation || item.description}</p>
                       </div>
-                      <span className="gl-badge gl-badge-neutral">{group.manifest?.status ?? 'draft'}</span>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      {group.actionableItems.slice(0, 8).map((item) => (
-                        <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 px-2 py-2">
-                          <div className="min-w-0">
-                            <p className="font-mono text-xs text-foreground">{item.tracking_code}</p>
-                            <p className="truncate text-sm text-foreground">{item.designation || item.description}</p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[item.status] ?? item.status}</span>
-                            <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'received')} disabled={pendingCargoId === item.id}>
-                              {t('packlog.tracking.actions.receive')}
-                            </button>
-                            <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'damaged')} disabled={pendingCargoId === item.id}>
-                              {t('packlog.tracking.actions.damaged')}
-                            </button>
-                            <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'missing')} disabled={pendingCargoId === item.id}>
-                              {t('packlog.tracking.actions.missing')}
-                            </button>
-                            <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}>
-                              {t('packlog.tracking.actions.open')}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      {group.actionableItems.length > 8 && (
-                        <p className="text-xs text-muted-foreground">{t('packlog.tracking.manifests.more_pending', { count: group.actionableItems.length - 8 })}</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })
-            ) : (
-              <p className="text-xs text-muted-foreground">{t('packlog.tracking.manifests.empty')}</p>
+                      <span className="gl-badge gl-badge-neutral shrink-0 text-[10px]">{cargoStatusLabels[item.status] ?? item.status}</span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.empty')}</p>
+                )}
+              </div>
             )}
           </div>
+        </aside>
+
+        {/* RIGHT main — sub-nav + view */}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex items-center gap-1 px-4 pt-2 border-b border-border">
+            <button
+              type="button"
+              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${subView === 'manifests' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setSubView('manifests')}
+            >
+              {t('packlog.tracking.manifests.title')}
+              {pendingManifests.length > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-[10px] font-semibold">
+                  {pendingManifests.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${subView === 'cargo' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setSubView('cargo')}
+            >
+              {t('packlog.tracking.stats.tracked')}
+            </button>
+          </div>
+
+          {subView === 'manifests' ? (
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
+              {pendingManifests.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border/60 px-4 py-8 text-center">
+                  <p className="text-sm text-muted-foreground">{t('packlog.tracking.manifests.empty')}</p>
+                </div>
+              ) : (
+                pendingManifests.map((group) => {
+                  const receivedCount = group.items.filter((item) => isCargoReceivedLike(item)).length
+                  return (
+                    <div key={group.manifestId} className="rounded-lg border border-border/70 bg-card overflow-hidden">
+                      <div className="flex items-start justify-between gap-3 px-3 py-2.5 border-b border-border/60 bg-muted/20">
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground truncate">{group.manifest?.reference || group.manifestId}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {t('packlog.tracking.manifests.summary', { voyage: group.items[0]?.voyage_code ?? '—', received: receivedCount, total: group.items.length, pending: group.actionableItems.length })}
+                          </p>
+                        </div>
+                        <span className="gl-badge gl-badge-neutral shrink-0">{group.manifest?.status ?? 'draft'}</span>
+                      </div>
+                      <div className="divide-y divide-border/50">
+                        {group.actionableItems.slice(0, 8).map((item) => (
+                          <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-mono text-[11px] text-foreground">{item.tracking_code}</p>
+                              <p className="truncate text-sm text-foreground">{item.designation || item.description}</p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[item.status] ?? item.status}</span>
+                              <button className="gl-button-sm gl-button-confirm" onClick={() => handleManifestQuickStatus(item, 'received')} disabled={pendingCargoId === item.id}>
+                                {t('packlog.tracking.actions.receive')}
+                              </button>
+                              <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'damaged')} disabled={pendingCargoId === item.id}>
+                                {t('packlog.tracking.actions.damaged')}
+                              </button>
+                              <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'missing')} disabled={pendingCargoId === item.id}>
+                                {t('packlog.tracking.actions.missing')}
+                              </button>
+                              <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}>
+                                {t('packlog.tracking.actions.open')}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        {group.actionableItems.length > 8 && (
+                          <p className="px-3 py-2 text-xs text-muted-foreground">
+                            {t('packlog.tracking.manifests.more_pending', { count: group.actionableItems.length - 8 })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          ) : (
+            <PanelContent scroll={false}>
+              <DataTable<CargoItem>
+                columns={columns}
+                data={items}
+                isLoading={isLoading}
+                pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
+                onPaginationChange={setPage}
+                searchValue={search}
+                onSearchChange={(value) => { setSearch(value); setPage(1) }}
+                searchPlaceholder={t('packlog.tracking.search_placeholder')}
+                onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'cargo' } })}
+                emptyIcon={Truck}
+                emptyTitle={t('packlog.tracking.empty')}
+                storageKey="packlog-tracking"
+              />
+            </PanelContent>
+          )}
         </div>
       </div>
-      <PanelContent scroll={false}>
-        <DataTable<CargoItem>
-          columns={columns}
-          data={items}
-          isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
-          onPaginationChange={setPage}
-          searchValue={search}
-          onSearchChange={(value) => { setSearch(value); setPage(1) }}
-          searchPlaceholder={t('packlog.tracking.search_placeholder')}
-          onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'cargo' } })}
-          emptyIcon={Truck}
-          emptyTitle={t('packlog.tracking.empty')}
-          storageKey="packlog-tracking"
-        />
-      </PanelContent>
     </div>
   )
 }

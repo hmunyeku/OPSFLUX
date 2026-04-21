@@ -21,6 +21,7 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { LayoutGrid } from 'lucide-react'
 import type { DashboardWidget } from '@/services/dashboardService'
 import { WidgetCard } from './WidgetCard'
 import { cn } from '@/lib/utils'
@@ -107,10 +108,20 @@ export function DashboardGrid({ widgets: rawWidgets, mode, onRemoveWidget, onUpd
 
   if (!widgets || widgets.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-muted-foreground border border-dashed rounded-md">
-        {mode === 'edit'
-          ? 'Ajoutez des widgets depuis le catalogue pour personnaliser cet onglet.'
-          : 'Aucun widget configuré sur cet onglet.'}
+      <div className="flex flex-col items-center justify-center gap-3 h-full min-h-[340px] rounded-2xl border border-dashed border-border/70 bg-gradient-to-br from-background to-background/40 p-8 text-center">
+        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/15 to-highlight/10 flex items-center justify-center ring-1 ring-primary/10">
+          <LayoutGrid size={22} className="text-primary/70" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-medium font-display text-foreground">
+            {mode === 'edit' ? 'Personnalisez cet onglet' : 'Onglet vide'}
+          </p>
+          <p className="text-xs text-muted-foreground max-w-sm">
+            {mode === 'edit'
+              ? 'Ajoutez des widgets depuis le catalogue pour visualiser vos indicateurs clés.'
+              : 'Aucun widget n\u2019a encore été configuré sur cet onglet. Passez en mode édition pour en ajouter.'}
+          </p>
+        </div>
       </div>
     )
   }

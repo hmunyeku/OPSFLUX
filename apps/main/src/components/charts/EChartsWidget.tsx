@@ -60,19 +60,24 @@ function hslVarToHex(varName: string): string | null {
 // so theme swaps (light/dark) pick up correctly.
 const FALLBACK_PRIMARY = '#3b82f6'
 const FALLBACK_HIGHLIGHT = '#f97316'
+// Slightly desaturated palette for a calmer, more sophisticated feel.
+// We use the 400-level Tailwind shades (lighter, less saturated) rather
+// than the 500-level which felt too vibrant next to the brand
+// primary/highlight. Categorical distinction is preserved; the overall
+// chart reads as "data, not decoration".
 const EXTRA_PALETTE = [
-  '#22c55e', // green-500
-  '#8b5cf6', // violet-500
-  '#14b8a6', // teal-500
-  '#ef4444', // red-500
-  '#ec4899', // pink-500
-  '#f59e0b', // amber-500
-  '#06b6d4', // cyan-500
-  '#a855f7', // purple-500
-  '#84cc16', // lime-500
-  '#0ea5e9', // sky-500
-  '#d946ef', // fuchsia-500
-  '#64748b', // slate-500
+  '#4ade80', // green-400
+  '#a78bfa', // violet-400
+  '#2dd4bf', // teal-400
+  '#f87171', // red-400
+  '#f472b6', // pink-400
+  '#fbbf24', // amber-400
+  '#22d3ee', // cyan-400
+  '#c084fc', // purple-400
+  '#a3e635', // lime-400
+  '#38bdf8', // sky-400
+  '#e879f9', // fuchsia-400
+  '#94a3b8', // slate-400
 ]
 
 function buildPalette(): string[] {

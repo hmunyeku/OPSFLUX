@@ -59,7 +59,21 @@ export function DashboardCanvas({
     return () => ro.disconnect()
   }, [])
 
-  // Build layout from widget positions
+  // Build layout from widget positions.
+  //
+  // react-grid-layout lets us define a separate positioning per
+  // breakpoint. The user-edited layout targets the `lg` grid (12
+  // cols). On narrower viewports the widgets must reflow, otherwise
+  // they collapse to a narrow left column (a widget with w=4 out of
+  // 12 cols on desktop becomes w=4 out of 6 cols on tablet which
+  // reads as 2/3 width — squished with empty space to the right).
+  //
+  // Strategy:
+  //   • lg (>=1200px, 12 cols) — honour the user's saved layout
+  //   • md ( >=996px, 10 cols) — scale w proportionally (10/12)
+  //   • sm ( >=768px, 6 cols)  — stack widgets full-width, one per
+  //     row (h preserved) — cleanest read on tablet
+  //   • xs/xxs — same stacked approach, full-width of the grid
   const layouts = useMemo<ResponsiveLayouts>(() => {
     const lgLayout: LayoutItem[] = widgets.map((widget, idx) => ({
       i: widget.id || `w-${idx}`,
@@ -70,7 +84,31 @@ export function DashboardCanvas({
       minW: 2,
       minH: 2,
     }))
-    return { lg: lgLayout, md: lgLayout, sm: lgLayout, xs: lgLayout, xxs: lgLayout }
+    const mdLayout: LayoutItem[] = lgLayout.map((item) => ({
+      ...item,
+      x: Math.min(item.x, 10 - 1),
+      w: Math.max(2, Math.min(10, Math.round(item.w * (10 / 12)))),
+    }))
+    // On tablet/mobile each widget takes the full grid width and
+    // stacks vertically. We recompute y to keep the original
+    // ordering from the lg layout (top-to-bottom, left-to-right).
+    const stacked = (cols: number): LayoutItem[] => {
+      const sorted = [...lgLayout].sort((a, b) => (a.y - b.y) || (a.x - b.x))
+      let y = 0
+      return sorted.map((item) => {
+        const h = item.h
+        const out: LayoutItem = { ...item, x: 0, y, w: cols, h }
+        y += h
+        return out
+      })
+    }
+    return {
+      lg: lgLayout,
+      md: mdLayout,
+      sm: stacked(6),
+      xs: stacked(4),
+      xxs: stacked(2),
+    }
   }, [widgets])
 
   // When layout changes (drag or resize), sync positions back to widgets

@@ -136,7 +136,11 @@ export function DelegationsTab() {
                     <button
                       key={candidate.id}
                       type="button"
-                      className="gl-button gl-button-default flex w-full items-start text-left text-sm"
+                      // Custom outlined button — gl-button's fixed
+                      // height clipped the 2-line (name + email)
+                      // content. Auto-height keeps rows visually
+                      // separated in the dropdown.
+                      className="flex w-full items-start text-left text-sm rounded-md px-3 py-2 hover:bg-chrome transition-colors cursor-pointer"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
                         setDelegateId(candidate.id)
@@ -145,9 +149,9 @@ export function DelegationsTab() {
                         setShowCandidateDropdown(false)
                       }}
                     >
-                      <div>
-                        <p className="font-medium">{candidate.first_name} {candidate.last_name}</p>
-                        <p className="text-xs text-muted-foreground">{candidate.email}</p>
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{candidate.first_name} {candidate.last_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{candidate.email}</p>
                       </div>
                     </button>
                   ))}
@@ -321,7 +325,7 @@ export function DelegationsTab() {
                     <button
                       key={candidate.id}
                       type="button"
-                      className="gl-button gl-button-default flex w-full justify-between gap-4 text-left text-sm"
+                      className="flex w-full items-start justify-between gap-4 text-left text-sm rounded-md px-3 py-2 hover:bg-chrome transition-colors cursor-pointer"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
                         setActingContext(`simulate:${candidate.id}`)
@@ -329,11 +333,11 @@ export function DelegationsTab() {
                         setShowSimulationDropdown(false)
                       }}
                     >
-                      <div>
-                        <p className="font-medium">{candidate.first_name} {candidate.last_name}</p>
-                        <p className="text-xs text-muted-foreground">{candidate.email}</p>
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{candidate.first_name} {candidate.last_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{candidate.email}</p>
                       </div>
-                      <span className="text-xs text-primary font-medium shrink-0">{t('settings.delegations.simulate_action')}</span>
+                      <span className="text-xs text-primary font-medium shrink-0 self-center">{t('settings.delegations.simulate_action')}</span>
                     </button>
                   ))}
                 </div>

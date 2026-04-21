@@ -27,6 +27,7 @@ import {
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import { usePageSize } from '@/hooks/usePageSize'
@@ -888,68 +889,40 @@ export function WorkflowPage() {
         {canCreate && <ToolbarButton icon={Plus} label={t('workflow.create')} variant="primary" onClick={() => setShowCreate(true)} />}
       </PanelHeader>
 
+      {/* Shared PageNavBar — same visual vocabulary as PackLog,
+          PaxLog, TravelWiz, Support etc. The previous inline
+          segmented control was the only remaining page that didn't
+          match the rest of the app. */}
+      <PageNavBar
+        items={[
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { id: 'definitions', label: t('workflow.definitions'), icon: GitBranch },
+          { id: 'instances', label: t('workflow.instance_list'), icon: LayoutList },
+        ]}
+        activeId={activeTab}
+        onTabChange={(id) => {
+          setActiveTab(id as typeof activeTab)
+          if (id !== 'instances') setInstanceDefinitionFilter(undefined)
+        }}
+      />
       <PanelContent className="p-4">
-        {/* ── Top bar: Tabs + optional status filter + entity type.
-            On mobile the status filter pills and entity-type select
-            would collide with the main tab segmented control on the
-            same row — flex-wrap lets them drop to a second line. ── */}
-        <div className="flex flex-wrap items-center gap-3 gap-y-2 sm:gap-4 mb-3">
-          <div className="flex items-center gap-0.5 bg-accent/30 rounded-lg p-0.5">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={cn(
-                'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
-                activeTab === 'dashboard'
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
+        {/* Tab-specific secondary filter row (definitions only) — wraps
+            on narrow viewports so the pills + select never collide. */}
+        {activeTab === 'definitions' && (
+          <div className="flex flex-wrap items-center gap-3 gap-y-2 sm:gap-4 mb-3">
+            <StatusFilter value={statusFilter} onChange={setStatusFilter} counts={statusCounts} />
+            <select
+              value={entityTypeFilter}
+              onChange={(e) => setEntityTypeFilter(e.target.value)}
+              className="gl-form-input h-8 w-full sm:w-[210px] text-xs"
             >
-              <LayoutDashboard size={12} className="inline mr-1.5" />
-              Dashboard
-            </button>
-            <button
-              onClick={() => { setActiveTab('definitions'); setInstanceDefinitionFilter(undefined) }}
-              className={cn(
-                'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
-                activeTab === 'definitions'
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <GitBranch size={12} className="inline mr-1.5" />
-              {t('workflow.definitions')}
-            </button>
-            <button
-              onClick={() => { setActiveTab('instances'); setInstanceDefinitionFilter(undefined) }}
-              className={cn(
-                'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
-                activeTab === 'instances'
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <LayoutList size={12} className="inline mr-1.5" />
-              {t('workflow.instance_list')}
-            </button>
+              <option value="">{t('workflow.all_entity_types')}</option>
+              {entityTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </div>
-
-          {/* Status filter (definitions tab only) */}
-          {activeTab === 'definitions' && (
-            <>
-              <StatusFilter value={statusFilter} onChange={setStatusFilter} counts={statusCounts} />
-              <select
-                value={entityTypeFilter}
-                onChange={(e) => setEntityTypeFilter(e.target.value)}
-                className="gl-form-input h-8 w-full sm:w-[210px] text-xs"
-              >
-                <option value="">{t('workflow.all_entity_types')}</option>
-                {entityTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </>
-          )}
-        </div>
+        )}
 
         {/* ═══ Dashboard Tab ═══ */}
         {activeTab === 'dashboard' && <ModuleDashboard module="workflow" />}

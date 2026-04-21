@@ -35,7 +35,6 @@ import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
 // NotificationCenter and AnnouncementCenter removed — merged into AssistantPanel
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
-import { safeLocal } from '@/lib/safeStorage'
 import { ROUTES } from '@/lib/routes'
 
 interface TopbarProps {

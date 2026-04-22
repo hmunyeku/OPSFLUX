@@ -932,11 +932,26 @@ async def list_vectors(
 async def create_vector(
     body: VectorCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.vector.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    vector = TransportVector(entity_id=entity_id, **body.model_dump())
+    payload = body.model_dump()
+    staging_ref = payload.pop("staging_ref", None)
+    vector = TransportVector(entity_id=entity_id, **payload)
     db.add(vector)
+    await db.flush()
+    if staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="vector_staging",
+            final_owner_type="vector",
+            staging_ref=staging_ref,
+            final_owner_id=vector.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
     await db.commit()
     await db.refresh(vector)
     d = {c.key: getattr(vector, c.key) for c in vector.__table__.columns}
@@ -1262,11 +1277,26 @@ async def list_rotations(
 async def create_rotation(
     body: RotationCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.voyage.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    rotation = TransportRotation(entity_id=entity_id, **body.model_dump())
+    payload = body.model_dump()
+    staging_ref = payload.pop("staging_ref", None)
+    rotation = TransportRotation(entity_id=entity_id, **payload)
     db.add(rotation)
+    await db.flush()
+    if staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="rotation_staging",
+            final_owner_type="rotation",
+            staging_ref=staging_ref,
+            final_owner_id=rotation.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
     await db.commit()
     await db.refresh(rotation)
 

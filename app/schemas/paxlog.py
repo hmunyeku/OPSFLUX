@@ -941,6 +941,9 @@ class MissionNoticeCreate(BaseModel):
     per_pax_attachments_config: list[str] = []
     pax_quota: int = Field(default=0, ge=0)
     programs: list[MissionProgramCreate] = []
+    # Client-generated UUID used during create to stage polymorphic
+    # children (attachments, notes, etc.) before the AVM row exists.
+    staging_ref: UUID | None = None
 
 
 class MissionNoticeUpdate(BaseModel):

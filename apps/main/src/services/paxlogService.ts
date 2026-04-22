@@ -929,6 +929,8 @@ export interface MissionNoticeCreate {
   global_attachments_config?: string[]
   per_pax_attachments_config?: string[]
   programs?: MissionProgramCreate[]
+  /** Client-generated UUID to commit polymorphic children staged during Create. */
+  staging_ref?: string | null
 }
 
 export interface MissionNoticeUpdate {

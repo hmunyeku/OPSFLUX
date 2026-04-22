@@ -6,6 +6,9 @@ import {
   panelInputClass, type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { NoteManager } from '@/components/shared/NoteManager'
+import { useStagingRef } from '@/hooks/useStagingRef'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { useCreateRotation, useVectors } from '@/hooks/useTravelWiz'
@@ -15,6 +18,7 @@ import { CronScheduleBuilder } from './CronScheduleBuilder'
 export function CreateRotationPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createRotation = useCreateRotation()
+  const { stagingRef, stagingOwnerType } = useStagingRef('rotation')
   const { data: vectorsData } = useVectors({ page: 1, page_size: 100 })
   const { toast } = useToast()
   const { t } = useTranslation()
@@ -30,7 +34,7 @@ export function CreateRotationPanel() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await createRotation.mutateAsync(form)
+      await createRotation.mutateAsync({ ...form, staging_ref: stagingRef } as RotationCreate & { staging_ref?: string })
       toast({ title: t('travelwiz.toast.rotation_created'), variant: 'success' })
       closeDynamicPanel()
     } catch {
@@ -97,6 +101,14 @@ export function CreateRotationPanel() {
             <p className="text-xs text-muted-foreground mt-2">
               La rotation définit la cadence nominale. Les voyages opérationnels restent des occurrences concrètes générées ou planifiées sur cette base.
             </p>
+          </FormSection>
+
+          <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+            <AttachmentManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
+
+          <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+            <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
           </FormSection>
         </PanelContentLayout>
       </form>

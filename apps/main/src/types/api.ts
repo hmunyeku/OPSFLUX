@@ -1863,6 +1863,7 @@ export interface RotationCreate {
   departure_base_id: string
   schedule_cron?: string | null
   schedule_description?: string | null
+  staging_ref?: string | null
 }
 
 export interface RotationUpdate {

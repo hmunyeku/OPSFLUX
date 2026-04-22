@@ -27,6 +27,7 @@ class VectorCreate(BaseModel):
     home_base_id: UUID | None = None
     requires_weighing: bool = False
     mmsi_number: str | None = Field(None, max_length=20)
+    staging_ref: UUID | None = None
 
 
 class VectorUpdate(BaseModel):
@@ -108,6 +109,9 @@ class RotationCreate(BaseModel):
     departure_base_id: UUID
     schedule_cron: str | None = Field(None, max_length=100)
     schedule_description: str | None = Field(None, max_length=300)
+    # Client-generated UUID to commit polymorphic children (attachments,
+    # notes, …) staged during the Create panel.
+    staging_ref: UUID | None = None
 
 
 class RotationUpdate(BaseModel):

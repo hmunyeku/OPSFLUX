@@ -8,11 +8,16 @@ import { Briefcase, Loader2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { NoteManager } from '@/components/shared/NoteManager'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
+import { RichTextField } from '@/components/shared/RichTextField'
+import { useStagingRef } from '@/hooks/useStagingRef'
 
 export function CreateAvmPanel() {
   const { t } = useTranslation()
   const createAvm = useCreateAvm()
+  const { stagingRef, stagingOwnerType } = useStagingRef('avm')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const missionTypeOptions = useDictionaryOptions('mission_type')
   const missionActivityTypeOptions = useDictionaryOptions('mission_activity_type')
@@ -92,6 +97,7 @@ export function CreateAvmPanel() {
     await createAvm.mutateAsync({
       title: form.title,
       description: form.description || undefined,
+      staging_ref: stagingRef,
       planned_start_date: form.planned_start_date || undefined,
       planned_end_date: form.planned_end_date || undefined,
       mission_type: (form.mission_type || undefined) as 'standard' | 'vip' | 'regulatory' | 'emergency' | undefined,
@@ -191,7 +197,14 @@ export function CreateAvmPanel() {
             </DynamicPanelField>
           </FormGrid>
           <DynamicPanelField label={t('common.description')}>
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder={t('paxlog.create_avm.placeholders.description')} />
+            <RichTextField
+              value={form.description}
+              onChange={(html) => setForm({ ...form, description: html })}
+              rows={4}
+              placeholder={t('paxlog.create_avm.placeholders.description') as string}
+              imageOwnerType={stagingOwnerType}
+              imageOwnerId={stagingRef}
+            />
           </DynamicPanelField>
         </FormSection>
 
@@ -323,6 +336,14 @@ export function CreateAvmPanel() {
               {t('paxlog.create_avm.program.add_line')}
             </button>
           </div>
+        </FormSection>
+
+        <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+          <AttachmentManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+        </FormSection>
+
+        <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+          <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
         </FormSection>
         </PanelContentLayout>
       </form>

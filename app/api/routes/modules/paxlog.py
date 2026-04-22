@@ -10674,6 +10674,21 @@ async def create_avm(
                 contact_id=pax_entry.contact_id,
             ))
 
+    # Commit polymorphic children (attachments, notes, …) staged during
+    # the Create panel. owner_type='avm_staging' auto-falls back to
+    # paxlog.avm.update permission via check_polymorphic_owner_access.
+    if body.staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="avm_staging",
+            final_owner_type="avm",
+            staging_ref=body.staging_ref,
+            final_owner_id=avm.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
+
     await db.commit()
     await db.refresh(avm)
 

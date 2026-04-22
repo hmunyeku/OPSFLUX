@@ -247,12 +247,7 @@ async def _seed_namespace(db, namespace: str, languages: list[str], existing_lan
 
 async def seed() -> None:
     async with async_session_factory() as db:
-        # Languages the seed script will attempt to push. For codes that
-        # lack a bundled frontend JSON (apps/main/src/locales/<code>/),
-        # the script falls through with a [skip] notice — translations
-        # for those codes live only in the DB (hand-edited via the
-        # admin UI, or auto-generated via /admin/ai-translate from fr).
-        known = ["fr", "en", "es", "it", "pt"]
+        known = ["fr", "en", "es", "pt"]
         existing = {
             r.code
             for r in (await db.execute(select(I18nLanguage))).scalars().all()

@@ -79,6 +79,9 @@ import { useLegalIdentifiers } from '@/hooks/useUserSubModels'
 import { useProjects } from '@/hooks/useProjets'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useStagingRef } from '@/hooks/useStagingRef'
+import { RichTextField } from '@/components/shared/RichTextField'
+import { ExternalRefManager } from '@/components/shared/ExternalRefManager'
 import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
@@ -99,6 +102,7 @@ function CreateTierPanel() {
   const { toast } = useToast()
   const createTier = useCreateTier()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { stagingRef, stagingOwnerType } = useStagingRef('tier')
   const tierTypeOptions = useDictionaryOptions('tier_type')
   const legalFormOptions = useDictionaryOptions('legal_form')
   const currencyOptions = useDictionaryOptions('currency')
@@ -156,7 +160,9 @@ function CreateTierPanel() {
       return
     }
     setFormErrors({})
-    await createTier.mutateAsync(normalizeNames(form))
+    await createTier.mutateAsync(
+      normalizeNames({ ...form, staging_ref: stagingRef } as TierCreate & { staging_ref?: string }),
+    )
     closeDynamicPanel()
   }
 
@@ -321,16 +327,61 @@ function CreateTierPanel() {
               </FormSection>
 
               <FormSection title={t('common.description')} collapsible defaultExpanded={false}>
-                <textarea
+                <RichTextField
                   value={form.description ?? ''}
-                  onChange={(e) => setForm({ ...form, description: e.target.value || null })}
-                  className={`${panelInputClass} min-h-[60px] resize-y`}
-                  placeholder={t('tiers.ui.placeholders.description')}
-                  rows={3}
+                  onChange={(html) => setForm({ ...form, description: html || null })}
+                  rows={4}
+                  placeholder={t('tiers.ui.placeholders.description') as string}
+                  imageOwnerType={stagingOwnerType}
+                  imageOwnerId={stagingRef}
                 />
               </FormSection>
             </div>
           </SectionColumns>
+
+          {/* ── Secondary polymorphic data (all staged) ── */}
+          {/* Multi-entries for phones / emails / addresses / legal IDs that go
+              beyond the single primary captured inline above. Committed to
+              the new Tier on submit via commit_staging_children. */}
+          <FormSection title={t('tiers.ui.sections.phones', 'Téléphones (additionnels)')} collapsible defaultExpanded={false}>
+            <PhoneManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
+
+          <FormSection title={t('tiers.ui.sections.emails', 'Emails (additionnels)')} collapsible defaultExpanded={false}>
+            <ContactEmailManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
+
+          <FormSection title={t('tiers.ui.sections.addresses', 'Adresses (additionnelles)')} collapsible defaultExpanded={false}>
+            <AddressManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
+
+          <FormSection title={t('tiers.ui.sections.legal_ids', 'Identifiants légaux')} collapsible defaultExpanded={false}>
+            <LegalIdentifierManager ownerType={stagingOwnerType} ownerId={stagingRef} country={form.country ?? undefined} compact />
+          </FormSection>
+
+          <FormSection title={t('tiers.ui.sections.socials', 'Réseaux sociaux')} collapsible defaultExpanded={false}>
+            <SocialNetworkManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
+
+          <FormSection title={t('tiers.ui.sections.opening_hours', 'Horaires d\u2019ouverture')} collapsible defaultExpanded={false}>
+            <OpeningHoursManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
+
+          <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+            <AttachmentManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
+
+          <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+            <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
+
+          <FormSection title={t('common.tags')} collapsible defaultExpanded={false}>
+            <TagManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
+
+          <FormSection title={t('tiers.ui.external_refs', 'Références externes')} collapsible defaultExpanded={false}>
+            <ExternalRefManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

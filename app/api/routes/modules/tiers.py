@@ -122,10 +122,28 @@ async def create_tier(
 
     # ── Auto-generate code server-side (client never provides it) ──
     payload = body.model_dump()
+    staging_ref = payload.pop("staging_ref", None)
     payload["code"] = await generate_reference("TIR", db, entity_id=entity_id)
 
     tier = Tier(entity_id=entity_id, **payload)
     db.add(tier)
+    await db.flush()
+
+    # Re-target any polymorphic children (phones, emails, addresses, legal
+    # IDs, social networks, opening hours, attachments, notes, tags,
+    # external refs) staged during the Create panel.
+    if staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="tier_staging",
+            final_owner_type="tier",
+            staging_ref=staging_ref,
+            final_owner_id=tier.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
+
     await db.commit()
     await db.refresh(tier)
     return tier

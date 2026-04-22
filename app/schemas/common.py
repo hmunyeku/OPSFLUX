@@ -470,6 +470,10 @@ class TierCreate(BaseModel):
     opening_hours: dict[str, Any] | None = None
     notes: str | None = None
     scope: str = "local"
+    # Client-generated UUID used during create to stage polymorphic children
+    # (phones, emails, addresses, legal IDs, social, opening hours,
+    # attachments, notes, tags, external refs) before the tier row exists.
+    staging_ref: UUID | None = None
 
 
 class TierUpdate(BaseModel):

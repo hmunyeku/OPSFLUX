@@ -371,7 +371,7 @@ export function CreateCargoPanel() {
                 <FormGrid>
                   <DynamicPanelField label={t('common.material_ownership')}>
                     <select value={form.ownership_type ?? ''} onChange={(e) => setForm({ ...form, ownership_type: e.target.value || null })} className={panelInputClass}>
-                      <option value="">Sélectionner...</option>
+                      <option value="">{t('common.select')}</option>
                       {ownershipOptions.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}

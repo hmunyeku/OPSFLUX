@@ -2137,7 +2137,7 @@ function CreateDocumentPanel() {
                       onChange={(e) => setForm((f) => ({ ...f, doc_type_id: e.target.value }))}
                       className={panelInputClass}
                     >
-                      <option value="">Sélectionner...</option>
+                      <option value="">{t('common.select')}</option>
                       {docTypes?.map((dt: DocType) => (
                         <option key={dt.id} value={dt.id}>
                           {dt.code} — {dt.name.fr || dt.name.en || dt.code}

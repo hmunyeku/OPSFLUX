@@ -169,6 +169,7 @@ function useBulkUpsert() {
 /* ── Main component ──────────────────────────────────────────────────── */
 
 export default function I18nTab() {
+  const { t } = useTranslation()
   const { data: languages = [], isLoading: languagesLoading } = useLanguages()
   const activeLanguages = useMemo(
     () => languages.filter((l) => l.active).sort((a, b) => a.sort_order - b.sort_order),
@@ -257,7 +258,7 @@ export default function I18nTab() {
           onChange={(e) => setNamespace(e.target.value)}
           className="gl-form-input w-32"
         >
-          <option value="app">Application</option>
+          <option value="app">{t('common.application')}</option>
           <option value="mobile">Mobile</option>
         </select>
 

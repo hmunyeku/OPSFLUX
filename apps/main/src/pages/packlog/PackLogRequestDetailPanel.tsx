@@ -358,7 +358,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   }
                   className={panelInputClass}
                 >
-                  <option value="">Sélectionner...</option>
+                  <option value="">{t('common.select')}</option>
                   {requestStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}

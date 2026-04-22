@@ -481,7 +481,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                 )}
                 <select className="text-[11px] border border-border rounded px-1.5 py-0.5 bg-background text-foreground h-6" value=""
                   onChange={(e) => { if (e.target.value) void handleWorkflowChange(e.target.value as CargoItem['workflow_status']) }}>
-                  <option value="">Workflow...</option>
+                  <option value="">{t('common.workflow')}...</option>
                   {Object.entries(cargoWorkflowLabels).filter(([k]) => k !== cargo.workflow_status).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
                 {isDelivered && (
@@ -555,7 +555,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
               </DynamicPanelField>
               <DynamicPanelField label={t('common.material_ownership')}>
                 <select value={editForm.ownership_type ?? ''} onChange={(e) => setEditForm({ ...editForm, ownership_type: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Sélectionner...</option>
+                  <option value="">{t('common.select')}</option>
                   {ownershipOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}

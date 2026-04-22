@@ -365,7 +365,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
                     onChange={(e) => setEditForm({ ...editForm, vector_id: e.target.value || null })}
                     className={panelInputClass}
                   >
-                    <option value="">Selectionner...</option>
+                    <option value="">{t('common.select')}</option>
                     {(vectors?.items ?? []).map((vector) => (
                       <option key={vector.id} value={vector.id}>
                         {vector.name} {vector.registration ? `(${vector.registration})` : ''}

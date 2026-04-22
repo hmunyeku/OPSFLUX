@@ -491,7 +491,7 @@ function EntityDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* Timestamps */}
-        <SectionHeader>Informations</SectionHeader>
+        <SectionHeader>{t('common.information')}</SectionHeader>
         <div className="space-y-0">
           <ReadOnlyRow
             label="Utilisateurs"

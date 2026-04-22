@@ -103,7 +103,7 @@ export function RotationDetailPanel({ id }: { id: string }) {
                   </DynamicPanelField>
                   <DynamicPanelField label={t('common.vector')}>
                     <select value={editForm.vector_id ?? ''} onChange={(e) => setEditForm({ ...editForm, vector_id: e.target.value || null })} className={panelInputClass}>
-                      <option value="">Selectionner...</option>
+                      <option value="">{t('common.select')}</option>
                       {(vectorsData?.items ?? []).map((vector) => (
                         <option key={vector.id} value={vector.id}>{vector.registration} - {vector.name}</option>
                       ))}

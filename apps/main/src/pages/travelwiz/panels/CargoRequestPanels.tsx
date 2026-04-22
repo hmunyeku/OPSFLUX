@@ -403,7 +403,7 @@ export function CreateCargoPanel() {
             <FormGrid>
               <DynamicPanelField label={t('common.material_ownership')}>
                 <select value={form.ownership_type ?? ''} onChange={(e) => setForm({ ...form, ownership_type: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Sélectionner...</option>
+                  <option value="">{t('common.select')}</option>
                   {ownershipOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
@@ -720,7 +720,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               </DynamicPanelField>
               <DynamicPanelField label={t('common.status')}>
                 <select value={editForm.status ?? ''} onChange={(e) => setEditForm({ ...editForm, status: (e.target.value || null) as CargoRequestUpdate['status'] })} className={panelInputClass}>
-                  <option value="">Sélectionner...</option>
+                  <option value="">{t('common.select')}</option>
                   {requestStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}

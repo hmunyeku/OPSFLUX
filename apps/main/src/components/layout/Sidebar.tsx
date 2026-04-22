@@ -80,16 +80,19 @@ const moduleNavItems: NavItemDef[] = [
   { path: '/imputations', icon: Coins, labelKey: 'nav.imputations', module: 'core', order: 44, requiredPermission: 'imputation.read' },
   { path: '/papyrus', icon: FileText, labelKey: 'nav.papyrus', module: 'papyrus', order: 55, requiredPermission: 'document.read' },
   { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid_pfd', order: 58, requiredPermission: 'pid.read' },
-  { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', module: 'workflow', order: 60, requiredPermission: 'workflow.definition.read' },
   { path: '/moc', icon: ClipboardList, labelKey: 'nav.moc', module: 'moc', order: 62, requiredPermission: 'moc.read' },
 ]
 
+// Workflow is a platform-wide infrastructure module (defines the
+// approval chains all other modules plug into) — it belongs in the
+// system/admin section, not alongside business modules.
 const adminNavItems: NavItemDef[] = [
   { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', module: 'conformite', order: 82, requiredPermission: 'conformite.record.read' },
   { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset_registry', order: 85, requiredPermission: 'asset.read' },
   { path: '/entities', icon: Globe, labelKey: 'nav.entities', module: 'core', order: 88, requiredPermission: 'core.entity.read' },
   { path: '/users', icon: UserCog, labelKey: 'nav.accounts', module: 'core', order: 90, requiredPermission: 'core.users.read' },
   { path: '/support', icon: LifeBuoy, labelKey: 'nav.support', module: 'support', order: 92, requiredPermission: 'support.ticket.read' },
+  { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', module: 'workflow', order: 93, requiredPermission: 'workflow.definition.read' },
   { path: '/files', icon: FolderOpen, labelKey: 'nav.files', module: 'core', order: 95, requiredPermission: 'core.settings.manage' },
   { path: '/settings', icon: Settings, labelKey: 'nav.settings', module: 'core', order: 100 },
 ]

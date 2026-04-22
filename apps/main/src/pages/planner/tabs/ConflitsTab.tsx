@@ -377,20 +377,6 @@ export function ConflitsTab() {
           status tabs stop colliding with the type dropdown and the
           conflict counter on mobile. */}
       <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-          {conflictStatusOptions.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => updateConflictFilter('statusFilter', opt.value)}
-              className={cn(
-                'px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap',
-                conflictFilters.statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
         <select
           value={conflictFilters.conflictTypeFilter}
           onChange={(e) => updateConflictFilter('conflictTypeFilter', e.target.value)}
@@ -727,6 +713,19 @@ export function ConflitsTab() {
           isLoading={isLoading}
           pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
+          filters={[{
+            id: 'status',
+            label: t('common.status'),
+            type: 'multi-select',
+            operators: ['is', 'is_not'],
+            options: conflictStatusOptions.filter((o) => o.value).map((o) => ({ value: o.value, label: o.label })),
+          }]}
+          activeFilters={conflictFilters.statusFilter ? { status: [conflictFilters.statusFilter] } : {}}
+          onFilterChange={(id, v) => {
+            if (id !== 'status') return
+            const arr = Array.isArray(v) ? v : v != null ? [v] : []
+            updateConflictFilter('statusFilter', arr.length > 0 ? String(arr[0]) : '')
+          }}
           emptyIcon={AlertTriangle}
           emptyTitle={t('planner.no_conflict')}
           storageKey="planner-conflicts"

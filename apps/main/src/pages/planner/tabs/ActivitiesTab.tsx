@@ -327,23 +327,11 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
         <StatCard label={t('planner.stats.pax_planned')} value={stats.totalPax} icon={Users} />
       </div>
 
-      {/* Filter bar — wraps on narrow viewports so status chips +
-          type/priority selects don't squash each other. */}
+      {/* Filter bar — status chip row moved into the DataTable toolbar
+          as a filter token; type/priority dropdowns + advanced row
+          stay here because they compose with the status filter rather
+          than duplicate it. */}
       <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-          {activityStatusOptions.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => updateFilter('statusFilter', opt.value)}
-              className={cn(
-                'px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap',
-                filters.statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
         <select
           value={filters.typeFilter}
           onChange={(e) => updateFilter('typeFilter', e.target.value)}
@@ -427,6 +415,19 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           searchValue={filters.search}
           onSearchChange={(v) => updateFilter('search', v)}
           searchPlaceholder="Rechercher par titre..."
+          filters={[{
+            id: 'status',
+            label: t('common.status'),
+            type: 'multi-select',
+            operators: ['is', 'is_not'],
+            options: activityStatusOptions.filter((o) => o.value).map((o) => ({ value: o.value, label: o.label })),
+          }]}
+          activeFilters={filters.statusFilter ? { status: [filters.statusFilter] } : {}}
+          onFilterChange={(id, v) => {
+            if (id !== 'status') return
+            const arr = Array.isArray(v) ? v : v != null ? [v] : []
+            updateFilter('statusFilter', arr.length > 0 ? String(arr[0]) : '')
+          }}
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'planner', id: row.id, meta: { subtype: 'activity' } })}
           emptyIcon={ListTodo}
           emptyTitle="Aucune activité"

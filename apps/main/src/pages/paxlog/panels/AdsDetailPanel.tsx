@@ -788,12 +788,21 @@ export function AdsDetailPanel({ id }: { id: string }) {
             (Voyage, Vector, Rotation). Segments what was previously a
             mile-long scroll with 9+ stacked sections into 4 clear pages. */}
         <TabBar<AdsDetailTab>
-          items={[
-            { id: 'informations', label: t('paxlog.ads_detail.tabs.informations') || 'Informations', icon: Info },
-            { id: 'passagers', label: t('paxlog.ads_detail.tabs.passengers') || 'Passagers', icon: Users, badge: adsPax?.length ?? 0 },
-            { id: 'sejours', label: t('paxlog.ads_detail.tabs.stays') || 'Séjours', icon: BedDouble, badge: stayPrograms.length || undefined },
-            { id: 'historique', label: t('paxlog.ads_detail.tabs.history') || 'Historique', icon: BookOpen },
-          ]}
+          items={(() => {
+            // t() returns the key literal when the translation is
+            // missing, which is truthy and defeats a simple `|| 'fr'`
+            // fallback. Compare against the key to detect misses.
+            const lbl = (key: string, fb: string) => {
+              const r = t(key)
+              return r === key ? fb : r
+            }
+            return [
+              { id: 'informations', label: lbl('paxlog.ads_detail.tabs.informations', 'Informations'), icon: Info },
+              { id: 'passagers', label: lbl('paxlog.ads_detail.tabs.passengers', 'Passagers'), icon: Users, badge: adsPax?.length ?? 0 },
+              { id: 'sejours', label: lbl('paxlog.ads_detail.tabs.stays', 'Séjours'), icon: BedDouble, badge: stayPrograms.length || undefined },
+              { id: 'historique', label: lbl('paxlog.ads_detail.tabs.history', 'Historique'), icon: BookOpen },
+            ]
+          })()}
           activeId={detailTab}
           onTabChange={setDetailTab}
         />
@@ -801,7 +810,9 @@ export function AdsDetailPanel({ id }: { id: string }) {
         {detailTab === 'informations' && (<>
         <CollapsibleSection
           id="ads-readiness"
-          title={ads.status === 'draft' ? t('paxlog.ads_detail.readiness.title_draft', { status: adsReadyToSubmit ? t('paxlog.ads_detail.readiness.ready') : t('paxlog.ads_detail.readiness.to_complete') }) : t('paxlog.ads_detail.readiness.title_readonly')}
+          // Clean, consistent section title (aligned with Voyage panel
+          // conventions: short noun, no inline status).
+          title="Synthèse"
           defaultExpanded
         >
           <div className="space-y-3">

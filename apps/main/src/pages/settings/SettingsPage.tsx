@@ -22,6 +22,7 @@ import {
   Activity, Hash, BookOpen, ShieldCheck, Database,
   Users, CalendarClock, Ship, Boxes, FolderKanban,
   Languages, ClipboardList,
+  Sliders, LayoutTemplate, Briefcase, Server,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -30,6 +31,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
 import {
   registerSettingsSection,
+  registerSettingsGroup,
   useSettingsSections,
   useSettingsGroups,
   useGroupChildren,
@@ -168,46 +170,59 @@ import { CreateAddressPanel } from './panels/CreateAddressPanel'
 import { EditEmailTemplatePanel } from './panels/EditEmailTemplatePanel'
 import { EditPdfTemplatePanel } from './panels/EditPdfTemplatePanel'
 
-// ── Register core user settings ─────────────────────────────
-// Top-level items (no parentId)
+// ── Register core user settings ─────────────────────────────────
+// Flat list (8 items). Order: identity → display → auth → notifications
+// → delegations → informational (read-only) → technical (niche last).
 registerSettingsSection({ id: 'profile', label: 'Profil', icon: User, component: ProfileTab, category: 'user', order: 10 })
-
-// Access — single tab with collapsible sections inside
-registerSettingsSection({ id: 'access', label: 'Accès', icon: Lock, component: AccessTab, category: 'user', order: 20 })
-
-// More top-level items
-// Emails and Addresses are now integrated into the ProfileTab directly
+registerSettingsSection({ id: 'preferences', label: 'Préférences', icon: Palette, component: PreferencesTab, category: 'user', order: 20 })
+registerSettingsSection({ id: 'access', label: 'Accès', icon: Lock, component: AccessTab, category: 'user', order: 30 })
 registerSettingsSection({ id: 'notifications', label: 'Notifications', icon: Bell, component: NotificationsTab, category: 'user', order: 40 })
 registerSettingsSection({ id: 'delegations', label: 'Délégations', icon: Shield, component: DelegationsTab, category: 'user', order: 50 })
-registerSettingsSection({ id: 'mcp', label: 'MCP', icon: Plug, component: UserMcpTab, category: 'user', order: 60 })
-registerSettingsSection({ id: 'preferences', label: 'Préférences', icon: Palette, component: PreferencesTab, category: 'user', order: 70 })
-registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shield, component: RolesTab, category: 'user', order: 80 })
-registerSettingsSection({ id: 'activity', label: 'Activité', icon: Clock, component: ActivityTab, category: 'user', order: 90 })
+// Read-only informational views
+registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shield, component: RolesTab, category: 'user', order: 70 })
+registerSettingsSection({ id: 'activity', label: 'Activité', icon: Clock, component: ActivityTab, category: 'user', order: 80 })
+// Niche / technical at the bottom
+registerSettingsSection({ id: 'mcp', label: 'MCP', icon: Plug, component: UserMcpTab, category: 'user', order: 90 })
 
-// ── Register general (admin) settings — ordered by usage frequency ───
-// Most used first, system/advanced last
-registerSettingsSection({ id: 'general-config', label: 'Configuration', icon: Globe, component: GeneralConfigTab, category: 'general', order: 10, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'integrations', label: 'Intégrations', icon: Plug, component: IntegrationsTab, category: 'general', order: 15, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText, component: EmailTemplatesTab, category: 'general', order: 20, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'pdf-templates', label: 'Modèles PDF', icon: FileOutput, component: PdfTemplatesTab, category: 'general', order: 25, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookOpen, component: DictionaryTab, category: 'general', order: 30, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'i18n', label: 'Traductions', icon: Languages, component: I18nTab, category: 'general', order: 31, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 35, requiredPermission: 'core.settings.manage' })
+// ── Register general (admin) settings — 5 collapsible groups ────
+// Ordering rule: sections inside a group are ordered relative to one
+// another; the group's own `order` decides its vertical position
+// among top-level items (interleaved with ungrouped sections).
 
-// ── Module-specific configuration tabs ──
-registerSettingsSection({ id: 'projets-config', label: 'Projets', icon: FolderKanban, component: ProjetsConfigTab, category: 'general', order: 35, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'paxlog-config', label: 'PaxLog', icon: Users, component: PaxLogConfigTab, category: 'general', order: 36, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'planner-config', label: 'Planner', icon: CalendarClock, component: PlannerConfigTab, category: 'general', order: 37, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'travelwiz-config', label: 'TravelWiz', icon: Ship, component: TravelWizConfigTab, category: 'general', order: 38, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'packlog-config', label: 'PackLog', icon: Boxes, component: PackLogConfigTab, category: 'general', order: 39, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'moc-config', label: 'MOCTrack', icon: ClipboardList, component: MOCConfigTab, category: 'general', order: 40, requiredPermission: 'core.settings.manage' })
+registerSettingsGroup({ id: 'grp-config',   label: 'Configuration générale', icon: Sliders,         category: 'general', order: 10 })
+registerSettingsGroup({ id: 'grp-templates', label: 'Modèles de documents',  icon: LayoutTemplate,  category: 'general', order: 20 })
+registerSettingsGroup({ id: 'grp-modules',   label: 'Modules métier',        icon: Briefcase,       category: 'general', order: 30 })
+registerSettingsGroup({ id: 'grp-security',  label: 'Sécurité & Conformité', icon: ShieldCheck,     category: 'general', order: 40 })
+registerSettingsGroup({ id: 'grp-system',    label: 'Système',               icon: Server,          category: 'general', order: 50 })
 
-registerSettingsSection({ id: 'gdpr', label: 'RGPD / Protection des données', icon: Shield, component: GdprTab, category: 'general', order: 40, requiredPermission: 'admin.system' })
-registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })
-registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'system', label: 'Système', icon: Activity, component: SystemTab, category: 'general', order: 60, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'modules', label: 'Modules', icon: Boxes, component: ModulesTab, category: 'general', order: 65, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'adminer', label: 'Base de données', icon: Database, component: AdminerTab, category: 'general', order: 80, requiredPermission: 'admin.system' })
+// Group 1: Configuration générale — most-used admin controls first
+registerSettingsSection({ id: 'general-config', label: 'Configuration',  icon: Globe,     component: GeneralConfigTab, category: 'general', parentId: 'grp-config', order: 10, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'integrations',   label: 'Intégrations',   icon: Plug,      component: IntegrationsTab,  category: 'general', parentId: 'grp-config', order: 20, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'dictionnaire',   label: 'Dictionnaire',   icon: BookOpen,  component: DictionaryTab,    category: 'general', parentId: 'grp-config', order: 30, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'i18n',           label: 'Traductions',    icon: Languages, component: I18nTab,          category: 'general', parentId: 'grp-config', order: 40, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'numbering',      label: 'Numérotation',   icon: Hash,      component: NumberingTab,     category: 'general', parentId: 'grp-config', order: 50, requiredPermission: 'core.settings.manage' })
+
+// Group 2: Templates de documents
+registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText,   component: EmailTemplatesTab, category: 'general', parentId: 'grp-templates', order: 10, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'pdf-templates',   label: 'Modèles PDF',       icon: FileOutput, component: PdfTemplatesTab,   category: 'general', parentId: 'grp-templates', order: 20, requiredPermission: 'core.settings.manage' })
+
+// Group 3: Modules métier — one per business module
+registerSettingsSection({ id: 'projets-config',   label: 'Projets',   icon: FolderKanban,   component: ProjetsConfigTab,   category: 'general', parentId: 'grp-modules', order: 10, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'paxlog-config',    label: 'PaxLog',    icon: Users,          component: PaxLogConfigTab,    category: 'general', parentId: 'grp-modules', order: 20, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'planner-config',   label: 'Planner',   icon: CalendarClock,  component: PlannerConfigTab,   category: 'general', parentId: 'grp-modules', order: 30, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'travelwiz-config', label: 'TravelWiz', icon: Ship,           component: TravelWizConfigTab, category: 'general', parentId: 'grp-modules', order: 40, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'packlog-config',   label: 'PackLog',   icon: Boxes,          component: PackLogConfigTab,   category: 'general', parentId: 'grp-modules', order: 50, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'moc-config',       label: 'MOCTrack',  icon: ClipboardList,  component: MOCConfigTab,       category: 'general', parentId: 'grp-modules', order: 60, requiredPermission: 'core.settings.manage' })
+
+// Group 4: Sécurité & Conformité — auth policy, data protection, retention
+registerSettingsSection({ id: 'security-policy',  label: 'Sécurité & Authentification',  icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', parentId: 'grp-security', order: 10, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'gdpr',             label: 'RGPD / Protection des données', icon: Shield,     component: GdprTab,           category: 'general', parentId: 'grp-security', order: 20, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'delete-policies',  label: 'Politiques de suppression',    icon: Trash2,      component: DeletePoliciesTab, category: 'general', parentId: 'grp-security', order: 30, requiredPermission: 'core.settings.manage' })
+
+// Group 5: Système — technical / rarely touched, at the bottom
+registerSettingsSection({ id: 'system',  label: 'Système',          icon: Activity, component: SystemTab,  category: 'general', parentId: 'grp-system', order: 10, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'modules', label: 'Modules',          icon: Boxes,    component: ModulesTab, category: 'general', parentId: 'grp-system', order: 20, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'adminer', label: 'Base de données',  icon: Database, component: AdminerTab, category: 'general', parentId: 'grp-system', order: 30, requiredPermission: 'admin.system' })
 
 registerPanelRenderer('settings-pdf-template', (view) => (
   <EditPdfTemplatePanel

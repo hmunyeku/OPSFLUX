@@ -21,6 +21,9 @@ class TicketCreate(BaseModel):
     source_url: str | None = None
     browser_info: dict | None = None
     tags: list[str] | None = None
+    # Client-generated UUID to commit polymorphic children (screenshots,
+    # logs, repro files…) staged during the Create panel.
+    staging_ref: UUID | None = None
 
 
 class TicketUpdate(BaseModel):

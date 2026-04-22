@@ -3692,6 +3692,20 @@ async def create_ads(
         author_id=current_user.id,
     )
 
+    # Re-target any polymorphic children staged during the Create panel
+    # (justificatifs, notes…) to this new ADS.
+    if body.staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="ads_staging",
+            final_owner_type="ads",
+            staging_ref=body.staging_ref,
+            final_owner_id=ads.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
+
     await db.commit()
     await db.refresh(ads)
 
@@ -6672,6 +6686,20 @@ async def create_incident(
             "recorded_by": current_user.id,
         },
     )
+
+    # Commit polymorphic children staged during the Create panel
+    # (evidence photos, reports, witness statements…)
+    if body.staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="pax_incident_staging",
+            final_owner_type="pax_incident",
+            staging_ref=body.staging_ref,
+            final_owner_id=result["id"],
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
 
     await record_audit(
         db,

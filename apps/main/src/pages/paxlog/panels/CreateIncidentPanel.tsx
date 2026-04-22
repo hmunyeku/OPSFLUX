@@ -7,8 +7,10 @@ import { useTiers } from '@/hooks/useTiers'
 import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormSection, TagSelector, DynamicPanelField, panelInputClass } from '@/components/layout/DynamicPanel'
 import { AlertTriangle, Loader2, User, Building2, Users } from 'lucide-react'
 import { AssetPicker } from '@/components/shared/AssetPicker'
-import { cn } from '@/lib/utils'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { RichTextField } from '@/components/shared/RichTextField'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { useStagingRef } from '@/hooks/useStagingRef'
 import { SearchablePicker } from '../shared'
 
 export function CreateIncidentPanel() {
@@ -17,6 +19,7 @@ export function CreateIncidentPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const severityOptions = useDictionaryOptions('pax_incident_severity')
   const [targetScope, setTargetScope] = useState<'pax' | 'company' | 'group'>('pax')
+  const { stagingRef, stagingOwnerType } = useStagingRef('pax_incident')
 
   const [paxSearch, setPaxSearch] = useState('')
   const { data: paxData, isLoading: paxLoading } = usePaxProfiles({ page: 1, page_size: 20, search: paxSearch || undefined })
@@ -73,6 +76,7 @@ export function CreateIncidentPanel() {
       asset_id: form.asset_id || null,
       ban_start_date: form.ban_start_date || null,
       ban_end_date: form.ban_end_date || null,
+      staging_ref: stagingRef,
     })
     closeDynamicPanel()
   }
@@ -239,7 +243,14 @@ export function CreateIncidentPanel() {
             </DynamicPanelField>
           )}
           <DynamicPanelField label={t('common.description')} required>
-            <textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={cn(panelInputClass, 'min-h-[80px] resize-y')} placeholder={t('paxlog.incident_panel.placeholders.description')} />
+            <RichTextField
+              value={form.description}
+              onChange={(html) => setForm({ ...form, description: html })}
+              rows={4}
+              placeholder={t('paxlog.incident_panel.placeholders.description') as string}
+              imageOwnerType={stagingOwnerType}
+              imageOwnerId={stagingRef}
+            />
           </DynamicPanelField>
         </FormSection>
 
@@ -261,6 +272,14 @@ export function CreateIncidentPanel() {
             )}
           </FormSection>
         )}
+
+        <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+          <AttachmentManager
+            ownerType={stagingOwnerType}
+            ownerId={stagingRef}
+            compact
+          />
+        </FormSection>
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

@@ -601,12 +601,28 @@ async def create_activity(
     _: None = require_permission("planner.activity.create"),
     db: AsyncSession = Depends(get_db),
 ):
+    payload = body.model_dump()
+    staging_ref = payload.pop("staging_ref", None)
     activity = PlannerActivity(
         entity_id=entity_id,
         created_by=current_user.id,
-        **body.model_dump(),
+        **payload,
     )
     db.add(activity)
+    await db.flush()
+
+    if staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="planner_activity_staging",
+            final_owner_type="planner_activity",
+            staging_ref=staging_ref,
+            final_owner_id=activity.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
+
     await db.commit()
     await db.refresh(activity)
     return await _enrich_activity(db, activity)

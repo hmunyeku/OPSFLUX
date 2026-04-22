@@ -6,7 +6,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CalendarRange, Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
 import {
@@ -20,11 +19,14 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { VariablePobEditor } from '../VariablePobEditor'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { RichTextField } from '@/components/shared/RichTextField'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useCreateActivity } from '@/hooks/usePlanner'
+import { useStagingRef } from '@/hooks/useStagingRef'
 import type { PlannerActivityCreate } from '@/types/api'
 import {
   ACTIVITY_TYPE_LABELS_FALLBACK,
@@ -43,6 +45,7 @@ export function CreateActivityPanel() {
   const priorityLabels = useDictionaryLabels('planner_activity_priority', PRIORITY_LABELS_FALLBACK)
   const activityTypeOptions = useMemo(() => buildDictionaryOptions(activityTypeLabels, PLANNER_ACTIVITY_TYPE_VALUES), [activityTypeLabels])
   const priorityOptions = useMemo(() => buildDictionaryOptions(priorityLabels, PLANNER_PRIORITY_VALUES), [priorityLabels])
+  const { stagingRef, stagingOwnerType } = useStagingRef('planner_activity')
 
   const [form, setForm] = useState<PlannerActivityCreate>({
     asset_id: '',
@@ -69,14 +72,14 @@ export function CreateActivityPanel() {
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    createActivity.mutate(normalizeNames(form), {
+    createActivity.mutate(normalizeNames({ ...form, staging_ref: stagingRef }), {
       onSuccess: () => {
         toast({ title: t('planner.toast.activity_created'), variant: 'success' })
         closeDynamicPanel()
       },
       onError: () => toast({ title: t('planner.toast.creation_error'), variant: 'error' }),
     })
-  }, [form, createActivity, toast, closeDynamicPanel, t])
+  }, [form, stagingRef, createActivity, toast, closeDynamicPanel, t])
 
   return (
     <DynamicPanelShell
@@ -211,13 +214,23 @@ export function CreateActivityPanel() {
 
           <FormSection title={t('common.description')}>
             <DynamicPanelField label={t('common.description')} span="full">
-              <textarea
+              <RichTextField
                 value={form.description ?? ''}
-                onChange={(e) => setForm({ ...form, description: e.target.value || null })}
-                className={cn(panelInputClass, 'min-h-[80px] py-2')}
+                onChange={(html) => setForm({ ...form, description: html || null })}
+                rows={4}
                 placeholder="Description de l'activité..."
+                imageOwnerType={stagingOwnerType}
+                imageOwnerId={stagingRef}
               />
             </DynamicPanelField>
+          </FormSection>
+
+          <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+            <AttachmentManager
+              ownerType={stagingOwnerType}
+              ownerId={stagingRef}
+              compact
+            />
           </FormSection>
 
           {form.type === 'workover' && (

@@ -311,6 +311,21 @@ async def create_ticket(
         changed_by=acting_user_id, note="Ticket créé",
     ))
 
+    # Commit polymorphic children (screenshots, logs, repro files)
+    # staged during the Create panel.
+    staging_ref = getattr(body, "staging_ref", None)
+    if staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="support_ticket_staging",
+            final_owner_type="support_ticket",
+            staging_ref=staging_ref,
+            final_owner_id=ticket.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
+
     await db.commit()
     await db.refresh(ticket, ["comments"])
 

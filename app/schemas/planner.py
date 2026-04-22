@@ -123,6 +123,10 @@ class ActivityCreate(BaseModel):
         pattern=r"^(equal|effort|duration|manual)$",
     )
     weight: float | None = Field(default=None, ge=0)
+    # Client-generated UUID used during create to stage polymorphic children
+    # (attachments, notes, tags…) before the activity exists. Backend
+    # re-targets rows with owner_type='planner_activity_staging'.
+    staging_ref: UUID | None = None
 
 
 class ActivityUpdate(BaseModel):

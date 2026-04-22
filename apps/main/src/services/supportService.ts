@@ -43,6 +43,8 @@ export interface TicketCreate {
   source_url?: string
   browser_info?: Record<string, unknown>
   tags?: string[]
+  /** Client-generated UUID to commit polymorphic children staged during Create. */
+  staging_ref?: string | null
 }
 
 export interface TicketUpdate {

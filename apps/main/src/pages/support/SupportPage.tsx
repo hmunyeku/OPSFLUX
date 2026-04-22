@@ -29,6 +29,8 @@ import {
   type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { RichTextField } from '@/components/shared/RichTextField'
+import { useStagingRef } from '@/hooks/useStagingRef'
 import { TabBar, PageNavBar } from '@/components/ui/Tabs'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useUIStore } from '@/stores/uiStore'
@@ -158,6 +160,7 @@ function CreateTicketPanel() {
   const { toast } = useToast()
   const typeOptions = useDictionaryOptions('ticket_type')
   const priorityOptions = useDictionaryOptions('ticket_priority')
+  const { stagingRef, stagingOwnerType } = useStagingRef('support_ticket')
   const [form, setForm] = useState<TicketCreate>({
     title: '',
     description: '',
@@ -174,7 +177,7 @@ function CreateTicketPanel() {
   const handleSubmit = async () => {
     if (!form.title.trim()) return
     try {
-      await createTicket.mutateAsync(form)
+      await createTicket.mutateAsync({ ...form, staging_ref: stagingRef } as TicketCreate & { staging_ref?: string })
       toast({ title: t('support.toast.ticket_submitted'), variant: 'success' })
       closeDynamicPanel()
     } catch {
@@ -223,11 +226,21 @@ function CreateTicketPanel() {
         </FormSection>
 
         <FormSection title={t('common.description')}>
-          <textarea
-            className={cn(panelInputClass, 'min-h-[120px] resize-y')}
+          <RichTextField
             value={form.description || ''}
-            onChange={e => setForm({ ...form, description: e.target.value })}
+            onChange={(html) => setForm({ ...form, description: html })}
+            rows={6}
             placeholder="Décrivez le problème en détail, les étapes pour le reproduire..."
+            imageOwnerType={stagingOwnerType}
+            imageOwnerId={stagingRef}
+          />
+        </FormSection>
+
+        <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+          <AttachmentManager
+            ownerType={stagingOwnerType}
+            ownerId={stagingRef}
+            compact
           />
         </FormSection>
       </PanelContentLayout>

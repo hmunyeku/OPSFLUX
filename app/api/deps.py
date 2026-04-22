@@ -383,6 +383,7 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     "ticket_comment": ("support.ticket.read", "support.comment.create"),
     # PaxLog
     "ads": ("paxlog.ads.read", "paxlog.ads.update"),
+    "pax_incident": ("paxlog.incident.read", "paxlog.incident.update"),
     # Projets — projects and their sub-tasks can carry polymorphic notes,
     # attachments, tags, addresses via the shared managers.
     "project": ("project.read", "project.update"),

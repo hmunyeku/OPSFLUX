@@ -2394,6 +2394,8 @@ export interface PlannerActivityCreate {
   drilling_program_ref?: string | null
   regulatory_ref?: string | null
   work_order_ref?: string | null
+  // Client-generated UUID to commit polymorphic children staged during Create.
+  staging_ref?: string | null
 }
 
 export interface PlannerActivityUpdate {

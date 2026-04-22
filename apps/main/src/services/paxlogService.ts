@@ -445,6 +445,8 @@ export interface AdsCreate {
   return_notes?: string | null
   /** Spec 3.5: AdS aller-retour sans nuitée. Compté dans le forecast Pax du jour de visite uniquement. */
   is_round_trip_no_overnight?: boolean
+  /** Client-generated UUID to commit polymorphic children staged during Create. */
+  staging_ref?: string | null
 }
 
 /** Candidate from /pax/candidates search — unified user/contact/profile */
@@ -698,6 +700,8 @@ export interface PaxIncidentCreate {
   incident_date: string
   ban_start_date?: string | null
   ban_end_date?: string | null
+  /** Client-generated UUID to commit polymorphic children staged during Create. */
+  staging_ref?: string | null
 }
 
 export interface PaxIncidentResolve {

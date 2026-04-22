@@ -228,6 +228,9 @@ class AdsCreate(BaseModel):
     return_departure_base_id: UUID | None = None
     return_notes: str | None = None
     is_round_trip_no_overnight: bool = False
+    # Client-generated UUID used during create to stage polymorphic children
+    # (justificatifs, notes…) before the ADS row exists.
+    staging_ref: UUID | None = None
 
     @model_validator(mode="after")
     def _check_round_trip_no_overnight(self) -> "AdsCreate":
@@ -720,6 +723,9 @@ class PaxIncidentCreate(BaseModel):
     category: str | None = None
     decision: str | None = None
     decision_duration_days: int | None = None
+    # Client-generated UUID to commit polymorphic children (evidence files,
+    # photos, reports...) staged during the Create panel.
+    staging_ref: UUID | None = None
 
 
 class PaxIncidentResolve(BaseModel):

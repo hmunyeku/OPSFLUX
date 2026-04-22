@@ -8,9 +8,11 @@ import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormSection, 
 import { ClipboardList, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { UserPicker } from '@/components/shared/UserPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { useStagingRef } from '@/hooks/useStagingRef'
 import { AllowedCompaniesPicker } from '../shared'
 import type { AllowedCompanySelection } from '../shared'
 
@@ -23,6 +25,9 @@ export function CreateAdsPanel() {
   const visitCategoryOptions = useDictionaryOptions('visit_category')
   const transportModeOptions = useDictionaryOptions('transport_mode')
   const [allowedCompanies, setAllowedCompanies] = useState<AllowedCompanySelection[]>([])
+  // Staging — justificatifs (visa, invitation letter, company approval...)
+  // attached directly in the Create panel. Backend re-targets on submit.
+  const { stagingRef, stagingOwnerType } = useStagingRef('ads')
 
   const [form, setForm] = useState<{
     type: 'individual' | 'team'
@@ -74,6 +79,7 @@ export function CreateAdsPanel() {
       visit_category: form.visit_category,
       outbound_transport_mode: form.outbound_transport_mode || null,
       return_transport_mode: form.return_transport_mode || null,
+      staging_ref: stagingRef,
     }
     await createAds.mutateAsync(payload)
     closeDynamicPanel()
@@ -216,6 +222,14 @@ export function CreateAdsPanel() {
             onChange={setAllowedCompanies}
             searchValue={companySearch}
             onSearchChange={setCompanySearch}
+          />
+        </FormSection>
+
+        <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+          <AttachmentManager
+            ownerType={stagingOwnerType}
+            ownerId={stagingRef}
+            compact
           />
         </FormSection>
 

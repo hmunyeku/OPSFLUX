@@ -531,19 +531,22 @@ export function AssistantPanel() {
           <span className="text-[10px] text-muted-foreground truncate hidden sm:inline">· {HELP_CONTENT[currentModule]?.title || currentModule}</span>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
+          {/* Icon buttons — use plain classes instead of .gl-button. The
+              button class ships with text-button padding and a min-h that
+              collapses inside a 24×24 square, erasing the icon. */}
           <button
             onClick={cyclePanelMode}
-            className="gl-button gl-button-sm gl-button-default h-9 w-9 sm:h-6 sm:w-6 flex"
+            className="h-7 w-7 inline-flex items-center justify-center rounded border border-border bg-background text-muted-foreground hover:bg-chrome hover:text-foreground transition-colors"
             title={modeLabel}
           >
-            <ModeIcon size={12} />
+            <ModeIcon size={14} />
           </button>
           <button
             onClick={toggleAIPanel}
-            className="gl-button gl-button-sm gl-button-default h-9 w-9 sm:h-6 sm:w-6 flex"
+            className="h-7 w-7 inline-flex items-center justify-center rounded border border-border bg-background text-muted-foreground hover:bg-chrome hover:text-foreground transition-colors"
             aria-label="Fermer l'assistant"
           >
-            <X size={12} />
+            <X size={14} />
           </button>
         </div>
       </div>

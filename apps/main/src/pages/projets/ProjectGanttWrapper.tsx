@@ -199,6 +199,18 @@ export function ProjectGanttWrapper() {
     })),
   })
 
+  // Milestones are rendered as diamond bars on the project row so the
+  // "Nouveau jalon" action has a visible effect. Without this query
+  // the milestone was persisted server-side but invisible in the UI.
+  const milestoneQueries = useQueries({
+    queries: expandedIds.map(pid => ({
+      queryKey: ['project-milestones', pid],
+      queryFn: () => projetsService.listMilestones(pid),
+      enabled: expanded.has(pid),
+      staleTime: 30_000,
+    })),
+  })
+
   // Map projectId → tasks
   const tasksByProject = useMemo(() => {
     const m = new Map<string, ProjectTask[]>()
@@ -225,6 +237,20 @@ export function ProjectGanttWrapper() {
     })
     return m
   }, [expandedIds, depQueries])
+
+  // Map projectId → milestones
+  type ProjectMilestoneLite = { id: string; name: string; due_date: string; status?: string | null }
+  const milestonesByProject = useMemo(() => {
+    const m = new Map<string, ProjectMilestoneLite[]>()
+    expandedIds.forEach((pid, i) => {
+      const q = milestoneQueries[i]
+      if (q.data) {
+        const items = Array.isArray(q.data) ? q.data : (q.data as { items?: unknown[] }).items ?? []
+        m.set(pid, items as ProjectMilestoneLite[])
+      }
+    })
+    return m
+  }, [expandedIds, milestoneQueries])
 
   // Flat task index across all loaded projects (taskId → task) used by
   // the cascade walker. Built once per re-render of tasksByProject.
@@ -372,6 +398,33 @@ export function ProjectGanttWrapper() {
         }
         addTaskRows(null, 1)
 
+        // Milestones — rendered as diamond bars on the project row so
+        // they appear immediately after "Nouveau jalon" clicks. They
+        // don't get their own row (keeps the Gantt compact); instead
+        // they ride the project summary row at the due_date.
+        const projectMilestones = milestonesByProject.get(project.id) || []
+        for (const ms of projectMilestones) {
+          if (!ms.due_date) continue
+          const day = ms.due_date.split('T')[0]
+          allBars.push({
+            id: `ms-${ms.id}`,
+            rowId: project.id,
+            title: ms.name,
+            startDate: day,
+            endDate: day,
+            progress: 0,
+            color: '#8b5cf6', // violet diamond — visible against the summary
+            status: ms.status ?? 'pending',
+            isMilestone: true,
+            meta: { projectId: project.id, milestoneId: ms.id },
+            tooltipLines: [
+              ['Jalon', ms.name],
+              ['Échéance', day],
+              ...(ms.status ? [['Statut', ms.status] as [string, string]] : []),
+            ],
+          })
+        }
+
         // Dependencies
         for (const dep of projectDeps) {
           const typeMap: Record<string, 'FS' | 'SS' | 'FF' | 'SF'> = {
@@ -388,7 +441,7 @@ export function ProjectGanttWrapper() {
     }
 
     return { rows: allRows, bars: allBars, deps: allDeps }
-  }, [projects, expanded, tasksByProject, depsByProject])
+  }, [projects, expanded, tasksByProject, depsByProject, milestonesByProject])
 
   // ── Callbacks ─────────────────────────────────────────────────
 

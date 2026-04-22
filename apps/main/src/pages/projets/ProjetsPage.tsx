@@ -46,7 +46,7 @@ const PROJETS_TABS: { id: ViewTab; labelKey: string; icon: typeof FolderKanban }
   { id: 'projets', labelKey: 'projets.tabs.projets', icon: FolderKanban },
   { id: 'tableur', labelKey: 'projets.tabs.tableur', icon: Sheet },
   { id: 'kanban', labelKey: 'projets.tabs.kanban', icon: Layers },
-  { id: 'planning', labelKey: 'projets.tabs.planning', icon: CalendarRange },
+  { id: 'planning', labelKey: 'projets.tabs.gantt', icon: CalendarRange },
 ]
 
 const VALID_VIEW_TABS = new Set<ViewTab>(['dashboard', 'projets', 'tableur', 'kanban', 'planning'])
@@ -80,7 +80,18 @@ export function ProjetsPage() {
         {/* Tab bar — sits below the title bar; rightSlot hosts the
             dashboard "Modifier" toolbar via portal when on the dashboard tab. */}
         <PageNavBar
-          items={PROJETS_TABS.map((tab) => ({ id: tab.id, icon: tab.icon, label: t(tab.labelKey) }))}
+          items={PROJETS_TABS.map((tab) => ({
+            id: tab.id,
+            icon: tab.icon,
+            // `t()` returns the key when the translation is missing; for
+            // `projets.tabs.gantt` the FR bundle has no entry yet, so
+            // render a literal fallback rather than the raw key.
+            label: (() => {
+              const translated = t(tab.labelKey)
+              if (translated !== tab.labelKey) return translated
+              return tab.id === 'planning' ? 'Gantt' : translated
+            })(),
+          }))}
           activeId={viewTab}
           onTabChange={setViewTab}
           rightSlot={viewTab === 'dashboard' ? <div id="dash-toolbar-projets" /> : null}

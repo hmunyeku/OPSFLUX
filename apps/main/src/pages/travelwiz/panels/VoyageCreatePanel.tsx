@@ -1,10 +1,16 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plane } from 'lucide-react'
+import { DynamicPanelShell, PanelContentLayout, FormGrid, DynamicPanelField, panelInputClass, type ActionItem } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell, PanelContentLayout, FormSection, FormGrid, DynamicPanelField,
-  panelInputClass, type ActionItem,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
@@ -12,6 +18,15 @@ import { useCreateVoyage, useVectors, useRotations } from '@/hooks/useTravelWiz'
 import type { VoyageCreate } from '@/types/api'
 
 export function CreateVoyagePanel() {
+  return (
+    <SmartFormProvider panelId="create-voyage" defaultMode="simple">
+      <CreateVoyageInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateVoyageInner() {
+  const _ctx = useSmartForm()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createVoyage = useCreateVoyage()
   const { data: vectorsData } = useVectors({ page: 1, page_size: 100 })
@@ -51,7 +66,10 @@ export function CreateVoyagePanel() {
     >
       <form id="create-voyage-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title={t('common.identification')}>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+          <SmartFormSection id="t_common_identification" title={t('common.identification')} level="essential" help={{ description: t('common.identification') }}>
             <FormGrid>
               <DynamicPanelField label={t('common.reference')}>
                 <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
@@ -74,8 +92,8 @@ export function CreateVoyagePanel() {
                 </select>
               </DynamicPanelField>
             </FormGrid>
-          </FormSection>
-          <FormSection title={t('common.scheduling')}>
+          </SmartFormSection>
+          <SmartFormSection id="t_common_scheduling" title={t('common.scheduling')} level="essential" help={{ description: t('common.scheduling') }}>
             <FormGrid>
               <DynamicPanelField label={t('common.rotation')}>
                 <select
@@ -102,8 +120,8 @@ export function CreateVoyagePanel() {
             <p className="text-xs text-muted-foreground">
               La périodicité régulière se configure sur une rotation. Un voyage créé ici est une occurrence planifiée, éventuellement rattachée à une rotation existante.
             </p>
-          </FormSection>
-          <FormSection title={t('common.schedule_hours')}>
+          </SmartFormSection>
+          <SmartFormSection id="t_common_schedule_hours" title={t('common.schedule_hours')} level="essential" help={{ description: t('common.schedule_hours') }}>
             <FormGrid>
               <DynamicPanelField label="Départ prévu" required>
                 <input
@@ -123,7 +141,19 @@ export function CreateVoyagePanel() {
                 />
               </DynamicPanelField>
             </FormGrid>
-          </FormSection>
+          </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

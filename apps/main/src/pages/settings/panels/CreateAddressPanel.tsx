@@ -12,14 +12,16 @@ import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useAddresses, useCreateAddress, useUpdateAddress } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
+import { DynamicPanelShell, DynamicPanelField, PanelActionButton, TagSelector, panelInputClass } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell,
-  DynamicPanelField,
-  FormSection,
-  PanelActionButton,
-  TagSelector,
-  panelInputClass,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { CountrySelect, COUNTRIES } from '@/components/shared/CountrySelect'
 import type { AddressCreate } from '@/types/api'
 
@@ -43,6 +45,15 @@ const LABEL_OPTIONS = [
 ]
 
 export function CreateAddressPanel() {
+  return (
+    <SmartFormProvider panelId="create-address" defaultMode="simple">
+      <CreateAddressInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateAddressInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const { toast } = useToast()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
@@ -165,15 +176,15 @@ export function CreateAddressPanel() {
     >
       <form id="create-address-form" onSubmit={handleSubmit} className="p-4 space-y-5">
         {/* Type — TagSelector instead of <select> */}
-        <FormSection title="Type d'adresse">
+        <SmartFormSection id="section" title={'Section'} level="essential" help={{ description: 'Section' }}>
           <TagSelector
             options={LABEL_OPTIONS}
             value={label}
             onChange={setLabel}
           />
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.information')}>
+        <SmartFormSection id="t_common_information" title={t('common.information')} level="essential" help={{ description: t('common.information') }}>
           <DynamicPanelField label="Adresse ligne 1" required>
             <input type="text" className={panelInputClass} placeholder="Numéro et nom de rue" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
           </DynamicPanelField>
@@ -185,9 +196,9 @@ export function CreateAddressPanel() {
           <DynamicPanelField label={t('common.country')} required>
             <CountrySelect value={country} onChange={setCountry} />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title="Détails supplémentaires" collapsible defaultExpanded={false} storageKey="panel.address.sections" id="address-details">
+        <SmartFormSection id="section_2" title={'Section'} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: 'Section' }}>
           <DynamicPanelField label="Adresse ligne 2">
             <input type="text" className={panelInputClass} placeholder="Appartement, bâtiment, étage (optionnel)" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
           </DynamicPanelField>
@@ -199,9 +210,9 @@ export function CreateAddressPanel() {
           <DynamicPanelField label="Code postal">
             <input type="text" className={panelInputClass} placeholder="Code postal (optionnel)" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title="Coordonnées GPS" collapsible defaultExpanded={false} storageKey="panel.address.sections" id="address-gps">
+        <SmartFormSection id="section_3" title={'Section'} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: 'Section' }}>
           <div className="flex items-center justify-between mb-2">
             <span className="gl-label-sm">Position</span>
             <button
@@ -226,9 +237,9 @@ export function CreateAddressPanel() {
           <p className="text-xs text-muted-foreground">
             Utilisez "Ma position" pour remplir automatiquement via le GPS de votre appareil.
           </p>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.options')} collapsible defaultExpanded={false} storageKey="panel.address.sections" id="address-options">
+        <SmartFormSection id="t_common_options" title={t('common.options')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('common.options') }}>
           <label className="flex items-start gap-2.5 cursor-pointer">
             <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} className="h-4 w-4 accent-primary mt-0.5" />
             <div>
@@ -238,7 +249,7 @@ export function CreateAddressPanel() {
               </p>
             </div>
           </label>
-        </FormSection>
+        </SmartFormSection>
       </form>
     </DynamicPanelShell>
   )

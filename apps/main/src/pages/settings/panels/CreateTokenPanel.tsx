@@ -10,13 +10,16 @@ import { Key, Loader2, Copy, Check } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { useCreateToken } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
+import { DynamicPanelShell, DynamicPanelField, PanelActionButton, panelInputClass } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell,
-  DynamicPanelField,
-  FormSection,
-  PanelActionButton,
-  panelInputClass,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 
 const scopeOptions = [
   { value: 'api', label: 'api', description: 'Accès complet à l\'API' },
@@ -26,6 +29,15 @@ const scopeOptions = [
 ]
 
 export function CreateTokenPanel() {
+  return (
+    <SmartFormProvider panelId="create-token" defaultMode="simple">
+      <CreateTokenInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateTokenInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const { toast } = useToast()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -123,7 +135,7 @@ export function CreateTokenPanel() {
       }
     >
       <form id="create-token-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title={t('common.information')}>
+        <SmartFormSection id="t_common_information" title={t('common.information')} level="essential" help={{ description: t('common.information') }}>
           <DynamicPanelField label={t('settings.nom_du_jeton')} required>
             <input
               type="text"
@@ -145,9 +157,9 @@ export function CreateTokenPanel() {
               Laissez vide pour un jeton sans expiration.
             </p>
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.scopes')} collapsible storageKey="panel.token.sections" id="token-scopes">
+        <SmartFormSection id="t_common_scopes" title={t('common.scopes')} level="essential" collapsible help={{ description: t('common.scopes') }}>
           <div className="space-y-2">
             {scopeOptions.map((scope) => (
               <label key={scope.value} className="flex items-start gap-2.5 cursor-pointer">
@@ -164,7 +176,7 @@ export function CreateTokenPanel() {
               </label>
             ))}
           </div>
-        </FormSection>
+        </SmartFormSection>
       </form>
     </DynamicPanelShell>
   )

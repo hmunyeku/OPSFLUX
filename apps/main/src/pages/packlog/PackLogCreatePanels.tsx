@@ -4,16 +4,16 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
+import { DynamicPanelShell, PanelContentLayout, FormGrid, DynamicPanelField, PanelActionButton, SectionColumns, panelInputClass } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell,
-  PanelContentLayout,
-  FormSection,
-  FormGrid,
-  DynamicPanelField,
-  PanelActionButton,
-  SectionColumns,
-  panelInputClass,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
@@ -52,6 +52,15 @@ function buildPickupMapEmbedUrl(latitude: number | null | undefined, longitude: 
 }
 
 export function CreateCargoRequestPanel() {
+  return (
+    <SmartFormProvider panelId="create-cargo-request" defaultMode="simple">
+      <CreateCargoRequestInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateCargoRequestInner() {
+  const _ctx = useSmartForm()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createCargoRequest = useWorkspaceCreateCargoRequest()
   const { toast } = useToast()
@@ -114,6 +123,9 @@ export function CreateCargoRequestPanel() {
     >
       <form id="create-cargo-request-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
           <div className="space-y-5">
             <div className="space-y-3 rounded-xl border border-border/70 bg-card p-4">
               <div className="flex flex-wrap items-center gap-2">
@@ -152,7 +164,7 @@ export function CreateCargoRequestPanel() {
               </div>
             </div>
 
-            <FormSection title="Demande d’expédition">
+            <SmartFormSection id="section" title={'Section'} level="essential" help={{ description: 'Section' }}>
               <FormGrid>
                 <DynamicPanelField label={t('common.label_field')} required>
                   <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder={t('packlog.placeholders.request_title_example')} />
@@ -170,9 +182,9 @@ export function CreateCargoRequestPanel() {
                   />
                 </DynamicPanelField>
               </FormGrid>
-            </FormSection>
+            </SmartFormSection>
 
-            <FormSection title={t('common.logistics_context')}>
+            <SmartFormSection id="t_common_logistics_context" title={t('common.logistics_context')} level="essential" help={{ description: t('common.logistics_context') }}>
               <FormGrid>
                 <DynamicPanelField label={t('common.imputation')}>
                   <ImputationPicker value={form.imputation_reference_id ?? null} onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })} placeholder={t('packlog.placeholders.select_imputation')} />
@@ -196,23 +208,37 @@ export function CreateCargoRequestPanel() {
                   <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.requester_fallback')} />
                 </DynamicPanelField>
               </FormGrid>
-            </FormSection>
+            </SmartFormSection>
 
-            <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+            <SmartFormSection id="t_common_attachments" title={t('common.attachments')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('common.attachments') }}>
               <AttachmentManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
-            </FormSection>
+            </SmartFormSection>
 
-            <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+            <SmartFormSection id="t_common_notes" title={t('common.notes')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('common.notes') }}>
               <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
-            </FormSection>
-          </div>
-        </PanelContentLayout>
+            </SmartFormSection>
+          </div>{_ctx?.mode === 'wizard' && (
+  <SmartFormWizardNav
+    onSubmit={() => document.querySelector('form')?.requestSubmit()}
+    onCancel={() => {}}
+  />
+)}
+</PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )
 }
 
 export function CreateCargoPanel() {
+  return (
+    <SmartFormProvider panelId="create-cargo" defaultMode="simple">
+      <CreateCargoInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateCargoInner() {
+  const _ctx = useSmartForm()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -325,9 +351,12 @@ export function CreateCargoPanel() {
     >
       <form id="create-cargo-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
           <SectionColumns>
             <div className="@container space-y-5">
-              <FormSection title={t('common.identification')}>
+              <SmartFormSection id="t_common_identification" title={t('common.identification')} level="essential" help={{ description: t('common.identification') }}>
                 <FormGrid>
                   <DynamicPanelField label="Demande d’expédition">
                     <select value={form.request_id ?? ''} onChange={(e) => setForm({ ...form, request_id: e.target.value || null })} className={panelInputClass} disabled={!!preselectedRequestId}>
@@ -393,8 +422,8 @@ export function CreateCargoPanel() {
                     </div>
                   </div>
                 )}
-              </FormSection>
-              <FormSection title={t('common.logistics_preparation')} collapsible defaultExpanded>
+              </SmartFormSection>
+              <SmartFormSection id="t_common_logistics_preparation" title={t('common.logistics_preparation')} level="essential" collapsible help={{ description: t('common.logistics_preparation') }}>
                 <FormGrid>
                   <DynamicPanelField label={t('common.material_ownership')}>
                     <select value={form.ownership_type ?? ''} onChange={(e) => setForm({ ...form, ownership_type: e.target.value || null })} className={panelInputClass}>
@@ -411,10 +440,10 @@ export function CreateCargoPanel() {
                     <input type="datetime-local" value={form.available_from ?? ''} onChange={(e) => setForm({ ...form, available_from: e.target.value || null })} className={panelInputClass} />
                   </DynamicPanelField>
                 </FormGrid>
-              </FormSection>
+              </SmartFormSection>
             </div>
             <div className="@container space-y-5">
-              <FormSection title={t('common.dimensions')}>
+              <SmartFormSection id="t_common_dimensions" title={t('common.dimensions')} level="essential" help={{ description: t('common.dimensions') }}>
                 <FormGrid>
                   <DynamicPanelField label={t('common.weight_kg')} required>
                     <input type="number" min={0.001} step="any" required value={form.weight_kg || ''} onChange={(e) => setForm({ ...form, weight_kg: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />
@@ -444,8 +473,8 @@ export function CreateCargoPanel() {
                 <p className="text-xs text-muted-foreground">
                   Les dimensions physiques sont utilisées pour raisonner la place occupée et préparer le placement pont, pas seulement un volume libre saisi à la main.
                 </p>
-              </FormSection>
-              <FormSection title={t('common.cargo_compliance')} collapsible defaultExpanded>
+              </SmartFormSection>
+              <SmartFormSection id="t_common_cargo_compliance" title={t('common.cargo_compliance')} level="essential" collapsible help={{ description: t('common.cargo_compliance') }}>
                 <FormGrid>
                   <DynamicPanelField label={t('common.hazmat_validation')}>
                     <label className="inline-flex items-center gap-2 text-xs">
@@ -465,8 +494,8 @@ export function CreateCargoPanel() {
                     </DynamicPanelField>
                   )}
                 </FormGrid>
-              </FormSection>
-              <FormSection title={t('common.pickup_evidence')} collapsible defaultExpanded>
+              </SmartFormSection>
+              <SmartFormSection id="t_common_pickup_evidence" title={t('common.pickup_evidence')} level="essential" collapsible help={{ description: t('common.pickup_evidence') }}>
                 <FormGrid>
                   <DynamicPanelField label="Lieu d’enlèvement" span="full">
                     <input type="text" value={form.pickup_location_label ?? ''} onChange={(e) => setForm({ ...form, pickup_location_label: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.pickup_location_example')} />
@@ -527,18 +556,23 @@ export function CreateCargoPanel() {
                     </div>
                   </DynamicPanelField>
                 </FormGrid>
-              </FormSection>
+              </SmartFormSection>
             </div>
           </SectionColumns>
 
-          <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+          <SmartFormSection id="t_common_attachments_2" title={t('common.attachments')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('common.attachments') }}>
             <AttachmentManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+          <SmartFormSection id="t_common_notes_2" title={t('common.notes')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('common.notes') }}>
             <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
-          </FormSection>
-        </PanelContentLayout>
+          </SmartFormSection>{_ctx?.mode === 'wizard' && (
+  <SmartFormWizardNav
+    onSubmit={() => document.querySelector('form')?.requestSubmit()}
+    onCancel={() => {}}
+  />
+)}
+</PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )

@@ -1,10 +1,16 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Ship } from 'lucide-react'
+import { DynamicPanelShell, PanelContentLayout, FormGrid, DynamicPanelField, panelInputClass, type ActionItem } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell, PanelContentLayout, FormSection, FormGrid, DynamicPanelField,
-  panelInputClass, type ActionItem,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
@@ -13,6 +19,15 @@ import type { TravelVectorCreate } from '@/types/api'
 import { deriveModeFromType } from '../shared'
 
 export function CreateVectorPanel() {
+  return (
+    <SmartFormProvider panelId="create-vector" defaultMode="simple">
+      <CreateVectorInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateVectorInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createVector = useCreateVector()
@@ -54,7 +69,10 @@ export function CreateVectorPanel() {
     >
       <form id="create-vector-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title={t('common.identification')}>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+          <SmartFormSection id="t_common_identification" title={t('common.identification')} level="essential" help={{ description: t('common.identification') }}>
             <FormGrid>
               <DynamicPanelField label={t('common.registration')} required>
                 <input type="text" required value={form.registration} onChange={(e) => setForm({ ...form, registration: e.target.value })} className={panelInputClass} placeholder="TJ-ABC" />
@@ -90,8 +108,8 @@ export function CreateVectorPanel() {
                 />
               </DynamicPanelField>
             </FormGrid>
-          </FormSection>
-          <FormSection title={t('common.capacities')}>
+          </SmartFormSection>
+          <SmartFormSection id="t_common_capacities" title={t('common.capacities')} level="essential" help={{ description: t('common.capacities') }}>
             <FormGrid>
               <DynamicPanelField label="Capacité PAX" required>
                 <input type="number" min={0} required value={form.pax_capacity ?? 0} onChange={(e) => setForm({ ...form, pax_capacity: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />
@@ -103,8 +121,8 @@ export function CreateVectorPanel() {
                 <input type="number" min={0} step="any" value={form.volume_capacity_m3 ?? ''} onChange={(e) => setForm({ ...form, volume_capacity_m3: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
             </FormGrid>
-          </FormSection>
-          <FormSection title={t('common.operational')} collapsible defaultExpanded={false}>
+          </SmartFormSection>
+          <SmartFormSection id="t_common_operational" title={t('common.operational')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('common.operational') }}>
             <FormGrid>
               <DynamicPanelField label="Pesée requise">
                 <label className="inline-flex items-center gap-2 text-xs">
@@ -122,7 +140,19 @@ export function CreateVectorPanel() {
                   className={`${panelInputClass} min-h-[60px] resize-y`} placeholder="Description du vecteur..." rows={3} />
               </DynamicPanelField>
             </FormGrid>
-          </FormSection>
+          </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

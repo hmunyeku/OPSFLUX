@@ -8,15 +8,16 @@
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, MapPin, Landmark, Factory, Wrench, Ship } from 'lucide-react'
+import { DynamicPanelShell, DynamicPanelField, FormGrid, PanelActionButton, TagSelector, panelInputClass } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell,
-  DynamicPanelField,
-  FormGrid,
-  FormSection,
-  PanelActionButton,
-  TagSelector,
-  panelInputClass,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { CountrySelect } from '@/components/shared/CountrySelect'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -156,6 +157,15 @@ const SERVICE_FALLBACK = [
 // ════════════════════════════════════════════════════════════════
 
 export function CreateFieldPanel() {
+  return (
+    <SmartFormProvider panelId="create-field" defaultMode="simple">
+      <CreateFieldInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateFieldInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const { toast } = useToast()
   const createField = useCreateField()
@@ -211,7 +221,7 @@ export function CreateFieldPanel() {
       }
     >
       <form id="create-field-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title={t('assets.identity')}>
+        <SmartFormSection id="t_assets_identity" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('common.code')} required>
               <input type="text" required maxLength={30} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="RIO-DEL-REY" />
@@ -247,9 +257,9 @@ export function CreateFieldPanel() {
               <input type="text" value={form.block_name || ''} onChange={(e) => set({ block_name: e.target.value })} className={panelInputClass} placeholder="Block A" />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.license_concession')} collapsible>
+        <SmartFormSection id="t_common_license_concession" title={t('common.license_concession')} level="essential" collapsible help={{ description: t('common.license_concession') }}>
           <FormGrid>
             <DynamicPanelField label="N° licence">
               <input type="text" value={form.license_number || ''} onChange={(e) => set({ license_number: e.target.value })} className={panelInputClass} />
@@ -271,9 +281,9 @@ export function CreateFieldPanel() {
               <input type="text" value={form.regulator || ''} onChange={(e) => set({ regulator: e.target.value })} className={panelInputClass} placeholder="SNH" />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.location')} collapsible>
+        <SmartFormSection id="t_common_location" title={t('common.location')} level="essential" collapsible help={{ description: t('common.location') }}>
           <FormGrid>
             <DynamicPanelField label="Latitude centroid">
               <input type="number" step="0.000001" value={form.centroid_latitude ?? ''} onChange={numChange(set, 'centroid_latitude')} className={panelInputClass} />
@@ -287,9 +297,9 @@ export function CreateFieldPanel() {
               <input type="number" step="0.01" min={0} value={form.area_km2 ?? ''} onChange={numChange(set, 'area_km2')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('asset_registry.geologie_reserves')} collapsible>
+        <SmartFormSection id="t_asset_registry_geologie_reserves" title={t('asset_registry.geologie_reserves')} level="essential" collapsible help={{ description: t('asset_registry.geologie_reserves') }}>
           <FormGrid>
             <DynamicPanelField label={t('asset_registry.annee_decouverte')}>
               <input type="number" min={1900} max={2100} value={form.discovery_year ?? ''} onChange={numChange(set, 'discovery_year')} className={panelInputClass} />
@@ -311,13 +321,13 @@ export function CreateFieldPanel() {
               <input type="number" step="0.01" min={0} value={form.recoverable_reserves_mmbo ?? ''} onChange={numChange(set, 'recoverable_reserves_mmbo')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.notes')} collapsible>
+        <SmartFormSection id="t_common_notes" title={t('common.notes')} level="essential" collapsible help={{ description: t('common.notes') }}>
           <DynamicPanelField label={t('common.notes')}>
             <textarea value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} className={panelInputClass + ' min-h-[60px]'} rows={3} />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
       </form>
     </DynamicPanelShell>
   )
@@ -329,6 +339,15 @@ export function CreateFieldPanel() {
 // ════════════════════════════════════════════════════════════════
 
 export function CreateSitePanel() {
+  return (
+    <SmartFormProvider panelId="create-site" defaultMode="simple">
+      <CreateSiteInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateSiteInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const { toast } = useToast()
   const createSite = useCreateSite()
@@ -385,7 +404,7 @@ export function CreateSitePanel() {
       }
     >
       <form id="create-site-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title={t('assets.identity')}>
+        <SmartFormSection id="t_assets_identity_2" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.field')} required>
               <select required value={form.field_id || ''} onChange={(e) => set({ field_id: e.target.value })} className={panelInputClass}>
@@ -427,9 +446,9 @@ export function CreateSitePanel() {
               <TagSelector options={STATUS_OPTIONS} value={form.status || 'OPERATIONAL'} onChange={(v) => set({ status: v })} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.location')} collapsible>
+        <SmartFormSection id="t_common_location_2" title={t('common.location')} level="essential" collapsible help={{ description: t('common.location') }}>
           <FormGrid>
             <DynamicPanelField label={t('common.latitude')}>
               <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={numChange(set, 'latitude')} className={panelInputClass} />
@@ -443,9 +462,9 @@ export function CreateSitePanel() {
               <input type="number" step="0.1" min={0} value={form.water_depth_m ?? ''} onChange={numChange(set, 'water_depth_m')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('assets.access')} collapsible>
+        <SmartFormSection id="t_assets_access" title={t('assets.access')} level="essential" collapsible help={{ description: t('assets.access') }}>
           <FormGrid>
             <DynamicPanelField label={t('asset_registry.acces_route')}>{boolSelect(form.access_road, (v) => set({ access_road: v }), panelInputClass)}</DynamicPanelField>
             <DynamicPanelField label={t('assets.access_helicopter')}>{boolSelect(form.access_helicopter, (v) => set({ access_helicopter: v }), panelInputClass)}</DynamicPanelField>
@@ -462,9 +481,9 @@ export function CreateSitePanel() {
               <input type="text" value={form.nearest_port || ''} onChange={(e) => set({ nearest_port: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('assets.operations')} collapsible>
+        <SmartFormSection id="t_assets_operations" title={t('assets.operations')} level="essential" collapsible help={{ description: t('assets.operations') }}>
           <FormGrid>
             <DynamicPanelField label={t('asset_registry.occupe_manned')}>{boolSelect(form.manned, (v) => set({ manned: v }), panelInputClass)}</DynamicPanelField>
             <DynamicPanelField label="POB max">
@@ -479,9 +498,9 @@ export function CreateSitePanel() {
               <input type="text" value={form.comms_system || ''} onChange={(e) => set({ comms_system: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('assets.design_conditions')} collapsible>
+        <SmartFormSection id="t_assets_design_conditions" title={t('assets.design_conditions')} level="essential" collapsible help={{ description: t('assets.design_conditions') }}>
           <FormGrid>
             <DynamicPanelField label="Vent max (m/s)">
               <input type="number" step="0.1" min={0} value={form.max_wind_speed_ms ?? ''} onChange={numChange(set, 'max_wind_speed_ms')} className={panelInputClass} />
@@ -503,9 +522,9 @@ export function CreateSitePanel() {
               <input type="text" value={form.seismic_zone || ''} onChange={(e) => set({ seismic_zone: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.dates')} collapsible>
+        <SmartFormSection id="t_common_dates" title={t('common.dates')} level="essential" collapsible help={{ description: t('common.dates') }}>
           <FormGrid>
             <DynamicPanelField label={t('common.commissioning_date')}>
               <input type="date" value={form.commissioning_date || ''} onChange={(e) => set({ commissioning_date: e.target.value || undefined })} className={panelInputClass} />
@@ -514,13 +533,13 @@ export function CreateSitePanel() {
               <input type="date" value={form.first_oil_date || ''} onChange={(e) => set({ first_oil_date: e.target.value || undefined })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.notes')} collapsible>
+        <SmartFormSection id="t_common_notes_2" title={t('common.notes')} level="essential" collapsible help={{ description: t('common.notes') }}>
           <DynamicPanelField label={t('common.notes')}>
             <textarea value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} className={panelInputClass + ' min-h-[60px]'} rows={3} />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
       </form>
     </DynamicPanelShell>
   )
@@ -532,6 +551,15 @@ export function CreateSitePanel() {
 // ════════════════════════════════════════════════════════════════
 
 export function CreateInstallationPanel() {
+  return (
+    <SmartFormProvider panelId="create-installation" defaultMode="simple">
+      <CreateInstallationInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateInstallationInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const { toast } = useToast()
   const createInstallation = useCreateInstallation()
@@ -589,7 +617,7 @@ export function CreateInstallationPanel() {
       }
     >
       <form id="create-installation-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title={t('assets.identity')}>
+        <SmartFormSection id="t_assets_identity_3" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.site')} required>
               <select required value={form.site_id || ''} onChange={(e) => set({ site_id: e.target.value })} className={panelInputClass}>
@@ -623,9 +651,9 @@ export function CreateInstallationPanel() {
               <TagSelector options={STATUS_OPTIONS} value={form.status || 'OPERATIONAL'} onChange={(v) => set({ status: v })} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.location')} collapsible>
+        <SmartFormSection id="t_common_location_3" title={t('common.location')} level="essential" collapsible help={{ description: t('common.location') }}>
           <FormGrid>
             <DynamicPanelField label={t('common.latitude')}>
               <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={numChange(set, 'latitude')} className={panelInputClass} />
@@ -650,9 +678,9 @@ export function CreateInstallationPanel() {
               <input type="number" step="0.1" min={0} max={360} value={form.orientation_deg ?? ''} onChange={numChange(set, 'orientation_deg')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.dates')} collapsible>
+        <SmartFormSection id="t_common_dates_2" title={t('common.dates')} level="essential" collapsible help={{ description: t('common.dates') }}>
           <FormGrid>
             <DynamicPanelField label="Date installation">
               <input type="date" value={form.installation_date || ''} onChange={(e) => set({ installation_date: e.target.value || undefined })} className={panelInputClass} />
@@ -669,9 +697,9 @@ export function CreateInstallationPanel() {
               <input type="number" min={0} value={form.design_life_years ?? ''} onChange={numChange(set, 'design_life_years')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('asset_registry.caracteristiques')} collapsible>
+        <SmartFormSection id="t_asset_registry_caracteristiques" title={t('asset_registry.caracteristiques')} level="essential" collapsible help={{ description: t('asset_registry.caracteristiques') }}>
           <FormGrid>
             <DynamicPanelField label={t('asset_registry.occupe_manned')}>{boolSelect(form.is_manned, (v) => set({ is_manned: v }), panelInputClass)}</DynamicPanelField>
             <DynamicPanelField label={t('asset_registry.normalement_non_occupe')}>{boolSelect(form.is_normally_unmanned, (v) => set({ is_normally_unmanned: v }), panelInputClass)}</DynamicPanelField>
@@ -687,9 +715,9 @@ export function CreateInstallationPanel() {
               <input type="number" min={0} value={form.lifeboat_capacity ?? ''} onChange={numChange(set, 'lifeboat_capacity')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.dimensions')} collapsible>
+        <SmartFormSection id="t_common_dimensions" title={t('common.dimensions')} level="essential" collapsible help={{ description: t('common.dimensions') }}>
           <FormGrid>
             <DynamicPanelField label="Surface totale (m2)">
               <input type="number" step="0.1" min={0} value={form.total_area_m2 ?? ''} onChange={numChange(set, 'total_area_m2')} className={panelInputClass} />
@@ -703,9 +731,9 @@ export function CreateInstallationPanel() {
               <input type="number" step="0.1" min={0} value={form.footprint_width_m ?? ''} onChange={numChange(set, 'footprint_width_m')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.classification')} collapsible>
+        <SmartFormSection id="t_common_classification" title={t('common.classification')} level="essential" collapsible help={{ description: t('common.classification') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.design_code')}>
               <input type="text" value={form.design_code || ''} onChange={(e) => set({ design_code: e.target.value })} className={panelInputClass} />
@@ -719,13 +747,13 @@ export function CreateInstallationPanel() {
               <input type="text" value={form.class_notation || ''} onChange={(e) => set({ class_notation: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.notes')} collapsible>
+        <SmartFormSection id="t_common_notes_3" title={t('common.notes')} level="essential" collapsible help={{ description: t('common.notes') }}>
           <DynamicPanelField label={t('common.notes')}>
             <textarea value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} className={panelInputClass + ' min-h-[60px]'} rows={3} />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
       </form>
     </DynamicPanelShell>
   )
@@ -737,6 +765,15 @@ export function CreateInstallationPanel() {
 // ════════════════════════════════════════════════════════════════
 
 export function CreateEquipmentPanel() {
+  return (
+    <SmartFormProvider panelId="create-equipment" defaultMode="simple">
+      <CreateEquipmentInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateEquipmentInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const { toast } = useToast()
   const createEquipment = useCreateEquipment()
@@ -805,7 +842,7 @@ export function CreateEquipmentPanel() {
       }
     >
       <form id="create-equipment-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title={t('assets.identity')}>
+        <SmartFormSection id="t_assets_identity_4" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.tag_number')} required>
               <input type="text" required maxLength={50} value={form.tag_number} onChange={(e) => set({ tag_number: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="21-PA-001" />
@@ -834,9 +871,9 @@ export function CreateEquipmentPanel() {
             </DynamicPanelField>
             <DynamicPanelField label={t('assets.safety_function')}>{boolSelect(form.safety_function, (v) => set({ safety_function: v }), panelInputClass)}</DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.location')} collapsible>
+        <SmartFormSection id="t_common_location_4" title={t('common.location')} level="essential" collapsible help={{ description: t('common.location') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.installation')}>
               <select value={form.installation_id || ''} onChange={(e) => set({ installation_id: e.target.value || undefined, deck_id: undefined })} className={panelInputClass}>
@@ -894,9 +931,9 @@ export function CreateEquipmentPanel() {
               <input type="number" step="0.01" value={form.local_z_m ?? ''} onChange={numChange(set, 'local_z_m')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.manufacturer')} collapsible>
+        <SmartFormSection id="t_common_manufacturer" title={t('common.manufacturer')} level="essential" collapsible help={{ description: t('common.manufacturer') }}>
           <FormGrid>
             <DynamicPanelField label="Fabricant">
               <input type="text" value={form.manufacturer || ''} onChange={(e) => set({ manufacturer: e.target.value })} className={panelInputClass} />
@@ -918,9 +955,9 @@ export function CreateEquipmentPanel() {
               <input type="number" min={1900} max={2100} value={form.year_installed ?? ''} onChange={numChange(set, 'year_installed')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.certification')} collapsible>
+        <SmartFormSection id="t_common_certification" title={t('common.certification')} level="essential" collapsible help={{ description: t('common.certification') }}>
           <FormGrid>
             <DynamicPanelField label="N° certificat">
               <input type="text" value={form.cert_number || ''} onChange={(e) => set({ cert_number: e.target.value })} className={panelInputClass} />
@@ -929,9 +966,9 @@ export function CreateEquipmentPanel() {
               <input type="text" value={form.cert_authority || ''} onChange={(e) => set({ cert_authority: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('asset_registry.documents_references')} collapsible>
+        <SmartFormSection id="t_asset_registry_documents_references" title={t('asset_registry.documents_references')} level="essential" collapsible help={{ description: t('asset_registry.documents_references') }}>
           <FormGrid>
             <DynamicPanelField label="N° plan">
               <input type="text" value={form.drawing_number || ''} onChange={(e) => set({ drawing_number: e.target.value })} className={panelInputClass} />
@@ -953,9 +990,9 @@ export function CreateEquipmentPanel() {
               <input type="url" value={form.cert_document_url || ''} onChange={(e) => set({ cert_document_url: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('assets.finance')} collapsible>
+        <SmartFormSection id="t_assets_finance" title={t('assets.finance')} level="essential" collapsible help={{ description: t('assets.finance') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.owner_company')}>
               <input type="text" value={form.owner_company || ''} onChange={(e) => set({ owner_company: e.target.value })} className={panelInputClass} />
@@ -977,13 +1014,13 @@ export function CreateEquipmentPanel() {
               <input type="number" step="0.01" min={0} value={form.replacement_cost_usd ?? ''} onChange={numChange(set, 'replacement_cost_usd')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.notes')} collapsible>
+        <SmartFormSection id="t_common_notes_4" title={t('common.notes')} level="essential" collapsible help={{ description: t('common.notes') }}>
           <DynamicPanelField label={t('common.notes')}>
             <textarea value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} className={panelInputClass + ' min-h-[60px]'} rows={3} />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
       </form>
     </DynamicPanelShell>
   )
@@ -995,6 +1032,15 @@ export function CreateEquipmentPanel() {
 // ════════════════════════════════════════════════════════════════
 
 export function CreatePipelinePanel() {
+  return (
+    <SmartFormProvider panelId="create-pipeline" defaultMode="simple">
+      <CreatePipelineInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreatePipelineInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const { toast } = useToast()
   const createPipeline = useCreatePipeline()
@@ -1060,7 +1106,7 @@ export function CreatePipelinePanel() {
       }
     >
       <form id="create-pipeline-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title={t('assets.identity')}>
+        <SmartFormSection id="t_assets_identity_5" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.pipeline_id')} required>
               <input type="text" required maxLength={50} value={form.pipeline_id} onChange={(e) => set({ pipeline_id: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="PL-SITE-MLF-01" />
@@ -1080,9 +1126,9 @@ export function CreatePipelinePanel() {
               <TagSelector options={STATUS_OPTIONS} value={form.status || 'OPERATIONAL'} onChange={(v) => set({ status: v })} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('assets.routing')}>
+        <SmartFormSection id="t_assets_routing" title={t('assets.routing')} level="essential" help={{ description: t('assets.routing') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.from_installation')} required>
               <select required value={form.from_installation_id || ''} onChange={(e) => set({ from_installation_id: e.target.value })} className={panelInputClass}>
@@ -1121,9 +1167,9 @@ export function CreatePipelinePanel() {
               <input type="number" step="0.01" min={0} value={form.offshore_length_km ?? ''} onChange={numChange(set, 'offshore_length_km')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.dimensions')}>
+        <SmartFormSection id="t_common_dimensions_2" title={t('common.dimensions')} level="essential" help={{ description: t('common.dimensions') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.nominal_diameter')} required>
               <input type="number" required step="0.1" min={0} value={form.nominal_diameter_in ?? ''} onChange={numChange(set, 'nominal_diameter_in')} className={panelInputClass} placeholder='pouces (")' />
@@ -1137,9 +1183,9 @@ export function CreatePipelinePanel() {
               <input type="number" step="0.01" min={0} value={form.wall_thickness_mm ?? ''} onChange={numChange(set, 'wall_thickness_mm')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('assets.design')}>
+        <SmartFormSection id="t_assets_design" title={t('assets.design')} level="essential" help={{ description: t('assets.design') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.design_pressure')} required>
               <input type="number" required step="0.1" min={0} value={form.design_pressure_barg ?? ''} onChange={numChange(set, 'design_pressure_barg')} className={panelInputClass} placeholder="barg" />
@@ -1161,9 +1207,9 @@ export function CreatePipelinePanel() {
               <input type="number" step="0.1" min={0} value={form.test_pressure_barg ?? ''} onChange={numChange(set, 'test_pressure_barg')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('asset_registry.materiaux_revetement')} collapsible>
+        <SmartFormSection id="t_asset_registry_materiaux_revetement" title={t('asset_registry.materiaux_revetement')} level="essential" collapsible help={{ description: t('asset_registry.materiaux_revetement') }}>
           <FormGrid>
             <DynamicPanelField label={t('asset_registry.materiau_tube')}>
               <input type="text" value={form.pipe_material || ''} onChange={(e) => set({ pipe_material: e.target.value })} className={panelInputClass} placeholder="CS API 5L" />
@@ -1185,9 +1231,9 @@ export function CreatePipelinePanel() {
               <input type="number" step="0.1" min={0} value={form.corrosion_allowance_mm ?? ''} onChange={numChange(set, 'corrosion_allowance_mm')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.fluid')} collapsible>
+        <SmartFormSection id="t_common_fluid" title={t('common.fluid')} level="essential" collapsible help={{ description: t('common.fluid') }}>
           <FormGrid>
             <DynamicPanelField label="Description fluide">
               <input type="text" value={form.fluid_description || ''} onChange={(e) => set({ fluid_description: e.target.value })} className={panelInputClass} />
@@ -1201,9 +1247,9 @@ export function CreatePipelinePanel() {
               <input type="number" step="0.01" min={0} value={form.co2_mol_pct ?? ''} onChange={numChange(set, 'co2_mol_pct')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title="Raclage (Pigging)" collapsible>
+        <SmartFormSection id="section" title={'Section'} level="essential" collapsible help={{ description: 'Section' }}>
           <FormGrid>
             <DynamicPanelField label="Raclable">{boolSelect(form.piggable, (v) => set({ piggable: v }), panelInputClass)}</DynamicPanelField>
           </FormGrid>
@@ -1215,18 +1261,18 @@ export function CreatePipelinePanel() {
               <input type="text" value={form.pig_receiver_tag || ''} onChange={(e) => set({ pig_receiver_tag: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title="Protection cathodique" collapsible>
+        <SmartFormSection id="section_2" title={'Section'} level="essential" collapsible help={{ description: 'Section' }}>
           <FormGrid>
             <DynamicPanelField label="CP requise">{boolSelect(form.cp_required, (v) => set({ cp_required: v }), panelInputClass)}</DynamicPanelField>
             <DynamicPanelField label="Type CP">
               <input type="text" value={form.cp_type || ''} onChange={(e) => set({ cp_type: e.target.value })} className={panelInputClass} placeholder="Anodes sacrificielles" />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('asset_registry.integrite_reglementaire')} collapsible>
+        <SmartFormSection id="t_asset_registry_integrite_reglementaire" title={t('asset_registry.integrite_reglementaire')} level="essential" collapsible help={{ description: t('asset_registry.integrite_reglementaire') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.design_code')}>
               <input type="text" value={form.design_code || ''} onChange={(e) => set({ design_code: e.target.value })} className={panelInputClass} placeholder="ASME B31.8" />
@@ -1248,13 +1294,13 @@ export function CreatePipelinePanel() {
               <input type="text" value={form.regulator || ''} onChange={(e) => set({ regulator: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.notes')} collapsible>
+        <SmartFormSection id="t_common_notes_5" title={t('common.notes')} level="essential" collapsible help={{ description: t('common.notes') }}>
           <DynamicPanelField label={t('common.notes')}>
             <textarea value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} className={panelInputClass + ' min-h-[60px]'} rows={3} />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
       </form>
     </DynamicPanelShell>
   )

@@ -11,13 +11,16 @@ import { useUIStore } from '@/stores/uiStore'
 import { useCreateOAuthApp } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import type { OAuthAppCreated } from '@/types/api'
+import { DynamicPanelShell, DynamicPanelField, PanelActionButton, panelInputClass } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell,
-  DynamicPanelField,
-  FormSection,
-  PanelActionButton,
-  panelInputClass,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 
 const scopeOptions = [
   { value: 'api', label: 'api', desc: 'Accès complet à l\'API' },
@@ -28,6 +31,15 @@ const scopeOptions = [
 ]
 
 export function CreateAppPanel() {
+  return (
+    <SmartFormProvider panelId="create-app" defaultMode="simple">
+      <CreateAppInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateAppInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const { toast } = useToast()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -140,7 +152,7 @@ export function CreateAppPanel() {
       }
     >
       <form id="create-app-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title={t('common.information')}>
+        <SmartFormSection id="t_common_information" title={t('common.information')} level="essential" help={{ description: t('common.information') }}>
           <DynamicPanelField label="Nom de l'application" required>
             <input
               type="text"
@@ -160,9 +172,9 @@ export function CreateAppPanel() {
             />
             <p className="mt-1 text-xs text-muted-foreground">{t('settings.une_uri_par_ligne')}</p>
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('settings.confidentialite')} collapsible storageKey="panel.app.sections" id="app-confidentiality">
+        <SmartFormSection id="t_settings_confidentialite" title={t('settings.confidentialite')} level="essential" collapsible help={{ description: t('settings.confidentialite') }}>
           <div className="space-y-2">
             <label className="flex items-start gap-2.5 cursor-pointer">
               <input
@@ -191,9 +203,9 @@ export function CreateAppPanel() {
               </div>
             </label>
           </div>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.scopes')} collapsible storageKey="panel.app.sections" id="app-scopes">
+        <SmartFormSection id="t_common_scopes" title={t('common.scopes')} level="essential" collapsible help={{ description: t('common.scopes') }}>
           <div className="space-y-2">
             {scopeOptions.map((scope) => (
               <label key={scope.value} className="flex items-start gap-2.5 cursor-pointer">
@@ -214,7 +226,7 @@ export function CreateAppPanel() {
               </label>
             ))}
           </div>
-        </FormSection>
+        </SmartFormSection>
       </form>
     </DynamicPanelShell>
   )

@@ -84,11 +84,11 @@ export function AdsBoardingScanPage() {
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Statut</div>
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.status')}</div>
                   <div className="mt-1 text-sm font-semibold text-foreground">{data.status}</div>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Site</div>
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.site')}</div>
                   <div className="mt-1 text-sm font-semibold text-foreground">{data.site_name || '--'}</div>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-3">
@@ -96,7 +96,7 @@ export function AdsBoardingScanPage() {
                   <div className="mt-1 text-sm font-semibold text-foreground">{formatDate(data.start_date)} → {formatDate(data.end_date)}</div>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Boarded</div>
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.boarded')}</div>
                   <div className="mt-1 text-sm font-semibold text-foreground">{boardedTotal} / {declaredTotal || data.pax_count}</div>
                 </div>
               </div>
@@ -200,11 +200,11 @@ export function AdsBoardingScanPage() {
                 </div>
                 <dl className="mt-4 space-y-3 text-sm">
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Demandeur</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.requester')}</dt>
                     <dd className="mt-1 font-medium text-foreground">{data.requester_name || '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Motif</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.motive')}</dt>
                     <dd className="mt-1 font-medium text-foreground">{data.visit_purpose || '--'}</dd>
                   </div>
                   <div>
@@ -212,7 +212,7 @@ export function AdsBoardingScanPage() {
                     <dd className="mt-1 font-medium text-foreground">{data.visit_category || '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Projet</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.project')}</dt>
                     <dd className="mt-1 font-medium text-foreground">{data.project_name || '--'}</dd>
                   </div>
                   <div>
@@ -226,13 +226,13 @@ export function AdsBoardingScanPage() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Transport</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.transport')}</dt>
                     <dd className="mt-1 font-medium text-foreground">
                       Aller {data.outbound_transport_mode || '--'} • Retour {data.return_transport_mode || '--'}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Workflow</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.workflow')}</dt>
                     <dd className="mt-1 font-medium text-foreground">
                       Soumis {formatDateTime(data.submitted_at)} • Approuvé {formatDateTime(data.approved_at)}
                     </dd>

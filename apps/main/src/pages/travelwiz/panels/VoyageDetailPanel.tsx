@@ -78,6 +78,7 @@ function VoyageCargoOperationsSection({
   packageReturnStatusLabels: Record<string, string>
   onOpenExport: () => void
 }) {
+  const { t } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
   return (
@@ -93,19 +94,19 @@ function VoyageCargoOperationsSection({
           </div>
           <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
             <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Colis</p>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.packages')}</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{report.cargo_count}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Livrés</p>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.delivered')}</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{report.delivered_count}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Endommagés</p>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.damaged')}</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{report.damaged_count}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Manquants</p>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.missing')}</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{report.missing_count}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-card px-3 py-2">

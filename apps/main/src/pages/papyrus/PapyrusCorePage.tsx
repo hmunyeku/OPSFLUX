@@ -1743,7 +1743,7 @@ export function ReportEditorPage() {
                       </div>
                       {preset.key === 'field_supervision_report' ? (
                         <div className="space-y-1">
-                          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Projet</div>
+                          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('common.project')}</div>
                           <select
                             value={presetProjectIds[preset.key] ?? ''}
                             onChange={(event) => setPresetProjectIds((current) => ({ ...current, [preset.key]: event.target.value }))}

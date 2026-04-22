@@ -105,19 +105,19 @@ export function CreateCargoRequestPanel() {
               </div>
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Référence</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.reference')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">Générée automatiquement à l'enregistrement</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Complétude</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.completeness')}</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">{readinessScore}%</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Projet</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.project')}</p>
                   <p className="mt-1 text-sm font-medium text-foreground">{form.project_id ? 'Renseigné' : 'Optionnel'}</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Demandeur</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.requester')}</p>
                   <p className="mt-1 text-sm font-medium text-foreground">{form.requester_user_id || form.requester_name ? 'Renseigné' : 'À préciser'}</p>
                 </div>
               </div>
@@ -380,19 +380,19 @@ export function CreateCargoPanel() {
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-4">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Projet</p>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.project')}</p>
                     <p className="mt-1 text-sm text-foreground">{selectedRequest.project_id ? 'Renseigné' : '—'}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Imputation</p>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.imputation')}</p>
                     <p className="mt-1 text-sm text-foreground">{selectedRequest.imputation_reference_name ?? selectedRequest.imputation_reference_code ?? '—'}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Destination</p>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.destination')}</p>
                     <p className="mt-1 text-sm text-foreground">{selectedRequest.destination_name ?? '—'}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Demandeur</p>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.requester')}</p>
                     <p className="mt-1 text-sm text-foreground">{selectedRequest.requester_display_name ?? selectedRequest.requester_name ?? '—'}</p>
                   </div>
                 </div>
@@ -801,11 +801,11 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               </div>
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Complétude</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.completeness')}</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">{completionRatio}%</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Colis</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.packages')}</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">{requestCargo.length}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{totalPackages.toLocaleString('fr-FR')} packages</p>
                 </div>
@@ -815,7 +815,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   <p className="mt-1 text-xs text-muted-foreground">{assignedCount} affectés à un manifeste</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Suivi</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.tracking_label')}</p>
                   <p className="mt-1 text-sm font-medium text-foreground">{deliveredCount} livrés · {inTransitCount} en transit</p>
                   <p className="mt-1 text-xs text-muted-foreground">{blockedCount} colis bloqués</p>
                 </div>

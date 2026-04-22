@@ -147,6 +147,7 @@ export function CreateArticlePanel() {
 }
 
 export function PackLogArticleDetailPanel({ id }: { id: string }) {
+  const { t } = useTranslation()
   const { data: article, isLoading } = usePackLogArticle(id)
 
   if (isLoading || !article) {
@@ -175,15 +176,15 @@ export function PackLogArticleDetailPanel({ id }: { id: string }) {
           </div>
           <div className="grid gap-3 md:grid-cols-4">
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Gestion</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.management')}</p>
               <p className="mt-1 text-sm text-foreground">{article.management_type ?? '—'}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Conditionnement</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.packaging')}</p>
               <p className="mt-1 text-sm text-foreground">{article.packaging ?? '—'}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Unité</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.unit')}</p>
               <p className="mt-1 text-sm text-foreground">{article.unit ?? '—'}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">

@@ -1,4 +1,5 @@
 import { Box, Loader2, MapPin } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import {
@@ -491,6 +492,7 @@ export function CargoReturnSummarySection({
   elements: PackageElement[] | undefined
   packageReturnStatusLabels: Record<string, string>
 }) {
+  const { t } = useTranslation()
   const summary = buildCargoReturnSummary(elements)
   const aggregateStatusLabel = (() => {
     switch (summary.aggregateStatus) {
@@ -543,7 +545,7 @@ export function CargoReturnSummarySection({
               <p className="text-xs text-muted-foreground">{summary.partialElements} partiel(s), {summary.pendingElements} en attente</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Ventilation</p>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('common.distribution')}</p>
               <div className="mt-1 space-y-1 text-xs text-muted-foreground">
                 {Object.entries(summary.dispositionCounts).map(([status, count]) => (
                   <p key={status}>{packageReturnStatusLabels[status] ?? status}: {count}</p>

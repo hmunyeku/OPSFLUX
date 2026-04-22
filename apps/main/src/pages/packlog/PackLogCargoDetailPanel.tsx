@@ -604,10 +604,10 @@ export function CargoDetailPanel({ id }: { id: string }) {
               )}
               <DynamicPanelField label="Contexte hérité de la demande" span="full">
                 <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 md:grid-cols-4">
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Expéditeur</p><p className="mt-1 text-sm text-foreground">{cargo.sender_name ?? '—'}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Destination</p><p className="mt-1 text-sm text-foreground">{cargo.destination_name ?? cargo.receiver_name ?? '—'}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Projet</p><p className="mt-1 text-sm text-foreground">{projectLabel ?? '—'}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Imputation</p><p className="mt-1 text-sm text-foreground">{cargo.imputation_reference_name ?? cargo.imputation_reference_code ?? '—'}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.sender')}</p><p className="mt-1 text-sm text-foreground">{cargo.sender_name ?? '—'}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.destination')}</p><p className="mt-1 text-sm text-foreground">{cargo.destination_name ?? cargo.receiver_name ?? '—'}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.project')}</p><p className="mt-1 text-sm text-foreground">{projectLabel ?? '—'}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.imputation')}</p><p className="mt-1 text-sm text-foreground">{cargo.imputation_reference_name ?? cargo.imputation_reference_code ?? '—'}</p></div>
                 </div>
               </DynamicPanelField>
               <DynamicPanelField label="Document préparé le">

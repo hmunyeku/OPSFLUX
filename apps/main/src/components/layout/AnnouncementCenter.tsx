@@ -185,6 +185,7 @@ function AnnouncementItem({
 // ── Create Form ──────────────────────────────────────────────
 
 function CreateAnnouncementForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+  const { t } = useTranslation()
   const create = useCreateAnnouncement()
   const [form, setForm] = useState<AnnouncementCreate>({
     title: '',
@@ -226,31 +227,31 @@ function CreateAnnouncementForm({ onCreated, onCancel }: { onCreated: () => void
           onChange={(e) => setForm({ ...form, priority: e.target.value })}
           className="gl-form-select text-[10px] h-6"
         >
-          <option value="info">Info</option>
-          <option value="warning">Attention</option>
-          <option value="critical">Critique</option>
-          <option value="maintenance">Maintenance</option>
+          <option value="info">{t('announcements.priorities.info')}</option>
+          <option value="warning">{t('announcements.priorities.warning')}</option>
+          <option value="critical">{t('announcements.priorities.critical')}</option>
+          <option value="maintenance">{t('announcements.priorities.maintenance')}</option>
         </select>
         <select
           value={form.target_type}
           onChange={(e) => setForm({ ...form, target_type: e.target.value })}
           className="gl-form-select text-[10px] h-6"
         >
-          <option value="all">Tous</option>
-          <option value="entity">Entité</option>
+          <option value="all">{t('announcements.targets.all')}</option>
+          <option value="entity">{t('announcements.targets.entity')}</option>
         </select>
         <select
           value={form.display_location}
           onChange={(e) => setForm({ ...form, display_location: e.target.value })}
           className="gl-form-select text-[10px] h-6"
         >
-          <option value="dashboard">Tableau de bord</option>
-          <option value="banner">Bannière</option>
-          <option value="all">Partout</option>
+          <option value="dashboard">{t('announcements.locations.dashboard')}</option>
+          <option value="banner">{t('announcements.locations.banner')}</option>
+          <option value="all">{t('announcements.locations.all')}</option>
         </select>
         <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
           <input type="checkbox" checked={form.pinned} onChange={(e) => setForm({ ...form, pinned: e.target.checked })} className="h-3 w-3 rounded" />
-          Épinglée
+          {t('announcements.pinned')}
         </label>
         <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
           <input type="checkbox" checked={form.send_email} onChange={(e) => setForm({ ...form, send_email: e.target.checked })} className="h-3 w-3 rounded" />

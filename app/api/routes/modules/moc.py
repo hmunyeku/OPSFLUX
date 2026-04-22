@@ -1228,21 +1228,6 @@ async def export_moc_pdf(
             return v.signature
         return None  # redacted in the PDF
 
-    validations_payload = []
-    for v in moc.validations or []:
-        validations_payload.append({
-            "role_label": ROLE_LABELS.get(v.role, v.role),
-            "metier_name": v.metier_name,
-            "validator_name": v.validator_name or names.get(v.validator_id) if v.validator_id else None,
-            "comments": render_markdown(v.comments) if v.comments else None,
-            "validated_at": _fmt_date(v.validated_at),
-            "approved": v.approved,
-            "level": v.level,
-            "signature": _vsig(v),
-            "return_requested": v.return_requested,
-            "return_reason": v.return_reason,
-        })
-
     # Fetch MOC type label lazily (avoid a join when not needed)
     moc_type_label = None
     if moc.moc_type_id:
@@ -1308,14 +1293,36 @@ async def export_moc_pdf(
         return _INLINE_IMG_RE.sub(_sub, html)
 
     # Apply rewriting to every rich-text surface that the template renders
-    # via `| safe`. Ordered so consumers below use the rewritten strings.
-    for _field in (
-        "objectives", "description", "current_situation", "proposed_changes",
-        "impact_analysis", "study_conclusion", "hierarchy_review_comment",
-        "site_chief_comment", "director_comment", "production_comment",
-        "do_execution_comment", "dg_execution_comment",
-    ):
-        setattr(moc, _field, _rewrite_inline_images(getattr(moc, _field, None)))
+    # via `| safe`. We build a local dict instead of mutating the ORM
+    # instance — otherwise SQLAlchemy would happily flush the rewritten
+    # data URIs back to the database on the next query in this session.
+    _rewritten_text: dict[str, str | None] = {
+        _f: _rewrite_inline_images(getattr(moc, _f, None))
+        for _f in (
+            "objectives", "description", "current_situation", "proposed_changes",
+            "impact_analysis", "study_conclusion", "hierarchy_review_comment",
+            "site_chief_comment", "director_comment", "production_comment",
+            "do_execution_comment", "dg_execution_comment",
+        )
+    }
+
+    # Per-validator comments can also carry inline Tiptap images — rewrite
+    # those URLs too before Jinja renders them.
+    validations_payload = []
+    for v in moc.validations or []:
+        rewritten_comments = _rewrite_inline_images(v.comments) if v.comments else None
+        validations_payload.append({
+            "role_label": ROLE_LABELS.get(v.role, v.role),
+            "metier_name": v.metier_name,
+            "validator_name": v.validator_name or names.get(v.validator_id) if v.validator_id else None,
+            "comments": render_markdown(rewritten_comments) if rewritten_comments else None,
+            "validated_at": _fmt_date(v.validated_at),
+            "approved": v.approved,
+            "level": v.level,
+            "signature": _vsig(v),
+            "return_requested": v.return_requested,
+            "return_reason": v.return_reason,
+        })
 
     # Signature redaction in the PDF — same rule as the UI. `_can_sigs` was
     # already computed up-front for the validations_payload; we reuse it.
@@ -1350,11 +1357,11 @@ async def export_moc_pdf(
         "initiator_email": moc.initiator_email,
         "initiator_signature": _sig("initiator_signature", "initiator_id"),
         "created_at": _fmt_date(moc.created_at),
-        "objectives": moc.objectives,
-        "description": render_markdown(moc.description) if moc.description else None,
-        "current_situation": render_markdown(moc.current_situation) if moc.current_situation else None,
-        "proposed_changes": render_markdown(moc.proposed_changes) if moc.proposed_changes else None,
-        "impact_analysis": render_markdown(moc.impact_analysis) if moc.impact_analysis else None,
+        "objectives": _rewritten_text["objectives"],
+        "description": render_markdown(_rewritten_text["description"]) if _rewritten_text["description"] else None,
+        "current_situation": render_markdown(_rewritten_text["current_situation"]) if _rewritten_text["current_situation"] else None,
+        "proposed_changes": render_markdown(_rewritten_text["proposed_changes"]) if _rewritten_text["proposed_changes"] else None,
+        "impact_analysis": render_markdown(_rewritten_text["impact_analysis"]) if _rewritten_text["impact_analysis"] else None,
         "modification_type_label": (
             "Permanent" if moc.modification_type == "permanent"
             else "Temporaire" if moc.modification_type == "temporary"
@@ -1363,11 +1370,11 @@ async def export_moc_pdf(
         "temporary_start_date": _fmt_date(moc.temporary_start_date),
         "temporary_end_date": _fmt_date(moc.temporary_end_date),
         "is_real_change": moc.is_real_change,
-        "hierarchy_review_comment": moc.hierarchy_review_comment,
+        "hierarchy_review_comment": _rewritten_text["hierarchy_review_comment"],
         "site_chief_approved": moc.site_chief_approved,
         "site_chief_display": names.get(moc.site_chief_id) if moc.site_chief_id else None,
         "site_chief_approved_at": _fmt_date(moc.site_chief_approved_at),
-        "site_chief_comment": moc.site_chief_comment,
+        "site_chief_comment": _rewritten_text["site_chief_comment"],
         "hierarchy_reviewer_signature": _sig("hierarchy_reviewer_signature", "hierarchy_reviewer_id"),
         "site_chief_signature": _sig("site_chief_signature", "site_chief_id"),
         "close_signature": _sig("close_signature", "close_by"),
@@ -1376,13 +1383,13 @@ async def export_moc_pdf(
         # Production mise-en-étude (Daxium tab 3)
         "production_validated": moc.production_validated,
         "production_validated_at": _fmt_date(moc.production_validated_at),
-        "production_comment": moc.production_comment,
+        "production_comment": _rewritten_text["production_comment"],
         "production_signature": _sig("production_signature", "production_validated_by"),
         "production_return_requested": moc.production_return_requested,
         "production_return_reason": moc.production_return_reason,
         "director_display": names.get(moc.director_id) if moc.director_id else None,
         "director_confirmed_at": _fmt_date(moc.director_confirmed_at),
-        "director_comment": moc.director_comment,
+        "director_comment": _rewritten_text["director_comment"],
         "director_signature": _sig("director_signature", "director_id"),
         "priority": moc.priority,
         "estimated_cost_mxaf": float(moc.estimated_cost_mxaf) if moc.estimated_cost_mxaf is not None else None,
@@ -1397,20 +1404,20 @@ async def export_moc_pdf(
         "pid_update_completed": moc.pid_update_completed,
         "esd_update_required": moc.esd_update_required,
         "esd_update_completed": moc.esd_update_completed,
-        "study_conclusion": render_markdown(moc.study_conclusion) if moc.study_conclusion else None,
+        "study_conclusion": render_markdown(_rewritten_text["study_conclusion"]) if _rewritten_text["study_conclusion"] else None,
         "responsible_display": names.get(moc.responsible_id) if moc.responsible_id else None,
         "process_engineer_signature": _sig("process_engineer_signature", "responsible_id"),
         "study_completed_at": _fmt_date(moc.study_completed_at),
         "validations": validations_payload,
         "do_execution_accord": moc.do_execution_accord,
         "do_execution_accord_at": _fmt_date(moc.do_execution_accord_at),
-        "do_execution_comment": moc.do_execution_comment,
+        "do_execution_comment": _rewritten_text["do_execution_comment"],
         "do_signature": _sig("do_signature", "do_execution_accord_by"),
         "do_return_requested": moc.do_return_requested,
         "do_return_reason": moc.do_return_reason,
         "dg_execution_accord": moc.dg_execution_accord,
         "dg_execution_accord_at": _fmt_date(moc.dg_execution_accord_at),
-        "dg_execution_comment": moc.dg_execution_comment,
+        "dg_execution_comment": _rewritten_text["dg_execution_comment"],
         "dg_signature": _sig("dg_signature", "dg_execution_accord_by"),
         "dg_return_requested": moc.dg_return_requested,
         "dg_return_reason": moc.dg_return_reason,

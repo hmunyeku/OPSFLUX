@@ -120,6 +120,13 @@
     "acting_as": "Contexte d'action",
     "simulation": "Simulation"
   },
+  "rich_text": {
+    "image_insert": "Insérer une image",
+    "image_save_first": "Sauvegarder d'abord pour ajouter des images",
+    "image_too_large": "Image trop volumineuse (max {{max}} Mo).",
+    "image_invalid_type": "Le fichier doit être une image.",
+    "image_upload_failed": "Impossible de charger l'image."
+  },
   "common": {
     "save": "Sauvegarder",
     "cancel": "Annuler",

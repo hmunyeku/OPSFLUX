@@ -21,6 +21,7 @@
  * It sanitises the HTML via DOMPurify before rendering.
  */
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -130,6 +131,7 @@ export function RichTextField({
   imageOwnerId,
   imageMaxSizeMB = 5,
 }: RichTextFieldProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -202,7 +204,7 @@ export function RichTextField({
   const openImagePicker = () => {
     if (!canUploadImage) {
       toast({
-        title: 'Sauvegarder d\u2019abord pour ajouter des images.',
+        title: t('rich_text.image_save_first'),
         variant: 'warning',
       })
       return
@@ -216,13 +218,13 @@ export function RichTextField({
     // fail fast here with a clearer message.
     if (file.size > imageMaxSizeMB * 1024 * 1024) {
       toast({
-        title: `Image trop volumineuse (max ${imageMaxSizeMB} Mo).`,
+        title: t('rich_text.image_too_large', { max: imageMaxSizeMB }),
         variant: 'error',
       })
       return
     }
     if (!file.type.startsWith('image/')) {
-      toast({ title: 'Le fichier doit \u00eatre une image.', variant: 'error' })
+      toast({ title: t('rich_text.image_invalid_type'), variant: 'error' })
       return
     }
     setUploading(true)
@@ -246,7 +248,7 @@ export function RichTextField({
     } catch (err) {
       console.error('[RichTextField] image upload failed', err)
       toast({
-        title: 'Impossible de charger l\u2019image.',
+        title: t('rich_text.image_upload_failed'),
         variant: 'error',
       })
     } finally {
@@ -375,8 +377,8 @@ export function RichTextField({
             disabled={disabled || uploading}
             title={
               canUploadImage
-                ? 'Insérer une image'
-                : 'Sauvegarder d\u2019abord pour ajouter des images'
+                ? t('rich_text.image_insert')
+                : t('rich_text.image_save_first')
             }
           >
             {uploading ? (

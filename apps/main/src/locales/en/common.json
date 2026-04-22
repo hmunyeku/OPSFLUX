@@ -120,6 +120,13 @@
     "acting_as": "Acting context",
     "simulation": "Simulation"
   },
+  "rich_text": {
+    "image_insert": "Insert image",
+    "image_save_first": "Save first to add images",
+    "image_too_large": "Image too large (max {{max}} MB).",
+    "image_invalid_type": "File must be an image.",
+    "image_upload_failed": "Failed to upload image."
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

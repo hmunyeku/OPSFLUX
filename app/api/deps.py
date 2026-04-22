@@ -406,13 +406,16 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     # the read/update perms. A user who can read the MOC can list its
     # attachments; a user who can update can upload/delete.
     "moc": ("moc.read", "moc.update"),
-    # MOC staging — used by the Create panel to upload images before the
-    # MOC row exists. owner_id is a client-generated UUID (session key).
-    # On successful MOC create, a commit helper re-targets those rows.
-    # Same permissions as regular moc attachments so only update-capable
-    # users can stage.
-    "moc_staging": ("moc.update", "moc.update"),
 }
+
+# Auto-fallback for `{module}_staging` owner types: any module present in
+# `_OWNER_PERMISSION_MAP` automatically gets a matching `*_staging` entry
+# that requires the **write** permission (staging is an act of creation).
+# This means every Create panel can use the staging pattern without the
+# admin having to register each `_staging` explicitly.
+#
+# Usage: e.g. `owner_type="project_staging"` will resolve to
+# `("project.update", "project.update")` at runtime via the helper below.
 
 
 async def check_polymorphic_owner_access(
@@ -434,6 +437,15 @@ async def check_polymorphic_owner_access(
         return
 
     perms = _OWNER_PERMISSION_MAP.get(owner_type)
+    if not perms and owner_type.endswith("_staging"):
+        # Generic staging fallback — any `{module}_staging` inherits the
+        # base module's WRITE permission for both read & write operations.
+        # Only the user who staged a row may access it (enforced by the
+        # staging-scoped APIs themselves via uploaded_by/created_by).
+        base = owner_type[: -len("_staging")]
+        base_perms = _OWNER_PERMISSION_MAP.get(base)
+        if base_perms:
+            perms = (base_perms[1], base_perms[1])
     if not perms:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

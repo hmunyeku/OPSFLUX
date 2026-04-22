@@ -211,8 +211,11 @@ def _register_jobs() -> None:
     from app.tasks.jobs.archived_purge import purge_archived_records
     scheduler.add_job(purge_archived_records, trigger=CronTrigger(hour=4, minute=0, day_of_week="sun"), id="archived_purge", name="Purge archived records past retention period", replace_existing=True, max_instances=1)
 
-    from app.tasks.jobs.moc_staging_cleanup import cleanup_moc_staging_attachments
-    scheduler.add_job(cleanup_moc_staging_attachments, trigger=IntervalTrigger(hours=1), id="moc_staging_cleanup", name="Purge abandoned MOC staging attachments (>24h)", replace_existing=True, max_instances=1)
+    # Unified sweep of every polymorphic `*_staging` prefix (attachments,
+    # notes, tags, addresses, etc.) across all modules that use the
+    # staging pattern. Also handles MOC-specific inline_image reconciliation.
+    from app.tasks.jobs.polymorphic_staging_cleanup import cleanup_polymorphic_staging
+    scheduler.add_job(cleanup_polymorphic_staging, trigger=IntervalTrigger(hours=1), id="polymorphic_staging_cleanup", name="Purge abandoned polymorphic staging rows (>24h) across all modules", replace_existing=True, max_instances=1)
 
     # AUP §7.1 — audit-log retention (1-year default). Runs daily at 03:15
     # so it precedes the GDPR purge at 03:00 without contending with it.

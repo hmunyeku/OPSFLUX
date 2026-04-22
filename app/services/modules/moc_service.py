@@ -699,29 +699,26 @@ async def commit_staging_attachments(
     uploader_id: UUID,
     entity_id: UUID,
 ) -> int:
-    """Re-target staging attachments to the newly created MOC.
+    """Re-target staging polymorphic children to the newly created MOC.
 
-    Returns the number of rows updated. Restricted to attachments uploaded
-    by the current user to prevent cross-user hijacking of a staging ref.
+    Thin wrapper over `commit_staging_children` — returns the total row
+    count across every polymorphic table (attachments, notes, tags, ...).
+    Historical callers treat the return value as the attachment count;
+    this still reflects "number of rows committed" which is the number
+    users care about.
     """
-    from sqlalchemy import update as sa_update
+    from app.services.core.staging_service import commit_staging_children
 
-    from app.models.common import Attachment
-
-    stmt = (
-        sa_update(Attachment)
-        .where(
-            Attachment.owner_type == "moc_staging",
-            Attachment.owner_id == staging_ref,
-            Attachment.uploaded_by == uploader_id,
-            Attachment.entity_id == entity_id,
-            Attachment.deleted_at.is_(None),
-        )
-        .values(owner_type="moc", owner_id=moc_id)
+    counts = await commit_staging_children(
+        db,
+        staging_owner_type="moc_staging",
+        final_owner_type="moc",
+        staging_ref=staging_ref,
+        final_owner_id=moc_id,
+        uploader_id=uploader_id,
+        entity_id=entity_id,
     )
-    result = await db.execute(stmt)
-    await db.flush()
-    return result.rowcount or 0
+    return sum(counts.values())
 
 
 async def reconcile_inline_images(

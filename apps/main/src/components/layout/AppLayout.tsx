@@ -28,7 +28,9 @@ import api from '@/lib/api'
 import { setToastAdminDefaults, syncToastPrefsFromServer, type ToastPosition } from '@/components/ui/Toast'
 import { applyUIScale, getUIScale, setUIScaleAdminDefault, syncUIScaleFromServer } from '@/lib/uiScale'
 import type { SettingRead } from '@/types/api'
-import { Banner } from '@/components/ui/Banner'
+import { Banner, syncDismissedBannersFromServer } from '@/components/ui/Banner'
+import { syncDatatablePrefsFromServer } from '@/components/ui/DataTable/utils'
+import { syncCollapseStatesFromServer } from '@/components/shared/CollapsibleSection'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { useActiveAnnouncements, useDismissAnnouncement } from '@/hooks/useAnnouncements'
 import { Sidebar } from './Sidebar'
@@ -130,8 +132,14 @@ export function AppLayout({ children }: AppLayoutProps) {
   // follows the user when they log in on Computer B.
   useEffect(() => {
     applyUIScale(getUIScale())
+    // Reconcile every user-preference namespace from the DB so settings
+    // follow the user across machines. All fire-and-forget: localStorage
+    // keeps the UI responsive while these resolve.
     void syncUIScaleFromServer()
     void syncToastPrefsFromServer()
+    void syncDatatablePrefsFromServer()
+    void syncCollapseStatesFromServer()
+    void syncDismissedBannersFromServer()
   }, [])
 
   useEffect(() => {

@@ -63,8 +63,25 @@ export function useFileManager() {
   const [loading, setLoading] = useState(true)
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set(['/']))
 
-  // View
+  // View — localStorage is the instant cache; AppLayout syncs from DB
+  // at boot so the preference follows the user across machines.
   const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem(VM_KEY) as ViewMode) || 'list')
+  // Pull from DB once on mount. If the server has a different view_mode,
+  // adopt it (overwrites localStorage).
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const { data } = await api.get<{ files?: { view_mode?: string } }>('/api/v1/users/me/preferences')
+        const vm = data?.files?.view_mode
+        if (!cancelled && (vm === 'list' || vm === 'grid')) {
+          localStorage.setItem(VM_KEY, vm)
+          setViewMode(vm as ViewMode)
+        }
+      } catch { /* noop */ }
+    })()
+    return () => { cancelled = true }
+  }, [])
   const [sortBy, setSortBy] = useState<SortField>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [filterType, setFilterType] = useState<FileFilter>('')
@@ -85,10 +102,14 @@ export function useFileManager() {
 
   const apiBase = import.meta.env.VITE_API_URL || ''
 
-  // ── Persist view mode ──
+  // ── Persist view mode (DB-backed with localStorage cache) ──
   const changeViewMode = useCallback((mode: ViewMode) => {
     setViewMode(mode)
     localStorage.setItem(VM_KEY, mode)
+    // Background DB sync so the preference follows across devices.
+    void api.patch('/api/v1/users/me/preferences', {
+      files: { view_mode: mode },
+    }).catch(() => { /* localStorage fallback */ })
   }, [])
 
   // ── Data loading ──

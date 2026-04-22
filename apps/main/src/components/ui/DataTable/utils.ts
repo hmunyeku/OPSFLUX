@@ -41,7 +41,22 @@ export function formatDate(dateStr: string | null | undefined): string {
   return new Date(dateStr).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-// ── Local storage helpers ──────────────────────────────────
+// ── Storage helpers — DB-backed with localStorage cache ────
+//
+// User customisations on DataTables (column order, visibility, widths,
+// view mode) used to live in localStorage only, which meant a user who
+// hid a column on Computer A saw it back on Computer B. These helpers
+// now also PATCH the change to the user's preferences blob so the
+// setting follows the user.
+//
+// Pattern:
+//   - loadFromStorage stays a synchronous localStorage read (no flash).
+//   - saveToStorage writes localStorage immediately AND fires a
+//     background PATCH under `datatable.<key>` in prefs.
+//   - syncDatatablePrefsFromServer() pulls the whole `datatable`
+//     namespace at app boot and overwrites the local cache so
+//     cross-device changes propagate.
+
 export function loadFromStorage<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key)
@@ -51,10 +66,49 @@ export function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
+// Debounce map per key — avoids spamming the API when the user drags
+// a column-resize handle (fires on every mousemove).
+const _pendingTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
+
 export function saveToStorage(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {
-    // silently fail
+    // quota / privacy mode — silently fail
   }
+  // Fire-and-forget DB sync (debounced 400ms per key).
+  const existing = _pendingTimers.get(key)
+  if (existing) clearTimeout(existing)
+  _pendingTimers.set(key, setTimeout(() => {
+    _pendingTimers.delete(key)
+    void (async () => {
+      try {
+        const api = (await import('@/lib/api')).default
+        await api.patch('/api/v1/users/me/preferences', {
+          datatable: { [key]: value },
+        })
+      } catch {
+        // Offline / 401 / 5xx — localStorage remains the fallback.
+      }
+    })()
+  }, 400))
+}
+
+/**
+ * Pull the canonical datatable prefs from the DB and reconcile with
+ * localStorage. Called once at app boot by AppLayout so column
+ * customisations made on another device propagate cleanly.
+ */
+export async function syncDatatablePrefsFromServer(): Promise<void> {
+  try {
+    const api = (await import('@/lib/api')).default
+    const { data } = await api.get<{ datatable?: Record<string, unknown> }>('/api/v1/users/me/preferences')
+    const dt = data?.datatable
+    if (!dt || typeof dt !== 'object') return
+    for (const [key, value] of Object.entries(dt)) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value))
+      } catch { /* noop */ }
+    }
+  } catch { /* noop */ }
 }

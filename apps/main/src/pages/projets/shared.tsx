@@ -119,6 +119,15 @@ export function GoutiProjectBanner() {
       localStorage.setItem(GOUTI_BANNER_DISMISSED_KEY, '1')
     } catch { /* ignore quota/privacy mode errors */ }
     setDismissed(true)
+    // Cross-device persistence via user preferences.
+    void (async () => {
+      try {
+        const api = (await import('@/lib/api')).default
+        await api.patch('/api/v1/users/me/preferences', {
+          banners_dismissed: { [GOUTI_BANNER_DISMISSED_KEY]: true },
+        })
+      } catch { /* localStorage fallback */ }
+    })()
   }
   return (
     <div className="flex items-start gap-2 p-2 rounded-md border border-orange-500/30 bg-orange-500/5 text-[11px] text-orange-700">

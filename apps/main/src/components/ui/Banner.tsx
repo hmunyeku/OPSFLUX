@@ -124,6 +124,25 @@ function isDismissed(key: string): boolean {
   try { return localStorage.getItem(key) === '1' } catch { return false }
 }
 
+/**
+ * Pull the user's dismissed-banner set from the DB and rehydrate
+ * localStorage so a banner dismissed on another device stays hidden.
+ * Called once at app boot.
+ */
+export async function syncDismissedBannersFromServer(): Promise<void> {
+  try {
+    const api = (await import('@/lib/api')).default
+    const { data } = await api.get<{ banners_dismissed?: Record<string, boolean> }>('/api/v1/users/me/preferences')
+    const bd = data?.banners_dismissed
+    if (!bd || typeof bd !== 'object') return
+    for (const [key, val] of Object.entries(bd)) {
+      if (val) {
+        try { localStorage.setItem(key, '1') } catch { /* noop */ }
+      }
+    }
+  } catch { /* noop */ }
+}
+
 export function Banner({
   variant = 'info',
   icon,
@@ -145,6 +164,16 @@ export function Banner({
     setDismissed(true)
     if (dismissKey) {
       try { localStorage.setItem(dismissKey, '1') } catch { /* noop */ }
+      // Persist cross-device under a single prefs namespace so the
+      // banner stays hidden when the user logs in from another machine.
+      void (async () => {
+        try {
+          const api = (await import('@/lib/api')).default
+          await api.patch('/api/v1/users/me/preferences', {
+            banners_dismissed: { [dismissKey]: true },
+          })
+        } catch { /* localStorage fallback */ }
+      })()
     }
     onDismiss?.()
   }, [dismissKey, onDismiss])

@@ -82,15 +82,53 @@ function getStoredState(storageKey: string, sectionId: string): boolean | null {
   }
 }
 
+// Debounce per storageKey so rapid expand/collapse clicks don't spam
+// the API — still fast enough to feel immediate across devices.
+const _collapseTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
+
 function setStoredState(storageKey: string, sectionId: string, expanded: boolean) {
   try {
     const stored = localStorage.getItem(storageKey)
     const map = stored ? (JSON.parse(stored) as Record<string, boolean>) : {}
     map[sectionId] = expanded
     localStorage.setItem(storageKey, JSON.stringify(map))
+    // Background DB sync (debounced): persist the WHOLE map under
+    // `collapse.<storageKey>` so switching devices keeps panel folds.
+    const existing = _collapseTimers.get(storageKey)
+    if (existing) clearTimeout(existing)
+    _collapseTimers.set(storageKey, setTimeout(() => {
+      _collapseTimers.delete(storageKey)
+      void (async () => {
+        try {
+          const api = (await import('@/lib/api')).default
+          await api.patch('/api/v1/users/me/preferences', {
+            collapse: { [storageKey]: map },
+          })
+        } catch { /* localStorage remains the fallback */ }
+      })()
+    }, 400))
   } catch {
     // Ignore
   }
+}
+
+/**
+ * Pull collapse states from the DB and rehydrate localStorage so
+ * panel fold preferences follow the user across devices. Called
+ * once at app boot.
+ */
+export async function syncCollapseStatesFromServer(): Promise<void> {
+  try {
+    const api = (await import('@/lib/api')).default
+    const { data } = await api.get<{ collapse?: Record<string, Record<string, boolean>> }>('/api/v1/users/me/preferences')
+    const coll = data?.collapse
+    if (!coll || typeof coll !== 'object') return
+    for (const [storageKey, map] of Object.entries(coll)) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(map))
+      } catch { /* noop */ }
+    }
+  } catch { /* noop */ }
 }
 
 // ── CollapsibleSection Component ─────────────────────────────

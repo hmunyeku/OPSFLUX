@@ -3,7 +3,16 @@ import { useCreateAvm } from '@/hooks/usePaxlog'
 import { useUIStore } from '@/stores/uiStore'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useState } from 'react'
-import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormSection, FormGrid, DynamicPanelField, panelInputClass } from '@/components/layout/DynamicPanel'
+import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormGrid, DynamicPanelField, panelInputClass } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { Briefcase, Loader2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -15,6 +24,15 @@ import { RichTextField } from '@/components/shared/RichTextField'
 import { useStagingRef } from '@/hooks/useStagingRef'
 
 export function CreateAvmPanel() {
+  return (
+    <SmartFormProvider panelId="create-avm" defaultMode="simple">
+      <CreateAvmInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateAvmInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const createAvm = useCreateAvm()
   const { stagingRef, stagingOwnerType } = useStagingRef('avm')
@@ -143,7 +161,10 @@ export function CreateAvmPanel() {
     >
       <form id="create-avm-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-        <FormSection title={t('paxlog.create_avm.sections.preparation')}>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+        <SmartFormSection id="t_paxlog_create_avm_sections_preparation" title={t('paxlog.create_avm.sections.preparation')} level="essential" help={{ description: t('paxlog.create_avm.sections.preparation') }}>
           <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
             <p className="text-xs text-muted-foreground">
               {t('paxlog.create_avm.intro')}
@@ -177,9 +198,9 @@ export function CreateAvmPanel() {
               <p className="mt-1 text-sm font-semibold text-foreground">{t('paxlog.create_avm.summary.sites_projects_value', { sites: programsWithSite, projects: programsWithProject })}</p>
             </div>
           </div>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.create_avm.sections.mission')}>
+        <SmartFormSection id="t_paxlog_create_avm_sections_mission" title={t('paxlog.create_avm.sections.mission')} level="essential" help={{ description: t('paxlog.create_avm.sections.mission') }}>
           <FormGrid>
             <DynamicPanelField label={t('common.title')} required>
               <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder={t('paxlog.create_avm.placeholders.title')} />
@@ -206,9 +227,9 @@ export function CreateAvmPanel() {
               imageOwnerId={stagingRef}
             />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.create_avm.sections.planned_dates')}>
+        <SmartFormSection id="t_paxlog_create_avm_sections_planned_dat" title={t('paxlog.create_avm.sections.planned_dates')} level="essential" help={{ description: t('paxlog.create_avm.sections.planned_dates') }}>
           <DateRangePicker
             startDate={form.planned_start_date || null}
             endDate={form.planned_end_date || null}
@@ -232,9 +253,9 @@ export function CreateAvmPanel() {
           <p className="text-[11px] text-muted-foreground">
             {t('paxlog.create_avm.date_hint')}
           </p>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.create_avm.sections.preparation_indicators')}>
+        <SmartFormSection id="t_paxlog_create_avm_sections_preparation_2" title={t('paxlog.create_avm.sections.preparation_indicators')} level="essential" help={{ description: t('paxlog.create_avm.sections.preparation_indicators') }}>
           <FormGrid>
             {[
               { key: 'requires_visa' as const, label: t('paxlog.requires_visa') },
@@ -271,9 +292,9 @@ export function CreateAvmPanel() {
               />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.create_avm.sections.initial_program')}>
+        <SmartFormSection id="t_paxlog_create_avm_sections_initial_pro" title={t('paxlog.create_avm.sections.initial_program')} level="essential" help={{ description: t('paxlog.create_avm.sections.initial_program') }}>
           <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
             {t('paxlog.create_avm.program_intro')}
           </div>
@@ -336,15 +357,27 @@ export function CreateAvmPanel() {
               {t('paxlog.create_avm.program.add_line')}
             </button>
           </div>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+        <SmartFormSection id="t_common_attachments" title={t('common.attachments')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('common.attachments') }}>
           <AttachmentManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+        <SmartFormSection id="t_common_notes" title={t('common.notes')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('common.notes') }}>
           <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
-        </FormSection>
+        </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

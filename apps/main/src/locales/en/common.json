@@ -2460,7 +2460,25 @@
         "visit_purpose": "Describe the purpose of the visit..."
       },
       "footer_hint": "Passengers and imputations can be added after creation from the detail panel.",
-      "allowed_companies_help": "Use this scope to limit external autocomplete, public links, and audit visibility to the selected companies."
+      "allowed_companies_help": "Use this scope to limit external autocomplete, public links, and audit visibility to the selected companies.",
+      "help": {
+        "request_description": "Declare who initiated the ADS. OpsFlux prefills the current user, but a planner may file on behalf of someone else.",
+        "request_tip_requester": "The requester will receive notifications and validation routing.",
+        "type_destination_description": "Pick the visit shape (individual or team) and the entry site involved.",
+        "type_individual": "Single PAX. Simplified flow, no team handling.",
+        "type_team": "Multiple PAX sharing the same window and site. Site access is handled as a team.",
+        "visit_details_description": "Spell out the purpose, dates and visit category — required for compliance validation.",
+        "visit_tip_purpose": "Be precise: who, what, why. This is what ships to the site on the PDF.",
+        "visit_tip_dates": "Dates drive POB conflicts and transport availability.",
+        "visit_tip_category": "Category (project work, maintenance, inspection, visit, permanent ops, other) drives the validation workflow.",
+        "allowed_companies_description": "Optional — restrict which companies can use the public boarding link and external autocomplete.",
+        "passengers_description": "Add PAX at creation time to avoid round-trips. Internal PAX (OpsFlux users) and external (third-party contacts) are both supported.",
+        "passengers_tip_search": "Search federates internal users and third-party contacts — type a name or a company.",
+        "passengers_tip_external": "For someone not yet referenced, create the contact in Tiers first and come back here.",
+        "attachments_description": "Supporting documents (visa, invitation letter, host company approval).",
+        "notes_description": "Internal notes visible only in OpsFlux.",
+        "imputations_description": "Cost split by BU / cost center / project."
+      }
     },
     "create_avm": {
       "title": "New mission notice",

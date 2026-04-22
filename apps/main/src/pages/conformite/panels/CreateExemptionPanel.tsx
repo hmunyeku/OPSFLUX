@@ -1,13 +1,16 @@
 import React, { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ShieldOff } from 'lucide-react'
+import { DynamicPanelShell, DynamicPanelField, panelInputClass, PanelContentLayout } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell,
-  DynamicPanelField,
-  FormSection,
-  panelInputClass,
-  PanelContentLayout,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useUIStore } from '@/stores/uiStore'
@@ -16,6 +19,15 @@ import { useComplianceRecords, useCreateExemption } from '@/hooks/useConformite'
 import type { ComplianceExemptionCreate } from '@/types/api'
 
 export function CreateExemptionPanel() {
+  return (
+    <SmartFormProvider panelId="create-exemption" defaultMode="simple">
+      <CreateExemptionInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateExemptionInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const createExemption = useCreateExemption()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -68,7 +80,10 @@ export function CreateExemptionPanel() {
     >
       <form id="create-exemption-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Enregistrement de conformité">
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+          <SmartFormSection id="section" title={'Section'} level="essential" help={{ description: 'Section' }}>
             <DynamicPanelField label="Enregistrement" required>
               <select
                 required
@@ -84,9 +99,9 @@ export function CreateExemptionPanel() {
                 ))}
               </select>
             </DynamicPanelField>
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title={t('common.reason')}>
+          <SmartFormSection id="t_common_reason" title={t('common.reason')} level="essential" help={{ description: t('common.reason') }}>
             <DynamicPanelField label="Raison de l'exemption" required>
               <textarea
                 required
@@ -97,9 +112,9 @@ export function CreateExemptionPanel() {
                 rows={3}
               />
             </DynamicPanelField>
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title={t('common.period')}>
+          <SmartFormSection id="t_common_period" title={t('common.period')} level="essential" help={{ description: t('common.period') }}>
             <DateRangePicker
               startDate={form.start_date || null}
               endDate={form.end_date || null}
@@ -107,9 +122,9 @@ export function CreateExemptionPanel() {
               onEndChange={(v) => setForm({ ...form, end_date: v })}
               required
             />
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title={t('common.conditions')}>
+          <SmartFormSection id="t_common_conditions" title={t('common.conditions')} level="essential" help={{ description: t('common.conditions') }}>
             <textarea
               value={form.conditions ?? ''}
               onChange={(e) => setForm({ ...form, conditions: e.target.value || null })}
@@ -117,7 +132,19 @@ export function CreateExemptionPanel() {
               placeholder="Conditions sous lesquelles l'exemption est valide (optionnel)..."
               rows={2}
             />
-          </FormSection>
+          </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

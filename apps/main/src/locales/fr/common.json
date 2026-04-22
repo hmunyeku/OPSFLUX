@@ -2623,7 +2623,25 @@
         "visit_purpose": "Décrire l'objet de la visite..."
       },
       "footer_hint": "Les passagers et imputations peuvent être ajoutés après la création, via le panneau de détail.",
-      "allowed_companies_help": "Limitez ici les entreprises autorisées pour l'autocomplétion externe, les liens publics et le périmètre d'audit."
+      "allowed_companies_help": "Limitez ici les entreprises autorisées pour l'autocomplétion externe, les liens publics et le périmètre d'audit.",
+      "help": {
+        "request_description": "Déclarez qui est à l'origine de l'AdS. Par défaut OpsFlux pré-remplit l'utilisateur connecté, mais un planificateur peut saisir l'AdS au nom de quelqu'un d'autre.",
+        "request_tip_requester": "Le demandeur sera destinataire des notifications et validations.",
+        "type_destination_description": "Choisissez la nature du séjour (individuel ou équipe) et le site d'entrée concerné.",
+        "type_individual": "Un seul PAX. Parcours simplifié, sans gestion d'équipe.",
+        "type_team": "Plusieurs PAX partageant la même fenêtre et le même site. L'accès au site est géré en équipe.",
+        "visit_details_description": "Précisez le motif, les dates et la catégorie de visite — indispensables pour la validation conformité.",
+        "visit_tip_purpose": "Soyez précis sur l'objet : qui, quoi, pourquoi. C'est ce texte qui ira en PDF vers le site.",
+        "visit_tip_dates": "Les dates conditionnent les conflits POB et la disponibilité des transports.",
+        "visit_tip_category": "La catégorie (travail projet, maintenance, inspection, visite, exploitation permanente, autre) oriente le workflow de validation.",
+        "allowed_companies_description": "Optionnel — restreint les entreprises autorisées à utiliser le lien public d'embarquement et l'autocomplétion externe.",
+        "passengers_description": "Ajoutez les PAX dès la création pour éviter l'aller-retour. Les PAX internes (utilisateurs OpsFlux) et externes (contacts tiers) sont supportés.",
+        "passengers_tip_search": "La recherche fédère utilisateurs internes et contacts tiers — tapez le nom ou la société.",
+        "passengers_tip_external": "Pour un intervenant non référencé, ajoutez d'abord le contact côté Tiers puis revenez ici.",
+        "attachments_description": "Justificatifs (visa, lettre d'invitation, accord entreprise d'accueil).",
+        "notes_description": "Notes internes visibles uniquement dans OpsFlux.",
+        "imputations_description": "Répartition des coûts par BU / centre de coût / projet."
+      }
     },
     "create_avm": {
       "title": "Nouvel avis de mission",

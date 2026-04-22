@@ -2,13 +2,31 @@ import { useTranslation } from 'react-i18next'
 import { useCreateRotationCycle, usePaxProfiles } from '@/hooks/usePaxlog'
 import { useUIStore } from '@/stores/uiStore'
 import { useState } from 'react'
-import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormSection, DynamicPanelField, FormGrid, panelInputClass } from '@/components/layout/DynamicPanel'
+import { DynamicPanelShell, PanelActionButton, PanelContentLayout, DynamicPanelField, FormGrid, panelInputClass } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { RefreshCw, Loader2, User } from 'lucide-react'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { cn } from '@/lib/utils'
 import { SearchablePicker } from '../shared'
 
 export function CreateRotationPanel() {
+  return (
+    <SmartFormProvider panelId="create-rotation" defaultMode="simple">
+      <CreateRotationInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateRotationInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const createRotation = useCreateRotationCycle()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -61,7 +79,10 @@ export function CreateRotationPanel() {
     >
       <form id="create-rotation-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-        <FormSection title="PAX">
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+        <SmartFormSection id="section" title={'Section'} level="essential" help={{ description: 'Section' }}>
           <SearchablePicker
             label={t('paxlog.rotation_panel.fields.pax_profile')}
             icon={<User size={12} className="text-muted-foreground" />}
@@ -78,9 +99,9 @@ export function CreateRotationPanel() {
             onClear={() => setForm({ ...form, user_id: null, contact_id: null })}
             placeholder={t('paxlog.rotation_panel.placeholders.search_pax')}
           />
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('assets.site')}>
+        <SmartFormSection id="t_assets_site" title={t('assets.site')} level="essential" help={{ description: t('assets.site') }}>
           <DynamicPanelField label={t('assets.site')} required>
             <AssetPicker
               value={form.site_asset_id || null}
@@ -88,9 +109,9 @@ export function CreateRotationPanel() {
               label={t('assets.site')}
             />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.rotation_panel.sections.cycle')}>
+        <SmartFormSection id="t_paxlog_rotation_panel_sections_cycle" title={t('paxlog.rotation_panel.sections.cycle')} level="essential" help={{ description: t('paxlog.rotation_panel.sections.cycle') }}>
           <FormGrid>
             <DynamicPanelField label={t('paxlog.rotation_panel.fields.days_on')} required>
               <input type="number" required min={1} value={form.days_on} onChange={(e) => setForm({ ...form, days_on: parseInt(e.target.value) || 28 })} className={panelInputClass} />
@@ -102,13 +123,25 @@ export function CreateRotationPanel() {
           <DynamicPanelField label={t('paxlog.rotation_panel.fields.start_date')} required>
             <input type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className={panelInputClass} />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.notes')}>
+        <SmartFormSection id="t_common_notes" title={t('common.notes')} level="essential" help={{ description: t('common.notes') }}>
           <DynamicPanelField label={t('common.notes')}>
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder={t('paxlog.rotation_panel.placeholders.notes')} />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

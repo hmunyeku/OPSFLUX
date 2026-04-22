@@ -5,7 +5,16 @@ import { useAuthStore } from '@/stores/authStore'
 import { useMemo, useState } from 'react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
-import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormSection, FormGrid, DynamicPanelField, TagSelector, panelInputClass } from '@/components/layout/DynamicPanel'
+import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormGrid, DynamicPanelField, TagSelector, panelInputClass } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { ClipboardList, Loader2, Plus, Search, Trash2, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AssetPicker } from '@/components/shared/AssetPicker'
@@ -31,7 +40,16 @@ interface StagedPax {
 }
 
 export function CreateAdsPanel() {
+  return (
+    <SmartFormProvider panelId="create-ads" defaultMode="simple">
+      <AdsInner />
+    </SmartFormProvider>
+  )
+}
+
+function AdsInner() {
   const { t } = useTranslation()
+  const ctx = useSmartForm()
   const createAds = useCreateAds()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const currentUser = useAuthStore((s) => s.user)
@@ -148,7 +166,10 @@ export function CreateAdsPanel() {
     >
       <form id="create-ads-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-        <FormSection title={t('paxlog.create_ads.sections.request')}>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+        <SmartFormSection id="request" title={t('paxlog.create_ads.sections.request')} level="essential" help={{ description: t('paxlog.create_ads.help.request_description'), tips: [ t('paxlog.create_ads.help.request_tip_requester') ] }}>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
               {t('paxlog.create_ads.intro')}
@@ -164,9 +185,9 @@ export function CreateAdsPanel() {
               {adsProgress}/4
             </span>
           </div>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.create_ads.sections.type_destination')}>
+        <SmartFormSection id="type_destination" title={t('paxlog.create_ads.sections.type_destination')} level="essential" help={{ description: t('paxlog.create_ads.help.type_destination_description'), items: [ { label: 'individual', text: t('paxlog.create_ads.help.type_individual') }, { label: 'team', text: t('paxlog.create_ads.help.type_team') } ] }}>
           <FormGrid>
             <DynamicPanelField label={t('common.type')}>
               <TagSelector
@@ -182,9 +203,9 @@ export function CreateAdsPanel() {
               />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.create_ads.sections.visit_details')}>
+        <SmartFormSection id="visit_details" title={t('paxlog.create_ads.sections.visit_details')} level="essential" help={{ description: t('paxlog.create_ads.help.visit_details_description'), tips: [ t('paxlog.create_ads.help.visit_tip_purpose'), t('paxlog.create_ads.help.visit_tip_dates'), t('paxlog.create_ads.help.visit_tip_category') ] }}>
           <FormGrid>
             <DynamicPanelField label={t('paxlog.create_ads.fields.requester')} required>
               <UserPicker
@@ -257,19 +278,19 @@ export function CreateAdsPanel() {
           <DynamicPanelField label={t('paxlog.visit_purpose')} required>
             <textarea required value={form.visit_purpose} onChange={(e) => setForm({ ...form, visit_purpose: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder={t('paxlog.create_ads.placeholders.visit_purpose')} />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.create_ads.sections.allowed_companies')}>
+        <SmartFormSection id="allowed_companies" title={t('paxlog.create_ads.sections.allowed_companies')} level="advanced" skippable help={{ description: t('paxlog.create_ads.help.allowed_companies_description') }}>
           <AllowedCompaniesPicker
             value={allowedCompanies}
             onChange={setAllowedCompanies}
             searchValue={companySearch}
             onSearchChange={setCompanySearch}
           />
-        </FormSection>
+        </SmartFormSection>
 
         {/* ── Passagers : sélection directe à la création ── */}
-        <FormSection title={t('paxlog.create_ads.sections.passengers', 'Passagers') + ` (${stagedPax.length})`}>
+        <SmartFormSection id="passengers" title={t('paxlog.create_ads.sections.passengers', 'Passagers') + ` (${stagedPax.length})`} level="essential" help={{ description: t('paxlog.create_ads.help.passengers_description'), tips: [ t('paxlog.create_ads.help.passengers_tip_search'), t('paxlog.create_ads.help.passengers_tip_external') ] }}>
           {/* Sélection déjà effectuée */}
           {stagedPax.length > 0 && (
             <div className="space-y-1 mb-2">
@@ -375,35 +396,43 @@ export function CreateAdsPanel() {
               </p>
             )}
           </div>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+        <SmartFormSection id="attachments" title={t('common.attachments')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('paxlog.create_ads.help.attachments_description') }}>
           <AttachmentManager
             ownerType={stagingOwnerType}
             ownerId={stagingRef}
             compact
           />
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+        <SmartFormSection id="notes" title={t('common.notes')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('paxlog.create_ads.help.notes_description') }}>
           <NoteManager
             ownerType={stagingOwnerType}
             ownerId={stagingRef}
             compact
           />
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.create_ads.sections.imputations', 'Imputations')} collapsible defaultExpanded={false}>
+        <SmartFormSection id="imputations" title={t('paxlog.create_ads.sections.imputations', 'Imputations')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('paxlog.create_ads.help.imputations_description') }}>
           <ImputationManager
             ownerType={stagingOwnerType}
             ownerId={stagingRef}
             editable
           />
-        </FormSection>
+        </SmartFormSection>
 
         <p className="text-xs text-muted-foreground italic">
           {t('paxlog.create_ads.footer_hint')}
         </p>
+        {ctx?.mode === 'wizard' && (
+          <SmartFormWizardNav
+            onSubmit={() => (document.getElementById('create-ads-form') as HTMLFormElement)?.requestSubmit()}
+            onCancel={closeDynamicPanel}
+            submitDisabled={createAds.isPending}
+            submitLabel={t('common.create')}
+          />
+        )}
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

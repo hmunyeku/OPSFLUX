@@ -6,11 +6,29 @@ import { useState } from 'react'
 import { useTiers } from '@/hooks/useTiers'
 import { useUsers } from '@/hooks/useUsers'
 import { normalizeNames } from '@/lib/normalize'
-import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormSection, TagSelector, FormGrid, DynamicPanelField, panelInputClass } from '@/components/layout/DynamicPanel'
+import { DynamicPanelShell, PanelActionButton, PanelContentLayout, TagSelector, FormGrid, DynamicPanelField, panelInputClass } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { Users, Loader2, Building2, User } from 'lucide-react'
 import { SearchablePicker } from '../shared'
 
 export function CreateProfilePanel() {
+  return (
+    <SmartFormProvider panelId="create-profile" defaultMode="simple">
+      <CreateProfileInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateProfileInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const createProfile = useCreatePaxProfile()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -82,7 +100,10 @@ export function CreateProfilePanel() {
     >
       <form id="create-profile-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-        <FormSection title={t('paxlog.profile_panel.sections.profile_type')}>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+        <SmartFormSection id="t_paxlog_profile_panel_sections_profile_" title={t('paxlog.profile_panel.sections.profile_type')} level="essential" help={{ description: t('paxlog.profile_panel.sections.profile_type') }}>
           <TagSelector
             options={paxTypeOptions}
             value={form.type}
@@ -94,10 +115,10 @@ export function CreateProfilePanel() {
               : t('paxlog.profile_panel.type_help.external')}
           </p>
           <p className="text-[10px] text-muted-foreground">{paxTypeLabels[form.type] || form.type}</p>
-        </FormSection>
+        </SmartFormSection>
 
         {form.type === 'external' && (
-          <FormSection title={t('tiers.title')}>
+          <SmartFormSection id="t_tiers_title" title={t('tiers.title')} level="essential" help={{ description: t('tiers.title') }}>
             <SearchablePicker
               label={t('paxlog.profile_panel.fields.company')}
               icon={<Building2 size={12} className="text-muted-foreground" />}
@@ -111,11 +132,11 @@ export function CreateProfilePanel() {
               onClear={() => setForm({ ...form, company_id: null })}
               placeholder={t('paxlog.search_company')}
             />
-          </FormSection>
+          </SmartFormSection>
         )}
 
         {form.type === 'internal' && (
-          <FormSection title={t('paxlog.profile_panel.sections.user_account')}>
+          <SmartFormSection id="t_paxlog_profile_panel_sections_user_acc" title={t('paxlog.profile_panel.sections.user_account')} level="essential" help={{ description: t('paxlog.profile_panel.sections.user_account') }}>
             <SearchablePicker
               label={t('paxlog.profile_panel.fields.user')}
               icon={<User size={12} className="text-muted-foreground" />}
@@ -129,10 +150,10 @@ export function CreateProfilePanel() {
               onClear={() => setForm({ ...form, user_id: null })}
               placeholder={t('paxlog.search_user')}
             />
-          </FormSection>
+          </SmartFormSection>
         )}
 
-        <FormSection title={t('paxlog.profile_panel.sections.identity')}>
+        <SmartFormSection id="t_paxlog_profile_panel_sections_identity" title={t('paxlog.profile_panel.sections.identity')} level="essential" help={{ description: t('paxlog.profile_panel.sections.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('paxlog.profile_panel.fields.first_name')} required>
               <input type="text" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className={panelInputClass} />
@@ -141,9 +162,9 @@ export function CreateProfilePanel() {
               <input type="text" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.profile_panel.sections.additional_info')}>
+        <SmartFormSection id="t_paxlog_profile_panel_sections_addition" title={t('paxlog.profile_panel.sections.additional_info')} level="essential" help={{ description: t('paxlog.profile_panel.sections.additional_info') }}>
           <FormGrid>
             <DynamicPanelField label={t('paxlog.profile_panel.fields.birth_date')}>
               <input type="date" value={form.birth_date || ''} onChange={(e) => setForm({ ...form, birth_date: e.target.value || null })} className={panelInputClass} />
@@ -155,7 +176,19 @@ export function CreateProfilePanel() {
               <input type="text" value={form.badge_number || ''} onChange={(e) => setForm({ ...form, badge_number: e.target.value || null })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

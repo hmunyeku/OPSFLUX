@@ -1,16 +1,16 @@
 import React, { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ShieldCheck } from 'lucide-react'
+import { DynamicPanelShell, DynamicPanelField, FormGrid, SectionColumns, TagSelector, panelInputClass, PanelContentLayout } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell,
-  DynamicPanelField,
-  FormGrid,
-  FormSection,
-  SectionColumns,
-  TagSelector,
-  panelInputClass,
-  PanelContentLayout,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -20,6 +20,15 @@ import type { ComplianceTypeCreate } from '@/types/api'
 import { useConformiteDictionaryState } from '../shared'
 
 export function CreateTypePanel() {
+  return (
+    <SmartFormProvider panelId="create-type" defaultMode="simple">
+      <CreateTypeInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateTypeInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const createType = useCreateComplianceType()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -66,17 +75,20 @@ export function CreateTypePanel() {
     >
       <form id="create-ct-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title={t('common.category')}>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+          <SmartFormSection id="t_common_category" title={t('common.category')} level="essential" help={{ description: t('common.category') }}>
             <TagSelector
               options={categoryOptions}
               value={form.category}
               onChange={(v) => setForm({ ...form, category: v })}
             />
-          </FormSection>
+          </SmartFormSection>
 
           <SectionColumns>
             <div className="@container space-y-5">
-              <FormSection title={t('common.information')}>
+              <SmartFormSection id="t_common_information" title={t('common.information')} level="essential" help={{ description: t('common.information') }}>
                 <FormGrid>
                   <DynamicPanelField label={t('common.code_field')}>
                     <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
@@ -88,11 +100,11 @@ export function CreateTypePanel() {
                     <input type="number" value={form.validity_days ?? ''} onChange={(e) => setForm({ ...form, validity_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="365 (vide = permanent)" />
                   </DynamicPanelField>
                 </FormGrid>
-              </FormSection>
+              </SmartFormSection>
             </div>
 
             <div className="@container space-y-5">
-              <FormSection title={t('common.description')}>
+              <SmartFormSection id="t_common_description" title={t('common.description')} level="essential" help={{ description: t('common.description') }}>
                 <textarea
                   value={form.description ?? ''}
                   onChange={(e) => setForm({ ...form, description: e.target.value || null })}
@@ -100,7 +112,7 @@ export function CreateTypePanel() {
                   placeholder="Description du type de conformité..."
                   rows={3}
                 />
-              </FormSection>
+              </SmartFormSection>
 
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={form.is_mandatory} onChange={(e) => setForm({ ...form, is_mandatory: e.target.checked })} className="rounded border-border" />
@@ -108,6 +120,18 @@ export function CreateTypePanel() {
               </label>
             </div>
           </SectionColumns>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

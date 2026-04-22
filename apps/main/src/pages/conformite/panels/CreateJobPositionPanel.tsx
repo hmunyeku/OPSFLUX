@@ -1,14 +1,16 @@
 import React, { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Briefcase } from 'lucide-react'
+import { DynamicPanelShell, DynamicPanelField, FormGrid, panelInputClass, PanelContentLayout } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell,
-  DynamicPanelField,
-  FormGrid,
-  FormSection,
-  panelInputClass,
-  PanelContentLayout,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -17,6 +19,15 @@ import { useCreateJobPosition } from '@/hooks/useConformite'
 import type { JobPositionCreate } from '@/types/api'
 
 export function CreateJobPositionPanel() {
+  return (
+    <SmartFormProvider panelId="create-job-position" defaultMode="simple">
+      <CreateJobPositionInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateJobPositionInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const createJP = useCreateJobPosition()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -60,7 +71,10 @@ export function CreateJobPositionPanel() {
     >
       <form id="create-jp-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title={t('common.information')}>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+          <SmartFormSection id="t_common_information" title={t('common.information')} level="essential" help={{ description: t('common.information') }}>
             <FormGrid>
               <DynamicPanelField label={t('common.code_field')}>
                 <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
@@ -72,9 +86,9 @@ export function CreateJobPositionPanel() {
                 <input type="text" value={form.department ?? ''} onChange={(e) => setForm({ ...form, department: e.target.value || null })} className={panelInputClass} placeholder="Production, HSE, Maintenance..." />
               </DynamicPanelField>
             </FormGrid>
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title={t('common.description')}>
+          <SmartFormSection id="t_common_description" title={t('common.description')} level="essential" help={{ description: t('common.description') }}>
             <textarea
               value={form.description ?? ''}
               onChange={(e) => setForm({ ...form, description: e.target.value || null })}
@@ -82,7 +96,19 @@ export function CreateJobPositionPanel() {
               placeholder="Description du poste et exigences HSE..."
               rows={3}
             />
-          </FormSection>
+          </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

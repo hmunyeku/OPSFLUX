@@ -2,15 +2,16 @@ import { useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileCheck, Paperclip, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { DynamicPanelShell, DynamicPanelField, FormGrid, TagSelector, panelInputClass, PanelContentLayout } from '@/components/layout/DynamicPanel'
 import {
-  DynamicPanelShell,
-  DynamicPanelField,
-  FormGrid,
-  FormSection,
-  TagSelector,
-  panelInputClass,
-  PanelContentLayout,
-} from '@/components/layout/DynamicPanel'
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -21,6 +22,15 @@ import { useConformiteDictionaryState } from '../shared'
 import { SearchableSelect } from '../components'
 
 export function CreateComplianceRecordPanel() {
+  return (
+    <SmartFormProvider panelId="create-compliance-record" defaultMode="simple">
+      <CreateComplianceRecordInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateComplianceRecordInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -136,7 +146,10 @@ export function CreateComplianceRecordPanel() {
       actionItems={actionItems}
     >
       <PanelContentLayout>
-        <FormSection title={t('conformite.records.sections.general')}>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+        <SmartFormSection id="t_conformite_records_sections_general" title={t('conformite.records.sections.general')} level="essential" help={{ description: t('conformite.records.sections.general') }}>
           <FormGrid>
             <DynamicPanelField label={t('conformite.records.fields.type')} required span="full">
               <SearchableSelect
@@ -173,9 +186,9 @@ export function CreateComplianceRecordPanel() {
               )}
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('conformite.records.sections.reference')}>
+        <SmartFormSection id="t_conformite_records_sections_reference" title={t('conformite.records.sections.reference')} level="essential" help={{ description: t('conformite.records.sections.reference') }}>
           <FormGrid>
             <DynamicPanelField label={t('conformite.records.fields.issued_at')}>
               <input type="date" value={form.issued_at ?? ''} onChange={(e) => setForm({ ...form, issued_at: e.target.value || null })} className={panelInputClass} />
@@ -198,9 +211,9 @@ export function CreateComplianceRecordPanel() {
               />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('conformite.records.sections.attachments')}>
+        <SmartFormSection id="t_conformite_records_sections_attachment" title={t('conformite.records.sections.attachments')} level="essential" help={{ description: t('conformite.records.sections.attachments') }}>
           <p className="mb-2 text-xs text-muted-foreground">
             {t('conformite.records.attachment_required_hint')}
           </p>
@@ -233,7 +246,19 @@ export function CreateComplianceRecordPanel() {
               />
             </label>
           )}
-        </FormSection>
+        </SmartFormSection>
+      {_ctx?.mode === 'wizard' && (
+
+        <SmartFormWizardNav
+
+          onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+          onCancel={() => {}}
+
+        />
+
+      )}
+
       </PanelContentLayout>
     </DynamicPanelShell>
   )

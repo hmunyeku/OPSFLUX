@@ -2228,6 +2228,12 @@
     "ads_detail": {
       "not_found_title": "AdS unavailable",
       "not_found_message": "The details for this AdS could not be loaded.",
+      "tabs": {
+        "informations": "Information",
+        "passengers": "Passengers",
+        "stays": "Stays",
+        "history": "History"
+      },
       "actions": {
         "external_link": "External link",
         "add_passenger": "Add passenger",
@@ -2477,6 +2483,12 @@
     "avm_detail": {
       "not_found_title": "AVM not found",
       "not_found_message": "Mission notice not found.",
+      "tabs": {
+        "informations": "Information",
+        "preparation": "Preparation",
+        "programs": "Programs",
+        "history": "History"
+      },
       "checklist": {
         "scope": "Mission title and framing completed",
         "window": "Mission window defined",

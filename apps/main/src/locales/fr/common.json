@@ -2391,6 +2391,12 @@
     "ads_detail": {
       "not_found_title": "AdS indisponible",
       "not_found_message": "Le détail de cette AdS n'a pas pu être chargé.",
+      "tabs": {
+        "informations": "Informations",
+        "passengers": "Passagers",
+        "stays": "Séjours",
+        "history": "Historique"
+      },
       "actions": {
         "external_link": "Lien externe",
         "add_passenger": "Ajouter un passager",
@@ -2640,6 +2646,12 @@
     "avm_detail": {
       "not_found_title": "AVM introuvable",
       "not_found_message": "Avis de mission introuvable.",
+      "tabs": {
+        "informations": "Informations",
+        "preparation": "Préparation",
+        "programs": "Programmes",
+        "history": "Historique"
+      },
       "checklist": {
         "scope": "Titre et cadrage mission renseignés",
         "window": "Fenêtre mission définie",

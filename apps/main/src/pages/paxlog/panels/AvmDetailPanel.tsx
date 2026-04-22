@@ -6,10 +6,10 @@ import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary
 import { useUsers } from '@/hooks/useUsers'
 import { useState, useEffect } from 'react'
 import type { MissionPreparationTaskUpdate, MissionVisaFollowupUpdate, MissionAllowanceRequestUpdate, MissionNoticeModifyRequest, MissionProgramRead } from '@/services/paxlogService'
-import { DynamicPanelShell, PanelActionButton, FormGrid, DynamicPanelField, panelInputClass, ReadOnlyRow } from '@/components/layout/DynamicPanel'
-import { Briefcase, Loader2, Download, Send, CheckCircle2, FileCheck2, XCircle, RefreshCw, X, Link2 } from 'lucide-react'
+import { DynamicPanelShell, PanelActionButton, FormGrid, FormSection, DynamicPanelField, panelInputClass, ReadOnlyRow } from '@/components/layout/DynamicPanel'
+import { Briefcase, Loader2, Download, Send, CheckCircle2, FileCheck2, XCircle, RefreshCw, X, Link2, Info, ClipboardCheck, Users, BookOpen } from 'lucide-react'
 import { PanelContent } from '@/components/layout/PanelHeader'
-import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { TabBar } from '@/components/ui/Tabs'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { cn } from '@/lib/utils'
 import { ADS_STATUS_LABELS_FALLBACK, AVM_STATUS_LABELS_FALLBACK, StatusBadge, AVM_STATUS_BADGES, formatDateShort, ADS_STATUS_BADGES, formatDate, CompletenessBar } from '../shared'
@@ -40,6 +40,10 @@ export function AvmDetailPanel({ id }: { id?: string }) {
   const { data: avm, isLoading, isError, error } = useAvm(id || '')
   const { data: avmUsers } = useUsers({ page: 1, page_size: 200, active: true })
   const [showModifyForm, setShowModifyForm] = useState(false)
+  // Tabbed navigation — mirrors AdsDetailPanel. Segments the previous
+  // single-scroll 14-section layout into 4 logical pages.
+  type AvmDetailTab = 'informations' | 'preparation' | 'programmes' | 'historique'
+  const [detailTab, setDetailTab] = useState<AvmDetailTab>('informations')
   const [taskDrafts, setTaskDrafts] = useState<Record<string, MissionPreparationTaskUpdate>>({})
   const [visaDrafts, setVisaDrafts] = useState<Record<string, MissionVisaFollowupUpdate>>({})
   const [allowanceDrafts, setAllowanceDrafts] = useState<Record<string, MissionAllowanceRequestUpdate>>({})
@@ -229,8 +233,23 @@ export function AvmDetailPanel({ id }: { id?: string }) {
       }
     >
       <div className="p-4 space-y-5">
+        <TabBar<AvmDetailTab>
+          items={(() => {
+            const lbl = (k: string, fb: string) => { const r = t(k); return r === k ? fb : r }
+            return [
+              { id: 'informations', label: lbl('paxlog.avm_detail.tabs.informations', 'Informations'), icon: Info },
+              { id: 'preparation', label: lbl('paxlog.avm_detail.tabs.preparation', 'Préparation'), icon: ClipboardCheck },
+              { id: 'programmes', label: lbl('paxlog.avm_detail.tabs.programs', 'Programmes'), icon: Users, badge: avm.programs?.length || undefined },
+              { id: 'historique', label: lbl('paxlog.avm_detail.tabs.history', 'Historique'), icon: BookOpen },
+            ]
+          })()}
+          activeId={detailTab}
+          onTabChange={setDetailTab}
+        />
+
+        {detailTab === 'informations' && (<>
         {showModifyForm && (
-          <CollapsibleSection id="avm-modify" title={t('paxlog.avm_detail.modify.title')} defaultExpanded>
+          <FormSection collapsible id="avm-modify" title={t('paxlog.avm_detail.modify.title')} defaultExpanded>
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">{t('paxlog.avm_detail.modify.help')}</p>
               <FormGrid className="@\[900px\]:grid-cols-2">
@@ -311,9 +330,9 @@ export function AvmDetailPanel({ id }: { id?: string }) {
                 </PanelActionButton>
               </div>
             </div>
-          </CollapsibleSection>
+          </FormSection>
         )}
-        <CollapsibleSection id="avm-requester-readiness" title={t('paxlog.avm_detail.readiness.title', { status: avmReadyToSubmit ? t('paxlog.avm_detail.readiness.ready') : t('paxlog.avm_detail.readiness.to_complete') })} defaultExpanded>
+        <FormSection collapsible id="avm-requester-readiness" title={t('paxlog.avm_detail.readiness.title', { status: avmReadyToSubmit ? t('paxlog.avm_detail.readiness.ready') : t('paxlog.avm_detail.readiness.to_complete') })} defaultExpanded>
           <div className="space-y-3">
             <div className="grid gap-2 sm:grid-cols-2">
               {avmReadinessChecklist.map((item) => (
@@ -345,18 +364,18 @@ export function AvmDetailPanel({ id }: { id?: string }) {
             </div>
             <p className="text-xs text-muted-foreground">{nextAction}</p>
           </div>
-        </CollapsibleSection>
+        </FormSection>
 
         {generatedAdsReviewCount > 0 && (
-          <CollapsibleSection id="avm-impact-warning" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
+          <FormSection collapsible id="avm-impact-warning" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
             <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-100">
               {t('paxlog.avm_detail.operational_impacts.generated_ads_review', { count: generatedAdsReviewCount })}
             </div>
-          </CollapsibleSection>
+          </FormSection>
         )}
 
         {avm.status === 'active' && (generatedAdsActiveCount > 0 || programsMissingGeneratedAdsCount > 0) && (
-          <CollapsibleSection id="avm-completion-blockers" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
+          <FormSection collapsible id="avm-completion-blockers" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
             <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-100 space-y-1.5">
               {generatedAdsActiveCount > 0 && (
                 <p>{t('paxlog.avm_detail.operational_impacts.completion_blockers_active_ads', { count: generatedAdsActiveCount })}</p>
@@ -365,22 +384,22 @@ export function AvmDetailPanel({ id }: { id?: string }) {
                 <p>{t('paxlog.avm_detail.operational_impacts.completion_blockers_missing_ads', { count: programsMissingGeneratedAdsCount })}</p>
               )}
             </div>
-          </CollapsibleSection>
+          </FormSection>
         )}
 
         {['in_preparation', 'ready'].includes(avm.status) && preparationBlockingTasks.length > 0 && (
-          <CollapsibleSection id="avm-preparation-blockers" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
+          <FormSection collapsible id="avm-preparation-blockers" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
             <div className="rounded-md border border-red-300/60 bg-red-50 px-3 py-2 text-xs text-red-900 dark:border-red-700/50 dark:bg-red-950/20 dark:text-red-100 space-y-1.5">
               <p>{t('paxlog.avm_detail.operational_impacts.preparation_blockers', { count: preparationBlockingTasks.length })}</p>
               <p className="text-red-800/90 dark:text-red-100/90">
                 {t('paxlog.avm_detail.operational_impacts.preparation_blockers_list', { tasks: preparationBlockingTasks.map((task) => task.title).join(', ') })}
               </p>
             </div>
-          </CollapsibleSection>
+          </FormSection>
         )}
 
         {(avm.last_linked_ads_set_to_review || 0) > 0 && (
-          <CollapsibleSection id="avm-last-impact" title={t('paxlog.avm_detail.sections.last_changes')} defaultExpanded>
+          <FormSection collapsible id="avm-last-impact" title={t('paxlog.avm_detail.sections.last_changes')} defaultExpanded>
             <div className="space-y-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
               <p className="text-foreground">
                 {t('paxlog.avm_detail.operational_impacts.last_modification_review_count', { count: avm.last_linked_ads_set_to_review || 0 })}
@@ -391,11 +410,11 @@ export function AvmDetailPanel({ id }: { id?: string }) {
                 </p>
               )}
             </div>
-          </CollapsibleSection>
+          </FormSection>
         )}
 
         {/* Info section */}
-        <CollapsibleSection id="avm-info" title={t('paxlog.avm_detail.sections.information')} defaultExpanded>
+        <FormSection collapsible id="avm-info" title={t('paxlog.avm_detail.sections.information')} defaultExpanded>
           <div className="space-y-2">
             <ReadOnlyRow label={t('paxlog.reference')} value={avm.reference} />
             <ReadOnlyRow label={t('common.title')} value={avm.title} />
@@ -409,10 +428,10 @@ export function AvmDetailPanel({ id }: { id?: string }) {
             {avm.last_modified_by_name && <ReadOnlyRow label={t('paxlog.avm_detail.fields.last_modified_by')} value={avm.last_modified_by_name} />}
             {avm.last_modified_at && <ReadOnlyRow label={t('paxlog.avm_detail.fields.last_modified_at')} value={formatDate(avm.last_modified_at)} />}
           </div>
-        </CollapsibleSection>
+        </FormSection>
 
         {!!avm.last_modification_changes && Object.keys(avm.last_modification_changes).length > 0 && (
-          <CollapsibleSection id="avm-last-changes" title={t('paxlog.avm_detail.sections.last_changes')} defaultExpanded>
+          <FormSection collapsible id="avm-last-changes" title={t('paxlog.avm_detail.sections.last_changes')} defaultExpanded>
             <div className="space-y-2">
               {(avm.last_modified_fields || []).map((field) => {
                 const change = avm.last_modification_changes?.[field]
@@ -429,11 +448,11 @@ export function AvmDetailPanel({ id }: { id?: string }) {
                 )
               })}
             </div>
-          </CollapsibleSection>
+          </FormSection>
         )}
 
         {/* Indicators */}
-        <CollapsibleSection id="avm-indicators" title={t('paxlog.avm_detail.sections.preparation_indicators')} defaultExpanded>
+        <FormSection collapsible id="avm-indicators" title={t('paxlog.avm_detail.sections.preparation_indicators')} defaultExpanded>
           <div className="space-y-1">
             {[
               { flag: avm.requires_visa, label: t('paxlog.requires_visa') },
@@ -473,10 +492,12 @@ export function AvmDetailPanel({ id }: { id?: string }) {
               )}
             </div>
           )}
-        </CollapsibleSection>
+        </FormSection>
+        </>)}
 
+        {detailTab === 'preparation' && (<>
         {/* Preparation checklist */}
-        <CollapsibleSection id="avm-preparation" title={t('paxlog.avm_detail.sections.preparation_tasks', { progress: avm.preparation_progress })} defaultExpanded>
+        <FormSection collapsible id="avm-preparation" title={t('paxlog.avm_detail.sections.preparation_tasks', { progress: avm.preparation_progress })} defaultExpanded>
           <div className="mb-2">
             <CompletenessBar value={avm.preparation_progress} />
           </div>
@@ -610,10 +631,10 @@ export function AvmDetailPanel({ id }: { id?: string }) {
               })}
             </div>
           )}
-        </CollapsibleSection>
+        </FormSection>
 
         {avm.visa_followups.length > 0 && (
-          <CollapsibleSection id="avm-visa-followups" title={t('paxlog.avm_detail.sections.visa_followups')} defaultExpanded>
+          <FormSection collapsible id="avm-visa-followups" title={t('paxlog.avm_detail.sections.visa_followups')} defaultExpanded>
             <div className="space-y-2">
               {avm.visa_followups.map((item) => {
                 const draft = visaDrafts[item.id] ?? {
@@ -697,11 +718,11 @@ export function AvmDetailPanel({ id }: { id?: string }) {
                 )
               })}
             </div>
-          </CollapsibleSection>
+          </FormSection>
         )}
 
         {avm.allowance_requests.length > 0 && (
-          <CollapsibleSection id="avm-allowance-requests" title={t('paxlog.avm_detail.sections.allowance_requests')} defaultExpanded>
+          <FormSection collapsible id="avm-allowance-requests" title={t('paxlog.avm_detail.sections.allowance_requests')} defaultExpanded>
             <div className="space-y-2">
               {avm.allowance_requests.map((item) => {
                 const draft = allowanceDrafts[item.id] ?? {
@@ -797,11 +818,13 @@ export function AvmDetailPanel({ id }: { id?: string }) {
                 )
               })}
             </div>
-          </CollapsibleSection>
+          </FormSection>
         )}
+        </>)}
 
+        {detailTab === 'programmes' && (<>
         {/* Program lines */}
-        <CollapsibleSection id="avm-programs" title={t('paxlog.avm_detail.sections.program', { count: avm.programs.length })} defaultExpanded>
+        <FormSection collapsible id="avm-programs" title={t('paxlog.avm_detail.sections.program', { count: avm.programs.length })} defaultExpanded>
           {avm.programs.length === 0 ? (
             <p className="text-xs text-muted-foreground italic">{t('paxlog.avm_detail.empty.program')}</p>
           ) : (
@@ -839,15 +862,18 @@ export function AvmDetailPanel({ id }: { id?: string }) {
               ))}
             </div>
           )}
-        </CollapsibleSection>
+        </FormSection>
+        </>)}
 
+        {detailTab === 'historique' && (<>
         {/* Metadata */}
-        <CollapsibleSection id="avm-metadata" title={t('paxlog.avm_detail.sections.metadata')}>
+        <FormSection collapsible id="avm-metadata" title={t('paxlog.avm_detail.sections.metadata')}>
           <div className="space-y-1">
             <ReadOnlyRow label={t('paxlog.avm_detail.fields.created_at')} value={formatDate(avm.created_at)} />
             <ReadOnlyRow label={t('paxlog.avm_detail.fields.updated_at')} value={formatDate(avm.updated_at)} />
           </div>
-        </CollapsibleSection>
+        </FormSection>
+        </>)}
       </div>
     </DynamicPanelShell>
   )

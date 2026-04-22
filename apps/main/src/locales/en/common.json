@@ -5447,5 +5447,23 @@
         "critical": "Critical"
       }
     }
+  },
+  "announcements": {
+    "priorities": {
+      "info": "Info",
+      "warning": "Warning",
+      "critical": "Critical",
+      "maintenance": "Maintenance"
+    },
+    "targets": {
+      "all": "All",
+      "entity": "Entity"
+    },
+    "locations": {
+      "dashboard": "Dashboard",
+      "banner": "Banner",
+      "all": "Everywhere"
+    },
+    "pinned": "Pinned"
   }
 }

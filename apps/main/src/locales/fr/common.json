@@ -6257,5 +6257,23 @@
         "critical": "Critique"
       }
     }
+  },
+  "announcements": {
+    "priorities": {
+      "info": "Info",
+      "warning": "Attention",
+      "critical": "Critique",
+      "maintenance": "Maintenance"
+    },
+    "targets": {
+      "all": "Tous",
+      "entity": "Entité"
+    },
+    "locations": {
+      "dashboard": "Tableau de bord",
+      "banner": "Bannière",
+      "all": "Partout"
+    },
+    "pinned": "Épinglée"
   }
 }

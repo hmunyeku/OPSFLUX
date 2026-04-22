@@ -149,7 +149,7 @@ export function EditRulePanel() {
       <div className="px-4 pb-4">
         <FormSection title="Historique" defaultExpanded={false}>
           {!historyData || historyData.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">Aucun historique disponible.</p>
+            <p className="text-xs text-muted-foreground py-2">{t('common.no_history_available')}</p>
           ) : (
             <div className="border-l-2 border-border ml-2 space-y-0">
               {historyData.map((h: any, i: number) => (

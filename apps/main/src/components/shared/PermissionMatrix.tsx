@@ -186,7 +186,7 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false,
   }
 
   if (!allPermissions?.length) {
-    return <p className="text-sm text-muted-foreground text-center py-6">Aucune permission disponible</p>
+    return <p className="text-sm text-muted-foreground text-center py-6">{t('common.no_permission_available')}</p>
   }
 
   return (

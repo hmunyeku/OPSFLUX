@@ -560,6 +560,7 @@ export function CargoReturnSummarySection({
 }
 
 export function CargoHistorySection({ cargoHistory }: { cargoHistory: Array<{ id: string; action: string; created_at: string; actor_name?: string | null; details?: Record<string, unknown> | null }> | undefined }) {
+  const { t } = useTranslation()
   return (
     <FormSection title="Historique statut" collapsible defaultExpanded={false}>
       {cargoHistory && cargoHistory.length > 0 ? (
@@ -585,7 +586,7 @@ export function CargoHistorySection({ cargoHistory }: { cargoHistory: Array<{ id
           })}
         </div>
       ) : (
-        <p className="py-2 text-xs text-muted-foreground">Aucun historique disponible.</p>
+        <p className="py-2 text-xs text-muted-foreground">{t('common.no_history_available')}</p>
       )}
     </FormSection>
   )

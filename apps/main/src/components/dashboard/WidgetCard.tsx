@@ -944,6 +944,7 @@ function ChartWidget({
   config: Record<string, unknown>
   data: unknown[]
 }) {
+  const { t } = useTranslation()
   const { toggleFilter } = useDashboardFilters()
   const chartType = (config.chart_type as string) || 'bar'
   const xField = (config.x_field as string) || 'name'
@@ -993,7 +994,7 @@ function ChartWidget({
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2">
         <BarChart3 className="h-8 w-8 text-muted-foreground/20" />
-        <span className="text-xs text-muted-foreground/40">Aucune donnée</span>
+        <span className="text-xs text-muted-foreground/40">{t('common.no_data')}</span>
       </div>
     )
   }
@@ -1281,6 +1282,7 @@ function TableWidget({
   config: Record<string, unknown>
   data: unknown[]
 }) {
+  const { t } = useTranslation()
   const { toggleFilter, isFilterActive } = useDashboardFilters()
   const crossFilterEnabled = config.cross_filter !== false
 
@@ -1585,7 +1587,7 @@ function TableWidget({
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
         <Table2 className="h-8 w-8 text-muted-foreground/15" />
-        <span className="text-xs text-muted-foreground/40">Aucune donnée disponible</span>
+        <span className="text-xs text-muted-foreground/40">{t('common.no_data_available')}</span>
       </div>
     )
   }

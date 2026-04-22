@@ -82,7 +82,7 @@ export function WidgetCatalogSidebar({ catalog, onAddWidget, onDragStart, onDrag
 
         {filtered.length === 0 && (
           <div className="text-center py-8">
-            <p className="text-xs text-muted-foreground">Aucun widget trouvé</p>
+            <p className="text-xs text-muted-foreground">{t('common.no_widget_found')}</p>
           </div>
         )}
       </div>

@@ -104,7 +104,7 @@ export function AnnouncementCenter() {
             {!isLoading && announcements.length === 0 && (
               <div className="py-8 text-center">
                 <Megaphone size={20} className="mx-auto text-muted-foreground/30 mb-2" />
-                <p className="text-xs text-muted-foreground">Aucune annonce active</p>
+                <p className="text-xs text-muted-foreground">{t('common.no_active_announcement')}</p>
               </div>
             )}
 

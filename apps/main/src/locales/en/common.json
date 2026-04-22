@@ -329,7 +329,15 @@
     "languages": "Languages",
     "stops": "Stops",
     "dictionary": "Dictionary",
-    "imputations": "Imputations"
+    "imputations": "Imputations",
+    "no_data_available": "No data available",
+    "no_widget_found": "No widget found",
+    "no_active_announcement": "No active announcement",
+    "no_notification": "No notification",
+    "no_preset": "No preset",
+    "no_results_found": "No results found.",
+    "no_permission_available": "No permission available",
+    "no_history_available": "No history available."
   },
   "datatable": {
     "search_filter": "Select a filter or search…",

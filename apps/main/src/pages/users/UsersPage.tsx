@@ -2256,7 +2256,7 @@ function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending
         />
         <div className="space-y-0.5 max-h-72 overflow-y-auto">
           {filtered.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">Aucun résultat</p>
+            <p className="text-xs text-muted-foreground text-center py-4">{t('common.no_results')}</p>
           ) : filtered.map((item) => {
             const Icon = item.icon
             return (

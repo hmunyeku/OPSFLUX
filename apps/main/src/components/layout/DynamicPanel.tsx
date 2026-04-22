@@ -1108,6 +1108,7 @@ export function InlineEditableCombobox({
   onSave: (newValue: string) => void
   placeholder?: string
 }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [query, setQuery] = useState('')
   const [highlightIdx, setHighlightIdx] = useState(0)
@@ -1190,7 +1191,7 @@ export function InlineEditableCombobox({
           </div>
           <ul ref={listRef} className="absolute z-50 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-border bg-popover shadow-md py-1">
             {filtered.length === 0 && (
-              <li className="px-3 py-2 text-xs text-muted-foreground text-center">Aucun résultat</li>
+              <li className="px-3 py-2 text-xs text-muted-foreground text-center">{t('common.no_results')}</li>
             )}
             {filtered.map((o, idx) => (
               <li

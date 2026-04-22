@@ -12,6 +12,7 @@
  *   <MapPickerModal open={show} onClose={...} latitude={3.848} longitude={9.687} onSelect={...} />
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import L from 'leaflet'
 import { X, MapPin, Search, Loader2, Crosshair } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
@@ -199,6 +200,7 @@ export function MapPicker({
   height = 350,
   showSearch = true,
 }: MapPickerProps) {
+  const { t } = useTranslation()
   const { data: mapSettings } = useMapSettings()
   const containerRef = useRef<HTMLDivElement>(null)
   const [markerPos, setMarkerPos] = useState<[number, number] | null>(
@@ -333,7 +335,7 @@ export function MapPicker({
 
           {showResults && searchResults.length === 0 && !searching && (
             <div className="absolute z-[1000] top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg px-3 py-2">
-              <p className="text-xs text-muted-foreground">Aucun résultat trouvé.</p>
+              <p className="text-xs text-muted-foreground">{t('common.no_results_found')}</p>
             </div>
           )}
         </div>

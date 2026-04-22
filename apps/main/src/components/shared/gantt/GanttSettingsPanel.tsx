@@ -283,7 +283,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
                 </div>
               ))}
               {presets.length === 0 && (
-                <p className="text-[10px] text-muted-foreground italic">Aucun préréglage</p>
+                <p className="text-[10px] text-muted-foreground italic">{t('common.no_preset')}</p>
               )}
             </div>
             <button

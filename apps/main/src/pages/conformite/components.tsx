@@ -2,6 +2,7 @@
  * Shared components for the Conformite page: SearchableSelect, MultiSearchableSelect, VerificationOwnerSummary.
  */
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, User, Building2, Mail, Briefcase, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
@@ -16,6 +17,7 @@ export function SearchableSelect({ value, onChange, options, placeholder, disabl
   placeholder?: string
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = React.useRef<HTMLDivElement>(null)
@@ -52,7 +54,7 @@ export function SearchableSelect({ value, onChange, options, placeholder, disabl
               autoFocus
             />
           </div>
-          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Aucun résultat</div>}
+          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">{t('common.no_results')}</div>}
           {filtered.map(o => (
             <button
               key={o.value}
@@ -77,6 +79,7 @@ export function MultiSearchableSelect({ values, onChange, options, placeholder, 
   placeholder?: string
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = React.useRef<HTMLDivElement>(null)
@@ -121,7 +124,7 @@ export function MultiSearchableSelect({ values, onChange, options, placeholder, 
               autoFocus
             />
           </div>
-          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Aucun résultat</div>}
+          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">{t('common.no_results')}</div>}
           {filtered.map(o => (
             <button
               key={o.value}

@@ -1152,6 +1152,7 @@ function ToursTab({ currentModule }: { currentModule: string }) {
 // ═══════════════════════════════════════════════════════════════
 
 function AlertsTab({ navigate }: { navigate: (path: string) => void }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const { data: unreadCount } = useQuery({
@@ -1227,7 +1228,7 @@ function AlertsTab({ navigate }: { navigate: (path: string) => void }) {
         {!isLoading && notifications.length === 0 && (
           <div className="text-center py-8">
             <Inbox size={24} className="mx-auto text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">Aucune notification</p>
+            <p className="text-sm text-muted-foreground">{t('common.no_notification')}</p>
           </div>
         )}
 

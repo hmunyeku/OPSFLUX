@@ -123,11 +123,39 @@ async def create_tier(
     # ── Auto-generate code server-side (client never provides it) ──
     payload = body.model_dump()
     staging_ref = payload.pop("staging_ref", None)
+    initial_contacts = payload.pop("contacts", []) or []
     payload["code"] = await generate_reference("TIR", db, entity_id=entity_id)
 
     tier = Tier(entity_id=entity_id, **payload)
     db.add(tier)
     await db.flush()
+
+    # Initial contacts — rare but common enough to deserve first-class
+    # support in Create: when a new supplier/client is added, we usually
+    # already know a few contacts. FK-linked so created in same tx.
+    seen_primary = False
+    for c in initial_contacts:
+        # Tolerate at most one is_primary=True; the rest get forced to
+        # False so the DB uniqueness invariant (one primary per tier)
+        # isn't broken by a careless frontend.
+        is_primary = bool(c.get("is_primary"))
+        if is_primary and seen_primary:
+            is_primary = False
+        if is_primary:
+            seen_primary = True
+        contact = TierContact(
+            tier_id=tier.id,
+            civility=c.get("civility"),
+            first_name=c["first_name"],
+            last_name=c["last_name"],
+            email=c.get("email"),
+            phone=c.get("phone"),
+            position=c.get("position"),
+            department=c.get("department"),
+            photo_url=c.get("photo_url"),
+            is_primary=is_primary,
+        )
+        db.add(contact)
 
     # Re-target any polymorphic children (phones, emails, addresses, legal
     # IDs, social networks, opening hours, attachments, notes, tags,

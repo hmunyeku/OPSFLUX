@@ -104,6 +104,12 @@ function CreateTierPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { stagingRef, stagingOwnerType } = useStagingRef('tier')
   const tierTypeOptions = useDictionaryOptions('tier_type')
+  // Initial contacts staged in local state — sent as `contacts[]` in the
+  // create payload. TierContact is FK-linked, so the backend creates
+  // the rows in the same transaction. `is_primary` is enforced as
+  // at-most-one server-side; we just surface a single toggle in UI.
+  const [initialContacts, setInitialContacts] = useState<TierContactCreate[]>([])
+  const [contactDraft, setContactDraft] = useState<TierContactCreate>({ ...EMPTY_CONTACT_FORM })
   const legalFormOptions = useDictionaryOptions('legal_form')
   const currencyOptions = useDictionaryOptions('currency')
   const languageOptions = useDictionaryOptions('language')
@@ -161,10 +167,37 @@ function CreateTierPanel() {
     }
     setFormErrors({})
     await createTier.mutateAsync(
-      normalizeNames({ ...form, staging_ref: stagingRef } as TierCreate & { staging_ref?: string }),
+      normalizeNames({
+        ...form,
+        staging_ref: stagingRef,
+        contacts: initialContacts,
+      } as TierCreate & { staging_ref?: string; contacts?: TierContactCreate[] }),
     )
     closeDynamicPanel()
   }
+
+  const addContactDraft = () => {
+    const first = (contactDraft.first_name ?? '').trim()
+    const last = (contactDraft.last_name ?? '').trim()
+    if (!first || !last) {
+      toast({ title: t('tiers.contact_form.errors.name_required') as string, variant: 'warning' })
+      return
+    }
+    // Enforce at-most-one primary on the client so the UI reflects what
+    // the backend will do anyway (first-one-wins).
+    const next: TierContactCreate = { ...contactDraft, first_name: first, last_name: last }
+    if (next.is_primary) {
+      setInitialContacts((prev) => [
+        ...prev.map((c) => ({ ...c, is_primary: false })),
+        next,
+      ])
+    } else {
+      setInitialContacts((prev) => [...prev, next])
+    }
+    setContactDraft({ ...EMPTY_CONTACT_FORM })
+  }
+  const removeContact = (idx: number) =>
+    setInitialContacts((prev) => prev.filter((_, i) => i !== idx))
 
   const actionItems = useMemo<ActionItem[]>(() => [
     {
@@ -338,6 +371,122 @@ function CreateTierPanel() {
               </FormSection>
             </div>
           </SectionColumns>
+
+          {/* ── Contacts initiaux (FK-linked, non polymorphique) ── */}
+          <FormSection
+            title={`${t('tiers.tab_contacts', 'Contacts')} (${initialContacts.length})`}
+            collapsible
+            defaultExpanded={false}
+          >
+            {initialContacts.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {initialContacts.map((c, idx) => (
+                  <div
+                    key={`${c.first_name}-${c.last_name}-${idx}`}
+                    className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2 py-1.5"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <User size={12} className="text-muted-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium truncate">
+                          {c.civility ? `${c.civility} ` : ''}
+                          {c.last_name} {c.first_name}
+                          {c.is_primary && (
+                            <Star size={10} className="inline ml-1 text-amber-500 fill-amber-500" />
+                          )}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {[c.position, c.email, c.phone].filter(Boolean).join(' • ') || '—'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeContact(idx)}
+                      className="p-1 text-muted-foreground hover:text-destructive shrink-0"
+                      title={t('common.delete') as string}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-2 rounded-md border border-border bg-card p-2">
+              <FormGrid>
+                <DynamicPanelField label={t('common.first_name', 'Prénom')} required>
+                  <input
+                    type="text"
+                    value={contactDraft.first_name}
+                    onChange={(e) => setContactDraft({ ...contactDraft, first_name: e.target.value })}
+                    className={panelInputClass}
+                    placeholder={t('tiers.contact_form.placeholders.first_name', 'Prénom') as string}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('common.last_name', 'Nom')} required>
+                  <input
+                    type="text"
+                    value={contactDraft.last_name}
+                    onChange={(e) => setContactDraft({ ...contactDraft, last_name: e.target.value })}
+                    className={panelInputClass}
+                    placeholder={t('tiers.contact_form.placeholders.last_name', 'Nom') as string}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('common.email')}>
+                  <input
+                    type="email"
+                    value={contactDraft.email ?? ''}
+                    onChange={(e) => setContactDraft({ ...contactDraft, email: e.target.value || null })}
+                    className={panelInputClass}
+                    placeholder="email@..."
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('common.phone')}>
+                  <input
+                    type="text"
+                    value={contactDraft.phone ?? ''}
+                    onChange={(e) => setContactDraft({ ...contactDraft, phone: e.target.value || null })}
+                    className={panelInputClass}
+                    placeholder="+..."
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('tiers.ui.contact_position', 'Fonction')}>
+                  <input
+                    type="text"
+                    value={contactDraft.position ?? ''}
+                    onChange={(e) => setContactDraft({ ...contactDraft, position: e.target.value || null })}
+                    className={panelInputClass}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('tiers.ui.contact_department', 'Département')}>
+                  <input
+                    type="text"
+                    value={contactDraft.department ?? ''}
+                    onChange={(e) => setContactDraft({ ...contactDraft, department: e.target.value || null })}
+                    className={panelInputClass}
+                  />
+                </DynamicPanelField>
+              </FormGrid>
+              <div className="flex items-center justify-between gap-2">
+                <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={!!contactDraft.is_primary}
+                    onChange={(e) => setContactDraft({ ...contactDraft, is_primary: e.target.checked })}
+                  />
+                  {t('tiers.contact_form.is_primary', 'Contact principal')}
+                </label>
+                <button
+                  type="button"
+                  onClick={addContactDraft}
+                  className="gl-button-sm gl-button-confirm inline-flex items-center gap-1"
+                >
+                  <Plus size={12} /> {t('common.add', 'Ajouter')}
+                </button>
+              </div>
+            </div>
+          </FormSection>
 
           {/* ── Secondary polymorphic data (all staged) ── */}
           {/* Multi-entries for phones / emails / addresses / legal IDs that go

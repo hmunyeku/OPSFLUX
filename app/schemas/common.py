@@ -433,6 +433,22 @@ class TierRead(OpsFluxSchema):
     created_at: datetime
 
 
+# Defined before TierCreate so the latter can use it as an element type
+# in `contacts: list[TierContactCreate]`. Python resolves names at
+# module eval time; keeping TierContactCreate above TierCreate avoids
+# needing forward refs + model_rebuild().
+class TierContactCreate(BaseModel):
+    civility: str | None = None
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    email: str | None = Field(None, max_length=255)
+    phone: str | None = Field(None, max_length=50)
+    position: str | None = None
+    department: str | None = None
+    photo_url: str | None = Field(None, max_length=1000)
+    is_primary: bool = False
+
+
 class TierCreate(BaseModel):
     # ``code`` is always auto-generated server-side via the TIR numbering
     # pattern. It must not be provided by the client.
@@ -474,6 +490,11 @@ class TierCreate(BaseModel):
     # (phones, emails, addresses, legal IDs, social, opening hours,
     # attachments, notes, tags, external refs) before the tier row exists.
     staging_ref: UUID | None = None
+    # Initial contacts to create along with the tier in a single request.
+    # TierContact is FK-linked (not polymorphic), so rows are inserted in
+    # the same transaction as the tier. Rarely more than a handful;
+    # additional contacts can be added later via the detail panel.
+    contacts: list[TierContactCreate] = Field(default_factory=list)
 
 
 class TierUpdate(BaseModel):
@@ -540,18 +561,6 @@ class TierContactWithTier(TierContactRead):
     """Contact enriched with parent tier info — for global contacts listing."""
     tier_name: str
     tier_code: str
-
-
-class TierContactCreate(BaseModel):
-    civility: str | None = None
-    first_name: str = Field(..., min_length=1, max_length=100)
-    last_name: str = Field(..., min_length=1, max_length=100)
-    email: str | None = Field(None, max_length=255)
-    phone: str | None = Field(None, max_length=50)
-    position: str | None = None
-    department: str | None = None
-    photo_url: str | None = Field(None, max_length=1000)
-    is_primary: bool = False
 
 
 class TierContactUpdate(BaseModel):

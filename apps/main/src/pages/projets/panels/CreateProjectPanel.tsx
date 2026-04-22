@@ -12,13 +12,19 @@ import {
   DynamicPanelShell,
   DynamicPanelField,
   FormGrid,
-  FormSection,
   PanelActionButton,
   TagSelector,
   panelInputClass,
   PanelContentLayout,
   SectionColumns,
 } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+} from '@/components/layout/SmartForm'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { AssetPicker } from '@/components/shared/AssetPicker'
@@ -148,10 +154,19 @@ export function CreateProjectPanel() {
       }
     >
       <form id="create-project-form" onSubmit={handleSubmit}>
+        <SmartFormProvider panelId="create-project" defaultMode="simple">
+          <SmartFormToolbar />
+          <SmartFormSimpleHint />
+
         <PanelContentLayout>
           <SectionColumns>
             <div className="@container space-y-5">
-              <FormSection title={t('common.identification')}>
+              <SmartFormSection
+                id="identification"
+                title={t('common.identification')}
+                level="essential"
+                helpKey="projects.create.identification"
+              >
                 <FormGrid>
                   <DynamicPanelField label={t('common.code_field')}>
                     <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
@@ -176,9 +191,15 @@ export function CreateProjectPanel() {
                     />
                   </DynamicPanelField>
                 </FormGrid>
-              </FormSection>
+              </SmartFormSection>
 
-              <FormSection title={t('common.planning')}>
+              <SmartFormSection
+                id="planning"
+                title={t('common.planning')}
+                level="advanced"
+                skippable
+                helpKey="projects.create.planning"
+              >
                 <DateRangePicker
                   startDate={form.start_date?.split('T')[0] ?? null}
                   endDate={form.end_date?.split('T')[0] ?? null}
@@ -188,19 +209,37 @@ export function CreateProjectPanel() {
                 <DynamicPanelField label="Budget">
                   <input type="number" step="any" value={form.budget ?? ''} onChange={(e) => setForm({ ...form, budget: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="0" />
                 </DynamicPanelField>
-              </FormSection>
+              </SmartFormSection>
             </div>
 
             <div className="@container space-y-5">
-              <FormSection title={t('common.status')}>
+              <SmartFormSection
+                id="status"
+                title={t('common.status')}
+                level="advanced"
+                skippable
+              >
                 <TagSelector options={projectStatusOptions} value={form.status || 'draft'} onChange={(v) => setForm({ ...form, status: v })} />
-              </FormSection>
+              </SmartFormSection>
 
-              <FormSection title={t('common.priority_field')}>
+              <SmartFormSection
+                id="priority"
+                title={t('common.priority_field')}
+                level="advanced"
+                skippable
+              >
                 <TagSelector options={projectPriorityOptions} value={form.priority || 'medium'} onChange={(v) => setForm({ ...form, priority: v })} />
-              </FormSection>
+              </SmartFormSection>
 
-              <FormSection title="Avancement" collapsible defaultExpanded>
+              <SmartFormSection
+                id="progress"
+                title="Avancement"
+                level="advanced"
+                collapsible
+                defaultExpanded
+                skippable
+                helpKey="projects.create.progress_method"
+              >
                 <p className="text-[11px] text-muted-foreground mb-2">
                   Comment l'avancement du projet sera calculé à partir de l'avancement de chaque tâche. Laissez sur « {standardLabel} » pour utiliser le réglage entité.
                 </p>
@@ -221,9 +260,16 @@ export function CreateProjectPanel() {
                     {PROGRESS_WEIGHT_METHOD_OPTIONS.find((o) => o.value === form.progress_weight_method)?.description}
                   </p>
                 )}
-              </FormSection>
+              </SmartFormSection>
 
-              <FormSection title={t('common.description')} collapsible defaultExpanded={false}>
+              <SmartFormSection
+                id="description"
+                title={t('common.description')}
+                level="essential"
+                collapsible
+                defaultExpanded={false}
+                skippable
+              >
                 <RichTextField
                   value={form.description ?? ''}
                   onChange={(html) => setForm({ ...form, description: html || null })}
@@ -232,12 +278,16 @@ export function CreateProjectPanel() {
                   imageOwnerType={stagingOwnerType}
                   imageOwnerId={stagingRef}
                 />
-              </FormSection>
+              </SmartFormSection>
 
-              <FormSection
+              <SmartFormSection
+                id="initial_tasks"
                 title={`${t('projets.initial_tasks', 'Tâches initiales')} (${initialTasks.length})`}
+                level="advanced"
                 collapsible
                 defaultExpanded={false}
+                skippable
+                helpKey="projects.create.initial_tasks"
               >
                 {initialTasks.length > 0 && (
                   <div className="space-y-1 mb-2">
@@ -329,42 +379,63 @@ export function CreateProjectPanel() {
                     </button>
                   </div>
                 </div>
-              </FormSection>
+              </SmartFormSection>
 
-              <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
-                <AttachmentManager
-                  ownerType={stagingOwnerType}
-                  ownerId={stagingRef}
-                  compact
-                />
-              </FormSection>
+              <SmartFormSection
+                id="attachments"
+                title={t('common.attachments')}
+                level="advanced"
+                collapsible
+                defaultExpanded={false}
+                skippable
+              >
+                <AttachmentManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+              </SmartFormSection>
 
-              <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
-                <NoteManager
-                  ownerType={stagingOwnerType}
-                  ownerId={stagingRef}
-                  compact
-                />
-              </FormSection>
+              <SmartFormSection
+                id="notes"
+                title={t('common.notes')}
+                level="advanced"
+                collapsible
+                defaultExpanded={false}
+                skippable
+              >
+                <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+              </SmartFormSection>
 
-              <FormSection title={t('common.tags')} collapsible defaultExpanded={false}>
-                <TagManager
-                  ownerType={stagingOwnerType}
-                  ownerId={stagingRef}
-                  compact
-                />
-              </FormSection>
+              <SmartFormSection
+                id="tags"
+                title={t('common.tags')}
+                level="advanced"
+                collapsible
+                defaultExpanded={false}
+                skippable
+              >
+                <TagManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+              </SmartFormSection>
 
-              <FormSection title={t('projets.external_refs', 'Références externes')} collapsible defaultExpanded={false}>
-                <ExternalRefManager
-                  ownerType={stagingOwnerType}
-                  ownerId={stagingRef}
-                  compact
-                />
-              </FormSection>
+              <SmartFormSection
+                id="external_refs"
+                title={t('projets.external_refs', 'Références externes')}
+                level="advanced"
+                collapsible
+                defaultExpanded={false}
+                skippable
+              >
+                <ExternalRefManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+              </SmartFormSection>
             </div>
           </SectionColumns>
         </PanelContentLayout>
+
+          <SmartFormWizardNav
+            onCancel={closeDynamicPanel}
+            submitDisabled={createProject.isPending}
+            onSubmit={() =>
+              (document.getElementById('create-project-form') as HTMLFormElement)?.requestSubmit()
+            }
+          />
+        </SmartFormProvider>
       </form>
     </DynamicPanelShell>
   )

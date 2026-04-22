@@ -127,6 +127,26 @@
     "image_invalid_type": "Le fichier doit être une image.",
     "image_upload_failed": "Impossible de charger l'image."
   },
+  "smart_form": {
+    "mode": {
+      "simple": "Simple",
+      "advanced": "Avancé",
+      "wizard": "Assistant"
+    },
+    "simple_hint_one": "{{count}} section avancée masquée.",
+    "simple_hint_other": "{{count}} sections avancées masquées.",
+    "show_advanced": "Afficher tout",
+    "wizard": {
+      "step": "Étape",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "skip": "Passer",
+      "skip_hint": "Étape facultative — vous pourrez y revenir plus tard",
+      "help": "Afficher l'aide de cette étape",
+      "help_short": "Aide",
+      "finish": "Terminer"
+    }
+  },
   "common": {
     "save": "Sauvegarder",
     "cancel": "Annuler",

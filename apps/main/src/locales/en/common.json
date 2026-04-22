@@ -127,6 +127,26 @@
     "image_invalid_type": "File must be an image.",
     "image_upload_failed": "Failed to upload image."
   },
+  "smart_form": {
+    "mode": {
+      "simple": "Simple",
+      "advanced": "Advanced",
+      "wizard": "Wizard"
+    },
+    "simple_hint_one": "{{count}} advanced section hidden.",
+    "simple_hint_other": "{{count}} advanced sections hidden.",
+    "show_advanced": "Show all",
+    "wizard": {
+      "step": "Step",
+      "previous": "Previous",
+      "next": "Next",
+      "skip": "Skip",
+      "skip_hint": "Optional step — you can fill it in later",
+      "help": "Show help for this step",
+      "help_short": "Help",
+      "finish": "Finish"
+    }
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

@@ -57,7 +57,7 @@ export function WidgetSettingsCommon({ widget, onUpdateMeta, onUpdateConfig }: W
   return (
     <>
       <FormSection title={t('common.general')}>
-        <DynamicPanelField label="Titre">
+        <DynamicPanelField label={t('common.title_field')}>
           <input
             type="text"
             className={panelInputClass}
@@ -65,7 +65,7 @@ export function WidgetSettingsCommon({ widget, onUpdateMeta, onUpdateConfig }: W
             onChange={(e) => onUpdateMeta({ title: e.target.value })}
           />
         </DynamicPanelField>
-        <DynamicPanelField label="Description">
+        <DynamicPanelField label={t('common.description')}>
           <textarea
             className={`${panelInputClass} min-h-[50px]`}
             value={widget.description || ''}

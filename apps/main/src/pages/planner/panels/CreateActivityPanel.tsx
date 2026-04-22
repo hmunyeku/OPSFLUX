@@ -102,7 +102,7 @@ export function CreateActivityPanel() {
         <PanelContentLayout>
           <FormSection title="Informations générales">
             <FormGrid>
-              <DynamicPanelField label="Titre" required>
+              <DynamicPanelField label={t('common.title_field')} required>
                 <input
                   type="text"
                   required
@@ -119,7 +119,7 @@ export function CreateActivityPanel() {
                   label="Site"
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Projet">
+              <DynamicPanelField label={t('common.project')}>
                 <ProjectPicker
                   value={form.project_id || null}
                   onChange={(id) => setForm({ ...form, project_id: id })}
@@ -131,7 +131,7 @@ export function CreateActivityPanel() {
 
           <FormSection title="Type et priorité">
             <FormGrid>
-              <DynamicPanelField label="Type" required>
+              <DynamicPanelField label={t('common.type_field')} required>
                 <select
                   value={form.type}
                   onChange={(e) => setForm({ ...form, type: e.target.value })}
@@ -151,7 +151,7 @@ export function CreateActivityPanel() {
                   placeholder="Sous-type (optionnel)"
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Priorité">
+              <DynamicPanelField label={t('common.priority_field')}>
                 <select
                   value={form.priority || 'medium'}
                   onChange={(e) => setForm({ ...form, priority: e.target.value })}
@@ -210,7 +210,7 @@ export function CreateActivityPanel() {
           </FormSection>
 
           <FormSection title={t('common.description')}>
-            <DynamicPanelField label="Description" span="full">
+            <DynamicPanelField label={t('common.description')} span="full">
               <textarea
                 value={form.description ?? ''}
                 onChange={(e) => setForm({ ...form, description: e.target.value || null })}

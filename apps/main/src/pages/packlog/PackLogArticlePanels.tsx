@@ -76,7 +76,7 @@ export function CreateArticlePanel() {
                   placeholder="MAT-00001"
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Description" required>
+              <DynamicPanelField label={t('common.description')} required>
                 <input
                   type="text"
                   required

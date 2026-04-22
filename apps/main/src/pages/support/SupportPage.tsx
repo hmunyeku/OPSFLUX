@@ -200,7 +200,7 @@ function CreateTicketPanel() {
       <PanelContentLayout>
         <FormSection title={t('common.information')}>
           <FormGrid>
-            <DynamicPanelField label="Titre" required>
+            <DynamicPanelField label={t('common.title_field')} required>
               <input
                 className={panelInputClass}
                 value={form.title}
@@ -209,12 +209,12 @@ function CreateTicketPanel() {
                 autoFocus
               />
             </DynamicPanelField>
-            <DynamicPanelField label="Type">
+            <DynamicPanelField label={t('common.type_field')}>
               <select className={panelInputClass} value={form.ticket_type} onChange={e => setForm({ ...form, ticket_type: e.target.value as TicketCreate['ticket_type'] })}>
                 {(typeOptions.length ? typeOptions : Object.entries(TYPE_LABELS_FALLBACK).map(([v, l]) => ({ value: v, label: l }))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
-            <DynamicPanelField label="Priorité">
+            <DynamicPanelField label={t('common.priority_field')}>
               <select className={panelInputClass} value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as TicketCreate['priority'] })}>
                 {(priorityOptions.length ? priorityOptions : Object.entries(PRIORITY_LABELS_FALLBACK).map(([v, l]) => ({ value: v, label: l }))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -628,10 +628,10 @@ function CreateAnnouncementPanel() {
       <PanelContentLayout>
         <FormSection title="Contenu">
           <FormGrid>
-            <DynamicPanelField label="Titre" required>
+            <DynamicPanelField label={t('common.title_field')} required>
               <input className={panelInputClass} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Titre de l'annonce..." autoFocus />
             </DynamicPanelField>
-            <DynamicPanelField label="Priorité">
+            <DynamicPanelField label={t('common.priority_field')}>
               <select className={panelInputClass} value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
                 {(annPriorityOptions.length ? annPriorityOptions : Object.entries(ANN_PRIORITY_LABELS).map(([v, l]) => ({ value: v, label: l }))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>

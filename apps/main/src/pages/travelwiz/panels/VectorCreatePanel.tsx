@@ -59,10 +59,10 @@ export function CreateVectorPanel() {
               <DynamicPanelField label="Immatriculation" required>
                 <input type="text" required value={form.registration} onChange={(e) => setForm({ ...form, registration: e.target.value })} className={panelInputClass} placeholder="TJ-ABC" />
               </DynamicPanelField>
-              <DynamicPanelField label="Nom" required>
+              <DynamicPanelField label={t('common.name_field')} required>
                 <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Nom du vecteur" />
               </DynamicPanelField>
-              <DynamicPanelField label="Type" required>
+              <DynamicPanelField label={t('common.type_field')} required>
                 <select value={form.type} onChange={(e) => handleTypeChange(e.target.value)} className={panelInputClass}>
                   <option value="helicopter">{t('travelwiz.vector_types.helicopter')}</option>
                   <option value="boat">{t('travelwiz.vector_types.ship')}</option>
@@ -117,7 +117,7 @@ export function CreateVectorPanel() {
                   <input type="text" value={form.mmsi_number ?? ''} onChange={(e) => setForm({ ...form, mmsi_number: e.target.value || null })} className={panelInputClass} placeholder="123456789" />
                 </DynamicPanelField>
               )}
-              <DynamicPanelField label="Description" span="full">
+              <DynamicPanelField label={t('common.description')} span="full">
                 <textarea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value || null })}
                   className={`${panelInputClass} min-h-[60px] resize-y`} placeholder="Description du vecteur..." rows={3} />
               </DynamicPanelField>

@@ -62,7 +62,7 @@ export function CreateJobPositionPanel() {
         <PanelContentLayout>
           <FormSection title={t('common.information')}>
             <FormGrid>
-              <DynamicPanelField label="Code">
+              <DynamicPanelField label={t('common.code_field')}>
                 <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
               </DynamicPanelField>
               <DynamicPanelField label="Intitulé du poste" required>

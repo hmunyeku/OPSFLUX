@@ -216,10 +216,10 @@ export function CreateAddressPanel() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <DynamicPanelField label="Latitude">
+            <DynamicPanelField label={t('common.latitude')}>
               <input type="number" step="any" className={panelInputClass} placeholder="Ex: 4.051056" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
             </DynamicPanelField>
-            <DynamicPanelField label="Longitude">
+            <DynamicPanelField label={t('common.longitude')}>
               <input type="number" step="any" className={panelInputClass} placeholder="Ex: 9.767869" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
             </DynamicPanelField>
           </div>

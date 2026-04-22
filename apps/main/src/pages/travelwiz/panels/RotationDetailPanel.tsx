@@ -98,10 +98,10 @@ export function RotationDetailPanel({ id }: { id: string }) {
             <>
               <FormSection title={t('common.identification')}>
                 <FormGrid>
-                  <DynamicPanelField label="Nom">
+                  <DynamicPanelField label={t('common.name_field')}>
                     <input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Vecteur">
+                  <DynamicPanelField label={t('common.vector')}>
                     <select value={editForm.vector_id ?? ''} onChange={(e) => setEditForm({ ...editForm, vector_id: e.target.value || null })} className={panelInputClass}>
                       <option value="">Selectionner...</option>
                       {(vectorsData?.items ?? []).map((vector) => (

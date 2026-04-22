@@ -759,7 +759,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
           <>
             <FormSection title={t('common.information')}>
               <FormGrid>
-                <DynamicPanelField label="Titre" required>
+                <DynamicPanelField label={t('common.title_field')} required>
                   <input
                     type="text"
                     value={editForm.title as string}
@@ -767,7 +767,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                     className={panelInputClass}
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Type" required>
+                <DynamicPanelField label={t('common.type_field')} required>
                   <select
                     value={editForm.type as string}
                     onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
@@ -786,7 +786,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                     className={panelInputClass}
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Priorité">
+                <DynamicPanelField label={t('common.priority_field')}>
                   <select
                     value={editForm.priority as string}
                     onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}
@@ -844,7 +844,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             <FormSection title={t('common.description')}>
-              <DynamicPanelField label="Description" span="full">
+              <DynamicPanelField label={t('common.description')} span="full">
                 <textarea
                   value={editForm.description as string}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value || null })}

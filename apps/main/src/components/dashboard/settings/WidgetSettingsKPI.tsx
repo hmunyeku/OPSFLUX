@@ -1,6 +1,7 @@
 /**
  * KPI widget settings — data source, format, trend configuration.
  */
+import { useTranslation } from 'react-i18next'
 import {
   FormSection,
   DynamicPanelField,
@@ -20,9 +21,10 @@ interface WidgetSettingsKPIProps {
 }
 
 export function WidgetSettingsKPI({ config, onChange }: WidgetSettingsKPIProps) {
+  const { t } = useTranslation()
   return (
     <FormSection title="Configuration KPI" collapsible defaultExpanded storageKey="widget-settings-kpi">
-      <DynamicPanelField label="Source de données">
+      <DynamicPanelField label={t('common.data_source')}>
         <input
           type="text"
           className={panelInputClass}

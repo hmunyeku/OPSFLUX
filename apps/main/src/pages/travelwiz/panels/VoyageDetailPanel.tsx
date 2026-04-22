@@ -356,10 +356,10 @@ export function VoyageDetailPanel({ id }: { id: string }) {
           editing ? (
             <FormSection title={t('common.information')}>
               <FormGrid>
-                <DynamicPanelField label="Code">
+                <DynamicPanelField label={t('common.code_field')}>
                   <span className="text-sm font-mono font-medium text-foreground">{voyage.code}</span>
                 </DynamicPanelField>
-                <DynamicPanelField label="Vecteur" required>
+                <DynamicPanelField label={t('common.vector')} required>
                   <select
                     value={editForm.vector_id ?? ''}
                     onChange={(e) => setEditForm({ ...editForm, vector_id: e.target.value || null })}

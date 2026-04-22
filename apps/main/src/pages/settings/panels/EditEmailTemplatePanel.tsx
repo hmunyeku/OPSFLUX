@@ -365,7 +365,7 @@ function CreatePanel() {
             </p>
           </DynamicPanelField>
 
-          <DynamicPanelField label="Nom" required>
+          <DynamicPanelField label={t('common.name_field')} required>
             <input
               type="text"
               className={panelInputClass}
@@ -375,7 +375,7 @@ function CreatePanel() {
             />
           </DynamicPanelField>
 
-          <DynamicPanelField label="Description">
+          <DynamicPanelField label={t('common.description')}>
             <textarea
               className={`${panelInputClass} min-h-[60px]`}
               placeholder={t('settings.description_du_modele')}
@@ -635,10 +635,10 @@ function EditPanel({ templateId }: { templateId: string }) {
             </div>
           ) : (
             <div className="px-3 py-3 space-y-3">
-              <DynamicPanelField label="Nom">
+              <DynamicPanelField label={t('common.name_field')}>
                 <input type="text" className={panelInputClass} value={editName} onChange={(e) => setEditName(e.target.value)} />
               </DynamicPanelField>
-              <DynamicPanelField label="Description">
+              <DynamicPanelField label={t('common.description')}>
                 <textarea className={`${panelInputClass} min-h-[50px]`} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
               </DynamicPanelField>
               <DynamicPanelField label="Type d'objet">
@@ -770,7 +770,7 @@ function EditPanel({ templateId }: { templateId: string }) {
               </button>
             </div>
             <div className="p-3 space-y-3">
-              <DynamicPanelField label="Langue">
+              <DynamicPanelField label={t('common.language')}>
                 <select className="gl-form-select" value={newLang} onChange={(e) => setNewLang(e.target.value)}>
                   {LANG_OPTIONS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                 </select>

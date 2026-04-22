@@ -1,6 +1,7 @@
 /**
  * Chart widget settings — chart type, data source, fields, legend.
  */
+import { useTranslation } from 'react-i18next'
 import {
   FormSection,
   DynamicPanelField,
@@ -21,6 +22,7 @@ interface WidgetSettingsChartProps {
 }
 
 export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartProps) {
+  const { t } = useTranslation()
   const yFields = ((config.y_fields as string[]) || []).join(', ')
 
   return (
@@ -32,7 +34,7 @@ export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartPro
           onChange={(v) => onChange({ chart_type: v })}
         />
       </DynamicPanelField>
-      <DynamicPanelField label="Source de données">
+      <DynamicPanelField label={t('common.data_source')}>
         <input
           type="text"
           className={panelInputClass}

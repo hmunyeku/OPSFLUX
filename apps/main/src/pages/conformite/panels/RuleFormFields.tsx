@@ -283,10 +283,10 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
               <input type="text" value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} className={panelInputClass} placeholder={form.target_type === 'department' ? 'Nom du département...' : 'Valeur...'} />
             </DynamicPanelField>
           )}
-          <DynamicPanelField label="Description" span="full">
+          <DynamicPanelField label={t('common.description')} span="full">
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${panelInputClass} min-h-[48px] resize-y`} placeholder="Description de la règle..." rows={2} />
           </DynamicPanelField>
-          <DynamicPanelField label="Priorité">
+          <DynamicPanelField label={t('common.priority_field')}>
             <TagSelector
               options={rulePriorityOptions}
               value={form.priority}

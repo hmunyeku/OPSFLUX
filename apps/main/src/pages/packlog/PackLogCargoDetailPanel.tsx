@@ -514,7 +514,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
         {editing ? (
           <FormSection title={t('common.information')}>
             <FormGrid>
-              <DynamicPanelField label="Référence">
+              <DynamicPanelField label={t('common.reference')}>
                 <span className="text-sm font-mono font-medium text-foreground">{cargo.code}</span>
               </DynamicPanelField>
               <DynamicPanelField label="Type de colis">
@@ -619,10 +619,10 @@ export function CargoDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label="Lieu d'enlèvement" span="full">
                 <input type="text" value={editForm.pickup_location_label ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_location_label: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Latitude">
+              <DynamicPanelField label={t('common.latitude')}>
                 <input type="number" step="any" value={editForm.pickup_latitude ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_latitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Longitude">
+              <DynamicPanelField label={t('common.longitude')}>
                 <input type="number" step="any" value={editForm.pickup_longitude ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_longitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label="Aperçu cartographique" span="full">
@@ -674,7 +674,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   Les preuves visuelles et documentaires se gèrent via les fichiers joints du colis, pas par saisie manuelle de compteurs.
                 </div>
               </DynamicPanelField>
-              <DynamicPanelField label="Description" span="full"><textarea value={editForm.description ?? ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value || null })} className={`${panelInputClass} min-h-[60px] resize-y`} rows={3} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.description')} span="full"><textarea value={editForm.description ?? ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value || null })} className={`${panelInputClass} min-h-[60px] resize-y`} rows={3} /></DynamicPanelField>
             </FormGrid>
           </FormSection>
         ) : (

@@ -289,10 +289,10 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
         <FormSection title={t('common.identification')}>
           {editing ? (
             <FormGrid>
-              <DynamicPanelField label="Titre" required>
+              <DynamicPanelField label={t('common.title_field')} required>
                 <input className={panelInputClass} value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} autoFocus />
               </DynamicPanelField>
-              <DynamicPanelField label="Description" span="full">
+              <DynamicPanelField label={t('common.description')} span="full">
                 <textarea className={cn(panelInputClass, 'min-h-[60px]')} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
               </DynamicPanelField>
               <div className="col-span-full flex gap-2 justify-end">

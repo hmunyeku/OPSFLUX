@@ -1,6 +1,7 @@
 /**
  * Perspective widget settings — data source, initial plugin, info note.
  */
+import { useTranslation } from 'react-i18next'
 import {
   FormSection,
   DynamicPanelField,
@@ -26,9 +27,10 @@ interface WidgetSettingsPerspectiveProps {
 }
 
 export function WidgetSettingsPerspective({ config, onChange }: WidgetSettingsPerspectiveProps) {
+  const { t } = useTranslation()
   return (
     <FormSection title="Configuration Perspective" collapsible defaultExpanded storageKey="widget-settings-perspective">
-      <DynamicPanelField label="Source de données">
+      <DynamicPanelField label={t('common.data_source')}>
         <input
           type="text"
           className={panelInputClass}

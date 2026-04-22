@@ -78,10 +78,10 @@ export function CreateTypePanel() {
             <div className="@container space-y-5">
               <FormSection title={t('common.information')}>
                 <FormGrid>
-                  <DynamicPanelField label="Code">
+                  <DynamicPanelField label={t('common.code_field')}>
                     <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Nom" required>
+                  <DynamicPanelField label={t('common.name_field')} required>
                     <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Formation HSE Niveau 1" />
                   </DynamicPanelField>
                   <DynamicPanelField label="Validité (jours)">

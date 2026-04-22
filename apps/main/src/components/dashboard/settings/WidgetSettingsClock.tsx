@@ -1,6 +1,7 @@
 /**
  * Clock widget settings — mode, timezone, features, locale.
  */
+import { useTranslation } from 'react-i18next'
 import {
   FormSection,
   DynamicPanelField,
@@ -38,6 +39,7 @@ interface WidgetSettingsClockProps {
 }
 
 export function WidgetSettingsClock({ config, onChange }: WidgetSettingsClockProps) {
+  const { t } = useTranslation()
   return (
     <FormSection title="Configuration Horloge" collapsible defaultExpanded storageKey="widget-settings-clock">
       <DynamicPanelField label="Mode">
@@ -59,7 +61,7 @@ export function WidgetSettingsClock({ config, onChange }: WidgetSettingsClockPro
           ))}
         </select>
       </DynamicPanelField>
-      <DynamicPanelField label="Langue">
+      <DynamicPanelField label={t('common.language')}>
         <TagSelector
           options={LOCALE_OPTIONS}
           value={(config.locale as string) || 'fr'}

@@ -54,7 +54,7 @@ export function CreateRotationPanel() {
         <PanelContentLayout>
           <FormSection title={t('common.identification')}>
             <FormGrid>
-              <DynamicPanelField label="Nom" required>
+              <DynamicPanelField label={t('common.name_field')} required>
                 <input
                   type="text"
                   required
@@ -64,7 +64,7 @@ export function CreateRotationPanel() {
                   placeholder="Rotation Pointe-Noire Hebdo"
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Vecteur" required>
+              <DynamicPanelField label={t('common.vector')} required>
                 <select
                   required
                   value={form.vector_id}

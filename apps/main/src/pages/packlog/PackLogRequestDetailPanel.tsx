@@ -339,7 +339,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
           /* ── Edit form ─────────────────────────────────────── */
           <FormSection title="Demande d'expédition">
             <FormGrid>
-              <DynamicPanelField label="Intitulé">
+              <DynamicPanelField label={t('common.label_field')}>
                 <input
                   type="text"
                   value={editForm.title ?? ''}
@@ -366,7 +366,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Description" span="full">
+              <DynamicPanelField label={t('common.description')} span="full">
                 <textarea
                   value={editForm.description ?? ''}
                   onChange={(e) =>
@@ -399,7 +399,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   tierId={editForm.sender_tier_id ?? null}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Destinataire">
+              <DynamicPanelField label={t('common.recipient')}>
                 <input
                   type="text"
                   value={editForm.receiver_name ?? ''}
@@ -409,7 +409,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   className={panelInputClass}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Imputation">
+              <DynamicPanelField label={t('common.imputation')}>
                 <ImputationPicker
                   value={editForm.imputation_reference_id ?? null}
                   onChange={(id) =>
@@ -418,7 +418,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   placeholder={t('packlog.placeholders.select_imputation')}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Demandeur">
+              <DynamicPanelField label={t('common.requester')}>
                 <UserPicker
                   value={editForm.requester_user_id ?? null}
                   onChange={(id) =>
@@ -448,7 +448,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   placeholder={t('packlog.placeholders.select_destination_asset')}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Projet" span="full">
+              <DynamicPanelField label={t('common.project')} span="full">
                 <ProjectPicker
                   value={editForm.project_id ?? null}
                   onChange={(projectId) =>

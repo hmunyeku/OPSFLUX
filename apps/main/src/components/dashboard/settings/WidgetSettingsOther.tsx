@@ -2,6 +2,7 @@
  * Settings for Table, Map, and Text widget types.
  */
 import { Eye, EyeOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   FormSection,
   DynamicPanelField,
@@ -16,6 +17,7 @@ interface WidgetSettingsOtherProps {
 }
 
 export function WidgetSettingsOther({ widgetType, config, onChange }: WidgetSettingsOtherProps) {
+  const { t } = useTranslation()
   if (widgetType === 'table') {
     // Column visibility — stored as string[] of hidden column keys
     const hiddenColumns = (config.hidden_columns as string[]) || []
@@ -33,7 +35,7 @@ export function WidgetSettingsOther({ widgetType, config, onChange }: WidgetSett
 
     return (
       <FormSection title="Configuration Tableau" collapsible defaultExpanded storageKey="widget-settings-table">
-        <DynamicPanelField label="Source de données">
+        <DynamicPanelField label={t('common.data_source')}>
           <input
             type="text"
             className={panelInputClass}

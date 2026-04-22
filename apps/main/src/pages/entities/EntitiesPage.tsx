@@ -395,7 +395,7 @@ function CreateEntityPanel() {
       <form id="create-entity-form" onSubmit={handleSubmit} className="p-4 space-y-5">
         <FormSection title={t('common.identity')}>
           <FormGrid>
-            <DynamicPanelField label="Code" required>
+            <DynamicPanelField label={t('common.code_field')} required>
               <input type="text" required maxLength={50} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="PER_CMR" />
             </DynamicPanelField>
             <DynamicPanelField label="Raison sociale" required>
@@ -453,7 +453,7 @@ function CreateEntityPanel() {
             <DynamicPanelField label="Fuseau horaire">
               <TagSelector options={TIMEZONE_OPTIONS} value={form.timezone || 'Africa/Douala'} onChange={(v) => set({ timezone: v })} />
             </DynamicPanelField>
-            <DynamicPanelField label="Langue">
+            <DynamicPanelField label={t('common.language')}>
               <TagSelector options={LANGUAGE_OPTIONS} value={form.language || 'fr'} onChange={(v) => set({ language: v })} />
             </DynamicPanelField>
           </FormGrid>

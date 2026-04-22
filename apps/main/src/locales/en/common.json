@@ -284,7 +284,19 @@
     "associations": "Associations",
     "notes_documents": "Notes & documents",
     "tags_notes": "Tags & notes",
-    "tags_notes_files": "Tags, notes & files"
+    "tags_notes_files": "Tags, notes & files",
+    "name_field": "Name",
+    "title_field": "Title",
+    "code_field": "Code",
+    "type_field": "Type",
+    "priority_field": "Priority",
+    "language": "Language",
+    "longitude": "Longitude",
+    "latitude": "Latitude",
+    "data_source": "Data source",
+    "vector": "Vector",
+    "recipient": "Recipient",
+    "label_field": "Label"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",

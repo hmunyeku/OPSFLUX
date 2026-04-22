@@ -417,10 +417,10 @@ export function CreateSitePanel() {
 
         <FormSection title={t('common.location')} collapsible>
           <FormGrid>
-            <DynamicPanelField label="Latitude">
+            <DynamicPanelField label={t('common.latitude')}>
               <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={numChange(set, 'latitude')} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Longitude">
+            <DynamicPanelField label={t('common.longitude')}>
               <input type="number" step="0.000001" value={form.longitude ?? ''} onChange={numChange(set, 'longitude')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -613,10 +613,10 @@ export function CreateInstallationPanel() {
 
         <FormSection title={t('common.location')} collapsible>
           <FormGrid>
-            <DynamicPanelField label="Latitude">
+            <DynamicPanelField label={t('common.latitude')}>
               <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={numChange(set, 'latitude')} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Longitude">
+            <DynamicPanelField label={t('common.longitude')}>
               <input type="number" step="0.000001" value={form.longitude ?? ''} onChange={numChange(set, 'longitude')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -852,10 +852,10 @@ export function CreateEquipmentPanel() {
             <DynamicPanelField label="Mobile">{boolSelect(form.is_mobile, (v) => set({ is_mobile: v }), panelInputClass)}</DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Latitude">
+            <DynamicPanelField label={t('common.latitude')}>
               <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={numChange(set, 'latitude')} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Longitude">
+            <DynamicPanelField label={t('common.longitude')}>
               <input type="number" step="0.000001" value={form.longitude ?? ''} onChange={numChange(set, 'longitude')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>

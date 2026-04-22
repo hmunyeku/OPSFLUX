@@ -2,6 +2,7 @@
  * Group widget settings — layout selector + children KPI editors.
  */
 import { Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   FormSection,
   DynamicPanelField,
@@ -37,6 +38,7 @@ interface WidgetSettingsGroupProps {
 }
 
 export function WidgetSettingsGroup({ config, onChange }: WidgetSettingsGroupProps) {
+  const { t } = useTranslation()
   const children = (config.children as GroupChild[]) || []
 
   const updateChild = (idx: number, patch: Partial<GroupChild>) => {
@@ -62,7 +64,7 @@ export function WidgetSettingsGroup({ config, onChange }: WidgetSettingsGroupPro
         />
       </DynamicPanelField>
 
-      <DynamicPanelField label="Source de données">
+      <DynamicPanelField label={t('common.data_source')}>
         <input
           type="text"
           className={panelInputClass}

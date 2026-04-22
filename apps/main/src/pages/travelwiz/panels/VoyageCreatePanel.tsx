@@ -53,12 +53,12 @@ export function CreateVoyagePanel() {
         <PanelContentLayout>
           <FormSection title={t('common.identification')}>
             <FormGrid>
-              <DynamicPanelField label="Référence">
+              <DynamicPanelField label={t('common.reference')}>
                 <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                   Générée automatiquement par la numérotation TravelWiz au moment de la création.
                 </div>
               </DynamicPanelField>
-              <DynamicPanelField label="Vecteur" required>
+              <DynamicPanelField label={t('common.vector')} required>
                 <select
                   required
                   value={form.vector_id}

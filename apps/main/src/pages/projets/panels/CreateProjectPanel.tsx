@@ -114,10 +114,10 @@ export function CreateProjectPanel() {
             <div className="@container space-y-5">
               <FormSection title={t('common.identification')}>
                 <FormGrid>
-                  <DynamicPanelField label="Code">
+                  <DynamicPanelField label={t('common.code_field')}>
                     <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Nom" required>
+                  <DynamicPanelField label={t('common.name_field')} required>
                     <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Nom du projet" />
                   </DynamicPanelField>
                   <DynamicPanelField label="Macro-projet (parent)">

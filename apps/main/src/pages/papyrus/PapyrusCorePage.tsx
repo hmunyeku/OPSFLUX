@@ -2120,7 +2120,7 @@ function CreateDocumentPanel() {
             <div className="@container space-y-5">
               <FormSection title={t('common.identification')}>
                 <FormGrid>
-                  <DynamicPanelField label="Titre" required span="full">
+                  <DynamicPanelField label={t('common.title_field')} required span="full">
                     <input
                       type="text"
                       required
@@ -2165,7 +2165,7 @@ function CreateDocumentPanel() {
                       <option value="PUB">Public</option>
                     </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Langue">
+                  <DynamicPanelField label={t('common.language')}>
                     <select
                       value={form.language}
                       onChange={(e) => setForm((f) => ({ ...f, language: e.target.value }))}
@@ -2252,7 +2252,7 @@ function CreateDocTypePanel() {
             <div className="@container space-y-5">
               <FormSection title={t('common.identification')}>
                 <FormGrid>
-                  <DynamicPanelField label="Code">
+                  <DynamicPanelField label={t('common.code_field')}>
                     <input type="text" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={cn(panelInputClass, 'font-mono')} placeholder={t('papyrus.placeholders.code_auto')} />
                   </DynamicPanelField>
                   <DynamicPanelField label="Nom (FR)" required>
@@ -2358,7 +2358,7 @@ function CreateTemplatePanel() {
         <PanelContentLayout>
           <FormSection title={t('common.information')}>
             <FormGrid>
-              <DynamicPanelField label="Nom" required span="full">
+              <DynamicPanelField label={t('common.name_field')} required span="full">
                 <input type="text" required value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.template_name')} />
               </DynamicPanelField>
               <DynamicPanelField label="Type de document">
@@ -2369,7 +2369,7 @@ function CreateTemplatePanel() {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Description" span="full">
+              <DynamicPanelField label={t('common.description')} span="full">
                 <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} className={panelInputClass + ' min-h-[60px]'} placeholder={t('papyrus.placeholders.template_description')} rows={3} />
               </DynamicPanelField>
             </FormGrid>
@@ -2611,10 +2611,10 @@ function TemplateDetailPanel({ id }: { id: string }) {
           <FormGrid>
             {editing ? (
               <>
-                <DynamicPanelField label="Nom" span="full">
+                <DynamicPanelField label={t('common.name_field')} span="full">
                   <input type="text" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} className={panelInputClass} />
                 </DynamicPanelField>
-                <DynamicPanelField label="Description" span="full">
+                <DynamicPanelField label={t('common.description')} span="full">
                   <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} className={panelInputClass + ' min-h-[60px]'} rows={3} />
                 </DynamicPanelField>
               </>

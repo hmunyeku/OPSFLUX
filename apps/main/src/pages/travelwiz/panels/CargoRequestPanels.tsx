@@ -173,14 +173,14 @@ export function CreateCargoRequestPanel() {
                     placeholder="Sélectionner une imputation..."
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Entreprise expéditrice">
+                <DynamicPanelField label={t('common.sender_company')}>
                   <CompanyPicker
                     value={form.sender_tier_id ?? null}
                     onChange={(id) => setForm({ ...form, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })}
                     placeholder="Sélectionner une entreprise..."
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Contact entreprise">
+                <DynamicPanelField label={t('common.company_contact')}>
                   <ContactPicker
                     value={form.sender_contact_tier_contact_id ?? null}
                     onChange={(id) => setForm({ ...form, sender_contact_tier_contact_id: id ?? null })}
@@ -191,7 +191,7 @@ export function CreateCargoRequestPanel() {
                 <DynamicPanelField label={t('common.recipient')}>
                   <input type="text" value={form.receiver_name ?? ''} onChange={(e) => setForm({ ...form, receiver_name: e.target.value || null })} className={panelInputClass} />
                 </DynamicPanelField>
-                <DynamicPanelField label="Installation de destination" span="full">
+                <DynamicPanelField label={t('common.destination_installation')} span="full">
                   <AssetPicker
                     value={form.destination_asset_id ?? null}
                     onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })}
@@ -206,7 +206,7 @@ export function CreateCargoRequestPanel() {
                     placeholder="Sélectionner un utilisateur..."
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Demandeur libre">
+                <DynamicPanelField label={t('common.free_requester')}>
                   <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si le demandeur n'existe pas dans le référentiel" />
                 </DynamicPanelField>
               </FormGrid>
@@ -348,14 +348,14 @@ export function CreateCargoPanel() {
                   Générée automatiquement par la numérotation TravelWiz à l'enregistrement du colis.
                 </div>
               </DynamicPanelField>
-              <DynamicPanelField label="Type de colis" required>
+              <DynamicPanelField label={t('common.package_type')} required>
                 <select value={form.cargo_type} onChange={(e) => setForm({ ...form, cargo_type: e.target.value })} className={panelInputClass}>
                   {cargoTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Désignation">
+              <DynamicPanelField label={t('common.designation')}>
                 <input type="text" value={form.designation ?? ''} onChange={(e) => setForm({ ...form, designation: e.target.value || null })} className={panelInputClass} placeholder="Désignation courte du colis" />
               </DynamicPanelField>
               <DynamicPanelField label="Article SAP">
@@ -401,7 +401,7 @@ export function CreateCargoPanel() {
               </FormSection>
               <FormSection title={t('common.logistics_preparation')} collapsible defaultExpanded>
             <FormGrid>
-              <DynamicPanelField label="Propriété du matériel">
+              <DynamicPanelField label={t('common.material_ownership')}>
                 <select value={form.ownership_type ?? ''} onChange={(e) => setForm({ ...form, ownership_type: e.target.value || null })} className={panelInputClass}>
                   <option value="">Sélectionner...</option>
                   {ownershipOptions.map((option) => (
@@ -409,10 +409,10 @@ export function CreateCargoPanel() {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Document préparé le">
+              <DynamicPanelField label={t('common.document_prepared_on')}>
                 <input type="datetime-local" value={form.document_prepared_at ?? ''} onChange={(e) => setForm({ ...form, document_prepared_at: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Mise à disposition">
+              <DynamicPanelField label={t('common.availability')}>
                 <input type="datetime-local" value={form.available_from ?? ''} onChange={(e) => setForm({ ...form, available_from: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
             </FormGrid>
@@ -421,25 +421,25 @@ export function CreateCargoPanel() {
             <div className="@container space-y-5">
               <FormSection title={t('common.dimensions')}>
             <FormGrid>
-              <DynamicPanelField label="Poids (kg)" required>
+              <DynamicPanelField label={t('common.weight_kg')} required>
                 <input type="number" min={0.001} step="any" required value={form.weight_kg || ''} onChange={(e) => setForm({ ...form, weight_kg: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Largeur (cm)">
+              <DynamicPanelField label={t('common.width_cm')}>
                 <input type="number" min={0} step="any" value={form.width_cm ?? ''} onChange={(e) => setForm({ ...form, width_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Longueur (cm)">
+              <DynamicPanelField label={t('common.length_cm')}>
                 <input type="number" min={0} step="any" value={form.length_cm ?? ''} onChange={(e) => setForm({ ...form, length_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Hauteur (cm)">
+              <DynamicPanelField label={t('common.height_cm')}>
                 <input type="number" min={0} step="any" value={form.height_cm ?? ''} onChange={(e) => setForm({ ...form, height_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Surface totale (m²)">
+              <DynamicPanelField label={t('common.total_area_m2')}>
                 <input type="number" min={0} step="any" value={form.surface_m2 ?? ''} onChange={(e) => setForm({ ...form, surface_m2: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Nombre de colis">
+              <DynamicPanelField label={t('common.package_count')}>
                 <input type="number" min={1} step={1} value={form.package_count ?? 1} onChange={(e) => setForm({ ...form, package_count: e.target.value ? Number(e.target.value) : 1 })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Empilable">
+              <DynamicPanelField label={t('common.stackable')}>
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={form.stackable ?? false} onChange={(e) => setForm({ ...form, stackable: e.target.checked })} />
                   Oui, ce colis peut être empilé
@@ -499,14 +499,14 @@ export function CreateCargoPanel() {
                   <p className="text-xs text-muted-foreground">Renseigne latitude et longitude pour visualiser le point de pickup sur la carte.</p>
                 )}
               </DynamicPanelField>
-              <DynamicPanelField label="Contact utilisateur">
+              <DynamicPanelField label={t('common.user_contact')}>
                 <UserPicker
                   value={form.pickup_contact_user_id ?? null}
                   onChange={(id) => setForm({ ...form, pickup_contact_user_id: id ?? null })}
                   placeholder="Sélectionner un utilisateur..."
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Contact entreprise">
+              <DynamicPanelField label={t('common.company_contact')}>
                 <ContactPicker
                   value={form.pickup_contact_tier_contact_id ?? null}
                   onChange={(id) => setForm({ ...form, pickup_contact_tier_contact_id: id ?? null })}
@@ -514,10 +514,10 @@ export function CreateCargoPanel() {
                   tierId={form.sender_tier_id ?? null}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Nom libre du contact">
+              <DynamicPanelField label={t('common.free_contact_name')}>
                 <input type="text" value={form.pickup_contact_name ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si hors référentiel" />
               </DynamicPanelField>
-              <DynamicPanelField label="Téléphone contact">
+              <DynamicPanelField label={t('common.contact_phone')}>
                 <input type="text" value={form.pickup_contact_phone ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_phone: e.target.value || null })} className={panelInputClass} placeholder="+237..." />
               </DynamicPanelField>
               <DynamicPanelField label="Moyen de levage fourni par">
@@ -535,7 +535,7 @@ export function CreateCargoPanel() {
                   Ticket de pesée disponible
                 </label>
               </DynamicPanelField>
-              <DynamicPanelField label="Photos et documents" span="full">
+              <DynamicPanelField label={t('common.photos_documents')} span="full">
                 <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                   Les fichiers joints, photos terrain et preuves documentaires se gèrent après création du colis via l'onglet fichiers du détail colis.
                 </div>
@@ -729,14 +729,14 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label={t('common.description')} span="full">
                 <textarea value={editForm.description ?? ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value || null })} className={`${panelInputClass} min-h-[72px] resize-y`} rows={3} />
               </DynamicPanelField>
-              <DynamicPanelField label="Entreprise expéditrice">
+              <DynamicPanelField label={t('common.sender_company')}>
                 <CompanyPicker
                   value={editForm.sender_tier_id ?? null}
                   onChange={(id) => setEditForm({ ...editForm, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })}
                   placeholder="Sélectionner une entreprise..."
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Contact entreprise">
+              <DynamicPanelField label={t('common.company_contact')}>
                 <ContactPicker
                   value={editForm.sender_contact_tier_contact_id ?? null}
                   onChange={(id) => setEditForm({ ...editForm, sender_contact_tier_contact_id: id ?? null })}
@@ -761,10 +761,10 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   placeholder="Sélectionner un utilisateur..."
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Demandeur libre">
+              <DynamicPanelField label={t('common.free_requester')}>
                 <input type="text" value={editForm.requester_name ?? ''} onChange={(e) => setEditForm({ ...editForm, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si le demandeur n'existe pas dans le référentiel" />
               </DynamicPanelField>
-              <DynamicPanelField label="Installation de destination" span="full">
+              <DynamicPanelField label={t('common.destination_installation')} span="full">
                 <AssetPicker
                   value={editForm.destination_asset_id ?? null}
                   onChange={(assetId) => setEditForm({ ...editForm, destination_asset_id: assetId ?? null })}

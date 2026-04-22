@@ -2151,7 +2151,7 @@ function CreateDocumentPanel() {
 
             {/* Column 2: Parametres */}
             <div className="@container space-y-5">
-              <FormSection title="Paramètres">
+              <FormSection title={t('common.parameters')}>
                 <FormGrid>
                   <DynamicPanelField label="Classification">
                     <select

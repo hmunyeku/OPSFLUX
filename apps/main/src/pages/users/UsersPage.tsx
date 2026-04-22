@@ -1541,7 +1541,7 @@ function UserDetailPanel({ id }: { id: string }) {
                 )}
               </FormSection>
 
-              <FormSection title="Activité">
+              <FormSection title={t('common.activity')}>
                 <ReadOnlyRow
                   label="Dernière connexion"
                   value={
@@ -1588,7 +1588,7 @@ function UserDetailPanel({ id }: { id: string }) {
               </FormSection>
 
               {/* Mensurations / EPI */}
-              <FormSection title="Mensurations" collapsible storageKey="panel.user.sections" id="user-body">
+              <FormSection title={t('common.body_measurements')} collapsible storageKey="panel.user.sections" id="user-body">
                 <InlineEditableRow label="Taille (cm)" value={user.height != null ? String(user.height) : ''} onSave={(v) => updateUser.mutate({ id, payload: { height: v ? parseInt(v) : null } })} />
                 <InlineEditableRow label="Poids (kg)" value={user.weight != null ? String(user.weight) : ''} onSave={(v) => updateUser.mutate({ id, payload: { weight: v ? parseFloat(v) : null } })} />
                 {clothingSizeOptions.length > 0
@@ -1606,7 +1606,7 @@ function UserDetailPanel({ id }: { id: string }) {
               </FormSection>
 
               {/* Santé */}
-              <FormSection title="Santé" collapsible storageKey="panel.user.sections" id="user-health">
+              <FormSection title={t('common.health')} collapsible storageKey="panel.user.sections" id="user-health">
                 <div className="border-b border-border/40 pb-3 mb-2">
                   <SubSectionLabel icon={Stethoscope} label="Visites médicales" count={0} />
                   <MedicalCheckManager ownerType="user" ownerId={id} compact />

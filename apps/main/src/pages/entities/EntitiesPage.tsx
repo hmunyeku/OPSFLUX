@@ -721,7 +721,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                 <InlineEditableTags label="Exercice fiscal" value={String(entity.fiscal_year_start)} options={FISCAL_MONTH_OPTIONS} onSave={(v) => save('fiscal_year_start', Number(v))} disabled={!canUpdate} />
               </FormSection>
 
-              <FormSection title="Activité">
+              <FormSection title={t('common.activity')}>
                 <ReadOnlyRow
                   label="Utilisateurs"
                   value={

@@ -238,7 +238,7 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
 
   return (
     <PanelContentLayout>
-      <FormSection title="Général">
+      <FormSection title={t('common.general')}>
         <FormGrid>
           <DynamicPanelField label="Type de conformité" required span="full">
             {typeReadOnly ? (

@@ -376,7 +376,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   rows={3}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Entreprise expéditrice">
+              <DynamicPanelField label={t('common.sender_company')}>
                 <CompanyPicker
                   value={editForm.sender_tier_id ?? null}
                   onChange={(id) =>
@@ -389,7 +389,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   placeholder={t('packlog.placeholders.select_company')}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Contact entreprise">
+              <DynamicPanelField label={t('common.company_contact')}>
                 <ContactPicker
                   value={editForm.sender_contact_tier_contact_id ?? null}
                   onChange={(id) =>
@@ -427,7 +427,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   placeholder={t('packlog.placeholders.select_user')}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Demandeur libre">
+              <DynamicPanelField label={t('common.free_requester')}>
                 <input
                   type="text"
                   value={editForm.requester_name ?? ''}
@@ -438,7 +438,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   placeholder={t('packlog.placeholders.requester_fallback')}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Installation de destination" span="full">
+              <DynamicPanelField label={t('common.destination_installation')} span="full">
                 <AssetPicker
                   value={editForm.destination_asset_id ?? null}
                   onChange={(assetId) =>

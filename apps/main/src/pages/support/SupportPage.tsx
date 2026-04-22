@@ -644,11 +644,11 @@ function CreateAnnouncementPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Message">
+        <FormSection title={t('common.message')}>
           <textarea className={cn(panelInputClass, 'min-h-[120px] resize-y')} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} placeholder="Contenu de l'annonce..." />
         </FormSection>
 
-        <FormSection title="Ciblage">
+        <FormSection title={t('common.targeting')}>
           <FormGrid>
             <DynamicPanelField label="Destinataires">
               <select className={panelInputClass} value={form.target_type} onChange={e => setForm({ ...form, target_type: e.target.value, target_value: e.target.value === 'all' ? null : '' })}>
@@ -781,7 +781,7 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
           </DetailFieldGrid>
         </FormSection>
 
-        <FormSection title="Ciblage">
+        <FormSection title={t('common.targeting')}>
           <DetailFieldGrid>
             <ReadOnlyRow label="Destinataires" value={TARGET_LABELS[ann.target_type] || ann.target_type} />
             {ann.target_value && <ReadOnlyRow label="Valeur cible" value={ann.target_value} />}

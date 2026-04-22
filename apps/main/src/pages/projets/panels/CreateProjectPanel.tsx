@@ -157,7 +157,7 @@ export function CreateProjectPanel() {
                 <TagSelector options={projectStatusOptions} value={form.status || 'draft'} onChange={(v) => setForm({ ...form, status: v })} />
               </FormSection>
 
-              <FormSection title="Priorité">
+              <FormSection title={t('common.priority_field')}>
                 <TagSelector options={projectPriorityOptions} value={form.priority || 'medium'} onChange={(v) => setForm({ ...form, priority: v })} />
               </FormSection>
 

@@ -232,7 +232,7 @@ function CreateEntityPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Région">
+        <FormSection title={t('common.region')}>
           <DynamicPanelField label={t('entities.country')}>
             <TagSelector
               options={COUNTRY_OPTIONS}

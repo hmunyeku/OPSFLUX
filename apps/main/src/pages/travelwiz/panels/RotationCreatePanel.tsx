@@ -88,7 +88,7 @@ export function CreateRotationPanel() {
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
-          <FormSection title="Périodicité">
+          <FormSection title={t('common.periodicity')}>
             <CronScheduleBuilder
               value={form.schedule_cron}
               description={form.schedule_description}

@@ -980,7 +980,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                   </FormSection>
                 </div>
                 <div className="@container space-y-4">
-                  <FormSection title="Rattachement">
+                  <FormSection title={t('common.attachment_section')}>
                     <DetailFieldGrid>
                       <ReadOnlyRow label="Site" value={
                         activity.asset_id ? (
@@ -1128,7 +1128,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                 </FormSection>
               )}
 
-              <FormSection title="Workflow">
+              <FormSection title={t('common.workflow')}>
                 <DetailFieldGrid>
                   <ReadOnlyRow label={t('common.created_by')} value={activity.created_by_name || '—'} />
                   {activity.submitted_by_name && (
@@ -1159,7 +1159,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             )}
 
             {detailTab === 'ressources' && (<>
-            <FormSection title="Dependances">
+            <FormSection title={t('common.dependencies')}>
               {dependencies && dependencies.length > 0 ? (
                 <div className="space-y-1.5">
                   {dependencies.map((dep: PlannerDependency) => (
@@ -1232,7 +1232,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             {tp === 'maintenance' && (
-              <FormSection title="Récurrence">
+              <FormSection title={t('common.recurrence')}>
                 {showRecurrence ? (
                   <div className="space-y-2 p-2.5 rounded-lg border border-border bg-background-subtle">
                     <div className="grid grid-cols-2 gap-2">

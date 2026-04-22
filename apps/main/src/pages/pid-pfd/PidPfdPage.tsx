@@ -505,7 +505,7 @@ function PIDDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             {/* Specifications */}
-            <FormSection title="Specifications" collapsible defaultExpanded>
+            <FormSection title={t('common.specifications')} collapsible defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Format" value={<SheetFormatCard format={doc.sheet_format} />} />
                 <InlineEditableRow label="Echelle" value={doc.scale || ''} onSave={handleFieldSave('scale')} />
@@ -530,7 +530,7 @@ function PIDDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             {/* Lock Status */}
-            <FormSection title="Verrou" collapsible defaultExpanded={false}>
+            <FormSection title={t('common.lock')} collapsible defaultExpanded={false}>
               <div className="flex items-center gap-2 text-sm">
                 <Lock size={14} className="text-muted-foreground" />
                 <span className="text-muted-foreground">Statut:</span>
@@ -624,7 +624,7 @@ function PIDDetailPanel({ id }: { id: string }) {
       )}
       {detailTab === 'equipements' && (
       <PanelContentLayout>
-        <FormSection title="Equipements" collapsible defaultExpanded>
+        <FormSection title={t('common.equipment')} collapsible defaultExpanded>
           <p className="text-xs text-muted-foreground">
             Ce PID contient <span className="font-medium text-foreground">{doc.equipment_count}</span> equipement{doc.equipment_count !== 1 ? 's' : ''}. Consultez l'onglet Equipements de la page principale pour les details.
           </p>
@@ -1949,7 +1949,7 @@ function CreateDCSTagPanel() {
           </div>
         </FormSection>
 
-        <FormSection title="Mesure" collapsible defaultExpanded={false}>
+        <FormSection title={t('common.measurement')} collapsible defaultExpanded={false}>
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Unité d'ingénierie</label>

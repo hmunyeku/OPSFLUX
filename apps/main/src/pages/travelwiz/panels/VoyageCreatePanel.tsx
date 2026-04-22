@@ -103,7 +103,7 @@ export function CreateVoyagePanel() {
               La périodicité régulière se configure sur une rotation. Un voyage créé ici est une occurrence planifiée, éventuellement rattachée à une rotation existante.
             </p>
           </FormSection>
-          <FormSection title="Horaires">
+          <FormSection title={t('common.schedule_hours')}>
             <FormGrid>
               <DynamicPanelField label="Départ prévu" required>
                 <input

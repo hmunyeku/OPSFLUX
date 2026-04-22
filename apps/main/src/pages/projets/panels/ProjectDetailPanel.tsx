@@ -1076,7 +1076,7 @@ function TemplatesSection({ projectId }: { projectId: string }) {
   }
 
   return (
-    <FormSection title="Templates" collapsible defaultExpanded={false} storageKey="project-detail-templates">
+    <FormSection title={t('common.templates')} collapsible defaultExpanded={false} storageKey="project-detail-templates">
       <div className="space-y-3">
         {/* Save current project as template */}
         {!showSave ? (

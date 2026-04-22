@@ -517,7 +517,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label={t('common.reference')}>
                 <span className="text-sm font-mono font-medium text-foreground">{cargo.code}</span>
               </DynamicPanelField>
-              <DynamicPanelField label="Type de colis">
+              <DynamicPanelField label={t('common.package_type')}>
                 <select value={editForm.cargo_type ?? ''} onChange={(e) => setEditForm({ ...editForm, cargo_type: e.target.value || null })} className={panelInputClass}>
                   {cargoTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
@@ -535,25 +535,25 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   Le colis doit rester rattaché à une demande d'expédition pour conserver le flux métier parent → enfants.
                 </p>
               </DynamicPanelField>
-              <DynamicPanelField label="Désignation">
+              <DynamicPanelField label={t('common.designation')}>
                 <input type="text" value={editForm.designation ?? ''} onChange={(e) => setEditForm({ ...editForm, designation: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label="Article SAP">
                 <input type="text" value={editForm.sap_article_code ?? ''} onChange={(e) => setEditForm({ ...editForm, sap_article_code: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Poids (kg)"><input type="number" min={0} step="any" value={editForm.weight_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Largeur (cm)"><input type="number" min={0} step="any" value={editForm.width_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, width_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Longueur (cm)"><input type="number" min={0} step="any" value={editForm.length_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, length_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Hauteur (cm)"><input type="number" min={0} step="any" value={editForm.height_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, height_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Surface totale (m²)"><input type="number" min={0} step="any" value={editForm.surface_m2 ?? ''} onChange={(e) => setEditForm({ ...editForm, surface_m2: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Nombre de colis"><input type="number" min={1} step={1} value={editForm.package_count ?? ''} onChange={(e) => setEditForm({ ...editForm, package_count: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Empilable">
+              <DynamicPanelField label={t('common.weight_kg')}><input type="number" min={0} step="any" value={editForm.weight_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.width_cm')}><input type="number" min={0} step="any" value={editForm.width_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, width_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.length_cm')}><input type="number" min={0} step="any" value={editForm.length_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, length_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.height_cm')}><input type="number" min={0} step="any" value={editForm.height_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, height_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.total_area_m2')}><input type="number" min={0} step="any" value={editForm.surface_m2 ?? ''} onChange={(e) => setEditForm({ ...editForm, surface_m2: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.package_count')}><input type="number" min={1} step={1} value={editForm.package_count ?? ''} onChange={(e) => setEditForm({ ...editForm, package_count: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.stackable')}>
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={editForm.stackable ?? false} onChange={(e) => setEditForm({ ...editForm, stackable: e.target.checked })} />
                   Empilable
                 </label>
               </DynamicPanelField>
-              <DynamicPanelField label="Propriété du matériel">
+              <DynamicPanelField label={t('common.material_ownership')}>
                 <select value={editForm.ownership_type ?? ''} onChange={(e) => setEditForm({ ...editForm, ownership_type: e.target.value || null })} className={panelInputClass}>
                   <option value="">Sélectionner...</option>
                   {ownershipOptions.map((option) => (
@@ -610,10 +610,10 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.imputation')}</p><p className="mt-1 text-sm text-foreground">{cargo.imputation_reference_name ?? cargo.imputation_reference_code ?? '—'}</p></div>
                 </div>
               </DynamicPanelField>
-              <DynamicPanelField label="Document préparé le">
+              <DynamicPanelField label={t('common.document_prepared_on')}>
                 <input type="datetime-local" value={editForm.document_prepared_at ?? ''} onChange={(e) => setEditForm({ ...editForm, document_prepared_at: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Mise à disposition">
+              <DynamicPanelField label={t('common.availability')}>
                 <input type="datetime-local" value={editForm.available_from ?? ''} onChange={(e) => setEditForm({ ...editForm, available_from: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label="Lieu d'enlèvement" span="full">
@@ -642,16 +642,16 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   <p className="text-xs text-muted-foreground">Renseigne latitude et longitude pour visualiser le point de pickup sur la carte.</p>
                 )}
               </DynamicPanelField>
-              <DynamicPanelField label="Contact utilisateur">
+              <DynamicPanelField label={t('common.user_contact')}>
                 <UserPicker value={editForm.pickup_contact_user_id ?? null} onChange={(id) => setEditForm({ ...editForm, pickup_contact_user_id: id ?? null })} placeholder={t('common.none_option')} />
               </DynamicPanelField>
-              <DynamicPanelField label="Contact entreprise">
+              <DynamicPanelField label={t('common.company_contact')}>
                 <ContactPicker value={editForm.pickup_contact_tier_contact_id ?? null} onChange={(id) => setEditForm({ ...editForm, pickup_contact_tier_contact_id: id ?? null })} placeholder={t('common.none_option')} tierId={editForm.sender_tier_id ?? null} />
               </DynamicPanelField>
-              <DynamicPanelField label="Nom libre du contact">
+              <DynamicPanelField label={t('common.free_contact_name')}>
                 <input type="text" value={editForm.pickup_contact_name ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_name: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Téléphone contact">
+              <DynamicPanelField label={t('common.contact_phone')}>
                 <input type="text" value={editForm.pickup_contact_phone ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_phone: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label="Levage fourni par">
@@ -669,7 +669,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   Preuve de pesée disponible
                 </label>
               </DynamicPanelField>
-              <DynamicPanelField label="Photos et documents" span="full">
+              <DynamicPanelField label={t('common.photos_documents')} span="full">
                 <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                   Les preuves visuelles et documentaires se gèrent via les fichiers joints du colis, pas par saisie manuelle de compteurs.
                 </div>

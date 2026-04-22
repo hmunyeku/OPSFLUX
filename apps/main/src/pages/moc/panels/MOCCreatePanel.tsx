@@ -12,12 +12,20 @@ import { Save, X, Plus, Trash2, UserPlus } from 'lucide-react'
 import {
   DynamicPanelShell,
   PanelContentLayout,
-  FormSection,
   FormGrid,
   DynamicPanelField,
   PanelActionButton,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { RichTextField } from '@/components/shared/RichTextField'
 import { SignaturePad } from '@/components/shared/SignaturePad'
@@ -36,10 +44,19 @@ import type {
 } from '@/services/mocService'
 
 export function MOCCreatePanel() {
+  return (
+    <SmartFormProvider panelId="create-moc" defaultMode="simple">
+      <MOCCreateInner />
+    </SmartFormProvider>
+  )
+}
+
+function MOCCreateInner() {
   const { t } = useTranslation()
   const { toast } = useToast()
   const closePanel = useUIStore((s) => s.closeDynamicPanel)
   const create = useCreateMOC()
+  const ctx = useSmartForm()
 
   // Sites & modification types come from the dictionary so admins can customise
   // them per tenant in Settings → Dictionary (category `moc_site`, `moc_modification_type`).
@@ -199,7 +216,21 @@ export function MOCCreatePanel() {
       ]}
     >
       <PanelContentLayout>
-        <FormSection title={t('moc.create.section_location')} defaultExpanded>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+        <SmartFormSection
+          id="location"
+          title={t('moc.create.section_location')}
+          level="essential"
+          help={{
+            description: t('moc.help.location_description'),
+            tips: [
+              t('moc.help.location_tip_installation'),
+              t('moc.help.location_tip_fallback'),
+            ],
+          }}
+        >
           {/* Primary: installation picker. Site + Platform auto-derived
               backend-side from the asset_registry hierarchy (Installation →
               Site → Field). If the target isn't in the registry yet, tick
@@ -276,9 +307,21 @@ export function MOCCreatePanel() {
               )}
             </div>
           )}
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('moc.create.section_initiator')} defaultExpanded>
+        <SmartFormSection
+          id="initiator"
+          title={t('moc.create.section_initiator')}
+          level="essential"
+          help={{
+            description: t('moc.help.initiator_description'),
+            tips: [
+              t('moc.help.initiator_tip_email'),
+              t('moc.help.initiator_tip_external'),
+              t('moc.help.initiator_tip_signature'),
+            ],
+          }}
+        >
           <FormGrid>
             <DynamicPanelField label={t('moc.fields.initiator_email')}>
               <input
@@ -328,9 +371,21 @@ export function MOCCreatePanel() {
               />
             </DynamicPanelField>
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('moc.create.section_objectives')} defaultExpanded>
+        <SmartFormSection
+          id="objectives"
+          title={t('moc.create.section_objectives')}
+          level="essential"
+          help={{
+            description: t('moc.help.objectives_description'),
+            tips: [
+              t('moc.help.objectives_tip_title'),
+              t('moc.help.objectives_tip_objectives'),
+              t('moc.help.objectives_tip_rich'),
+            ],
+          }}
+        >
           {/* Title (nom_moc) — short label for lists. */}
           <DynamicPanelField label={t('moc.fields.title')} span="full">
             <input
@@ -388,9 +443,25 @@ export function MOCCreatePanel() {
               imageOwnerId={stagingRef}
             />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('moc.create.section_type')} defaultExpanded>
+        <SmartFormSection
+          id="type"
+          title={t('moc.create.section_type')}
+          level="advanced"
+          help={{
+            description: t('moc.help.type_description'),
+            items: [
+              { label: 'OPTIMISATION', text: t('moc.help.nature_optimisation') },
+              { label: 'SECURITE', text: t('moc.help.nature_securite') },
+              { label: 'PERMANENT', text: t('moc.help.modtype_permanent') },
+              { label: 'TEMPORAIRE', text: t('moc.help.modtype_temporary') },
+            ],
+            tips: [
+              t('moc.help.type_tip_metiers'),
+            ],
+          }}
+        >
           <FormGrid>
             {/* Type de MOC — drives the initial validation matrix.
                 Admin manages this catalogue in Settings → MOCtrack → Types. */}
@@ -518,13 +589,28 @@ export function MOCCreatePanel() {
               </>
             )}
           </FormGrid>
-        </FormSection>
+        </SmartFormSection>
 
         {/* ── Validateurs ad-hoc invités à la création ── */}
-        <FormSection
+        <SmartFormSection
+          id="validators"
           title={`${t('moc.create.section_validators', 'Validateurs à inviter')} (${initialValidators.length})`}
+          level="advanced"
+          skippable
           collapsible
           defaultExpanded={false}
+          help={{
+            description: t('moc.help.validators_description'),
+            items: [
+              { label: 'HSE', text: t('moc.help.role_hse') },
+              { label: 'Lead Process', text: t('moc.help.role_lead_process') },
+              { label: 'Production Manager', text: t('moc.help.role_production_manager') },
+              { label: 'Gaz Manager', text: t('moc.help.role_gas_manager') },
+              { label: 'Maintenance Manager', text: t('moc.help.role_maintenance_manager') },
+              { label: 'Process Engineer', text: t('moc.help.role_process_engineer') },
+              { label: 'Métier', text: t('moc.help.role_metier') },
+            ],
+          }}
         >
           {initialValidators.length > 0 && (
             <div className="space-y-1 mb-2">
@@ -620,7 +706,16 @@ export function MOCCreatePanel() {
           <p className="mt-1.5 text-[10px] text-muted-foreground italic">
             {t('moc.create.validators_hint', 'Ces validateurs s\u2019ajoutent à la matrice automatique du type de MOC (si défini).')}
           </p>
-        </FormSection>
+        </SmartFormSection>
+
+        {ctx?.mode === 'wizard' && (
+          <SmartFormWizardNav
+            onSubmit={submit}
+            onCancel={closePanel}
+            submitDisabled={!canSubmit || create.isPending}
+            submitLabel={t('common.save')}
+          />
+        )}
       </PanelContentLayout>
     </DynamicPanelShell>
   )

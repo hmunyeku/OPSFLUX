@@ -24,6 +24,7 @@ import {
   SmartFormToolbar,
   SmartFormSimpleHint,
   SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
 } from '@/components/layout/SmartForm'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -428,6 +429,7 @@ export function CreateProjectPanel() {
           </SectionColumns>
         </PanelContentLayout>
 
+          <SmartFormInlineHelpDrawer />
           <SmartFormWizardNav
             onCancel={closeDynamicPanel}
             submitDisabled={createProject.isPending}

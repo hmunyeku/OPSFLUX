@@ -72,11 +72,16 @@ import {
   SkipForward,
   Check,
   HelpCircle,
+  X,
+  Lightbulb,
+  ExternalLink,
 } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { FormSection, PanelActionButton } from '@/components/layout/DynamicPanel'
 import { safeLocal } from '@/lib/safeStorage'
 import { useUIStore } from '@/stores/uiStore'
+import { HELP_CONTENT } from '@/content/help'
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -104,6 +109,9 @@ interface SmartFormContextValue {
   goToStep: (idx: number) => void
   markStepComplete: (idx: number) => void
   completedSteps: ReadonlySet<number>
+  /** Inline help drawer (wizard only) */
+  helpDrawerOpen: boolean
+  setHelpDrawerOpen: (v: boolean) => void
 }
 
 const Ctx = createContext<SmartFormContextValue | null>(null)
@@ -201,6 +209,13 @@ export function SmartFormProvider({
     if (mode !== 'wizard') setCurrentStep(0)
   }, [mode])
 
+  // Inline help drawer (wizard only). Closed by default.
+  const [helpDrawerOpen, setHelpDrawerOpen] = useState(false)
+  // Auto-close when leaving wizard mode.
+  useEffect(() => {
+    if (mode !== 'wizard') setHelpDrawerOpen(false)
+  }, [mode])
+
   const value = useMemo<SmartFormContextValue>(
     () => ({
       panelId,
@@ -212,8 +227,10 @@ export function SmartFormProvider({
       goToStep,
       markStepComplete,
       completedSteps,
+      helpDrawerOpen,
+      setHelpDrawerOpen,
     }),
-    [panelId, mode, setMode, registerSection, sections, currentStep, goToStep, markStepComplete, completedSteps],
+    [panelId, mode, setMode, registerSection, sections, currentStep, goToStep, markStepComplete, completedSteps, helpDrawerOpen],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
@@ -405,27 +422,19 @@ export function SmartFormWizardNav({
 }: SmartFormWizardNavProps) {
   const { t } = useTranslation()
   const ctx = useSmartForm()
-  const setAIPanelOpen = useUIStore((s) => s.setAIPanelOpen)
-  const setAssistantTab = useUIStore((s) => s.setAssistantTab)
   if (!ctx || ctx.mode !== 'wizard') return null
-  const { sections, currentStep, goToStep, markStepComplete } = ctx
+  const { sections, currentStep, goToStep, markStepComplete, helpDrawerOpen, setHelpDrawerOpen } = ctx
   if (sections.length === 0) return null
 
   const section = sections[currentStep]
   const isFirst = currentStep === 0
   const isLast = currentStep === sections.length - 1
 
-  const openHelp = () => {
-    // Dispatch an event for any custom listener (future-proofing) and
-    // open the AssistantPanel on its Help tab — same source of truth
-    // as the AI chat panel, so the user sees identical content.
-    window.dispatchEvent(
-      new CustomEvent('opsflux:open-help', {
-        detail: { key: section.helpKey, sectionId: section.id },
-      }),
-    )
-    setAssistantTab('help')
-    setAIPanelOpen(true)
+  const toggleHelp = () => {
+    // Inline drawer — avoids covering the form with a docked AssistantPanel.
+    // The drawer reads HELP_CONTENT[currentModule], same source of truth as
+    // the AssistantPanel Help tab.
+    setHelpDrawerOpen(!helpDrawerOpen)
   }
 
   const handleNext = () => {
@@ -459,8 +468,11 @@ export function SmartFormWizardNav({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={openHelp}
-          className="gl-button gl-button-default inline-flex items-center gap-1 text-muted-foreground"
+          onClick={toggleHelp}
+          className={cn(
+            'gl-button gl-button-default inline-flex items-center gap-1',
+            helpDrawerOpen ? 'text-primary' : 'text-muted-foreground',
+          )}
           title={t('smart_form.wizard.help', "Afficher l'aide de cette étape") as string}
         >
           <HelpCircle size={12} />
@@ -503,6 +515,137 @@ export function SmartFormWizardNav({
         )}
       </div>
     </div>
+  )
+}
+
+// ── Inline help drawer (wizard) ────────────────────────────────────────
+// Shown as a slim panel at the bottom of the wizard body when the user
+// clicks "Aide". Reads the same `HELP_CONTENT[currentModule]` the
+// AssistantPanel's Help tab reads — same source of truth, but without
+// covering the form. The drawer is rendered *inside* the form panel so
+// it scrolls with the content.
+
+function deriveModuleFromPath(pathname: string): string {
+  const seg = pathname.replace(/^\//, '').split('/')[0] || 'dashboard'
+  return seg
+}
+
+export function SmartFormInlineHelpDrawer() {
+  const { t } = useTranslation()
+  const ctx = useSmartForm()
+  const { pathname } = useLocation()
+  if (!ctx || ctx.mode !== 'wizard' || !ctx.helpDrawerOpen) return null
+
+  const currentModule = deriveModuleFromPath(pathname)
+  const help = HELP_CONTENT[currentModule]
+  const step = ctx.sections[ctx.currentStep]
+
+  return (
+    <aside
+      className="mx-3 my-3 rounded-lg border border-border bg-muted/20 animate-in slide-in-from-bottom-2 duration-200"
+      role="complementary"
+    >
+      <header className="flex items-center justify-between gap-2 border-b border-border/50 px-3 py-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <HelpCircle size={14} className="text-primary shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-foreground truncate">
+              {t('smart_form.wizard.help_title', 'Aide')}
+              {help && ` — ${help.title}`}
+              {step && ` · ${step.title}`}
+            </p>
+            {help?.description && (
+              <p className="text-[10px] text-muted-foreground truncate">{help.description}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              // Escape hatch: open the full AssistantPanel for more context.
+              const store = useUIStore.getState()
+              store.setAssistantTab('help')
+              store.setAIPanelOpen(true)
+            }}
+            className="gl-button-sm gl-button-default inline-flex items-center gap-1 text-muted-foreground"
+            title={t('smart_form.wizard.help_full', 'Ouvrir dans le panneau complet') as string}
+          >
+            <ExternalLink size={11} />
+          </button>
+          <button
+            type="button"
+            onClick={() => ctx.setHelpDrawerOpen(false)}
+            className="gl-button-sm gl-button-default"
+            title={t('common.close', 'Fermer') as string}
+          >
+            <X size={11} />
+          </button>
+        </div>
+      </header>
+
+      <div className="space-y-3 px-3 py-2.5 max-h-64 overflow-y-auto">
+        {!help ? (
+          <p className="text-xs text-muted-foreground italic">
+            {t('smart_form.wizard.help_none', "Aucune aide disponible pour ce module.")}
+          </p>
+        ) : (
+          <>
+            {/* Tips — displayed first: they're quick to read and most
+                immediately useful during a create flow. */}
+            {help.tips.length > 0 && (
+              <section>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Lightbulb size={11} className="text-amber-500" />
+                  <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t('assistant.help.tips', 'Conseils')}
+                  </h4>
+                </div>
+                <ul className="space-y-1">
+                  {help.tips.slice(0, 5).map((tip, i) => (
+                    <li key={i} className="flex gap-1.5 text-[11px] text-muted-foreground leading-snug">
+                      <span className="text-amber-500/70 mt-0.5 shrink-0">•</span>
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Workflows — compact list of titles + steps. We don't
+                render Mermaid diagrams here (too tall); user can click
+                the "external" icon above to open the full panel. */}
+            {help.workflows.length > 0 && (
+              <section>
+                <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                  {t('assistant.help.workflows', 'Workflows')}
+                </h4>
+                <ul className="space-y-2">
+                  {help.workflows.slice(0, 3).map((wf, i) => (
+                    <li key={i} className="text-[11px] text-muted-foreground">
+                      <p className="font-medium text-foreground mb-0.5">{wf.title}</p>
+                      <ol className="space-y-0.5 list-none pl-2">
+                        {wf.steps.slice(0, 3).map((s, j) => (
+                          <li key={j} className="flex gap-1.5 leading-snug">
+                            <span className="text-primary/70 shrink-0">{j + 1}.</span>
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                        {wf.steps.length > 3 && (
+                          <li className="text-[10px] italic opacity-60 pl-3">
+                            {t('smart_form.wizard.help_more_steps', '... (cliquer l\u2019icône pour voir tout)')}
+                          </li>
+                        )}
+                      </ol>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        )}
+      </div>
+    </aside>
   )
 }
 

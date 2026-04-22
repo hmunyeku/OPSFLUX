@@ -557,7 +557,12 @@ export function SectionColumns({
         // gap-y-8 (was 5): sections need proper breathing room so each
         // group of fields reads as its own thing rather than running
         // into the next section.
-        'grid gap-y-8 grid-cols-1',
+        //
+        // `[&>*:empty]:hidden` — when a column wrapper ends up empty
+        // (e.g. all its children return null in wizard mode), collapse
+        // the row entirely so the grid `gap-y-8` doesn't reserve space
+        // for a ghost row.
+        'grid gap-y-8 grid-cols-1 [&>*:empty]:hidden',
         className,
       )}
     >

@@ -626,7 +626,7 @@ function CreateAnnouncementPanel() {
       }
     >
       <PanelContentLayout>
-        <FormSection title="Contenu">
+        <FormSection title={t('common.content')}>
           <FormGrid>
             <DynamicPanelField label={t('common.title_field')} required>
               <input className={panelInputClass} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Titre de l'annonce..." autoFocus />
@@ -698,7 +698,7 @@ function CreateAnnouncementPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Options">
+        <FormSection title={t('common.options')}>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <input type="checkbox" checked={form.pinned} onChange={e => setForm({ ...form, pinned: e.target.checked })} className="h-3 w-3 rounded" />
@@ -797,7 +797,7 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
           </DetailFieldGrid>
         </FormSection>
 
-        <FormSection title="Contenu" collapsible defaultExpanded>
+        <FormSection title={t('common.content')} collapsible defaultExpanded>
           <div className="text-sm text-foreground whitespace-pre-wrap">{ann.body}</div>
         </FormSection>
       </PanelContentLayout>

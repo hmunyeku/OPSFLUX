@@ -854,7 +854,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             {(editForm.type === 'workover') && (
-              <FormSection title="Détails Workover">
+              <FormSection title={t('common.workover_details')}>
                 <FormGrid>
                   <DynamicPanelField label="Référence puits">
                     <input
@@ -877,7 +877,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             )}
 
             {(editForm.type === 'drilling') && (
-              <FormSection title="Détails Forage">
+              <FormSection title={t('common.drilling_details')}>
                 <FormGrid>
                   <DynamicPanelField label="Date spud">
                     <input
@@ -908,7 +908,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             )}
 
             {(editForm.type === 'maintenance' || editForm.type === 'integrity') && (
-              <FormSection title="Détails Maintenance / Intégrité">
+              <FormSection title={t('common.maintenance_details')}>
                 <FormGrid>
                   <DynamicPanelField label="Référence réglementaire">
                     <input
@@ -1097,7 +1097,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
               </FormSection>
 
               {tp === 'workover' && (activity.well_reference || activity.rig_name) && (
-                <FormSection title="Détails Workover">
+                <FormSection title={t('common.workover_details')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Référence puits" value={activity.well_reference || '—'} />
                     <ReadOnlyRow label="Nom du rig" value={activity.rig_name || '—'} />
@@ -1106,7 +1106,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
               )}
 
               {tp === 'drilling' && (activity.spud_date || activity.target_depth || activity.drilling_program_ref) && (
-                <FormSection title="Détails Forage">
+                <FormSection title={t('common.drilling_details')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Date spud" value={formatDateShort(activity.spud_date)} />
                     <ReadOnlyRow label="Profondeur cible" value={activity.target_depth != null ? `${activity.target_depth} m` : '—'} />
@@ -1120,7 +1120,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
               )}
 
               {(tp === 'maintenance' || tp === 'integrity') && (activity.regulatory_ref || activity.work_order_ref) && (
-                <FormSection title="Détails Maintenance / Intégrité">
+                <FormSection title={t('common.maintenance_details')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Référence réglementaire" value={activity.regulatory_ref || '—'} />
                     <ReadOnlyRow label="Bon de travail" value={activity.work_order_ref || '—'} />

@@ -185,7 +185,7 @@ export function VerificationsTab() {
         return (
           <div className="flex items-center gap-1">
             <button onClick={(e) => { e.stopPropagation(); if (!proofMissing) handleVerify(item.record_type, item.id) }} disabled={proofMissing} className="gl-button-sm gl-button-default text-green-600 hover:text-green-700 disabled:opacity-40" title={proofMissing ? t('conformite.verifications.proof_required_before_verify') : 'Vérifier'}><Check size={12} /></button>
-            <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="gl-button-sm gl-button-default text-destructive hover:text-destructive" title="Rejeter"><X size={12} /></button>
+            <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="gl-button-sm gl-button-default text-destructive hover:text-destructive" title={t('common.reject')}><X size={12} /></button>
           </div>
         )
       },

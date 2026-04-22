@@ -91,7 +91,7 @@ export function ExemptionDetailPanel({ id }: { id: string }) {
 
   return (
     <DynamicPanelShell
-      title="Exemption"
+      title={t('common.exemption')}
       subtitle={exemption.record_type_name || 'Detail'}
       icon={<ShieldOff size={14} className="text-amber-500" />}
       actionItems={actionItems}
@@ -119,11 +119,11 @@ export function ExemptionDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(exemption.created_at)} />
             </DetailFieldGrid>
           </FormSection>
-          <FormSection title="Motif">
+          <FormSection title={t('common.reason')}>
             <p className="text-sm text-foreground whitespace-pre-wrap">{exemption.reason}</p>
           </FormSection>
           {exemption.conditions && (
-            <FormSection title="Conditions">
+            <FormSection title={t('common.conditions')}>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{exemption.conditions}</p>
             </FormSection>
           )}

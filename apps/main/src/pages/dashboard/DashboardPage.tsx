@@ -627,6 +627,7 @@ function TabButton({
   onClose,
   onStartRename,
 }: TabButtonProps) {
+  const { t } = useTranslation()
   return (
     <div className="relative flex items-center group pointer-events-none">
       <button
@@ -663,7 +664,7 @@ function TabButton({
         <button
           onClick={(e) => { e.stopPropagation(); onStartRename() }}
           className="pointer-events-auto h-5 w-5 -ml-1 inline-flex items-center justify-center rounded hover:bg-muted"
-          title="Renommer"
+          title={t('common.rename')}
         >
           <Pencil size={9} className="text-muted-foreground" />
         </button>

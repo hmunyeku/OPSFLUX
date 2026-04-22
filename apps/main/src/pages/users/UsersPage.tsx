@@ -1451,7 +1451,7 @@ function UserDetailPanel({ id }: { id: string }) {
                 )}
 
                 {/* Coordonnées: phones, emails, addresses */}
-                <FormSection title="Coordonnées" collapsible defaultExpanded storageKey="panel.user.sections" id="user-contact">
+                <FormSection title={t('common.contact_info')} collapsible defaultExpanded storageKey="panel.user.sections" id="user-contact">
                 <div className="space-y-3 border-t border-border/40 pt-3 mt-2">
                   <SubSectionLabel icon={Phone} label="Téléphones" count={phones?.length ?? 0} />
                   <PhoneManager ownerType="user" ownerId={id} compact />

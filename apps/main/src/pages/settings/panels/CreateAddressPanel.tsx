@@ -228,7 +228,7 @@ export function CreateAddressPanel() {
           </p>
         </FormSection>
 
-        <FormSection title="Options" collapsible defaultExpanded={false} storageKey="panel.address.sections" id="address-options">
+        <FormSection title={t('common.options')} collapsible defaultExpanded={false} storageKey="panel.address.sections" id="address-options">
           <label className="flex items-start gap-2.5 cursor-pointer">
             <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} className="h-4 w-4 accent-primary mt-0.5" />
             <div>

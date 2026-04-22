@@ -2268,7 +2268,7 @@ function CreateDocTypePanel() {
               </FormSection>
             </div>
             <div className="@container space-y-5">
-              <FormSection title="Nomenclature">
+              <FormSection title={t('common.nomenclature')}>
                 <FormGrid>
                   <DynamicPanelField label="Pattern de nomenclature" required span="full">
                     <input type="text" required value={form.nomenclature_pattern} onChange={(e) => setForm(f => ({ ...f, nomenclature_pattern: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.nomenclature_example')} />
@@ -2492,7 +2492,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
             )}
           </FormGrid>
         </FormSection>
-        <FormSection title="Nomenclature">
+        <FormSection title={t('common.nomenclature')}>
           <FormGrid>
             {editing ? (
               <DynamicPanelField label="Pattern" span="full">

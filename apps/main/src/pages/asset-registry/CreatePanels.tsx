@@ -1187,7 +1187,7 @@ export function CreatePipelinePanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Fluide" collapsible>
+        <FormSection title={t('common.fluid')} collapsible>
           <FormGrid>
             <DynamicPanelField label="Description fluide">
               <input type="text" value={form.fluid_description || ''} onChange={(e) => set({ fluid_description: e.target.value })} className={panelInputClass} />

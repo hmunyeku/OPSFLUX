@@ -249,7 +249,7 @@ function CreateEntityPanel() {
           </DynamicPanelField>
         </FormSection>
 
-        <FormSection title="Statut">
+        <FormSection title={t('common.status')}>
           <label className="flex items-center gap-2.5 cursor-pointer group">
             <input
               type="checkbox"

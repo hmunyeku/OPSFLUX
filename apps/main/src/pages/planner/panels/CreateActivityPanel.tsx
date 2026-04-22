@@ -221,7 +221,7 @@ export function CreateActivityPanel() {
           </FormSection>
 
           {form.type === 'workover' && (
-            <FormSection title="Détails Workover">
+            <FormSection title={t('common.workover_details')}>
               <FormGrid>
                 <DynamicPanelField label="Référence puits">
                   <input
@@ -246,7 +246,7 @@ export function CreateActivityPanel() {
           )}
 
           {form.type === 'drilling' && (
-            <FormSection title="Détails Forage">
+            <FormSection title={t('common.drilling_details')}>
               <FormGrid>
                 <DynamicPanelField label="Date spud">
                   <input
@@ -279,7 +279,7 @@ export function CreateActivityPanel() {
           )}
 
           {(form.type === 'maintenance' || form.type === 'integrity') && (
-            <FormSection title="Détails Maintenance / Intégrité">
+            <FormSection title={t('common.maintenance_details')}>
               <FormGrid>
                 <DynamicPanelField label="Référence réglementaire">
                   <input

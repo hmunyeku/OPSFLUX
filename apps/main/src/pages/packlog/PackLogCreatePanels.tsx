@@ -161,7 +161,7 @@ export function CreateCargoRequestPanel() {
               </FormGrid>
             </FormSection>
 
-            <FormSection title="Contexte logistique">
+            <FormSection title={t('common.logistics_context')}>
               <FormGrid>
                 <DynamicPanelField label={t('common.imputation')}>
                   <ImputationPicker value={form.imputation_reference_id ?? null} onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })} placeholder={t('packlog.placeholders.select_imputation')} />
@@ -367,7 +367,7 @@ export function CreateCargoPanel() {
                   </div>
                 )}
               </FormSection>
-              <FormSection title="Préparation logistique" collapsible defaultExpanded>
+              <FormSection title={t('common.logistics_preparation')} collapsible defaultExpanded>
                 <FormGrid>
                   <DynamicPanelField label="Propriété du matériel">
                     <select value={form.ownership_type ?? ''} onChange={(e) => setForm({ ...form, ownership_type: e.target.value || null })} className={panelInputClass}>
@@ -418,7 +418,7 @@ export function CreateCargoPanel() {
                   Les dimensions physiques sont utilisées pour raisonner la place occupée et préparer le placement pont, pas seulement un volume libre saisi à la main.
                 </p>
               </FormSection>
-              <FormSection title="Conformité colis" collapsible defaultExpanded>
+              <FormSection title={t('common.cargo_compliance')} collapsible defaultExpanded>
                 <FormGrid>
                   <DynamicPanelField label="Validation HAZMAT">
                     <label className="inline-flex items-center gap-2 text-xs">
@@ -439,7 +439,7 @@ export function CreateCargoPanel() {
                   )}
                 </FormGrid>
               </FormSection>
-              <FormSection title="Enlèvement et preuves" collapsible defaultExpanded>
+              <FormSection title={t('common.pickup_evidence')} collapsible defaultExpanded>
                 <FormGrid>
                   <DynamicPanelField label="Lieu d’enlèvement" span="full">
                     <input type="text" value={form.pickup_location_label ?? ''} onChange={(e) => setForm({ ...form, pickup_location_label: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.pickup_location_example')} />

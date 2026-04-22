@@ -66,7 +66,7 @@ export function CreateTypePanel() {
     >
       <form id="create-ct-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Catégorie">
+          <FormSection title={t('common.category')}>
             <TagSelector
               options={categoryOptions}
               value={form.category}

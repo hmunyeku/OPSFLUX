@@ -160,7 +160,7 @@ export function RotationDetailPanel({ id }: { id: string }) {
         )}
 
         {detailTab === 'documents' && (
-          <FormSection title="Fichiers" collapsible defaultExpanded>
+          <FormSection title={t('common.files')} collapsible defaultExpanded>
             <AttachmentManager ownerType="rotation" ownerId={rotation.id} compact />
           </FormSection>
         )}

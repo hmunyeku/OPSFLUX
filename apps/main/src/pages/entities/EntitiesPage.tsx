@@ -424,7 +424,7 @@ function CreateEntityPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Juridique">
+        <FormSection title={t('common.legal')}>
           <FormGrid>
             <DynamicPanelField label="Forme juridique">
               <TagSelector options={legalFormOpts} value={form.legal_form || ''} onChange={(v) => set({ legal_form: v || null })} />
@@ -448,7 +448,7 @@ function CreateEntityPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Configuration">
+        <FormSection title={t('common.configuration')}>
           <FormGrid>
             <DynamicPanelField label="Fuseau horaire">
               <TagSelector options={TIMEZONE_OPTIONS} value={form.timezone || 'Africa/Douala'} onChange={(v) => set({ timezone: v })} />
@@ -541,7 +541,7 @@ function EntityDetailPanel({ id }: { id: string }) {
         <button
           type="button"
           className="gl-button gl-button-danger dark:hover:bg-red-900/30 text-red-500 opacity-0 group-hover:opacity-100"
-          title="Retirer"
+          title={t('common.remove')}
           onClick={(e) => { e.stopPropagation(); handleRemoveUser(row.original.user_id) }}
         >
           <X size={12} />
@@ -681,7 +681,7 @@ function EntityDetailPanel({ id }: { id: string }) {
               </FormSection>
 
               {/* Coordonnées — polymorphic managers */}
-              <FormSection title="Coordonnées" collapsible defaultExpanded storageKey="panel.entity.sections" id="entity-contact">
+              <FormSection title={t('common.contact_info')} collapsible defaultExpanded storageKey="panel.entity.sections" id="entity-contact">
                 <div className="space-y-3 border-t border-border/40 pt-3 mt-2">
                   <SubSectionLabel icon={Phone} label="Téléphones" count={phones?.length ?? 0} />
                   <PhoneManager ownerType="entity" ownerId={id} compact />
@@ -705,7 +705,7 @@ function EntityDetailPanel({ id }: { id: string }) {
 
             {/* ─── Column 2: Juridique + Config + Activité + Horaires + Notes ─── */}
             <div className="@container space-y-5">
-              <FormSection title="Juridique">
+              <FormSection title={t('common.legal')}>
                 <InlineEditableTags label="Forme juridique" value={entity.legal_form || ''} options={legalFormOpts} onSave={(v) => save('legal_form', v || null)} disabled={!canUpdate} />
                 <InlineEditableRow label="Capital" value={entity.capital != null ? String(entity.capital) : ''} onSave={(v) => save('capital', v ? Number(v) : null)} disabled={!canUpdate} />
                 <div className="mt-2">
@@ -713,7 +713,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                 </div>
               </FormSection>
 
-              <FormSection title="Configuration">
+              <FormSection title={t('common.configuration')}>
                 <InlineEditableTags label="Pays" value={entity.country || ''} options={countryOpts} onSave={(v) => save('country', v)} disabled={!canUpdate} />
                 <InlineEditableTags label="Fuseau horaire" value={entity.timezone} options={TIMEZONE_OPTIONS} onSave={(v) => save('timezone', v)} disabled={!canUpdate} />
                 <InlineEditableTags label="Langue" value={entity.language} options={LANGUAGE_OPTIONS} onSave={(v) => save('language', v)} disabled={!canUpdate} />

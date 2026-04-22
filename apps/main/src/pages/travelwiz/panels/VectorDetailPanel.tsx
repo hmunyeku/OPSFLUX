@@ -178,7 +178,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
 
         {detailTab === 'operationnel' && (
           editing ? (
-            <FormSection title="Operationnel">
+            <FormSection title={t('common.operational')}>
               <FormGrid>
                 <DynamicPanelField label="Pesee requise">
                   <label className="inline-flex items-center gap-2 text-xs">
@@ -199,7 +199,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
             </FormSection>
           ) : (
             <>
-              <FormSection title="Operationnel" collapsible defaultExpanded>
+              <FormSection title={t('common.operational')} collapsible defaultExpanded>
                 <DetailFieldGrid>
                   <ReadOnlyRow label="Pesee requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
                   {vector.mode === 'sea' && <ReadOnlyRow label="Numero MMSI" value={vector.mmsi_number ?? '—'} />}
@@ -231,7 +231,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
         )}
 
         {detailTab === 'documents' && (
-          <FormSection title="Fichiers" collapsible defaultExpanded>
+          <FormSection title={t('common.files')} collapsible defaultExpanded>
             <AttachmentManager ownerType="vector" ownerId={vector.id} compact />
           </FormSection>
         )}

@@ -281,7 +281,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                       }),
                     })
                   })}
-                  title="Rejeter"
+                  title={t('common.reject')}
                 >
                   <XCircle size={12} />
                 </button>

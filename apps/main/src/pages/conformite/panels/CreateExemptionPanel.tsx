@@ -86,7 +86,7 @@ export function CreateExemptionPanel() {
             </DynamicPanelField>
           </FormSection>
 
-          <FormSection title="Motif">
+          <FormSection title={t('common.reason')}>
             <DynamicPanelField label="Raison de l'exemption" required>
               <textarea
                 required
@@ -99,7 +99,7 @@ export function CreateExemptionPanel() {
             </DynamicPanelField>
           </FormSection>
 
-          <FormSection title="Période">
+          <FormSection title={t('common.period')}>
             <DateRangePicker
               startDate={form.start_date || null}
               endDate={form.end_date || null}
@@ -109,7 +109,7 @@ export function CreateExemptionPanel() {
             />
           </FormSection>
 
-          <FormSection title="Conditions">
+          <FormSection title={t('common.conditions')}>
             <textarea
               value={form.conditions ?? ''}
               onChange={(e) => setForm({ ...form, conditions: e.target.value || null })}

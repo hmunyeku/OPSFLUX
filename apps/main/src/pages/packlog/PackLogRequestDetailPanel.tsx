@@ -337,7 +337,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         {editing ? (
           /* ── Edit form ─────────────────────────────────────── */
-          <FormSection title="Demande d'expédition">
+          <FormSection title={t('common.shipment_request')}>
             <FormGrid>
               <DynamicPanelField label={t('common.label_field')}>
                 <input

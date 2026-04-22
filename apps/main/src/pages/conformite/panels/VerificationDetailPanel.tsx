@@ -17,6 +17,7 @@ import { useVerificationRecordTypeLabels } from '../shared'
 import { ComplianceOwnerCard } from '../components'
 
 function VerificationHistorySection({ ownerId, recordType, currentId }: { ownerId: string; recordType: string; currentId: string }) {
+  const { t } = useTranslation()
   const { data } = useVerificationHistory(1, 10, { owner_id: ownerId, record_type: recordType })
   const items = (data?.items ?? []).filter((i) => i.id !== currentId)
 
@@ -29,7 +30,7 @@ function VerificationHistorySection({ ownerId, recordType, currentId }: { ownerI
   if (items.length === 0) return null
 
   return (
-    <FormSection title="Historique">
+    <FormSection title={t('common.history')}>
       <div className="space-y-1.5">
         {items.map((h) => (
           <div key={h.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md bg-muted/30 text-xs">
@@ -107,7 +108,7 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
 
   if (!item) {
     return (
-      <DynamicPanelShell title="Vérification" onClose={closeDynamicPanel}>
+      <DynamicPanelShell title={t('common.verification')} onClose={closeDynamicPanel}>
         <p className="text-sm text-muted-foreground p-4">Document non trouvé ou déjà traité.</p>
       </DynamicPanelShell>
     )
@@ -138,7 +139,7 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
       }
     >
         <PanelContentLayout>
-          <FormSection title="Propriétaire" collapsible defaultExpanded>
+          <FormSection title={t('common.owner')} collapsible defaultExpanded>
             <ComplianceOwnerCard ownerType={item.owner_type} ownerId={item.owner_id} />
           </FormSection>
 

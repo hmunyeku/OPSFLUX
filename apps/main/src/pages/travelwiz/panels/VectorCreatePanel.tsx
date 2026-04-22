@@ -104,7 +104,7 @@ export function CreateVectorPanel() {
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
-          <FormSection title="Opérationnel" collapsible defaultExpanded={false}>
+          <FormSection title={t('common.operational')} collapsible defaultExpanded={false}>
             <FormGrid>
               <DynamicPanelField label="Pesée requise">
                 <label className="inline-flex items-center gap-2 text-xs">

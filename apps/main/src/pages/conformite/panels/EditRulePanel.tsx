@@ -132,7 +132,7 @@ export function EditRulePanel() {
 
       {canUpdate && (
         <div className="px-4 pb-2">
-          <FormSection title="Modification">
+          <FormSection title={t('common.modification')}>
             <DynamicPanelField label="Raison de la modification" required>
               <input type="text" value={changeReason} onChange={(e) => setChangeReason(e.target.value)} className={panelInputClass} placeholder="Ex: Mise à jour durée de validité..." />
             </DynamicPanelField>
@@ -147,7 +147,7 @@ export function EditRulePanel() {
       </div>
 
       <div className="px-4 pb-4">
-        <FormSection title="Historique" defaultExpanded={false}>
+        <FormSection title={t('common.history')} defaultExpanded={false}>
           {!historyData || historyData.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2">{t('common.no_history_available')}</p>
           ) : (

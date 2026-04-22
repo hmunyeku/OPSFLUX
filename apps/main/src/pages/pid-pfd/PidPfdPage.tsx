@@ -1560,7 +1560,7 @@ function CreateEquipmentPanel() {
           </div>
         </FormSection>
 
-        <FormSection title="Fluide" collapsible defaultExpanded={false}>
+        <FormSection title={t('common.fluid')} collapsible defaultExpanded={false}>
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Fluide</label>
@@ -1706,7 +1706,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* -- Fluid -- */}
-        <FormSection title="Fluide" collapsible defaultExpanded={false}>
+        <FormSection title={t('common.fluid')} collapsible defaultExpanded={false}>
           <DetailFieldGrid>
             <ReadOnlyRow label="Fluide" value={equip.fluid || '--'} />
             <ReadOnlyRow

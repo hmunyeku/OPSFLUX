@@ -133,7 +133,7 @@ export function CreateCargoRequestPanel() {
               </div>
             </div>
 
-            <FormSection title="Demande d'expédition">
+            <FormSection title={t('common.shipment_request')}>
               <FormGrid>
                 <DynamicPanelField label={t('common.label_field')} required>
                   <input
@@ -164,7 +164,7 @@ export function CreateCargoRequestPanel() {
               </FormGrid>
             </FormSection>
 
-            <FormSection title="Contexte logistique">
+            <FormSection title={t('common.logistics_context')}>
               <FormGrid>
                 <DynamicPanelField label={t('common.imputation')}>
                   <ImputationPicker
@@ -399,7 +399,7 @@ export function CreateCargoPanel() {
               </div>
             )}
               </FormSection>
-              <FormSection title="Préparation logistique" collapsible defaultExpanded>
+              <FormSection title={t('common.logistics_preparation')} collapsible defaultExpanded>
             <FormGrid>
               <DynamicPanelField label="Propriété du matériel">
                 <select value={form.ownership_type ?? ''} onChange={(e) => setForm({ ...form, ownership_type: e.target.value || null })} className={panelInputClass}>
@@ -450,7 +450,7 @@ export function CreateCargoPanel() {
               Les dimensions physiques sont utilisées pour raisonner la place occupée et préparer le placement pont, pas seulement un volume libre saisi à la main.
             </p>
               </FormSection>
-              <FormSection title="Conformité colis" collapsible defaultExpanded>
+              <FormSection title={t('common.cargo_compliance')} collapsible defaultExpanded>
             <FormGrid>
               <DynamicPanelField label="Validation HAZMAT">
                 <label className="inline-flex items-center gap-2 text-xs">
@@ -460,7 +460,7 @@ export function CreateCargoPanel() {
               </DynamicPanelField>
             </FormGrid>
               </FormSection>
-              <FormSection title="Enlèvement et preuves" collapsible defaultExpanded>
+              <FormSection title={t('common.pickup_evidence')} collapsible defaultExpanded>
             <FormGrid>
               <DynamicPanelField label="Lieu d'enlèvement" span="full">
                 <input type="text" value={form.pickup_location_label ?? ''} onChange={(e) => setForm({ ...form, pickup_location_label: e.target.value || null })} className={panelInputClass} placeholder="Base, quai, magasin, yard..." />
@@ -713,7 +713,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
     >
       <PanelContentLayout>
         {editing ? (
-          <FormSection title="Demande d'expédition">
+          <FormSection title={t('common.shipment_request')}>
             <FormGrid>
               <DynamicPanelField label={t('common.label_field')}>
                 <input type="text" value={editForm.title ?? ''} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className={panelInputClass} />
@@ -845,7 +845,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               </div>
             </FormSection>
 
-            <FormSection title="Demande d'expédition">
+            <FormSection title={t('common.shipment_request')}>
               <DetailFieldGrid>
                 <ReadOnlyRow label={t('common.code_field')} value={cargoRequest.request_code} />
                 <ReadOnlyRow label={t('common.label_field')} value={cargoRequest.title} />

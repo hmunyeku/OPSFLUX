@@ -153,7 +153,7 @@ export function CreateProjectPanel() {
             </div>
 
             <div className="@container space-y-5">
-              <FormSection title="Statut">
+              <FormSection title={t('common.status')}>
                 <TagSelector options={projectStatusOptions} value={form.status || 'draft'} onChange={(v) => setForm({ ...form, status: v })} />
               </FormSection>
 

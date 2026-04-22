@@ -193,7 +193,7 @@ export function CreateAppPanel() {
           </div>
         </FormSection>
 
-        <FormSection title="Scopes" collapsible storageKey="panel.app.sections" id="app-scopes">
+        <FormSection title={t('common.scopes')} collapsible storageKey="panel.app.sections" id="app-scopes">
           <div className="space-y-2">
             {scopeOptions.map((scope) => (
               <label key={scope.value} className="flex items-start gap-2.5 cursor-pointer">

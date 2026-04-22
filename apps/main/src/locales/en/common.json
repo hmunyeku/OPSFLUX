@@ -5402,5 +5402,35 @@
     "moc_promotion_ratio": {
       "title": "MOCs promoted to projects"
     }
+  },
+  "assistant": {
+    "title": "Assistant",
+    "close": "Close assistant",
+    "tabs": {
+      "chat": "AI Assistant",
+      "help": "Help",
+      "tours": "Tours",
+      "alerts": "Alerts",
+      "ticket": "Ticket"
+    },
+    "help": {
+      "workflows": "Workflows",
+      "tips": "Tips",
+      "none": "No help available for this page."
+    },
+    "ticket": {
+      "title_placeholder": "Clear, concise title (min. 10 chars)...",
+      "types": {
+        "bug": "Bug",
+        "improvement": "Improvement",
+        "question": "Question"
+      },
+      "priorities": {
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      }
+    }
   }
 }

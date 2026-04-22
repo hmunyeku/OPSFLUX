@@ -20,6 +20,7 @@ import React, {
   useMemo,
 } from 'react'
 import ReactDOM from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { marked } from 'marked'
@@ -437,6 +438,7 @@ function WorkflowItem({ workflow }: { workflow: WorkflowHelp }) {
 // ═══════════════════════════════════════════════════════════════
 
 export function AssistantPanel() {
+  const { t } = useTranslation()
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { hasPermission } = usePermission()
@@ -483,11 +485,11 @@ export function AssistantPanel() {
   const canViewAlerts = true // All users see their notifications
 
   const tabs: { id: TabId; icon: typeof Bot; label: string; visible: boolean; badge?: number }[] = useMemo(() => [
-    { id: 'chat', icon: Bot, label: 'Assistant IA', visible: canChat },
-    { id: 'help', icon: BookOpen, label: 'Aide', visible: true },
-    { id: 'tours', icon: Map, label: 'Visites', visible: true },
-    { id: 'alerts', icon: Bell, label: 'Alertes', visible: canViewAlerts },
-    { id: 'ticket', icon: LifeBuoy, label: 'Ticket', visible: canCreateTicket },
+    { id: 'chat', icon: Bot, label: t('assistant.tabs.chat'), visible: canChat },
+    { id: 'help', icon: BookOpen, label: t('assistant.tabs.help'), visible: true },
+    { id: 'tours', icon: Map, label: t('assistant.tabs.tours'), visible: true },
+    { id: 'alerts', icon: Bell, label: t('assistant.tabs.alerts'), visible: canViewAlerts },
+    { id: 'ticket', icon: LifeBuoy, label: t('assistant.tabs.ticket'), visible: canCreateTicket },
   ], [canChat, canViewAlerts, canCreateTicket])
 
   // Ensure active tab is visible
@@ -527,7 +529,7 @@ export function AssistantPanel() {
       )}>
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles size={14} className="text-primary shrink-0" />
-          <h2 className="text-sm font-semibold text-foreground truncate">Assistant</h2>
+          <h2 className="text-sm font-semibold text-foreground truncate">{t('assistant.title')}</h2>
           <span className="text-[10px] text-muted-foreground truncate hidden sm:inline">· {HELP_CONTENT[currentModule]?.title || currentModule}</span>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
@@ -544,7 +546,7 @@ export function AssistantPanel() {
           <button
             onClick={toggleAIPanel}
             className="h-7 w-7 inline-flex items-center justify-center rounded border border-border bg-background text-muted-foreground hover:bg-chrome hover:text-foreground transition-colors"
-            aria-label="Fermer l'assistant"
+            aria-label={t('assistant.close')}
           >
             <X size={14} />
           </button>
@@ -900,12 +902,13 @@ function ChatTab({ currentModule }: { currentModule: string }) {
 // ═══════════════════════════════════════════════════════════════
 
 function HelpTab({ currentModule }: { currentModule: string }) {
+  const { t } = useTranslation()
   const help = HELP_CONTENT[currentModule]
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
       {!help ? (
-        <div className="text-sm text-muted-foreground">Aucune aide disponible pour cette page.</div>
+        <div className="text-sm text-muted-foreground">{t('assistant.help.none')}</div>
       ) : (
         <>
           {/* Header */}
@@ -920,7 +923,7 @@ function HelpTab({ currentModule }: { currentModule: string }) {
           {/* Workflows */}
           {help.workflows.length > 0 && (
             <section>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Workflows</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('assistant.help.workflows')}</h4>
               <div className="space-y-2">
                 {help.workflows.map((wf, i) => <WorkflowItem key={i} workflow={wf} />)}
               </div>
@@ -932,7 +935,7 @@ function HelpTab({ currentModule }: { currentModule: string }) {
             <section>
               <div className="flex items-center gap-1.5 mb-2">
                 <Lightbulb size={13} className="text-amber-500" />
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Astuces</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('assistant.help.tips')}</h4>
               </div>
               <ul className="space-y-2">
                 {help.tips.map((tip, i) => (

@@ -6212,5 +6212,35 @@
     "moc_promotion_ratio": {
       "title": "MOCs promus en projet"
     }
+  },
+  "assistant": {
+    "title": "Assistant",
+    "close": "Fermer l'assistant",
+    "tabs": {
+      "chat": "Assistant IA",
+      "help": "Aide",
+      "tours": "Visites",
+      "alerts": "Alertes",
+      "ticket": "Ticket"
+    },
+    "help": {
+      "workflows": "Workflows",
+      "tips": "Astuces",
+      "none": "Aucune aide disponible pour cette page."
+    },
+    "ticket": {
+      "title_placeholder": "Titre clair et précis (min. 10 car.)...",
+      "types": {
+        "bug": "Bug",
+        "improvement": "Amélioration",
+        "question": "Question"
+      },
+      "priorities": {
+        "critical": "Critique",
+        "high": "Élevée",
+        "medium": "Moyenne",
+        "low": "Basse"
+      }
+    }
   }
 }

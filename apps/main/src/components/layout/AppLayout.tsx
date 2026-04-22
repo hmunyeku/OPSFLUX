@@ -25,8 +25,8 @@ import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import api from '@/lib/api'
-import { setToastAdminDefaults, type ToastPosition } from '@/components/ui/Toast'
-import { applyUIScale, getUIScale, setUIScaleAdminDefault } from '@/lib/uiScale'
+import { setToastAdminDefaults, syncToastPrefsFromServer, type ToastPosition } from '@/components/ui/Toast'
+import { applyUIScale, getUIScale, setUIScaleAdminDefault, syncUIScaleFromServer } from '@/lib/uiScale'
 import type { SettingRead } from '@/types/api'
 import { Banner } from '@/components/ui/Banner'
 import { useWebSocket } from '@/hooks/useWebSocket'
@@ -125,8 +125,13 @@ export function AppLayout({ children }: AppLayoutProps) {
   })
 
   // ── Apply UI scale on mount ──
+  // Instant apply from localStorage cache, then reconcile with the DB
+  // (PATCHed by every setUIScale() call) so a scale change on Computer A
+  // follows the user when they log in on Computer B.
   useEffect(() => {
     applyUIScale(getUIScale())
+    void syncUIScaleFromServer()
+    void syncToastPrefsFromServer()
   }, [])
 
   useEffect(() => {

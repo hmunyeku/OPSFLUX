@@ -111,6 +111,7 @@ export function getToastPosition(): ToastPosition {
 export function setToastPosition(pos: ToastPosition) {
   localStorage.setItem(POSITION_KEY, pos)
   window.dispatchEvent(new Event('toast-settings-change'))
+  void persistToastPref({ position: pos })
 }
 
 export function getToastDuration(): number {
@@ -125,8 +126,10 @@ export function getToastDuration(): number {
 }
 
 export function setToastDuration(ms: number) {
-  localStorage.setItem(DURATION_KEY, String(Math.max(1000, Math.min(30000, ms))))
+  const v = Math.max(1000, Math.min(30000, ms))
+  localStorage.setItem(DURATION_KEY, String(v))
   window.dispatchEvent(new Event('toast-settings-change'))
+  void persistToastPref({ duration: v })
 }
 
 export function getToastOpacity(): number {
@@ -141,8 +144,38 @@ export function getToastOpacity(): number {
 }
 
 export function setToastOpacity(percent: number) {
-  localStorage.setItem(OPACITY_KEY, String(Math.max(10, Math.min(100, Math.round(percent)))))
+  const v = Math.max(10, Math.min(100, Math.round(percent)))
+  localStorage.setItem(OPACITY_KEY, String(v))
   window.dispatchEvent(new Event('toast-settings-change'))
+  void persistToastPref({ opacity: v })
+}
+
+// ── DB persistence — fires a background PATCH so toast prefs follow
+//    the user across devices, matching the UI-scale pattern.
+async function persistToastPref(partial: { position?: ToastPosition; duration?: number; opacity?: number }) {
+  try {
+    const api = (await import('@/lib/api')).default
+    await api.patch('/api/v1/users/me/preferences', { toast: partial })
+  } catch { /* localStorage remains the fallback */ }
+}
+
+export async function syncToastPrefsFromServer(): Promise<void> {
+  try {
+    const api = (await import('@/lib/api')).default
+    const { data } = await api.get<{ toast?: { position?: ToastPosition; duration?: number; opacity?: number } }>('/api/v1/users/me/preferences')
+    const t = data?.toast
+    if (!t) return
+    if (t.position && TOAST_POSITIONS.some((p) => p.value === t.position)) {
+      localStorage.setItem(POSITION_KEY, t.position)
+    }
+    if (typeof t.duration === 'number' && t.duration >= 1000 && t.duration <= 30000) {
+      localStorage.setItem(DURATION_KEY, String(t.duration))
+    }
+    if (typeof t.opacity === 'number' && t.opacity >= 10 && t.opacity <= 100) {
+      localStorage.setItem(OPACITY_KEY, String(t.opacity))
+    }
+    window.dispatchEvent(new Event('toast-settings-change'))
+  } catch { /* noop */ }
 }
 
 // Hook to reactively read toast settings

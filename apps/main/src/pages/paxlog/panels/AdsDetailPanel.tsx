@@ -783,33 +783,39 @@ export function AdsDetailPanel({ id }: { id: string }) {
           defaultExpanded
         >
           <div className="space-y-3">
+            {/* Compact progress + KPI row — replaces the old heavy
+                5-line checklist + 3 summary cards which duplicated info
+                with the Visit/Transport section below. */}
             {ads.status === 'draft' && (
-              <div className="space-y-2">
-                {adsSubmissionChecklist.map((item) => (
-                  <div key={item.label} className="flex items-center gap-2 text-xs">
-                    <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300')}>
-                      {item.done ? '✓' : '•'}
-                    </span>
-                    <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
-                  </div>
-                ))}
-                <p className="pt-1 text-[11px] text-muted-foreground">
+              <div className="rounded-md border border-border bg-muted/20 px-3 py-2 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
                   {t('paxlog.ads_detail.readiness.imputation_hint')}
                 </p>
+                <span
+                  className={cn(
+                    'shrink-0 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium',
+                    adsReadyToSubmit
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+                  )}
+                  title={adsSubmissionChecklist.filter(i => !i.done).map(i => i.label).join(' · ')}
+                >
+                  {adsSubmissionChecklist.filter((i) => i.done).length}/{adsSubmissionChecklist.length}
+                </span>
               </div>
             )}
-            <div className="grid gap-2 sm:grid-cols-3">
-              <div className="rounded-md border border-border bg-card px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.passengers')}</p>
-                <p className="mt-1 text-sm font-semibold text-foreground">{adsPax?.length ?? 0}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-border/60 bg-card">
+                <span className="text-base font-bold tabular-nums font-display text-foreground">{adsPax?.length ?? 0}</span>
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.passengers')}</span>
               </div>
-              <div className="rounded-md border border-border bg-card px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.compliant_pax')}</p>
-                <p className="mt-1 text-sm font-semibold text-foreground">{compliantPaxCount}</p>
+              <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-border/60 bg-card">
+                <span className="text-base font-bold tabular-nums font-display text-emerald-600">{compliantPaxCount}</span>
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.compliant_pax')}</span>
               </div>
-              <div className="rounded-md border border-border bg-card px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.compliance_gaps')}</p>
-                <p className="mt-1 text-sm font-semibold text-foreground">{nonCompliantPaxCount}</p>
+              <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-border/60 bg-card">
+                <span className={cn('text-base font-bold tabular-nums font-display', nonCompliantPaxCount > 0 ? 'text-amber-600' : 'text-foreground')}>{nonCompliantPaxCount}</span>
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.compliance_gaps')}</span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground">{adsNextAction}</p>

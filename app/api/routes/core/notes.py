@@ -75,6 +75,15 @@ async def _assert_owner_in_entity(
     elif owner_type == "moc":
         from app.models.moc import MOC
         ok = await _check(MOC)
+    elif owner_type == "ads":
+        from app.models.paxlog import Ads
+        ok = await _check(Ads)
+    elif owner_type == "avm":
+        from app.models.paxlog import MissionNotice
+        ok = await _check(MissionNotice)
+    elif owner_type == "project":
+        from app.models.common import Project
+        ok = await _check(Project)
     # else: unknown owner_type → deny
     if not ok:
         raise StructuredHTTPException(

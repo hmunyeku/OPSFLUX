@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Folder, ChevronRight, HardDrive } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FSItem } from '../hooks/useFileManager'
@@ -41,6 +42,7 @@ function TreeItem({ dir, depth, currentPath, expandedDirs, getChildren, onNaviga
 }
 
 export function FileTree({ rootDirs, currentPath, expandedDirs, getChildren, onNavigate, onToggleExpand }: FileTreeProps) {
+  const { t } = useTranslation()
   return (
     <div className="py-2">
       <button
@@ -51,7 +53,7 @@ export function FileTree({ rootDirs, currentPath, expandedDirs, getChildren, onN
         )}
       >
         <HardDrive size={12} />
-        <span>Racine</span>
+        <span>{t('common.root')}</span>
       </button>
       {rootDirs.map(d => (
         <TreeItem key={d.path} dir={d} depth={1} currentPath={currentPath} expandedDirs={expandedDirs} getChildren={getChildren} onNavigate={onNavigate} onToggleExpand={onToggleExpand} />

@@ -803,7 +803,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                     onChange={(e) => setEditForm({ ...editForm, pax_quota_mode: e.target.value })}
                     className={panelInputClass}
                   >
-                    <option value="constant">Constant</option>
+                    <option value="constant">{t('common.constant')}</option>
                     <option value="variable">Variable (par jour)</option>
                   </select>
                 </DynamicPanelField>
@@ -1243,9 +1243,9 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                           onChange={(e) => setRecForm({ ...recForm, frequency: e.target.value })}
                           className={panelInputClass}
                         >
-                          <option value="daily">Quotidien</option>
-                          <option value="weekly">Hebdomadaire</option>
-                          <option value="monthly">Mensuel</option>
+                          <option value="daily">{t('common.daily')}</option>
+                          <option value="weekly">{t('common.weekly')}</option>
+                          <option value="monthly">{t('common.monthly')}</option>
                         </select>
                       </div>
                       <div>

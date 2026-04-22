@@ -378,8 +378,8 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                 <div>
                   <label className="text-[10px] text-muted-foreground">Type</label>
                   <select className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.type} onChange={(e) => setAddActivityForm((f) => ({ ...f, type: e.target.value }))}>
-                    <option value="project">Projet</option>
-                    <option value="maintenance">Maintenance</option>
+                    <option value="project">{t('common.project')}</option>
+                    <option value="maintenance">{t('common.maintenance')}</option>
                     <option value="drilling">Forage</option>
                     <option value="inspection">Inspection</option>
                     <option value="other">Autre</option>

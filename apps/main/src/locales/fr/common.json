@@ -345,7 +345,20 @@
     "name_ellipsis": "Nom...",
     "first_name": "Prénom",
     "country": "Pays",
-    "task": "Tâche"
+    "task": "Tâche",
+    "root": "Racine",
+    "tree_view": "Arborescence",
+    "internal_sensitivity": "Interne",
+    "confidential": "Confidentiel",
+    "restricted": "Restreint",
+    "public": "Public",
+    "constant": "Constant",
+    "daily": "Quotidien",
+    "weekly": "Hebdomadaire",
+    "monthly": "Mensuel",
+    "maintenance": "Maintenance",
+    "field": "Champ",
+    "installation": "Installation"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",

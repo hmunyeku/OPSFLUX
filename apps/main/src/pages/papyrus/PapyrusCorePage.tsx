@@ -1880,7 +1880,7 @@ export function ReportEditorPage() {
                     title="Afficher l'arborescence"
                   >
                     <PanelLeft size={14} />
-                    <span>Arborescence</span>
+                    <span>{t('common.tree_view')}</span>
                   </button>
                 </div>
               )}
@@ -2159,10 +2159,10 @@ function CreateDocumentPanel() {
                       onChange={(e) => setForm((f) => ({ ...f, classification: e.target.value }))}
                       className={panelInputClass}
                     >
-                      <option value="INT">Interne</option>
-                      <option value="CONF">Confidentiel</option>
-                      <option value="REST">Restreint</option>
-                      <option value="PUB">Public</option>
+                      <option value="INT">{t('common.internal_sensitivity')}</option>
+                      <option value="CONF">{t('common.confidential')}</option>
+                      <option value="REST">{t('common.restricted')}</option>
+                      <option value="PUB">{t('common.public')}</option>
                     </select>
                   </DynamicPanelField>
                   <DynamicPanelField label={t('common.language')}>

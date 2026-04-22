@@ -175,16 +175,6 @@ export function GeneralConfigTab() {
         </div>
       </CollapsibleSection>
 
-      {/* ── Cartographie ── */}
-      <CollapsibleSection
-        id="cartographie"
-        title="Cartographie"
-        description={t('settings.position_par_defaut_de_la_carte_cliquez')}
-        storageKey="settings.general-config.collapse"
-      >
-        <CartographySection settings={s} save={save} />
-      </CollapsibleSection>
-
       {/* ── Notifications ── */}
       <CollapsibleSection
         id="notifications-config"
@@ -243,12 +233,12 @@ export function GeneralConfigTab() {
         </div>
       </CollapsibleSection>
 
+      {/* ── Emails ── */}
       <CollapsibleSection
         id="emails-config"
         title="Emails"
         description="Personnalisation de l'apparence des emails envoyés par OpsFlux."
         storageKey="settings.general-config.collapse"
-        showSeparator={false}
       >
         <div className="mt-2 space-y-0">
           <SettingRow label="Logo email" description="Logo affiché dans l'en-tête des emails envoyés par OpsFlux.">
@@ -282,6 +272,17 @@ export function GeneralConfigTab() {
             </div>
           </SettingRow>
         </div>
+      </CollapsibleSection>
+
+      {/* ── Cartographie ── (niche: only for tenants using map features) */}
+      <CollapsibleSection
+        id="cartographie"
+        title="Cartographie"
+        description={t('settings.position_par_defaut_de_la_carte_cliquez')}
+        storageKey="settings.general-config.collapse"
+        showSeparator={false}
+      >
+        <CartographySection settings={s} save={save} />
       </CollapsibleSection>
     </>
   )

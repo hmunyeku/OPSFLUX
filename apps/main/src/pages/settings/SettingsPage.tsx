@@ -12,7 +12,7 @@
  * - Deep linking: URL hash → activates tab + expands specific section
  *   e.g. /settings#cartographie → activates general-config tab, expands Cartographie section
  */
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Settings, User, Lock, Shield, Clock, Palette,
@@ -566,12 +566,17 @@ function SidebarGroup({
   const hasActiveChild = children.some((c) => c.id === activeTab)
   const [expanded, setExpanded] = useState(hasActiveChild)
 
-  // Auto-expand when a child is active
+  // Auto-expand only on the false→true transition of hasActiveChild
+  // (e.g. deep-link navigation into a child section). Never re-expand
+  // on subsequent renders — otherwise the user can't collapse a group
+  // while one of its children is the active tab.
+  const prevHadActiveChildRef = useRef(hasActiveChild)
   useEffect(() => {
-    if (hasActiveChild && !expanded) {
+    if (hasActiveChild && !prevHadActiveChildRef.current) {
       setExpanded(true)
     }
-  }, [hasActiveChild, expanded])
+    prevHadActiveChildRef.current = hasActiveChild
+  }, [hasActiveChild])
 
   const Icon = group.icon
   const ChevronIcon = expanded ? ChevronDown : ChevronRight

@@ -51,52 +51,8 @@ export function PreferencesTab() {
 
   return (
     <>
-      <CollapsibleSection
-        id="ui-scale"
-        title={t('settings.ui_scale')}
-        description={t('settings.ui_scale_description')}
-        storageKey="settings.preferences.collapse"
-      >
-        <UIScaleSection />
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        id="datatable"
-        title="Tableaux de données"
-        description="Nombre de lignes par page dans les tableaux."
-        storageKey="settings.preferences.collapse"
-      >
-        <PageSizeSection />
-      </CollapsibleSection>
-
-      <CollapsibleSection id="theme" title="Mode" description="Choisissez un mode d'affichage." storageKey="settings.preferences.collapse">
-        <div className="mt-2 space-y-2">
-          {themes.map(({ value, label, icon: Icon }) => (
-            <label key={value} className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="theme"
-                checked={theme === value}
-                onChange={() => setTheme(value)}
-                className="h-4 w-4 accent-primary"
-              />
-              <Icon size={16} className="text-muted-foreground" />
-              <span className="text-sm text-foreground">{label}</span>
-            </label>
-          ))}
-        </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        id="messaging-channel"
-        title="Canal de messagerie"
-        description="Choisissez comment recevoir les notifications, codes de vérification et alertes."
-        storageKey="settings.preferences.collapse"
-      >
-        <MessagingChannelSection />
-      </CollapsibleSection>
-
-      <CollapsibleSection id="language-pref" title="Langue" description="Définissez la langue de l'interface utilisateur." storageKey="settings.preferences.collapse" showSeparator={false}>
+      {/* Ordre: les préférences les plus consultées en premier. */}
+      <CollapsibleSection id="language-pref" title="Langue" description="Définissez la langue de l'interface utilisateur." storageKey="settings.preferences.collapse">
         <div className="mt-2">
           <label className="gl-label">Langue préférée</label>
           <div className="flex items-center gap-2 mt-2">
@@ -120,6 +76,52 @@ export function PreferencesTab() {
             L'interface sera affichée dans cette langue.
           </p>
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="theme" title="Mode" description="Choisissez un mode d'affichage." storageKey="settings.preferences.collapse">
+        <div className="mt-2 space-y-2">
+          {themes.map(({ value, label, icon: Icon }) => (
+            <label key={value} className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="theme"
+                checked={theme === value}
+                onChange={() => setTheme(value)}
+                className="h-4 w-4 accent-primary"
+              />
+              <Icon size={16} className="text-muted-foreground" />
+              <span className="text-sm text-foreground">{label}</span>
+            </label>
+          ))}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        id="ui-scale"
+        title={t('settings.ui_scale')}
+        description={t('settings.ui_scale_description')}
+        storageKey="settings.preferences.collapse"
+      >
+        <UIScaleSection />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        id="datatable"
+        title="Tableaux de données"
+        description="Nombre de lignes par page dans les tableaux."
+        storageKey="settings.preferences.collapse"
+      >
+        <PageSizeSection />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        id="messaging-channel"
+        title="Canal de messagerie"
+        description="Choisissez comment recevoir les notifications, codes de vérification et alertes."
+        storageKey="settings.preferences.collapse"
+        showSeparator={false}
+      >
+        <MessagingChannelSection />
       </CollapsibleSection>
     </>
   )

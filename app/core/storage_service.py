@@ -70,6 +70,26 @@ async def get_file_path(storage_path: str) -> str | None:
     return full_path if os.path.exists(full_path) else None
 
 
+async def get_file_bytes(storage_path: str) -> bytes | None:
+    """Return the raw file content from local disk or S3 (None on missing).
+
+    Intended for server-side consumers (PDF renderer, image-to-data-URI
+    conversion) that need the bytes directly instead of a redirect URL.
+    """
+    if _is_s3():
+        from app.core.s3_client import download_bytes
+        return await download_bytes(storage_path)
+    full_path = await get_file_path(storage_path)
+    if not full_path:
+        return None
+    try:
+        with open(full_path, "rb") as f:
+            return f.read()
+    except OSError:
+        logger.warning("Failed to read local file: %s", storage_path)
+        return None
+
+
 async def get_download_url(storage_path: str) -> str | None:
     """Get a presigned download URL for S3, or None if local."""
     if not _is_s3():

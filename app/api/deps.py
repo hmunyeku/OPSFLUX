@@ -406,6 +406,12 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     # the read/update perms. A user who can read the MOC can list its
     # attachments; a user who can update can upload/delete.
     "moc": ("moc.read", "moc.update"),
+    # MOC staging — used by the Create panel to upload images before the
+    # MOC row exists. owner_id is a client-generated UUID (session key).
+    # On successful MOC create, a commit helper re-targets those rows.
+    # Same permissions as regular moc attachments so only update-capable
+    # users can stage.
+    "moc_staging": ("moc.update", "moc.update"),
 }
 
 

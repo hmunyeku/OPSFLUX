@@ -60,6 +60,11 @@ class MOCCreate(BaseModel):
         serialization_alias="metadata",
         validation_alias=AliasChoices("metadata_", "metadata"),
     )
+    # Client-generated UUID used during creation to stage image uploads
+    # before the MOC row exists. On create, the backend re-targets all
+    # attachments with owner_type='moc_staging' + owner_id=staging_ref to
+    # the newly created MOC.
+    staging_ref: UUID | None = None
 
 
 class MOCUpdate(BaseModel):

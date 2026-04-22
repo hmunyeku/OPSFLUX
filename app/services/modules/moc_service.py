@@ -681,6 +681,134 @@ async def _notify_transition(
             )
 
 
+# ─── Staging attachments lifecycle ────────────────────────────────────────────
+#
+# When the Create panel is opened, the frontend generates a `staging_ref`
+# (client UUID) and uploads any inline Tiptap image or sloted schema against
+# `owner_type='moc_staging'` + `owner_id=<staging_ref>`. On successful MOC
+# create, `commit_staging_attachments` re-targets those rows to the new MOC.
+# Attachment ids are preserved, so URLs (`/api/v1/attachments/<id>/download`)
+# embedded in the rich-text fields remain valid.
+
+
+async def commit_staging_attachments(
+    db: AsyncSession,
+    *,
+    moc_id: UUID,
+    staging_ref: UUID,
+    uploader_id: UUID,
+    entity_id: UUID,
+) -> int:
+    """Re-target staging attachments to the newly created MOC.
+
+    Returns the number of rows updated. Restricted to attachments uploaded
+    by the current user to prevent cross-user hijacking of a staging ref.
+    """
+    from sqlalchemy import update as sa_update
+
+    from app.models.common import Attachment
+
+    stmt = (
+        sa_update(Attachment)
+        .where(
+            Attachment.owner_type == "moc_staging",
+            Attachment.owner_id == staging_ref,
+            Attachment.uploaded_by == uploader_id,
+            Attachment.entity_id == entity_id,
+            Attachment.deleted_at.is_(None),
+        )
+        .values(owner_type="moc", owner_id=moc_id)
+    )
+    result = await db.execute(stmt)
+    await db.flush()
+    return result.rowcount or 0
+
+
+async def reconcile_inline_images(
+    db: AsyncSession,
+    *,
+    moc: MOC,
+) -> int:
+    """Soft-delete inline_image attachments no longer referenced in the MOC text.
+
+    Parses `objectives`, `description`, `current_situation`, `proposed_changes`,
+    `impact_analysis`, `study_conclusion`, and various comment fields to
+    collect every `data-attachment-id="<uuid>"` used. Any Attachment row
+    with `category='inline_image'`, `owner_type='moc'`, `owner_id=moc.id`
+    whose id is NOT in that set is soft-deleted.
+
+    Returns the count of pruned attachments. Safe to call on every update.
+    """
+    import re
+    from datetime import UTC, datetime as _dt
+
+    from app.models.common import Attachment
+
+    text_sources = [
+        moc.objectives, moc.description, moc.current_situation,
+        moc.proposed_changes, moc.impact_analysis, moc.study_conclusion,
+        moc.hierarchy_review_comment, moc.site_chief_comment,
+        moc.director_comment, moc.production_comment,
+        moc.do_execution_comment, moc.dg_execution_comment,
+    ]
+    pattern = re.compile(r'data-attachment-id="([0-9a-f-]{36})"', re.IGNORECASE)
+    referenced: set[UUID] = set()
+    for src in text_sources:
+        if not src:
+            continue
+        for m in pattern.finditer(src):
+            try:
+                referenced.add(UUID(m.group(1)))
+            except ValueError:
+                continue
+
+    q = select(Attachment).where(
+        Attachment.owner_type == "moc",
+        Attachment.owner_id == moc.id,
+        Attachment.category == "inline_image",
+        Attachment.deleted_at.is_(None),
+    )
+    rows = (await db.execute(q)).scalars().all()
+    pruned = 0
+    for a in rows:
+        if a.id not in referenced:
+            a.deleted_at = _dt.now(UTC)
+            pruned += 1
+    if pruned:
+        await db.flush()
+    return pruned
+
+
+async def cascade_delete_attachments(
+    db: AsyncSession,
+    *,
+    moc_id: UUID,
+) -> int:
+    """Soft-delete every attachment row belonging to this MOC.
+
+    Called from the MOC soft-delete path. Attachment is polymorphic — no
+    FK cascade is available — so we do an explicit sweep.
+    """
+    from datetime import UTC, datetime as _dt
+
+    from sqlalchemy import update as sa_update
+
+    from app.models.common import Attachment
+
+    stmt = (
+        sa_update(Attachment)
+        .where(
+            Attachment.owner_type == "moc",
+            Attachment.owner_id == moc_id,
+            Attachment.deleted_at.is_(None),
+        )
+        .values(deleted_at=_dt.now(UTC))
+    )
+    result = await db.execute(stmt)
+    await db.flush()
+    return result.rowcount or 0
+
+
 def _humanise_status(s: str) -> str:
     mapping = {
         "created": "Créé",

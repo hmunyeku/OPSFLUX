@@ -436,6 +436,20 @@ async def create_moc(
         moc_id=moc.id, old_status=None, new_status="created",
         changed_by=current_user.id, note="MOC créé",
     ))
+    # Re-target any Tiptap-inline or sloted images uploaded during the
+    # Create panel session (owner_type='moc_staging' + owner_id=staging_ref)
+    # to this freshly-created MOC. Attachment ids are preserved so URLs
+    # embedded in the rich-text fields stay valid.
+    committed_attachments = 0
+    if body.staging_ref:
+        from app.services.modules.moc_service import commit_staging_attachments
+        committed_attachments = await commit_staging_attachments(
+            db,
+            moc_id=moc.id,
+            staging_ref=body.staging_ref,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
     await record_audit(
         db,
         user_id=current_user.id,
@@ -443,7 +457,10 @@ async def create_moc(
         action="moc.created",
         resource_type="moc",
         resource_id=str(moc.id),
-        details={"reference": ref, "site": body.site_label, "platform": body.platform_code},
+        details={
+            "reference": ref, "site": body.site_label, "platform": body.platform_code,
+            "staging_attachments_committed": committed_attachments,
+        },
     )
     await db.commit()
     await db.refresh(moc)
@@ -938,6 +955,18 @@ async def update_moc(
         from datetime import UTC, datetime
         moc.hierarchy_review_at = datetime.now(UTC)
 
+    # Prune inline-image attachments the user removed from the editor.
+    # Safe no-op when no rich-text field was touched in this request.
+    _text_keys = {
+        "objectives", "description", "current_situation", "proposed_changes",
+        "impact_analysis", "study_conclusion", "hierarchy_review_comment",
+        "site_chief_comment", "director_comment", "production_comment",
+        "do_execution_comment", "dg_execution_comment",
+    }
+    if data.keys() & _text_keys:
+        from app.services.modules.moc_service import reconcile_inline_images
+        await reconcile_inline_images(db, moc=moc)
+
     await db.commit()
     await db.refresh(moc)
     names = await _user_display(db, {moc.initiator_id, moc.site_chief_id or moc.initiator_id})
@@ -962,11 +991,15 @@ async def delete_moc(
     moc.archived = True
     from datetime import UTC, datetime
     moc.deleted_at = datetime.now(UTC)
+    # Attachment is polymorphic — no FK cascade. Sweep explicitly so inline
+    # images and sloted schemas follow the MOC into the trash.
+    from app.services.modules.moc_service import cascade_delete_attachments
+    cascaded = await cascade_delete_attachments(db, moc_id=moc.id)
     await record_audit(
         db, user_id=current_user.id, entity_id=entity_id,
         action="moc.deleted",
         resource_type="moc", resource_id=str(moc.id),
-        details={"reference": moc.reference},
+        details={"reference": moc.reference, "attachments_cascaded": cascaded},
     )
     await db.commit()
 
@@ -1075,10 +1108,13 @@ async def export_moc_pdf(
     # Normalised to a 2-letter code so the template resolver can match.
     if not language:
         language = (getattr(current_user, "language", None) or "fr").split("-")[0].lower()
+    import base64 as _b64
+    import re as _re
     from datetime import UTC, datetime as _dt
     from html import escape as _html_escape
     from app.core.pdf_templates import render_pdf
-    from app.models.common import Entity
+    from app.core.storage_service import get_file_bytes
+    from app.models.common import Attachment, Entity
 
     def render_markdown(txt: str | None) -> str | None:
         """Pass-through + migration helper.
@@ -1215,6 +1251,72 @@ async def export_moc_pdf(
         )).scalar_one_or_none()
         moc_type_label = row
 
+    # ── Attachments → data URIs for the PDF ──────────────────────────────
+    # Load every image attachment tied to this MOC in one query, then:
+    #  * build an id → data:URI map so we can rewrite inline <img> URLs
+    #    that Tiptap inserted (`/api/v1/attachments/<id>/download`)
+    #  * group sloted images by category for the template's dedicated
+    #    schema rows.
+    IMAGE_MIME_PREFIXES = ("image/",)
+    SLOT_CATEGORIES = {"schema_current", "schema_proposed", "impact_illustration", "inline_image"}
+    attachment_rows = (await db.execute(
+        select(Attachment).where(
+            Attachment.owner_type == "moc",
+            Attachment.owner_id == moc.id,
+            Attachment.entity_id == entity_id,
+            Attachment.deleted_at.is_(None),
+        )
+    )).scalars().all()
+
+    data_uri_by_id: dict[UUID, str] = {}
+    slot_images: dict[str, list[str]] = {
+        "schema_current": [], "schema_proposed": [], "impact_illustration": [],
+    }
+    for att in attachment_rows:
+        if not att.content_type or not att.content_type.startswith(IMAGE_MIME_PREFIXES):
+            continue
+        raw = await get_file_bytes(att.storage_path)
+        if not raw:
+            continue
+        b64 = _b64.b64encode(raw).decode("ascii")
+        data_uri = f"data:{att.content_type};base64,{b64}"
+        data_uri_by_id[att.id] = data_uri
+        if att.category in slot_images:
+            slot_images[att.category].append(data_uri)
+
+    # Rewrite inline <img> URLs in every rich-text field so WeasyPrint
+    # never has to make an authenticated HTTP call back to the API.
+    # We match the canonical shape the frontend emits:
+    #   <img ... data-attachment-id="<uuid>" src="/api/v1/attachments/<uuid>/download" ... />
+    _INLINE_IMG_RE = _re.compile(
+        r'src="(?:https?://[^/]+)?/api/v1/attachments/([0-9a-f-]{36})/download"',
+        _re.IGNORECASE,
+    )
+
+    def _rewrite_inline_images(html: str | None) -> str | None:
+        if not html:
+            return html
+        def _sub(m):
+            try:
+                aid = UUID(m.group(1))
+            except ValueError:
+                return m.group(0)
+            data_uri = data_uri_by_id.get(aid)
+            if not data_uri:
+                return m.group(0)  # leave as-is — will 404 in PDF but that's visible
+            return f'src="{data_uri}"'
+        return _INLINE_IMG_RE.sub(_sub, html)
+
+    # Apply rewriting to every rich-text surface that the template renders
+    # via `| safe`. Ordered so consumers below use the rewritten strings.
+    for _field in (
+        "objectives", "description", "current_situation", "proposed_changes",
+        "impact_analysis", "study_conclusion", "hierarchy_review_comment",
+        "site_chief_comment", "director_comment", "production_comment",
+        "do_execution_comment", "dg_execution_comment",
+    ):
+        setattr(moc, _field, _rewrite_inline_images(getattr(moc, _field, None)))
+
     # Signature redaction in the PDF — same rule as the UI. `_can_sigs` was
     # already computed up-front for the validations_payload; we reuse it.
     def _sig(field_name: str, signer_fk: str | None = None) -> str | None:
@@ -1317,6 +1419,12 @@ async def export_moc_pdf(
             "code": entity.code if entity else None,
         },
         "generated_at": _dt.now(UTC).strftime("%d/%m/%Y %H:%M UTC"),
+        # Sloted images — rendered in the template as dedicated illustrations
+        # alongside each rich-text block. Empty list means no image was
+        # attached to that slot for this MOC.
+        "schema_current_images": slot_images["schema_current"],
+        "schema_proposed_images": slot_images["schema_proposed"],
+        "impact_images": slot_images["impact_illustration"],
     }
 
     pdf_bytes = await render_pdf(

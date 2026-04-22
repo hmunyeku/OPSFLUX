@@ -3567,6 +3567,32 @@ _MOC_REPORT_BODY_FR = r"""\
     font-size: 9pt;
   }
   .renvoi strong { color: #B22222; }
+  /* Sloted-image illustrations (schema current / proposed / impact) */
+  .schema-box {
+    margin-top: 2mm;
+    text-align: center;
+  }
+  .schema-box img {
+    max-width: 100%;
+    max-height: 65mm;
+    border: 0.3pt solid #BBB;
+    padding: 1mm;
+    background: #FFF;
+  }
+  .schema-caption {
+    font-size: 8pt;
+    color: #555;
+    margin-top: 0.5mm;
+    font-style: italic;
+  }
+  /* Inline images inserted via Tiptap — constrain so large schemas
+     stay within the page without blowing pagination. */
+  .rich img {
+    max-width: 100%;
+    max-height: 90mm;
+    display: block;
+    margin: 1.5mm auto;
+  }
 </style>
 </head>
 <body>
@@ -3627,13 +3653,31 @@ _MOC_REPORT_BODY_FR = r"""\
     <td colspan="3">
       <span class="label">Situation actuelle</span>
       <div class="rich">{{ current_situation | safe if current_situation else '—' }}</div>
+      {% for src in schema_current_images %}
+        <div class="schema-box">
+          <img src="{{ src }}" alt="Schéma situation actuelle"/>
+          <div class="schema-caption">Schéma situation actuelle{% if loop.length > 1 %} ({{ loop.index }}/{{ loop.length }}){% endif %}</div>
+        </div>
+      {% endfor %}
       <div style="margin-top:3mm;"></div>
       <span class="label">Présentation des modifications proposées</span>
       <div class="rich">{{ proposed_changes | safe if proposed_changes else '—' }}</div>
-      {% if impact_analysis %}
+      {% for src in schema_proposed_images %}
+        <div class="schema-box">
+          <img src="{{ src }}" alt="Schéma modifications proposées"/>
+          <div class="schema-caption">Schéma modifications proposées{% if loop.length > 1 %} ({{ loop.index }}/{{ loop.length }}){% endif %}</div>
+        </div>
+      {% endfor %}
+      {% if impact_analysis or impact_images %}
         <div style="margin-top:3mm;"></div>
         <span class="label">Analyse d'impact</span>
-        <div class="rich">{{ impact_analysis | safe }}</div>
+        {% if impact_analysis %}<div class="rich">{{ impact_analysis | safe }}</div>{% endif %}
+        {% for src in impact_images %}
+          <div class="schema-box">
+            <img src="{{ src }}" alt="Illustration impact"/>
+            <div class="schema-caption">Illustration impact{% if loop.length > 1 %} ({{ loop.index }}/{{ loop.length }}){% endif %}</div>
+          </div>
+        {% endfor %}
       {% endif %}
     </td>
   </tr>

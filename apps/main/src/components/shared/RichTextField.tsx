@@ -20,10 +20,11 @@
  * Rendering (read-only): use `<RichTextDisplay value={html} />` below.
  * It sanitises the HTML via DOMPurify before rendering.
  */
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
+import Image from '@tiptap/extension-image'
 import DOMPurify from 'dompurify'
 import {
   Bold,
@@ -39,8 +40,12 @@ import {
   Minus,
   Undo,
   Redo,
+  ImagePlus,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import api from '@/lib/api'
+import { useToast } from '@/components/ui/Toast'
 
 interface RichTextFieldProps {
   value: string | null | undefined
@@ -52,6 +57,22 @@ interface RichTextFieldProps {
   className?: string
   /** Compact toolbar — drops headings and HR. Use in small panels. */
   compact?: boolean
+  /**
+   * Polymorphic parent for image uploads. When set, the image button is
+   * enabled; every image picked is uploaded as a real Attachment row and
+   * inserted as `<img data-attachment-id=... src="/api/v1/attachments/.../download"/>`.
+   *
+   * During Create flow, pass `imageOwnerType="moc_staging"` with a
+   * client-generated `imageOwnerId` UUID — the backend re-targets those
+   * rows to the new MOC on submit.
+   *
+   * When undefined, the image button is hidden (Tiptap image extension
+   * still loaded so existing content renders correctly).
+   */
+  imageOwnerType?: string
+  imageOwnerId?: string
+  /** Max upload size in MB. Defaults to 5. */
+  imageMaxSizeMB?: number
 }
 
 // Minimum editor height derived from `rows` (each row ~ 1.5rem line-height).
@@ -105,7 +126,14 @@ export function RichTextField({
   disabled,
   className,
   compact = false,
+  imageOwnerType,
+  imageOwnerId,
+  imageMaxSizeMB = 5,
 }: RichTextFieldProps) {
+  const { toast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [uploading, setUploading] = useState(false)
+
   const editor = useEditor({
     extensions: [
       // StarterKit v3 already bundles Link, Heading, Bold, Italic, Strike,
@@ -122,6 +150,29 @@ export function RichTextField({
       }),
       Placeholder.configure({
         placeholder: placeholder ?? '',
+      }),
+      Image.extend({
+        // Preserve the backend's data-attachment-id so reconciliation can
+        // later figure out which attachments are still referenced.
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            'data-attachment-id': {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-attachment-id'),
+              renderHTML: (attrs) => {
+                const v = attrs['data-attachment-id']
+                return v ? { 'data-attachment-id': v } : {}
+              },
+            },
+          }
+        },
+      }).configure({
+        // Inline images are rarely useful inside paragraphs; keep them as
+        // block nodes so they get their own line and the reconciliation
+        // regex has a clean anchor.
+        inline: false,
+        allowBase64: false,
       }),
     ],
     content: value || '',
@@ -145,6 +196,64 @@ export function RichTextField({
   useEffect(() => {
     editor?.setEditable(!disabled)
   }, [disabled, editor])
+
+  const canUploadImage = !!imageOwnerType && !!imageOwnerId && !disabled
+
+  const openImagePicker = () => {
+    if (!canUploadImage) {
+      toast({
+        title: 'Sauvegarder d\u2019abord pour ajouter des images.',
+        variant: 'warning',
+      })
+      return
+    }
+    fileInputRef.current?.click()
+  }
+
+  const handleImageFile = async (file: File) => {
+    if (!editor || !canUploadImage) return
+    // Size guard — backend rejects > STORAGE_MAX_FILE_SIZE_MB too, but we
+    // fail fast here with a clearer message.
+    if (file.size > imageMaxSizeMB * 1024 * 1024) {
+      toast({
+        title: `Image trop volumineuse (max ${imageMaxSizeMB} Mo).`,
+        variant: 'error',
+      })
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Le fichier doit \u00eatre une image.', variant: 'error' })
+      return
+    }
+    setUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('owner_type', imageOwnerType as string)
+      form.append('owner_id', imageOwnerId as string)
+      form.append('category', 'inline_image')
+      const { data } = await api.post('/api/v1/attachments', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const attId = data?.id as string | undefined
+      if (!attId) throw new Error('Upload returned no attachment id')
+      const src = `/api/v1/attachments/${attId}/download`
+      editor.chain().focus().setImage({
+        src,
+        alt: file.name,
+        'data-attachment-id': attId,
+      } as never).run()
+    } catch (err) {
+      console.error('[RichTextField] image upload failed', err)
+      toast({
+        title: 'Impossible de charger l\u2019image.',
+        variant: 'error',
+      })
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   const promptLink = () => {
     if (!editor) return
@@ -259,6 +368,24 @@ export function RichTextField({
         >
           <Link2 size={12} />
         </ToolbarButton>
+        {imageOwnerType !== undefined && (
+          <ToolbarButton
+            editor={editor}
+            onClick={openImagePicker}
+            disabled={disabled || uploading}
+            title={
+              canUploadImage
+                ? 'Insérer une image'
+                : 'Sauvegarder d\u2019abord pour ajouter des images'
+            }
+          >
+            {uploading ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <ImagePlus size={12} />
+            )}
+          </ToolbarButton>
+        )}
         {!compact && (
           <ToolbarButton
             editor={editor}
@@ -288,6 +415,20 @@ export function RichTextField({
           </ToolbarButton>
         </span>
       </div>
+
+      {/* Hidden file input driven by the image toolbar button */}
+      {imageOwnerType !== undefined && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) void handleImageFile(f)
+          }}
+        />
+      )}
 
       {/* Editor surface */}
       <EditorContent
@@ -340,8 +481,16 @@ const PURIFY_CONFIG = {
     'blockquote', 'hr',
     'a',
     'pre',
+    // Images uploaded via the editor — src always points at our own
+    // authenticated /attachments/:id/download route, which the backend
+    // resolves to a data URI for the PDF. data-attachment-id is kept so
+    // backend reconciliation can detect removed images on save.
+    'img',
   ],
-  ALLOWED_ATTR: ['href', 'rel', 'target'],
+  ALLOWED_ATTR: [
+    'href', 'rel', 'target',
+    'src', 'alt', 'width', 'height', 'data-attachment-id', 'class', 'style',
+  ],
 }
 
 export function RichTextDisplay({ value, className, empty = '—' }: RichTextDisplayProps) {

@@ -1145,6 +1145,7 @@ export function MOCDetailPanel({ id }: Props) {
               ownerType="moc"
               ownerId={moc.id}
               categoryDictionary="moc_attachment_type"
+              hiddenCategories={['inline_image']}
             />
           </FormSection>
         )}
@@ -1439,6 +1440,8 @@ function ProductionValidationTab({
               rows={3}
               compact
               placeholder={t('moc.fields.comment_ph') as string}
+              imageOwnerType="moc"
+              imageOwnerId={moc.id}
             />
           </div>
 
@@ -1602,6 +1605,7 @@ function ExecutionTab({
             disabled={disabled || !canDirectorAccord}
             onAccord={onAccord}
             onReturn={(reason) => onReturn('do', reason)}
+            mocId={moc.id}
           />
           <DirectorAccordBlock
             actor="dg"
@@ -1613,6 +1617,7 @@ function ExecutionTab({
             disabled={disabled || !canDirectorAccord}
             onAccord={onAccord}
             onReturn={(reason) => onReturn('dg', reason)}
+            mocId={moc.id}
           />
         </div>
       </FormSection>
@@ -1631,6 +1636,7 @@ function DirectorAccordBlock({
   disabled,
   onAccord,
   onReturn,
+  mocId,
 }: {
   actor: 'do' | 'dg'
   label: string
@@ -1646,6 +1652,7 @@ function DirectorAccordBlock({
     signature: string | null,
   ) => Promise<void>
   onReturn: (reason: string) => Promise<void>
+  mocId: string
 }) {
   const { t } = useTranslation()
   const [draftComment, setDraftComment] = useState(comment ?? '')
@@ -1677,6 +1684,8 @@ function DirectorAccordBlock({
         rows={2}
         compact
         placeholder={t('moc.fields.comment_ph') as string}
+        imageOwnerType="moc"
+        imageOwnerId={mocId}
       />
 
       <SignaturePad

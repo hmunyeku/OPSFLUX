@@ -331,6 +331,13 @@ export interface MOCCreatePayload {
   planned_implementation_date?: string | null
   tags?: string[] | null
   moc_type_id?: string | null
+  /**
+   * Client-generated UUID used during the Create flow to stage image
+   * uploads (Tiptap inline or sloted schemas) before the MOC row exists.
+   * On create, the backend re-targets every attachment with
+   * `owner_type='moc_staging'` + `owner_id=<this>` to the new MOC.
+   */
+  staging_ref?: string | null
 }
 
 export type MOCUpdatePayload = Partial<MOC>

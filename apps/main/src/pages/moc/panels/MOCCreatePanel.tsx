@@ -5,7 +5,7 @@
  * here (site, platform, objectives); the rest is filled progressively
  * through the workflow.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Save, X } from 'lucide-react'
 import {
@@ -75,6 +75,15 @@ export function MOCCreatePanel() {
   const [temporaryEnd, setTemporaryEnd] = useState('')
   const [initiatorFn, setInitiatorFn] = useState('')
 
+  // Staging session UUID — generated once on mount, used as owner_id for
+  // any image uploaded via Tiptap before the MOC row exists. On submit,
+  // we pass it as `staging_ref` so the backend re-targets those attachments
+  // to the newly created MOC.
+  const stagingRef = useMemo(
+    () => (globalThis.crypto?.randomUUID?.() ?? ''),
+    [],
+  )
+
   // Preferred path: installation picker — backend derives site + platform.
   // Fallback path: manual Site dropdown + Platform free-text.
   const siteLabel = site === 'OTHER' ? customSite.trim() : site
@@ -113,6 +122,7 @@ export function MOCCreatePanel() {
       initiator_external_name: externalMode ? externalName.trim() || null : null,
       initiator_external_function: externalMode ? externalFunction.trim() || null : null,
       initiator_signature: initiatorSignature,
+      staging_ref: stagingRef || null,
     }
     try {
       const moc = await create.mutateAsync(payload)
@@ -308,6 +318,8 @@ export function MOCCreatePanel() {
               value={description}
               onChange={setDescription}
               rows={5}
+              imageOwnerType="moc_staging"
+              imageOwnerId={stagingRef}
             />
           </DynamicPanelField>
           <DynamicPanelField label={t('moc.fields.current_situation')} span="full">
@@ -315,6 +327,8 @@ export function MOCCreatePanel() {
               value={currentSituation}
               onChange={setCurrentSituation}
               rows={4}
+              imageOwnerType="moc_staging"
+              imageOwnerId={stagingRef}
             />
           </DynamicPanelField>
           <DynamicPanelField label={t('moc.fields.proposed_changes')} span="full">
@@ -322,6 +336,8 @@ export function MOCCreatePanel() {
               value={proposedChanges}
               onChange={setProposedChanges}
               rows={4}
+              imageOwnerType="moc_staging"
+              imageOwnerId={stagingRef}
             />
           </DynamicPanelField>
           <DynamicPanelField label={t('moc.fields.impact_analysis')} span="full">
@@ -330,6 +346,8 @@ export function MOCCreatePanel() {
               onChange={setImpactAnalysis}
               rows={4}
               placeholder={t('moc.fields.impact_analysis_ph') as string}
+              imageOwnerType="moc_staging"
+              imageOwnerId={stagingRef}
             />
           </DynamicPanelField>
         </FormSection>

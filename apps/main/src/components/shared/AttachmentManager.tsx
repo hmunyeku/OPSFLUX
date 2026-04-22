@@ -128,6 +128,11 @@ interface AttachmentManagerProps {
    *  and a filter tab-bar, plus a badge on each attached file.
    */
   categoryDictionary?: string
+  /** Category values to hide from the dropdown, filter bar, and list view.
+   *  Used e.g. by MOC to hide `inline_image` (those rows are managed by
+   *  the rich-text editor itself, not by the attachments panel).
+   */
+  hiddenCategories?: string[]
 }
 
 export function AttachmentManager({
@@ -137,10 +142,14 @@ export function AttachmentManager({
   initialShowForm,
   readOnly,
   categoryDictionary,
+  hiddenCategories,
 }: AttachmentManagerProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
-  const categoryOptions = useDictionaryOptions(categoryDictionary ?? '')
+  const rawCategoryOptions = useDictionaryOptions(categoryDictionary ?? '')
+  const categoryOptions = hiddenCategories?.length
+    ? rawCategoryOptions.filter((o) => !hiddenCategories.includes(o.value))
+    : rawCategoryOptions
   const [uploadCategory, setUploadCategory] = useState<string>('')
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const { data, isLoading } = useAttachments(
@@ -162,7 +171,9 @@ export function AttachmentManager({
     }
   }, [initialShowForm])
 
-  const attachments: FileAttachment[] = data ?? []
+  const attachments: FileAttachment[] = (data ?? []).filter((a) =>
+    !hiddenCategories?.length || !a.category || !hiddenCategories.includes(a.category),
+  )
 
   const handleUpload = useCallback(async (files: FileList | null) => {
     if (!files || !ownerId) return

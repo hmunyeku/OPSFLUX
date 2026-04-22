@@ -2079,8 +2079,16 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("moc_attachment_type", "pid_modified", "PID modifié", 2, {"en": "Modified PID"}),
         ("moc_attachment_type", "esd_initial", "ESD initial", 3, {"en": "Initial ESD"}),
         ("moc_attachment_type", "esd_modified", "ESD modifié", 4, {"en": "Modified ESD"}),
-        ("moc_attachment_type", "photo", "Photo", 5, {"en": "Photo"}),
-        ("moc_attachment_type", "study", "Étude", 6, {"en": "Study"}),
+        # Sloted illustrations rendered at dedicated positions in the PDF.
+        ("moc_attachment_type", "schema_current", "Schéma — situation actuelle", 10, {"en": "Schema — current situation"}),
+        ("moc_attachment_type", "schema_proposed", "Schéma — modifications proposées", 11, {"en": "Schema — proposed changes"}),
+        ("moc_attachment_type", "impact_illustration", "Illustration — analyse d'impact", 12, {"en": "Illustration — impact analysis"}),
+        ("moc_attachment_type", "photo", "Photo", 20, {"en": "Photo"}),
+        ("moc_attachment_type", "study", "Étude", 21, {"en": "Study"}),
+        # Hidden: inline images inserted via the Tiptap editor. The frontend
+        # filters this category out of the visible attachments list because
+        # those rows are managed by the editor itself (insert / delete).
+        ("moc_attachment_type", "inline_image", "Image (insérée dans l'éditeur)", 90, {"en": "Image (inserted in editor)"}),
         ("moc_attachment_type", "other", "Autre", 99, {"en": "Other"}),
         # Métiers disponibles sur la demande (Daxium multi-select).
         ("moc_metier", "INTEGRITE", "Intégrité", 1, {"en": "Integrity"}),

@@ -68,6 +68,16 @@ async def delete_file(object_key: str) -> None:
     logger.info("S3: deleted %s", object_key)
 
 
+async def download_bytes(object_key: str) -> bytes | None:
+    """Download a file from S3 and return the raw bytes (None on missing)."""
+    client = get_s3_client()
+    try:
+        resp = client.get_object(Bucket=settings.S3_BUCKET, Key=object_key)
+        return resp["Body"].read()
+    except ClientError:
+        return None
+
+
 async def ensure_bucket() -> None:
     """Create the bucket if it doesn't exist."""
     client = get_s3_client()

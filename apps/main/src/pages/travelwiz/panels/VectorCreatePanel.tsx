@@ -54,7 +54,7 @@ export function CreateVectorPanel() {
     >
       <form id="create-vector-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Identification">
+          <FormSection title={t('common.identification')}>
             <FormGrid>
               <DynamicPanelField label="Immatriculation" required>
                 <input type="text" required value={form.registration} onChange={(e) => setForm({ ...form, registration: e.target.value })} className={panelInputClass} placeholder="TJ-ABC" />
@@ -91,7 +91,7 @@ export function CreateVectorPanel() {
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
-          <FormSection title="Capacites">
+          <FormSection title={t('common.capacities')}>
             <FormGrid>
               <DynamicPanelField label="Capacité PAX" required>
                 <input type="number" min={0} required value={form.pax_capacity ?? 0} onChange={(e) => setForm({ ...form, pax_capacity: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />

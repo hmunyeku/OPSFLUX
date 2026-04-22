@@ -76,7 +76,7 @@ export function CreateTypePanel() {
 
           <SectionColumns>
             <div className="@container space-y-5">
-              <FormSection title="Informations">
+              <FormSection title={t('common.information')}>
                 <FormGrid>
                   <DynamicPanelField label="Code">
                     <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
@@ -92,7 +92,7 @@ export function CreateTypePanel() {
             </div>
 
             <div className="@container space-y-5">
-              <FormSection title="Description">
+              <FormSection title={t('common.description')}>
                 <textarea
                   value={form.description ?? ''}
                   onChange={(e) => setForm({ ...form, description: e.target.value || null })}

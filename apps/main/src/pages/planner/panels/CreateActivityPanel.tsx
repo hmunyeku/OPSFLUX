@@ -200,7 +200,7 @@ export function CreateActivityPanel() {
             )}
           </FormSection>
 
-          <FormSection title="Planning">
+          <FormSection title={t('common.planning')}>
             <DateRangePicker
               startDate={form.start_date ?? null}
               endDate={form.end_date ?? null}
@@ -209,7 +209,7 @@ export function CreateActivityPanel() {
             />
           </FormSection>
 
-          <FormSection title="Description">
+          <FormSection title={t('common.description')}>
             <DynamicPanelField label="Description" span="full">
               <textarea
                 value={form.description ?? ''}

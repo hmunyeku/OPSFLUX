@@ -52,7 +52,7 @@ export function CreateRotationPanel() {
     >
       <form id="create-rotation-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Identification">
+          <FormSection title={t('common.identification')}>
             <FormGrid>
               <DynamicPanelField label="Nom" required>
                 <input

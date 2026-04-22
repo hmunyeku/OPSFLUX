@@ -354,7 +354,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
 
         {detailTab === 'informations' && (
           editing ? (
-            <FormSection title="Informations">
+            <FormSection title={t('common.information')}>
               <FormGrid>
                 <DynamicPanelField label="Code">
                   <span className="text-sm font-mono font-medium text-foreground">{voyage.code}</span>
@@ -414,7 +414,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
             </FormSection>
           ) : (
             <>
-              <FormSection title="Informations">
+              <FormSection title={t('common.information')}>
                 <DetailFieldGrid>
                   <ReadOnlyRow label="Code" value={voyage.code} />
                   <ReadOnlyRow label="Vecteur" value={voyage.vector_name ?? '\u2014'} />
@@ -581,7 +581,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
               <p className="text-xs text-muted-foreground py-2">Le plan de pont interactif sera disponible prochainement.</p>
             </FormSection>
 
-            <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded>
+            <FormSection title={t('common.tags_notes_files')} collapsible defaultExpanded>
               <div className="space-y-3">
                 <TagManager ownerType="voyage" ownerId={voyage.id} compact />
                 <AttachmentManager ownerType="voyage" ownerId={voyage.id} compact />

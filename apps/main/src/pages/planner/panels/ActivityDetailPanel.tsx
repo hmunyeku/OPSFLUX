@@ -757,7 +757,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
           /* ── EDIT MODE ── */
           detailTab === 'informations' ? (
           <>
-            <FormSection title="Informations">
+            <FormSection title={t('common.information')}>
               <FormGrid>
                 <DynamicPanelField label="Titre" required>
                   <input
@@ -834,7 +834,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
               ) : null}
             </FormSection>
 
-            <FormSection title="Planning">
+            <FormSection title={t('common.planning')}>
               <DateRangePicker
                 startDate={(editForm.start_date as string) || null}
                 endDate={(editForm.end_date as string) || null}
@@ -843,7 +843,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
               />
             </FormSection>
 
-            <FormSection title="Description">
+            <FormSection title={t('common.description')}>
               <DynamicPanelField label="Description" span="full">
                 <textarea
                   value={editForm.description as string}
@@ -942,7 +942,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             <div className="@container space-y-5">
               <SectionColumns>
                 <div className="@container space-y-4">
-                  <FormSection title="Informations">
+                  <FormSection title={t('common.information')}>
                     <DetailFieldGrid>
                       <InlineEditableRow label="Titre" value={activity.title} onSave={(v) => handleInlineSave('title', v)} />
                       <ReadOnlyRow
@@ -997,7 +997,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                 </div>
               </SectionColumns>
 
-              <FormSection title="Planning">
+              <FormSection title={t('common.planning')}>
                 <DetailFieldGrid>
                   <InlineEditableRow
                     label="Date début"
@@ -1092,7 +1092,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                 )}
               </FormSection>
 
-              <FormSection title="Description">
+              <FormSection title={t('common.description')}>
                 <InlineEditableRow label="Description" value={activity.description ?? ''} onSave={(v) => handleInlineSave('description', v)} />
               </FormSection>
 
@@ -1364,7 +1364,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             </>)}
 
             {detailTab === 'documents' && (
-            <FormSection title="Tags, notes & fichiers" defaultExpanded>
+            <FormSection title={t('common.tags_notes_files')} defaultExpanded>
               <div className="space-y-3">
                 <TagManager ownerType="planner_activity" ownerId={activity.id} compact />
                 <AttachmentManager ownerType="planner_activity" ownerId={activity.id} compact />

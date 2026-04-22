@@ -64,7 +64,7 @@ export function CreateArticlePanel() {
     >
       <form id="create-article-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Identification">
+          <FormSection title={t('common.identification')}>
             <FormGrid>
               <DynamicPanelField label="Code SAP" required>
                 <input

@@ -235,7 +235,7 @@ export function CreateFieldPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Licence / Concession" collapsible>
+        <FormSection title={t('common.license_concession')} collapsible>
           <FormGrid>
             <DynamicPanelField label="N° licence">
               <input type="text" value={form.license_number || ''} onChange={(e) => set({ license_number: e.target.value })} className={panelInputClass} />
@@ -259,7 +259,7 @@ export function CreateFieldPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Localisation" collapsible>
+        <FormSection title={t('common.location')} collapsible>
           <FormGrid>
             <DynamicPanelField label="Latitude centroid">
               <input type="number" step="0.000001" value={form.centroid_latitude ?? ''} onChange={numChange(set, 'centroid_latitude')} className={panelInputClass} />
@@ -415,7 +415,7 @@ export function CreateSitePanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Localisation" collapsible>
+        <FormSection title={t('common.location')} collapsible>
           <FormGrid>
             <DynamicPanelField label="Latitude">
               <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={numChange(set, 'latitude')} className={panelInputClass} />
@@ -491,7 +491,7 @@ export function CreateSitePanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Dates" collapsible>
+        <FormSection title={t('common.dates')} collapsible>
           <FormGrid>
             <DynamicPanelField label="Date mise en service">
               <input type="date" value={form.commissioning_date || ''} onChange={(e) => set({ commissioning_date: e.target.value || undefined })} className={panelInputClass} />
@@ -611,7 +611,7 @@ export function CreateInstallationPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Localisation" collapsible>
+        <FormSection title={t('common.location')} collapsible>
           <FormGrid>
             <DynamicPanelField label="Latitude">
               <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={numChange(set, 'latitude')} className={panelInputClass} />
@@ -638,7 +638,7 @@ export function CreateInstallationPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Dates" collapsible>
+        <FormSection title={t('common.dates')} collapsible>
           <FormGrid>
             <DynamicPanelField label="Date installation">
               <input type="date" value={form.installation_date || ''} onChange={(e) => set({ installation_date: e.target.value || undefined })} className={panelInputClass} />
@@ -675,7 +675,7 @@ export function CreateInstallationPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Dimensions" collapsible>
+        <FormSection title={t('common.dimensions')} collapsible>
           <FormGrid>
             <DynamicPanelField label="Surface totale (m2)">
               <input type="number" step="0.1" min={0} value={form.total_area_m2 ?? ''} onChange={numChange(set, 'total_area_m2')} className={panelInputClass} />
@@ -691,7 +691,7 @@ export function CreateInstallationPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Classification" collapsible>
+        <FormSection title={t('common.classification')} collapsible>
           <FormGrid>
             <DynamicPanelField label={t('assets.design_code')}>
               <input type="text" value={form.design_code || ''} onChange={(e) => set({ design_code: e.target.value })} className={panelInputClass} />
@@ -822,7 +822,7 @@ export function CreateEquipmentPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Localisation" collapsible>
+        <FormSection title={t('common.location')} collapsible>
           <FormGrid>
             <DynamicPanelField label={t('assets.installation')}>
               <select value={form.installation_id || ''} onChange={(e) => set({ installation_id: e.target.value || undefined, deck_id: undefined })} className={panelInputClass}>
@@ -882,7 +882,7 @@ export function CreateEquipmentPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Fabricant" collapsible>
+        <FormSection title={t('common.manufacturer')} collapsible>
           <FormGrid>
             <DynamicPanelField label="Fabricant">
               <input type="text" value={form.manufacturer || ''} onChange={(e) => set({ manufacturer: e.target.value })} className={panelInputClass} />
@@ -906,7 +906,7 @@ export function CreateEquipmentPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Certification" collapsible>
+        <FormSection title={t('common.certification')} collapsible>
           <FormGrid>
             <DynamicPanelField label="N° certificat">
               <input type="text" value={form.cert_number || ''} onChange={(e) => set({ cert_number: e.target.value })} className={panelInputClass} />
@@ -1109,7 +1109,7 @@ export function CreatePipelinePanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Dimensions">
+        <FormSection title={t('common.dimensions')}>
           <FormGrid>
             <DynamicPanelField label={t('assets.nominal_diameter')} required>
               <input type="number" required step="0.1" min={0} value={form.nominal_diameter_in ?? ''} onChange={numChange(set, 'nominal_diameter_in')} className={panelInputClass} placeholder='pouces (")' />

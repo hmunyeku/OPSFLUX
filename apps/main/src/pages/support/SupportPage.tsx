@@ -198,7 +198,7 @@ function CreateTicketPanel() {
       }
     >
       <PanelContentLayout>
-        <FormSection title="Informations">
+        <FormSection title={t('common.information')}>
           <FormGrid>
             <DynamicPanelField label="Titre" required>
               <input
@@ -222,7 +222,7 @@ function CreateTicketPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Description">
+        <FormSection title={t('common.description')}>
           <textarea
             className={cn(panelInputClass, 'min-h-[120px] resize-y')}
             value={form.description || ''}
@@ -366,7 +366,7 @@ function TicketDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         {detailTab === 'details' && (
           <>
-            <FormSection title="Informations">
+            <FormSection title={t('common.information')}>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Référence" value={<span className="font-mono font-semibold text-primary">{ticket.reference}</span>} />
                 <InlineEditableRow label="Titre" value={ticket.title} onSave={(v) => handleSave('title', v)} />
@@ -383,7 +383,7 @@ function TicketDetailPanel({ id }: { id: string }) {
               </DetailFieldGrid>
             </FormSection>
 
-            <FormSection title="Description" collapsible defaultExpanded>
+            <FormSection title={t('common.description')} collapsible defaultExpanded>
               <InlineEditableRow label="Description" value={ticket.description || ''} onSave={(v) => handleSave('description', v)} />
             </FormSection>
 
@@ -687,7 +687,7 @@ function CreateAnnouncementPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Programmation">
+        <FormSection title={t('common.scheduling')}>
           <FormGrid>
             <DynamicPanelField label="Publication">
               <input type="datetime-local" className={panelInputClass} value={form.published_at ? form.published_at.slice(0, 16) : ''} onChange={e => setForm({ ...form, published_at: e.target.value ? new Date(e.target.value).toISOString() : null })} />
@@ -770,7 +770,7 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
       }
     >
       <PanelContentLayout>
-        <FormSection title="Informations">
+        <FormSection title={t('common.information')}>
           <DetailFieldGrid>
             <InlineEditableRow label="Titre" value={ann.title} onSave={(v) => handleSave('title', v)} />
             <ReadOnlyRow label="Priorité" value={<BadgeCell value={ANN_PRIORITY_LABELS[ann.priority] || ann.priority} variant={PRIORITY_BADGE[ann.priority] || 'neutral'} />} />
@@ -788,7 +788,7 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
           </DetailFieldGrid>
         </FormSection>
 
-        <FormSection title="Programmation">
+        <FormSection title={t('common.scheduling')}>
           <DetailFieldGrid>
             <ReadOnlyRow label="Publiée le" value={fmtDate(ann.published_at)} />
             <ReadOnlyRow label="Expire le" value={fmtDate(ann.expires_at)} />

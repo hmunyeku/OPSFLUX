@@ -115,7 +115,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
         {detailTab === 'fiche' && (
           editing ? (
             <>
-              <FormSection title="Identification">
+              <FormSection title={t('common.identification')}>
                 <FormGrid>
                   <DynamicPanelField label="Immatriculation"><input type="text" value={editForm.registration ?? ''} onChange={(e) => setEditForm({ ...editForm, registration: e.target.value })} className={panelInputClass} /></DynamicPanelField>
                   <DynamicPanelField label="Nom"><input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} /></DynamicPanelField>
@@ -141,7 +141,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
                   </DynamicPanelField>
                 </FormGrid>
               </FormSection>
-              <FormSection title="Capacites">
+              <FormSection title={t('common.capacities')}>
                 <FormGrid>
                   <DynamicPanelField label="Capacite PAX"><input type="number" min={0} value={editForm.pax_capacity ?? ''} onChange={(e) => setEditForm({ ...editForm, pax_capacity: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
                   <DynamicPanelField label="Capacite poids (kg)"><input type="number" min={0} step="any" value={editForm.weight_capacity_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_capacity_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
@@ -152,7 +152,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
           ) : (
             <SectionColumns>
               <div className="@container space-y-4">
-                <FormSection title="Identification">
+                <FormSection title={t('common.identification')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Immatriculation" value={<span className="font-mono">{vector.registration}</span>} />
                     <ReadOnlyRow label="Nom" value={vector.name} />
@@ -164,7 +164,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
                 </FormSection>
               </div>
               <div className="@container space-y-4">
-                <FormSection title="Capacites">
+                <FormSection title={t('common.capacities')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Capacite PAX" value={vector.pax_capacity} />
                     <ReadOnlyRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '—'} />

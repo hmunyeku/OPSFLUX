@@ -60,7 +60,7 @@ export function CreateJobPositionPanel() {
     >
       <form id="create-jp-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Informations">
+          <FormSection title={t('common.information')}>
             <FormGrid>
               <DynamicPanelField label="Code">
                 <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
@@ -74,7 +74,7 @@ export function CreateJobPositionPanel() {
             </FormGrid>
           </FormSection>
 
-          <FormSection title="Description">
+          <FormSection title={t('common.description')}>
             <textarea
               value={form.description ?? ''}
               onChange={(e) => setForm({ ...form, description: e.target.value || null })}

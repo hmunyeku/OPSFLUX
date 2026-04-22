@@ -856,7 +856,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
       {detailTab === 'informations' && (
       <PanelContentLayout>
         {/* Metadata */}
-        <FormSection title="Informations" collapsible defaultExpanded>
+        <FormSection title={t('common.information')} collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="Numéro" value={<span className="font-mono text-xs">{doc.number}</span>} />
             <ReadOnlyRow label="Titre" value={doc.title} />
@@ -1226,7 +1226,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* Workflow Actions */}
-        <FormSection title="Actions" collapsible defaultExpanded>
+        <FormSection title={t('common.actions')} collapsible defaultExpanded>
           <div className="space-y-2">
             {/* Dynamic workflow buttons (FSM-driven) — fallback to legacy when no workflow configured */}
             {hasWorkflow && wfState.available_transitions.length > 0 ? (
@@ -1432,7 +1432,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* Tags, Notes & Attachments */}
-        <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
+        <FormSection title={t('common.tags_notes_files')} collapsible defaultExpanded={false}>
           <div className="space-y-3">
             <TagManager ownerType="document" ownerId={doc.id} compact />
             <NoteManager ownerType="document" ownerId={doc.id} compact />
@@ -1442,7 +1442,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
       )}
       {detailTab === 'documents' && (
       <PanelContentLayout>
-        <FormSection title="Fichiers attaches" collapsible defaultExpanded>
+        <FormSection title={t('common.attached_files')} collapsible defaultExpanded>
           <AttachmentManager ownerType="document" ownerId={doc.id} compact />
         </FormSection>
       </PanelContentLayout>
@@ -2118,7 +2118,7 @@ function CreateDocumentPanel() {
           <SectionColumns>
             {/* Column 1: Identification */}
             <div className="@container space-y-5">
-              <FormSection title="Identification">
+              <FormSection title={t('common.identification')}>
                 <FormGrid>
                   <DynamicPanelField label="Titre" required span="full">
                     <input
@@ -2250,7 +2250,7 @@ function CreateDocTypePanel() {
         <PanelContentLayout>
           <SectionColumns>
             <div className="@container space-y-5">
-              <FormSection title="Identification">
+              <FormSection title={t('common.identification')}>
                 <FormGrid>
                   <DynamicPanelField label="Code">
                     <input type="text" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={cn(panelInputClass, 'font-mono')} placeholder={t('papyrus.placeholders.code_auto')} />
@@ -2356,7 +2356,7 @@ function CreateTemplatePanel() {
     >
       <form id="create-template-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Informations">
+          <FormSection title={t('common.information')}>
             <FormGrid>
               <DynamicPanelField label="Nom" required span="full">
                 <input type="text" required value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.template_name')} />
@@ -2468,7 +2468,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
       />
       {detailTab === 'informations' && (
       <PanelContentLayout>
-        <FormSection title="Identification">
+        <FormSection title={t('common.identification')}>
           <FormGrid>
             <ReadOnlyRow label="Code" value={docType.code} />
             {editing ? (
@@ -2510,7 +2510,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
       )}
       {detailTab === 'documents' && (
       <PanelContentLayout>
-        <FormSection title="Fichiers attaches" collapsible defaultExpanded>
+        <FormSection title={t('common.attached_files')} collapsible defaultExpanded>
           <AttachmentManager ownerType="document_type" ownerId={id} compact />
         </FormSection>
       </PanelContentLayout>
@@ -2607,7 +2607,7 @@ function TemplateDetailPanel({ id }: { id: string }) {
       />
       {detailTab === 'informations' && (
       <PanelContentLayout>
-        <FormSection title="Informations">
+        <FormSection title={t('common.information')}>
           <FormGrid>
             {editing ? (
               <>
@@ -2634,7 +2634,7 @@ function TemplateDetailPanel({ id }: { id: string }) {
       )}
       {detailTab === 'documents' && (
       <PanelContentLayout>
-        <FormSection title="Fichiers attaches" collapsible defaultExpanded>
+        <FormSection title={t('common.attached_files')} collapsible defaultExpanded>
           <AttachmentManager ownerType="template" ownerId={id} compact />
         </FormSection>
       </PanelContentLayout>

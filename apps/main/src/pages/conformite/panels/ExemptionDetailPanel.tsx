@@ -106,7 +106,7 @@ export function ExemptionDetailPanel({ id }: { id: string }) {
       />
       {detailTab === 'informations' && (
         <PanelContentLayout>
-          <FormSection title="Informations">
+          <FormSection title={t('common.information')}>
             <DetailFieldGrid>
               <ReadOnlyRow label="Statut" value={statusBadge} />
               <ReadOnlyRow label="Type de conformité" value={exemption.record_type_name || '--'} />
@@ -133,7 +133,7 @@ export function ExemptionDetailPanel({ id }: { id: string }) {
             </FormSection>
           )}
           {exemption.status === 'pending' && (
-            <FormSection title="Actions">
+            <FormSection title={t('common.actions')}>
               <div className="flex gap-2">
                 <PanelActionButton variant="primary" onClick={handleApprove} disabled={approveExemption.isPending}>
                   {approveExemption.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
@@ -164,7 +164,7 @@ export function ExemptionDetailPanel({ id }: { id: string }) {
       )}
       {detailTab === 'documents' && (
         <PanelContentLayout>
-          <FormSection title="Pièces jointes">
+          <FormSection title={t('common.attachments')}>
             <AttachmentManager ownerType="compliance_exemption" ownerId={exemption.id} compact />
           </FormSection>
         </PanelContentLayout>

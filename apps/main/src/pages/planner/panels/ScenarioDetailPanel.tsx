@@ -286,7 +286,7 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
         {/* ── Tab: Informations ── */}
         {detailTab === 'informations' && (
         <>
-        <FormSection title="Identification">
+        <FormSection title={t('common.identification')}>
           {editing ? (
             <FormGrid>
               <DynamicPanelField label="Titre" required>

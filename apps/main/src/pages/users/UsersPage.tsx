@@ -1356,7 +1356,7 @@ function UserDetailPanel({ id }: { id: string }) {
           <SectionColumns>
             {/* Column 1: Identity + Coordonnées */}
             <div className="@container space-y-5">
-                <FormSection title="Identité">
+                <FormSection title={t('common.identity')}>
                   <InlineEditableRow label={t('users.last_name')} value={user.last_name} onSave={(v) => handleInlineSave('last_name', v)} />
                   <InlineEditableRow label={t('users.first_name')} value={user.first_name} onSave={(v) => handleInlineSave('first_name', v)} />
                   <InlineEditableRow label="Nom passeport" value={user.passport_name || ''} onSave={(v) => updateUser.mutate({ id, payload: { passport_name: v || null } })} />
@@ -1644,7 +1644,7 @@ function UserDetailPanel({ id }: { id: string }) {
               </FormSection>
 
               {/* Notes & Fichiers */}
-              <FormSection title="Notes & Documents" collapsible storageKey="panel.user.sections" id="user-notes-files">
+              <FormSection title={t('common.notes_documents')} collapsible storageKey="panel.user.sections" id="user-notes-files">
                 <DetailFieldGrid>
                   <div>
                     <SubSectionLabel icon={MessageSquare} label="Notes" count={notes?.length ?? 0} />
@@ -1766,7 +1766,7 @@ function UserDetailPanel({ id }: { id: string }) {
                 />
               </FormSection>
 
-              <FormSection title="Actions">
+              <FormSection title={t('common.actions')}>
                 <div className="space-y-3">
                   <div>
                     <button

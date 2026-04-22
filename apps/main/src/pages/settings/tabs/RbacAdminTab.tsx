@@ -631,7 +631,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
     <div className="grid grid-cols-1 @xl:grid-cols-[1fr_1fr] gap-4">
       {/* Left column: Info + Groups */}
       <div className="space-y-1 min-w-0">
-        <FormSection title="Informations" defaultExpanded storageKey="rbac.role.info">
+        <FormSection title={t('common.information')} defaultExpanded storageKey="rbac.role.info">
           <div className="space-y-1">
             {!isProtected ? (
               <>
@@ -1898,7 +1898,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
     <div className="grid grid-cols-1 @xl:grid-cols-[1fr_1fr] gap-4">
       {/* Left column — Info + Members */}
       <div className="space-y-1 min-w-0">
-        <FormSection title="Informations" defaultExpanded storageKey="rbac.group.info">
+        <FormSection title={t('common.information')} defaultExpanded storageKey="rbac.group.info">
           <div className="space-y-1">
             <InlineEditableRow
               label="Nom"

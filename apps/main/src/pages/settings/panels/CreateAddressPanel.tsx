@@ -173,7 +173,7 @@ export function CreateAddressPanel() {
           />
         </FormSection>
 
-        <FormSection title="Informations">
+        <FormSection title={t('common.information')}>
           <DynamicPanelField label="Adresse ligne 1" required>
             <input type="text" className={panelInputClass} placeholder="Numéro et nom de rue" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
           </DynamicPanelField>

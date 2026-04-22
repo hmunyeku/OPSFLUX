@@ -141,7 +141,7 @@ export function EditRulePanel() {
       )}
 
       <div className="px-4 pb-2">
-        <FormSection title="Pièces jointes" defaultExpanded={false} collapsible>
+        <FormSection title={t('common.attachments')} defaultExpanded={false} collapsible>
           <AttachmentManager ownerType="compliance_rule" ownerId={rule.id} compact />
         </FormSection>
       </div>

@@ -351,7 +351,7 @@ function CreatePanel() {
       }
     >
       <form id="create-template-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title="Informations">
+        <FormSection title={t('common.information')}>
           <DynamicPanelField label="Slug (identifiant technique)" required>
             <input
               type="text"

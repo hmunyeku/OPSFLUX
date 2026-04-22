@@ -140,7 +140,7 @@ export function CreateAppPanel() {
       }
     >
       <form id="create-app-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title="Informations">
+        <FormSection title={t('common.information')}>
           <DynamicPanelField label="Nom de l'application" required>
             <input
               type="text"

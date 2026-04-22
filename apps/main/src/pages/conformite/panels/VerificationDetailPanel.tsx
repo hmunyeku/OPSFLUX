@@ -152,7 +152,7 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
             <ReadOnlyRow label="Soumis le" value={fmtDate(item.submitted_at)} />
           </DetailFieldGrid>
 
-        <FormSection title="Pièces jointes">
+        <FormSection title={t('common.attachments')}>
           {(item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0) && (
             <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               {t('conformite.verifications.proof_required_before_verify')}

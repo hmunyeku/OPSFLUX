@@ -101,14 +101,14 @@ export function JobPositionDetailPanel({ id }: { id: string }) {
       />
       {detailTab === 'fiche' && (
         <PanelContentLayout>
-          <FormSection title="Informations">
+          <FormSection title={t('common.information')}>
             <DetailFieldGrid>
               <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '—'}</span>} />
               <InlineEditableRow label="Intitulé" value={jp.name} onSave={(v) => handleSave('name', v)} />
               <InlineEditableRow label="Departement" value={jp.department || ''} onSave={(v) => handleSave('department', v)} />
             </DetailFieldGrid>
           </FormSection>
-          <FormSection title="Description">
+          <FormSection title={t('common.description')}>
             <InlineEditableRow label="Description" value={jp.description || ''} onSave={(v) => handleSave('description', v)} />
           </FormSection>
         </PanelContentLayout>
@@ -163,7 +163,7 @@ export function JobPositionDetailPanel({ id }: { id: string }) {
       )}
       {detailTab === 'documents' && (
         <PanelContentLayout>
-          <FormSection title="Pièces jointes">
+          <FormSection title={t('common.attachments')}>
             <AttachmentManager ownerType="job_position" ownerId={jp.id} compact />
           </FormSection>
         </PanelContentLayout>

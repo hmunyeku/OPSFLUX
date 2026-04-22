@@ -393,7 +393,7 @@ function CreateEntityPanel() {
       }
     >
       <form id="create-entity-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title="Identité">
+        <FormSection title={t('common.identity')}>
           <FormGrid>
             <DynamicPanelField label="Code" required>
               <input type="text" required maxLength={50} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="PER_CMR" />
@@ -667,7 +667,7 @@ function EntityDetailPanel({ id }: { id: string }) {
           <SectionColumns>
             {/* ─── Column 1: Identity + Coordonnées + Réseaux ─── */}
             <div className="@container space-y-5">
-              <FormSection title="Identité">
+              <FormSection title={t('common.identity')}>
                 <InlineEditableRow label="Code" value={entity.code} onSave={(v) => save('code', v)} disabled={!canUpdate} />
                 <InlineEditableRow label="Raison sociale" value={entity.name} onSave={(v) => save('name', v)} disabled={!canUpdate} />
                 <InlineEditableRow label="Nom commercial" value={entity.trade_name || ''} onSave={(v) => save('trade_name', v || null)} disabled={!canUpdate} />
@@ -765,7 +765,7 @@ function EntityDetailPanel({ id }: { id: string }) {
               </FormSection>
 
               {/* Notes & Documents */}
-              <FormSection title="Notes & Documents" collapsible storageKey="panel.entity.sections" id="entity-notes-files">
+              <FormSection title={t('common.notes_documents')} collapsible storageKey="panel.entity.sections" id="entity-notes-files">
                 <DetailFieldGrid>
                   <div>
                     <SubSectionLabel icon={MessageSquare} label="Notes" count={notes?.length ?? 0} />

@@ -75,7 +75,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
       />
       {detailTab === 'fiche' && (
         <PanelContentLayout>
-          <FormSection title="Informations">
+          <FormSection title={t('common.information')}>
             <DetailFieldGrid>
               <ReadOnlyRow label="Catégorie" value={<span className="gl-badge gl-badge-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
               <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
@@ -84,14 +84,14 @@ export function TypeDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label="Obligatoire" value={ct.is_mandatory ? 'Oui' : 'Non'} />
             </DetailFieldGrid>
           </FormSection>
-          <FormSection title="Description">
+          <FormSection title={t('common.description')}>
             <InlineEditableRow label="Description" value={ct.description || ''} onSave={(v) => handleSave('description', v)} />
           </FormSection>
         </PanelContentLayout>
       )}
       {detailTab === 'documents' && (
         <PanelContentLayout>
-          <FormSection title="Pièces jointes">
+          <FormSection title={t('common.attachments')}>
             <AttachmentManager ownerType="compliance_type" ownerId={ct.id} compact />
           </FormSection>
         </PanelContentLayout>

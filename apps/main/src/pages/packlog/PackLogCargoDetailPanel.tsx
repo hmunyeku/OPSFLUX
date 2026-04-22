@@ -512,7 +512,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
         )}
 
         {editing ? (
-          <FormSection title="Informations">
+          <FormSection title={t('common.information')}>
             <FormGrid>
               <DynamicPanelField label="Référence">
                 <span className="text-sm font-mono font-medium text-foreground">{cargo.code}</span>
@@ -684,7 +684,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
               <div className="space-y-4">
                 <SectionColumns>
                   <div className="@container space-y-4">
-                    <FormSection title="Identification">
+                    <FormSection title={t('common.identification')}>
                       <DetailFieldGrid>
                         <ReadOnlyRow label="Code" value={cargo.code} />
                         <ReadOnlyRow label="Designation" value={cargo.designation ?? '—'} />

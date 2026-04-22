@@ -395,7 +395,7 @@ export function FieldDetailPanel({ id }: { id: string }) {
             <FieldLicenseManager fieldId={id} compact />
           </FormSection>
 
-          <FormSection title="Tags">
+          <FormSection title={t('common.tags')}>
             <TagManager ownerType="ar_field" ownerId={id} compact />
           </FormSection>
 
@@ -625,7 +625,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
           </FormSection>
 
 
-          <FormSection title="Tags">
+          <FormSection title={t('common.tags')}>
             <TagManager ownerType="ar_site" ownerId={id} compact />
           </FormSection>
 
@@ -858,7 +858,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
             typeDetails={inst.inst_type_details}
           />
 
-          <FormSection title="Tags">
+          <FormSection title={t('common.tags')}>
             <TagManager ownerType="ar_installation" ownerId={id} compact />
           </FormSection>
 
@@ -1224,7 +1224,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
             )}
           </ErrorBoundary>
 
-          <FormSection title="Tags">
+          <FormSection title={t('common.tags')}>
             <TagManager ownerType="ar_equipment" ownerId={id} compact />
           </FormSection>
         </PanelContentLayout>
@@ -1529,7 +1529,7 @@ export function PipelineDetailPanel({ id }: { id: string }) {
             </FormSection>
           )}
 
-          <FormSection title="Tags">
+          <FormSection title={t('common.tags')}>
             <TagManager ownerType="ar_pipeline" ownerId={id} compact />
           </FormSection>
         </PanelContentLayout>

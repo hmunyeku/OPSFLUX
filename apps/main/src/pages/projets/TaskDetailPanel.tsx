@@ -486,7 +486,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
         {activeTab === 'details' && (
           <>
             {/* ── Identification (full width) ────────────────── */}
-            <FormSection title="Identification" collapsible defaultExpanded storageKey="task-detail-identity">
+            <FormSection title={t('common.identification')} collapsible defaultExpanded storageKey="task-detail-identity">
               <DetailFieldGrid>
                 <InlineEditableRow
                   label="Titre"
@@ -632,7 +632,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
               </div>
 
               <div className="@container space-y-5">
-                <FormSection title="Planning" collapsible defaultExpanded storageKey="task-detail-planning">
+                <FormSection title={t('common.planning')} collapsible defaultExpanded storageKey="task-detail-planning">
                   <DetailFieldGrid>
                     <InlineEditableRow
                       label="Début"

@@ -1541,7 +1541,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         {/* Description — shown above the Fiche section so the project's
             purpose/summary is the first thing the reader sees. */}
         {(project.description || isProjectFieldEditable(project, 'description', capabilities)) && (
-          <FormSection title="Description" collapsible defaultExpanded storageKey="project-detail-desc">
+          <FormSection title={t('common.description')} collapsible defaultExpanded storageKey="project-detail-desc">
             {isProjectFieldEditable(project, 'description', capabilities)
               ? <InlineEditableRow label="Description" value={project.description || ''} onSave={(v) => handleSave('description', v)} />
               : <ReadOnlyRow label="Description" value={<span className="text-sm whitespace-pre-wrap">{project.description || '—'}</span>} />}
@@ -1621,7 +1621,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               </DetailFieldGrid>
             </FormSection>
 
-            <FormSection title="Planning" collapsible defaultExpanded storageKey="project-detail-planning">
+            <FormSection title={t('common.planning')} collapsible defaultExpanded storageKey="project-detail-planning">
               <DetailFieldGrid>
                 <InlineEditableRow label="Début" value={toDateInputValue(project.start_date)} displayValue={toDateDisplayValue(project.start_date)} onSave={(v) => handleSave('start_date', v || null)} type="date" />
                 <InlineEditableRow label="Fin prévue" value={toDateInputValue(project.end_date)} displayValue={toDateDisplayValue(project.end_date)} onSave={(v) => handleSave('end_date', v || null)} type="date" />
@@ -1741,7 +1741,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         </>}
 
         {detailTab === 'documents' && (
-          <FormSection title="Notes & Documents" collapsible defaultExpanded storageKey="project-detail-docs">
+          <FormSection title={t('common.notes_documents')} collapsible defaultExpanded storageKey="project-detail-docs">
             <DetailFieldGrid>
               <div>
                 <NoteManager ownerType="project" ownerId={project.id} compact />

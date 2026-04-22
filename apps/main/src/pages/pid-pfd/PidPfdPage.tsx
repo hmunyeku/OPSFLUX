@@ -487,7 +487,7 @@ function PIDDetailPanel({ id }: { id: string }) {
           {/* ── Left Column ── */}
           <div className="space-y-5">
             {/* Identification */}
-            <FormSection title="Identification" collapsible defaultExpanded>
+            <FormSection title={t('common.identification')} collapsible defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Numero" value={doc.number} />
                 <InlineEditableRow label="Titre" value={doc.title} onSave={handleFieldSave('title')} />
@@ -517,7 +517,7 @@ function PIDDetailPanel({ id }: { id: string }) {
           {/* ── Right Column ── */}
           <div className="space-y-5">
             {/* Associations */}
-            <FormSection title="Associations" collapsible defaultExpanded>
+            <FormSection title={t('common.associations')} collapsible defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
                 <ReadOnlyRow label="Equipements" value={<span className="tabular-nums">{doc.equipment_count}</span>} />
@@ -614,7 +614,7 @@ function PIDDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* Tags & Notes */}
-        <FormSection title="Tags & notes" collapsible defaultExpanded={false}>
+        <FormSection title={t('common.tags_notes')} collapsible defaultExpanded={false}>
           <div className="space-y-3">
             <TagManager ownerType="pid_document" ownerId={doc.id} compact />
             <NoteManager ownerType="pid_document" ownerId={doc.id} compact />
@@ -633,7 +633,7 @@ function PIDDetailPanel({ id }: { id: string }) {
       )}
       {detailTab === 'documents' && (
       <PanelContentLayout>
-        <FormSection title="Fichiers attaches" collapsible defaultExpanded>
+        <FormSection title={t('common.attached_files')} collapsible defaultExpanded>
           <AttachmentManager ownerType="pid_document" ownerId={doc.id} compact />
         </FormSection>
       </PanelContentLayout>
@@ -1415,7 +1415,7 @@ function CreatePIDPanel() {
   return (
     <DynamicPanelShell title="Nouveau PID" icon={<FilePlus2 size={14} />} onClose={closeDynamicPanel}>
       <PanelContentLayout>
-        <FormSection title="Informations">
+        <FormSection title={t('common.information')}>
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Titre *</label>
@@ -1510,7 +1510,7 @@ function CreateEquipmentPanel() {
   return (
     <DynamicPanelShell title="Nouvel équipement" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
       <PanelContentLayout>
-        <FormSection title="Identification">
+        <FormSection title={t('common.identification')}>
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Tag *</label>
@@ -1529,7 +1529,7 @@ function CreateEquipmentPanel() {
           </div>
         </FormSection>
 
-        <FormSection title="Associations">
+        <FormSection title={t('common.associations')}>
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Document PID</label>
@@ -1668,7 +1668,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
       {detailTab === 'fiche' && (
       <PanelContentLayout>
         {/* -- Identification -- */}
-        <FormSection title="Identification" collapsible defaultExpanded>
+        <FormSection title={t('common.identification')} collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="Tag" value={<span className="font-mono font-medium text-foreground">{equip.tag}</span>} />
             <InlineEditableRow label="Description" value={equip.description || ''} onSave={(v) => handleInlineSave('description', v)} />
@@ -1724,7 +1724,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* -- Associations -- */}
-        <FormSection title="Associations" collapsible defaultExpanded>
+        <FormSection title={t('common.associations')} collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="PID" value={equip.pid_number ? <span className="font-mono text-xs">{equip.pid_number}</span> : '--'} />
             <ReadOnlyRow label="Projet" value={equip.project_name || '--'} />
@@ -1734,7 +1734,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* -- Tags & Notes -- */}
-        <FormSection title="Tags & notes" collapsible defaultExpanded={false}>
+        <FormSection title={t('common.tags_notes')} collapsible defaultExpanded={false}>
           <div className="space-y-3">
             <TagManager ownerType="equipment" ownerId={id} compact />
             <NoteManager ownerType="equipment" ownerId={id} compact />
@@ -1744,7 +1744,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
       )}
       {detailTab === 'documents' && (
       <PanelContentLayout>
-        <FormSection title="Fichiers attaches" collapsible defaultExpanded>
+        <FormSection title={t('common.attached_files')} collapsible defaultExpanded>
           <AttachmentManager ownerType="equipment" ownerId={id} compact />
         </FormSection>
       </PanelContentLayout>
@@ -1803,7 +1803,7 @@ function CreateProcessLinePanel() {
   return (
     <DynamicPanelShell title="Nouvelle ligne process" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
       <PanelContentLayout>
-        <FormSection title="Identification">
+        <FormSection title={t('common.identification')}>
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Numéro de ligne *</label>
@@ -1819,7 +1819,7 @@ function CreateProcessLinePanel() {
           </div>
         </FormSection>
 
-        <FormSection title="Dimensions">
+        <FormSection title={t('common.dimensions')}>
           <div className="space-y-3 p-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1918,7 +1918,7 @@ function CreateDCSTagPanel() {
   return (
     <DynamicPanelShell title="Nouveau tag DCS" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
       <PanelContentLayout>
-        <FormSection title="Identification">
+        <FormSection title={t('common.identification')}>
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Nom du tag *</label>

@@ -307,7 +307,7 @@ export function CreateCargoPanel() {
         <PanelContentLayout>
           <SectionColumns>
             <div className="@container space-y-5">
-              <FormSection title="Identification">
+              <FormSection title={t('common.identification')}>
                 <FormGrid>
                   <DynamicPanelField label="Demande d’expédition">
                     <select value={form.request_id ?? ''} onChange={(e) => setForm({ ...form, request_id: e.target.value || null })} className={panelInputClass} disabled={!!preselectedRequestId}>
@@ -387,7 +387,7 @@ export function CreateCargoPanel() {
               </FormSection>
             </div>
             <div className="@container space-y-5">
-              <FormSection title="Dimensions">
+              <FormSection title={t('common.dimensions')}>
                 <FormGrid>
                   <DynamicPanelField label="Poids (kg)" required>
                     <input type="number" min={0.001} step="any" required value={form.weight_kg || ''} onChange={(e) => setForm({ ...form, weight_kg: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />

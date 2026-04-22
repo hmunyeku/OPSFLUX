@@ -112,7 +112,7 @@ export function CreateProjectPanel() {
         <PanelContentLayout>
           <SectionColumns>
             <div className="@container space-y-5">
-              <FormSection title="Identification">
+              <FormSection title={t('common.identification')}>
                 <FormGrid>
                   <DynamicPanelField label="Code">
                     <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
@@ -139,7 +139,7 @@ export function CreateProjectPanel() {
                 </FormGrid>
               </FormSection>
 
-              <FormSection title="Planning">
+              <FormSection title={t('common.planning')}>
                 <DateRangePicker
                   startDate={form.start_date?.split('T')[0] ?? null}
                   endDate={form.end_date?.split('T')[0] ?? null}
@@ -184,7 +184,7 @@ export function CreateProjectPanel() {
                 )}
               </FormSection>
 
-              <FormSection title="Description" collapsible defaultExpanded={false}>
+              <FormSection title={t('common.description')} collapsible defaultExpanded={false}>
                 <textarea
                   value={form.description ?? ''}
                   onChange={(e) => setForm({ ...form, description: e.target.value || null })}

@@ -123,7 +123,7 @@ export function CreateTokenPanel() {
       }
     >
       <form id="create-token-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title="Informations">
+        <FormSection title={t('common.information')}>
           <DynamicPanelField label={t('settings.nom_du_jeton')} required>
             <input
               type="text"

@@ -51,7 +51,7 @@ export function CreateVoyagePanel() {
     >
       <form id="create-voyage-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Identification">
+          <FormSection title={t('common.identification')}>
             <FormGrid>
               <DynamicPanelField label="Référence">
                 <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
@@ -75,7 +75,7 @@ export function CreateVoyagePanel() {
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
-          <FormSection title="Programmation">
+          <FormSection title={t('common.scheduling')}>
             <FormGrid>
               <DynamicPanelField label="Rotation">
                 <select

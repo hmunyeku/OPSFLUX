@@ -464,7 +464,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
           /* ── Informations tab ──────────────────────────────── */
           <div className="space-y-5">
             {/* Identification & expédition */}
-            <FormSection title="Identification">
+            <FormSection title={t('common.identification')}>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Code" value={<span className="font-mono text-xs">{cargoRequest.request_code}</span>} />
                 <ReadOnlyRow
@@ -484,7 +484,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             {cargoRequest.description && (
-              <FormSection title="Description">
+              <FormSection title={t('common.description')}>
                 <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">
                   {cargoRequest.description}
                 </p>

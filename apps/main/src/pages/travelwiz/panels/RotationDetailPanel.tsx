@@ -96,7 +96,7 @@ export function RotationDetailPanel({ id }: { id: string }) {
         {detailTab === 'informations' && (
           editing ? (
             <>
-              <FormSection title="Identification">
+              <FormSection title={t('common.identification')}>
                 <FormGrid>
                   <DynamicPanelField label="Nom">
                     <input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} />
@@ -118,7 +118,7 @@ export function RotationDetailPanel({ id }: { id: string }) {
                   </DynamicPanelField>
                 </FormGrid>
               </FormSection>
-              <FormSection title="Programmation">
+              <FormSection title={t('common.scheduling')}>
                 <FormGrid>
                   <DynamicPanelField label="Expression CRON">
                     <input type="text" value={editForm.schedule_cron ?? ''} onChange={(e) => setEditForm({ ...editForm, schedule_cron: e.target.value || null })} className={panelInputClass} />
@@ -138,7 +138,7 @@ export function RotationDetailPanel({ id }: { id: string }) {
           ) : (
             <SectionColumns>
               <div className="@container space-y-4">
-                <FormSection title="Identification">
+                <FormSection title={t('common.identification')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Nom" value={rotation.name} />
                     <ReadOnlyRow label="Vecteur" value={rotation.vector_name ?? '\u2014'} />
@@ -148,7 +148,7 @@ export function RotationDetailPanel({ id }: { id: string }) {
                 </FormSection>
               </div>
               <div className="@container space-y-4">
-                <FormSection title="Programmation">
+                <FormSection title={t('common.scheduling')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Expression CRON" value={rotation.schedule_cron ?? '\u2014'} />
                     <ReadOnlyRow label="Description metier" value={rotation.schedule_description ?? '\u2014'} />

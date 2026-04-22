@@ -11,12 +11,20 @@ import { useDictionaryLabels } from '@/hooks/useDictionary'
 import {
   DynamicPanelShell,
   PanelContentLayout,
-  FormSection,
   FormGrid,
   DynamicPanelField,
   PanelActionButton,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { VariablePobEditor } from '../VariablePobEditor'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -39,9 +47,18 @@ import {
 } from '../shared'
 
 export function CreateActivityPanel() {
+  return (
+    <SmartFormProvider panelId="create-activity" defaultMode="simple">
+      <ActivityInner />
+    </SmartFormProvider>
+  )
+}
+
+function ActivityInner() {
   const { t } = useTranslation()
   const { toast } = useToast()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const ctx = useSmartForm()
   const createActivity = useCreateActivity()
   const activityTypeLabels = useDictionaryLabels('planner_activity_type', ACTIVITY_TYPE_LABELS_FALLBACK)
   const priorityLabels = useDictionaryLabels('planner_activity_priority', PRIORITY_LABELS_FALLBACK)
@@ -105,7 +122,10 @@ export function CreateActivityPanel() {
     >
       <form id="create-activity-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Informations générales">
+          <SmartFormToolbar />
+          <SmartFormSimpleHint />
+          <SmartFormInlineHelpDrawer />
+          <SmartFormSection id="general" title={t('planner.activity.section_general', 'Informations générales')} level="essential" help={{ description: t('planner.activity.help.general_description'), tips: [ t('planner.activity.help.general_tip_title'), t('planner.activity.help.general_tip_site'), t('planner.activity.help.general_tip_project') ] }}>
             <FormGrid>
               <DynamicPanelField label={t('common.title_field')} required>
                 <input
@@ -132,9 +152,9 @@ export function CreateActivityPanel() {
                 />
               </DynamicPanelField>
             </FormGrid>
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title="Type et priorité">
+          <SmartFormSection id="type" title={t('planner.activity.section_type', 'Type et priorité')} level="essential" help={{ description: t('planner.activity.help.type_description'), tips: [ t('planner.activity.help.type_tip_pob') ] }}>
             <FormGrid>
               <DynamicPanelField label={t('common.type_field')} required>
                 <select
@@ -203,18 +223,18 @@ export function CreateActivityPanel() {
                 />
               </div>
             )}
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title={t('common.planning')}>
+          <SmartFormSection id="planning" title={t('common.planning')} level="essential" help={{ description: t('planner.activity.help.planning_description') }}>
             <DateRangePicker
               startDate={form.start_date ?? null}
               endDate={form.end_date ?? null}
               onStartChange={(v) => setForm({ ...form, start_date: v || null })}
               onEndChange={(v) => setForm({ ...form, end_date: v || null })}
             />
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title={t('common.description')}>
+          <SmartFormSection id="description" title={t('common.description')} level="essential" help={{ description: t('planner.activity.help.description_description') }}>
             <DynamicPanelField label={t('common.description')} span="full">
               <RichTextField
                 value={form.description ?? ''}
@@ -225,34 +245,34 @@ export function CreateActivityPanel() {
                 imageOwnerId={stagingRef}
               />
             </DynamicPanelField>
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+          <SmartFormSection id="attachments" title={t('common.attachments')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('planner.activity.help.attachments_description') }}>
             <AttachmentManager
               ownerType={stagingOwnerType}
               ownerId={stagingRef}
               compact
             />
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+          <SmartFormSection id="notes" title={t('common.notes')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('planner.activity.help.notes_description') }}>
             <NoteManager
               ownerType={stagingOwnerType}
               ownerId={stagingRef}
               compact
             />
-          </FormSection>
+          </SmartFormSection>
 
-          <FormSection title={t('common.tags')} collapsible defaultExpanded={false}>
+          <SmartFormSection id="tags" title={t('common.tags')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('planner.activity.help.tags_description') }}>
             <TagManager
               ownerType={stagingOwnerType}
               ownerId={stagingRef}
               compact
             />
-          </FormSection>
+          </SmartFormSection>
 
           {form.type === 'workover' && (
-            <FormSection title={t('common.workover_details')}>
+            <SmartFormSection id="workover" title={t('common.workover_details')} level="advanced" help={{ description: t('planner.activity.help.workover_description') }}>
               <FormGrid>
                 <DynamicPanelField label={t('common.well_reference')}>
                   <input
@@ -273,11 +293,11 @@ export function CreateActivityPanel() {
                   />
                 </DynamicPanelField>
               </FormGrid>
-            </FormSection>
+            </SmartFormSection>
           )}
 
           {form.type === 'drilling' && (
-            <FormSection title={t('common.drilling_details')}>
+            <SmartFormSection id="drilling" title={t('common.drilling_details')} level="advanced" help={{ description: t('planner.activity.help.drilling_description') }}>
               <FormGrid>
                 <DynamicPanelField label={t('common.spud_date')}>
                   <input
@@ -306,11 +326,11 @@ export function CreateActivityPanel() {
                   />
                 </DynamicPanelField>
               </FormGrid>
-            </FormSection>
+            </SmartFormSection>
           )}
 
           {(form.type === 'maintenance' || form.type === 'integrity') && (
-            <FormSection title={t('common.maintenance_details')}>
+            <SmartFormSection id="maintenance" title={t('common.maintenance_details')} level="advanced" help={{ description: t('planner.activity.help.maintenance_description') }}>
               <FormGrid>
                 <DynamicPanelField label={t('common.regulatory_reference')}>
                   <input
@@ -331,7 +351,15 @@ export function CreateActivityPanel() {
                   />
                 </DynamicPanelField>
               </FormGrid>
-            </FormSection>
+            </SmartFormSection>
+          )}
+          {ctx?.mode === 'wizard' && (
+            <SmartFormWizardNav
+              onSubmit={() => (document.getElementById('create-activity-form') as HTMLFormElement)?.requestSubmit()}
+              onCancel={closeDynamicPanel}
+              submitDisabled={createActivity.isPending}
+              submitLabel={t('common.create', 'Créer')}
+            />
           )}
         </PanelContentLayout>
       </form>

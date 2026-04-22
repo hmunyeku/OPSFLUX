@@ -4,7 +4,16 @@ import { useUIStore } from '@/stores/uiStore'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useState } from 'react'
 import { useTiers } from '@/hooks/useTiers'
-import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormSection, TagSelector, DynamicPanelField, panelInputClass } from '@/components/layout/DynamicPanel'
+import { DynamicPanelShell, PanelActionButton, PanelContentLayout, TagSelector, DynamicPanelField, panelInputClass } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormWizardNav,
+  SmartFormInlineHelpDrawer,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { AlertTriangle, Loader2, User, Building2, Users } from 'lucide-react'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -15,9 +24,18 @@ import { useStagingRef } from '@/hooks/useStagingRef'
 import { SearchablePicker } from '../shared'
 
 export function CreateIncidentPanel() {
+  return (
+    <SmartFormProvider panelId="create-incident" defaultMode="simple">
+      <IncidentInner />
+    </SmartFormProvider>
+  )
+}
+
+function IncidentInner() {
   const { t } = useTranslation()
   const createIncident = useCreatePaxIncident()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const ctx = useSmartForm()
   const severityOptions = useDictionaryOptions('pax_incident_severity')
   const [targetScope, setTargetScope] = useState<'pax' | 'company' | 'group'>('pax')
   const { stagingRef, stagingOwnerType } = useStagingRef('pax_incident')
@@ -105,15 +123,18 @@ export function CreateIncidentPanel() {
     >
       <form id="create-incident-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-        <FormSection title={t('paxlog.incident_panel.sections.severity')}>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+        <SmartFormSection id="severity" title={t('paxlog.incident_panel.sections.severity')} level="essential" help={{ description: t('paxlog.incident_panel.help.severity_description'), items: [ { label: t('paxlog.incident_panel.severity.info', 'Info'), text: t('paxlog.incident_panel.help.severity_info') }, { label: t('paxlog.incident_panel.severity.warning', 'Warning'), text: t('paxlog.incident_panel.help.severity_warning') }, { label: t('paxlog.incident_panel.severity.site_ban', 'Site ban'), text: t('paxlog.incident_panel.help.severity_site_ban') }, { label: t('paxlog.incident_panel.severity.temp_ban', 'Temp ban'), text: t('paxlog.incident_panel.help.severity_temp_ban') }, { label: t('paxlog.incident_panel.severity.permanent_ban', 'Permanent ban'), text: t('paxlog.incident_panel.help.severity_permanent_ban') } ] }}>
           <TagSelector
             options={severityOptions}
             value={form.severity}
             onChange={(v) => setForm({ ...form, severity: v as typeof form.severity })}
           />
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.incident_panel.sections.concerned_pax')}>
+        <SmartFormSection id="concerned" title={t('paxlog.incident_panel.sections.concerned_pax')} level="essential" help={{ description: t('paxlog.incident_panel.help.concerned_description'), tips: [ t('paxlog.incident_panel.help.concerned_tip_pax'), t('paxlog.incident_panel.help.concerned_tip_company'), t('paxlog.incident_panel.help.concerned_tip_group') ] }}>
           <TagSelector
             options={[
               { value: 'pax', label: t('paxlog.incident_panel.target_scope.pax') },
@@ -229,9 +250,9 @@ export function CreateIncidentPanel() {
               />
             </div>
           )}
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('paxlog.incident_panel.sections.details')}>
+        <SmartFormSection id="details" title={t('paxlog.incident_panel.sections.details')} level="essential" help={{ description: t('paxlog.incident_panel.help.details_description'), tips: [ t('paxlog.incident_panel.help.details_tip_date'), t('paxlog.incident_panel.help.details_tip_description') ] }}>
           <DynamicPanelField label={t('paxlog.incident_panel.fields.incident_date')} required>
             <input type="date" required value={form.incident_date} onChange={(e) => setForm({ ...form, incident_date: e.target.value })} className={panelInputClass} />
           </DynamicPanelField>
@@ -253,10 +274,10 @@ export function CreateIncidentPanel() {
               imageOwnerId={stagingRef}
             />
           </DynamicPanelField>
-        </FormSection>
+        </SmartFormSection>
 
         {showBanDates && (
-          <FormSection title={t('paxlog.incident_panel.sections.ban_period')}>
+          <SmartFormSection id="ban_period" title={t('paxlog.incident_panel.sections.ban_period')} level="essential" help={{ description: t('paxlog.incident_panel.help.ban_period_description') }}>
             {form.severity === 'temp_ban' ? (
               <DateRangePicker
                 startDate={form.ban_start_date || null}
@@ -271,24 +292,32 @@ export function CreateIncidentPanel() {
                 <input type="date" value={form.ban_start_date || ''} onChange={(e) => setForm({ ...form, ban_start_date: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
             )}
-          </FormSection>
+          </SmartFormSection>
         )}
 
-        <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+        <SmartFormSection id="attachments" title={t('common.attachments')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('paxlog.incident_panel.help.attachments_description') }}>
           <AttachmentManager
             ownerType={stagingOwnerType}
             ownerId={stagingRef}
             compact
           />
-        </FormSection>
+        </SmartFormSection>
 
-        <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+        <SmartFormSection id="notes" title={t('common.notes')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('paxlog.incident_panel.help.notes_description') }}>
           <NoteManager
             ownerType={stagingOwnerType}
             ownerId={stagingRef}
             compact
           />
-        </FormSection>
+        </SmartFormSection>
+        {ctx?.mode === 'wizard' && (
+          <SmartFormWizardNav
+            onSubmit={() => (document.getElementById('create-incident-form') as HTMLFormElement)?.requestSubmit()}
+            onCancel={closeDynamicPanel}
+            submitDisabled={createIncident.isPending}
+            submitLabel={t('common.create')}
+          />
+        )}
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

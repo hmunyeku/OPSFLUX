@@ -3227,6 +3227,31 @@
         "search_company": "Rechercher une entreprise...",
         "search_group": "Rechercher un groupe PAX...",
         "description": "Décrire l'incident..."
+      },
+      "severity": {
+        "info": "Info",
+        "warning": "Avertissement",
+        "site_ban": "Ban de site",
+        "temp_ban": "Ban temporaire",
+        "permanent_ban": "Ban définitif"
+      },
+      "help": {
+        "severity_description": "Choisissez la gravité du signalement — elle conditionne les actions qui suivent (notifications, blocages d'accès, durée).",
+        "severity_info": "Simple information à conserver dans l'historique PAX. Aucune action automatique.",
+        "severity_warning": "Avertissement visible par les planificateurs. Le PAX reste autorisé.",
+        "severity_site_ban": "Interdiction d'accès à un site précis. Nécessite de sélectionner l'asset concerné.",
+        "severity_temp_ban": "Interdiction d'accès pour une période bornée. Dates de début et fin obligatoires.",
+        "severity_permanent_ban": "Interdiction définitive. Le PAX ne pourra plus être embarqué tant que l'incident reste actif.",
+        "concerned_description": "Identifiez qui est concerné. Un incident peut viser un individu, une entreprise entière ou un groupe PAX.",
+        "concerned_tip_pax": "Cas le plus fréquent — un comportement individuel.",
+        "concerned_tip_company": "Pour sanctionner une société (retard récurrent, non-respect des règles).",
+        "concerned_tip_group": "Pour sanctionner un groupe PAX (équipe, quart, chantier).",
+        "details_description": "Détail factuel de l'incident. La description est un champ riche (images, listes, tableaux).",
+        "details_tip_date": "Par défaut la date du jour est pré-remplie — corrigez si l'incident est antérieur.",
+        "details_tip_description": "Soyez factuel : qui, quand, où, comment. Les émotions n'aident pas l'enquête ultérieure.",
+        "ban_period_description": "Borne temporelle du ban. Pour un ban temporaire, les deux dates sont nécessaires ; pour un ban permanent seule la date de début l'est.",
+        "attachments_description": "Photos, rapports, emails liés à l'incident.",
+        "notes_description": "Notes internes visibles uniquement dans OpsFlux."
       }
     },
     "rotation_panel": {
@@ -3252,6 +3277,26 @@
   "planner": {
     "title": "Planner",
     "subtitle": "Planification opérationnelle et gestion de capacité",
+    "activity": {
+      "section_general": "Informations générales",
+      "section_type": "Type et priorité",
+      "help": {
+        "general_description": "Identifiez l'activité et son contexte opérationnel (titre, site, projet rattaché).",
+        "general_tip_title": "Privilégiez un titre métier clair — évitez les codes techniques purs.",
+        "general_tip_site": "Le site est obligatoire — il conditionne la disponibilité POB et les règles de validation.",
+        "general_tip_project": "Rattacher l'activité à un projet aide au rollup d'avancement Gantt.",
+        "type_description": "Choisissez le type d'activité (project, workover, drilling, maintenance, etc.) — il active les champs spécifiques (puits, profondeur, bon de travail).",
+        "type_tip_pob": "Le mode POB variable permet de modéliser des plans POB jour par jour ; utile pour les longs chantiers.",
+        "planning_description": "Fenêtre temporelle de l'activité. Les dates affectent les conflits POB et le planning.",
+        "description_description": "Description riche — images, tableaux, liens. Tapez « / » pour ouvrir le menu de blocs Notion-like.",
+        "attachments_description": "Documents liés (plans, schémas, bons de travail).",
+        "notes_description": "Notes internes visibles uniquement dans OpsFlux.",
+        "tags_description": "Tags pour filtrer dans la liste et les rapports.",
+        "workover_description": "Détails propres à un workover — référence puits et rig.",
+        "drilling_description": "Détails propres à un drilling — spud date, profondeur cible, référence programme.",
+        "maintenance_description": "Détails réglementaires — référence réglementaire, bon de travail."
+      }
+    },
     "tabs": {
       "dashboard": "Tableau de bord",
       "timeline": "Plan",

@@ -3064,6 +3064,31 @@
         "search_company": "Search for a company...",
         "search_group": "Search for a PAX group...",
         "description": "Describe the incident..."
+      },
+      "severity": {
+        "info": "Info",
+        "warning": "Warning",
+        "site_ban": "Site ban",
+        "temp_ban": "Temporary ban",
+        "permanent_ban": "Permanent ban"
+      },
+      "help": {
+        "severity_description": "Pick the severity — it drives downstream actions (notifications, access blocks, duration).",
+        "severity_info": "Informational entry kept in the PAX history. No automatic action.",
+        "severity_warning": "Warning visible to planners. The PAX is still authorized.",
+        "severity_site_ban": "Access denied on a specific site. You must select the asset.",
+        "severity_temp_ban": "Access denied for a bounded period. Start and end dates are required.",
+        "severity_permanent_ban": "Permanent denial. The PAX cannot be boarded while the incident is active.",
+        "concerned_description": "Identify who is concerned. An incident can target an individual, a whole company, or a PAX group.",
+        "concerned_tip_pax": "Most common case — an individual behavior.",
+        "concerned_tip_company": "To sanction a company (chronic delays, rule breaches).",
+        "concerned_tip_group": "To sanction a PAX group (team, shift, site).",
+        "details_description": "Factual detail of the incident. The description is a rich field (images, lists, tables).",
+        "details_tip_date": "Today's date is prefilled — change it if the incident happened earlier.",
+        "details_tip_description": "Stay factual: who, when, where, how. Emotions will not help later investigation.",
+        "ban_period_description": "Time bounds of the ban. A temporary ban needs both dates; a permanent ban only needs the start date.",
+        "attachments_description": "Pictures, reports, emails tied to the incident.",
+        "notes_description": "Internal notes visible only in OpsFlux."
       }
     },
     "rotation_panel": {
@@ -3087,6 +3112,26 @@
     "qr_operationnel": "Operational QR"
   },
   "planner": {
+    "activity": {
+      "section_general": "General information",
+      "section_type": "Type and priority",
+      "help": {
+        "general_description": "Identify the activity and its operational context (title, site, linked project).",
+        "general_tip_title": "Prefer a clear business title — avoid pure technical codes.",
+        "general_tip_site": "Site is mandatory — it drives POB availability and validation rules.",
+        "general_tip_project": "Linking the activity to a project helps Gantt progress rollup.",
+        "type_description": "Pick the activity type (project, workover, drilling, maintenance, etc.) — it unlocks specific fields (well, depth, work order).",
+        "type_tip_pob": "Variable POB mode lets you model day-by-day POB plans; useful for long campaigns.",
+        "planning_description": "Activity time window. Dates drive POB conflicts and scheduling.",
+        "description_description": "Rich description — images, tables, links. Type \"/\" to open the Notion-like block menu.",
+        "attachments_description": "Linked documents (drawings, schemas, work orders).",
+        "notes_description": "Internal notes visible only in OpsFlux.",
+        "tags_description": "Tags to filter in the list and reports.",
+        "workover_description": "Workover-specific details — well reference and rig name.",
+        "drilling_description": "Drilling-specific details — spud date, target depth, program reference.",
+        "maintenance_description": "Regulatory details — regulatory reference, work order."
+      }
+    },
     "title": "Planner",
     "subtitle": "Operational planning and capacity management",
     "tabs": {

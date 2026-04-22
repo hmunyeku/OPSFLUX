@@ -337,7 +337,15 @@
     "no_preset": "No preset",
     "no_results_found": "No results found.",
     "no_permission_available": "No permission available",
-    "no_history_available": "No history available."
+    "no_history_available": "No history available.",
+    "value_placeholder": "Value",
+    "value_ellipsis": "Value...",
+    "organism_ellipsis": "Organization...",
+    "motive_ellipsis": "Reason...",
+    "name_ellipsis": "Name...",
+    "first_name": "First name",
+    "country": "Country",
+    "task": "Task"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",

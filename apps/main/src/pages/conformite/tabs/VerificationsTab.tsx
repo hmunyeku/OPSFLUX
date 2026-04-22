@@ -174,7 +174,7 @@ export function VerificationsTab() {
             <div className="flex items-center gap-1">
               <input
                 type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Motif..." className="text-[10px] border border-border rounded px-1.5 py-0.5 bg-background w-24" autoFocus
+                placeholder={t('common.motive_ellipsis')} className="text-[10px] border border-border rounded px-1.5 py-0.5 bg-background w-24" autoFocus
                 onKeyDown={(e) => { if (e.key === 'Enter') handleReject(item.record_type, item.id) }}
               />
               <button onClick={() => handleReject(item.record_type, item.id)} disabled={!rejectReason.trim()} className="p-0.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"><Check size={11} /></button>

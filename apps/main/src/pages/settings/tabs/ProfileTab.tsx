@@ -980,6 +980,7 @@ function InlineNameEditor({ firstName, lastName, onFirstNameChange, onLastNameCh
   firstName: string; lastName: string
   onFirstNameChange: (v: string) => void; onLastNameChange: (v: string) => void
 }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
 
   if (editing) {
@@ -990,7 +991,7 @@ function InlineNameEditor({ firstName, lastName, onFirstNameChange, onLastNameCh
           className="gl-form-input h-8 text-sm w-32"
           value={firstName}
           onChange={(e) => onFirstNameChange(e.target.value)}
-          placeholder="Prénom"
+          placeholder={t('common.first_name')}
           autoFocus
         />
         <input

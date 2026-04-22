@@ -49,7 +49,7 @@ export function SearchableSelect({ value, onChange, options, placeholder, disabl
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher..."
+              placeholder={t('common.search')}
               className={cn(panelInputClass, 'h-8 sm:h-7 text-xs')}
               autoFocus
             />
@@ -119,7 +119,7 @@ export function MultiSearchableSelect({ values, onChange, options, placeholder, 
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher..."
+              placeholder={t('common.search')}
               className={cn(panelInputClass, 'h-8 sm:h-7 text-xs')}
               autoFocus
             />

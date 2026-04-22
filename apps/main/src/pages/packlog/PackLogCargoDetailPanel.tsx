@@ -643,10 +643,10 @@ export function CargoDetailPanel({ id }: { id: string }) {
                 )}
               </DynamicPanelField>
               <DynamicPanelField label="Contact utilisateur">
-                <UserPicker value={editForm.pickup_contact_user_id ?? null} onChange={(id) => setEditForm({ ...editForm, pickup_contact_user_id: id ?? null })} placeholder="Aucun" />
+                <UserPicker value={editForm.pickup_contact_user_id ?? null} onChange={(id) => setEditForm({ ...editForm, pickup_contact_user_id: id ?? null })} placeholder={t('common.none_option')} />
               </DynamicPanelField>
               <DynamicPanelField label="Contact entreprise">
-                <ContactPicker value={editForm.pickup_contact_tier_contact_id ?? null} onChange={(id) => setEditForm({ ...editForm, pickup_contact_tier_contact_id: id ?? null })} placeholder="Aucun" tierId={editForm.sender_tier_id ?? null} />
+                <ContactPicker value={editForm.pickup_contact_tier_contact_id ?? null} onChange={(id) => setEditForm({ ...editForm, pickup_contact_tier_contact_id: id ?? null })} placeholder={t('common.none_option')} tierId={editForm.sender_tier_id ?? null} />
               </DynamicPanelField>
               <DynamicPanelField label="Nom libre du contact">
                 <input type="text" value={editForm.pickup_contact_name ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_name: e.target.value || null })} className={panelInputClass} />

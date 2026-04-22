@@ -297,7 +297,7 @@ export function ConditionBuilder({ value, onChange, disabled, fields }: Conditio
                       onChange={(e) => updateCondition(i, { value: e.target.value })}
                       disabled={disabled}
                       className={cn(panelInputClass, 'h-7 text-xs flex-1 min-w-0')}
-                      placeholder="Valeur..."
+                      placeholder={t('common.value_ellipsis')}
                     />
                   )}
 

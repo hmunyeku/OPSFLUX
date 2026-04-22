@@ -18,6 +18,7 @@
  *  - "Export JSON" → download all messages for the current language
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Check,
@@ -469,6 +470,7 @@ function AddKeyRow({
   onCancel: () => void
   onDone: () => void
 }) {
+  const { t } = useTranslation()
   const [key, setKey] = useState('')
   const [value, setValue] = useState('')
   const [notes, setNotes] = useState('')
@@ -500,7 +502,7 @@ function AddKeyRow({
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="Valeur"
+        placeholder={t('common.value_placeholder')}
         className="gl-form-input w-full text-sm"
       />
       <input

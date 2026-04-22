@@ -293,7 +293,7 @@ export function UserManagementTab() {
             type="text"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Rechercher..."
+            placeholder={t('common.search')}
             className="gl-form-input h-7 pl-8 w-52 text-xs"
           />
         </div>

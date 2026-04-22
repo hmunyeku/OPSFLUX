@@ -90,7 +90,7 @@ export function WidgetSettingsGroup({ config, onChange }: WidgetSettingsGroupPro
               className={panelInputClass}
               value={child.title || ''}
               onChange={(e) => updateChild(idx, { title: e.target.value })}
-              placeholder="Titre"
+              placeholder={t('common.title_field')}
             />
             <div className="grid grid-cols-2 gap-1.5">
               <input
@@ -98,7 +98,7 @@ export function WidgetSettingsGroup({ config, onChange }: WidgetSettingsGroupPro
                 className={panelInputClass}
                 value={child.value ?? ''}
                 onChange={(e) => updateChild(idx, { value: e.target.value })}
-                placeholder="Valeur"
+                placeholder={t('common.value_placeholder')}
               />
               <TagSelector
                 options={FORMAT_OPTIONS}
@@ -112,7 +112,7 @@ export function WidgetSettingsGroup({ config, onChange }: WidgetSettingsGroupPro
                 className={panelInputClass}
                 value={child.unit || ''}
                 onChange={(e) => updateChild(idx, { unit: e.target.value })}
-                placeholder="Unité"
+                placeholder={t('common.unit')}
               />
               <input
                 type="text"

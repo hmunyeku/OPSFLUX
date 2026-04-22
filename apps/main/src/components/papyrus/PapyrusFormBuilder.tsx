@@ -302,7 +302,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                         )),
                       }))}
                       className={cn(panelInputClass, 'font-mono text-xs')}
-                      placeholder="Valeur"
+                      placeholder={t('common.value_placeholder')}
                       disabled={disabled}
                     />
                     <button

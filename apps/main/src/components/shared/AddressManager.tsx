@@ -91,6 +91,7 @@ interface AddressFormProps {
 }
 
 function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: AddressFormProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createAddress = useCreateAddress()
   const updateAddress = useUpdateAddress()
@@ -247,7 +248,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
             <div className="space-y-1.5">
               <div className="grid grid-cols-2 gap-2">
                 <input type="number" step="any" className={`${panelInputClass} !text-xs !h-8`} placeholder="Latitude" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
-                <input type="number" step="any" className={`${panelInputClass} !text-xs !h-8`} placeholder="Longitude" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
+                <input type="number" step="any" className={`${panelInputClass} !text-xs !h-8`} placeholder={t('common.longitude')} value={longitude} onChange={(e) => setLongitude(e.target.value)} />
               </div>
               <div className="flex flex-wrap items-center gap-1">
                 <button type="button" onClick={handleGeolocate} disabled={geoLoading} className="gl-button gl-button-confirm text-[10px] text-primary">

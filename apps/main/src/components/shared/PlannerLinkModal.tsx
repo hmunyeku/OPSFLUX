@@ -8,6 +8,7 @@
  */
 import { useState, useMemo, useCallback } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
+import { useTranslation } from 'react-i18next'
 import {
   X, Search, CheckSquare, Square, Loader2, Calendar, Send, Zap, Eye, Unlink,
 } from 'lucide-react'
@@ -37,6 +38,7 @@ interface Props {
 }
 
 export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetId }: Props) {
+  const { t } = useTranslation()
   const { data: tasks } = useProjectTasks(open ? projectId : undefined)
   const { data: links } = usePlannerLinks(open ? projectId : undefined)
   const sendToPlanner = useSendToPlanner()
@@ -316,7 +318,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                   min="0"
                   max="999"
                   value={paxQuotaOverride ?? ''}
-                  placeholder="Tâche"
+                  placeholder={t('common.task')}
                   onChange={e => {
                     const v = e.target.value
                     setPaxQuotaOverride(v === '' ? null : Math.max(0, Number(v) || 0))

@@ -25,7 +25,7 @@ export function NameDialog({ title, defaultValue, onConfirm, onCancel }: {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') onCancel() }}
-          placeholder="Nom..."
+          placeholder={t('common.name_ellipsis')}
         />
         <div className="flex justify-end gap-2">
           <button onClick={onCancel} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>

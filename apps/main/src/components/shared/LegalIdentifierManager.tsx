@@ -10,6 +10,7 @@
  *   <LegalIdentifierManager ownerType="entity" ownerId={entity.id} />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, FileText, Check, AlertCircle } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import {
@@ -303,6 +304,7 @@ function InlineIdentifierEditor({
   onCancel: () => void
   isSaving: boolean
 }) {
+  const { t } = useTranslation()
   const [editType, setEditType] = useState(identifier.type)
   const [editValue, setEditValue] = useState(identifier.value)
   const [editCountry, setEditCountry] = useState(identifier.country ?? '')
@@ -336,7 +338,7 @@ function InlineIdentifierEditor({
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onCancel() }}
           className="flex-1 px-1 py-0.5 text-xs rounded border border-border/60 bg-card focus:outline-none"
-          placeholder="Valeur"
+          placeholder={t('common.value_placeholder')}
         />
       </div>
       <div className="flex items-center gap-1.5">
@@ -345,7 +347,7 @@ function InlineIdentifierEditor({
           value={editCountry}
           onChange={(e) => setEditCountry(e.target.value)}
           className="flex-1 px-1 py-0.5 text-[10px] rounded border border-border/60 bg-card focus:outline-none"
-          placeholder="Pays"
+          placeholder={t('common.country')}
         />
         <input
           type="text"

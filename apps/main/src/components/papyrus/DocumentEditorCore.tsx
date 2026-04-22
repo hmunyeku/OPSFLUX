@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { BarChart3, Braces, Code2, FileCode2, FilePlus2, Heading1, Pilcrow, Plus, SeparatorHorizontal, Sigma, TableProperties, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -211,6 +212,7 @@ function createBlock(type: PapyrusBlockType): PapyrusBlock {
 }
 
 export function DocumentEditor({ content, onChange, readOnly = false }: DocumentEditorProps) {
+  const { t } = useTranslation()
   const normalized = useMemo(() => normalizePapyrusDocument(content), [content])
   const [doc, setDoc] = useState<PapyrusDocumentShape>(normalized)
   const [mode, setMode] = useState<'blocks' | 'json'>('blocks')
@@ -386,7 +388,7 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
                           readOnly={readOnly}
                           onChange={(event) => updateBlock(index, (current) => ({ ...current, label: event.target.value }))}
                           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                          placeholder="Libellé"
+                          placeholder={t('common.label_long')}
                         />
                         <input
                           value={typeof block.ref === 'string' ? block.ref : ''}

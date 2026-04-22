@@ -451,10 +451,18 @@ export function ProjectGanttWrapper() {
     // Project summary bar → open project
     if (barId.startsWith('proj-')) {
       openPanel({ type: 'detail', module: 'projets', id: projectId })
-    } else {
-      // Task bar → open task detail
-      openPanel({ type: 'task-detail', module: 'projets', id: barId, meta: { projectId } })
+      return
     }
+    // Milestone bar (id prefixed `ms-`) → route to the project detail
+    // with the Jalons section anchored. Opening a task-detail panel on
+    // a milestone id would 422 the backend because `ms-<uuid>` isn't
+    // a valid task UUID.
+    if (barId.startsWith('ms-')) {
+      openPanel({ type: 'detail', module: 'projets', id: projectId, meta: { anchor: 'milestones' } })
+      return
+    }
+    // Task bar → open task detail
+    openPanel({ type: 'task-detail', module: 'projets', id: barId, meta: { projectId } })
   }, [openPanel])
 
   // ── Drag with cascade / warn / strict (ported from Planner GanttView) ──

@@ -1708,6 +1708,14 @@ class ProjectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     pob_quota: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # A milestone is a task with is_milestone=true. Conceptually the same
+    # model (progress tracking, dependencies, assignee, weight, etc.) but:
+    #   - start_date == due_date (single point in time)
+    #   - cannot have child tasks (enforced at service layer)
+    #   - rendered as a diamond on the Gantt, gets a ♦ indicator in lists
+    # The legacy ProjectMilestone table is kept for backward compat but
+    # new creations route through this flag.
+    is_milestone: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
 
     project: Mapped["Project"] = relationship(back_populates="tasks")
     parent: Mapped["ProjectTask | None"] = relationship(remote_side="ProjectTask.id", foreign_keys=[parent_id])

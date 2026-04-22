@@ -1005,12 +1005,33 @@ async def create_project_task(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
+    # Milestone invariants: a milestone is a point-in-time task. Force
+    # start_date == due_date and forbid child-of-milestone.
+    payload = body.model_dump()
+    if payload.get("is_milestone"):
+        if payload.get("due_date") and not payload.get("start_date"):
+            payload["start_date"] = payload["due_date"]
+        elif payload.get("start_date") and not payload.get("due_date"):
+            payload["due_date"] = payload["start_date"]
+        elif payload.get("start_date") and payload.get("due_date"):
+            payload["due_date"] = payload["start_date"]
+    if payload.get("parent_id"):
+        parent_res = await db.execute(
+            select(ProjectTask.is_milestone).where(ProjectTask.id == payload["parent_id"])
+        )
+        parent_is_ms = parent_res.scalar_one_or_none()
+        if parent_is_ms:
+            raise StructuredHTTPException(
+                400,
+                code="MILESTONE_CANNOT_HAVE_CHILDREN",
+                message="Un jalon ne peut pas avoir de sous-tâche.",
+            )
     # Auto-assign order
     max_order = await db.execute(
         select(sqla_func.coalesce(sqla_func.max(ProjectTask.order), 0))
         .where(ProjectTask.project_id == project_id)
     )
-    task = ProjectTask(project_id=project_id, order=(max_order.scalar() or 0) + 1, **body.model_dump())
+    task = ProjectTask(project_id=project_id, order=(max_order.scalar() or 0) + 1, **payload)
     db.add(task)
     await db.commit()
     await db.refresh(task)
@@ -1058,7 +1079,19 @@ async def update_project_task(
         "progress": "progress_change", "estimated_hours": "scope_change", "actual_hours": "scope_change",
         "pob_quota": "pob_change",
     }
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_payload = body.model_dump(exclude_unset=True)
+    # Milestone invariants on update — if the task is (or becomes) a
+    # milestone, force start_date == due_date. If the caller only sent
+    # one date, mirror it to the other.
+    will_be_milestone = update_payload.get("is_milestone") if "is_milestone" in update_payload else task.is_milestone
+    if will_be_milestone:
+        s = update_payload.get("start_date", task.start_date)
+        d = update_payload.get("due_date", task.due_date)
+        if s and not d:
+            update_payload["due_date"] = s
+        elif d and (not s or s != d):
+            update_payload["start_date"] = d
+    for field, value in update_payload.items():
         old_value = getattr(task, field)
         if field in TRACKED_FIELDS and str(old_value) != str(value):
             db.add(TaskChangeLog(

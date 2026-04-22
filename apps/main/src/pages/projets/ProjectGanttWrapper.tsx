@@ -199,17 +199,9 @@ export function ProjectGanttWrapper() {
     })),
   })
 
-  // Milestones are rendered as diamond bars on the project row so the
-  // "Nouveau jalon" action has a visible effect. Without this query
-  // the milestone was persisted server-side but invisible in the UI.
-  const milestoneQueries = useQueries({
-    queries: expandedIds.map(pid => ({
-      queryKey: ['project-milestones', pid],
-      queryFn: () => projetsService.listMilestones(pid),
-      enabled: expanded.has(pid),
-      staleTime: 30_000,
-    })),
-  })
+  // Milestones are a subtype of task (ProjectTask.is_milestone = true),
+  // so they arrive via `taskQueries` alongside regular tasks. No
+  // separate query needed.
 
   // Map projectId → tasks
   const tasksByProject = useMemo(() => {
@@ -238,19 +230,6 @@ export function ProjectGanttWrapper() {
     return m
   }, [expandedIds, depQueries])
 
-  // Map projectId → milestones
-  type ProjectMilestoneLite = { id: string; name: string; due_date: string; status?: string | null }
-  const milestonesByProject = useMemo(() => {
-    const m = new Map<string, ProjectMilestoneLite[]>()
-    expandedIds.forEach((pid, i) => {
-      const q = milestoneQueries[i]
-      if (q.data) {
-        const items = Array.isArray(q.data) ? q.data : (q.data as { items?: unknown[] }).items ?? []
-        m.set(pid, items as ProjectMilestoneLite[])
-      }
-    })
-    return m
-  }, [expandedIds, milestoneQueries])
 
   // Flat task index across all loaded projects (taskId → task) used by
   // the cascade walker. Built once per re-render of tasksByProject.
@@ -345,7 +324,10 @@ export function ProjectGanttWrapper() {
 
             allRows.push({
               id: task.id,
-              label: task.title,
+              // Milestone rows get a leading ♦ diamond so they're
+              // instantly identifiable in the table alongside regular
+              // tasks (matches the diamond bar shape in the Gantt).
+              label: task.is_milestone ? `\u25C6 ${task.title}` : task.title,
               sublabel: task.assignee_name || undefined,
               level,
               hasChildren: hasKids,
@@ -368,22 +350,26 @@ export function ProjectGanttWrapper() {
             })
 
             if (task.start_date && task.due_date) {
+              const isMs = task.is_milestone === true
               allBars.push({
                 id: task.id,
                 rowId: task.id,
                 title: task.title,
+                // Milestones collapse to a single point in time.
                 startDate: task.start_date.split('T')[0],
-                endDate: task.due_date.split('T')[0],
+                endDate: (isMs ? task.start_date : task.due_date).split('T')[0],
                 progress: task.progress ?? 0,
-                color: taskColor,
+                color: isMs ? '#8b5cf6' : taskColor,
                 status: task.status,
                 priority: task.priority,
                 isDraft: task.status === 'todo',
-                isSummary: hasKids,
-                draggable: true,
-                resizable: true,
+                isSummary: !isMs && hasKids,
+                isMilestone: isMs,
+                draggable: !isMs, // dragging a diamond is ambiguous
+                resizable: !isMs, // a point-in-time has no duration to resize
                 meta: { projectId: project.id, taskId: task.id },
                 tooltipLines: [
+                  ...(isMs ? [['Jalon', task.title] as [string, string]] : []),
                   ['Statut', task.status],
                   ['Priorité', task.priority || '—'],
                   ...(task.assignee_name ? [['Assigné', task.assignee_name] as [string, string]] : []),
@@ -397,33 +383,6 @@ export function ProjectGanttWrapper() {
           }
         }
         addTaskRows(null, 1)
-
-        // Milestones — rendered as diamond bars on the project row so
-        // they appear immediately after "Nouveau jalon" clicks. They
-        // don't get their own row (keeps the Gantt compact); instead
-        // they ride the project summary row at the due_date.
-        const projectMilestones = milestonesByProject.get(project.id) || []
-        for (const ms of projectMilestones) {
-          if (!ms.due_date) continue
-          const day = ms.due_date.split('T')[0]
-          allBars.push({
-            id: `ms-${ms.id}`,
-            rowId: project.id,
-            title: ms.name,
-            startDate: day,
-            endDate: day,
-            progress: 0,
-            color: '#8b5cf6', // violet diamond — visible against the summary
-            status: ms.status ?? 'pending',
-            isMilestone: true,
-            meta: { projectId: project.id, milestoneId: ms.id },
-            tooltipLines: [
-              ['Jalon', ms.name],
-              ['Échéance', day],
-              ...(ms.status ? [['Statut', ms.status] as [string, string]] : []),
-            ],
-          })
-        }
 
         // Dependencies
         for (const dep of projectDeps) {
@@ -441,7 +400,7 @@ export function ProjectGanttWrapper() {
     }
 
     return { rows: allRows, bars: allBars, deps: allDeps }
-  }, [projects, expanded, tasksByProject, depsByProject, milestonesByProject])
+  }, [projects, expanded, tasksByProject, depsByProject])
 
   // ── Callbacks ─────────────────────────────────────────────────
 
@@ -801,19 +760,25 @@ export function ProjectGanttWrapper() {
   }, [selectedRowId, projects, findProjectForRow, toast, t, qc])
 
   // ── Add milestone ─────────────────────────────────────────────
-
+  //
+  // A milestone is a task with is_milestone=true and start_date ==
+  // due_date. It shows up in the task list (with ♦ prefix) and as a
+  // diamond on the Gantt. It CAN have dependencies but cannot have
+  // children (enforced server-side).
   const handleAddMilestone = useCallback(async () => {
     const projectId = selectedRowId ? findProjectForRow(selectedRowId) : projects[0]?.id
     if (!projectId) { toast({ title: t('projets.toast.select_project'), variant: 'warning' }); return }
 
     const nextMonth = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
     try {
-      await projetsService.createMilestone(projectId, {
-        name: 'Nouveau jalon',
+      await projetsService.createTask(projectId, {
+        title: 'Nouveau jalon',
+        start_date: nextMonth,
         due_date: nextMonth,
+        is_milestone: true,
       })
       toast({ title: t('projets.toast.milestone_created'), variant: 'success' })
-      qc.invalidateQueries({ queryKey: ['project-milestones', projectId] })
+      qc.invalidateQueries({ queryKey: ['project-tasks', projectId] })
     } catch {
       toast({ title: t('projets.toast.error'), variant: 'error' })
     }

@@ -1410,6 +1410,8 @@ export interface ProjectTask {
   weight: number | null
   order: number
   active: boolean
+  /** True = jalon (start_date == due_date, pas de sous-tâche). Rendered as a diamond on the Gantt and with a ♦ indicator in task tables. */
+  is_milestone: boolean
   created_at: string
   assignee_name?: string | null
 }
@@ -1433,6 +1435,7 @@ export interface ProjectTaskCreate {
   estimated_hours?: number | null
   pob_quota?: number
   weight?: number | null
+  is_milestone?: boolean
 }
 
 export interface ProjectTaskUpdate {
@@ -1450,6 +1453,8 @@ export interface ProjectTaskUpdate {
   order?: number
   pob_quota?: number
   weight?: number | null
+  is_milestone?: boolean
+  parent_id?: string | null
 }
 
 export interface ProjectMilestone {

@@ -1771,6 +1771,7 @@ class ProjectTaskRead(OpsFluxSchema):
     weight: float | None = None
     order: int
     active: bool
+    is_milestone: bool = False
     created_at: datetime
     # Enriched
     assignee_name: str | None = None
@@ -1796,6 +1797,7 @@ class ProjectTaskCreate(BaseModel):
     estimated_hours: float | None = None
     pob_quota: int = Field(default=0, ge=0)
     weight: float | None = Field(default=None, ge=0, description="Poids manuel pour le calcul d'avancement (utilisé en mode 'manual')")
+    is_milestone: bool = Field(default=False, description="True crée un jalon (date unique = start_date = due_date, pas de sous-tâche).")
 
 
 class ProjectTaskUpdate(BaseModel):
@@ -1816,6 +1818,7 @@ class ProjectTaskUpdate(BaseModel):
     order: int | None = None
     pob_quota: int | None = Field(default=None, ge=0)
     weight: float | None = Field(default=None, ge=0)
+    is_milestone: bool | None = None
 
 
 class ProjectMilestoneRead(OpsFluxSchema):

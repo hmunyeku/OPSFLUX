@@ -19,6 +19,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Wrench,
+  Briefcase,
+  Calendar,
+  UserCheck,
+  AlertTriangle,
+  Ship,
+  Package,
+  ShieldCheck,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -41,6 +49,14 @@ const SCOPES: ScopeDef[] = [
   { id: 'asset', labelKey: 'assets.title', icon: MapPin },
   { id: 'tier', labelKey: 'tiers.title', icon: Building2 },
   { id: 'user', labelKey: 'users.title', icon: Users },
+  { id: 'moc', labelKey: 'search.scope_moc', icon: Wrench },
+  { id: 'project', labelKey: 'search.scope_project', icon: Briefcase },
+  { id: 'activity', labelKey: 'search.scope_activity', icon: Calendar },
+  { id: 'ads', labelKey: 'search.scope_ads', icon: UserCheck },
+  { id: 'incident', labelKey: 'search.scope_incident', icon: AlertTriangle },
+  { id: 'voyage', labelKey: 'search.scope_voyage', icon: Ship },
+  { id: 'cargo', labelKey: 'search.scope_cargo', icon: Package },
+  { id: 'compliance', labelKey: 'search.scope_compliance', icon: ShieldCheck },
 ]
 
 const PAGE_SIZE = 25
@@ -49,23 +65,39 @@ const PAGE_SIZE = 25
 
 function iconForResultType(type: string): LucideIcon {
   switch (type) {
-    case 'asset':    return MapPin
-    case 'tier':     return Building2
-    case 'user':     return User
-    case 'document': return FileText
-    case 'workflow': return GitBranch
-    default:         return FileText
+    case 'asset':      return MapPin
+    case 'tier':       return Building2
+    case 'user':       return User
+    case 'document':   return FileText
+    case 'workflow':   return GitBranch
+    case 'moc':        return Wrench
+    case 'project':    return Briefcase
+    case 'activity':   return Calendar
+    case 'ads':        return UserCheck
+    case 'incident':   return AlertTriangle
+    case 'voyage':     return Ship
+    case 'cargo':      return Package
+    case 'compliance': return ShieldCheck
+    default:           return FileText
   }
 }
 
 function colorForResultType(type: string): string {
   switch (type) {
-    case 'asset':    return 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
-    case 'tier':     return 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-    case 'user':     return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-    case 'document': return 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
-    case 'workflow': return 'bg-pink-500/15 text-pink-600 dark:text-pink-400'
-    default:         return 'bg-muted text-muted-foreground'
+    case 'asset':      return 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+    case 'tier':       return 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+    case 'user':       return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+    case 'document':   return 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
+    case 'workflow':   return 'bg-pink-500/15 text-pink-600 dark:text-pink-400'
+    case 'moc':        return 'bg-orange-500/15 text-orange-600 dark:text-orange-400'
+    case 'project':    return 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+    case 'activity':   return 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400'
+    case 'ads':        return 'bg-teal-500/15 text-teal-600 dark:text-teal-400'
+    case 'incident':   return 'bg-red-500/15 text-red-600 dark:text-red-400'
+    case 'voyage':     return 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
+    case 'cargo':      return 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+    case 'compliance': return 'bg-lime-500/15 text-lime-600 dark:text-lime-400'
+    default:           return 'bg-muted text-muted-foreground'
   }
 }
 
@@ -75,6 +107,14 @@ const RESULT_TYPE_LABEL_KEYS: Record<string, string> = {
   user: 'search.type_user',
   document: 'search.type_document',
   workflow: 'search.type_workflow',
+  moc: 'search.type_moc',
+  project: 'search.type_project',
+  activity: 'search.type_activity',
+  ads: 'search.type_ads',
+  incident: 'search.type_incident',
+  voyage: 'search.type_voyage',
+  cargo: 'search.type_cargo',
+  compliance: 'search.type_compliance',
 }
 
 // ── SearchPage ──────────────────────────────────────────────────
@@ -203,11 +243,9 @@ export function SearchPage() {
       try {
         const params: Record<string, string | number> = {
           q: urlQuery,
-          page: currentPage,
-          page_size: PAGE_SIZE,
         }
         if (urlScope !== 'all') {
-          params.scope = urlScope
+          params.types = urlScope
         }
 
         const res = await api.get<SearchResponse & { total?: number }>(

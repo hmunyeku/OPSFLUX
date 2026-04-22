@@ -14,7 +14,8 @@ import { paxlogService } from '@/services/paxlogService'
 import { cn } from '@/lib/utils'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { ReadOnlyRow, DynamicPanelShell, DynamicPanelField, FormGrid, PanelActionButton, DangerConfirmButton, DetailFieldGrid, panelInputClass } from '@/components/layout/DynamicPanel'
-import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag } from 'lucide-react'
+import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag, Info, Users, BedDouble, BookOpen } from 'lucide-react'
+import { TabBar } from '@/components/ui/Tabs'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { ImputationManager } from '@/components/shared/ImputationManager'
@@ -61,6 +62,12 @@ export function AdsDetailPanel({ id }: { id: string }) {
   const transportModeLabels = useDictionaryLabels('transport_mode')
   const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
 
+  // Aligns AdsDetailPanel with the standard Voyage/Vector/Rotation
+  // detail-panel pattern: a TabBar segments the heavy content (9+
+  // CollapsibleSections in the old single-scroll layout) into 4
+  // logical pages. Default tab keeps the core read at hand.
+  type AdsDetailTab = 'informations' | 'passagers' | 'sejours' | 'historique'
+  const [detailTab, setDetailTab] = useState<AdsDetailTab>('informations')
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [reviewReason, setReviewReason] = useState('')
@@ -777,6 +784,21 @@ export function AdsDetailPanel({ id }: { id: string }) {
           )}
         </div>
 
+        {/* Tabbed navigation — standard pattern across all detail panels
+            (Voyage, Vector, Rotation). Segments what was previously a
+            mile-long scroll with 9+ stacked sections into 4 clear pages. */}
+        <TabBar<AdsDetailTab>
+          items={[
+            { id: 'informations', label: t('paxlog.ads_detail.tabs.informations') || 'Informations', icon: Info },
+            { id: 'passagers', label: t('paxlog.ads_detail.tabs.passengers') || 'Passagers', icon: Users, badge: adsPax?.length ?? 0 },
+            { id: 'sejours', label: t('paxlog.ads_detail.tabs.stays') || 'Séjours', icon: BedDouble, badge: stayPrograms.length || undefined },
+            { id: 'historique', label: t('paxlog.ads_detail.tabs.history') || 'Historique', icon: BookOpen },
+          ]}
+          activeId={detailTab}
+          onTabChange={setDetailTab}
+        />
+
+        {detailTab === 'informations' && (<>
         <CollapsibleSection
           id="ads-readiness"
           title={ads.status === 'draft' ? t('paxlog.ads_detail.readiness.title_draft', { status: adsReadyToSubmit ? t('paxlog.ads_detail.readiness.ready') : t('paxlog.ads_detail.readiness.to_complete') }) : t('paxlog.ads_detail.readiness.title_readonly')}
@@ -1051,7 +1073,9 @@ export function AdsDetailPanel({ id }: { id: string }) {
             </div>
           </CollapsibleSection>
         )}
+        </>)}
 
+        {detailTab === 'passagers' && (<>
         {/* PAX list with compliance status + add/remove */}
         <CollapsibleSection
           id="ads-pax"
@@ -1330,7 +1354,9 @@ export function AdsDetailPanel({ id }: { id: string }) {
             </div>
           )}
         </CollapsibleSection>
+        </>)}
 
+        {detailTab === 'informations' && (<>
         {/* Cost Imputations */}
         <CollapsibleSection id="ads-imputations" title={t('paxlog.ads_detail.sections.imputations')} defaultExpanded>
           {imputationSuggestion && (
@@ -1354,7 +1380,9 @@ export function AdsDetailPanel({ id }: { id: string }) {
             defaultCostCenterId={imputationSuggestion?.cost_center_id || null}
           />
         </CollapsibleSection>
+        </>)}
 
+        {detailTab === 'sejours' && (<>
         <CollapsibleSection id="ads-stay-programs" title={t('paxlog.ads_detail.sections.stay_programs', { count: stayPrograms.length })} defaultExpanded>
           <div className="space-y-3 p-3">
             {canManageStayPrograms && !showStayProgramForm && (
@@ -1488,7 +1516,9 @@ export function AdsDetailPanel({ id }: { id: string }) {
             )}
           </div>
         </CollapsibleSection>
+        </>)}
 
+        {detailTab === 'historique' && (<>
         {/* Workflow timeline */}
         <CollapsibleSection id="ads-history" title={t('common.history')}>
           <div className="space-y-1">
@@ -1571,6 +1601,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
             <NoteManager ownerType="ads" ownerId={ads.id} compact />
           </div>
         </CollapsibleSection>
+        </>)}
       </div>
     </DynamicPanelShell>
   )

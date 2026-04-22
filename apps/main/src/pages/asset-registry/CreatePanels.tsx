@@ -221,6 +221,9 @@ function CreateFieldInner() {
       }
     >
       <form id="create-field-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
         <SmartFormSection id="t_assets_identity" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('common.code')} required>
@@ -328,6 +331,18 @@ function CreateFieldInner() {
             <textarea value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} className={panelInputClass + ' min-h-[60px]'} rows={3} />
           </DynamicPanelField>
         </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
       </form>
     </DynamicPanelShell>
   )
@@ -404,6 +419,9 @@ function CreateSiteInner() {
       }
     >
       <form id="create-site-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
         <SmartFormSection id="t_assets_identity_2" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.field')} required>
@@ -540,6 +558,18 @@ function CreateSiteInner() {
             <textarea value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} className={panelInputClass + ' min-h-[60px]'} rows={3} />
           </DynamicPanelField>
         </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
       </form>
     </DynamicPanelShell>
   )
@@ -617,6 +647,9 @@ function CreateInstallationInner() {
       }
     >
       <form id="create-installation-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
         <SmartFormSection id="t_assets_identity_3" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.site')} required>
@@ -754,6 +787,18 @@ function CreateInstallationInner() {
             <textarea value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} className={panelInputClass + ' min-h-[60px]'} rows={3} />
           </DynamicPanelField>
         </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
       </form>
     </DynamicPanelShell>
   )
@@ -842,6 +887,9 @@ function CreateEquipmentInner() {
       }
     >
       <form id="create-equipment-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
         <SmartFormSection id="t_assets_identity_4" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.tag_number')} required>
@@ -1021,6 +1069,18 @@ function CreateEquipmentInner() {
             <textarea value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} className={panelInputClass + ' min-h-[60px]'} rows={3} />
           </DynamicPanelField>
         </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
       </form>
     </DynamicPanelShell>
   )
@@ -1106,6 +1166,9 @@ function CreatePipelineInner() {
       }
     >
       <form id="create-pipeline-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
         <SmartFormSection id="t_assets_identity_5" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.pipeline_id')} required>
@@ -1301,6 +1364,18 @@ function CreatePipelineInner() {
             <textarea value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} className={panelInputClass + ' min-h-[60px]'} rows={3} />
           </DynamicPanelField>
         </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
       </form>
     </DynamicPanelShell>
   )

@@ -152,6 +152,9 @@ function CreateAppInner() {
       }
     >
       <form id="create-app-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
         <SmartFormSection id="t_common_information" title={t('common.information')} level="essential" help={{ description: t('common.information') }}>
           <DynamicPanelField label="Nom de l'application" required>
             <input
@@ -227,6 +230,18 @@ function CreateAppInner() {
             ))}
           </div>
         </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
       </form>
     </DynamicPanelShell>
   )

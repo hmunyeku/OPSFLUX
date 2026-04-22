@@ -175,6 +175,9 @@ function CreateAddressInner() {
       }
     >
       <form id="create-address-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
         {/* Type — TagSelector instead of <select> */}
         <SmartFormSection id="section" title={'Section'} level="essential" help={{ description: 'Section' }}>
           <TagSelector
@@ -250,6 +253,18 @@ function CreateAddressInner() {
             </div>
           </label>
         </SmartFormSection>
+        {_ctx?.mode === 'wizard' && (
+
+          <SmartFormWizardNav
+
+            onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+            onCancel={() => {}}
+
+          />
+
+        )}
+
       </form>
     </DynamicPanelShell>
   )

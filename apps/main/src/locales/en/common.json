@@ -5169,5 +5169,238 @@
         "confirm_delete": "Delete type \"{{label}}\"?"
       }
     }
+  },
+  "widgets": {
+    "alerts_urgent": {
+      "title": "Critical alerts"
+    },
+    "pax_on_site": {
+      "title": "PAX on site"
+    },
+    "ads_pending": {
+      "title": "Pending AdS"
+    },
+    "planner_gantt_mini": {
+      "title": "Compact Gantt"
+    },
+    "capacity_heatmap": {
+      "title": "PAX load heatmap"
+    },
+    "fleet_map": {
+      "title": "Live fleet map"
+    },
+    "trips_today": {
+      "title": "Today's trips"
+    },
+    "cargo_pending": {
+      "title": "Pending cargo"
+    },
+    "pickup_progress": {
+      "title": "Pickup in progress"
+    },
+    "compliance_expiry": {
+      "title": "Certifications expiring in 30d"
+    },
+    "signalements_actifs": {
+      "title": "Active incidents"
+    },
+    "project_status": {
+      "title": "Active projects"
+    },
+    "my_ads": {
+      "title": "My AdS in progress"
+    },
+    "kpi_fleet": {
+      "title": "Fleet KPIs"
+    },
+    "weather_sites": {
+      "title": "Site weather"
+    },
+    "projets_kpis": {
+      "title": "Project KPIs"
+    },
+    "projets_weather": {
+      "title": "Project health"
+    },
+    "projets_deadlines": {
+      "title": "Deadlines (14 days)"
+    },
+    "projets_top_volume": {
+      "title": "Top projects by volume"
+    },
+    "assets_overview": {
+      "title": "Assets overview"
+    },
+    "assets_equipment_by_class": {
+      "title": "Equipment by class"
+    },
+    "assets_by_status": {
+      "title": "Equipment by status"
+    },
+    "assets_sites_by_type": {
+      "title": "Sites by type"
+    },
+    "assets_map": {
+      "title": "Assets map"
+    },
+    "paxlog_compliance_rate": {
+      "title": "PAX compliance rate"
+    },
+    "paxlog_ads_by_status": {
+      "title": "AdS by status"
+    },
+    "paxlog_expiring_credentials": {
+      "title": "Certifications expiring soon"
+    },
+    "paxlog_incidents": {
+      "title": "Active incidents"
+    },
+    "conformite_kpis": {
+      "title": "Compliance KPIs"
+    },
+    "conformite_by_category": {
+      "title": "Compliance by category"
+    },
+    "tiers_overview": {
+      "title": "Tiers overview"
+    },
+    "tiers_by_type": {
+      "title": "Companies by type"
+    },
+    "tiers_recent": {
+      "title": "Recent tiers"
+    },
+    "users_overview": {
+      "title": "Users overview"
+    },
+    "users_by_role": {
+      "title": "Users by role"
+    },
+    "users_by_group": {
+      "title": "Users by group"
+    },
+    "users_recent_activity": {
+      "title": "Recent activity"
+    },
+    "users_mfa_stats": {
+      "title": "MFA adoption rate"
+    },
+    "users_orphans": {
+      "title": "Users without group"
+    },
+    "packlog_overview": {
+      "title": "PackLog overview"
+    },
+    "packlog_requests_by_status": {
+      "title": "Requests by status"
+    },
+    "packlog_cargo_by_status": {
+      "title": "Cargo by status"
+    },
+    "packlog_tracking": {
+      "title": "Recent tracking"
+    },
+    "packlog_alerts": {
+      "title": "PackLog alerts"
+    },
+    "packlog_catalog_overview": {
+      "title": "SAP catalog"
+    },
+    "support_overview": {
+      "title": "Support overview"
+    },
+    "support_tickets_recent": {
+      "title": "Recent tickets"
+    },
+    "support_by_status": {
+      "title": "Tickets by status"
+    },
+    "support_by_type": {
+      "title": "Tickets by type"
+    },
+    "support_by_priority": {
+      "title": "Tickets by priority"
+    },
+    "support_trend": {
+      "title": "Tickets trend"
+    },
+    "conformite_urgency": {
+      "title": "Expirations by urgency"
+    },
+    "conformite_by_status": {
+      "title": "Records by status"
+    },
+    "conformite_matrix": {
+      "title": "Compliance matrix"
+    },
+    "conformite_trend": {
+      "title": "Compliance trend"
+    },
+    "planner_overview": {
+      "title": "Planner overview"
+    },
+    "planner_by_type": {
+      "title": "Activities by type"
+    },
+    "planner_by_status": {
+      "title": "Activities by status"
+    },
+    "planner_conflicts_kpi": {
+      "title": "Active conflicts"
+    },
+    "planner_pax_by_site": {
+      "title": "PAX by site"
+    },
+    "planner_workload_chart": {
+      "title": "Workload chart"
+    },
+    "papyrus_overview": {
+      "title": "Papyrus overview"
+    },
+    "papyrus_by_status": {
+      "title": "Documents by status"
+    },
+    "papyrus_by_type": {
+      "title": "Documents by type"
+    },
+    "papyrus_recent_documents": {
+      "title": "Recent documents"
+    },
+    "papyrus_forms_overview": {
+      "title": "External collection"
+    },
+    "workflow_overview": {
+      "title": "Workflow overview"
+    },
+    "workflow_by_definition": {
+      "title": "By workflow"
+    },
+    "workflow_pending": {
+      "title": "Pending"
+    },
+    "moc_overview": {
+      "title": "MOCs overview"
+    },
+    "moc_by_status": {
+      "title": "MOCs by status"
+    },
+    "moc_by_site": {
+      "title": "MOCs by site"
+    },
+    "moc_by_priority": {
+      "title": "In-progress MOCs by priority"
+    },
+    "moc_recent": {
+      "title": "Recent MOCs"
+    },
+    "moc_awaiting_validation": {
+      "title": "MOCs awaiting action"
+    },
+    "moc_by_manager": {
+      "title": "Top MOC managers"
+    },
+    "moc_promotion_ratio": {
+      "title": "MOCs promoted to projects"
+    }
   }
 }

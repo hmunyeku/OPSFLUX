@@ -5727,19 +5727,17 @@
       "stats": "Statistiques"
     },
     "actions": {
-      "new": "Nouveau MOC",
-      "approve": "Approuver",
-      "submit": "Soumettre",
-      "confirm": "Confirmer",
-      "cancel_moc": "Annuler le MOC",
-      "stand_by": "Mettre en stand-by",
-      "resume": "Reprendre",
-      "start_study": "Démarrer l'étude",
-      "submit_study": "Soumettre l'étude",
-      "validate": "Valider",
-      "start_execution": "Démarrer l'exécution",
-      "complete_execution": "Terminer l'exécution",
-      "close": "Clôturer"
+      "invite_validator": "Inviter un validateur",
+      "send_invite": "Envoyer l'invitation",
+      "download_pdf": "Formulaire PDF",
+      "promote_to_project": "Promouvoir en projet",
+      "production_validate": "Valider la mise en étude",
+      "production_refuse": "Refuser",
+      "request_return": "Renvoyer pour modification",
+      "send_return": "Envoyer le renvoi",
+      "accord": "Accord",
+      "refuse": "Refus",
+      "save_signature": "Enregistrer la signature"
     },
     "columns": {
       "reference": "Référence",
@@ -5846,12 +5844,10 @@
       "external_function_ph": "Ex. Superviseur entreprise tierce",
       "initiator_signature": "Signature du demandeur",
       "production_signature": "Signature Production",
-      "priority": "Priorité",
       "comment": "Commentaire",
       "comment_ph": "Commentaire (optionnel)",
       "return_reason": "Motif de renvoi",
       "return_reason_ph": "Expliquez pourquoi le MOC est renvoyé…",
-      "required": "Requis",
       "completed": "Réalisé",
       "necessary": "Nécessaire",
       "manager": "Chef de projet MOC",
@@ -5917,7 +5913,7 @@
       "invited_validators": "Validateurs invités",
       "production_validation": "Validation pour mise en étude (Production)",
       "signatures": "Signatures",
-      "execution_accord": "Réalisation du MOC — Accords D.O / D.G",
+      "execution_accord": "Réalisation du MOC — Accords DO / DG",
       "workflow_stepper": "Progression du workflow",
       "linked_project": "Projet lié",
       "flags": "HAZOP / HAZID / Documents",
@@ -5925,7 +5921,6 @@
       "timeline": "Historique des statuts",
       "comments": "Fil de discussion",
       "cost": "Coût du MOC",
-      "execution_accord": "Réalisation du MOC — Accords DO / DG",
       "execution_accord_hint": "Les deux directeurs doivent donner leur accord avant le démarrage de l'exécution sur site."
     },
     "stats": {
@@ -5947,19 +5942,6 @@
       "accord_saved": "Accord enregistré",
       "return_sent": "Renvoi enregistré",
       "promoted": "MOC promu en projet"
-    },
-    "actions": {
-      "invite_validator": "Inviter un validateur",
-      "send_invite": "Envoyer l'invitation",
-      "download_pdf": "Formulaire PDF",
-      "promote_to_project": "Promouvoir en projet",
-      "production_validate": "Valider la mise en étude",
-      "production_refuse": "Refuser",
-      "request_return": "Renvoyer pour modification",
-      "send_return": "Envoyer le renvoi",
-      "accord": "Accord",
-      "refuse": "Refus",
-      "save_signature": "Enregistrer la signature"
     },
     "detail_tab": {
       "fiche": "Fiche",
@@ -5996,6 +5978,239 @@
         "deleted": "Type supprimé",
         "confirm_delete": "Supprimer le type « {{label}} » ?"
       }
+    }
+  },
+  "widgets": {
+    "alerts_urgent": {
+      "title": "Alertes critiques"
+    },
+    "pax_on_site": {
+      "title": "PAX sur site"
+    },
+    "ads_pending": {
+      "title": "AdS en attente"
+    },
+    "planner_gantt_mini": {
+      "title": "Gantt compact"
+    },
+    "capacity_heatmap": {
+      "title": "Heatmap charge PAX"
+    },
+    "fleet_map": {
+      "title": "Carte flotte temps réel"
+    },
+    "trips_today": {
+      "title": "Voyages du jour"
+    },
+    "cargo_pending": {
+      "title": "Cargo en attente"
+    },
+    "pickup_progress": {
+      "title": "Ramassage en cours"
+    },
+    "compliance_expiry": {
+      "title": "Certifications expirant 30j"
+    },
+    "signalements_actifs": {
+      "title": "Signalements actifs"
+    },
+    "project_status": {
+      "title": "Projets actifs"
+    },
+    "my_ads": {
+      "title": "Mes AdS en cours"
+    },
+    "kpi_fleet": {
+      "title": "KPIs flotte"
+    },
+    "weather_sites": {
+      "title": "Météo sites"
+    },
+    "projets_kpis": {
+      "title": "KPIs Projets"
+    },
+    "projets_weather": {
+      "title": "Santé projets (météo)"
+    },
+    "projets_deadlines": {
+      "title": "Échéances 14 jours"
+    },
+    "projets_top_volume": {
+      "title": "Top projets par volume"
+    },
+    "assets_overview": {
+      "title": "Vue d'ensemble Assets"
+    },
+    "assets_equipment_by_class": {
+      "title": "Équipements par classe"
+    },
+    "assets_by_status": {
+      "title": "Équipements par statut"
+    },
+    "assets_sites_by_type": {
+      "title": "Sites par type"
+    },
+    "assets_map": {
+      "title": "Carte des assets"
+    },
+    "paxlog_compliance_rate": {
+      "title": "Taux de conformité PAX"
+    },
+    "paxlog_ads_by_status": {
+      "title": "AdS par statut"
+    },
+    "paxlog_expiring_credentials": {
+      "title": "Certifications expirant bientôt"
+    },
+    "paxlog_incidents": {
+      "title": "Incidents actifs"
+    },
+    "conformite_kpis": {
+      "title": "KPIs Conformité"
+    },
+    "conformite_by_category": {
+      "title": "Conformité par catégorie"
+    },
+    "tiers_overview": {
+      "title": "Vue d'ensemble Tiers"
+    },
+    "tiers_by_type": {
+      "title": "Entreprises par type"
+    },
+    "tiers_recent": {
+      "title": "Tiers récents"
+    },
+    "users_overview": {
+      "title": "Vue d'ensemble utilisateurs"
+    },
+    "users_by_role": {
+      "title": "Utilisateurs par rôle"
+    },
+    "users_by_group": {
+      "title": "Utilisateurs par groupe"
+    },
+    "users_recent_activity": {
+      "title": "Activité récente"
+    },
+    "users_mfa_stats": {
+      "title": "Taux MFA"
+    },
+    "users_orphans": {
+      "title": "Utilisateurs sans groupe"
+    },
+    "packlog_overview": {
+      "title": "Vue d'ensemble PackLog"
+    },
+    "packlog_requests_by_status": {
+      "title": "Demandes par statut"
+    },
+    "packlog_cargo_by_status": {
+      "title": "Colis par statut"
+    },
+    "packlog_tracking": {
+      "title": "Tracking récent"
+    },
+    "packlog_alerts": {
+      "title": "Alertes PackLog"
+    },
+    "packlog_catalog_overview": {
+      "title": "Catalogue SAP"
+    },
+    "support_overview": {
+      "title": "Vue d'ensemble support"
+    },
+    "support_tickets_recent": {
+      "title": "Tickets récents"
+    },
+    "support_by_status": {
+      "title": "Tickets par statut"
+    },
+    "support_by_type": {
+      "title": "Tickets par type"
+    },
+    "support_by_priority": {
+      "title": "Tickets par priorité"
+    },
+    "support_trend": {
+      "title": "Tendance tickets"
+    },
+    "conformite_urgency": {
+      "title": "Expirations par urgence"
+    },
+    "conformite_by_status": {
+      "title": "Records par statut"
+    },
+    "conformite_matrix": {
+      "title": "Matrice conformité"
+    },
+    "conformite_trend": {
+      "title": "Tendance conformité"
+    },
+    "planner_overview": {
+      "title": "Vue d'ensemble planner"
+    },
+    "planner_by_type": {
+      "title": "Activités par type"
+    },
+    "planner_by_status": {
+      "title": "Activités par statut"
+    },
+    "planner_conflicts_kpi": {
+      "title": "Conflits actifs"
+    },
+    "planner_pax_by_site": {
+      "title": "PAX par site"
+    },
+    "planner_workload_chart": {
+      "title": "Plan de charge"
+    },
+    "papyrus_overview": {
+      "title": "Vue d'ensemble Papyrus"
+    },
+    "papyrus_by_status": {
+      "title": "Documents par statut"
+    },
+    "papyrus_by_type": {
+      "title": "Documents par type"
+    },
+    "papyrus_recent_documents": {
+      "title": "Documents récents"
+    },
+    "papyrus_forms_overview": {
+      "title": "Collecte externe"
+    },
+    "workflow_overview": {
+      "title": "Vue d'ensemble workflow"
+    },
+    "workflow_by_definition": {
+      "title": "Par workflow"
+    },
+    "workflow_pending": {
+      "title": "En attente"
+    },
+    "moc_overview": {
+      "title": "MOCs — vue d'ensemble"
+    },
+    "moc_by_status": {
+      "title": "MOCs par statut"
+    },
+    "moc_by_site": {
+      "title": "MOCs par site"
+    },
+    "moc_by_priority": {
+      "title": "MOCs en cours par priorité"
+    },
+    "moc_recent": {
+      "title": "MOCs récents"
+    },
+    "moc_awaiting_validation": {
+      "title": "MOCs en attente d'action"
+    },
+    "moc_by_manager": {
+      "title": "Top chefs de projet MOC"
+    },
+    "moc_promotion_ratio": {
+      "title": "MOCs promus en projet"
     }
   }
 }

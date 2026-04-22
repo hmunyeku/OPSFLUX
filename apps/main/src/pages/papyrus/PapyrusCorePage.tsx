@@ -2435,7 +2435,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
 
   if (isLoading) {
     return (
-      <DynamicPanelShell title="Type de document" subtitle="Chargement..." icon={<FolderCog size={14} className="text-primary" />}>
+      <DynamicPanelShell title="Type de document" subtitle={t('common.loading_ellipsis')} icon={<FolderCog size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )
@@ -2443,7 +2443,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
 
   if (!docType) {
     return (
-      <DynamicPanelShell title="Type de document" subtitle="Non trouve" icon={<FolderCog size={14} className="text-primary" />}>
+      <DynamicPanelShell title="Type de document" subtitle={t('common.not_found')} icon={<FolderCog size={14} className="text-primary" />}>
         <div className="p-4 text-sm text-muted-foreground">Type de document introuvable.</div>
       </DynamicPanelShell>
     )
@@ -2574,7 +2574,7 @@ function TemplateDetailPanel({ id }: { id: string }) {
 
   if (isLoading) {
     return (
-      <DynamicPanelShell title="Template" subtitle="Chargement..." icon={<FileCode2 size={14} className="text-primary" />}>
+      <DynamicPanelShell title="Template" subtitle={t('common.loading_ellipsis')} icon={<FileCode2 size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )
@@ -2582,7 +2582,7 @@ function TemplateDetailPanel({ id }: { id: string }) {
 
   if (!template) {
     return (
-      <DynamicPanelShell title="Template" subtitle="Non trouve" icon={<FileCode2 size={14} className="text-primary" />}>
+      <DynamicPanelShell title="Template" subtitle={t('common.not_found')} icon={<FileCode2 size={14} className="text-primary" />}>
         <div className="p-4 text-sm text-muted-foreground">Template introuvable.</div>
       </DynamicPanelShell>
     )

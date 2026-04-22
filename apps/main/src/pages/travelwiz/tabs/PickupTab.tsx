@@ -144,7 +144,7 @@ export function PickupTab() {
             <StatusBadge status={roundDetail.status} labels={pickupStatusLabels} badges={PICKUP_STATUS_BADGES} />
 
             <div className="space-y-1.5">
-              <h4 className="text-xs font-medium text-foreground uppercase tracking-wide">Arrets</h4>
+              <h4 className="text-xs font-medium text-foreground uppercase tracking-wide">{t('common.stops')}</h4>
               {roundDetail.stops?.map((stop) => (
                 <div key={stop.id} className="rounded-lg border border-border p-2 text-xs space-y-0.5">
                   <div className="flex items-center justify-between">

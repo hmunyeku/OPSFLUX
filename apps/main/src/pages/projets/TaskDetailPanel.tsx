@@ -366,7 +366,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
   if (!task) {
     return (
-      <DynamicPanelShell title="Tâche" subtitle="Chargement..." icon={<CheckCircle2 size={14} className="text-primary" />}>
+      <DynamicPanelShell title="Tâche" subtitle={t('common.loading_ellipsis')} icon={<CheckCircle2 size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )

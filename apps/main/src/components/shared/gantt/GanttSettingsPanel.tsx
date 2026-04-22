@@ -6,6 +6,7 @@
  * Filters: status checkboxes, priority checkboxes, assignee search.
  */
 import { useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Settings2, X, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DynamicPanelShell, type ActionItem } from '@/components/layout/DynamicPanel'
@@ -38,6 +39,7 @@ interface GanttSettingsPanelProps {
 }
 
 export function GanttSettingsPanel({ settings, onChange, statuses = [], priorities = [], columns = [], presets = [], onSavePreset, onLoadPreset, onDeletePreset, extraContent }: GanttSettingsPanelProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
   if (!open) {
@@ -74,7 +76,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
       <div className="p-3 space-y-4">
         {/* ── Display ──────────────────────────────────────── */}
         <section>
-          <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Affichage</h4>
+          <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t('common.display')}</h4>
           <div className="space-y-2.5">
             {/* Bar height slider */}
             <div>
@@ -145,7 +147,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
         {/* ── Filters ─────────────────────────────────────── */}
         {(statuses.length > 0 || priorities.length > 0) && (
           <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Filtres</h4>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t('common.filters')}</h4>
 
             {/* Status filter */}
             {statuses.length > 0 && (
@@ -228,7 +230,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
         {/* ── Columns ─────────────────────────────────────── */}
         {columns.length > 0 && (
           <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Colonnes</h4>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t('common.columns')}</h4>
             <div className="space-y-1">
               {columns.map(col => {
                 const hidden = (settings.hiddenColumns || []).includes(col.id)
@@ -262,7 +264,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
         {/* ── Presets ─────────────────────────────────────── */}
         {onSavePreset && (
           <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Préréglages</h4>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t('common.presets')}</h4>
             <div className="space-y-1 mb-2">
               {presets.map(p => (
                 <div key={p.name} className="flex items-center gap-1">

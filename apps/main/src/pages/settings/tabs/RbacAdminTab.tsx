@@ -564,7 +564,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
         <Loader2 size={20} className="animate-spin text-muted-foreground" />
       </div>
     ) : (
-      <DynamicPanelShell title="Chargement..." icon={<ShieldCheck size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('common.loading_ellipsis')} icon={<ShieldCheck size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16">
           <Loader2 size={16} className="animate-spin text-muted-foreground" />
         </div>
@@ -1823,7 +1823,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
         <Loader2 size={20} className="animate-spin text-muted-foreground" />
       </div>
     ) : (
-      <DynamicPanelShell title="Chargement..." icon={<Users size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('common.loading_ellipsis')} icon={<Users size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16">
           <Loader2 size={16} className="animate-spin text-muted-foreground" />
         </div>

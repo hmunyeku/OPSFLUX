@@ -1,7 +1,9 @@
 import { Boxes, Link2, Power, ShieldAlert, ShieldX, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useModules, useUpdateModuleState } from '@/hooks/useModules'
 
 export function ModulesTab() {
+  const { t } = useTranslation()
   const { data: modules = [], isLoading } = useModules()
   const update = useUpdateModuleState()
 
@@ -18,7 +20,7 @@ export function ModulesTab() {
               <Boxes className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Modules</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t('common.modules')}</h3>
               <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
                 Active ou désactive les modules pour l&apos;entité courante. Une désactivation retire le module de la navigation,
                 des dashboards et de ses principaux points d&apos;entrée runtime.

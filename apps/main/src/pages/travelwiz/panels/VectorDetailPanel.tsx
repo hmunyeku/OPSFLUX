@@ -89,7 +89,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
 
   if (isLoading || !vector) {
     return (
-      <DynamicPanelShell title="Chargement..." icon={<Ship size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('common.loading_ellipsis')} icon={<Ship size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )

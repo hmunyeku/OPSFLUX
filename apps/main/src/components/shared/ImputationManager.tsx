@@ -178,7 +178,7 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
     <div className="space-y-2">
       {/* Section header with + button on hover */}
       <div className="flex items-center gap-2 group">
-        <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wide">Imputations</h3>
+        <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wide">{t('common.imputations')}</h3>
         {editable && !showForm && (
           <button
             className="gl-button gl-button-confirm h-5 w-5 flex text-primary opacity-0 group-hover:opacity-100"

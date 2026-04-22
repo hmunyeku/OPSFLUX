@@ -314,7 +314,22 @@
     "pending_status": "Pending",
     "text_type": "Text",
     "number_type": "Number",
-    "list_type": "List"
+    "list_type": "List",
+    "loading_ellipsis": "Loading...",
+    "not_found": "Not found",
+    "addresses": "Addresses",
+    "display": "Display",
+    "filters": "Filters",
+    "columns": "Columns",
+    "presets": "Presets",
+    "modules": "Modules",
+    "passports": "Passports",
+    "visas": "Visas",
+    "vaccines": "Vaccines",
+    "languages": "Languages",
+    "stops": "Stops",
+    "dictionary": "Dictionary",
+    "imputations": "Imputations"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",

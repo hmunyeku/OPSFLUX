@@ -11,6 +11,7 @@
  *   <AddressManager ownerType="asset" ownerId={asset.id} />
  */
 import { useState, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   MapPin, Plus, Trash2, Pencil, Loader2, Star,
   LocateFixed, ChevronsUpDown, Map, Search,
@@ -301,6 +302,7 @@ interface AddressManagerProps {
 }
 
 export function AddressManager({ ownerType, ownerId, compact, initialShowForm, hideAddButton, onAddRef }: AddressManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useAddresses(ownerType, ownerId)
   const deleteAddress = useDeleteAddress()
@@ -337,7 +339,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
       {!compact && (
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Adresses</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('common.addresses')}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               Gérez les adresses associées à cet enregistrement.
             </p>

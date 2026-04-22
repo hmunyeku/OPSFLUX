@@ -299,7 +299,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
 
   if (isLoading || !voyage) {
     return (
-      <DynamicPanelShell title="Chargement..." icon={<Plane size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('common.loading_ellipsis')} icon={<Plane size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )

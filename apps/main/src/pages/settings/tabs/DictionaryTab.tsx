@@ -7,6 +7,7 @@
  * so a single entry can serve both country and nationality selectors.
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, X, Loader2, Check, Pencil, Trash2, BookOpen, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -144,6 +145,7 @@ function buildTranslations(translations: Record<string, string>): Record<string,
 }
 
 export default function DictionaryTab() {
+  const { t } = useTranslation()
   const [selectedCategory, setSelectedCategory] = useState<string>(CATEGORIES[0].value)
   const { data: entries, isLoading } = useDictionary(selectedCategory)
   const createEntry = useCreateDictionaryEntry()
@@ -269,7 +271,7 @@ export default function DictionaryTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-semibold text-foreground">Dictionnaire</h2>
+        <h2 className="text-base font-semibold text-foreground">{t('common.dictionary')}</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Configurez les listes déroulantes utilisées dans l'application (types de visa, vaccins, etc.).
         </p>

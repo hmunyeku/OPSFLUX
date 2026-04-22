@@ -605,7 +605,7 @@ export function ProfileTab() {
             <>
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">Passeports</h4>
+                  <h4 className="text-xs font-semibold text-muted-foreground">{t('common.passports')}</h4>
                   <button onClick={() => addPassportRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un passeport">
                     <Plus size={12} />
                   </button>
@@ -614,7 +614,7 @@ export function ProfileTab() {
               </div>
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">Visas</h4>
+                  <h4 className="text-xs font-semibold text-muted-foreground">{t('common.visas')}</h4>
                   <button onClick={() => addVisaRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un visa">
                     <Plus size={12} />
                   </button>
@@ -705,7 +705,7 @@ export function ProfileTab() {
               </div>
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">Vaccins</h4>
+                  <h4 className="text-xs font-semibold text-muted-foreground">{t('common.vaccines')}</h4>
                   <button onClick={() => addVaccineRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un vaccin">
                     <Plus size={12} />
                   </button>
@@ -791,7 +791,7 @@ export function ProfileTab() {
             <>
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">Langues</h4>
+                  <h4 className="text-xs font-semibold text-muted-foreground">{t('common.languages')}</h4>
                   <button onClick={() => addLanguageRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter une langue">
                     <Plus size={12} />
                   </button>

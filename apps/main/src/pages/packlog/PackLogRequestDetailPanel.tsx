@@ -233,7 +233,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
   if (isLoading || !cargoRequest) {
     return (
       <DynamicPanelShell
-        title="Chargement..."
+        title={t('common.loading_ellipsis')}
         icon={<FileText size={14} className="text-primary" />}
       >
         <div className="flex items-center justify-center py-16">

@@ -418,7 +418,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
 
   if (isLoading || !cargo) {
     return (
-      <DynamicPanelShell title="Chargement..." icon={<Package size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('common.loading_ellipsis')} icon={<Package size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )

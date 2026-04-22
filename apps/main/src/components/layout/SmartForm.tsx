@@ -76,6 +76,7 @@ import {
 import { cn } from '@/lib/utils'
 import { FormSection, PanelActionButton } from '@/components/layout/DynamicPanel'
 import { safeLocal } from '@/lib/safeStorage'
+import { useUIStore } from '@/stores/uiStore'
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -404,6 +405,8 @@ export function SmartFormWizardNav({
 }: SmartFormWizardNavProps) {
   const { t } = useTranslation()
   const ctx = useSmartForm()
+  const setAIPanelOpen = useUIStore((s) => s.setAIPanelOpen)
+  const setAssistantTab = useUIStore((s) => s.setAssistantTab)
   if (!ctx || ctx.mode !== 'wizard') return null
   const { sections, currentStep, goToStep, markStepComplete } = ctx
   if (sections.length === 0) return null
@@ -411,6 +414,19 @@ export function SmartFormWizardNav({
   const section = sections[currentStep]
   const isFirst = currentStep === 0
   const isLast = currentStep === sections.length - 1
+
+  const openHelp = () => {
+    // Dispatch an event for any custom listener (future-proofing) and
+    // open the AssistantPanel on its Help tab — same source of truth
+    // as the AI chat panel, so the user sees identical content.
+    window.dispatchEvent(
+      new CustomEvent('opsflux:open-help', {
+        detail: { key: section.helpKey, sectionId: section.id },
+      }),
+    )
+    setAssistantTab('help')
+    setAIPanelOpen(true)
+  }
 
   const handleNext = () => {
     if (canLeaveStep && !canLeaveStep(section.id, currentStep)) return
@@ -441,23 +457,15 @@ export function SmartFormWizardNav({
       </div>
 
       <div className="flex items-center gap-2">
-        {section.helpKey && (
-          <button
-            type="button"
-            onClick={() => {
-              // Emit a custom event picked up by the help system — keeps
-              // SmartForm independent of any specific help provider.
-              window.dispatchEvent(
-                new CustomEvent('opsflux:open-help', { detail: { key: section.helpKey } }),
-              )
-            }}
-            className="gl-button gl-button-default inline-flex items-center gap-1 text-muted-foreground"
-            title={t('smart_form.wizard.help', "Afficher l'aide de cette étape") as string}
-          >
-            <HelpCircle size={12} />
-            {t('smart_form.wizard.help_short', 'Aide')}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={openHelp}
+          className="gl-button gl-button-default inline-flex items-center gap-1 text-muted-foreground"
+          title={t('smart_form.wizard.help', "Afficher l'aide de cette étape") as string}
+        >
+          <HelpCircle size={12} />
+          {t('smart_form.wizard.help_short', 'Aide')}
+        </button>
         {section.skippable && !isLast && (
           <button
             type="button"

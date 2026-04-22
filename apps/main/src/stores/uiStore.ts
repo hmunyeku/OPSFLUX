@@ -132,6 +132,12 @@ interface UIState {
   // AI panel (260px, rightmost)
   aiPanelOpen: boolean
   toggleAIPanel: () => void
+  setAIPanelOpen: (v: boolean) => void
+  /** Which tab the AssistantPanel is on. Allows external components
+   *  (e.g. the SmartForm wizard's "Aide" button) to deep-link to a
+   *  specific tab when opening the assistant. */
+  assistantTab: 'chat' | 'help' | 'tours' | 'alerts' | 'ticket'
+  setAssistantTab: (tab: 'chat' | 'help' | 'tours' | 'alerts' | 'ticket') => void
 
   // Mobile sidebar
   mobileSidebarOpen: boolean
@@ -258,6 +264,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   // AI panel
   aiPanelOpen: false,
   toggleAIPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
+  setAIPanelOpen: (v: boolean) => set({ aiPanelOpen: v }),
+  assistantTab: 'chat',
+  setAssistantTab: (tab) => set({ assistantTab: tab }),
 
   // Mobile sidebar
   mobileSidebarOpen: false,

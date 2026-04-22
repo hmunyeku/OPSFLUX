@@ -442,10 +442,13 @@ export function AssistantPanel() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { hasPermission } = usePermission()
-  const { aiPanelOpen, toggleAIPanel } = useUIStore()
+  const { aiPanelOpen, toggleAIPanel, assistantTab, setAssistantTab } = useUIStore()
 
   const currentModule = useMemo(() => deriveModule(pathname), [pathname])
-  const [activeTab, setActiveTab] = useState<TabId>('chat')
+  // Local state tracks `assistantTab` in the store so external callers
+  // (SmartForm wizard "Aide" button, etc.) can deep-link to a tab.
+  const activeTab: TabId = assistantTab as TabId
+  const setActiveTab = setAssistantTab as (tab: TabId) => void
 
   // ── Panel display mode (persisted via user preferences API) ──
   type PanelMode = 'docked' | 'floating' | 'compact'

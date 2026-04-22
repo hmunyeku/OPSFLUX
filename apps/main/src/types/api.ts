@@ -1348,6 +1348,10 @@ export interface ProjectCreate {
   asset_id: string
   // Optionnel : laisser vide pour utiliser le défaut admin.
   progress_weight_method?: ProgressWeightMethod | null
+  // Client-generated UUID used during create to stage polymorphic children
+  // (attachments, notes, tags…) before the project row exists. Backend
+  // re-targets rows with owner_type='project_staging' on successful create.
+  staging_ref?: string | null
 }
 
 export interface ProjectUpdate {

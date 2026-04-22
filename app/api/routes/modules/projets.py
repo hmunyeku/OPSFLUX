@@ -540,14 +540,34 @@ async def list_projects(
 async def create_project(
     body: ProjectCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.create"),
     db: AsyncSession = Depends(get_db),
 ):
     payload = body.model_dump()
+    # staging_ref is not a column on the Project model — pop it out before
+    # constructing the ORM row, then use it to commit staged children.
+    staging_ref = payload.pop("staging_ref", None)
     if not payload.get("code"):
         payload["code"] = await generate_reference("PRJ", db, entity_id=entity_id)
     project = Project(entity_id=entity_id, **payload)
     db.add(project)
+    await db.flush()
+
+    # Re-target any polymorphic children (attachments, notes, tags, ...)
+    # uploaded during the Create panel session to this new project.
+    if staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="project_staging",
+            final_owner_type="project",
+            staging_ref=staging_ref,
+            final_owner_id=project.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
+
     await db.commit()
     await db.refresh(project)
     d = {c.key: getattr(project, c.key) for c in project.__table__.columns}

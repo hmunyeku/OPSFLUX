@@ -22,10 +22,13 @@ import {
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
+import { RichTextField } from '@/components/shared/RichTextField'
 import { useCreateProject } from '@/hooks/useProjets'
 import { useCurrentEntity } from '@/hooks/useEntities'
+import { useStagingRef } from '@/hooks/useStagingRef'
 import type { ProjectCreate, ProgressWeightMethod } from '@/types/api'
 import { PROGRESS_WEIGHT_METHOD_OPTIONS } from '@/types/api'
 import {
@@ -48,6 +51,10 @@ export function CreateProjectPanel() {
   // they get (configured in Paramètres → Projets per entity).
   const currentEntity = useCurrentEntity()
   const standardLabel = currentEntity?.code ? `Standard (${currentEntity.code})` : 'Standard'
+  // Staging — pre-attach pièces jointes & rich-text images before the
+  // project exists. On create, the backend re-targets every row with
+  // `owner_type='project_staging'` + `owner_id=stagingRef` to the new project.
+  const { stagingRef, stagingOwnerType } = useStagingRef('project')
   // Form state allows asset_id to be empty (null) during edition; we
   // re-validate in handleSubmit before sending to the backend, where the
   // schema requires it (spec §1.4).
@@ -81,7 +88,11 @@ export function CreateProjectPanel() {
     }
     try {
       // Narrow the form type — asset_id is non-null at this point.
-      const payload: ProjectCreate = { ...form, asset_id: form.asset_id }
+      const payload: ProjectCreate = {
+        ...form,
+        asset_id: form.asset_id,
+        staging_ref: stagingRef,
+      }
       await createProject.mutateAsync(normalizeNames(payload))
       closeDynamicPanel()
       toast({ title: t('projets.toast.project_created'), variant: 'success' })
@@ -185,12 +196,21 @@ export function CreateProjectPanel() {
               </FormSection>
 
               <FormSection title={t('common.description')} collapsible defaultExpanded={false}>
-                <textarea
+                <RichTextField
                   value={form.description ?? ''}
-                  onChange={(e) => setForm({ ...form, description: e.target.value || null })}
-                  className={`${panelInputClass} min-h-[60px] resize-y`}
+                  onChange={(html) => setForm({ ...form, description: html || null })}
+                  rows={4}
                   placeholder="Description du projet..."
-                  rows={3}
+                  imageOwnerType={stagingOwnerType}
+                  imageOwnerId={stagingRef}
+                />
+              </FormSection>
+
+              <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+                <AttachmentManager
+                  ownerType={stagingOwnerType}
+                  ownerId={stagingRef}
+                  compact
                 />
               </FormSection>
             </div>

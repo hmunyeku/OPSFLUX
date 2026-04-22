@@ -1702,6 +1702,11 @@ class ProjectCreate(BaseModel):
         pattern=r"^(equal|effort|duration|manual)$",
         description="Méthode de pondération pour calculer l'avancement projet",
     )
+    # Client-generated UUID used during creation to stage polymorphic
+    # children (attachments, notes, tags, …) before the project row exists.
+    # On create, the backend re-targets every row with
+    # `owner_type='project_staging'` + `owner_id=staging_ref` to the new project.
+    staging_ref: UUID | None = None
 
 
 class ProjectUpdate(BaseModel):

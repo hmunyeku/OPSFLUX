@@ -2138,6 +2138,7 @@ export interface CargoItemCreate {
   parent_cargo_id?: string | null
   is_reusable?: boolean
   expected_return_date?: string | null
+  staging_ref?: string | null
 }
 
 export interface CargoItemUpdate {
@@ -2256,6 +2257,7 @@ export interface CargoRequestCreate {
   destination_asset_id?: string | null
   requester_user_id?: string | null
   requester_name?: string | null
+  staging_ref?: string | null
 }
 
 export interface CargoRequestUpdate {

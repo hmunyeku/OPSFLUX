@@ -124,6 +124,9 @@ class CargoCreate(BaseModel):
     # Reusable container (basket, skid, DNV box…)
     is_reusable: bool = False
     expected_return_date: date | None = None
+    # Client-generated UUID used to commit polymorphic children staged
+    # during the Create panel (attachments, notes, …).
+    staging_ref: UUID | None = None
 
     _check_pickup_contact_xor = model_validator(mode="after")(_validate_pickup_contact_xor)
 
@@ -299,6 +302,9 @@ class CargoRequestCreate(BaseModel):
     # single atomic call. The backend creates the request, then each
     # cargo with request_id set to the new request's id.
     cargos: list[CargoRequestItemInline] = Field(default_factory=list)
+    # Client-generated UUID used to commit polymorphic children staged
+    # during the Create panel (attachments, notes, …).
+    staging_ref: UUID | None = None
 
 
 class CargoRequestUpdate(BaseModel):

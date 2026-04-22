@@ -15,12 +15,16 @@ import {
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { ImputationPicker } from '@/components/shared/ImputationPicker'
 import { CompanyPicker } from '@/components/shared/CompanyPicker'
+import { NoteManager } from '@/components/shared/NoteManager'
+import { RichTextField } from '@/components/shared/RichTextField'
 import { UserPicker } from '@/components/shared/UserPicker'
 import { ContactPicker } from '@/components/shared/ContactPicker'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
+import { useStagingRef } from '@/hooks/useStagingRef'
 import {
   useCargoWorkspace,
   useCargoDictionaryCategory,
@@ -53,6 +57,7 @@ export function CreateCargoRequestPanel() {
   const { toast } = useToast()
   const { t } = useTranslation()
   const { moduleLabel } = useCargoWorkspace()
+  const { stagingRef, stagingOwnerType } = useStagingRef('cargo_request')
   const [form, setForm] = useState<CargoRequestCreate>({
     title: '',
     description: null,
@@ -69,7 +74,7 @@ export function CreateCargoRequestPanel() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await createCargoRequest.mutateAsync(form)
+      await createCargoRequest.mutateAsync({ ...form, staging_ref: stagingRef } as CargoRequestCreate & { staging_ref?: string })
       toast({ title: t('packlog.toast.request_created'), variant: 'success' })
       closeDynamicPanel()
     } catch {
@@ -156,7 +161,13 @@ export function CreateCargoRequestPanel() {
                   <ProjectPicker value={form.project_id ?? null} onChange={(projectId) => setForm({ ...form, project_id: projectId ?? null })} clearable placeholder={t('packlog.placeholders.select_project')} />
                 </DynamicPanelField>
                 <DynamicPanelField label={t('common.description')} span="full">
-                  <textarea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value || null })} className={`${panelInputClass} min-h-[72px] resize-y`} rows={3} />
+                  <RichTextField
+                    value={form.description ?? ''}
+                    onChange={(html) => setForm({ ...form, description: html || null })}
+                    rows={4}
+                    imageOwnerType={stagingOwnerType}
+                    imageOwnerId={stagingRef}
+                  />
                 </DynamicPanelField>
               </FormGrid>
             </FormSection>
@@ -186,6 +197,14 @@ export function CreateCargoRequestPanel() {
                 </DynamicPanelField>
               </FormGrid>
             </FormSection>
+
+            <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+              <AttachmentManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+            </FormSection>
+
+            <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+              <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+            </FormSection>
           </div>
         </PanelContentLayout>
       </form>
@@ -198,6 +217,7 @@ export function CreateCargoPanel() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { panelModule, moduleLabel } = useCargoWorkspace()
+  const { stagingRef, stagingOwnerType } = useStagingRef('cargo')
   const cargoTypeCategory = useCargoDictionaryCategory('cargo_type')
   const ownershipCategory = useCargoDictionaryCategory('cargo_ownership_type')
   const createCargo = useWorkspaceCreateCargo()
@@ -281,7 +301,7 @@ export function CreateCargoPanel() {
       return
     }
     try {
-      const createdCargo = await createCargo.mutateAsync(form)
+      const createdCargo = await createCargo.mutateAsync({ ...form, staging_ref: stagingRef } as CargoItemCreate & { staging_ref?: string })
       toast({ title: t('packlog.toast.cargo_created'), description: t('packlog.toast.cargo_created_description'), variant: 'success' })
       openDynamicPanel({ type: 'detail', module: panelModule, id: createdCargo.id, meta: { subtype: 'cargo' } })
     } catch {
@@ -337,7 +357,14 @@ export function CreateCargoPanel() {
                     <input type="text" value={form.sap_article_code ?? ''} onChange={(e) => setForm({ ...form, sap_article_code: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.sap_code_example')} />
                   </DynamicPanelField>
                   <DynamicPanelField label={t('common.description')} required span="full">
-                    <textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${panelInputClass} min-h-[60px] resize-y`} placeholder={t('packlog.placeholders.cargo_description')} rows={3} />
+                    <RichTextField
+                      value={form.description}
+                      onChange={(html) => setForm({ ...form, description: html })}
+                      rows={4}
+                      placeholder={t('packlog.placeholders.cargo_description') as string}
+                      imageOwnerType={stagingOwnerType}
+                      imageOwnerId={stagingRef}
+                    />
                   </DynamicPanelField>
                 </FormGrid>
                 {selectedRequest && (
@@ -503,6 +530,14 @@ export function CreateCargoPanel() {
               </FormSection>
             </div>
           </SectionColumns>
+
+          <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
+            <AttachmentManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
+
+          <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+            <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
+          </FormSection>
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

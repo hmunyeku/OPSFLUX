@@ -339,9 +339,10 @@ async def create_cargo_request_impl(
     request_code = await _generate_cargo_request_code(db, entity_id)
     now = datetime.now(timezone.utc)
 
-    # Extract inline cargos from payload — handled separately below
+    # Extract inline cargos + staging_ref from payload — handled separately
     payload = body.model_dump()
     inline_cargos = payload.pop("cargos", []) or []
+    staging_ref = payload.pop("staging_ref", None)
 
     cargo_request = CargoRequest(
         entity_id=entity_id,
@@ -386,6 +387,20 @@ async def create_cargo_request_impl(
         )
         db.add(cargo_item)
         created_cargos += 1
+
+    # Commit polymorphic children (attachments, notes, …) staged in the
+    # Create panel.
+    if staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="cargo_request_staging",
+            final_owner_type="cargo_request",
+            staging_ref=staging_ref,
+            final_owner_id=cargo_request.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
 
     await db.commit()
     await db.refresh(cargo_request)
@@ -752,9 +767,22 @@ async def create_cargo_impl(
                             400,
                             f"Weight capacity exceeded: vector allows {vector.weight_capacity_kg} kg, current load is {current_weight} kg, new item weighs {payload_data['weight_kg']} kg",
                         )
+    staging_ref = payload_data.pop("staging_ref", None)
     tracking_code = await _generate_cargo_code(db, entity_id)
     cargo = CargoItem(entity_id=entity_id, tracking_code=tracking_code, registered_by=current_user.id, **payload_data)
     db.add(cargo)
+    await db.flush()
+    if staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="cargo_staging",
+            final_owner_type="cargo",
+            staging_ref=staging_ref,
+            final_owner_id=cargo.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
     await db.commit()
     await db.refresh(cargo)
     await record_audit(

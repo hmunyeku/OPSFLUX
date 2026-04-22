@@ -157,7 +157,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
         toast({ title: 'Introuvable', description: 'Aucune coordonnée trouvée pour cette adresse.', variant: 'warning' })
       }
     } catch {
-      toast({ title: 'Erreur', description: 'Échec du géocodage.', variant: 'error' })
+      toast({ title: t('common.error'), description: 'Échec du géocodage.', variant: 'error' })
     } finally {
       setGeocodeLoading(false)
     }
@@ -199,7 +199,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
       }
       onClose()
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible d\'enregistrer l\'adresse.', variant: 'error' })
+      toast({ title: t('common.error'), description: 'Impossible d\'enregistrer l\'adresse.', variant: 'error' })
     }
   }
 
@@ -328,7 +328,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
       setConfirmDeleteId(null)
       toast({ title: 'Adresse supprimée', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de supprimer l\'adresse.', variant: 'error' })
+      toast({ title: t('common.error'), description: 'Impossible de supprimer l\'adresse.', variant: 'error' })
     }
   }
 

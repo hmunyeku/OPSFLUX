@@ -138,7 +138,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
       if (res.errors.length === 0) onClose()
     } catch (err) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
-      toast({ title: 'Échec', description: String(msg), variant: 'error' })
+      toast({ title: t('common.failed'), description: String(msg), variant: 'error' })
     }
   }
 

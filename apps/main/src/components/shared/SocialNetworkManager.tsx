@@ -9,6 +9,7 @@
  *   <SocialNetworkManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Check, Linkedin, Twitter, Facebook, Instagram, Youtube, Globe, Link } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useSocialNetworks, useCreateSocialNetwork, useUpdateSocialNetwork, useDeleteSocialNetwork } from '@/hooks/useSettings'
@@ -39,6 +40,7 @@ interface SocialNetworkManagerProps {
 }
 
 export function SocialNetworkManager({ ownerType, ownerId, compact }: SocialNetworkManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useSocialNetworks(ownerType, ownerId)
   const createSocial = useCreateSocialNetwork()
@@ -67,7 +69,7 @@ export function SocialNetworkManager({ ownerType, ownerId, compact }: SocialNetw
       setShowForm(false)
       toast({ title: 'Réseau social ajouté', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [ownerId, ownerType, network, url, items.length, createSocial, toast])
 
@@ -78,7 +80,7 @@ export function SocialNetworkManager({ ownerType, ownerId, compact }: SocialNetw
       setConfirmDeleteId(null)
       toast({ title: 'Réseau social supprimé', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [ownerId, ownerType, deleteSocial, toast])
 
@@ -106,7 +108,7 @@ export function SocialNetworkManager({ ownerType, ownerId, compact }: SocialNetw
                       setEditingId(null)
                       toast({ title: 'Réseau social modifié', variant: 'success' })
                     } catch {
-                      toast({ title: 'Erreur', variant: 'error' })
+                      toast({ title: t('common.error'), variant: 'error' })
                     }
                   }}
                   onCancel={() => setEditingId(null)}

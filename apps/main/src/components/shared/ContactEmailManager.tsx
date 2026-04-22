@@ -9,6 +9,7 @@
  *   <ContactEmailManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Mail, Star, Check, ShieldCheck, Send } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useContactEmails, useCreateContactEmail, useUpdateContactEmail, useDeleteContactEmail } from '@/hooks/useSettings'
@@ -31,6 +32,7 @@ interface ContactEmailManagerProps {
 }
 
 export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmailManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useContactEmails(ownerType, ownerId)
   const createEmail = useCreateContactEmail()
@@ -62,7 +64,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
       setShowForm(false)
       toast({ title: 'Email ajouté', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [ownerId, ownerType, email, label, emails.length, createEmail, toast])
 
@@ -72,7 +74,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
       setConfirmDeleteId(null)
       toast({ title: 'Email supprimé', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [deleteEmail, toast])
 
@@ -81,7 +83,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
       await updateEmail.mutateAsync({ id, payload: { is_default: true } })
       toast({ title: 'Email par défaut défini', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [updateEmail, toast])
 
@@ -110,7 +112,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                       setEditingId(null)
                       toast({ title: 'Email modifié', variant: 'success' })
                     } catch {
-                      toast({ title: 'Erreur', variant: 'error' })
+                      toast({ title: t('common.error'), variant: 'error' })
                     }
                   }}
                   onCancel={() => setEditingId(null)}

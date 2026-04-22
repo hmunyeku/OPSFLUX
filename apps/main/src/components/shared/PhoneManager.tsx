@@ -13,6 +13,7 @@
  *   <PhoneManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Phone as PhoneIcon, Star, Check, ChevronDown, ShieldCheck, Send } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { usePhones, useCreatePhone, useUpdatePhone, useDeletePhone } from '@/hooks/useSettings'
@@ -258,6 +259,7 @@ interface PhoneManagerProps {
 }
 
 export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAddRef }: PhoneManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = usePhones(ownerType, ownerId)
   const createPhone = useCreatePhone()
@@ -298,7 +300,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
       setShowForm(false)
       toast({ title: 'Téléphone ajouté', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [ownerId, ownerType, number, label, countryCode, phones.length, createPhone, toast])
 
@@ -308,7 +310,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
       setConfirmDeleteId(null)
       toast({ title: 'Téléphone supprimé', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [deletePhone, toast])
 
@@ -317,7 +319,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
       await updatePhone.mutateAsync({ id, payload: { is_default: true } })
       toast({ title: 'Numéro par défaut défini', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [updatePhone, toast])
 
@@ -346,7 +348,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                         setEditingId(null)
                         toast({ title: 'Téléphone modifié', variant: 'success' })
                       } catch {
-                        toast({ title: 'Erreur', variant: 'error' })
+                        toast({ title: t('common.error'), variant: 'error' })
                       }
                     }}
                     onCancel={() => setEditingId(null)}
@@ -398,13 +400,13 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && otpCode.length === 6) verifyPhone.mutate({ phoneId: phone.id, code: otpCode }, { onSuccess: () => { setVerifyingPhoneId(null); setOtpCode(''); toast({ title: 'Téléphone vérifié', variant: 'success' }) }, onError: () => toast({ title: 'Code invalide', variant: 'error' }) }) }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && otpCode.length === 6) verifyPhone.mutate({ phoneId: phone.id, code: otpCode }, { onSuccess: () => { setVerifyingPhoneId(null); setOtpCode(''); toast({ title: 'Téléphone vérifié', variant: 'success' }) }, onError: () => toast({ title: t('common.invalid_code'), variant: 'error' }) }) }}
                       placeholder="000000"
                       className="w-14 px-1 py-0.5 text-[10px] font-mono rounded border border-border/60 bg-card focus:outline-none text-center"
                       autoFocus
                     />
                     <button
-                      onClick={() => verifyPhone.mutate({ phoneId: phone.id, code: otpCode }, { onSuccess: () => { setVerifyingPhoneId(null); setOtpCode(''); toast({ title: 'Téléphone vérifié', variant: 'success' }) }, onError: () => toast({ title: 'Code invalide', variant: 'error' }) })}
+                      onClick={() => verifyPhone.mutate({ phoneId: phone.id, code: otpCode }, { onSuccess: () => { setVerifyingPhoneId(null); setOtpCode(''); toast({ title: 'Téléphone vérifié', variant: 'success' }) }, onError: () => toast({ title: t('common.invalid_code'), variant: 'error' }) })}
                       disabled={otpCode.length !== 6 || verifyPhone.isPending}
                       className="p-0.5 rounded hover:bg-green-100 text-green-600 disabled:opacity-40"
                     >

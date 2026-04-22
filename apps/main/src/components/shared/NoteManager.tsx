@@ -73,7 +73,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
       setContent('')
       toast({ title: 'Note ajoutée', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible d\'ajouter la note.', variant: 'error' })
+      toast({ title: t('common.error'), description: 'Impossible d\'ajouter la note.', variant: 'error' })
     }
   }, [ownerId, ownerType, content, visibility, createNote, toast])
 
@@ -85,7 +85,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
       setEditContent('')
       toast({ title: 'Note modifiée', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de modifier la note.', variant: 'error' })
+      toast({ title: t('common.error'), description: 'Impossible de modifier la note.', variant: 'error' })
     }
   }, [editContent, updateNote, toast])
 
@@ -93,7 +93,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
     try {
       await updateNote.mutateAsync({ id: note.id, payload: { pinned: !note.pinned } })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [updateNote, toast])
 
@@ -103,7 +103,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
       setConfirmDeleteId(null)
       toast({ title: 'Note supprimée', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de supprimer la note.', variant: 'error' })
+      toast({ title: t('common.error'), description: 'Impossible de supprimer la note.', variant: 'error' })
     }
   }, [deleteNote, toast])
 

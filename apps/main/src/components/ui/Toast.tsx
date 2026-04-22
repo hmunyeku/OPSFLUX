@@ -22,7 +22,7 @@
  * Usage:
  *   import { useToast } from '@/components/ui/Toast'
  *   const { toast } = useToast()
- *   toast({ title: 'Succès', variant: 'success' })
+ *   toast({ title: t('common.success'), variant: 'success' })
  */
 import { useState, useCallback, createContext, useContext, useSyncExternalStore } from 'react'
 import * as ToastPrimitive from '@radix-ui/react-toast'

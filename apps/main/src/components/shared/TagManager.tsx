@@ -15,6 +15,7 @@
  *   <TagManager ownerType="asset" ownerId={asset.id} compact />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Lock, Globe, Check, ChevronRight, ChevronDown, FolderTree } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useTagTree, useTags, useCreateTag, useUpdateTag, useDeleteTag } from '@/hooks/useSettings'
@@ -44,6 +45,7 @@ interface TagManagerProps {
 }
 
 export function TagManager({ ownerType, ownerId, compact }: TagManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const userId = useAuthStore((s) => s.user?.id)
   const { data: treeData, isLoading } = useTagTree(ownerType, ownerId)
@@ -79,7 +81,7 @@ export function TagManager({ ownerType, ownerId, compact }: TagManagerProps) {
       setShowForm(false)
       toast({ title: 'Tag ajouté', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de créer le tag.', variant: 'error' })
+      toast({ title: t('common.error'), description: 'Impossible de créer le tag.', variant: 'error' })
     }
   }, [ownerId, ownerType, name, color, visibility, parentId, createTag, toast])
 
@@ -89,7 +91,7 @@ export function TagManager({ ownerType, ownerId, compact }: TagManagerProps) {
       setConfirmDeleteId(null)
       toast({ title: 'Tag supprimé', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de supprimer le tag.', variant: 'error' })
+      toast({ title: t('common.error'), description: 'Impossible de supprimer le tag.', variant: 'error' })
     }
   }, [deleteTag, toast])
 
@@ -124,7 +126,7 @@ export function TagManager({ ownerType, ownerId, compact }: TagManagerProps) {
                   setEditingTagId(null)
                   toast({ title: 'Tag modifié', variant: 'success' })
                 } catch {
-                  toast({ title: 'Erreur', variant: 'error' })
+                  toast({ title: t('common.error'), variant: 'error' })
                 }
               }}
               isUpdating={updateTag.isPending}

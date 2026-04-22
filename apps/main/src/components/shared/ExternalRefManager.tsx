@@ -56,7 +56,7 @@ export function ExternalRefManager({ ownerType, ownerId, compact }: ExternalRefM
       setShowForm(false)
       toast({ title: 'Référence ajoutée', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [ownerId, ownerType, system, code, label, createRef, toast])
 
@@ -66,7 +66,7 @@ export function ExternalRefManager({ ownerType, ownerId, compact }: ExternalRefM
       setConfirmDeleteId(null)
       toast({ title: 'Référence supprimée', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [ownerType, ownerId, deleteRef, toast])
 

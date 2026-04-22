@@ -10,6 +10,7 @@
  *   <OpeningHoursManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Check, Clock } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useOpeningHours, useCreateOpeningHour, useUpdateOpeningHour, useDeleteOpeningHour } from '@/hooks/useSettings'
@@ -35,6 +36,7 @@ interface OpeningHoursManagerProps {
 }
 
 export function OpeningHoursManager({ ownerType, ownerId, compact }: OpeningHoursManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useOpeningHours(ownerType, ownerId)
   const createHour = useCreateOpeningHour()
@@ -76,7 +78,7 @@ export function OpeningHoursManager({ ownerType, ownerId, compact }: OpeningHour
       setShowForm(false)
       toast({ title: 'Horaire ajouté', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [ownerId, ownerType, formDay, formOpen, formClose, formClosed, createHour, toast])
 
@@ -87,7 +89,7 @@ export function OpeningHoursManager({ ownerType, ownerId, compact }: OpeningHour
       setConfirmDeleteId(null)
       toast({ title: 'Horaire supprimé', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [ownerId, ownerType, deleteHour, toast])
 
@@ -125,7 +127,7 @@ export function OpeningHoursManager({ ownerType, ownerId, compact }: OpeningHour
                               setEditingId(null)
                               toast({ title: 'Horaire modifié', variant: 'success' })
                             } catch {
-                              toast({ title: 'Erreur', variant: 'error' })
+                              toast({ title: t('common.error'), variant: 'error' })
                             }
                           }}
                           onCancel={() => setEditingId(null)}

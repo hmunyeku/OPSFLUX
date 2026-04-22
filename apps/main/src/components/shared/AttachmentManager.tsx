@@ -11,6 +11,7 @@
  *   <AttachmentManager ownerType="support_ticket" ownerId={ticket.id} />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Paperclip, Plus, Trash2, Download, Loader2,
   FileText, Image, FileArchive, Film, Music, File, Eye, EyeOff,
@@ -137,6 +138,7 @@ export function AttachmentManager({
   readOnly,
   categoryDictionary,
 }: AttachmentManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const categoryOptions = useDictionaryOptions(categoryDictionary ?? '')
   const [uploadCategory, setUploadCategory] = useState<string>('')
@@ -174,7 +176,7 @@ export function AttachmentManager({
         })
         toast({ title: `${file.name} ajouté`, variant: 'success' })
       } catch {
-        toast({ title: 'Erreur', description: `Impossible d'ajouter ${file.name}.`, variant: 'error' })
+        toast({ title: t('common.error'), description: `Impossible d'ajouter ${file.name}.`, variant: 'error' })
       }
     }
   }, [ownerId, ownerType, uploadAttachment, toast, uploadCategory])
@@ -185,7 +187,7 @@ export function AttachmentManager({
       setConfirmDeleteId(null)
       toast({ title: 'Fichier supprimé', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de supprimer le fichier.', variant: 'error' })
+      toast({ title: t('common.error'), description: 'Impossible de supprimer le fichier.', variant: 'error' })
     }
   }, [deleteAttachment, toast])
 

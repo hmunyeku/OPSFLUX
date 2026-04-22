@@ -214,16 +214,16 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
       setEditingId(null)
       setForm(EMPTY_FORM)
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }
 
   const handleDelete = async (id: string) => {
     try {
       await deleteRecord.mutateAsync(id)
-      toast({ title: 'Supprimé', variant: 'success' })
+      toast({ title: t('common.deleted'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }
 

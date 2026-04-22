@@ -56,6 +56,7 @@ function isRequired(types: DictionaryEntry[], code: string): boolean {
 }
 
 export function LegalIdentifierManager({ ownerType, ownerId, country, compact }: LegalIdentifierManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data, isLoading } = useLegalIdentifiers(ownerType, ownerId)
   const createIdent = useCreateLegalIdentifier()
@@ -105,7 +106,7 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
       setShowForm(false)
       toast({ title: 'Identifiant ajouté', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [ownerId, ownerType, type, value, identCountry, issuedAt, expiresAt, createIdent, toast, resetForm])
 
@@ -116,7 +117,7 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
       setConfirmDeleteId(null)
       toast({ title: 'Identifiant supprimé', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
   }, [ownerId, ownerType, deleteIdent, toast])
 
@@ -159,7 +160,7 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
                       setEditingId(null)
                       toast({ title: 'Identifiant modifié', variant: 'success' })
                     } catch {
-                      toast({ title: 'Erreur', variant: 'error' })
+                      toast({ title: t('common.error'), variant: 'error' })
                     }
                   }}
                   onCancel={() => setEditingId(null)}

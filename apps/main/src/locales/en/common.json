@@ -358,7 +358,13 @@
     "monthly": "Monthly",
     "maintenance": "Maintenance",
     "field": "Field",
-    "installation": "Installation"
+    "installation": "Installation",
+    "deleted": "Deleted",
+    "failed": "Failed",
+    "created": "Created",
+    "updated": "Updated",
+    "saved": "Saved",
+    "invalid_code": "Invalid code"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",

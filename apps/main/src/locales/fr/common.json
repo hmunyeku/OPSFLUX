@@ -358,7 +358,13 @@
     "monthly": "Mensuel",
     "maintenance": "Maintenance",
     "field": "Champ",
-    "installation": "Installation"
+    "installation": "Installation",
+    "deleted": "Supprimé",
+    "failed": "Échec",
+    "created": "Créé",
+    "updated": "Modifié",
+    "saved": "Enregistré",
+    "invalid_code": "Code invalide"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",

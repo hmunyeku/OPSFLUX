@@ -347,7 +347,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   className={panelInputClass}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Statut">
+              <DynamicPanelField label={t('common.status')}>
                 <select
                   value={editForm.status ?? ''}
                   onChange={(e) =>

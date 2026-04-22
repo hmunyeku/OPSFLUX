@@ -439,7 +439,7 @@ export function CreateSitePanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="Profondeur eau (m)">
+            <DynamicPanelField label={t('common.water_depth_m')}>
               <input type="number" step="0.1" min={0} value={form.water_depth_m ?? ''} onChange={numChange(set, 'water_depth_m')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -638,7 +638,7 @@ export function CreateInstallationPanel() {
             <DynamicPanelField label={t('asset_registry.elevation_m_asl')}>
               <input type="number" step="0.1" value={form.elevation_masl ?? ''} onChange={numChange(set, 'elevation_masl')} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Profondeur eau (m)">
+            <DynamicPanelField label={t('common.water_depth_m')}>
               <input type="number" step="0.1" min={0} value={form.water_depth_m ?? ''} onChange={numChange(set, 'water_depth_m')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -646,7 +646,7 @@ export function CreateInstallationPanel() {
             <DynamicPanelField label="Air gap (m)">
               <input type="number" step="0.1" min={0} value={form.air_gap_m ?? ''} onChange={numChange(set, 'air_gap_m')} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Orientation (deg)">
+            <DynamicPanelField label={t('common.orientation_deg')}>
               <input type="number" step="0.1" min={0} max={360} value={form.orientation_deg ?? ''} onChange={numChange(set, 'orientation_deg')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -877,7 +877,7 @@ export function CreateEquipmentPanel() {
             <DynamicPanelField label={t('assets.elevation')}>
               <input type="number" step="0.1" value={form.elevation_m ?? ''} onChange={numChange(set, 'elevation_m')} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Orientation (deg)">
+            <DynamicPanelField label={t('common.orientation_deg')}>
               <input type="number" step="0.1" min={0} max={360} value={form.orientation_deg ?? ''} onChange={numChange(set, 'orientation_deg')} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>

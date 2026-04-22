@@ -333,7 +333,7 @@ export function CreateCargoPanel() {
                   <DynamicPanelField label={t('common.designation')}>
                     <input type="text" value={form.designation ?? ''} onChange={(e) => setForm({ ...form, designation: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.cargo_designation')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Article SAP">
+                  <DynamicPanelField label={t('common.sap_article')}>
                     <input type="text" value={form.sap_article_code ?? ''} onChange={(e) => setForm({ ...form, sap_article_code: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.sap_code_example')} />
                   </DynamicPanelField>
                   <DynamicPanelField label={t('common.description')} required span="full">
@@ -420,7 +420,7 @@ export function CreateCargoPanel() {
               </FormSection>
               <FormSection title={t('common.cargo_compliance')} collapsible defaultExpanded>
                 <FormGrid>
-                  <DynamicPanelField label="Validation HAZMAT">
+                  <DynamicPanelField label={t('common.hazmat_validation')}>
                     <label className="inline-flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={form.hazmat_validated ?? false} onChange={(e) => setForm({ ...form, hazmat_validated: e.target.checked })} />
                       Conforme / validé pour traitement HAZMAT
@@ -450,7 +450,7 @@ export function CreateCargoPanel() {
                   <DynamicPanelField label={t('common.longitude')}>
                     <input type="number" step="any" value={form.pickup_longitude ?? ''} onChange={(e) => setForm({ ...form, pickup_longitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Aperçu cartographique" span="full">
+                  <DynamicPanelField label={t('common.map_preview')} span="full">
                     {pickupMapEmbedUrl ? (
                       <div className="space-y-2">
                         <div className="overflow-hidden rounded-lg border border-border">
@@ -482,13 +482,13 @@ export function CreateCargoPanel() {
                   <DynamicPanelField label="Moyen de levage fourni par">
                     <input type="text" value={form.lifting_provider ?? ''} onChange={(e) => setForm({ ...form, lifting_provider: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.lifting_provider_example')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Oreilles de levage certifiées">
+                  <DynamicPanelField label={t('common.lifting_points_certified')}>
                     <label className="inline-flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={form.lifting_points_certified ?? false} onChange={(e) => setForm({ ...form, lifting_points_certified: e.target.checked })} />
                       Certification fournie
                     </label>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Preuve de pesée">
+                  <DynamicPanelField label={t('common.weight_ticket')}>
                     <label className="inline-flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={form.weight_ticket_provided ?? false} onChange={(e) => setForm({ ...form, weight_ticket_provided: e.target.checked })} />
                       Ticket de pesée disponible

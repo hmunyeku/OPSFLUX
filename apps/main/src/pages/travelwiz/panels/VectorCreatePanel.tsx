@@ -99,7 +99,7 @@ export function CreateVectorPanel() {
               <DynamicPanelField label="Capacité poids (kg)">
                 <input type="number" min={0} step="any" value={form.weight_capacity_kg ?? ''} onChange={(e) => setForm({ ...form, weight_capacity_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Volume (m3)">
+              <DynamicPanelField label={t('common.volume_m3')}>
                 <input type="number" min={0} step="any" value={form.volume_capacity_m3 ?? ''} onChange={(e) => setForm({ ...form, volume_capacity_m3: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
             </FormGrid>

@@ -373,7 +373,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
                     ))}
                   </select>
                 </DynamicPanelField>
-                <DynamicPanelField label="Rotation">
+                <DynamicPanelField label={t('common.rotation')}>
                   <select
                     value={editForm.rotation_id ?? ''}
                     onChange={(e) => setEditForm({ ...editForm, rotation_id: e.target.value || null })}

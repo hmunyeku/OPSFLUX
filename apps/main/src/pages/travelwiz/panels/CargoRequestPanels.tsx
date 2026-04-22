@@ -358,7 +358,7 @@ export function CreateCargoPanel() {
               <DynamicPanelField label={t('common.designation')}>
                 <input type="text" value={form.designation ?? ''} onChange={(e) => setForm({ ...form, designation: e.target.value || null })} className={panelInputClass} placeholder="Désignation courte du colis" />
               </DynamicPanelField>
-              <DynamicPanelField label="Article SAP">
+              <DynamicPanelField label={t('common.sap_article')}>
                 <input type="text" value={form.sap_article_code ?? ''} onChange={(e) => setForm({ ...form, sap_article_code: e.target.value || null })} className={panelInputClass} placeholder="MAT-00001" />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.description')} required span="full">
@@ -452,7 +452,7 @@ export function CreateCargoPanel() {
               </FormSection>
               <FormSection title={t('common.cargo_compliance')} collapsible defaultExpanded>
             <FormGrid>
-              <DynamicPanelField label="Validation HAZMAT">
+              <DynamicPanelField label={t('common.hazmat_validation')}>
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={form.hazmat_validated ?? false} onChange={(e) => setForm({ ...form, hazmat_validated: e.target.checked })} />
                   Conforme / validé pour traitement HAZMAT
@@ -471,7 +471,7 @@ export function CreateCargoPanel() {
               <DynamicPanelField label={t('common.longitude')}>
                 <input type="number" step="any" value={form.pickup_longitude ?? ''} onChange={(e) => setForm({ ...form, pickup_longitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Aperçu cartographique" span="full">
+              <DynamicPanelField label={t('common.map_preview')} span="full">
                 {pickupMapEmbedUrl ? (
                   <div className="space-y-2">
                     <div className="overflow-hidden rounded-lg border border-border">
@@ -523,13 +523,13 @@ export function CreateCargoPanel() {
               <DynamicPanelField label="Moyen de levage fourni par">
                 <input type="text" value={form.lifting_provider ?? ''} onChange={(e) => setForm({ ...form, lifting_provider: e.target.value || null })} className={panelInputClass} placeholder="Entreprise, site, prestataire..." />
               </DynamicPanelField>
-              <DynamicPanelField label="Oreilles de levage certifiées">
+              <DynamicPanelField label={t('common.lifting_points_certified')}>
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={form.lifting_points_certified ?? false} onChange={(e) => setForm({ ...form, lifting_points_certified: e.target.checked })} />
                   Certification fournie
                 </label>
               </DynamicPanelField>
-              <DynamicPanelField label="Preuve de pesée">
+              <DynamicPanelField label={t('common.weight_ticket')}>
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={form.weight_ticket_provided ?? false} onChange={(e) => setForm({ ...form, weight_ticket_provided: e.target.checked })} />
                   Ticket de pesée disponible
@@ -718,7 +718,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label={t('common.label_field')}>
                 <input type="text" value={editForm.title ?? ''} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Statut">
+              <DynamicPanelField label={t('common.status')}>
                 <select value={editForm.status ?? ''} onChange={(e) => setEditForm({ ...editForm, status: (e.target.value || null) as CargoRequestUpdate['status'] })} className={panelInputClass}>
                   <option value="">Sélectionner...</option>
                   {requestStatusOptions.map((option) => (

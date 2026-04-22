@@ -182,7 +182,7 @@ export function CreateAddressPanel() {
             <input type="text" className={panelInputClass} placeholder="Ex: Douala" value={city} onChange={(e) => setCity(e.target.value)} />
           </DynamicPanelField>
 
-          <DynamicPanelField label="Pays" required>
+          <DynamicPanelField label={t('common.country')} required>
             <CountrySelect value={country} onChange={setCountry} />
           </DynamicPanelField>
         </FormSection>

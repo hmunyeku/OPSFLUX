@@ -406,7 +406,7 @@ function CreateEntityPanel() {
             <DynamicPanelField label="Nom commercial">
               <input type="text" value={form.trade_name || ''} onChange={(e) => set({ trade_name: e.target.value || null })} className={panelInputClass} placeholder="ACME Energy S.A." />
             </DynamicPanelField>
-            <DynamicPanelField label="Pays">
+            <DynamicPanelField label={t('common.country')}>
               <TagSelector options={countryOpts} value={form.country || 'CM'} onChange={(v) => set({ country: v })} />
             </DynamicPanelField>
           </FormGrid>

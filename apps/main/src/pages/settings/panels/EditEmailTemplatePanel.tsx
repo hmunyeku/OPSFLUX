@@ -384,7 +384,7 @@ function CreatePanel() {
             />
           </DynamicPanelField>
 
-          <DynamicPanelField label="Type d'objet">
+          <DynamicPanelField label={t('common.object_type')}>
             <select className="gl-form-select" value={objectType} onChange={(e) => setObjectType(e.target.value)}>
               {OBJECT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -641,7 +641,7 @@ function EditPanel({ templateId }: { templateId: string }) {
               <DynamicPanelField label={t('common.description')}>
                 <textarea className={`${panelInputClass} min-h-[50px]`} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
               </DynamicPanelField>
-              <DynamicPanelField label="Type d'objet">
+              <DynamicPanelField label={t('common.object_type')}>
                 <select className="gl-form-select" value={editObjectType} onChange={(e) => setEditObjectType(e.target.value)}>
                   {OBJECT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>

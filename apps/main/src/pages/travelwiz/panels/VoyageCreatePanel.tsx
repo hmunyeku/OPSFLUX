@@ -77,7 +77,7 @@ export function CreateVoyagePanel() {
           </FormSection>
           <FormSection title={t('common.scheduling')}>
             <FormGrid>
-              <DynamicPanelField label="Rotation">
+              <DynamicPanelField label={t('common.rotation')}>
                 <select
                   value={form.rotation_id ?? ''}
                   onChange={(e) => setForm({ ...form, rotation_id: e.target.value || null })}

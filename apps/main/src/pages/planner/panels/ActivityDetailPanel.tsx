@@ -778,7 +778,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                     ))}
                   </select>
                 </DynamicPanelField>
-                <DynamicPanelField label="Sous-type">
+                <DynamicPanelField label={t('common.subtype')}>
                   <input
                     type="text"
                     value={editForm.subtype as string}
@@ -808,7 +808,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                   </select>
                 </DynamicPanelField>
                 {editForm.pax_quota_mode !== 'variable' && (
-                  <DynamicPanelField label="Quota PAX">
+                  <DynamicPanelField label={t('common.pax_quota')}>
                     <input
                       type="number"
                       value={editForm.pax_quota as number}
@@ -856,7 +856,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             {(editForm.type === 'workover') && (
               <FormSection title={t('common.workover_details')}>
                 <FormGrid>
-                  <DynamicPanelField label="Référence puits">
+                  <DynamicPanelField label={t('common.well_reference')}>
                     <input
                       type="text"
                       value={editForm.well_reference as string}
@@ -887,7 +887,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       className={panelInputClass}
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Profondeur cible (m)">
+                  <DynamicPanelField label={t('common.target_depth_m')}>
                     <input
                       type="number"
                       value={editForm.target_depth as string}
@@ -895,7 +895,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       className={panelInputClass}
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Ref. programme forage">
+                  <DynamicPanelField label={t('common.drilling_program_ref')}>
                     <input
                       type="text"
                       value={editForm.drilling_program_ref as string}
@@ -910,7 +910,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             {(editForm.type === 'maintenance' || editForm.type === 'integrity') && (
               <FormSection title={t('common.maintenance_details')}>
                 <FormGrid>
-                  <DynamicPanelField label="Référence réglementaire">
+                  <DynamicPanelField label={t('common.regulatory_reference')}>
                     <input
                       type="text"
                       value={editForm.regulatory_ref as string}

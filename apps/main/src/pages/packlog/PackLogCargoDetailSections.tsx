@@ -402,6 +402,7 @@ export function CargoBackReturnSection({
   onSubmit: () => Promise<void>
   isSubmitting: boolean
 }) {
+  const { t } = useTranslation()
   const returnType = returnDraft.return_type
   const needsWaste = returnType === 'waste'
   const needsContractor = returnType === 'contractor_return'
@@ -439,7 +440,7 @@ export function CargoBackReturnSection({
                 <DynamicPanelField label="Laissez-passer">
                   <input type="text" value={returnDraft.pass_number} onChange={(e) => onChange({ pass_number: e.target.value })} className={panelInputClass} />
                 </DynamicPanelField>
-                <DynamicPanelField label="Référence inventaire">
+                <DynamicPanelField label={t('common.inventory_reference')}>
                   <input type="text" value={returnDraft.inventory_reference} onChange={(e) => onChange({ inventory_reference: e.target.value })} className={panelInputClass} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Double signature">
@@ -452,7 +453,7 @@ export function CargoBackReturnSection({
             )}
             {needsReintegration && (
               <>
-                <DynamicPanelField label="Référence inventaire">
+                <DynamicPanelField label={t('common.inventory_reference')}>
                   <input type="text" value={returnDraft.inventory_reference} onChange={(e) => onChange({ inventory_reference: e.target.value })} className={panelInputClass} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Code SAP confirmé">

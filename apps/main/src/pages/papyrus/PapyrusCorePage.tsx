@@ -2130,7 +2130,7 @@ function CreateDocumentPanel() {
                       placeholder={t('papyrus.placeholders.document_title')}
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Type de document" required>
+                  <DynamicPanelField label={t('common.document_type')} required>
                     <select
                       required
                       value={form.doc_type_id}
@@ -2361,7 +2361,7 @@ function CreateTemplatePanel() {
               <DynamicPanelField label={t('common.name_field')} required span="full">
                 <input type="text" required value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.template_name')} />
               </DynamicPanelField>
-              <DynamicPanelField label="Type de document">
+              <DynamicPanelField label={t('common.document_type')}>
                 <select value={form.doc_type_id} onChange={(e) => setForm(f => ({ ...f, doc_type_id: e.target.value }))} className={panelInputClass}>
                   <option value="">Tous types</option>
                   {docTypes?.map((dt: DocType) => (

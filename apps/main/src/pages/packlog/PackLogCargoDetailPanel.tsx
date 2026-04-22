@@ -538,7 +538,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label={t('common.designation')}>
                 <input type="text" value={editForm.designation ?? ''} onChange={(e) => setEditForm({ ...editForm, designation: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Article SAP">
+              <DynamicPanelField label={t('common.sap_article')}>
                 <input type="text" value={editForm.sap_article_code ?? ''} onChange={(e) => setEditForm({ ...editForm, sap_article_code: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.weight_kg')}><input type="number" min={0} step="any" value={editForm.weight_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
@@ -625,7 +625,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label={t('common.longitude')}>
                 <input type="number" step="any" value={editForm.pickup_longitude ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_longitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Aperçu cartographique" span="full">
+              <DynamicPanelField label={t('common.map_preview')} span="full">
                 {editingPickupMapEmbedUrl ? (
                   <div className="space-y-2">
                     <div className="overflow-hidden rounded-lg border border-border">

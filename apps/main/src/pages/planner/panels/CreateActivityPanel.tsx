@@ -142,7 +142,7 @@ export function CreateActivityPanel() {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Sous-type">
+              <DynamicPanelField label={t('common.subtype')}>
                 <input
                   type="text"
                   value={form.subtype ?? ''}
@@ -173,7 +173,7 @@ export function CreateActivityPanel() {
                 </select>
               </DynamicPanelField>
               {form.pax_quota_mode !== 'variable' && (
-                <DynamicPanelField label="Quota PAX">
+                <DynamicPanelField label={t('common.pax_quota')}>
                   <input
                     type="number"
                     value={form.pax_quota ?? 1}
@@ -223,7 +223,7 @@ export function CreateActivityPanel() {
           {form.type === 'workover' && (
             <FormSection title={t('common.workover_details')}>
               <FormGrid>
-                <DynamicPanelField label="Référence puits">
+                <DynamicPanelField label={t('common.well_reference')}>
                   <input
                     type="text"
                     value={form.well_reference ?? ''}
@@ -256,7 +256,7 @@ export function CreateActivityPanel() {
                     className={panelInputClass}
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Profondeur cible (m)">
+                <DynamicPanelField label={t('common.target_depth_m')}>
                   <input
                     type="number"
                     value={form.target_depth ?? ''}
@@ -265,7 +265,7 @@ export function CreateActivityPanel() {
                     placeholder="Profondeur en metres"
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Ref. programme forage">
+                <DynamicPanelField label={t('common.drilling_program_ref')}>
                   <input
                     type="text"
                     value={form.drilling_program_ref ?? ''}
@@ -281,7 +281,7 @@ export function CreateActivityPanel() {
           {(form.type === 'maintenance' || form.type === 'integrity') && (
             <FormSection title={t('common.maintenance_details')}>
               <FormGrid>
-                <DynamicPanelField label="Référence réglementaire">
+                <DynamicPanelField label={t('common.regulatory_reference')}>
                   <input
                     type="text"
                     value={form.regulatory_ref ?? ''}

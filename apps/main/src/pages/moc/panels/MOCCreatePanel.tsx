@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { useStagingRef } from '@/hooks/useStagingRef'
 import { useTranslation } from 'react-i18next'
-import { Save, X } from 'lucide-react'
+import { Save, X, Plus, Trash2, UserPlus } from 'lucide-react'
 import {
   DynamicPanelShell,
   PanelContentLayout,
@@ -21,14 +21,18 @@ import {
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { RichTextField } from '@/components/shared/RichTextField'
 import { SignaturePad } from '@/components/shared/SignaturePad'
+import { UserPicker } from '@/components/shared/UserPicker'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useCreateMOC, useMOCTypes } from '@/hooks/useMOC'
+import { useUsers } from '@/hooks/useUsers'
 import type {
   MOCCreatePayload,
   MOCModificationType,
   MOCNature,
+  MOCInitialValidator,
+  MOCValidatorRole,
 } from '@/services/mocService'
 
 export function MOCCreatePanel() {
@@ -83,6 +87,40 @@ export function MOCCreatePanel() {
   // `commit_staging_children` helper.
   const { stagingRef, stagingOwnerType } = useStagingRef('moc')
 
+  // Ad-hoc validators invited at create time, stacked on top of the
+  // automatic matrix seeded from moc_type_id. Each entry points to one
+  // user + role + optional metier/level override.
+  const [initialValidators, setInitialValidators] = useState<MOCInitialValidator[]>([])
+  const [validatorUserId, setValidatorUserId] = useState<string | null>(null)
+  const [validatorRole, setValidatorRole] = useState<MOCValidatorRole>('hse')
+  const [validatorMetier, setValidatorMetier] = useState<string>('')
+  const [validatorLevel, setValidatorLevel] = useState<'' | 'DO' | 'DG' | 'DO_AND_DG'>('')
+  const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
+  const usersById = new Map((usersData?.items ?? []).map((u) => [u.id, u]))
+  const addValidator = () => {
+    if (!validatorUserId) return
+    // De-dup per (user_id, role, metier_code)
+    const key = `${validatorUserId}|${validatorRole}|${validatorMetier || ''}`
+    if (initialValidators.some((v) =>
+      `${v.user_id}|${v.role}|${v.metier_code || ''}` === key,
+    )) return
+    setInitialValidators((prev) => [
+      ...prev,
+      {
+        user_id: validatorUserId,
+        role: validatorRole,
+        metier_code: validatorRole === 'metier' ? (validatorMetier.trim() || null) : null,
+        metier_name: null,
+        level: validatorLevel || null,
+      },
+    ])
+    setValidatorUserId(null)
+    setValidatorMetier('')
+    setValidatorLevel('')
+  }
+  const removeValidator = (idx: number) =>
+    setInitialValidators((prev) => prev.filter((_, i) => i !== idx))
+
   // Preferred path: installation picker — backend derives site + platform.
   // Fallback path: manual Site dropdown + Platform free-text.
   const siteLabel = site === 'OTHER' ? customSite.trim() : site
@@ -122,6 +160,7 @@ export function MOCCreatePanel() {
       initiator_external_function: externalMode ? externalFunction.trim() || null : null,
       initiator_signature: initiatorSignature,
       staging_ref: stagingRef || null,
+      initial_validators: initialValidators,
     }
     try {
       const moc = await create.mutateAsync(payload)
@@ -479,6 +518,108 @@ export function MOCCreatePanel() {
               </>
             )}
           </FormGrid>
+        </FormSection>
+
+        {/* ── Validateurs ad-hoc invités à la création ── */}
+        <FormSection
+          title={`${t('moc.create.section_validators', 'Validateurs à inviter')} (${initialValidators.length})`}
+          collapsible
+          defaultExpanded={false}
+        >
+          {initialValidators.length > 0 && (
+            <div className="space-y-1 mb-2">
+              {initialValidators.map((v, idx) => {
+                const user = usersById.get(v.user_id)
+                const displayName = user ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || user.email : v.user_id
+                return (
+                  <div
+                    key={`${v.user_id}-${v.role}-${idx}`}
+                    className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2 py-1.5"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <UserPlus size={12} className="text-muted-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium truncate">{displayName}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {[v.role, v.metier_code, v.level].filter(Boolean).join(' • ')}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeValidator(idx)}
+                      className="p-1 text-muted-foreground hover:text-destructive shrink-0"
+                      title={t('common.delete') as string}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="space-y-2 rounded-md border border-border bg-card p-2">
+            <FormGrid>
+              <DynamicPanelField label={t('users.user', 'Utilisateur')} required>
+                <UserPicker
+                  value={validatorUserId}
+                  onChange={setValidatorUserId}
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('moc.fields.role', 'Rôle')} required>
+                <select
+                  value={validatorRole}
+                  onChange={(e) => setValidatorRole(e.target.value as MOCValidatorRole)}
+                  className={panelInputClass}
+                >
+                  <option value="hse">HSE</option>
+                  <option value="lead_process">Lead Process</option>
+                  <option value="production_manager">Production Manager</option>
+                  <option value="gas_manager">Gaz Manager</option>
+                  <option value="maintenance_manager">Maintenance Manager</option>
+                  <option value="process_engineer">Process Engineer</option>
+                  <option value="metier">Métier (autre)</option>
+                </select>
+              </DynamicPanelField>
+              {validatorRole === 'metier' && (
+                <DynamicPanelField label={t('moc.fields.metier_code', 'Code métier')}>
+                  <input
+                    type="text"
+                    value={validatorMetier}
+                    onChange={(e) => setValidatorMetier(e.target.value)}
+                    className={panelInputClass}
+                    placeholder="elec / instru / piping..."
+                  />
+                </DynamicPanelField>
+              )}
+              <DynamicPanelField label={t('moc.fields.level', 'Niveau validation')}>
+                <select
+                  value={validatorLevel}
+                  onChange={(e) => setValidatorLevel(e.target.value as '' | 'DO' | 'DG' | 'DO_AND_DG')}
+                  className={panelInputClass}
+                >
+                  <option value="">—</option>
+                  <option value="DO">D.O</option>
+                  <option value="DG">D.G</option>
+                  <option value="DO_AND_DG">D.O + D.G</option>
+                </select>
+              </DynamicPanelField>
+            </FormGrid>
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={addValidator}
+                disabled={!validatorUserId}
+                className="gl-button-sm gl-button-confirm inline-flex items-center gap-1 disabled:opacity-50"
+              >
+                <Plus size={12} /> {t('common.add', 'Ajouter')}
+              </button>
+            </div>
+          </div>
+          <p className="mt-1.5 text-[10px] text-muted-foreground italic">
+            {t('moc.create.validators_hint', 'Ces validateurs s\u2019ajoutent à la matrice automatique du type de MOC (si défini).')}
+          </p>
         </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>

@@ -11,6 +11,21 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 # ─── Create / Update ──────────────────────────────────────────────────────────
 
 
+# Defined before MOCCreate so `initial_validators: list[MOCInitialValidator]`
+# resolves at module load without needing a forward-ref + model_rebuild.
+class MOCInitialValidator(BaseModel):
+    """Minimal payload accepted inside `MOCCreate.initial_validators`."""
+    user_id: UUID
+    role: str = Field(
+        pattern=r"^(hse|lead_process|production_manager|gas_manager|maintenance_manager|process_engineer|metier)$"
+    )
+    metier_code: str | None = Field(default=None, max_length=40)
+    metier_name: str | None = Field(default=None, max_length=120)
+    level: str | None = Field(
+        default=None, pattern=r"^(DO|DG|DO_AND_DG)$"
+    )
+
+
 class MOCCreate(BaseModel):
     """Initial MOC creation — minimal required fields per CDC §4.1.
 
@@ -65,6 +80,10 @@ class MOCCreate(BaseModel):
     # attachments with owner_type='moc_staging' + owner_id=staging_ref to
     # the newly created MOC.
     staging_ref: UUID | None = None
+    # Ad-hoc validators invited at creation, in addition to the automatic
+    # matrix seeded from moc_type_id (if any). Each entry is passed to
+    # `invite_validator` inside the create endpoint in one transaction.
+    initial_validators: list[MOCInitialValidator] = Field(default_factory=list)
 
 
 class MOCUpdate(BaseModel):

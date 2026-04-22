@@ -338,6 +338,26 @@ export interface MOCCreatePayload {
    * `owner_type='moc_staging'` + `owner_id=<this>` to the new MOC.
    */
   staging_ref?: string | null
+  /** Ad-hoc validators invited at creation time, stacked on top of the
+   *  automatic matrix seeded by `moc_type_id`. */
+  initial_validators?: MOCInitialValidator[]
+}
+
+export type MOCValidatorRole =
+  | 'hse'
+  | 'lead_process'
+  | 'production_manager'
+  | 'gas_manager'
+  | 'maintenance_manager'
+  | 'process_engineer'
+  | 'metier'
+
+export interface MOCInitialValidator {
+  user_id: string
+  role: MOCValidatorRole
+  metier_code?: string | null
+  metier_name?: string | null
+  level?: 'DO' | 'DG' | 'DO_AND_DG' | null
 }
 
 export type MOCUpdatePayload = Partial<MOC>

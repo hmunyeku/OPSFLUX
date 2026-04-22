@@ -431,6 +431,27 @@ async def create_moc(
     # Seed the validation matrix from the chosen MOC type (if any)
     if body.moc_type_id:
         await seed_matrix_from_type(db, moc=moc, moc_type_id=body.moc_type_id)
+    # Ad-hoc validators invited at creation time — stacked on top of the
+    # matrix seeded above (if any). `invite_validator` is idempotent per
+    # (role, metier_code, validator_id), so overlaps with the auto-matrix
+    # just refresh metadata instead of duplicating rows.
+    invited_validators = 0
+    for v in (body.initial_validators or []):
+        target_user = await db.get(User, v.user_id)
+        if target_user is None or not target_user.active:
+            continue
+        from app.services.modules.moc_service import invite_validator
+        await invite_validator(
+            db,
+            moc=moc,
+            user=target_user,
+            invited_by=current_user,
+            role=v.role,
+            metier_code=v.metier_code,
+            metier_name=v.metier_name,
+            level=v.level,
+        )
+        invited_validators += 1
     # Seed the history with the creation event
     db.add(MOCStatusHistory(
         moc_id=moc.id, old_status=None, new_status="created",
@@ -460,6 +481,7 @@ async def create_moc(
         details={
             "reference": ref, "site": body.site_label, "platform": body.platform_code,
             "staging_attachments_committed": committed_attachments,
+            "invited_validators": invited_validators,
         },
     )
     await db.commit()

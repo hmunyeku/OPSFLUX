@@ -3593,6 +3593,23 @@ _MOC_REPORT_BODY_FR = r"""\
     display: block;
     margin: 1.5mm auto;
   }
+  /* Tables inserted via Tiptap in rich-text fields */
+  .rich table {
+    width: 100%;
+    margin: 2mm 0;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+  }
+  .rich table td, .rich table th {
+    border: 0.4pt solid #999;
+    padding: 1.2mm 1.8mm;
+    vertical-align: top;
+  }
+  .rich table th {
+    background: #F2F2F2;
+    font-weight: 700;
+    text-align: left;
+  }
 </style>
 </head>
 <body>

@@ -22,10 +22,20 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { EditorContent, useEditor, type Editor } from '@tiptap/react'
+import {
+  EditorContent,
+  useEditor,
+  type Editor,
+  NodeViewWrapper,
+  ReactNodeViewRenderer,
+} from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
+import { Table } from '@tiptap/extension-table'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TableCell } from '@tiptap/extension-table-cell'
+import { TableHeader } from '@tiptap/extension-table-header'
 import DOMPurify from 'dompurify'
 import {
   Bold,
@@ -42,6 +52,12 @@ import {
   Undo,
   Redo,
   ImagePlus,
+  Table as TableIcon,
+  Rows3,
+  Columns3,
+  Trash2,
+  Maximize2,
+  Minimize2,
   Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -156,6 +172,106 @@ async function hydrateAttachmentUrls(
   return out
 }
 
+// ── Resizable Image NodeView ──────────────────────────────────────────────
+// Wraps <img> in a React component that shows a SE-corner drag handle when
+// the node is selected. Mouse drag updates the `width` attribute; Tiptap
+// persists it to the HTML. The handle only appears on selection to keep
+// the reading view clean.
+
+function ResizableImageNodeView(props: any) {
+  const { node, selected, updateAttributes, editor } = props
+  const wrapperRef = useRef<HTMLSpanElement | null>(null)
+  const [dragging, setDragging] = useState(false)
+
+  const onPointerDown = (ev: React.PointerEvent) => {
+    ev.preventDefault()
+    ev.stopPropagation()
+    const startX = ev.clientX
+    const startWidth = wrapperRef.current?.firstElementChild
+      ? (wrapperRef.current.firstElementChild as HTMLImageElement).offsetWidth
+      : (node.attrs.width as number | null) ?? 300
+    setDragging(true)
+    const onMove = (e: PointerEvent) => {
+      const next = Math.max(40, Math.round(startWidth + (e.clientX - startX)))
+      updateAttributes({ width: next })
+    }
+    const onUp = () => {
+      setDragging(false)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  const width = node.attrs.width as number | null
+  const isEditable = editor?.isEditable
+
+  return (
+    <NodeViewWrapper
+      as="span"
+      ref={wrapperRef as any}
+      className={cn(
+        'inline-block relative my-1',
+        selected && isEditable && 'outline outline-2 outline-primary/60 rounded',
+      )}
+      style={{ width: width ? `${width}px` : undefined, maxWidth: '100%' }}
+    >
+      <img
+        src={node.attrs.src}
+        alt={node.attrs.alt ?? ''}
+        data-attachment-id={node.attrs['data-attachment-id'] ?? undefined}
+        className="block max-w-full h-auto rounded"
+        draggable={false}
+      />
+      {selected && isEditable && (
+        <span
+          className={cn(
+            'absolute bottom-0 right-0 w-3 h-3 bg-primary border border-white',
+            'rounded-sm cursor-se-resize translate-x-1/2 translate-y-1/2',
+            'hover:scale-125 transition-transform',
+            dragging && 'scale-125',
+          )}
+          title="Redimensionner"
+          onPointerDown={onPointerDown}
+        />
+      )}
+    </NodeViewWrapper>
+  )
+}
+
+/** Extension-image augmented with width attr, data-attachment-id and a
+ *  React NodeView that shows a resize handle when selected. */
+const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      'data-attachment-id': {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-attachment-id'),
+        renderHTML: (attrs) => {
+          const v = attrs['data-attachment-id']
+          return v ? { 'data-attachment-id': v } : {}
+        },
+      },
+      width: {
+        default: null,
+        parseHTML: (el) => {
+          const w = el.getAttribute('width')
+          return w ? Number(w) : null
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.width) return {}
+          return { width: attrs.width, style: `width: ${attrs.width}px;` }
+        },
+      },
+    }
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ResizableImageNodeView)
+  },
+})
+
 function useHydratedAttachmentHtml(html: string | null | undefined): string {
   const [hydrated, setHydrated] = useState<string>(html ?? '')
   const blobsRef = useRef<string[]>([])
@@ -246,6 +362,7 @@ export function RichTextField({
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
   // Canonical HTML we just emitted through onChange. Used to tell
   // "this value prop change is our own roundtrip — keep editor as-is"
   // from "external update — reset editor to hydrated value".
@@ -268,29 +385,20 @@ export function RichTextField({
       Placeholder.configure({
         placeholder: placeholder ?? '',
       }),
-      Image.extend({
-        // Preserve the backend's data-attachment-id so reconciliation can
-        // later figure out which attachments are still referenced.
-        addAttributes() {
-          return {
-            ...this.parent?.(),
-            'data-attachment-id': {
-              default: null,
-              parseHTML: (el) => el.getAttribute('data-attachment-id'),
-              renderHTML: (attrs) => {
-                const v = attrs['data-attachment-id']
-                return v ? { 'data-attachment-id': v } : {}
-              },
-            },
-          }
-        },
-      }).configure({
+      ResizableImage.configure({
         // Inline images are rarely useful inside paragraphs; keep them as
         // block nodes so they get their own line and the reconciliation
         // regex has a clean anchor.
         inline: false,
         allowBase64: false,
       }),
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: { class: 'rt-table' },
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content: value || '',
     editable: !disabled,
@@ -424,9 +532,15 @@ export function RichTextField({
   }
 
   return (
-    <div className={cn('rounded border border-border bg-background', className)}>
+    <div
+      className={cn(
+        'rounded border border-border bg-background',
+        fullscreen && 'fixed inset-4 z-[100] shadow-2xl flex flex-col',
+        className,
+      )}
+    >
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/30 px-1.5 py-1">
+      <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/30 px-1.5 py-1 shrink-0">
         {!compact && (
           <>
             <ToolbarButton
@@ -543,14 +657,61 @@ export function RichTextField({
           </ToolbarButton>
         )}
         {!compact && (
-          <ToolbarButton
-            editor={editor}
-            onClick={() => editor?.chain().setHorizontalRule().run()}
-            disabled={disabled}
-            title="Séparateur"
-          >
-            <Minus size={12} />
-          </ToolbarButton>
+          <>
+            <ToolbarButton
+              editor={editor}
+              onClick={() => editor?.chain().setHorizontalRule().run()}
+              disabled={disabled}
+              title="Séparateur"
+            >
+              <Minus size={12} />
+            </ToolbarButton>
+            {/* Table controls — context-sensitive: insert 3×3 when not
+                inside a table; add row/col/delete when inside. */}
+            {editor?.isActive('table') ? (
+              <>
+                <ToolbarButton
+                  editor={editor}
+                  onClick={() => editor?.chain().focus().addRowAfter().run()}
+                  disabled={disabled}
+                  title="Ajouter une ligne"
+                >
+                  <Rows3 size={12} />
+                </ToolbarButton>
+                <ToolbarButton
+                  editor={editor}
+                  onClick={() => editor?.chain().focus().addColumnAfter().run()}
+                  disabled={disabled}
+                  title="Ajouter une colonne"
+                >
+                  <Columns3 size={12} />
+                </ToolbarButton>
+                <ToolbarButton
+                  editor={editor}
+                  onClick={() => editor?.chain().focus().deleteTable().run()}
+                  disabled={disabled}
+                  title="Supprimer le tableau"
+                >
+                  <Trash2 size={12} />
+                </ToolbarButton>
+              </>
+            ) : (
+              <ToolbarButton
+                editor={editor}
+                onClick={() =>
+                  editor
+                    ?.chain()
+                    .focus()
+                    .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                    .run()
+                }
+                disabled={disabled}
+                title="Insérer un tableau (3×3)"
+              >
+                <TableIcon size={12} />
+              </ToolbarButton>
+            )}
+          </>
         )}
         <span className="ml-auto flex items-center gap-0.5">
           <ToolbarButton
@@ -569,6 +730,16 @@ export function RichTextField({
           >
             <Redo size={12} />
           </ToolbarButton>
+          {!compact && (
+            <ToolbarButton
+              editor={editor}
+              onClick={() => setFullscreen((v) => !v)}
+              disabled={false}
+              title={fullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+            >
+              {fullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+            </ToolbarButton>
+          )}
         </span>
       </div>
 
@@ -591,7 +762,9 @@ export function RichTextField({
         editor={editor}
         className={cn(
           'prose prose-sm max-w-none px-3 py-2 text-sm outline-none',
+          fullscreen && 'flex-1 overflow-auto',
           '[&_.ProseMirror]:min-h-[var(--rte-min-h)] [&_.ProseMirror]:outline-none',
+          fullscreen && '[&_.ProseMirror]:min-h-full',
           '[&_.ProseMirror_p]:my-1 [&_.ProseMirror_ul]:my-1 [&_.ProseMirror_ol]:my-1',
           '[&_.ProseMirror_h1]:text-base [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h1]:mb-1',
           '[&_.ProseMirror_h2]:text-sm [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:mb-1',
@@ -606,6 +779,19 @@ export function RichTextField({
           '[&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:text-xs',
           '[&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-border',
           '[&_.ProseMirror_blockquote]:pl-2 [&_.ProseMirror_blockquote]:text-muted-foreground',
+          // Tables
+          '[&_.rt-table]:w-full [&_.rt-table]:my-2 [&_.rt-table]:border-collapse',
+          '[&_.rt-table]:table-fixed',
+          '[&_.rt-table_td]:border [&_.rt-table_td]:border-border',
+          '[&_.rt-table_td]:px-2 [&_.rt-table_td]:py-1 [&_.rt-table_td]:align-top',
+          '[&_.rt-table_th]:border [&_.rt-table_th]:border-border',
+          '[&_.rt-table_th]:bg-muted/40 [&_.rt-table_th]:px-2 [&_.rt-table_th]:py-1',
+          '[&_.rt-table_th]:font-semibold [&_.rt-table_th]:text-left',
+          '[&_.rt-table_.selectedCell]:bg-primary/10',
+          '[&_.rt-table_.column-resize-handle]:absolute',
+          '[&_.rt-table_.column-resize-handle]:right-[-1px] [&_.rt-table_.column-resize-handle]:top-0',
+          '[&_.rt-table_.column-resize-handle]:w-[3px] [&_.rt-table_.column-resize-handle]:h-full',
+          '[&_.rt-table_.column-resize-handle]:bg-primary [&_.rt-table_.column-resize-handle]:cursor-col-resize',
         )}
         style={{ ['--rte-min-h' as string]: rowsToMinHeight(rows) }}
       />
@@ -636,16 +822,20 @@ const PURIFY_CONFIG = {
     'ul', 'ol', 'li',
     'blockquote', 'hr',
     'a',
-    'pre',
+    'pre', 'span',
     // Images uploaded via the editor — src always points at our own
     // authenticated /attachments/:id/download route, which the backend
     // resolves to a data URI for the PDF. data-attachment-id is kept so
     // backend reconciliation can detect removed images on save.
     'img',
+    // Tables — insert / resize / add row & column supported in the editor
+    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'colgroup', 'col',
   ],
   ALLOWED_ATTR: [
     'href', 'rel', 'target',
     'src', 'alt', 'width', 'height', 'data-attachment-id', 'class', 'style',
+    // Table attributes used by the Tiptap table extension
+    'colspan', 'rowspan', 'colwidth',
   ],
   // Allow `blob:` URIs so hydrated image srcs (authenticated blob URLs)
   // survive sanitisation. Default DOMPurify regex omits the blob scheme.
@@ -674,6 +864,13 @@ export function RichTextDisplay({ value, className, empty = '—' }: RichTextDis
         '[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs',
         '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-2',
         '[&_blockquote]:text-muted-foreground',
+        // Tables
+        '[&_table]:w-full [&_table]:my-2 [&_table]:border-collapse',
+        '[&_table_td]:border [&_table_td]:border-border [&_table_td]:px-2 [&_table_td]:py-1 [&_table_td]:align-top',
+        '[&_table_th]:border [&_table_th]:border-border [&_table_th]:bg-muted/40',
+        '[&_table_th]:px-2 [&_table_th]:py-1 [&_table_th]:font-semibold [&_table_th]:text-left',
+        // Images
+        '[&_img]:max-w-full [&_img]:h-auto [&_img]:rounded',
         className,
       )}
       dangerouslySetInnerHTML={{ __html: clean }}

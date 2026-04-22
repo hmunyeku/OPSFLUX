@@ -12,8 +12,7 @@ import type { AssetTreeNode } from '@/types/api'
 import type { AdsStayChangeRequest, StayProgramCreate, PaxCandidate, AdsPax } from '@/services/paxlogService'
 import { paxlogService } from '@/services/paxlogService'
 import { cn } from '@/lib/utils'
-import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
-import { ReadOnlyRow, DynamicPanelShell, DynamicPanelField, FormGrid, PanelActionButton, DangerConfirmButton, DetailFieldGrid, panelInputClass } from '@/components/layout/DynamicPanel'
+import { ReadOnlyRow, DynamicPanelShell, DynamicPanelField, FormGrid, FormSection, PanelActionButton, DangerConfirmButton, DetailFieldGrid, panelInputClass } from '@/components/layout/DynamicPanel'
 import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag, Info, Users, BedDouble, BookOpen } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -808,7 +807,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
         />
 
         {detailTab === 'informations' && (<>
-        <CollapsibleSection
+        <FormSection collapsible
           id="ads-readiness"
           // Clean, consistent section title (aligned with Voyage panel
           // conventions: short noun, no inline status).
@@ -853,10 +852,10 @@ export function AdsDetailPanel({ id }: { id: string }) {
             </div>
             <p className="text-xs text-muted-foreground">{adsNextAction}</p>
           </div>
-        </CollapsibleSection>
+        </FormSection>
 
         {/* Visit details + Transport — 2-column grid */}
-        <CollapsibleSection id="ads-visit" title={t('paxlog.ads_detail.sections.visit_transport')} defaultExpanded>
+        <FormSection collapsible id="ads-visit" title={t('paxlog.ads_detail.sections.visit_transport')} defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label={t('paxlog.ads_detail.fields.purpose')} value={ads.visit_purpose} />
             <ReadOnlyRow label={t('paxlog.ads_detail.fields.category')} value={visitCategoryLabels[ads.visit_category] || ads.visit_category} />
@@ -971,10 +970,10 @@ export function AdsDetailPanel({ id }: { id: string }) {
               </div>
             </div>
           )}
-        </CollapsibleSection>
+        </FormSection>
 
         {(ads.origin_mission_notice_id || ads.origin_mission_program_id) && (
-          <CollapsibleSection id="ads-origin-avm" title={t('paxlog.ads_detail.sections.origin_mission')} defaultExpanded>
+          <FormSection collapsible id="ads-origin-avm" title={t('paxlog.ads_detail.sections.origin_mission')} defaultExpanded>
             <DetailFieldGrid>
               {ads.origin_mission_notice_id && (
                 <ReadOnlyRow
@@ -997,11 +996,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label={t('paxlog.ads_detail.fields.origin_program_activity')} value={ads.origin_mission_program_activity} />
               )}
             </DetailFieldGrid>
-          </CollapsibleSection>
+          </FormSection>
         )}
 
         {ads.planner_activity_id && (
-          <CollapsibleSection id="ads-origin-planner" title={t('paxlog.ads_detail.sections.origin_planner')} defaultExpanded>
+          <FormSection collapsible id="ads-origin-planner" title={t('paxlog.ads_detail.sections.origin_planner')} defaultExpanded>
             <DetailFieldGrid>
               <ReadOnlyRow
                 label={t('paxlog.ads_detail.fields.planner_activity')}
@@ -1021,11 +1020,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label={t('paxlog.ads_detail.fields.planner_activity_status')} value={ads.planner_activity_status} />
               )}
             </DetailFieldGrid>
-          </CollapsibleSection>
+          </FormSection>
         )}
 
         {latestOperationalImpact && (
-          <CollapsibleSection id="ads-operational-impact" title={t('paxlog.ads_detail.sections.operational_impact')} defaultExpanded>
+          <FormSection collapsible id="ads-operational-impact" title={t('paxlog.ads_detail.sections.operational_impact')} defaultExpanded>
             <div className="space-y-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-3 text-xs text-amber-950 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-50">
               <p className="font-medium">
                 {latestOperationalImpact.event_type === 'stay_change_requested'
@@ -1082,17 +1081,17 @@ export function AdsDetailPanel({ id }: { id: string }) {
                 </div>
               )}
             </div>
-          </CollapsibleSection>
+          </FormSection>
         )}
         </>)}
 
         {detailTab === 'passagers' && (<>
         {/* PAX list with compliance status + add/remove */}
-        <CollapsibleSection
+        <FormSection collapsible
           id="ads-pax"
           title={t('paxlog.ads_detail.sections.passengers', { count: adsPax?.length || 0 })}
           defaultExpanded
-          headerAction={ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update') ? (
+          headerExtra={ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update') ? (
             <button
               className="gl-button gl-button-confirm h-5 w-5 flex text-primary"
               onClick={() => setShowPaxPicker(true)}
@@ -1364,12 +1363,12 @@ export function AdsDetailPanel({ id }: { id: string }) {
               ))}
             </div>
           )}
-        </CollapsibleSection>
+        </FormSection>
         </>)}
 
         {detailTab === 'informations' && (<>
         {/* Cost Imputations */}
-        <CollapsibleSection id="ads-imputations" title={t('paxlog.ads_detail.sections.imputations')} defaultExpanded>
+        <FormSection collapsible id="ads-imputations" title={t('paxlog.ads_detail.sections.imputations')} defaultExpanded>
           {imputationSuggestion && (
             <div className="mb-3 rounded-lg border border-border bg-muted/20 p-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.imputation.backend_suggestion')}</p>
@@ -1390,11 +1389,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
             defaultProjectId={imputationSuggestion?.project_id || ads.project_id}
             defaultCostCenterId={imputationSuggestion?.cost_center_id || null}
           />
-        </CollapsibleSection>
+        </FormSection>
         </>)}
 
         {detailTab === 'sejours' && (<>
-        <CollapsibleSection id="ads-stay-programs" title={t('paxlog.ads_detail.sections.stay_programs', { count: stayPrograms.length })} defaultExpanded>
+        <FormSection collapsible id="ads-stay-programs" title={t('paxlog.ads_detail.sections.stay_programs', { count: stayPrograms.length })} defaultExpanded>
           <div className="space-y-3 p-3">
             {canManageStayPrograms && !showStayProgramForm && (
               <PanelActionButton onClick={() => setShowStayProgramForm(true)}>
@@ -1526,12 +1525,12 @@ export function AdsDetailPanel({ id }: { id: string }) {
               </div>
             )}
           </div>
-        </CollapsibleSection>
+        </FormSection>
         </>)}
 
         {detailTab === 'historique' && (<>
         {/* Workflow timeline */}
-        <CollapsibleSection id="ads-history" title={t('common.history')}>
+        <FormSection collapsible id="ads-history" title={t('common.history')}>
           <div className="space-y-1">
             <ReadOnlyRow label={t('paxlog.ads_detail.history.created_at')} value={formatDate(ads.created_at)} />
             {ads.submitted_at && <ReadOnlyRow label={t('paxlog.ads_detail.history.submitted_at')} value={formatDate(ads.submitted_at)} />}
@@ -1603,15 +1602,15 @@ export function AdsDetailPanel({ id }: { id: string }) {
               getExternalLinkEventLabel={getExternalLinkEventLabel}
             />
           </div>
-        </CollapsibleSection>
+        </FormSection>
 
-        <CollapsibleSection id="ads-tags-notes" title={t('paxlog.ads_detail.sections.tags_notes_files')}>
+        <FormSection collapsible id="ads-tags-notes" title={t('paxlog.ads_detail.sections.tags_notes_files')}>
           <div className="space-y-3 p-3">
             <TagManager ownerType="ads" ownerId={ads.id} compact />
             <AttachmentManager ownerType="ads" ownerId={ads.id} compact />
             <NoteManager ownerType="ads" ownerId={ads.id} compact />
           </div>
-        </CollapsibleSection>
+        </FormSection>
         </>)}
       </div>
     </DynamicPanelShell>

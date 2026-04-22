@@ -1352,6 +1352,16 @@ export interface ProjectCreate {
   // (attachments, notes, tags…) before the project row exists. Backend
   // re-targets rows with owner_type='project_staging' on successful create.
   staging_ref?: string | null
+  // Optional seed tasks created alongside the project in the same transaction.
+  initial_tasks?: ProjectInitialTask[]
+}
+
+export interface ProjectInitialTask {
+  title: string
+  priority?: 'low' | 'medium' | 'high' | 'critical'
+  due_date?: string | null
+  is_milestone?: boolean
+  estimated_hours?: number | null
 }
 
 export interface ProjectUpdate {

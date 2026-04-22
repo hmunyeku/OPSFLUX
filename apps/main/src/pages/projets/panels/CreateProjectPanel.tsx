@@ -5,7 +5,7 @@
  */
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FolderKanban, Loader2 } from 'lucide-react'
+import { FolderKanban, Loader2, Plus, Trash2, Flag, ListTodo } from 'lucide-react'
 import { normalizeNames } from '@/lib/normalize'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
 import {
@@ -32,7 +32,7 @@ import { TagManager } from '@/components/shared/TagManager'
 import { useCreateProject } from '@/hooks/useProjets'
 import { useCurrentEntity } from '@/hooks/useEntities'
 import { useStagingRef } from '@/hooks/useStagingRef'
-import type { ProjectCreate, ProgressWeightMethod } from '@/types/api'
+import type { ProjectCreate, ProgressWeightMethod, ProjectInitialTask } from '@/types/api'
 import { PROGRESS_WEIGHT_METHOD_OPTIONS } from '@/types/api'
 import {
   PROJECT_STATUS_VALUES, PROJECT_PRIORITY_VALUES,
@@ -58,6 +58,30 @@ export function CreateProjectPanel() {
   // project exists. On create, the backend re-targets every row with
   // `owner_type='project_staging'` + `owner_id=stagingRef` to the new project.
   const { stagingRef, stagingOwnerType } = useStagingRef('project')
+  // Initial tasks — FK-linked, local state, sent in payload on submit.
+  const [initialTasks, setInitialTasks] = useState<ProjectInitialTask[]>([])
+  const [taskDraftTitle, setTaskDraftTitle] = useState('')
+  const [taskDraftPriority, setTaskDraftPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium')
+  const [taskDraftDueDate, setTaskDraftDueDate] = useState<string>('')
+  const [taskDraftIsMilestone, setTaskDraftIsMilestone] = useState(false)
+  const addTaskDraft = () => {
+    const title = taskDraftTitle.trim()
+    if (!title) return
+    setInitialTasks((prev) => [
+      ...prev,
+      {
+        title,
+        priority: taskDraftPriority,
+        due_date: taskDraftDueDate || null,
+        is_milestone: taskDraftIsMilestone,
+      },
+    ])
+    setTaskDraftTitle('')
+    setTaskDraftDueDate('')
+    setTaskDraftIsMilestone(false)
+  }
+  const removeTask = (idx: number) =>
+    setInitialTasks((prev) => prev.filter((_, i) => i !== idx))
   // Form state allows asset_id to be empty (null) during edition; we
   // re-validate in handleSubmit before sending to the backend, where the
   // schema requires it (spec §1.4).
@@ -95,6 +119,7 @@ export function CreateProjectPanel() {
         ...form,
         asset_id: form.asset_id,
         staging_ref: stagingRef,
+        initial_tasks: initialTasks,
       }
       await createProject.mutateAsync(normalizeNames(payload))
       closeDynamicPanel()
@@ -207,6 +232,103 @@ export function CreateProjectPanel() {
                   imageOwnerType={stagingOwnerType}
                   imageOwnerId={stagingRef}
                 />
+              </FormSection>
+
+              <FormSection
+                title={`${t('projets.initial_tasks', 'Tâches initiales')} (${initialTasks.length})`}
+                collapsible
+                defaultExpanded={false}
+              >
+                {initialTasks.length > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {initialTasks.map((task, idx) => (
+                      <div
+                        key={`${task.title}-${idx}`}
+                        className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2 py-1.5"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {task.is_milestone ? (
+                            <Flag size={12} className="text-amber-500 shrink-0" />
+                          ) : (
+                            <ListTodo size={12} className="text-muted-foreground shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium truncate">{task.title}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {[
+                                task.priority,
+                                task.due_date,
+                                task.is_milestone ? t('projets.milestone', 'Jalon') : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' • ')}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeTask(idx)}
+                          className="p-1 text-muted-foreground hover:text-destructive shrink-0"
+                          title={t('common.delete') as string}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="space-y-2 rounded-md border border-border bg-card p-2">
+                  <input
+                    type="text"
+                    value={taskDraftTitle}
+                    onChange={(e) => setTaskDraftTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addTaskDraft()
+                      }
+                    }}
+                    className={panelInputClass}
+                    placeholder={t('projets.task_title_placeholder', 'Titre de la tâche…') as string}
+                  />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                      value={taskDraftPriority}
+                      onChange={(e) =>
+                        setTaskDraftPriority(e.target.value as 'low' | 'medium' | 'high' | 'critical')
+                      }
+                      className="gl-form-select text-xs h-7"
+                    >
+                      <option value="low">{t('projets.priority.low', 'Basse')}</option>
+                      <option value="medium">{t('projets.priority.medium', 'Moyenne')}</option>
+                      <option value="high">{t('projets.priority.high', 'Haute')}</option>
+                      <option value="critical">{t('projets.priority.critical', 'Critique')}</option>
+                    </select>
+                    <input
+                      type="date"
+                      value={taskDraftDueDate}
+                      onChange={(e) => setTaskDraftDueDate(e.target.value)}
+                      className="gl-form-input text-xs h-7"
+                    />
+                    <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={taskDraftIsMilestone}
+                        onChange={(e) => setTaskDraftIsMilestone(e.target.checked)}
+                      />
+                      {t('projets.is_milestone', 'Jalon')}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addTaskDraft}
+                      disabled={!taskDraftTitle.trim()}
+                      className="gl-button-sm gl-button-confirm inline-flex items-center gap-1 ml-auto disabled:opacity-50"
+                    >
+                      <Plus size={12} /> {t('common.add', 'Ajouter')}
+                    </button>
+                  </div>
+                </div>
               </FormSection>
 
               <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>

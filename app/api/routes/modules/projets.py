@@ -548,11 +548,31 @@ async def create_project(
     # staging_ref is not a column on the Project model — pop it out before
     # constructing the ORM row, then use it to commit staged children.
     staging_ref = payload.pop("staging_ref", None)
+    initial_tasks = payload.pop("initial_tasks", []) or []
     if not payload.get("code"):
         payload["code"] = await generate_reference("PRJ", db, entity_id=entity_id)
     project = Project(entity_id=entity_id, **payload)
     db.add(project)
     await db.flush()
+
+    # Seed initial tasks (FK-linked). We preserve the order the user
+    # supplied via the ProjectTask.order column so the detail view shows
+    # them in the same sequence.
+    for idx, task in enumerate(initial_tasks):
+        due_date = task.get("due_date")
+        is_milestone = bool(task.get("is_milestone"))
+        # Milestones are zero-duration: force start_date = due_date.
+        start_date = due_date if is_milestone else None
+        db.add(ProjectTask(
+            project_id=project.id,
+            title=task["title"],
+            priority=task.get("priority") or "medium",
+            due_date=due_date,
+            start_date=start_date,
+            estimated_hours=task.get("estimated_hours"),
+            status="todo",
+            order=idx,
+        ))
 
     # Re-target any polymorphic children (attachments, notes, tags, ...)
     # uploaded during the Create panel session to this new project.
@@ -574,7 +594,7 @@ async def create_project(
     d["manager_name"] = None
     d["tier_name"] = None
     d["parent_name"] = None
-    d["task_count"] = 0
+    d["task_count"] = len(initial_tasks)
     d["member_count"] = 0
     d["children_count"] = 0
     return d

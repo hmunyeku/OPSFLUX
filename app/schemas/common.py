@@ -1684,6 +1684,17 @@ class ProjectRead(OpsFluxSchema):
     children_count: int = 0
 
 
+# Defined before ProjectCreate so `initial_tasks: list[ProjectInitialTask]`
+# resolves at module-load time without needing a forward ref + model_rebuild.
+class ProjectInitialTask(BaseModel):
+    """Minimal task seed accepted inside `ProjectCreate.initial_tasks`."""
+    title: str = Field(..., min_length=1, max_length=300)
+    priority: str = Field(default="medium", pattern=r"^(low|medium|high|critical)$")
+    due_date: datetime | None = None
+    is_milestone: bool = False
+    estimated_hours: float | None = Field(default=None, ge=0)
+
+
 class ProjectCreate(BaseModel):
     # Auto-generated server-side via the PRJ numbering pattern when absent.
     code: str | None = Field(None, min_length=1, max_length=50)
@@ -1720,6 +1731,10 @@ class ProjectCreate(BaseModel):
     # On create, the backend re-targets every row with
     # `owner_type='project_staging'` + `owner_id=staging_ref` to the new project.
     staging_ref: UUID | None = None
+    # Initial tasks to seed the new project with. FK-linked, created in
+    # the same transaction. Minimal subset of ProjectTaskCreate — users
+    # refine details (assignee, progress, etc.) later in the detail view.
+    initial_tasks: list[ProjectInitialTask] = Field(default_factory=list)
 
 
 class ProjectUpdate(BaseModel):

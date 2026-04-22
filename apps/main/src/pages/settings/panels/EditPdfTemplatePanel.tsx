@@ -101,8 +101,8 @@ function buildSampleVariables(
       total_passengers: 3,
       max_capacity: 12,
       passengers: [
-        { name: 'Jean Dupont', company: 'Perenco', badge_number: 'BDG-001', compliance_status: 'boarded' },
-        { name: 'Marie Kanku', company: 'Perenco', badge_number: 'BDG-002', compliance_status: 'pending' },
+        { name: 'Alice Dupont', company: 'ACME Energy', badge_number: 'BDG-001', compliance_status: 'boarded' },
+        { name: 'Marc Laurent', company: 'ACME Energy', badge_number: 'BDG-002', compliance_status: 'pending' },
       ],
     }
   }
@@ -238,13 +238,13 @@ function buildSampleVariables(
       visit_purpose: 'Inspection terrain',
       visit_category: 'routine',
       approval_status: 'approved',
-      approver_name: 'Marie Kanku',
+      approver_name: 'Marc Laurent',
       approved_at: '06/04/2026 18:10',
       total_passengers: 3,
       passengers: [
-        { name: 'Jean Dupont', company: 'Perenco', badge_number: 'BDG-001', compliance_status: 'boarded', seat_number: 'A1' },
+        { name: 'Alice Dupont', company: 'ACME Energy', badge_number: 'BDG-001', compliance_status: 'boarded', seat_number: 'A1' },
         { name: 'Paul Ilunga', company: 'SPIE', badge_number: 'BDG-002', compliance_status: 'approved', seat_number: 'A2' },
-        { name: 'Sarah Mbuyi', company: 'Perenco', badge_number: 'BDG-003', compliance_status: 'approved', seat_number: 'A3' },
+        { name: 'Sophie Martin', company: 'ACME Energy', badge_number: 'BDG-003', compliance_status: 'approved', seat_number: 'A3' },
       ],
       qr_data: 'https://app.opsflux.io/paxlog/ads-boarding/demo-ads-token',
       qr_url: 'https://app.opsflux.io/paxlog/ads-boarding/demo-ads-token',

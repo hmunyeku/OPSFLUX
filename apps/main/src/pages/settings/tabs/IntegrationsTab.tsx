@@ -448,7 +448,7 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
     id: 'gouti',
     name: 'Gouti',
     category: 'other',
-    description: 'API de gestion de projets et rapports Perenco (Gouti).',
+    description: "API d'intégration Gouti (gestion de projets et rapports).",
     helpText: 'Connectez OpsFlux à l\'API Gouti pour synchroniser les projets, rapports et suivis d\'avancement.',
     consoleUrl: 'https://apiprd.gouti.net',
     icon: '📊',

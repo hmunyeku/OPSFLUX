@@ -935,7 +935,7 @@ class ARFieldHandler(TargetObjectHandler):
         return [
             TargetFieldDef(key="code", label="Code", type="string", required=True, example="FLD-001"),
             TargetFieldDef(key="name", label="Nom", type="string", required=True, example="Campo Koulé"),
-            TargetFieldDef(key="operator", label="Opérateur", type="string", example="Perenco"),
+            TargetFieldDef(key="operator", label="Opérateur", type="string", example="ACME Energy"),
             TargetFieldDef(key="country", label="Pays (ISO)", type="string", required=True, example="CM"),
             TargetFieldDef(key="basin", label="Bassin", type="string", example="Rio del Rey"),
             TargetFieldDef(key="block_name", label="Bloc", type="string", example="Bloc B"),
@@ -977,7 +977,7 @@ class ARFieldHandler(TargetObjectHandler):
             entity_id=entity_id,
             code=str(code).strip(),
             name=str(row.get("name", "")).strip(),
-            operator=_safe_str(row.get("operator")) or "Perenco",
+            operator=_safe_str(row.get("operator")) or "ACME Energy",
             country=str(row.get("country", "")).strip(),
             basin=_safe_str(row.get("basin")),
             block_name=_safe_str(row.get("block_name")),
@@ -1020,7 +1020,7 @@ class ARSiteHandler(TargetObjectHandler):
     def get_fields(self) -> list[TargetFieldDef]:
         return [
             TargetFieldDef(key="code", label="Code", type="string", required=True, example="SIT-001"),
-            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="EBOME Complex"),
+            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="Site A Complex"),
             TargetFieldDef(key="site_type", label="Type de site", type="string", required=True, example="OFFSHORE_PLATFORM_COMPLEX"),
             TargetFieldDef(key="environment", label="Environnement", type="string", required=True, example="OFFSHORE"),
             TargetFieldDef(key="country", label="Pays (ISO)", type="string", required=True, example="CM"),
@@ -1124,7 +1124,7 @@ class ARInstallationHandler(TargetObjectHandler):
     def get_fields(self) -> list[TargetFieldDef]:
         return [
             TargetFieldDef(key="code", label="Code", type="string", required=True, example="INS-001"),
-            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="EBOME Marine"),
+            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="Site A Marine"),
             TargetFieldDef(key="installation_type", label="Type", type="string", required=True, example="FIXED_JACKET_PLATFORM"),
             TargetFieldDef(key="environment", label="Environnement", type="string", required=True, example="OFFSHORE"),
             TargetFieldDef(key="status", label="Statut", type="string", example="OPERATIONAL"),

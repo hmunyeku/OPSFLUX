@@ -151,7 +151,7 @@ export function CreateFieldPanel() {
   const envOptions = dictEnv.length > 0 ? dictEnv : ENVIRONMENT_FALLBACK
 
   const [form, setForm] = useState<Record<string, any>>({
-    code: '', name: '', country: 'CM', operator: 'Perenco',
+    code: '', name: '', country: 'CM', operator: 'ACME Energy',
     environment: undefined, status: 'OPERATIONAL',
   })
 
@@ -211,7 +211,7 @@ export function CreateFieldPanel() {
               <CountrySelect value={form.country || null} onChange={(v) => set({ country: v })} />
             </DynamicPanelField>
             <DynamicPanelField label={t('assets.operator')}>
-              <input type="text" value={form.operator || ''} onChange={(e) => set({ operator: e.target.value })} className={panelInputClass} placeholder="Perenco" />
+              <input type="text" value={form.operator || ''} onChange={(e) => set({ operator: e.target.value })} className={panelInputClass} placeholder="ACME Energy" />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
@@ -380,12 +380,12 @@ export function CreateSitePanel() {
               </select>
             </DynamicPanelField>
             <DynamicPanelField label={t('common.code')} required>
-              <input type="text" required maxLength={30} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="EBOME-MLF" />
+              <input type="text" required maxLength={30} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="SITE-MLF" />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
             <DynamicPanelField label={t('common.name')} required>
-              <input type="text" required maxLength={200} value={form.name} onChange={(e) => set({ name: e.target.value })} className={panelInputClass} placeholder="Ebome Marine Loading Facility" />
+              <input type="text" required maxLength={200} value={form.name} onChange={(e) => set({ name: e.target.value })} className={panelInputClass} placeholder="Marine Loading Facility" />
             </DynamicPanelField>
             <DynamicPanelField label={t('common.type')} required>
               <select required value={form.site_type || ''} onChange={(e) => set({ site_type: e.target.value })} className={panelInputClass}>
@@ -584,12 +584,12 @@ export function CreateInstallationPanel() {
               </select>
             </DynamicPanelField>
             <DynamicPanelField label={t('common.code')} required>
-              <input type="text" required maxLength={30} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="EBOME-P1" />
+              <input type="text" required maxLength={30} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="SITE-P1" />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
             <DynamicPanelField label={t('common.name')} required>
-              <input type="text" required maxLength={200} value={form.name} onChange={(e) => set({ name: e.target.value })} className={panelInputClass} placeholder="Platform Ebome 1" />
+              <input type="text" required maxLength={200} value={form.name} onChange={(e) => set({ name: e.target.value })} className={panelInputClass} placeholder="Platform 1" />
             </DynamicPanelField>
             <DynamicPanelField label={t('common.type')} required>
               <select required value={form.installation_type || ''} onChange={(e) => set({ installation_type: e.target.value })} className={panelInputClass}>
@@ -1049,7 +1049,7 @@ export function CreatePipelinePanel() {
         <FormSection title={t('assets.identity')}>
           <FormGrid>
             <DynamicPanelField label={t('assets.pipeline_id')} required>
-              <input type="text" required maxLength={50} value={form.pipeline_id} onChange={(e) => set({ pipeline_id: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="PL-EBOME-MLF-01" />
+              <input type="text" required maxLength={50} value={form.pipeline_id} onChange={(e) => set({ pipeline_id: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="PL-SITE-MLF-01" />
             </DynamicPanelField>
             <DynamicPanelField label={t('common.name')} required>
               <input type="text" required maxLength={200} value={form.name} onChange={(e) => set({ name: e.target.value })} className={panelInputClass} placeholder="Crude Oil Export Pipeline" />

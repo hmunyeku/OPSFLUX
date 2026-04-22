@@ -867,14 +867,14 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
         },
     },
     {
-        # Rapport MOC — réplique du Formulaire MOC Perenco (rev. 06, oct. 2025).
+        # Rapport MOC — réplique du Formulaire MOC (rev. 06, oct. 2025).
         # Un seul PDF couvre : demande, revue hiérarchie, accord chef de site,
         # étude process, matrice de validation parallèle, accords DO/DG.
         "slug": "moc.report",
         "name": "Rapport MOC",
         "description": (
             "Formulaire complet d'un MOC — demande, revues, matrice de "
-            "validation, accords DO/DG — au format du formulaire Perenco."
+            "validation, accords DO/DG — au format du formulaire standard."
         ),
         "object_type": "moc",
         "page_size": "A4",
@@ -3460,7 +3460,7 @@ DEFAULT_PDF_TEMPLATES[10]["default_versions"]["en"]["body_html"] = _CARGO_LABEL_
 
 
 # ── MOC Report HTML Template ─────────────────────────────────────────────
-# Réplique du Formulaire MOC Perenco (rev. 06, oct. 2025). Cinq blocs :
+# Réplique du Formulaire MOC (rev. 06, oct. 2025). Cinq blocs :
 #   1. Demande de modifications (objectifs, description, situation actuelle,
 #      modifications proposées, analyse d'impact, type).
 #   2. Revue préalable de la hiérarchie + accord chef de site.
@@ -3521,7 +3521,7 @@ _MOC_REPORT_BODY_FR = r"""\
     vertical-align: top;
     word-wrap: break-word;
   }
-  /* Teal section band — Perenco brand accent */
+  /* Teal section band — brand accent */
   .band {
     background: #11A09E;
     color: #FFFFFF;
@@ -4039,8 +4039,8 @@ _MOC_REPORT_BODY_EN = _MOC_REPORT_BODY_FR \
     .replace("Période : du", "Period: from") \
     .replace(" au ", " to ") \
     .replace("Document généré le", "Document generated on") \
-    .replace("Ce formulaire reproduit le Rapport MOC Perenco",
-             "This form reproduces the Perenco MOC Report")
+    .replace("Ce formulaire reproduit le Rapport MOC",
+             "This form reproduces the MOC Report")
 
 
 DEFAULT_PDF_TEMPLATES[11]["default_versions"]["fr"]["body_html"] = _MOC_REPORT_BODY_FR

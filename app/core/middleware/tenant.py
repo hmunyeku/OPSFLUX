@@ -36,13 +36,13 @@ class TenantSchemaMiddleware(BaseHTTPMiddleware):
             set_tenant_schema("public")
             return await call_next(request)
 
-        # Extract tenant from subdomain: perenco.app.opsflux.io -> perenco
+        # Extract tenant from subdomain: tenant.app.opsflux.io -> tenant
         host = request.headers.get("host", "localhost")
         host_no_port = host.split(":")[0].strip().lower()
         parts = host_no_port.split(".")
 
         if len(parts) >= 3 and parts[1] in ("app", "api"):
-            # perenco.app.opsflux.io → perenco
+            # tenant.app.opsflux.io → tenant
             tenant_slug = parts[0].lower().replace("-", "_")
         elif request.headers.get("X-Tenant"):
             # Explicit header (used by api.opsflux.io clients)

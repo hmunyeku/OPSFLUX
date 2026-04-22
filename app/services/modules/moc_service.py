@@ -81,7 +81,7 @@ FSM: dict[str, dict[str, str]] = {
         "executed_docs_pending": "moc.site_chief.complete_execution",
     },
     "executed_docs_pending": {
-        # Per Perenco SOW: the Chef de Site formally closes the MOC once
+        # Per SOW: the Chef de Site formally closes the MOC once
         # every PID/ESD update has landed, not the process engineer. We
         # keep `moc.responsible.close` as an alias for backward compat
         # (granted to both roles below) but the canonical permission is

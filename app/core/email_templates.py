@@ -15,7 +15,7 @@ Usage:
         entity_id=entity_id,
         language="fr",
         to="user@example.com",
-        variables={"user": {"first_name": "Alice", "email": "alice@example.com"}, "entity": {"name": "Perenco"}},
+        variables={"user": {"first_name": "Alice", "email": "alice@example.com"}, "entity": {"name": "ACME Energy"}},
     )
     if result is None:
         # Template not configured — action should not be offered in UI

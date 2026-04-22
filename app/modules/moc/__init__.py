@@ -1,6 +1,6 @@
 """MOCTrack module manifest — digitalised Management of Change workflow.
 
-Implements the CDC rev 00 (PERENCO Cameroon) specification: 11-status FSM
+Implements the CDC rev 00 specification: 11-status FSM
 for modification requests on industrial installations, parallel multi-role
 validation matrix, HAZOP/HAZID/Environmental checks, PID/ESD update
 tracking, and real-time notifications to every intervening stakeholder.

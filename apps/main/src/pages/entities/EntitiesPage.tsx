@@ -399,12 +399,12 @@ function CreateEntityPanel() {
               <input type="text" required maxLength={50} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="PER_CMR" />
             </DynamicPanelField>
             <DynamicPanelField label="Raison sociale" required>
-              <input type="text" required value={form.name} onChange={(e) => set({ name: e.target.value })} className={panelInputClass} placeholder="Perenco Cameroun" />
+              <input type="text" required value={form.name} onChange={(e) => set({ name: e.target.value })} className={panelInputClass} placeholder="ACME Energy" />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
             <DynamicPanelField label="Nom commercial">
-              <input type="text" value={form.trade_name || ''} onChange={(e) => set({ trade_name: e.target.value || null })} className={panelInputClass} placeholder="Perenco Cameroun S.A." />
+              <input type="text" value={form.trade_name || ''} onChange={(e) => set({ trade_name: e.target.value || null })} className={panelInputClass} placeholder="ACME Energy S.A." />
             </DynamicPanelField>
             <DynamicPanelField label="Pays">
               <TagSelector options={countryOpts} value={form.country || 'CM'} onChange={(v) => set({ country: v })} />
@@ -1018,8 +1018,8 @@ function EntitiesListView() {
           includeExamples: true,
           columns: [
             { key: 'code', label: 'Code', required: true, example: 'PER_CMR' },
-            { key: 'name', label: 'Raison sociale', required: true, example: 'Perenco Cameroun' },
-            { key: 'trade_name', label: 'Nom commercial', example: 'Perenco Cameroun S.A.' },
+            { key: 'name', label: 'Raison sociale', required: true, example: 'ACME Energy' },
+            { key: 'trade_name', label: 'Nom commercial', example: 'ACME Energy S.A.' },
             { key: 'country', label: 'Pays (ISO)', example: 'CM' },
             { key: 'timezone', label: 'Fuseau horaire', example: 'Africa/Douala' },
             { key: 'currency', label: 'Devise', example: 'XAF' },

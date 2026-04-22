@@ -236,7 +236,7 @@ class OilField(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     license_number: Mapped[str | None] = mapped_column(String(100))
     license_type: Mapped[str | None] = mapped_column(String(30))
     license_expiry_date: Mapped[date | None] = mapped_column(Date)
-    operator: Mapped[str | None] = mapped_column(String(100), default="Perenco")
+    operator: Mapped[str | None] = mapped_column(String(100), default="ACME Energy")
     working_interest_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     regulator: Mapped[str | None] = mapped_column(String(100))
     environment: Mapped[str | None] = mapped_column(String(30))

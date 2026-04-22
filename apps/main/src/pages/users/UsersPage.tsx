@@ -536,7 +536,7 @@ function CreateUserPanel() {
                     Email <span className="text-destructive">*</span>
                   </td>
                   <td className="py-2 px-3">
-                    <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={panelInputClass} placeholder="jean.dupont@perenco.com" />
+                    <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={panelInputClass} placeholder="alice.dupont@example.com" />
                   </td>
                 </tr>
                 <tr className="border-b border-border/40">

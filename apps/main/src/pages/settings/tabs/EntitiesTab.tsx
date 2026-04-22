@@ -216,7 +216,7 @@ function CreateEntityPanel() {
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                 className={panelInputClass}
-                placeholder="PERENCO-CMR"
+                placeholder="ACME-XX"
               />
             </DynamicPanelField>
             <DynamicPanelField label={t('entities.name')} required>
@@ -226,7 +226,7 @@ function CreateEntityPanel() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className={panelInputClass}
-                placeholder="Perenco Cameroun"
+                placeholder="ACME Energy"
               />
             </DynamicPanelField>
           </FormGrid>

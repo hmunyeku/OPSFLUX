@@ -117,7 +117,7 @@ export function ForgotPasswordPage() {
                     required
                     autoFocus
                     className={inputClass}
-                    placeholder="user@perenco.com"
+                    placeholder="user@example.com"
                   />
                 </div>
 

@@ -2886,7 +2886,7 @@
       },
       "fields": {
         "company": "Entreprise (tier)",
-        "user": "Utilisateur Perenco",
+        "user": "Utilisateur interne",
         "first_name": "Prénom",
         "last_name": "Nom",
         "birth_date": "Date de naissance",
@@ -2897,7 +2897,7 @@
         "nationality": "CM, FR..."
       },
       "type_help": {
-        "internal": "Personnel Perenco — lié à un compte utilisateur",
+        "internal": "Personnel votre organisation — lié à un compte utilisateur",
         "external": "Sous-traitant / visiteur — lié à une entreprise (tier)"
       },
       "archive_confirm": "Archiver ?",

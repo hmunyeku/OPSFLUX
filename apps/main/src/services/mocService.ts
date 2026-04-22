@@ -615,7 +615,7 @@ export const mocService = {
     return data
   },
 
-  // ── PDF export (Formulaire MOC Perenco — slug `moc.report`) ──
+  // ── PDF export (Formulaire MOC — slug `moc.report`) ──
   downloadPdf: async (id: string, language: 'fr' | 'en' = 'fr'): Promise<void> => {
     const response = await api.get(`${BASE}/${id}/pdf`, {
       params: { language },

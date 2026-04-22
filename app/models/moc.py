@@ -1,6 +1,6 @@
 """MOC (Management of Change) ORM models.
 
-Digitalises the Perenco Cameroon MOC workflow per CDC rev 00:
+Digitalises the MOC workflow per CDC rev 00:
 * MOC creation with auto-numbered reference `MOC_<NNN>_<PF>`
 * 11-status FSM: created → approved → submitted_to_confirm → ...
   → approved_to_study → under_study → study_in_validation → validated

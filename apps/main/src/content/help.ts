@@ -118,14 +118,14 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'Gestion de projets',
     icon: '📁',
     description:
-      "Module complet de gestion de projets pour les opérations Oil & Gas Perenco. Comprend un Gantt interactif avec dépendances entre tâches (FS, FF, SS, SF), un tableur pour l'édition en masse, une vue Kanban par statut, et un système de calcul d'avancement pondéré (par effort, par durée, par poids manuel ou égal). Les projets sont rattachés à un site/installation, peuvent être importés depuis Gouti, et supportent jalons, sous-tâches, pièces jointes, commentaires, suivi budgétaire et imputation analytique par centre de coûts.",
+      "Module complet de gestion de projets pour les opérations Oil & Gas. Comprend un Gantt interactif avec dépendances entre tâches (FS, FF, SS, SF), un tableur pour l'édition en masse, une vue Kanban par statut, et un système de calcul d'avancement pondéré (par effort, par durée, par poids manuel ou égal). Les projets sont rattachés à un site/installation, peuvent être importés depuis Gouti, et supportent jalons, sous-tâches, pièces jointes, commentaires, suivi budgétaire et imputation analytique par centre de coûts.",
     workflows: [
       {
         title: 'Créer un projet',
         requiredPermission: 'project.create',
         steps: [
           'Cliquez "+ Nouveau projet" dans la liste des projets',
-          'Renseignez le nom, le code projet (ex: WO-EBO-2026-001), les dates de début/fin et le budget prévisionnel',
+          'Renseignez le nom, le code projet (ex: WO-SITE-2026-001), les dates de début/fin et le budget prévisionnel',
           'Affectez un site/asset et un chef de projet (responsable opérationnel)',
           'Choisissez le mode de calcul d\'avancement (effort/durée/manuel) — modifiable ultérieurement',
           'Ajoutez les tâches dans l\'onglet "Planning" via le Gantt ou le Tableur',
@@ -207,7 +207,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
       'L\'avancement réel est comparé au baseline pour calculer l\'EVM (Earned Value Management)',
     ],
     elementHelp: {
-      'projets.create': 'Crée un nouveau projet. Le code projet doit être unique au sein de l\'entité (ex: WO-EBO-2026-001 pour Workover Ebome).',
+      'projets.create': 'Crée un nouveau projet. Le code projet doit être unique au sein de l\'entité (ex: WO-SITE-2026-001 pour Workover site A).',
       'projets.gantt.toggle': 'Bascule entre les vues Gantt, Tableur et Kanban du projet. Chaque vue partage les mêmes données.',
       'projets.tasks.create': 'Ajoute une tâche au projet. Disponible en sous-tâche d\'une tâche existante (hiérarchie WBS jusqu\'à 5 niveaux).',
       'projets.task.dependency': 'Crée une dépendance entre tâches. FS = Fin-Début (la suivante démarre quand la précédente finit), SS = Début-Début, FF = Fin-Fin, SF = Début-Fin.',
@@ -225,7 +225,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'PaxLog — Gestion des passagers',
     icon: '✈️',
     description:
-      "Module central de gestion des avis de séjour (AdS) et du suivi opérationnel des passagers (PAX) sur les installations Perenco Cameroun. Couvre tout le cycle : création de l'AdS avec destination offshore (Ebome, Ekoundou, Mokoko...) et catégorie de visite, ajout de PAX internes (employés Perenco) ou externes (sous-traitants via portail), vérification automatique des certifications HUET/BOSIET/médicales, soumission au workflow de validation multi-niveaux (initiateur → chef de projet → CDS → validateur final), suivi POB en temps réel, gestion des rotations et liste d'attente quand la capacité du site est saturée.",
+      "Module central de gestion des avis de séjour (AdS) et du suivi opérationnel des passagers (PAX) sur les installations ACME Energy. Couvre tout le cycle : création de l'AdS avec destination offshore (Sites offshore (A, B, C…)) et catégorie de visite, ajout de PAX internes (employés internes) ou externes (sous-traitants via portail), vérification automatique des certifications HUET/BOSIET/médicales, soumission au workflow de validation multi-niveaux (initiateur → chef de projet → CDS → validateur final), suivi POB en temps réel, gestion des rotations et liste d'attente quand la capacité du site est saturée.",
     workflows: [
       {
         title: 'Soumettre un avis de séjour (AdS)',
@@ -326,7 +326,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
       'paxlog.ads.status.rejected': 'Rejeté — un validateur a refusé. Consultez les commentaires pour comprendre le motif et créer un nouvel AdS corrigé si nécessaire.',
       'paxlog.ads.submit': 'Soumet l\'AdS au workflow. Bloqué tant que des PAX sont non conformes (sauf dérogation accordée).',
       'paxlog.ads.compliance': 'Indicateur de conformité agrégé pour tous les PAX de l\'AdS. Vert = OK, Orange = avertissement non bloquant, Rouge = soumission impossible.',
-      'paxlog.pax.add': 'Ajoute un passager à l\'AdS. Vous pouvez créer une fiche ou rattacher un contact existant du module Tiers (employé Perenco ou externe sous-traitant).',
+      'paxlog.pax.add': 'Ajoute un passager à l\'AdS. Vous pouvez créer une fiche ou rattacher un contact existant du module Tiers (employé interne ou externe sous-traitant).',
       'paxlog.pax.compliance.badge': 'Statut conformité du PAX. Cliquez pour voir le détail des certifications, leur date d\'expiration et l\'historique des vérifications.',
       'paxlog.pob.counter': 'Population on Board actuelle vs capacité maximale du site. Cliquez pour voir la décomposition par entreprise et par catégorie.',
       'paxlog.waitlist.promote': 'Promeut un AdS en attente vers le statut Approuvé dès qu\'une place POB se libère. Respect du FIFO ou de la priorité opérationnelle selon configuration.',
@@ -338,7 +338,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'Planner — Planification des activités',
     icon: '📅',
     description:
-      "Module de planification opérationnelle des activités sur les installations Perenco (Workover, forage, maintenance majeure, projets, inspections, audits HSE). Le Gantt interactif visualise toutes les activités par asset (FPSO, plateformes, bases) et détecte automatiquement les conflits de capacité POB. Les scénarios what-if permettent de simuler l'impact de modifications avant application. Intégration native avec PaxLog (les quotas PAX consomment le POB du site) et avec Projets (chaque activité peut être rattachée à un projet pour le suivi budgétaire).",
+      "Module de planification opérationnelle des activités sur les installations offshore (Workover, forage, maintenance majeure, projets, inspections, audits HSE). Le Gantt interactif visualise toutes les activités par asset (FPSO, plateformes, bases) et détecte automatiquement les conflits de capacité POB. Les scénarios what-if permettent de simuler l'impact de modifications avant application. Intégration native avec PaxLog (les quotas PAX consomment le POB du site) et avec Projets (chaque activité peut être rattachée à un projet pour le suivi budgétaire).",
     workflows: [
       {
         title: 'Créer une activité',
@@ -389,7 +389,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
         requiredAnyPermissions: ['planner.scenario.create', 'planner.scenario.read'],
         steps: [
           'Cliquez "Nouveau scénario" dans le menu Scénarios — le plan réel actuel est dupliqué',
-          'Renommez le scénario (ex: "Scénario A — Décalage Workover Ebome de 2 semaines")',
+          'Renommez le scénario (ex: "Scénario A — Décalage Workover site A de 2 semaines")',
           'Modifiez les activités du scénario : déplacez-les sur le Gantt, ajustez les quotas PAX, ajoutez/supprimez',
           'Répétez pour créer 2 autres scénarios (B et C) avec des hypothèses différentes',
           'Ouvrez la vue "Comparaison" et sélectionnez les 3 scénarios — affichage côte à côte des KPIs (POB max, conflits restants, coût estimé, jalons projets impactés)',
@@ -577,7 +577,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'TravelWiz — Voyages & Transport',
     icon: '🚁',
     description:
-      "Module de gestion du transport aérien (hélicoptère) et maritime (bateau, crewboat, supply) entre les bases logistiques (Douala, Kribi) et les installations offshore Perenco (Ebome, Ekoundou, Mokoko, Sanaga). Couvre la planification des voyages avec pickup multi-sites, la génération des manifestes PAX et fret avec contrôle automatique du poids vs capacité, le suivi GPS temps réel des vecteurs, les conditions météo par site (vent, houle, plafond, visibilité), la gestion de la maintenance, et le portail capitaine pour la gestion terrain depuis les FPSO.",
+      "Module de gestion du transport aérien (hélicoptère) et maritime (bateau, crewboat, supply) entre les bases logistiques (les bases logistiques) et les installations offshore (sites offshore). Couvre la planification des voyages avec pickup multi-sites, la génération des manifestes PAX et fret avec contrôle automatique du poids vs capacité, le suivi GPS temps réel des vecteurs, les conditions météo par site (vent, houle, plafond, visibilité), la gestion de la maintenance, et le portail capitaine pour la gestion terrain depuis les FPSO.",
     workflows: [
       {
         title: 'Créer un voyage',
@@ -687,7 +687,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'PackLog — Logistique Cargo',
     icon: '📦',
     description:
-      "Module de gestion logistique cargo pour les opérations offshore Perenco. Gère les articles du catalogue centralisé (pièces de rechange, consommables, équipements), les lettres de transport (LT) avec expéditeur/destinataire et liste détaillée d'articles, le suivi des cargos depuis la préparation jusqu'à la livraison sur site, la traçabilité complète (préparation, en transit, réceptionné, livré), la gestion des matières dangereuses (HAZMAT) avec classes IMDG/IATA, et l'intégration avec TravelWiz pour le rattachement à un voyage hélicoptère ou bateau.",
+      "Module de gestion logistique cargo pour les opérations offshore. Gère les articles du catalogue centralisé (pièces de rechange, consommables, équipements), les lettres de transport (LT) avec expéditeur/destinataire et liste détaillée d'articles, le suivi des cargos depuis la préparation jusqu'à la livraison sur site, la traçabilité complète (préparation, en transit, réceptionné, livré), la gestion des matières dangereuses (HAZMAT) avec classes IMDG/IATA, et l'intégration avec TravelWiz pour le rattachement à un voyage hélicoptère ou bateau.",
     workflows: [
       {
         title: 'Créer une LT avec articles catalogue',

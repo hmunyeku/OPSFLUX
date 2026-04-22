@@ -1,6 +1,6 @@
 """Scheduled job — enforce AUP §7.1 audit-log retention.
 
-The Perenco AUP mandates that audit trails be kept for one year, then
+The AUP mandates that audit trails be kept for one year, then
 deleted. This job runs daily at 03:15 and physically deletes
 `audit_log` rows older than the configured horizon.
 

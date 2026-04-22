@@ -85,8 +85,8 @@ const OBJECT_TYPES = [
 ]
 
 const SAMPLE_VARIABLES: Record<string, unknown> = {
-  user: { first_name: 'Jean', last_name: 'Dupont', email: 'jean.dupont@perenco.com' },
-  entity: { name: 'Perenco SA' },
+  user: { first_name: 'Jean', last_name: 'Dupont', email: 'alice.dupont@example.com' },
+  entity: { name: 'ACME Energy S.A.' },
   inviter: { first_name: 'Marie', last_name: 'Curie' },
   verification_url: 'https://app.opsflux.io/verify?token=abc123',
   invitation_url: 'https://app.opsflux.io/signup?token=xyz789',

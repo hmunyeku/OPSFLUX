@@ -1049,7 +1049,7 @@ async def upsert_moc_validation(
     return row
 
 
-# ─── PDF report (Formulaire MOC — Perenco rev. 06) ──────────────────────────
+# ─── PDF report (Formulaire MOC rev. 06) ──────────────────────────
 
 
 @router.get(
@@ -1064,7 +1064,7 @@ async def export_moc_pdf(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Render the MOC as a PDF matching the Perenco paper form template.
+    """Render the MOC as a PDF matching the MOC paper form template.
 
     Admin can override the HTML/CSS via Settings → PDF Templates (slug
     `moc.report`) without touching the code. Body variables are documented

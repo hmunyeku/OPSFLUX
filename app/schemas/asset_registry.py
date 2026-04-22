@@ -47,7 +47,7 @@ class OilFieldCreate(BaseModel):
     license_number: str | None = None
     license_type: str | None = None
     license_expiry_date: date | None = None
-    operator: str | None = "Perenco"
+    operator: str | None = "ACME Energy"
     working_interest_pct: Decimal | None = None
     regulator: str | None = None
     environment: str | None = None

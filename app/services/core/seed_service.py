@@ -305,7 +305,7 @@ async def seed_production_essentials(db: AsyncSession) -> None:
 
     # ── Entity ──────────────────────────────────────────────────
     entity_code = os.environ.get("FIRST_ENTITY_CODE", "CM")
-    entity_name = os.environ.get("FIRST_ENTITY_NAME", "Perenco Cameroun")
+    entity_name = os.environ.get("FIRST_ENTITY_NAME", "ACME Energy")
 
     result = await db.execute(
         select(Entity).where(Entity.code.in_([entity_code, "CM", "PER_CMR"])).order_by(Entity.created_at)
@@ -478,26 +478,26 @@ async def seed_dev_data(db: AsyncSession) -> None:
     # ── Sample assets ───────────────────────────────────────────
     from app.models.asset_registry import OilField as Field, OilSite as Site
 
-    result = await db.execute(select(Installation).where(Installation.code == "EBOME"))
+    result = await db.execute(select(Installation).where(Installation.code == "SITE-A"))
     if not result.scalar_one_or_none():
-        field = Field(entity_id=entity.id, code="PCM", name="Perenco Cameroon",
-                      country="CM", operator="Perenco", environment="OFFSHORE", status="OPERATIONAL")
+        field = Field(entity_id=entity.id, code="ACM", name="ACME Energy",
+                      country="XX", operator="ACME Energy", environment="OFFSHORE", status="OPERATIONAL")
         db.add(field)
         await db.flush()
-        site_ebome = Site(entity_id=entity.id, field_id=field.id, code="EBOME", name="Site Ebome",
+        site_a = Site(entity_id=entity.id, field_id=field.id, code="SITE-A", name="Site A",
                           site_type="PRODUCTION", environment="OFFSHORE", country="CM", manned=True, status="OPERATIONAL")
-        site_munja = Site(entity_id=entity.id, field_id=field.id, code="MUNJA", name="Site Munja",
+        site_b = Site(entity_id=entity.id, field_id=field.id, code="SITE-B", name="Site B",
                           site_type="PRODUCTION", environment="ONSHORE", country="CM", manned=True, status="OPERATIONAL")
-        site_wouri = Site(entity_id=entity.id, field_id=field.id, code="WOURI", name="Base Wouri",
+        site_c = Site(entity_id=entity.id, field_id=field.id, code="SITE-C", name="Base C",
                           site_type="SHORE_BASE", environment="ONSHORE", country="CM", manned=True, status="OPERATIONAL")
-        db.add_all([site_ebome, site_munja, site_wouri])
+        db.add_all([site_a, site_b, site_c])
         await db.flush()
         for site, code, name, itype, env, lat, lon in [
-            (site_ebome, "EBOME", "Champ Ebome", "CPF", "OFFSHORE", 2.8, 9.8),
-            (site_ebome, "ESF1", "Plateforme ESF1", "FIXED_PLATFORM", "OFFSHORE", 2.83, 9.77),
-            (site_ebome, "KLF3", "Plateforme KLF3", "FIXED_PLATFORM", "OFFSHORE", 2.81, 9.76),
-            (site_munja, "MUNJA", "Munja", "ONSHORE_PLANT", "ONSHORE", 2.82, 9.78),
-            (site_wouri, "WOURI", "Base Logistique Wouri", "ONSHORE_PLANT", "ONSHORE", 4.05, 9.7),
+            (site_a, "SITE-A", "Champ A", "CPF", "OFFSHORE", 0.0, 0.0),
+            (site_a, "PLAT-1", "Plateforme 1", "FIXED_PLATFORM", "OFFSHORE", 0.0, 0.0),
+            (site_a, "PLAT-2", "Plateforme 2", "FIXED_PLATFORM", "OFFSHORE", 0.0, 0.0),
+            (site_b, "SITE-B", "Site B", "ONSHORE_PLANT", "ONSHORE", 0.0, 0.0),
+            (site_c, "SITE-C", "Base Logistique C", "ONSHORE_PLANT", "ONSHORE", 0.0, 0.0),
         ]:
             db.add(Installation(entity_id=entity.id, site_id=site.id, code=code, name=name,
                                 installation_type=itype, environment=env, status="OPERATIONAL",
@@ -2044,7 +2044,7 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("moc_site", "RDR_EAST", "RDR East", 1, {"en": "RDR East"}),
         ("moc_site", "RDR_WEST", "RDR West", 2, {"en": "RDR West"}),
         ("moc_site", "SOUTH", "South", 3, {"en": "South"}),
-        ("moc_site", "BASE_WOURI", "Base Wouri", 4, {"en": "Base Wouri"}),
+        ("moc_site", "BASE_C", "Base C", 4, {"en": "Base C"}),
         ("moc_status", "created", "Créé", 1, {"en": "Created"}),
         ("moc_status", "approved", "Approuvé", 2, {"en": "Approved"}),
         ("moc_status", "submitted_to_confirm", "Soumis à confirmer", 3, {"en": "Submitted to confirm"}),
@@ -2228,7 +2228,7 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
 
 
 async def seed_compliance_matrix(db: AsyncSession, entity_id) -> None:
-    """Seed job positions, compliance types, and compliance rules from Perenco HSE matrix.
+    """Seed job positions, compliance types, and compliance rules from HSE matrix.
 
     Idempotent: checks by code before inserting.
     """

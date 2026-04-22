@@ -1,7 +1,7 @@
 """Secret redaction helpers — used to scrub confidential tokens from
 user-submitted free-text fields before they hit the database.
 
-AUP §4.6 (Perenco) requires that any password disclosed in a support
+AUP §4.6 requires that any password disclosed in a support
 ticket be removed by the IT department. We automate that here so:
 
   1. Users who accidentally paste a password, API key, JWT or bearer

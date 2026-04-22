@@ -1,5 +1,5 @@
 /**
- * PrivacyPage -- Politique de confidentialité OpsFlux / Perenco.
+ * PrivacyPage -- Politique de confidentialité OpsFlux.
  *
  * Static legal page rendered in French. DPO contact info is read
  * from entity settings when available, with a sensible fallback.
@@ -42,7 +42,7 @@ export default function PrivacyPage() {
   const s = settingsMap ?? {}
   const dpoName = String(s['gdpr.dpo_name'] ?? 'Le Délégué à la Protection des Données (DPO)')
   const dpoEmail = String(s['gdpr.dpo_email'] ?? 'dpo@entreprise.com')
-  const entityName = String(s['core.entity_name'] ?? 'Perenco Cameroun')
+  const entityName = String(s['core.entity_name'] ?? 'ACME Energy')
 
   return (
     <div className="flex h-full flex-col">

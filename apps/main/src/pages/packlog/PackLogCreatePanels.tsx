@@ -96,7 +96,7 @@ export function CreateCargoRequestPanel() {
       icon={<FileText size={14} className="text-primary" />}
       actions={
         <>
-          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
+          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
           <PanelActionButton
             variant="primary"
             disabled={createCargoRequest.isPending}
@@ -296,7 +296,7 @@ export function CreateCargoPanel() {
       icon={<Package size={14} className="text-primary" />}
       actions={
         <>
-          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
+          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
           <PanelActionButton variant="primary" disabled={createCargo.isPending} onClick={() => (document.getElementById('create-cargo-form') as HTMLFormElement)?.requestSubmit()}>
             {createCargo.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
           </PanelActionButton>

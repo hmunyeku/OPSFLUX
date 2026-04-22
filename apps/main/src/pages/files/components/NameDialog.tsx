@@ -29,7 +29,7 @@ export function NameDialog({ title, defaultValue, onConfirm, onCancel }: {
         />
         <div className="flex justify-end gap-2">
           <button onClick={onCancel} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
-          <button onClick={handleSubmit} disabled={!value.trim()} className="gl-button-sm gl-button-confirm">Confirmer</button>
+          <button onClick={handleSubmit} disabled={!value.trim()} className="gl-button-sm gl-button-confirm">{t('common.confirm')}</button>
         </div>
       </div>
     </div>

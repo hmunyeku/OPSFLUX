@@ -137,11 +137,11 @@ export function ExemptionDetailPanel({ id }: { id: string }) {
               <div className="flex gap-2">
                 <PanelActionButton variant="primary" onClick={handleApprove} disabled={approveExemption.isPending}>
                   {approveExemption.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                  <span className="ml-1">Approuver</span>
+                  <span className="ml-1">{t('common.approve')}</span>
                 </PanelActionButton>
                 <PanelActionButton onClick={() => setShowRejectForm(!showRejectForm)}>
                   <X size={12} />
-                  <span className="ml-1">Rejeter</span>
+                  <span className="ml-1">{t('common.reject')}</span>
                 </PanelActionButton>
               </div>
               {showRejectForm && (

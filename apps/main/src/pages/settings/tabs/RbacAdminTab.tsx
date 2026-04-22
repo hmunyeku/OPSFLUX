@@ -724,7 +724,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
       {hasPendingChanges && (
         <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
           <span className="text-xs text-amber-600 dark:text-amber-400 flex-1">Modifications non sauvegardées</span>
-          <button onClick={() => setPendingPerms(null)} className="gl-button-sm gl-button-default text-[11px]">Annuler</button>
+          <button onClick={() => setPendingPerms(null)} className="gl-button-sm gl-button-default text-[11px]">{t('common.cancel')}</button>
           <button onClick={savePermissions} disabled={setPermsMut.isPending} className="gl-button-sm gl-button-confirm text-[11px]">
             {setPermsMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
             Sauvegarder

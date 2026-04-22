@@ -103,7 +103,7 @@ function PasswordSection() {
           {changePassword.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
           Changer le mot de passe
         </button>
-        <button className="gl-button gl-button-default" onClick={handleCancel}>Annuler</button>
+        <button className="gl-button gl-button-default" onClick={handleCancel}>{t('common.cancel')}</button>
       </div>
     </>
   )
@@ -236,7 +236,7 @@ function MFASection() {
                   {disableMutation.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
                   Désactiver
                 </button>
-                <button className="gl-button gl-button-default" onClick={() => { setShowDisable(false); setDisablePassword('') }}>Annuler</button>
+                <button className="gl-button gl-button-default" onClick={() => { setShowDisable(false); setDisablePassword('') }}>{t('common.cancel')}</button>
               </div>
             </div>
           )}
@@ -255,7 +255,7 @@ function MFASection() {
                   {regenerateMutation.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
                   Régénérer
                 </button>
-                <button className="gl-button gl-button-default" onClick={() => { setShowRegenerate(false); setRegenPassword('') }}>Annuler</button>
+                <button className="gl-button gl-button-default" onClick={() => { setShowRegenerate(false); setRegenPassword('') }}>{t('common.cancel')}</button>
               </div>
             </div>
           )}

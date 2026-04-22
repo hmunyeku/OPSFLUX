@@ -1269,13 +1269,14 @@ function AlertsTab({ navigate }: { navigate: (path: string) => void }) {
 // TAB 5: QUICK TICKET
 // ═══════════════════════════════════════════════════════════════
 
-const TICKET_TYPE_OPTIONS: { value: TicketType; label: string; icon: typeof Bug }[] = [
-  { value: 'bug', label: 'Bug', icon: Bug },
-  { value: 'improvement', label: 'Amélioration', icon: Lightbulb },
-  { value: 'question', label: 'Question', icon: HelpCircle },
+const TICKET_TYPE_OPTIONS: { value: TicketType; iconKey: 'bug' | 'improvement' | 'question'; icon: typeof Bug }[] = [
+  { value: 'bug', iconKey: 'bug', icon: Bug },
+  { value: 'improvement', iconKey: 'improvement', icon: Lightbulb },
+  { value: 'question', iconKey: 'question', icon: HelpCircle },
 ]
 
 function TicketTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createTicket = useCreateTicket()
   const [form, setForm] = useState<TicketCreate>({
@@ -1468,7 +1469,7 @@ function TicketTab() {
             )}
           >
             <opt.icon size={11} />
-            {opt.label}
+            {t(`assistant.ticket.types.${opt.iconKey}`)}
           </button>
         ))}
       </div>
@@ -1476,7 +1477,7 @@ function TicketTab() {
       {/* Title */}
       <input
         className={cn('gl-form-input text-sm w-full', form.title.trim().length > 0 && form.title.trim().length < 10 && 'border-orange-400')}
-        placeholder="Titre clair et précis (min. 10 car.)..."
+        placeholder={t('assistant.ticket.title_placeholder')}
         value={form.title}
         onChange={e => setForm({ ...form, title: e.target.value })}
       />
@@ -1499,10 +1500,10 @@ function TicketTab() {
         value={form.priority}
         onChange={e => setForm({ ...form, priority: e.target.value as TicketCreate['priority'] })}
       >
-        <option value="low">Priorité basse</option>
-        <option value="medium">Priorité moyenne</option>
-        <option value="high">Priorité haute</option>
-        <option value="critical">Critique</option>
+        <option value="low">{t('assistant.ticket.priorities.low')}</option>
+        <option value="medium">{t('assistant.ticket.priorities.medium')}</option>
+        <option value="high">{t('assistant.ticket.priorities.high')}</option>
+        <option value="critical">{t('assistant.ticket.priorities.critical')}</option>
       </select>
 
       {/* Media buttons — screenshot, screen-recording, file attach */}

@@ -942,7 +942,7 @@ export function ProfileTab() {
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
           <div className="flex-1 text-xs text-muted-foreground">Modifications non enregistrées</div>
-          <button className="gl-button-sm gl-button-default" onClick={handleCancel}>Annuler</button>
+          <button className="gl-button-sm gl-button-default" onClick={handleCancel}>{t('common.cancel')}</button>
           <button className="gl-button-sm gl-button-confirm" onClick={handleSubmit} disabled={updateProfile.isPending}>
             {updateProfile.isPending && <Loader2 size={12} className="animate-spin mr-1" />}
             Enregistrer

@@ -339,7 +339,7 @@ function CreatePanel() {
       icon={<Mail size={14} className="text-primary" />}
       actions={
         <>
-          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
+          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
           <PanelActionButton
             variant="primary"
             disabled={!canSubmit}
@@ -651,7 +651,7 @@ function EditPanel({ templateId }: { templateId: string }) {
                   {updateTemplateMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
                   Enregistrer
                 </button>
-                <button onClick={() => setShowMetadataEdit(false)} className="gl-button-sm gl-button-default">Annuler</button>
+                <button onClick={() => setShowMetadataEdit(false)} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
               </div>
             </div>
           )}
@@ -836,7 +836,7 @@ function EditPanel({ templateId }: { templateId: string }) {
                   {createVersionMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                   Créer la version
                 </button>
-                <button onClick={() => setShowNewVersion(false)} className="gl-button-sm gl-button-default">Annuler</button>
+                <button onClick={() => setShowNewVersion(false)} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
               </div>
             </div>
           </div>

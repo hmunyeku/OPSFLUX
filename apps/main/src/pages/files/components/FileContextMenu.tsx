@@ -55,7 +55,7 @@ export function FileContextMenu({ position, item, downloadUrl, onClose, onOpen, 
               onClick={onClose}
             >
               <Download size={13} className="shrink-0" />
-              <span>Télécharger</span>
+              <span>{t('common.download')}</span>
             </a>
           </>
         )}

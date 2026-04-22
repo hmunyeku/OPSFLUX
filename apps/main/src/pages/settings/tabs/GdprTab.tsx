@@ -200,7 +200,7 @@ export function GdprTab() {
               <textarea className="gl-form-input text-sm w-full min-h-[40px] resize-y" placeholder="Mesures correctives prises"
                 value={breachForm.measures_taken} onChange={e => setBreachForm(f => ({ ...f, measures_taken: e.target.value }))} />
               <div className="flex gap-2">
-                <button className="gl-button-sm gl-button-default" onClick={() => setShowBreachForm(false)}>Annuler</button>
+                <button className="gl-button-sm gl-button-default" onClick={() => setShowBreachForm(false)}>{t('common.cancel')}</button>
                 <button className="gl-button-sm bg-red-600 text-white hover:bg-red-700 flex items-center gap-1"
                   disabled={!breachForm.title || !breachForm.description}
                   onClick={() => breachMutation.mutate({

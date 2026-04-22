@@ -231,7 +231,9 @@
     "empty_state": "No data to display",
     "preview": "Preview",
     "empty_preview": "(nothing to display)",
-    "markdown_hint": "Markdown supported (**bold**, *italic*, lists, tables, links)"
+    "markdown_hint": "Markdown supported (**bold**, *italic*, lists, tables, links)",
+    "approve": "Approve",
+    "download": "Download"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -5426,10 +5428,10 @@
         "question": "Question"
       },
       "priorities": {
-        "critical": "Critical",
-        "high": "High",
-        "medium": "Medium",
-        "low": "Low"
+        "low": "Low priority",
+        "medium": "Medium priority",
+        "high": "High priority",
+        "critical": "Critical"
       }
     }
   }

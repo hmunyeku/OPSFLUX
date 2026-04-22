@@ -152,7 +152,7 @@ export function CreateAddressPanel() {
       icon={<MapPin size={14} className="text-primary" />}
       actions={
         <>
-          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
+          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
           <PanelActionButton
             variant="primary"
             disabled={!canSubmit}

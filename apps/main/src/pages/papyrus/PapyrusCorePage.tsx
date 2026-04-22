@@ -311,7 +311,7 @@ function WorkflowActions({ docId }: { docId: string }) {
               className="gl-button-sm gl-button-confirm"
             >
               {transition.isPending ? <Loader2 size={12} className="animate-spin" /> : null}
-              <span>Confirmer</span>
+              <span>{t('common.confirm')}</span>
             </button>
             <button
               onClick={() => { setCommentFor(null); setComment('') }}
@@ -1242,7 +1242,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       className="gl-button-sm gl-button-confirm"
                     >
                       {submitDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                      <span>Soumettre</span>
+                      <span>{t('common.submit')}</span>
                     </button>
                   )}
                   {workflowActions.canApprove && canApproveDoc && (
@@ -1252,7 +1252,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       className="gl-button-sm gl-button-confirm"
                     >
                       {approveDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                      <span>Approuver</span>
+                      <span>{t('common.approve')}</span>
                     </button>
                   )}
                   {workflowActions.canReject && canApproveDoc && !showRejectInput && (
@@ -1261,7 +1261,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       className="gl-button-sm gl-button-danger"
                     >
                       <XCircle size={12} />
-                      <span>Rejeter</span>
+                      <span>{t('common.reject')}</span>
                     </button>
                   )}
                   {workflowActions.canPublish && canPublishDoc && (
@@ -1271,7 +1271,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       className="gl-button-sm gl-button-confirm"
                     >
                       {publishDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
-                      <span>Publier</span>
+                      <span>{t('common.publish')}</span>
                     </button>
                   )}
                   {workflowActions.canArchive && (
@@ -1281,7 +1281,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       className="gl-button-sm gl-button-default"
                     >
                       {archiveDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
-                      <span>Archiver</span>
+                      <span>{t('common.archive')}</span>
                     </button>
                   )}
                 </div>

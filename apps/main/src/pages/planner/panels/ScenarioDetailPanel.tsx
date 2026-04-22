@@ -428,9 +428,9 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-medium text-foreground truncate">{(act.title as string) || (act.source_activity_title as string) || '—'}</span>
-                      {Boolean(act.is_removed) && <span className="gl-badge gl-badge-danger text-[9px]">Supprimée</span>}
-                      {Boolean(act.source_activity_id) && !act.is_removed && <span className="gl-badge gl-badge-neutral text-[9px]">Modifiée</span>}
-                      {!act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-info text-[9px]">Nouvelle</span>}
+                      {Boolean(act.is_removed) && <span className="gl-badge gl-badge-danger text-[9px]">{t('common.deleted_female')}</span>}
+                      {Boolean(act.source_activity_id) && !act.is_removed && <span className="gl-badge gl-badge-neutral text-[9px]">{t('common.modified_female')}</span>}
+                      {!act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-info text-[9px]">{t('common.new_female')}</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
                       {Boolean(act.asset_name) && <span>{String(act.asset_name)}</span>}

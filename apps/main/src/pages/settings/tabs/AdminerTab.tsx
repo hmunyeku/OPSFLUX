@@ -206,7 +206,7 @@ export function AdminerTab() {
         <div className="flex items-center gap-2">
           <Database size={16} className="text-primary" />
           <h3 className="text-sm font-semibold text-foreground">Base de données</h3>
-          <span className="gl-badge gl-badge-warning text-[8px]">Superadmin</span>
+          <span className="gl-badge gl-badge-warning text-[8px]">{t('common.superadmin')}</span>
         </div>
         <a
           href="https://db.opsflux.io"

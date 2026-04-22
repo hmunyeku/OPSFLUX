@@ -670,7 +670,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
                     <span className="gl-badge gl-badge-neutral text-[9px] shrink-0">{g.asset_scope_name}</span>
                   )}
                   <span className="text-muted-foreground ml-auto shrink-0">{g.member_count} mbr</span>
-                  {!g.active && <span className="gl-badge gl-badge-neutral text-[9px]">Inactif</span>}
+                  {!g.active && <span className="gl-badge gl-badge-neutral text-[9px]">{t('common.inactive')}</span>}
                   <ChevronRight size={10} className="text-muted-foreground shrink-0" />
                 </button>
               ))}
@@ -1944,8 +1944,8 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
               <ReadOnlyRow
                 label="Statut"
                 value={group.active
-                  ? <span className="gl-badge gl-badge-success">Actif</span>
-                  : <span className="gl-badge gl-badge-neutral">Inactif</span>
+                  ? <span className="gl-badge gl-badge-success">{t('common.active')}</span>
+                  : <span className="gl-badge gl-badge-neutral">{t('common.inactive')}</span>
                 }
               />
               <ReadOnlyRow

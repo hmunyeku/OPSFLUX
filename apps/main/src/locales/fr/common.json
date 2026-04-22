@@ -471,7 +471,14 @@
     "active_until": "Active jusqu'au",
     "city": "Ville",
     "loading_zone": "Zone de chargement prévue",
-    "application": "Application"
+    "application": "Application",
+    "draft": "Brouillon",
+    "standard": "Standard",
+    "new_female": "Nouvelle",
+    "modified_female": "Modifiée",
+    "deleted_female": "Supprimée",
+    "superadmin": "Superadmin",
+    "active_female": "Active"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",

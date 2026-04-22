@@ -166,8 +166,8 @@ export function PackLogArticleDetailPanel({ id }: { id: string }) {
         <div className="space-y-3 rounded-xl border border-border/70 bg-card p-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="gl-badge gl-badge-info">Article SAP</span>
-            {article.is_hazmat ? <span className="gl-badge gl-badge-warning">HAZMAT</span> : <span className="gl-badge gl-badge-neutral">Standard</span>}
-            {article.active ? <span className="gl-badge gl-badge-success">Actif</span> : <span className="gl-badge gl-badge-danger">Inactif</span>}
+            {article.is_hazmat ? <span className="gl-badge gl-badge-warning">HAZMAT</span> : <span className="gl-badge gl-badge-neutral">{t('common.standard')}</span>}
+            {article.active ? <span className="gl-badge gl-badge-success">{t('common.active')}</span> : <span className="gl-badge gl-badge-danger">{t('common.inactive')}</span>}
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Code article</p>

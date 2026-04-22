@@ -98,7 +98,7 @@ export function CreateCargoRequestPanel() {
           <div className="space-y-5">
             <div className="space-y-3 rounded-xl border border-border/70 bg-card p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="gl-badge gl-badge-info">Brouillon</span>
+                <span className="gl-badge gl-badge-info">{t('common.draft')}</span>
                 <span className={cn('gl-badge', readinessScore >= 100 ? 'gl-badge-success' : 'gl-badge-warning')}>
                   {readinessScore >= 100 ? 'Prête pour saisie colis' : 'Préparation dossier'}
                 </span>

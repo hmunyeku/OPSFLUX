@@ -155,7 +155,7 @@ const getUserColumns = (t: (key: string) => string): ColumnDef<UserRead, unknown
     cell: ({ row }) => (
       row.original.mfa_enabled
         ? <span className="gl-badge gl-badge-success text-[10px]"><ShieldCheck size={9} className="mr-0.5" />Actif</span>
-        : <span className="gl-badge gl-badge-neutral text-[10px]">Inactif</span>
+        : <span className="gl-badge gl-badge-neutral text-[10px]">{t('common.inactive')}</span>
     ),
     size: 80,
   },
@@ -1678,7 +1678,7 @@ function UserDetailPanel({ id }: { id: string }) {
                   value={
                     user.mfa_enabled
                       ? <span className="gl-badge gl-badge-success text-[10px]"><ShieldCheck size={9} className="mr-0.5" />Activé</span>
-                      : <span className="gl-badge gl-badge-neutral text-[10px]">Désactivé</span>
+                      : <span className="gl-badge gl-badge-neutral text-[10px]">{t('common.disabled')}</span>
                   }
                 />
                 <ReadOnlyRow

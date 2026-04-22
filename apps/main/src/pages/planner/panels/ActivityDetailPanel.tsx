@@ -987,7 +987,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                           <CrossModuleLink module="assets" id={activity.asset_id} label={activity.asset_name || activity.asset_id} mode="navigate" />
                         ) : (activity.asset_name || '—')
                       } />
-                      <ReadOnlyRow label="Projet" value={
+                      <ReadOnlyRow label={t('common.project')} value={
                         activity.project_id ? (
                           <CrossModuleLink module="projets" id={activity.project_id} label={activity.project_name || activity.project_id} mode="navigate" />
                         ) : (activity.project_name || '—')
@@ -1130,7 +1130,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
 
               <FormSection title="Workflow">
                 <DetailFieldGrid>
-                  <ReadOnlyRow label="Créé par" value={activity.created_by_name || '—'} />
+                  <ReadOnlyRow label={t('common.created_by')} value={activity.created_by_name || '—'} />
                   {activity.submitted_by_name && (
                     <ReadOnlyRow
                       label="Soumis par"

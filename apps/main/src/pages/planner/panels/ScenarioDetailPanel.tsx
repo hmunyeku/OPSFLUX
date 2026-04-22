@@ -304,9 +304,9 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
             </FormGrid>
           ) : (
             <DetailFieldGrid>
-              <ReadOnlyRow label="Titre" value={scenario.title} />
-              <ReadOnlyRow label="Description" value={scenario.description || '—'} />
-              <ReadOnlyRow label="Statut" value={
+              <ReadOnlyRow label={t('common.title_field')} value={scenario.title} />
+              <ReadOnlyRow label={t('common.description')} value={scenario.description || '—'} />
+              <ReadOnlyRow label={t('common.status')} value={
                 <div className="flex items-center gap-1.5">
                   <span className={cn('gl-badge text-[10px]', STATUS_BADGE[scenario.status] || 'gl-badge-neutral')}>
                     {STATUS_LABEL[scenario.status] || scenario.status}
@@ -321,8 +321,8 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                   )}
                 </div>
               } />
-              <ReadOnlyRow label="Créé par" value={scenario.created_by_name || '—'} />
-              <ReadOnlyRow label="Créé le" value={formatDate(scenario.created_at)} />
+              <ReadOnlyRow label={t('common.created_by')} value={scenario.created_by_name || '—'} />
+              <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(scenario.created_at)} />
               {scenario.promoted_by_name && <ReadOnlyRow label="Promu par" value={scenario.promoted_by_name} />}
               {scenario.promoted_at && <ReadOnlyRow label="Promu le" value={formatDate(scenario.promoted_at)} />}
               {scenario.last_simulated_at && <ReadOnlyRow label="Dernière simulation" value={new Date(scenario.last_simulated_at).toLocaleString('fr-FR')} />}

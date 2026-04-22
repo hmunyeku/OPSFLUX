@@ -140,8 +140,8 @@ export function RotationDetailPanel({ id }: { id: string }) {
               <div className="@container space-y-4">
                 <FormSection title={t('common.identification')}>
                   <DetailFieldGrid>
-                    <ReadOnlyRow label="Nom" value={rotation.name} />
-                    <ReadOnlyRow label="Vecteur" value={rotation.vector_name ?? '\u2014'} />
+                    <ReadOnlyRow label={t('common.name_field')} value={rotation.name} />
+                    <ReadOnlyRow label={t('common.vector')} value={rotation.vector_name ?? '\u2014'} />
                     <ReadOnlyRow label="Base de depart" value={rotation.departure_base_name ?? '\u2014'} />
                     <ReadOnlyRow label="Active" value={rotation.active ? 'Oui' : 'Non'} />
                   </DetailFieldGrid>

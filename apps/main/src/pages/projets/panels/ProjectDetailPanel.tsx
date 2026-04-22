@@ -1544,7 +1544,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           <FormSection title={t('common.description')} collapsible defaultExpanded storageKey="project-detail-desc">
             {isProjectFieldEditable(project, 'description', capabilities)
               ? <InlineEditableRow label="Description" value={project.description || ''} onSave={(v) => handleSave('description', v)} />
-              : <ReadOnlyRow label="Description" value={<span className="text-sm whitespace-pre-wrap">{project.description || '—'}</span>} />}
+              : <ReadOnlyRow label={t('common.description')} value={<span className="text-sm whitespace-pre-wrap">{project.description || '—'}</span>} />}
           </FormSection>
         )}
 
@@ -1563,14 +1563,14 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <DetailFieldGrid>
                 {isProjectFieldEditable(project, 'name', capabilities)
                   ? <InlineEditableRow label="Nom" value={project.name} onSave={(v) => handleSave('name', v)} />
-                  : <ReadOnlyRow label="Nom" value={<span className="text-sm text-foreground">{project.name}</span>} />}
-                <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{project.code || '—'}</span>} />
+                  : <ReadOnlyRow label={t('common.name_field')} value={<span className="text-sm text-foreground">{project.name}</span>} />}
+                <ReadOnlyRow label={t('common.code_field')} value={<span className="text-sm font-mono font-medium text-foreground">{project.code || '—'}</span>} />
                 {isProjectFieldEditable(project, 'status', capabilities)
                   ? <InlineEditableTags label="Statut" value={project.status} options={projectStatusOptions} onSave={(v) => handleSave('status', v)} />
-                  : <ReadOnlyRow label="Statut" value={<span className="text-sm">{projectStatusLabels[project.status] || project.status}</span>} />}
+                  : <ReadOnlyRow label={t('common.status')} value={<span className="text-sm">{projectStatusLabels[project.status] || project.status}</span>} />}
                 {isProjectFieldEditable(project, 'priority', capabilities)
                   ? <InlineEditableTags label="Priorité" value={project.priority} options={projectPriorityOptions} onSave={(v) => handleSave('priority', v)} />
-                  : <ReadOnlyRow label="Priorité" value={<span className="text-sm">{projectPriorityLabels[project.priority] || project.priority}</span>} />}
+                  : <ReadOnlyRow label={t('common.priority_field')} value={<span className="text-sm">{projectPriorityLabels[project.priority] || project.priority}</span>} />}
                 <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
               </DetailFieldGrid>
               <DetailFieldGrid>

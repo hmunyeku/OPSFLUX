@@ -373,10 +373,10 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                       className={panelInputClass}
                       disabled={disabled}
                     >
-                      <option value="text">Texte</option>
-                      <option value="number">Nombre</option>
+                      <option value="text">{t('common.text_type')}</option>
+                      <option value="number">{t('common.number_type')}</option>
                       <option value="date">Date</option>
-                      <option value="select">Liste</option>
+                      <option value="select">{t('common.list_type')}</option>
                     </select>
                     <button
                       type="button"

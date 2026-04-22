@@ -640,12 +640,12 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
               </>
             ) : (
               <DetailFieldGrid>
-                <ReadOnlyRow label="Nom" value={role.name} />
-                <ReadOnlyRow label="Description" value={role.description || '—'} />
+                <ReadOnlyRow label={t('common.name_field')} value={role.name} />
+                <ReadOnlyRow label={t('common.description')} value={role.description || '—'} />
               </DetailFieldGrid>
             )}
             <DetailFieldGrid>
-              <ReadOnlyRow label="Code" value={<span className="font-mono text-foreground">{role.code}</span>} />
+              <ReadOnlyRow label={t('common.code_field')} value={<span className="font-mono text-foreground">{role.code}</span>} />
               <ReadOnlyRow label="Module" value={<span className="gl-badge gl-badge-neutral">{role.module || 'core'}</span>} />
               <ReadOnlyRow label="Permissions" value={`${permCount} permission(s)`} />
               <ReadOnlyRow label="Groupes" value={`${role.group_count ?? 0} groupe(s)`} />

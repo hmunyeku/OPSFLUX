@@ -266,8 +266,8 @@ export function ConditionBuilder({ value, onChange, disabled, fields }: Conditio
                       disabled={disabled}
                       className={cn(panelInputClass, 'h-7 text-xs w-16 shrink-0')}
                     >
-                      <option value="true">Oui</option>
-                      <option value="false">Non</option>
+                      <option value="true">{t('common.yes')}</option>
+                      <option value="false">{t('common.no')}</option>
                     </select>
                   ) : fieldDef?.type === 'select' ? (
                     <select

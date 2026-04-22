@@ -859,16 +859,16 @@ function DocumentDetailPanel({ id }: { id: string }) {
         <FormSection title={t('common.information')} collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="Numéro" value={<span className="font-mono text-xs">{doc.number}</span>} />
-            <ReadOnlyRow label="Titre" value={doc.title} />
-            <ReadOnlyRow label="Type" value={doc.doc_type_name || '--'} />
-            <ReadOnlyRow label="Statut" value={<StatusBadge status={doc.status} />} />
+            <ReadOnlyRow label={t('common.title_field')} value={doc.title} />
+            <ReadOnlyRow label={t('common.type_field')} value={doc.doc_type_name || '--'} />
+            <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={doc.status} />} />
             <ReadOnlyRow label="Classification" value={<ClassificationBadge classification={doc.classification} />} />
             <ReadOnlyRow label="Révision courante" value={doc.current_rev_code || '--'} />
             <ReadOnlyRow label="Nb révisions" value={String(doc.revision_count)} />
-            <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
+            <ReadOnlyRow label={t('common.project')} value={doc.project_name || '--'} />
             <ReadOnlyRow label="Langue" value={doc.language} />
             <ReadOnlyRow label="Créateur" value={doc.creator_name || '--'} />
-            <ReadOnlyRow label="Créé le" value={formatDate(doc.created_at)} />
+            <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(doc.created_at)} />
             <ReadOnlyRow label="Mis à jour" value={formatDate(doc.updated_at)} />
           </DetailFieldGrid>
         </FormSection>
@@ -918,11 +918,11 @@ function DocumentDetailPanel({ id }: { id: string }) {
               <DataTable<PapyrusVersionSummary>
                 data={papyrusVersions}
                 columns={[
-                  { accessorKey: 'version', header: 'Version', cell: ({ row }) => <span className="font-mono text-xs">{row.original.version}</span> },
-                  { accessorKey: 'patch_type', header: 'Type' },
+                  { accessorKey: 'version', header: t('common.version'), cell: ({ row }) => <span className="font-mono text-xs">{row.original.version}</span> },
+                  { accessorKey: 'patch_type', header: t('common.type_field') },
                   { accessorKey: 'workflow_tag', header: 'Tag workflow', cell: ({ row }) => <>{row.original.workflow_tag || '--'}</> },
-                  { accessorKey: 'message', header: 'Message', cell: ({ row }) => <span className="text-muted-foreground">{row.original.message || '--'}</span> },
-                  { accessorKey: 'created_at', header: 'Date', cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDate(row.original.created_at)}</span> },
+                  { accessorKey: 'message', header: t('common.message'), cell: ({ row }) => <span className="text-muted-foreground">{row.original.message || '--'}</span> },
+                  { accessorKey: 'created_at', header: t('common.date'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDate(row.original.created_at)}</span> },
                 ]}
               />
             </div>
@@ -935,7 +935,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
           ) : (
             <div className="space-y-3">
               <DetailFieldGrid>
-                <ReadOnlyRow label="Version" value={String(renderedPapyrusDocument.version)} />
+                <ReadOnlyRow label={t('common.version')} value={String(renderedPapyrusDocument.version)} />
                 <ReadOnlyRow label="Rendu le" value={renderedPapyrusDocument.rendered_at ? formatDate(renderedPapyrusDocument.rendered_at) : '--'} />
                 <ReadOnlyRow label="Refs resolues" value={String(Object.keys(renderedPapyrusDocument.resolved_refs ?? {}).length)} />
                 <ReadOnlyRow label="Blocs" value={String(renderedPapyrusDocument.blocks?.length ?? 0)} />
@@ -1008,9 +1008,9 @@ function DocumentDetailPanel({ id }: { id: string }) {
           ) : (
             <div className="space-y-3">
               <DetailFieldGrid>
-                <ReadOnlyRow label="Nom" value={linkedPapyrusForm.name} />
-                <ReadOnlyRow label="Actif" value={linkedPapyrusForm.is_active ? 'Oui' : 'Non'} />
-                <ReadOnlyRow label="Créé le" value={formatDate(linkedPapyrusForm.created_at)} />
+                <ReadOnlyRow label={t('common.name_field')} value={linkedPapyrusForm.name} />
+                <ReadOnlyRow label={t('common.active')} value={linkedPapyrusForm.is_active ? 'Oui' : 'Non'} />
+                <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(linkedPapyrusForm.created_at)} />
                 <ReadOnlyRow
                   label={t('papyrus.scope')}
                   value={
@@ -1945,11 +1945,11 @@ export function ReportEditorPage() {
                   columns={[
                     { accessorKey: 'name', header: 'Nom', cell: ({ row }) => <span className="font-medium text-foreground">{row.original.name}</span> },
                     { accessorKey: 'doc_type_name', header: 'Type de document', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.doc_type_name || '--'}</span> },
-                    { accessorKey: 'version', header: 'Version', cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">v{row.original.version}</span> },
-                    { accessorKey: 'field_count', header: 'Champs', cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{row.original.field_count}</span> },
+                    { accessorKey: 'version', header: t('common.version'), cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">v{row.original.version}</span> },
+                    { accessorKey: 'field_count', header: t('common.fields_count'), cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{row.original.field_count}</span> },
                     {
                       accessorKey: 'is_active',
-                      header: 'Actif',
+                      header: t('common.active'),
                       cell: ({ row }) => row.original.is_active
                         ? <span className="gl-badge gl-badge-success">{t('common.active')}</span>
                         : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>,
@@ -1981,7 +1981,7 @@ export function ReportEditorPage() {
                   data={docTypes}
                   onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'papyrus', id: row.id, meta: { subtype: 'doc-type' } })}
                   columns={[
-                    { accessorKey: 'code', header: 'Code', cell: ({ row }) => <span className="font-mono font-medium text-foreground text-xs">{row.original.code}</span> },
+                    { accessorKey: 'code', header: t('common.code_field'), cell: ({ row }) => <span className="font-mono font-medium text-foreground text-xs">{row.original.code}</span> },
                     {
                       id: 'name',
                       header: 'Nom',
@@ -1992,12 +1992,12 @@ export function ReportEditorPage() {
                         return <span className="text-foreground">{displayName}</span>
                       },
                     },
-                    { accessorKey: 'discipline', header: 'Discipline', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.discipline || '--'}</span> },
+                    { accessorKey: 'discipline', header: t('common.discipline'), cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.discipline || '--'}</span> },
                     { accessorKey: 'revision_scheme', header: 'Schéma de révision', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.revision_scheme}</span> },
-                    { accessorKey: 'nomenclature_pattern', header: 'Nomenclature', cell: ({ row }) => <span className="text-muted-foreground text-xs font-mono">{row.original.nomenclature_pattern}</span> },
+                    { accessorKey: 'nomenclature_pattern', header: t('common.nomenclature'), cell: ({ row }) => <span className="text-muted-foreground text-xs font-mono">{row.original.nomenclature_pattern}</span> },
                     {
                       accessorKey: 'is_active',
-                      header: 'Actif',
+                      header: t('common.active'),
                       cell: ({ row }) => row.original.is_active
                         ? <span className="gl-badge gl-badge-success">{t('common.active')}</span>
                         : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>,
@@ -2470,7 +2470,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         <FormSection title={t('common.identification')}>
           <FormGrid>
-            <ReadOnlyRow label="Code" value={docType.code} />
+            <ReadOnlyRow label={t('common.code_field')} value={docType.code} />
             {editing ? (
               <>
                 <DynamicPanelField label="Nom (FR)">
@@ -2503,7 +2503,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
             )}
             <ReadOnlyRow label="Schema de revision" value={docType.revision_scheme} />
             <ReadOnlyRow label="Langue par defaut" value={docType.default_language} />
-            <ReadOnlyRow label="Actif" value={docType.is_active ? 'Oui' : 'Non'} />
+            <ReadOnlyRow label={t('common.active')} value={docType.is_active ? 'Oui' : 'Non'} />
           </FormGrid>
         </FormSection>
       </PanelContentLayout>
@@ -2620,14 +2620,14 @@ function TemplateDetailPanel({ id }: { id: string }) {
               </>
             ) : (
               <>
-                <ReadOnlyRow label="Nom" value={template.name} />
-                <ReadOnlyRow label="Description" value={template.description || '--'} />
+                <ReadOnlyRow label={t('common.name_field')} value={template.name} />
+                <ReadOnlyRow label={t('common.description')} value={template.description || '--'} />
               </>
             )}
             <ReadOnlyRow label="Type de document" value={docTypeName} />
-            <ReadOnlyRow label="Version" value={String(template.version)} />
+            <ReadOnlyRow label={t('common.version')} value={String(template.version)} />
             <ReadOnlyRow label="Nombre de champs" value={String(template.field_count)} />
-            <ReadOnlyRow label="Actif" value={template.is_active ? 'Oui' : 'Non'} />
+            <ReadOnlyRow label={t('common.active')} value={template.is_active ? 'Oui' : 'Non'} />
           </FormGrid>
         </FormSection>
       </PanelContentLayout>

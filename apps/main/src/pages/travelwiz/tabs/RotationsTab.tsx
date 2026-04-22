@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Repeat, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -12,6 +13,7 @@ import type { AnyRow } from '../shared'
 import { StatCard } from '../components'
 
 export function RotationsTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -41,12 +43,12 @@ export function RotationsTab() {
   const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
     {
       accessorKey: 'name',
-      header: 'Libellé',
+      header: t('common.label_long'),
       cell: ({ row }) => <span className="font-medium text-foreground">{row.original.name || '—'}</span>,
     },
     {
       id: 'vector_name',
-      header: 'Vecteur',
+      header: t('common.vector'),
       size: 140,
       cell: ({ row }) => <span className="text-xs text-muted-foreground">{vectorMap[row.original.vector_id] || '—'}</span>,
     },
@@ -58,7 +60,7 @@ export function RotationsTab() {
     },
     {
       accessorKey: 'schedule_description',
-      header: 'Planification',
+      header: t('common.scheduling'),
       size: 180,
       cell: ({ row }) => (
         <span className="text-xs text-muted-foreground truncate">
@@ -68,7 +70,7 @@ export function RotationsTab() {
     },
     {
       accessorKey: 'active',
-      header: 'Statut',
+      header: t('common.status'),
       size: 90,
       cell: ({ row }) => (
         <span className={cn('gl-badge', row.original.active ? 'gl-badge-success' : 'gl-badge-neutral')}>

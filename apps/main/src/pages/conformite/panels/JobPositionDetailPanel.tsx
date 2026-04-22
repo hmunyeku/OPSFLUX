@@ -103,7 +103,7 @@ export function JobPositionDetailPanel({ id }: { id: string }) {
         <PanelContentLayout>
           <FormSection title={t('common.information')}>
             <DetailFieldGrid>
-              <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '—'}</span>} />
+              <ReadOnlyRow label={t('common.code_field')} value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '—'}</span>} />
               <InlineEditableRow label="Intitulé" value={jp.name} onSave={(v) => handleSave('name', v)} />
               <InlineEditableRow label="Departement" value={jp.department || ''} onSave={(v) => handleSave('department', v)} />
             </DetailFieldGrid>

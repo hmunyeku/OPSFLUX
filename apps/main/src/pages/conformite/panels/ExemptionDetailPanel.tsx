@@ -108,15 +108,15 @@ export function ExemptionDetailPanel({ id }: { id: string }) {
         <PanelContentLayout>
           <FormSection title={t('common.information')}>
             <DetailFieldGrid>
-              <ReadOnlyRow label="Statut" value={statusBadge} />
+              <ReadOnlyRow label={t('common.status')} value={statusBadge} />
               <ReadOnlyRow label="Type de conformité" value={exemption.record_type_name || '--'} />
               <ReadOnlyRow label="Catégorie" value={exemption.record_type_category ? <span className="gl-badge gl-badge-neutral">{exemption.record_type_category}</span> : '--'} />
               <ReadOnlyRow label="Propriétaire" value={exemption.owner_name || '--'} />
               <ReadOnlyRow label="Date de début" value={formatDate(exemption.start_date)} />
               <ReadOnlyRow label="Date de fin" value={formatDate(exemption.end_date)} />
               <ReadOnlyRow label="Approuvé par" value={exemption.approver_name || '--'} />
-              <ReadOnlyRow label="Créé par" value={exemption.creator_name || '--'} />
-              <ReadOnlyRow label="Créé le" value={formatDate(exemption.created_at)} />
+              <ReadOnlyRow label={t('common.created_by')} value={exemption.creator_name || '--'} />
+              <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(exemption.created_at)} />
             </DetailFieldGrid>
           </FormSection>
           <FormSection title="Motif">

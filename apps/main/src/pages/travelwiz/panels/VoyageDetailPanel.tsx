@@ -416,8 +416,8 @@ export function VoyageDetailPanel({ id }: { id: string }) {
             <>
               <FormSection title={t('common.information')}>
                 <DetailFieldGrid>
-                  <ReadOnlyRow label="Code" value={voyage.code} />
-                  <ReadOnlyRow label="Vecteur" value={voyage.vector_name ?? '\u2014'} />
+                  <ReadOnlyRow label={t('common.code_field')} value={voyage.code} />
+                  <ReadOnlyRow label={t('common.vector')} value={voyage.vector_name ?? '\u2014'} />
                   <ReadOnlyRow label="Rotation" value={voyage.rotation_name ?? '\u2014'} />
                   <ReadOnlyRow label="Base de depart" value={departureLabel} />
                   <ReadOnlyRow label="Derniere escale planifiee" value={destinationLabel} />

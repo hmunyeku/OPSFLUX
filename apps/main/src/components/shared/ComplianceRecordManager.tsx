@@ -9,6 +9,7 @@
  *   <ComplianceRecordManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ShieldCheck, ShieldAlert, Plus, Trash2, Check, X, Loader2, AlertTriangle, Paperclip } from 'lucide-react'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -37,6 +38,7 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 export function ComplianceRecordManager({ ownerType, ownerId, compact }: ComplianceRecordManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: records, isLoading: recordsLoading } = useComplianceRecords({ owner_type: ownerType, owner_id: ownerId, page_size: 100 })
   const { data: checkResult, isLoading: checkLoading } = useComplianceCheck(ownerType, ownerId)
@@ -201,9 +203,9 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
             <div>
               <label className="text-[9px] text-muted-foreground block mb-0.5">Statut</label>
               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background">
-                <option value="valid">Valide</option>
-                <option value="pending">En attente</option>
-                <option value="expired">Expiré</option>
+                <option value="valid">{t('common.valid')}</option>
+                <option value="pending">{t('common.pending_status')}</option>
+                <option value="expired">{t('common.expired')}</option>
               </select>
             </div>
             <div>

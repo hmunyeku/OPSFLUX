@@ -155,11 +155,11 @@ export function VectorDetailPanel({ id }: { id: string }) {
                 <FormSection title={t('common.identification')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Immatriculation" value={<span className="font-mono">{vector.registration}</span>} />
-                    <ReadOnlyRow label="Nom" value={vector.name} />
-                    <ReadOnlyRow label="Type" value={<span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>{typeEntry?.label || vector.type}</span>} />
+                    <ReadOnlyRow label={t('common.name_field')} value={vector.name} />
+                    <ReadOnlyRow label={t('common.type_field')} value={<span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>{typeEntry?.label || vector.type}</span>} />
                     <ReadOnlyRow label="Mode" value={modeLabels[vector.mode] || vector.mode} />
                     <ReadOnlyRow label="Base d'attache" value={vector.home_base_name ?? '—'} />
-                    <ReadOnlyRow label="Actif" value={vector.active ? 'Oui' : 'Non'} />
+                    <ReadOnlyRow label={t('common.active')} value={vector.active ? 'Oui' : 'Non'} />
                   </DetailFieldGrid>
                 </FormSection>
               </div>

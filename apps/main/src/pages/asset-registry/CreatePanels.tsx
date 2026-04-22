@@ -45,12 +45,26 @@ import type {
 const numChange = (setter: (p: Record<string, any>) => void, key: string) =>
   (e: React.ChangeEvent<HTMLInputElement>) => setter({ [key]: e.target.value ? Number(e.target.value) : undefined })
 
-const boolSelect = (value: boolean | undefined, onChange: (v: boolean) => void, cls: string) => (
-  <select value={value === true ? 'true' : value === false ? 'false' : ''} onChange={(e) => onChange(e.target.value === 'true')} className={cls}>
-    <option value="">—</option>
-    <option value="true">Oui</option>
-    <option value="false">Non</option>
-  </select>
+// Yes/No labels are supplied by the caller via BoolSelect since this
+// helper is module-level (no hook access). Callers pass t('common.yes')
+// and t('common.no') explicitly.
+function BoolSelect({ value, onChange, className, yesLabel, noLabel }: {
+  value: boolean | undefined
+  onChange: (v: boolean) => void
+  className: string
+  yesLabel: string
+  noLabel: string
+}) {
+  return (
+    <select value={value === true ? 'true' : value === false ? 'false' : ''} onChange={(e) => onChange(e.target.value === 'true')} className={className}>
+      <option value="">—</option>
+      <option value="true">{yesLabel}</option>
+      <option value="false">{noLabel}</option>
+    </select>
+  )
+}
+const boolSelect = (value: boolean | undefined, onChange: (v: boolean) => void, cls: string, yesLabel = 'Oui', noLabel = 'Non') => (
+  <BoolSelect value={value} onChange={onChange} className={cls} yesLabel={yesLabel} noLabel={noLabel} />
 )
 
 // ── Shared fallback option arrays ────────────────────────────────

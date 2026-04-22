@@ -847,18 +847,18 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
 
             <FormSection title="Demande d'expédition">
               <DetailFieldGrid>
-                <ReadOnlyRow label="Code" value={cargoRequest.request_code} />
-                <ReadOnlyRow label="Intitulé" value={cargoRequest.title} />
-                <ReadOnlyRow label="Statut" value={requestStatusLabels[cargoRequest.status] ?? cargoRequest.status} />
-                <ReadOnlyRow label="Description" value={cargoRequest.description ?? '—'} />
+                <ReadOnlyRow label={t('common.code_field')} value={cargoRequest.request_code} />
+                <ReadOnlyRow label={t('common.label_field')} value={cargoRequest.title} />
+                <ReadOnlyRow label={t('common.status')} value={requestStatusLabels[cargoRequest.status] ?? cargoRequest.status} />
+                <ReadOnlyRow label={t('common.description')} value={cargoRequest.description ?? '—'} />
                 <ReadOnlyRow label="Entreprise expéditrice" value={cargoRequest.sender_name ?? '—'} />
                 <ReadOnlyRow label="Contact entreprise" value={cargoRequest.sender_contact_name ?? '—'} />
-                <ReadOnlyRow label="Destinataire" value={cargoRequest.receiver_name ?? '—'} />
-                <ReadOnlyRow label="Destination" value={cargoRequest.destination_name ?? '—'} />
-                <ReadOnlyRow label="Imputation" value={cargoRequest.imputation_reference_name ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim() : '—'} />
-                <ReadOnlyRow label="Demandeur" value={cargoRequest.requester_display_name ?? cargoRequest.requester_name ?? '—'} />
-                <ReadOnlyRow label="Nombre de colis" value={String(cargoRequest.cargo_count ?? 0)} />
-                <ReadOnlyRow label="Créée le" value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
+                <ReadOnlyRow label={t('common.recipient')} value={cargoRequest.receiver_name ?? '—'} />
+                <ReadOnlyRow label={t('common.destination')} value={cargoRequest.destination_name ?? '—'} />
+                <ReadOnlyRow label={t('common.imputation')} value={cargoRequest.imputation_reference_name ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim() : '—'} />
+                <ReadOnlyRow label={t('common.requester')} value={cargoRequest.requester_display_name ?? cargoRequest.requester_name ?? '—'} />
+                <ReadOnlyRow label={t('common.package_count')} value={String(cargoRequest.cargo_count ?? 0)} />
+                <ReadOnlyRow label={t('common.created_at_female')} value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
               </DetailFieldGrid>
             </FormSection>
 

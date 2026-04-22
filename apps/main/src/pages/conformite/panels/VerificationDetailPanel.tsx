@@ -143,10 +143,10 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
           </FormSection>
 
           <DetailFieldGrid>
-            <ReadOnlyRow label="Type" value={recordTypeLabels[item.record_type] || item.record_type} />
-            <ReadOnlyRow label="Description" value={item.description} />
+            <ReadOnlyRow label={t('common.type_field')} value={recordTypeLabels[item.record_type] || item.record_type} />
+            <ReadOnlyRow label={t('common.description')} value={item.description} />
             <ReadOnlyRow label="Émetteur" value={(item as { issuer?: string | null }).issuer || '—'} />
-            <ReadOnlyRow label="Référence" value={(item as { reference_number?: string | null }).reference_number || '—'} />
+            <ReadOnlyRow label={t('common.reference')} value={(item as { reference_number?: string | null }).reference_number || '—'} />
             <ReadOnlyRow label="Date d'émission" value={fmtDate((item as { issued_at?: string | null }).issued_at)} />
             <ReadOnlyRow label="Expiration" value={fmtDate((item as { expires_at?: string | null }).expires_at)} />
             <ReadOnlyRow label="Soumis le" value={fmtDate(item.submitted_at)} />

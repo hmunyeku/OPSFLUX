@@ -466,7 +466,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
             {/* Identification & expédition */}
             <FormSection title={t('common.identification')}>
               <DetailFieldGrid>
-                <ReadOnlyRow label="Code" value={<span className="font-mono text-xs">{cargoRequest.request_code}</span>} />
+                <ReadOnlyRow label={t('common.code_field')} value={<span className="font-mono text-xs">{cargoRequest.request_code}</span>} />
                 <ReadOnlyRow
                   label="Statut"
                   value={
@@ -475,7 +475,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                     </span>
                   }
                 />
-                <ReadOnlyRow label="Intitulé" value={cargoRequest.title} />
+                <ReadOnlyRow label={t('common.label_field')} value={cargoRequest.title} />
                 <ReadOnlyRow
                   label="Créée le"
                   value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')}
@@ -494,10 +494,10 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
             {/* Parties */}
             <FormSection title="Parties impliquées">
               <DetailFieldGrid>
-                <ReadOnlyRow label="Expéditeur" value={cargoRequest.sender_name ?? '—'} />
+                <ReadOnlyRow label={t('common.sender')} value={cargoRequest.sender_name ?? '—'} />
                 <ReadOnlyRow label="Contact" value={cargoRequest.sender_contact_name ?? '—'} />
-                <ReadOnlyRow label="Destinataire" value={cargoRequest.receiver_name ?? '—'} />
-                <ReadOnlyRow label="Destination" value={cargoRequest.destination_name ?? '—'} />
+                <ReadOnlyRow label={t('common.recipient')} value={cargoRequest.receiver_name ?? '—'} />
+                <ReadOnlyRow label={t('common.destination')} value={cargoRequest.destination_name ?? '—'} />
                 <ReadOnlyRow
                   label="Demandeur"
                   value={cargoRequest.requester_display_name ?? cargoRequest.requester_name ?? '—'}

@@ -499,7 +499,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                     </span>
                   }
                 />
-                <ReadOnlyRow label="Statut" value={<StatusBadge status={doc.status} />} />
+                <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={doc.status} />} />
                 <ReadOnlyRow label="Revision" value={<span className="font-mono text-xs">{doc.revision}</span>} />
               </DetailFieldGrid>
             </FormSection>
@@ -519,7 +519,7 @@ function PIDDetailPanel({ id }: { id: string }) {
             {/* Associations */}
             <FormSection title={t('common.associations')} collapsible defaultExpanded>
               <DetailFieldGrid>
-                <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
+                <ReadOnlyRow label={t('common.project')} value={doc.project_name || '--'} />
                 <ReadOnlyRow label="Equipements" value={<span className="tabular-nums">{doc.equipment_count}</span>} />
                 <ReadOnlyRow label="Cree par" value={doc.creator_name || '--'} />
                 <ReadOnlyRow
@@ -1670,7 +1670,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
         {/* -- Identification -- */}
         <FormSection title={t('common.identification')} collapsible defaultExpanded>
           <DetailFieldGrid>
-            <ReadOnlyRow label="Tag" value={<span className="font-mono font-medium text-foreground">{equip.tag}</span>} />
+            <ReadOnlyRow label={t('common.tag_field')} value={<span className="font-mono font-medium text-foreground">{equip.tag}</span>} />
             <InlineEditableRow label="Description" value={equip.description || ''} onSave={(v) => handleInlineSave('description', v)} />
             <InlineEditableTags
               label="Type"
@@ -1727,7 +1727,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
         <FormSection title={t('common.associations')} collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="PID" value={equip.pid_number ? <span className="font-mono text-xs">{equip.pid_number}</span> : '--'} />
-            <ReadOnlyRow label="Projet" value={equip.project_name || '--'} />
+            <ReadOnlyRow label={t('common.project')} value={equip.project_name || '--'} />
             <ReadOnlyRow label="Asset" value={equip.asset_name || '--'} />
             <ReadOnlyRow label="Tags DCS" value={<span className="tabular-nums">{equip.dcs_tag_count}</span>} />
           </DetailFieldGrid>

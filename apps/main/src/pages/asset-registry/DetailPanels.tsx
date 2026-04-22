@@ -602,8 +602,8 @@ export function SiteDetailPanel({ id }: { id: string }) {
               showToolbar={canUpdate}
             />
             <DetailFieldGrid>
-              <ReadOnlyRow label="Latitude" value={site.latitude ?? '—'} />
-              <ReadOnlyRow label="Longitude" value={site.longitude ?? '—'} />
+              <ReadOnlyRow label={t('common.latitude')} value={site.latitude ?? '—'} />
+              <ReadOnlyRow label={t('common.longitude')} value={site.longitude ?? '—'} />
               {canUpdate
                 ? <InlineEditableRow label={t('assets.region')} value={site.region || ''} onSave={(v) => handleSave('region', v || null)} />
                 : <ReadOnlyRow label={t('assets.region')} value={site.region || '—'} />
@@ -768,8 +768,8 @@ export function InstallationDetailPanel({ id }: { id: string }) {
               showToolbar={canUpdate}
             />
             <DetailFieldGrid>
-              <ReadOnlyRow label="Latitude" value={inst.latitude ?? '—'} />
-              <ReadOnlyRow label="Longitude" value={inst.longitude ?? '—'} />
+              <ReadOnlyRow label={t('common.latitude')} value={inst.latitude ?? '—'} />
+              <ReadOnlyRow label={t('common.longitude')} value={inst.longitude ?? '—'} />
               {canUpdate
                 ? <InlineEditableRow label={t('assets.elevation_masl')} value={String(inst.elevation_masl ?? '')} onSave={(v) => handleSave('elevation_masl', v ? parseFloat(v) : null)} type="text" />
                 : <ReadOnlyRow label={t('assets.elevation_masl')} value={fmtNum(inst.elevation_masl, 'm AMSL')} />
@@ -1016,7 +1016,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
                 ? <InlineEditableRow label={t('common.name')} value={equip.name} onSave={(v) => handleSave('name', v)} />
                 : <ReadOnlyRow label={t('common.name')} value={equip.name} />
               }
-              <ReadOnlyRow label="Tag" value={<span className="font-mono font-semibold">{equip.tag_number}</span>} />
+              <ReadOnlyRow label={t('common.tag_field')} value={<span className="font-mono font-semibold">{equip.tag_number}</span>} />
               {canUpdate
                 ? <InlineEditableRow label={t('assets.equipment_class')} value={equip.equipment_class || ''} onSave={(v) => handleSave('equipment_class', v || null)} />
                 : <ReadOnlyRow label={t('assets.equipment_class')} value={equip.equipment_class ? <span className="gl-badge gl-badge-neutral">{equip.equipment_class.replace(/_/g, ' ')}</span> : '—'} />
@@ -1125,11 +1125,11 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
               }
               {canUpdate
                 ? <InlineEditableRow label="Latitude" value={String(equip.latitude ?? '')} onSave={(v) => handleSave('latitude', v ? parseFloat(v) : null)} type="text" />
-                : <ReadOnlyRow label="Latitude" value={equip.latitude ?? '—'} />
+                : <ReadOnlyRow label={t('common.latitude')} value={equip.latitude ?? '—'} />
               }
               {canUpdate
                 ? <InlineEditableRow label="Longitude" value={String(equip.longitude ?? '')} onSave={(v) => handleSave('longitude', v ? parseFloat(v) : null)} type="text" />
-                : <ReadOnlyRow label="Longitude" value={equip.longitude ?? '—'} />
+                : <ReadOnlyRow label={t('common.longitude')} value={equip.longitude ?? '—'} />
               }
               {canUpdate
                 ? <InlineEditableRow label={t('assets.elevation')} value={String(equip.elevation_m ?? '')} onSave={(v) => handleSave('elevation_m', v ? parseFloat(v) : null)} type="text" />

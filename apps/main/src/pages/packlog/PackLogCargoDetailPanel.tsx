@@ -686,9 +686,9 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   <div className="@container space-y-4">
                     <FormSection title={t('common.identification')}>
                       <DetailFieldGrid>
-                        <ReadOnlyRow label="Code" value={cargo.code} />
+                        <ReadOnlyRow label={t('common.code_field')} value={cargo.code} />
                         <ReadOnlyRow label="Designation" value={cargo.designation ?? '—'} />
-                        <ReadOnlyRow label="Type" value={cargoTypeLabels[cargo.cargo_type] ?? cargo.cargo_type ?? '—'} />
+                        <ReadOnlyRow label={t('common.type_field')} value={cargoTypeLabels[cargo.cargo_type] ?? cargo.cargo_type ?? '—'} />
                         <ReadOnlyRow label="Article SAP" value={cargo.sap_article_code ?? '—'} />
                         <ReadOnlyRow label="Propriété" value={cargo.ownership_type ? (ownershipLabels[cargo.ownership_type] ?? cargo.ownership_type) : '—'} />
                         <ReadOnlyRow label="Réutilisable" value={cargo.is_reusable ? 'Oui — retour attendu' : 'Non'} />
@@ -706,7 +706,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                         <ReadOnlyRow label="Dimensions" value={cargo.width_cm && cargo.length_cm && cargo.height_cm ? `${cargo.width_cm} × ${cargo.length_cm} × ${cargo.height_cm} cm` : '—'} />
                         <ReadOnlyRow label="Surface totale" value={cargo.surface_m2 != null ? `${cargo.surface_m2.toLocaleString('fr-FR')} m²` : '—'} />
                         <ReadOnlyRow label="Volume estimé" value={volumeLabel} />
-                        <ReadOnlyRow label="Nombre de colis" value={cargo.package_count?.toString() ?? '—'} />
+                        <ReadOnlyRow label={t('common.package_count')} value={cargo.package_count?.toString() ?? '—'} />
                         <ReadOnlyRow label="Empilable" value={cargo.stackable ? 'Oui' : 'Non'} />
                       </DetailFieldGrid>
                     </FormSection>
@@ -718,16 +718,16 @@ export function CargoDetailPanel({ id }: { id: string }) {
                     <ReadOnlyRow label="Demande d'expédition" value={cargo.request_code ? `${cargo.request_code} — ${cargo.request_title ?? ''}`.trim() : '—'} />
                     <ReadOnlyRow label="Statut demande" value={cargoRequestStatusLabel} />
                     <ReadOnlyRow label="Workflow dossier" value={cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status} />
-                    <ReadOnlyRow label="Demandeur" value={cargo.requester_name ?? cargo.request_requester_name ?? '—'} />
-                    <ReadOnlyRow label="Expéditeur" value={cargo.sender_name ?? '—'} />
-                    <ReadOnlyRow label="Destinataire" value={cargo.receiver_name ?? cargo.request_receiver_name ?? '—'} />
-                    <ReadOnlyRow label="Projet" value={projectLabel ?? '—'} />
-                    <ReadOnlyRow label="Imputation" value={cargo.imputation_reference_name ? `${cargo.imputation_reference_code ?? ''} ${cargo.imputation_reference_name}`.trim() : '—'} />
+                    <ReadOnlyRow label={t('common.requester')} value={cargo.requester_name ?? cargo.request_requester_name ?? '—'} />
+                    <ReadOnlyRow label={t('common.sender')} value={cargo.sender_name ?? '—'} />
+                    <ReadOnlyRow label={t('common.recipient')} value={cargo.receiver_name ?? cargo.request_receiver_name ?? '—'} />
+                    <ReadOnlyRow label={t('common.project')} value={projectLabel ?? '—'} />
+                    <ReadOnlyRow label={t('common.imputation')} value={cargo.imputation_reference_name ? `${cargo.imputation_reference_code ?? ''} ${cargo.imputation_reference_name}`.trim() : '—'} />
                     <ReadOnlyRow label="Préparé le" value={cargo.document_prepared_at ? new Date(cargo.document_prepared_at).toLocaleString('fr-FR') : '—'} />
                     <ReadOnlyRow label="Disponible le" value={cargo.available_from ? new Date(cargo.available_from).toLocaleString('fr-FR') : '—'} />
-                    <ReadOnlyRow label="Créé le" value={formatDate(cargo.created_at)} />
+                    <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(cargo.created_at)} />
                     {cargo.received_at && <ReadOnlyRow label="Reçu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
-                    <ReadOnlyRow label="Description" value={cargo.description ?? '—'} />
+                    <ReadOnlyRow label={t('common.description')} value={cargo.description ?? '—'} />
                     {cargo.damage_notes && <ReadOnlyRow label="Notes avarie" value={cargo.damage_notes} />}
                   </DetailFieldGrid>
                 </FormSection>

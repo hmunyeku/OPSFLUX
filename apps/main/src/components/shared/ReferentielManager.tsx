@@ -10,6 +10,7 @@
  *   <ReferentielManager ownerType="tier_contact" ownerId={contact.id} category="certification" />
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, ShieldAlert, Plus, Trash2, X,
   Loader2, AlertTriangle, Pencil, GraduationCap, Paperclip,
@@ -82,6 +83,7 @@ const EMPTY_FORM: FormData = {
 }
 
 export function ReferentielManager({ ownerType, ownerId, compact, category }: ReferentielManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: records, isLoading: recordsLoading } = useComplianceRecords({
     owner_type: ownerType, owner_id: ownerId, page_size: 200, category,
@@ -392,9 +394,9 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             <div>
               <label className="text-[9px] text-muted-foreground block mb-0.5">Statut</label>
               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background">
-                <option value="valid">Valide</option>
-                <option value="pending">En attente</option>
-                <option value="expired">Expiré</option>
+                <option value="valid">{t('common.valid')}</option>
+                <option value="pending">{t('common.pending_status')}</option>
+                <option value="expired">{t('common.expired')}</option>
               </select>
             </div>
             <div>

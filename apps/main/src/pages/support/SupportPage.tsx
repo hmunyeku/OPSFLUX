@@ -368,16 +368,16 @@ function TicketDetailPanel({ id }: { id: string }) {
           <>
             <FormSection title={t('common.information')}>
               <DetailFieldGrid>
-                <ReadOnlyRow label="Référence" value={<span className="font-mono font-semibold text-primary">{ticket.reference}</span>} />
+                <ReadOnlyRow label={t('common.reference')} value={<span className="font-mono font-semibold text-primary">{ticket.reference}</span>} />
                 <InlineEditableRow label="Titre" value={ticket.title} onSave={(v) => handleSave('title', v)} />
-                <ReadOnlyRow label="Type" value={
+                <ReadOnlyRow label={t('common.type_field')} value={
                   <span className="flex items-center gap-1.5">
                     {(() => { const Icon = TYPE_ICONS[ticket.ticket_type] || HelpCircle; return <Icon size={12} /> })()}
                     {TYPE_LABELS_FALLBACK[ticket.ticket_type] || ticket.ticket_type}
                   </span>
                 } />
-                <ReadOnlyRow label="Priorité" value={<BadgeCell value={PRIORITY_LABELS_FALLBACK[ticket.priority] || ticket.priority} variant={PRIORITY_VARIANTS[ticket.priority] || 'neutral'} />} />
-                <ReadOnlyRow label="Statut" value={<BadgeCell value={STATUS_LABELS_FALLBACK[ticket.status] || ticket.status} variant={STATUS_VARIANTS[ticket.status] || 'neutral'} />} />
+                <ReadOnlyRow label={t('common.priority_field')} value={<BadgeCell value={PRIORITY_LABELS_FALLBACK[ticket.priority] || ticket.priority} variant={PRIORITY_VARIANTS[ticket.priority] || 'neutral'} />} />
+                <ReadOnlyRow label={t('common.status')} value={<BadgeCell value={STATUS_LABELS_FALLBACK[ticket.status] || ticket.status} variant={STATUS_VARIANTS[ticket.status] || 'neutral'} />} />
                 <ReadOnlyRow label="Rapporté par" value={ticket.reporter_name || '—'} />
                 <ReadOnlyRow label="Assigné à" value={ticket.assignee_name || '—'} />
               </DetailFieldGrid>
@@ -773,9 +773,9 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
         <FormSection title={t('common.information')}>
           <DetailFieldGrid>
             <InlineEditableRow label="Titre" value={ann.title} onSave={(v) => handleSave('title', v)} />
-            <ReadOnlyRow label="Priorité" value={<BadgeCell value={ANN_PRIORITY_LABELS[ann.priority] || ann.priority} variant={PRIORITY_BADGE[ann.priority] || 'neutral'} />} />
+            <ReadOnlyRow label={t('common.priority_field')} value={<BadgeCell value={ANN_PRIORITY_LABELS[ann.priority] || ann.priority} variant={PRIORITY_BADGE[ann.priority] || 'neutral'} />} />
             <ReadOnlyRow label="Emplacement" value={LOCATION_LABELS[ann.display_location] || ann.display_location} />
-            <ReadOnlyRow label="Statut" value={ann.active ? <BadgeCell value="Actif" variant="success" /> : <BadgeCell value="Inactif" variant="neutral" />} />
+            <ReadOnlyRow label={t('common.status')} value={ann.active ? <BadgeCell value="Actif" variant="success" /> : <BadgeCell value="Inactif" variant="neutral" />} />
             <ReadOnlyRow label="Épinglée" value={ann.pinned ? 'Oui' : 'Non'} />
             <ReadOnlyRow label="Email envoyé" value={ann.send_email ? (ann.email_sent_at ? `Oui (${fmtDate(ann.email_sent_at)})` : 'Prévu') : 'Non'} />
           </DetailFieldGrid>
@@ -792,7 +792,7 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
           <DetailFieldGrid>
             <ReadOnlyRow label="Publiée le" value={fmtDate(ann.published_at)} />
             <ReadOnlyRow label="Expire le" value={fmtDate(ann.expires_at)} />
-            <ReadOnlyRow label="Créée le" value={fmtDate(ann.created_at)} />
+            <ReadOnlyRow label={t('common.created_at_female')} value={fmtDate(ann.created_at)} />
             <ReadOnlyRow label="Par" value={ann.sender_name || '—'} />
           </DetailFieldGrid>
         </FormSection>

@@ -217,13 +217,13 @@ function CreateCargoRequestInner() {
             <SmartFormSection id="t_common_notes" title={t('common.notes')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('common.notes') }}>
               <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
             </SmartFormSection>
-          </div>{_ctx?.mode === 'wizard' && (
-  <SmartFormWizardNav
-    onSubmit={() => document.querySelector('form')?.requestSubmit()}
-    onCancel={() => {}}
-  />
-)}
-</PanelContentLayout>
+          </div>  {_ctx?.mode === 'wizard' && (
+    <SmartFormWizardNav
+      onSubmit={() => document.querySelector('form')?.requestSubmit()}
+      onCancel={() => {}}
+    />
+  )}
+  </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )
@@ -566,13 +566,13 @@ function CreateCargoInner() {
 
           <SmartFormSection id="t_common_notes_2" title={t('common.notes')} level="advanced" skippable collapsible defaultExpanded={false} help={{ description: t('common.notes') }}>
             <NoteManager ownerType={stagingOwnerType} ownerId={stagingRef} compact />
-          </SmartFormSection>{_ctx?.mode === 'wizard' && (
-  <SmartFormWizardNav
-    onSubmit={() => document.querySelector('form')?.requestSubmit()}
-    onCancel={() => {}}
-  />
-)}
-</PanelContentLayout>
+          </SmartFormSection>  {_ctx?.mode === 'wizard' && (
+    <SmartFormWizardNav
+      onSubmit={() => document.querySelector('form')?.requestSubmit()}
+      onCancel={() => {}}
+    />
+  )}
+  </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )

@@ -81,24 +81,7 @@ export function ProfilesTab({ openDetail }: { openDetail: (id: string, meta?: Re
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex items-center gap-1">
-          {paxStatusOptions.map((opt) => (
-            <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
-              className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {opt.label}
-            </button>
-          ))}
-          <span className="mx-1 h-3 w-px bg-border" />
-          {paxTypeOptions.map((opt) => (
-            <button key={opt.value} onClick={() => { setTypeFilter(typeFilter === opt.value ? '' : opt.value); setPage(1) }}
-              className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors', typeFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.profiles_count', { count: data.total })}</span>}
-      </div>
+      {/* Status + type filters moved into the DataTable visual-search toolbar. */}
 
       <PanelContent scroll={false}>
         <DataTable<PaxProfileSummary>
@@ -110,6 +93,33 @@ export function ProfilesTab({ openDetail }: { openDetail: (id: string, meta?: Re
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
           searchPlaceholder={t('paxlog.search_profile')}
+          filters={[
+            {
+              id: 'status',
+              label: t('common.status'),
+              type: 'multi-select',
+              operators: ['is', 'is_not'],
+              options: paxStatusOptions.filter(o => o.value).map(o => ({ value: o.value, label: o.label })),
+            },
+            {
+              id: 'type',
+              label: t('common.type_field'),
+              type: 'multi-select',
+              operators: ['is', 'is_not'],
+              options: paxTypeOptions.filter(o => o.value).map(o => ({ value: o.value, label: o.label })),
+            },
+          ]}
+          activeFilters={{
+            ...(statusFilter ? { status: [statusFilter] } : {}),
+            ...(typeFilter ? { type: [typeFilter] } : {}),
+          }}
+          onFilterChange={(id, v) => {
+            const arr = Array.isArray(v) ? v : v != null ? [v] : []
+            const firstValue = arr.length > 0 ? String(arr[0]) : ''
+            if (id === 'status') setStatusFilter(firstValue)
+            else if (id === 'type') setTypeFilter(firstValue)
+            setPage(1)
+          }}
           onRowClick={(row) => openDetail(row.id, { pax_source: row.pax_source })}
           importExport={(canExport || canImport) ? {
             exportFormats: canExport ? ['csv', 'xlsx'] : undefined,

@@ -7,7 +7,6 @@ import { useAvmList } from '@/hooks/usePaxlog'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { MissionNoticeSummary } from '@/services/paxlogService'
 import { Briefcase, Clock, CheckCircle2, Users } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { PanelContent } from '@/components/layout/PanelHeader'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { AVM_STATUS_LABELS_FALLBACK, buildStatusFilterOptions, formatDateShort, StatusBadge, AVM_STATUS_BADGES, CompletenessBar, StatCard } from '../shared'
@@ -114,17 +113,7 @@ export function AvmTab({ openDetail, requesterOnly = false, validatorOnly = fals
         <StatCard label={t('paxlog.avm.kpis.ready')} value={avmStats.ready} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
         <StatCard label={t('paxlog.avm.kpis.planned_pax')} value={avmStats.paxPlanned} icon={Users} />
       </div>
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex items-center gap-1">
-          {avmStatusOptions.map((opt) => (
-            <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
-              className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.avm.count', { count: data.total, scope: requesterOnly ? t('paxlog.avm.count_scope.requester') : validatorOnly ? t('paxlog.avm.count_scope.validator') : t('paxlog.avm.count_scope.default') })}</span>}
-      </div>
+      {/* Status filter moved into the DataTable visual-search toolbar. */}
 
       <PanelContent scroll={false}>
         <DataTable<MissionNoticeSummary>
@@ -136,6 +125,20 @@ export function AvmTab({ openDetail, requesterOnly = false, validatorOnly = fals
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
           searchPlaceholder={validatorOnly ? t('paxlog.avm.search.validator') : t('paxlog.avm.search.default')}
+          filters={[{
+            id: 'status',
+            label: t('common.status'),
+            type: 'multi-select',
+            operators: ['is', 'is_not'],
+            options: avmStatusOptions.filter(o => o.value).map(o => ({ value: o.value, label: o.label })),
+          }]}
+          activeFilters={statusFilter ? { status: [statusFilter] } : {}}
+          onFilterChange={(id, v) => {
+            if (id !== 'status') return
+            const arr = Array.isArray(v) ? v : v != null ? [v] : []
+            setStatusFilter(arr.length > 0 ? String(arr[0]) : '')
+            setPage(1)
+          }}
           emptyIcon={Briefcase}
           emptyTitle={validatorOnly ? t('paxlog.avm.empty.validator') : t('paxlog.avm.empty.default')}
           onRowClick={(row) => openDetail(row.id)}

@@ -7,7 +7,6 @@ import type { PaxIncident } from '@/services/paxlogService'
 import type { ColumnDef } from '@tanstack/react-table'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { CheckCircle2, Clock, AlertTriangle } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { PanelContent } from '@/components/layout/PanelHeader'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { SeverityBadge, formatDate } from '../shared'
@@ -107,20 +106,7 @@ export function SignalementsTab() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <button onClick={() => setActiveOnly(!activeOnly)}
-          className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors', activeOnly ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-          {t('paxlog.signalements.active_only')}
-        </button>
-        <span className="mx-1 h-3 w-px bg-border" />
-        {severityOptions.map((opt) => (
-          <button key={opt.value} onClick={() => { setSeverityFilter(severityFilter === opt.value ? '' : opt.value); setPage(1) }}
-            className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', severityFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-            {opt.label}
-          </button>
-        ))}
-        {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.signalements.count', { count: data.total })}</span>}
-      </div>
+      {/* Active-only + severity filters moved into the DataTable visual-search toolbar. */}
 
       <PanelContent scroll={false}>
         <DataTable<PaxIncident>
@@ -132,6 +118,34 @@ export function SignalementsTab() {
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
           searchPlaceholder={t('paxlog.search_incident')}
+          filters={[
+            {
+              id: 'severity',
+              label: t('paxlog.signalements.severity') !== 'paxlog.signalements.severity' ? t('paxlog.signalements.severity') : 'Gravité',
+              type: 'multi-select',
+              operators: ['is', 'is_not'],
+              options: severityOptions.filter(o => o.value).map(o => ({ value: o.value, label: o.label })),
+            },
+            {
+              id: 'active_only',
+              label: t('paxlog.signalements.active_only'),
+              type: 'boolean',
+              operators: ['is'],
+            },
+          ]}
+          activeFilters={{
+            ...(severityFilter ? { severity: [severityFilter] } : {}),
+            ...(activeOnly ? { active_only: true } : {}),
+          }}
+          onFilterChange={(id, v) => {
+            if (id === 'severity') {
+              const arr = Array.isArray(v) ? v : v != null ? [v] : []
+              setSeverityFilter(arr.length > 0 ? String(arr[0]) : '')
+              setPage(1)
+            } else if (id === 'active_only') {
+              setActiveOnly(v === true)
+            }
+          }}
           emptyIcon={AlertTriangle}
           emptyTitle={t('paxlog.no_incident')}
           storageKey="paxlog-signalements"

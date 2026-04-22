@@ -5,7 +5,6 @@ import { useDictionaryOptions, useDictionaryLabels } from '@/hooks/useDictionary
 import { useEndRotationCycle, useRotationCycles } from '@/hooks/usePaxlog'
 import type { RotationCycle } from '@/services/paxlogService'
 import type { ColumnDef } from '@tanstack/react-table'
-import { cn } from '@/lib/utils'
 import { PanelContent } from '@/components/layout/PanelHeader'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { RefreshCw } from 'lucide-react'
@@ -143,17 +142,7 @@ export function RotationsTab() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex items-center gap-1">
-          {rotationStatusFilterOptions.map((opt) => (
-            <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
-              className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.rotations_tab.count', { count: data.total })}</span>}
-      </div>
+      {/* Status filter moved into the DataTable visual-search toolbar. */}
 
       <PanelContent scroll={false}>
         <DataTable<RotationCycle>
@@ -165,6 +154,20 @@ export function RotationsTab() {
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
           searchPlaceholder={t('paxlog.search_rotation')}
+          filters={[{
+            id: 'status',
+            label: t('common.status'),
+            type: 'multi-select',
+            operators: ['is', 'is_not'],
+            options: rotationStatusFilterOptions.filter(o => o.value).map(o => ({ value: o.value, label: o.label })),
+          }]}
+          activeFilters={statusFilter ? { status: [statusFilter] } : {}}
+          onFilterChange={(id, v) => {
+            if (id !== 'status') return
+            const arr = Array.isArray(v) ? v : v != null ? [v] : []
+            setStatusFilter(arr.length > 0 ? String(arr[0]) : '')
+            setPage(1)
+          }}
           emptyIcon={RefreshCw}
           emptyTitle={t('paxlog.no_rotation')}
           storageKey="paxlog-rotations"

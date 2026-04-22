@@ -135,18 +135,7 @@ export function AdsTab({ openDetail, requesterOnly = false, validatorOnly = fals
         <StatCard label={t('paxlog.ads.kpis.total_pax')} value={stats.totalPax} icon={Users} />
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {adsStatusOptions.map((opt) => (
-            <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
-              className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{t('paxlog.ads.count', { count: data.total, scope: requesterOnly ? t('paxlog.ads.count_scope.requester') : validatorOnly ? t('paxlog.ads.count_scope.validator') : t('paxlog.ads.count_scope.default') })}</span>}
-      </div>
+      {/* Status filter moved into the DataTable visual-search toolbar. */}
 
       <PanelContent scroll={false}>
         <DataTable<AdsSummary>
@@ -158,6 +147,20 @@ export function AdsTab({ openDetail, requesterOnly = false, validatorOnly = fals
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
           searchPlaceholder={validatorOnly ? t('paxlog.ads.search.validator') : t('paxlog.ads.search.default')}
+          filters={[{
+            id: 'status',
+            label: t('common.status'),
+            type: 'multi-select',
+            operators: ['is', 'is_not'],
+            options: adsStatusOptions.filter(o => o.value).map(o => ({ value: o.value, label: o.label })),
+          }]}
+          activeFilters={statusFilter ? { status: [statusFilter] } : {}}
+          onFilterChange={(id, v) => {
+            if (id !== 'status') return
+            const arr = Array.isArray(v) ? v : v != null ? [v] : []
+            setStatusFilter(arr.length > 0 ? String(arr[0]) : '')
+            setPage(1)
+          }}
           onRowClick={(row) => openDetail(row.id)}
           emptyIcon={ClipboardList}
           emptyTitle={validatorOnly ? t('paxlog.ads.empty.validator') : t('paxlog.ads.empty.default')}

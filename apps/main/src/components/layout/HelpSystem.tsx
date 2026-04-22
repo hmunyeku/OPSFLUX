@@ -245,7 +245,7 @@ function WorkflowItem({ workflow }: { workflow: WorkflowHelp }) {
       {open && (
         <div className="px-3 pb-3 space-y-3">
           {workflow.diagram && (
-            <MermaidDiagram chart={workflow.diagram} className="bg-slate-900/50 rounded-lg p-2" />
+            <MermaidDiagram chart={workflow.diagram} className="rounded-lg p-2 border border-border/60" />
           )}
           <ol className="pt-1 space-y-1.5 list-none">
             {workflow.steps.map((step, i) => (

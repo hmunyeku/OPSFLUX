@@ -117,21 +117,21 @@ export function VectorDetailPanel({ id }: { id: string }) {
             <>
               <FormSection title={t('common.identification')}>
                 <FormGrid>
-                  <DynamicPanelField label="Immatriculation"><input type="text" value={editForm.registration ?? ''} onChange={(e) => setEditForm({ ...editForm, registration: e.target.value })} className={panelInputClass} /></DynamicPanelField>
+                  <DynamicPanelField label={t('common.registration')}><input type="text" value={editForm.registration ?? ''} onChange={(e) => setEditForm({ ...editForm, registration: e.target.value })} className={panelInputClass} /></DynamicPanelField>
                   <DynamicPanelField label={t('common.name_field')}><input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} /></DynamicPanelField>
                   <DynamicPanelField label={t('common.type_field')}>
                     <select value={editForm.type ?? ''} onChange={(e) => handleEditTypeChange(e.target.value)} className={panelInputClass}>
                       {Object.entries(VECTOR_TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                     </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Mode">
+                  <DynamicPanelField label={t('common.mode')}>
                     <select value={editForm.mode ?? ''} onChange={(e) => setEditForm({ ...editForm, mode: e.target.value })} className={panelInputClass}>
                       <option value="air">Aerien</option>
                       <option value="sea">Maritime</option>
                       <option value="road">Routier</option>
                     </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Base d'attache" span="full">
+                  <DynamicPanelField label={t('common.home_base')} span="full">
                     <AssetPicker
                       value={editForm.home_base_id}
                       onChange={(assetId) => setEditForm({ ...editForm, home_base_id: assetId })}

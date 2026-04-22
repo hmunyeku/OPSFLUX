@@ -813,7 +813,7 @@ function EditPanel({ templateId }: { templateId: string }) {
                       onChange={(e) => setNewValidFrom(e.target.value)}
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Active jusqu'au">
+                  <DynamicPanelField label={t('common.active_until')}>
                     <input
                       type="datetime-local"
                       className={`${panelInputClass} text-xs`}
@@ -986,7 +986,7 @@ function VersionEditor({
                 onChange={(e) => setValidFrom(e.target.value)}
               />
             </DynamicPanelField>
-            <DynamicPanelField label="Active jusqu'au">
+            <DynamicPanelField label={t('common.active_until')}>
               <input
                 type="datetime-local"
                 className={`${panelInputClass} text-xs`}

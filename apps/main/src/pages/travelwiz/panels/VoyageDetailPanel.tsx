@@ -387,7 +387,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
                     ))}
                   </select>
                 </DynamicPanelField>
-                <DynamicPanelField label="Base de depart" span="full">
+                <DynamicPanelField label={t('common.departure_base')} span="full">
                   <AssetPicker
                     value={editForm.departure_base_id ?? null}
                     onChange={(assetId) => setEditForm({ ...editForm, departure_base_id: assetId ?? null })}

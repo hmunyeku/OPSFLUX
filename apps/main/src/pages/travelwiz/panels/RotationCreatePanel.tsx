@@ -79,7 +79,7 @@ export function CreateRotationPanel() {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Base de départ" required span="full">
+              <DynamicPanelField label={t('common.departure_base')} required span="full">
                 <AssetPicker
                   value={form.departure_base_id || null}
                   onChange={(assetId) => setForm({ ...form, departure_base_id: assetId ?? '' })}

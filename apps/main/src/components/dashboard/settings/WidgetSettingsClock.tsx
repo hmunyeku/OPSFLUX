@@ -42,7 +42,7 @@ export function WidgetSettingsClock({ config, onChange }: WidgetSettingsClockPro
   const { t } = useTranslation()
   return (
     <FormSection title="Configuration Horloge" collapsible defaultExpanded storageKey="widget-settings-clock">
-      <DynamicPanelField label="Mode">
+      <DynamicPanelField label={t('common.mode')}>
         <TagSelector
           options={MODE_OPTIONS}
           value={(config.mode as string) || 'digital'}

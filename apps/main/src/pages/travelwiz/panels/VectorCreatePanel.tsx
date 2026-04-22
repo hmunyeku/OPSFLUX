@@ -56,7 +56,7 @@ export function CreateVectorPanel() {
         <PanelContentLayout>
           <FormSection title={t('common.identification')}>
             <FormGrid>
-              <DynamicPanelField label="Immatriculation" required>
+              <DynamicPanelField label={t('common.registration')} required>
                 <input type="text" required value={form.registration} onChange={(e) => setForm({ ...form, registration: e.target.value })} className={panelInputClass} placeholder="TJ-ABC" />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.name_field')} required>
@@ -74,14 +74,14 @@ export function CreateVectorPanel() {
                   <option value="tug">Remorqueur</option>
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Mode" required>
+              <DynamicPanelField label={t('common.mode')} required>
                 <select value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })} className={panelInputClass}>
                   <option value="air">Aerien</option>
                   <option value="sea">Maritime</option>
                   <option value="road">Routier</option>
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Base d'attache" span="full">
+              <DynamicPanelField label={t('common.home_base')} span="full">
                 <AssetPicker
                   value={form.home_base_id}
                   onChange={(assetId) => setForm({ ...form, home_base_id: assetId })}

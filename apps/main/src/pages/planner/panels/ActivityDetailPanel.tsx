@@ -797,7 +797,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                     ))}
                   </select>
                 </DynamicPanelField>
-                <DynamicPanelField label="Mode POB">
+                <DynamicPanelField label={t('common.pob_mode')}>
                   <select
                     value={(editForm.pax_quota_mode as string) || 'constant'}
                     onChange={(e) => setEditForm({ ...editForm, pax_quota_mode: e.target.value })}
@@ -864,7 +864,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       className={panelInputClass}
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Nom du rig">
+                  <DynamicPanelField label={t('common.rig_name')}>
                     <input
                       type="text"
                       value={editForm.rig_name as string}
@@ -879,7 +879,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             {(editForm.type === 'drilling') && (
               <FormSection title={t('common.drilling_details')}>
                 <FormGrid>
-                  <DynamicPanelField label="Date spud">
+                  <DynamicPanelField label={t('common.spud_date')}>
                     <input
                       type="date"
                       value={editForm.spud_date as string}
@@ -918,7 +918,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       className={panelInputClass}
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Bon de travail">
+                  <DynamicPanelField label={t('common.work_order')}>
                     <input
                       type="text"
                       value={editForm.work_order_ref as string}

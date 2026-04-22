@@ -2255,13 +2255,13 @@ function CreateDocTypePanel() {
                   <DynamicPanelField label={t('common.code_field')}>
                     <input type="text" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={cn(panelInputClass, 'font-mono')} placeholder={t('papyrus.placeholders.code_auto')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Nom (FR)" required>
+                  <DynamicPanelField label={t('common.name_fr')} required>
                     <input type="text" required value={form.name_fr} onChange={(e) => setForm(f => ({ ...f, name_fr: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.doctype_name_fr_example')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Nom (EN)">
+                  <DynamicPanelField label={t('common.name_en')}>
                     <input type="text" value={form.name_en} onChange={(e) => setForm(f => ({ ...f, name_en: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.doctype_name_en_example')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Discipline">
+                  <DynamicPanelField label={t('common.discipline')}>
                     <input type="text" value={form.discipline} onChange={(e) => setForm(f => ({ ...f, discipline: e.target.value }))} className={panelInputClass} placeholder={t('papyrus.placeholders.discipline_example')} />
                   </DynamicPanelField>
                 </FormGrid>
@@ -2473,13 +2473,13 @@ function DocTypeDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label={t('common.code_field')} value={docType.code} />
             {editing ? (
               <>
-                <DynamicPanelField label="Nom (FR)">
+                <DynamicPanelField label={t('common.name_fr')}>
                   <input type="text" value={form.name_fr} onChange={(e) => setForm(f => ({ ...f, name_fr: e.target.value }))} className={panelInputClass} />
                 </DynamicPanelField>
-                <DynamicPanelField label="Nom (EN)">
+                <DynamicPanelField label={t('common.name_en')}>
                   <input type="text" value={form.name_en} onChange={(e) => setForm(f => ({ ...f, name_en: e.target.value }))} className={panelInputClass} />
                 </DynamicPanelField>
-                <DynamicPanelField label="Discipline">
+                <DynamicPanelField label={t('common.discipline')}>
                   <input type="text" value={form.discipline} onChange={(e) => setForm(f => ({ ...f, discipline: e.target.value }))} className={panelInputClass} />
                 </DynamicPanelField>
               </>

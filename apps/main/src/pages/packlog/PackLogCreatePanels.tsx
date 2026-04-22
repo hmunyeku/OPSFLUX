@@ -426,14 +426,14 @@ export function CreateCargoPanel() {
                       Conforme / validé pour traitement HAZMAT
                     </label>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Colis réutilisable">
+                  <DynamicPanelField label={t('common.reusable_package')}>
                     <label className="inline-flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={form.is_reusable ?? false} onChange={(e) => setForm({ ...form, is_reusable: e.target.checked })} />
                       Emballage / conteneur retournable (basket, skid, coffre DNV…)
                     </label>
                   </DynamicPanelField>
                   {form.is_reusable && (
-                    <DynamicPanelField label="Date retour prévue">
+                    <DynamicPanelField label={t('common.expected_return_date')}>
                       <input type="date" value={form.expected_return_date ?? ''} onChange={(e) => setForm({ ...form, expected_return_date: e.target.value || null })} className={panelInputClass} />
                     </DynamicPanelField>
                   )}
@@ -479,7 +479,7 @@ export function CreateCargoPanel() {
                   <DynamicPanelField label={t('common.contact_phone')}>
                     <input type="text" value={form.pickup_contact_phone ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_phone: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.phone_example')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Moyen de levage fourni par">
+                  <DynamicPanelField label={t('common.lifting_provided_by')}>
                     <input type="text" value={form.lifting_provider ?? ''} onChange={(e) => setForm({ ...form, lifting_provider: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.lifting_provider_example')} />
                   </DynamicPanelField>
                   <DynamicPanelField label={t('common.lifting_points_certified')}>

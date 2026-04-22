@@ -325,7 +325,7 @@ export function CreateCargoPanel() {
             <div className="@container space-y-5">
               <FormSection title={t('common.identification')}>
             <FormGrid>
-              <DynamicPanelField label="Demande d'expédition">
+              <DynamicPanelField label={t('common.shipment_request_label')}>
                 <select
                   value={form.request_id ?? ''}
                   onChange={(e) => setForm({ ...form, request_id: e.target.value || null })}
@@ -462,7 +462,7 @@ export function CreateCargoPanel() {
               </FormSection>
               <FormSection title={t('common.pickup_evidence')} collapsible defaultExpanded>
             <FormGrid>
-              <DynamicPanelField label="Lieu d'enlèvement" span="full">
+              <DynamicPanelField label={t('common.pickup_location')} span="full">
                 <input type="text" value={form.pickup_location_label ?? ''} onChange={(e) => setForm({ ...form, pickup_location_label: e.target.value || null })} className={panelInputClass} placeholder="Base, quai, magasin, yard..." />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.latitude')}>
@@ -520,7 +520,7 @@ export function CreateCargoPanel() {
               <DynamicPanelField label={t('common.contact_phone')}>
                 <input type="text" value={form.pickup_contact_phone ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_phone: e.target.value || null })} className={panelInputClass} placeholder="+237..." />
               </DynamicPanelField>
-              <DynamicPanelField label="Moyen de levage fourni par">
+              <DynamicPanelField label={t('common.lifting_provided_by')}>
                 <input type="text" value={form.lifting_provider ?? ''} onChange={(e) => setForm({ ...form, lifting_provider: e.target.value || null })} className={panelInputClass} placeholder="Entreprise, site, prestataire..." />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.lifting_points_certified')}>

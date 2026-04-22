@@ -507,7 +507,7 @@ export function CreateSitePanel() {
 
         <FormSection title={t('common.dates')} collapsible>
           <FormGrid>
-            <DynamicPanelField label="Date mise en service">
+            <DynamicPanelField label={t('common.commissioning_date')}>
               <input type="date" value={form.commissioning_date || ''} onChange={(e) => set({ commissioning_date: e.target.value || undefined })} className={panelInputClass} />
             </DynamicPanelField>
             <DynamicPanelField label={t('asset_registry.date_1er_petrole')}>
@@ -657,7 +657,7 @@ export function CreateInstallationPanel() {
             <DynamicPanelField label="Date installation">
               <input type="date" value={form.installation_date || ''} onChange={(e) => set({ installation_date: e.target.value || undefined })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Date mise en service">
+            <DynamicPanelField label={t('common.commissioning_date')}>
               <input type="date" value={form.commissioning_date || ''} onChange={(e) => set({ commissioning_date: e.target.value || undefined })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>

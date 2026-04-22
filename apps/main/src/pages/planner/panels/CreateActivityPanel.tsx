@@ -162,7 +162,7 @@ export function CreateActivityPanel() {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Mode POB">
+              <DynamicPanelField label={t('common.pob_mode')}>
                 <select
                   value={form.pax_quota_mode || 'constant'}
                   onChange={(e) => setForm({ ...form, pax_quota_mode: e.target.value as 'constant' | 'variable' })}
@@ -232,7 +232,7 @@ export function CreateActivityPanel() {
                     placeholder="Ref. puits"
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Nom du rig">
+                <DynamicPanelField label={t('common.rig_name')}>
                   <input
                     type="text"
                     value={form.rig_name ?? ''}
@@ -248,7 +248,7 @@ export function CreateActivityPanel() {
           {form.type === 'drilling' && (
             <FormSection title={t('common.drilling_details')}>
               <FormGrid>
-                <DynamicPanelField label="Date spud">
+                <DynamicPanelField label={t('common.spud_date')}>
                   <input
                     type="date"
                     value={form.spud_date ?? ''}
@@ -290,7 +290,7 @@ export function CreateActivityPanel() {
                     placeholder="Réf. réglementaire"
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Bon de travail">
+                <DynamicPanelField label={t('common.work_order')}>
                   <input
                     type="text"
                     value={form.work_order_ref ?? ''}

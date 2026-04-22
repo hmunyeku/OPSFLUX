@@ -524,7 +524,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Demande d'expédition">
+              <DynamicPanelField label={t('common.shipment_request_label')}>
                 <select value={editForm.request_id ?? ''} onChange={(e) => setEditForm({ ...editForm, request_id: e.target.value || null })} className={panelInputClass}>
                   <option value="">Sélectionner une demande...</option>
                   {cargoRequests.map((request) => (
@@ -569,7 +569,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Zone de chargement prévue">
+              <DynamicPanelField label={t('common.loading_zone')}>
                 <select
                   value={editForm.planned_zone_id ?? ''}
                   onChange={(e) => setEditForm({ ...editForm, planned_zone_id: e.target.value || null })}
@@ -591,14 +591,14 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   Conforme et validé pour transport HAZMAT
                 </label>
               </DynamicPanelField>
-              <DynamicPanelField label="Colis réutilisable">
+              <DynamicPanelField label={t('common.reusable_package')}>
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={(editForm as { is_reusable?: boolean }).is_reusable ?? false} onChange={(e) => setEditForm({ ...editForm, is_reusable: e.target.checked } as typeof editForm)} />
                   Emballage retournable (basket, skid, coffre DNV…)
                 </label>
               </DynamicPanelField>
               {(editForm as { is_reusable?: boolean }).is_reusable && (
-                <DynamicPanelField label="Date retour prévue">
+                <DynamicPanelField label={t('common.expected_return_date')}>
                   <input type="date" value={(editForm as { expected_return_date?: string | null }).expected_return_date ?? ''} onChange={(e) => setEditForm({ ...editForm, expected_return_date: e.target.value || null } as typeof editForm)} className={panelInputClass} />
                 </DynamicPanelField>
               )}
@@ -616,7 +616,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label={t('common.availability')}>
                 <input type="datetime-local" value={editForm.available_from ?? ''} onChange={(e) => setEditForm({ ...editForm, available_from: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Lieu d'enlèvement" span="full">
+              <DynamicPanelField label={t('common.pickup_location')} span="full">
                 <input type="text" value={editForm.pickup_location_label ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_location_label: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.latitude')}>

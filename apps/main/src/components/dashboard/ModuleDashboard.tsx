@@ -106,11 +106,11 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
       {editMode && (
         <>
           <button onClick={() => editorRef.current?.undo()} disabled={!editorRef.current?.canUndo}
-            className="h-7 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" title="Annuler">
+            className="h-7 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" title={t('common.undo')}>
             <Undo2 className="h-3.5 w-3.5" />
           </button>
           <button onClick={() => editorRef.current?.redo()} disabled={!editorRef.current?.canRedo}
-            className="h-7 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" title="Refaire">
+            className="h-7 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" title={t('common.redo')}>
             <Redo2 className="h-3.5 w-3.5" />
           </button>
           <div className="w-px h-4 bg-border mx-1" />

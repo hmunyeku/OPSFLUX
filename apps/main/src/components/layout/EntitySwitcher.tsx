@@ -7,6 +7,7 @@
  * - "Toutes les entités" option if user has core.multi_entity permission
  */
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, Check, Search } from 'lucide-react'
 import { useMyEntities, useSwitchEntity } from '@/hooks/useEntities'
 import { useAuthStore } from '@/stores/authStore'
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { EntityIcon } from '@/components/shared/EntityIcon'
 
 export function EntitySwitcher() {
+  const { t } = useTranslation()
   const { data: entities, isLoading } = useMyEntities()
   const switchEntity = useSwitchEntity()
   const currentEntityId = useAuthStore((s) => s.currentEntityId)
@@ -127,7 +129,7 @@ export function EntitySwitcher() {
 
           <div className="max-h-64 overflow-y-auto p-1">
             {filtered.length === 0 && (
-              <div className="px-3 py-2 text-xs text-muted-foreground">Aucun résultat</div>
+              <div className="px-3 py-2 text-xs text-muted-foreground">{t('common.no_results')}</div>
             )}
             {filtered.map((entity) => (
               <button

@@ -50,6 +50,7 @@ function DictCombobox({ value, options, onChange, placeholder }: {
   onChange: (v: string) => void
   placeholder?: string
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -89,7 +90,7 @@ function DictCombobox({ value, options, onChange, placeholder }: {
             <input
               type="text"
               className="w-full bg-transparent text-sm px-2 py-1 outline-none placeholder:text-muted-foreground"
-              placeholder="Rechercher..."
+              placeholder={t('common.search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoFocus
@@ -114,7 +115,7 @@ function DictCombobox({ value, options, onChange, placeholder }: {
               </button>
             ))}
             {filtered.length === 0 && (
-              <p className="px-3 py-2 text-sm text-muted-foreground">Aucun résultat</p>
+              <p className="px-3 py-2 text-sm text-muted-foreground">{t('common.no_results')}</p>
             )}
           </div>
         </div>

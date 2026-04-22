@@ -1,6 +1,7 @@
 /**
  * QuickAccess widget settings — configure shortcut items, columns, colors.
  */
+import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, GripVertical } from 'lucide-react'
 import {
   FormSection,
@@ -55,6 +56,7 @@ interface WidgetSettingsQuickAccessProps {
 }
 
 export function WidgetSettingsQuickAccess({ config, onChange }: WidgetSettingsQuickAccessProps) {
+  const { t } = useTranslation()
   const items = (config.items as QuickAccessItem[]) || []
 
   const updateItem = (idx: number, patch: Partial<QuickAccessItem>) => {
@@ -101,7 +103,7 @@ export function WidgetSettingsQuickAccess({ config, onChange }: WidgetSettingsQu
                   onClick={() => moveItem(idx, -1)}
                   disabled={idx === 0}
                   className="p-0.5 rounded hover:bg-muted disabled:opacity-30"
-                  title="Monter"
+                  title={t('common.up')}
                 >
                   <GripVertical size={10} className="text-muted-foreground" />
                 </button>

@@ -6,6 +6,7 @@
  * Permission-gated: create/edit/delete require specific permissions.
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Megaphone, Plus, Loader2, Pin, X, Check, AlertTriangle, Info, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermission } from '@/hooks/usePermission'
@@ -21,6 +22,7 @@ const PRIORITY_STYLES: Record<string, { icon: React.ElementType; color: string; 
 }
 
 export function AnnouncementCenter() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -55,7 +57,7 @@ export function AnnouncementCenter() {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1 h-7 px-1.5 rounded-lg text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors relative"
         aria-label="Annonces"
-        title="Annonces"
+        title={t('common.announcements')}
       >
         <Megaphone size={15} />
         {unreadCount > 0 && (
@@ -132,6 +134,7 @@ function AnnouncementItem({
   onDismiss: () => void
   onDelete?: () => void
 }) {
+  const { t } = useTranslation()
   const style = PRIORITY_STYLES[ann.priority] || PRIORITY_STYLES.info
   const Icon = style.icon
 
@@ -169,7 +172,7 @@ function AnnouncementItem({
             </button>
           )}
           {onDelete && (
-            <button onClick={onDelete} className="gl-button gl-button-danger dark:hover:bg-red-900/20" title="Supprimer">
+            <button onClick={onDelete} className="gl-button gl-button-danger dark:hover:bg-red-900/20" title={t('common.delete')}>
               <X size={10} />
             </button>
           )}

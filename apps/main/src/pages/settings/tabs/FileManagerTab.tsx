@@ -145,7 +145,7 @@ export function FileManagerTab() {
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              placeholder="Rechercher..."
+              placeholder={t('common.search')}
               className={`${panelInputClass} !pl-7 !h-8 !text-xs w-48`}
             />
           </div>

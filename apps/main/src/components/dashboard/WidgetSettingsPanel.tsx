@@ -4,6 +4,7 @@
  * Shows when a widget is selected. Renders common settings + type-specific config.
  * Uses DynamicPanel design system components for consistency.
  */
+import { useTranslation } from 'react-i18next'
 import { Trash2, Info, Database, Shield, Hash } from 'lucide-react'
 import { DynamicPanelShell, FormSection } from '@/components/layout/DynamicPanel'
 import { WidgetTypeIcon } from './WidgetCard'
@@ -33,6 +34,7 @@ export function WidgetSettingsPanel({
   onDelete,
   onClose,
 }: WidgetSettingsPanelProps) {
+  const { t } = useTranslation()
   const confirm = useConfirm()
 
   const handleDelete = async () => {
@@ -121,7 +123,7 @@ export function WidgetSettingsPanel({
         </div>
 
         {/* Widget info (metadata, data source, permissions) */}
-        <FormSection title="Informations" collapsible defaultExpanded={false} storageKey="widget-settings-info">
+        <FormSection title={t('common.information')} collapsible defaultExpanded={false} storageKey="widget-settings-info">
           <div className="space-y-2 text-xs">
             <div className="flex items-start gap-2">
               <Hash size={11} className="text-muted-foreground mt-0.5 shrink-0" />

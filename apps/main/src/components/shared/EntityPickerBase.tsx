@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { LucideIcon } from 'lucide-react'
 import { ChevronDown, Clock, Loader2, Search, Star, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -74,6 +75,7 @@ export function EntityPickerBase<T>({
   recentKey,
   toItem,
 }: EntityPickerBaseProps<T>) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -165,7 +167,7 @@ export function EntityPickerBase<T>({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher..."
+              placeholder={t('common.search')}
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
             />
             {search && (
@@ -231,7 +233,7 @@ export function EntityPickerBase<T>({
                     ))}
                   </div>
                 ) : (
-                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucun résultat</div>
+                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">{t('common.no_results')}</div>
                 )}
               </>
             )}

@@ -18,6 +18,7 @@
  * - Inset box-shadow for input borders
  */
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import {
   X, Check, Pencil, ChevronRight, ChevronLeft, ChevronDown,
@@ -121,6 +122,7 @@ export function DynamicPanelShell({
   inlineWidth = 360,
   className,
 }: DynamicPanelShellProps) {
+  const { t } = useTranslation()
   const isFloating = useIsInsideFloatingPanel()
 
   // Resolve the actions region once so the three render branches below stay
@@ -295,7 +297,7 @@ export function DynamicPanelShell({
                 disabled={!hasPrev}
                 onClick={() => navigateToItem(navItems[0])}
                 className={navBtn}
-                title="Premier"
+                title={t('common.first')}
               >
                 <ChevronsLeft size={14} />
               </button>
@@ -303,7 +305,7 @@ export function DynamicPanelShell({
                 disabled={!hasPrev}
                 onClick={() => navigateToItem(navItems[currentIndex - 1])}
                 className={navBtn}
-                title="Précédent"
+                title={t('common.previous')}
               >
                 <ChevronLeft size={14} />
               </button>
@@ -311,7 +313,7 @@ export function DynamicPanelShell({
                 disabled={!hasNext}
                 onClick={() => navigateToItem(navItems[currentIndex + 1])}
                 className={navBtn}
-                title="Suivant"
+                title={t('common.next_action')}
               >
                 <ChevronRight size={14} />
               </button>
@@ -319,7 +321,7 @@ export function DynamicPanelShell({
                 disabled={!hasNext}
                 onClick={() => navigateToItem(navItems[navItems.length - 1])}
                 className={navBtn}
-                title="Dernier"
+                title={t('common.last')}
               >
                 <ChevronsRight size={14} />
               </button>
@@ -408,7 +410,7 @@ export function DynamicPanelShell({
         <div
           className="w-1 flex-shrink-0 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors"
           onMouseDown={onMouseDown}
-          title="Redimensionner"
+          title={t('common.resize')}
         />
       )}
 
@@ -431,7 +433,7 @@ export function DynamicPanelShell({
                 disabled={!hasPrev}
                 onClick={() => navigateToItem(navItems[currentIndex - 1])}
                 className={navBtn}
-                title="Précédent"
+                title={t('common.previous')}
               >
                 <ChevronLeft size={13} />
               </button>
@@ -439,7 +441,7 @@ export function DynamicPanelShell({
                 disabled={!hasNext}
                 onClick={() => navigateToItem(navItems[currentIndex + 1])}
                 className={navBtn}
-                title="Suivant"
+                title={t('common.next_action')}
               >
                 <ChevronRight size={13} />
               </button>
@@ -495,7 +497,7 @@ export function DynamicPanelShell({
         <div
           className="w-1 flex-shrink-0 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors"
           onMouseDown={onMouseDown}
-          title="Redimensionner"
+          title={t('common.resize')}
         />
       )}
     </aside>

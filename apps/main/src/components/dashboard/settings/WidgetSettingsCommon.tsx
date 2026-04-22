@@ -1,6 +1,7 @@
 /**
  * Common widget settings — title, description, refresh interval, visual customization.
  */
+import { useTranslation } from 'react-i18next'
 import {
   FormSection,
   DynamicPanelField,
@@ -48,13 +49,14 @@ interface WidgetSettingsCommonProps {
 }
 
 export function WidgetSettingsCommon({ widget, onUpdateMeta, onUpdateConfig }: WidgetSettingsCommonProps) {
+  const { t } = useTranslation()
   const bgColor = (widget.config?.bg_color as string) || ''
   const accentColor = (widget.config?.accent_color as string) || ''
   const hideHeader = (widget.config?.hide_header as boolean) || false
 
   return (
     <>
-      <FormSection title="Général">
+      <FormSection title={t('common.general')}>
         <DynamicPanelField label="Titre">
           <input
             type="text"
@@ -84,7 +86,7 @@ export function WidgetSettingsCommon({ widget, onUpdateMeta, onUpdateConfig }: W
         </DynamicPanelField>
       </FormSection>
 
-      <FormSection title="Apparence" collapsible defaultExpanded={false} storageKey="widget-settings-appearance">
+      <FormSection title={t('common.appearance')} collapsible defaultExpanded={false} storageKey="widget-settings-appearance">
         <DynamicPanelField label="Couleur de fond">
           <div className="flex items-center gap-2">
             <select

@@ -312,17 +312,17 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
             'flex items-center gap-0.5 transition-opacity',
             mode !== 'edit' ? 'opacity-60 group-hover:opacity-100' : 'opacity-90',
           )}>
-            <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Actualiser">
+            <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title={t('common.refresh')}>
               <RefreshCw className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground', isLoading && 'animate-spin')} />
             </button>
-            <button onClick={handleExport} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Exporter">
+            <button onClick={handleExport} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title={t('common.export')}>
               <Download className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground')} />
             </button>
-            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Plein écran">
+            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title={t('common.fullscreen')}>
               <Maximize2 className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground')} />
             </button>
             {mode === 'edit' && onRemove && (
-              <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/10 transition-colors" title="Supprimer">
+              <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/10 transition-colors" title={t('common.delete')}>
                 <X className="h-3 w-3 text-destructive/80" />
               </button>
             )}

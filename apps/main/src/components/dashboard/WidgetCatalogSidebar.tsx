@@ -6,6 +6,7 @@
  * and can also be added via click.
  */
 import { useMemo, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, GripVertical } from 'lucide-react'
 import { WidgetTypeIcon } from './WidgetCard'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
@@ -21,6 +22,7 @@ interface WidgetCatalogSidebarProps {
 }
 
 export function WidgetCatalogSidebar({ catalog, onAddWidget, onDragStart, onDragEnd }: WidgetCatalogSidebarProps) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
 
   const filtered = useMemo(() => {
@@ -52,7 +54,7 @@ export function WidgetCatalogSidebar({ catalog, onAddWidget, onDragStart, onDrag
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={`${panelInputClass} pl-8`}
-            placeholder="Rechercher..."
+            placeholder={t('common.search')}
           />
         </div>
       </div>

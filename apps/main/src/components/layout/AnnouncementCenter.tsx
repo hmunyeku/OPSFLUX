@@ -259,7 +259,7 @@ function CreateAnnouncementForm({ onCreated, onCancel }: { onCreated: () => void
         </label>
       </div>
       <div className="flex items-center justify-end gap-2">
-        <button onClick={onCancel} className="gl-button-sm gl-button-default">Annuler</button>
+        <button onClick={onCancel} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
         <button
           onClick={handleSubmit}
           disabled={!form.title.trim() || !form.body.trim() || create.isPending}

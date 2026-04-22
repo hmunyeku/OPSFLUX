@@ -212,7 +212,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
               </div>
               <button type="button" className="gl-button-sm gl-button-danger" onClick={() => removeField(index)} disabled={disabled}>
                 <Trash2 size={12} />
-                <span>Supprimer</span>
+                <span>{t('common.delete')}</span>
               </button>
             </div>
 

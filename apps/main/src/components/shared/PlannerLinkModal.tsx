@@ -331,16 +331,16 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                 <span className="text-xs text-muted-foreground">Priorité:</span>
                 <select value={priority} onChange={e => setPriority(e.target.value)}
                   className="h-6 px-1.5 text-xs border border-border rounded bg-background">
-                  <option value="low">Basse</option>
-                  <option value="medium">Moyenne</option>
-                  <option value="high">Haute</option>
-                  <option value="critical">Critique</option>
+                  <option value="low">{t('common.low_priority')}</option>
+                  <option value="medium">{t('common.medium_priority')}</option>
+                  <option value="high">{t('common.high_priority')}</option>
+                  <option value="critical">{t('common.critical_priority')}</option>
                 </select>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}</span>
-              <button onClick={onClose} className="gl-button-sm gl-button-default">Annuler</button>
+              <button onClick={onClose} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
               <button onClick={handleSend} disabled={selectedIds.size === 0 || sendToPlanner.isPending}
                 className="gl-button gl-button-sm gl-button-confirm flex">
                 {sendToPlanner.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}

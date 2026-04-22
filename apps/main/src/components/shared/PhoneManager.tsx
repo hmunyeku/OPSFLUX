@@ -435,7 +435,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                     disabled={sendVerification.isPending}
                   >
                     {sendVerification.isPending ? <Loader2 size={9} className="animate-spin" /> : <Send size={9} />}
-                    <span>Vérifier</span>
+                    <span>{t('common.verify')}</span>
                   </button>
                 )}
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

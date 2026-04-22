@@ -364,7 +364,17 @@
     "created": "Created",
     "updated": "Updated",
     "saved": "Saved",
-    "invalid_code": "Invalid code"
+    "invalid_code": "Invalid code",
+    "blocks": "Blocks",
+    "paragraph": "Paragraph",
+    "separator": "Separator",
+    "formula": "Formula",
+    "verify": "Verify",
+    "low_priority": "Low",
+    "medium_priority": "Medium",
+    "high_priority": "High",
+    "critical_priority": "Critical",
+    "remaining": "Remaining"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",

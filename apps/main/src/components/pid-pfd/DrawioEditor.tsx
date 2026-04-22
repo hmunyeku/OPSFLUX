@@ -8,6 +8,7 @@
  * - URL is configurable: self-hosted (default http://localhost:8080) or SaaS (https://embed.diagrams.net).
  */
 import { useRef, useEffect, useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Save, FileImage, FileDown, Loader2, X } from 'lucide-react'
 
 export interface DrawioEditorProps {
@@ -27,6 +28,7 @@ export function DrawioEditor({
   drawioUrl = 'http://localhost:8080',
   onClose,
 }: DrawioEditorProps) {
+  const { t } = useTranslation()
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isReady, setIsReady] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -142,7 +144,7 @@ export function DrawioEditor({
           title="Sauvegarder"
         >
           {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-          <span>Sauvegarder</span>
+          <span>{t('common.save')}</span>
         </button>
         <button
           className="gl-button-sm gl-button-default"
@@ -172,7 +174,7 @@ export function DrawioEditor({
         {onClose && (
           <button className="gl-button-sm gl-button-default" onClick={onClose} title="Fermer">
             <X size={12} />
-            <span>Fermer</span>
+            <span>{t('common.close')}</span>
           </button>
         )}
       </div>

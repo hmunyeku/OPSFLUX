@@ -266,7 +266,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
         )}
 
         <div className="flex items-center justify-end gap-1.5 pt-1">
-          <button type="button" onClick={onClose} className="gl-button-sm gl-button-default text-xs">Annuler</button>
+          <button type="button" onClick={onClose} className="gl-button-sm gl-button-default text-xs">{t('common.cancel')}</button>
           <button type="submit" disabled={!canSubmit} className="gl-button-sm gl-button-confirm text-xs">
             {isPending ? <Loader2 size={10} className="animate-spin" /> : initial ? 'Enregistrer' : 'Ajouter'}
           </button>

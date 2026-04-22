@@ -267,7 +267,7 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
       <div className="flex items-center gap-1 px-2 py-2 border-b border-border bg-muted/30 flex-wrap">
         <button type="button" className={cn('gl-button-sm', mode === 'blocks' ? 'gl-button-confirm' : 'gl-button-default')} onClick={() => setMode('blocks')}>
           <FilePlus2 size={12} />
-          <span>Blocs</span>
+          <span>{t('common.blocks')}</span>
         </button>
         <button type="button" className={cn('gl-button-sm', mode === 'json' ? 'gl-button-confirm' : 'gl-button-default')} onClick={() => setMode('json')}>
           <Braces size={12} />
@@ -277,23 +277,23 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
           <>
             <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('paragraph')}>
               <Pilcrow size={12} />
-              <span>Paragraphe</span>
+              <span>{t('common.paragraph')}</span>
             </button>
             <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('heading')}>
               <Heading1 size={12} />
-              <span>Titre</span>
+              <span>{t('common.title_field')}</span>
             </button>
             <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('code')}>
               <Code2 size={12} />
-              <span>Code</span>
+              <span>{t('common.code_field')}</span>
             </button>
             <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('separator')}>
               <SeparatorHorizontal size={12} />
-              <span>Séparateur</span>
+              <span>{t('common.separator')}</span>
             </button>
             <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('formula')}>
               <Sigma size={12} />
-              <span>Formule</span>
+              <span>{t('common.formula')}</span>
             </button>
             <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('opsflux_kpi')}>
               <BarChart3 size={12} />
@@ -301,7 +301,7 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
             </button>
             <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('opsflux_actions')}>
               <TableProperties size={12} />
-              <span>Actions</span>
+              <span>{t('common.actions')}</span>
             </button>
             <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('opsflux_gantt')}>
               <TableProperties size={12} />
@@ -355,7 +355,7 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
                   {!readOnly ? (
                     <button type="button" className="gl-button-sm gl-button-danger" onClick={() => removeBlock(index)}>
                       <Trash2 size={12} />
-                      <span>Supprimer</span>
+                      <span>{t('common.delete')}</span>
                     </button>
                   ) : null}
                 </div>

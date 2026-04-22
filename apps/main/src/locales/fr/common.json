@@ -121,7 +121,7 @@
     "simulation": "Simulation"
   },
   "common": {
-    "save": "Enregistrer",
+    "save": "Sauvegarder",
     "cancel": "Annuler",
     "delete": "Supprimer",
     "edit": "Modifier",
@@ -364,7 +364,17 @@
     "created": "Créé",
     "updated": "Modifié",
     "saved": "Enregistré",
-    "invalid_code": "Code invalide"
+    "invalid_code": "Code invalide",
+    "blocks": "Blocs",
+    "paragraph": "Paragraphe",
+    "separator": "Séparateur",
+    "formula": "Formule",
+    "verify": "Vérifier",
+    "low_priority": "Basse",
+    "medium_priority": "Moyenne",
+    "high_priority": "Haute",
+    "critical_priority": "Critique",
+    "remaining": "Restant"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",

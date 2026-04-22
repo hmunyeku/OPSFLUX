@@ -10,6 +10,7 @@
  * - Radix Dialog for consistent OpsFlux modal pattern
  */
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
   X, Search, Filter, CheckSquare, Square,
@@ -57,6 +58,7 @@ interface Props {
 }
 
 export function ProjectSelectorModal({ open, onClose, selection, onSelectionChange, title = 'Sélection de projets' }: Props) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState<string[]>([])
@@ -242,7 +244,7 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
                 : 'Aucune sélection — affichera tous les projets'}
             </span>
             <div className="flex items-center gap-2">
-              <button onClick={onClose} className="gl-button-sm gl-button-default">Annuler</button>
+              <button onClick={onClose} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
               <button onClick={handleApply} className="gl-button-sm gl-button-primary">
                 Appliquer
               </button>

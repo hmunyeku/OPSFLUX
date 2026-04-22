@@ -360,14 +360,39 @@ export function SmartFormSection({
   const ctx = useSmartForm()
   // Stable registration order — captured on first mount.
   const orderRef = useRef<number | null>(null)
+  // Keep the latest help/metadata in a ref so we can update the
+  // registry entry without tearing it down on every render (help is
+  // typically an inline object literal, so its identity changes every
+  // render — depending on it in the effect below would rebuild the
+  // registry each render, breaking section order).
+  const latestMetaRef = useRef({ title, level, skippable, helpKey, help })
+  latestMetaRef.current = { title, level, skippable, helpKey, help }
 
-  // Register with the provider. Unregister on unmount.
+  // Register ONCE on mount (keyed by id). Unregister on unmount.
   useEffect(() => {
     if (!ctx) return
     if (orderRef.current === null) {
       orderRef.current = ctx.sections.length
     }
+    const meta = latestMetaRef.current
     const unregister = ctx.registerSection({
+      id,
+      title: meta.title,
+      level: meta.level,
+      skippable: meta.skippable,
+      helpKey: meta.helpKey,
+      help: meta.help,
+      order: orderRef.current,
+    })
+    return unregister
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  // Sync metadata (help, title, etc.) to the registry when they change,
+  // without unregistering — preserves the order captured at mount.
+  useEffect(() => {
+    if (!ctx || orderRef.current === null) return
+    ctx.registerSection({
       id,
       title,
       level,
@@ -376,9 +401,8 @@ export function SmartFormSection({
       help,
       order: orderRef.current,
     })
-    return unregister
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, title, level, skippable, helpKey, help])
+  }, [title, level, skippable, helpKey, help])
 
   const descriptionNode = description ? (
     <p className="mb-2 text-[11px] text-muted-foreground italic">{description}</p>

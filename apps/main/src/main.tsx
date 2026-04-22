@@ -13,6 +13,7 @@ import { PWAUpdater } from '@/components/pwa/PWAUpdater'
 import App from './App'
 import './index.css'
 import 'flag-icons/css/flag-icons.min.css'
+import 'tippy.js/dist/tippy.css'
 import './lib/i18n'
 // Initialize offline queue auto-sync listeners
 import '@/lib/offlineQueue'

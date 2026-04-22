@@ -88,12 +88,28 @@ import { HELP_CONTENT } from '@/content/help'
 export type SmartFormMode = 'simple' | 'advanced' | 'wizard'
 export type SmartFormSectionLevel = 'essential' | 'advanced'
 
+/** Structured help content attached to a section — shown in the
+ *  wizard's inline help drawer when that section is the current step.
+ *  All fields optional; empty blocks are skipped when rendering. */
+export interface SmartFormSectionHelp {
+  /** One-paragraph introduction explaining what this step is about. */
+  description?: string
+  /** Short actionable tips (bullet list with a lightbulb icon). */
+  tips?: string[]
+  /** Term-definition pairs — ideal for enums (status values, priorities,
+   *  roles, etc.). Rendered as a compact "key → meaning" list. */
+  items?: { label: string; text: string }[]
+  /** Optional custom block rendered after the structured parts. */
+  extra?: ReactNode
+}
+
 interface RegisteredSection {
   id: string
   title: string
   level: SmartFormSectionLevel
   skippable: boolean
   helpKey?: string
+  help?: SmartFormSectionHelp
   order: number
 }
 
@@ -316,6 +332,10 @@ interface SmartFormSectionProps {
   skippable?: boolean
   /** Help article key for the help system (wizard mode shows a button). */
   helpKey?: string
+  /** Inline help shown in the wizard drawer when this section is the
+   *  current step. Prefer this over `helpKey` for self-contained
+   *  contextual help (explain status values, priority meanings, etc.). */
+  help?: SmartFormSectionHelp
   /** Collapsible by default in simple/advanced modes (ignored in wizard). */
   collapsible?: boolean
   defaultExpanded?: boolean
@@ -330,6 +350,7 @@ export function SmartFormSection({
   level = 'advanced',
   skippable = false,
   helpKey,
+  help,
   collapsible,
   defaultExpanded = true,
   children,
@@ -352,11 +373,12 @@ export function SmartFormSection({
       level,
       skippable,
       helpKey,
+      help,
       order: orderRef.current,
     })
     return unregister
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, title, level, skippable, helpKey])
+  }, [id, title, level, skippable, helpKey, help])
 
   const descriptionNode = description ? (
     <p className="mb-2 text-[11px] text-muted-foreground italic">{description}</p>
@@ -537,8 +559,14 @@ export function SmartFormInlineHelpDrawer() {
   if (!ctx || ctx.mode !== 'wizard' || !ctx.helpDrawerOpen) return null
 
   const currentModule = deriveModuleFromPath(pathname)
-  const help = HELP_CONTENT[currentModule]
+  const moduleHelp = HELP_CONTENT[currentModule]
   const step = ctx.sections[ctx.currentStep]
+  const stepHelp = step?.help
+
+  const hasStepHelp = !!(
+    stepHelp &&
+    (stepHelp.description || stepHelp.tips?.length || stepHelp.items?.length || stepHelp.extra)
+  )
 
   return (
     <aside
@@ -551,11 +579,14 @@ export function SmartFormInlineHelpDrawer() {
           <div className="min-w-0">
             <p className="text-xs font-semibold text-foreground truncate">
               {t('smart_form.wizard.help_title', 'Aide')}
-              {help && ` — ${help.title}`}
-              {step && ` · ${step.title}`}
+              {step && ` — ${step.title}`}
             </p>
-            {help?.description && (
-              <p className="text-[10px] text-muted-foreground truncate">{help.description}</p>
+            {/* Step-specific description takes priority; fall back to
+                the module description when no step help is provided. */}
+            {(stepHelp?.description || (!hasStepHelp && moduleHelp?.description)) && (
+              <p className="text-[10px] text-muted-foreground line-clamp-2">
+                {stepHelp?.description || moduleHelp?.description}
+              </p>
             )}
           </div>
         </div>
@@ -563,13 +594,13 @@ export function SmartFormInlineHelpDrawer() {
           <button
             type="button"
             onClick={() => {
-              // Escape hatch: open the full AssistantPanel for more context.
+              // Escape hatch: open the full AssistantPanel for module-level context.
               const store = useUIStore.getState()
               store.setAssistantTab('help')
               store.setAIPanelOpen(true)
             }}
             className="gl-button-sm gl-button-default inline-flex items-center gap-1 text-muted-foreground"
-            title={t('smart_form.wizard.help_full', 'Ouvrir dans le panneau complet') as string}
+            title={t('smart_form.wizard.help_full', 'Ouvrir l\u2019aide du module') as string}
           >
             <ExternalLink size={11} />
           </button>
@@ -584,16 +615,10 @@ export function SmartFormInlineHelpDrawer() {
         </div>
       </header>
 
-      <div className="space-y-3 px-3 py-2.5 max-h-64 overflow-y-auto">
-        {!help ? (
-          <p className="text-xs text-muted-foreground italic">
-            {t('smart_form.wizard.help_none', "Aucune aide disponible pour ce module.")}
-          </p>
-        ) : (
+      <div className="space-y-3 px-3 py-2.5 max-h-72 overflow-y-auto">
+        {hasStepHelp ? (
           <>
-            {/* Tips — displayed first: they're quick to read and most
-                immediately useful during a create flow. */}
-            {help.tips.length > 0 && (
+            {stepHelp?.tips && stepHelp.tips.length > 0 && (
               <section>
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <Lightbulb size={11} className="text-amber-500" />
@@ -602,7 +627,7 @@ export function SmartFormInlineHelpDrawer() {
                   </h4>
                 </div>
                 <ul className="space-y-1">
-                  {help.tips.slice(0, 5).map((tip, i) => (
+                  {stepHelp.tips.map((tip, i) => (
                     <li key={i} className="flex gap-1.5 text-[11px] text-muted-foreground leading-snug">
                       <span className="text-amber-500/70 mt-0.5 shrink-0">•</span>
                       {tip}
@@ -612,35 +637,64 @@ export function SmartFormInlineHelpDrawer() {
               </section>
             )}
 
-            {/* Workflows — compact list of titles + steps. We don't
-                render Mermaid diagrams here (too tall); user can click
-                the "external" icon above to open the full panel. */}
-            {help.workflows.length > 0 && (
+            {stepHelp?.items && stepHelp.items.length > 0 && (
               <section>
                 <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                  {t('assistant.help.workflows', 'Workflows')}
+                  {t('smart_form.wizard.help_values', 'Valeurs possibles')}
                 </h4>
-                <ul className="space-y-2">
-                  {help.workflows.slice(0, 3).map((wf, i) => (
-                    <li key={i} className="text-[11px] text-muted-foreground">
-                      <p className="font-medium text-foreground mb-0.5">{wf.title}</p>
-                      <ol className="space-y-0.5 list-none pl-2">
-                        {wf.steps.slice(0, 3).map((s, j) => (
-                          <li key={j} className="flex gap-1.5 leading-snug">
-                            <span className="text-primary/70 shrink-0">{j + 1}.</span>
-                            <span>{s}</span>
-                          </li>
-                        ))}
-                        {wf.steps.length > 3 && (
-                          <li className="text-[10px] italic opacity-60 pl-3">
-                            {t('smart_form.wizard.help_more_steps', '... (cliquer l\u2019icône pour voir tout)')}
-                          </li>
-                        )}
-                      </ol>
+                <dl className="space-y-1.5">
+                  {stepHelp.items.map((item, i) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-[auto_1fr] gap-x-2 text-[11px] leading-snug"
+                    >
+                      <dt className="font-semibold text-foreground shrink-0">{item.label}</dt>
+                      <dd className="text-muted-foreground">{item.text}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
+
+            {stepHelp?.extra && (
+              <section className="text-[11px] text-muted-foreground leading-relaxed">
+                {stepHelp.extra}
+              </section>
+            )}
+          </>
+        ) : !moduleHelp ? (
+          <p className="text-xs text-muted-foreground italic">
+            {t('smart_form.wizard.help_none', "Aucune aide disponible pour cette étape.")}
+          </p>
+        ) : (
+          /* Fallback to module-level help when no step-specific content
+             is provided. Compact version: top 3 tips + first workflow. */
+          <>
+            {moduleHelp.tips.length > 0 && (
+              <section>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Lightbulb size={11} className="text-amber-500" />
+                  <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t('assistant.help.tips', 'Conseils généraux')}
+                  </h4>
+                </div>
+                <ul className="space-y-1">
+                  {moduleHelp.tips.slice(0, 3).map((tip, i) => (
+                    <li key={i} className="flex gap-1.5 text-[11px] text-muted-foreground leading-snug">
+                      <span className="text-amber-500/70 mt-0.5 shrink-0">•</span>
+                      {tip}
                     </li>
                   ))}
                 </ul>
               </section>
+            )}
+            {moduleHelp.workflows.length > 0 && (
+              <p className="text-[10px] text-muted-foreground/80 italic">
+                {t(
+                  'smart_form.wizard.help_see_full',
+                  'Cliquez sur l\u2019icône ↗ pour voir les workflows détaillés du module.',
+                )}
+              </p>
             )}
           </>
         )}

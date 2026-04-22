@@ -36,6 +36,7 @@ import { Table } from '@tiptap/extension-table'
 import { TableRow } from '@tiptap/extension-table-row'
 import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
+import { SlashCommands, slashCommandsConfig } from './RichTextSlashCommands'
 import DOMPurify from 'dompurify'
 import {
   Bold,
@@ -363,6 +364,23 @@ export function RichTextField({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploading, setUploading] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
+
+  // Escape exits fullscreen — keeps parity with the hint shown in the
+  // fullscreen header. Only captures the event when the editor is the
+  // active component so we don't hijack other Escape handlers.
+  useEffect(() => {
+    if (!fullscreen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Don't swallow if user is inside a dropdown / tippy popup
+        const target = e.target as HTMLElement | null
+        if (target?.closest('.tippy-box')) return
+        setFullscreen(false)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [fullscreen])
   // Canonical HTML we just emitted through onChange. Used to tell
   // "this value prop change is our own roundtrip — keep editor as-is"
   // from "external update — reset editor to hydrated value".
@@ -399,6 +417,7 @@ export function RichTextField({
       TableRow,
       TableHeader,
       TableCell,
+      SlashCommands.configure({ suggestion: slashCommandsConfig }),
     ],
     content: value || '',
     editable: !disabled,
@@ -539,8 +558,22 @@ export function RichTextField({
         className,
       )}
     >
+      {fullscreen && (
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/20 px-4 py-2 shrink-0">
+          <p className="text-sm font-medium text-foreground">Éditeur plein écran</p>
+          <p className="text-[11px] text-muted-foreground">
+            Tapez <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">/</kbd> pour insérer un bloc · glissez-déposez une image · <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">Échap</kbd> pour quitter
+          </p>
+        </div>
+      )}
+
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/30 px-1.5 py-1 shrink-0">
+      <div
+        className={cn(
+          'flex flex-wrap items-center border-b border-border bg-muted/30 shrink-0',
+          fullscreen ? 'gap-1 px-3 py-1.5' : 'gap-0.5 px-1.5 py-1',
+        )}
+      >
         {!compact && (
           <>
             <ToolbarButton

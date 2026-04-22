@@ -166,7 +166,15 @@ export function CreateProjectPanel() {
                 id="identification"
                 title={t('common.identification')}
                 level="essential"
-                helpKey="projects.create.identification"
+                help={{
+                  description:
+                    'Identité du projet : nom lisible pour les équipes, site/installation de rattachement, et macro-projet parent le cas échéant.',
+                  tips: [
+                    'Le code est auto-généré au format PRJ-AA-NNNNNN — vous ne pouvez pas le modifier.',
+                    'Choisir un site/installation est obligatoire : il détermine qui peut voir et éditer le projet (RBAC par site).',
+                    "Lier à un macro-projet quand le projet est un sous-ensemble d'un programme plus large — les indicateurs remontent automatiquement.",
+                  ],
+                }}
               >
                 <FormGrid>
                   <DynamicPanelField label={t('common.code_field')}>
@@ -199,7 +207,15 @@ export function CreateProjectPanel() {
                 title={t('common.planning')}
                 level="advanced"
                 skippable
-                helpKey="projects.create.planning"
+                help={{
+                  description:
+                    'Dates prévisionnelles et budget indicatif. Ces valeurs peuvent être ajustées ensuite ; laissez-les vides pour un brouillon initial.',
+                  tips: [
+                    "Les dates définissent l'axe du Gantt et servent au calcul d'écarts planning.",
+                    'Le budget est capturé en devise de l\'entité (XAF par défaut). Utilisez les imputations pour répartir entre centres de coût.',
+                    'Vous pouvez créer un projet sans dates si le planning n\'est pas encore défini.',
+                  ],
+                }}
               >
                 <DateRangePicker
                   startDate={form.start_date?.split('T')[0] ?? null}
@@ -219,6 +235,17 @@ export function CreateProjectPanel() {
                 title={t('common.status')}
                 level="advanced"
                 skippable
+                help={{
+                  description: 'Statut du projet dans le cycle de vie.',
+                  items: [
+                    { label: 'Draft', text: 'Brouillon — non visible dans les rapports, en cours de définition.' },
+                    { label: 'Planned', text: 'Validé, démarrage prévu. Visible pour tous mais non démarré.' },
+                    { label: 'Active', text: 'En cours d\'exécution — l\'avancement est comptabilisé.' },
+                    { label: 'On hold', text: 'Suspendu temporairement (manque ressources, décision pendante...).' },
+                    { label: 'Completed', text: 'Terminé à 100%, livré. En lecture seule.' },
+                    { label: 'Cancelled', text: 'Annulé avant achèvement. Archive le projet.' },
+                  ],
+                }}
               >
                 <TagSelector options={projectStatusOptions} value={form.status || 'draft'} onChange={(v) => setForm({ ...form, status: v })} />
               </SmartFormSection>
@@ -228,6 +255,15 @@ export function CreateProjectPanel() {
                 title={t('common.priority_field')}
                 level="advanced"
                 skippable
+                help={{
+                  description: "Niveau de priorité — détermine l'ordre de traitement et influence le tri dans les listes.",
+                  items: [
+                    { label: 'Low', text: 'Peut attendre. Pas de ressources dédiées nécessaires.' },
+                    { label: 'Medium', text: 'Priorité normale — valeur par défaut pour la plupart des projets.' },
+                    { label: 'High', text: 'À traiter rapidement. Remonte en haut des filtres par défaut.' },
+                    { label: 'Critical', text: 'Urgent. Alertes automatiques en cas de retard, escalade management.' },
+                  ],
+                }}
               >
                 <TagSelector options={projectPriorityOptions} value={form.priority || 'medium'} onChange={(v) => setForm({ ...form, priority: v })} />
               </SmartFormSection>
@@ -239,7 +275,16 @@ export function CreateProjectPanel() {
                 collapsible
                 defaultExpanded
                 skippable
-                helpKey="projects.create.progress_method"
+                help={{
+                  description: "Méthode de calcul de l'avancement du projet à partir de l'avancement des tâches.",
+                  items: [
+                    { label: 'Standard (entité)', text: "Utilise le réglage défini dans Paramètres → Projets. Choisir ceci dans 90% des cas." },
+                    { label: 'Equal', text: 'Moyenne simple : chaque tâche compte pour 1/N dans l\'avancement.' },
+                    { label: 'Effort', text: "Pondération par estimated_hours — les tâches plus lourdes comptent davantage." },
+                    { label: 'Duration', text: 'Pondération par durée (end_date − start_date) — tâches longues = plus de poids.' },
+                    { label: 'Manual', text: 'Chaque tâche a un poids explicite dans son champ weight. Pour cas exceptionnels.' },
+                  ],
+                }}
               >
                 <p className="text-[11px] text-muted-foreground mb-2">
                   Comment l'avancement du projet sera calculé à partir de l'avancement de chaque tâche. Laissez sur « {standardLabel} » pour utiliser le réglage entité.
@@ -270,6 +315,14 @@ export function CreateProjectPanel() {
                 collapsible
                 defaultExpanded={false}
                 skippable
+                help={{
+                  description: 'Description libre du projet : contexte, objectifs, livrables attendus.',
+                  tips: [
+                    'Utilisez les tableaux pour structurer les livrables ou étapes clés.',
+                    'Glissez une image depuis votre bureau ou collez-la (Ctrl+V) pour l\'intégrer.',
+                    'Le bouton plein écran agrandit l\'éditeur pour les descriptions longues.',
+                  ],
+                }}
               >
                 <RichTextField
                   value={form.description ?? ''}
@@ -288,7 +341,14 @@ export function CreateProjectPanel() {
                 collapsible
                 defaultExpanded={false}
                 skippable
-                helpKey="projects.create.initial_tasks"
+                help={{
+                  description: "Pré-charger le projet avec ses premières tâches ou jalons, créés dans la même transaction.",
+                  tips: [
+                    "Entrée sur le champ Titre = ajoute à la liste directement.",
+                    "Cochez 'Jalon' pour un point de contrôle sans durée (start_date = due_date).",
+                    "Affiner les détails (assignataire, progress, sous-tâches...) depuis la vue détail après création.",
+                  ],
+                }}
               >
                 {initialTasks.length > 0 && (
                   <div className="space-y-1 mb-2">

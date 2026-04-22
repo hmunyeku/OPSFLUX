@@ -124,7 +124,7 @@ function DictCombobox({ value, options, onChange, placeholder }: {
 }
 
 export function ProfileTab() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { user } = useAuthStore()
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -268,6 +268,14 @@ export function ProfileTab() {
       if (form.job_position_id !== (user?.job_position_id || '')) payload.job_position_id = (form.job_position_id as string) || null
 
       await updateProfile.mutateAsync(payload)
+      // Apply the new language to i18next immediately so the whole UI
+      // switches without requiring a full page reload. The backend
+      // already persisted it; this just syncs the client cache.
+      if (payload.language && payload.language !== i18n.language) {
+        await i18n.changeLanguage(payload.language)
+        // Key must match i18n detector (`lookupLocalStorage: 'language'`)
+        try { localStorage.setItem('language', payload.language) } catch { /* storage unavailable */ }
+      }
       toast({ title: t('settings.toast.profile.updated'), description: t('settings.toast.profile.updated_desc'), variant: 'success' })
     } catch {
       toast({ title: t('settings.toast.error'), description: t('settings.toast.profile.update_error'), variant: 'error' })

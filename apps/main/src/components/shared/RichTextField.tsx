@@ -81,6 +81,117 @@ function rowsToMinHeight(rows = 4): string {
   return `${Math.max(rows, 2) * 1.55}rem`
 }
 
+// ── Attachment URL hydration ─────────────────────────────────────────────
+// The stored HTML contains `<img src="/api/v1/attachments/<id>/download">`
+// which cannot load in the browser because the auth header lives in
+// localStorage (not a cookie). For every `data-attachment-id` we find,
+// fetch the image via the authenticated axios instance, store a blob URL,
+// and rewrite the HTML to point at that blob URL. Revoked on unmount.
+
+const ATTACHMENT_ID_RE = /data-attachment-id="([0-9a-f-]{36})"/gi
+
+/** Force every `<img data-attachment-id="X">` to carry the canonical
+ *  `src="/api/v1/attachments/X/download"` URL — stripping any blob URL
+ *  that the editor might be showing for display. Safe to call on any
+ *  rich-text HTML before persisting. */
+function canonicaliseAttachmentUrls(html: string): string {
+  if (!html) return html
+  return html.replace(
+    /<img\b[^>]*>/gi,
+    (imgTag) => {
+      const idMatch = imgTag.match(/data-attachment-id="([0-9a-f-]{36})"/i)
+      if (!idMatch) return imgTag
+      const id = idMatch[1]
+      const canonical = `/api/v1/attachments/${id}/download`
+      if (/\ssrc="/.test(imgTag)) {
+        return imgTag.replace(/(\ssrc=")[^"]*(")/, `$1${canonical}$2`)
+      }
+      // No src yet — append it before the closing slash/bracket.
+      return imgTag.replace(/\s*\/?>$/, ` src="${canonical}" />`)
+    },
+  )
+}
+
+/** Replace `/api/v1/attachments/X/download` URLs inside the src of
+ *  `<img data-attachment-id="X">` tags with authenticated blob URLs.
+ *  Each blob URL that gets minted is reported via `onMint` so the caller
+ *  can revoke them later. Safe to call with empty/missing HTML. */
+async function hydrateAttachmentUrls(
+  html: string,
+  onMint: (blobUrl: string) => void,
+): Promise<string> {
+  if (!html) return html
+  const ids = Array.from(
+    new Set([...html.matchAll(ATTACHMENT_ID_RE)].map((m) => m[1])),
+  )
+  if (ids.length === 0) return html
+  const pairs = await Promise.all(
+    ids.map((id) =>
+      api
+        .get(`/api/v1/attachments/${id}/download`, { responseType: 'blob' })
+        .then((res) => {
+          const url = URL.createObjectURL(res.data)
+          onMint(url)
+          return [id, url] as const
+        })
+        .catch(() => [id, null] as const),
+    ),
+  )
+  let out = html
+  for (const [id, url] of pairs) {
+    if (!url) continue
+    // Conservative: only rewrite the <img> that carries this exact id,
+    // handling both attribute orders (data-attachment-id before / after src).
+    const imgRe = new RegExp(
+      `(<img[^>]*data-attachment-id="${id}"[^>]*\\ssrc=")[^"]*(")`,
+      'gi',
+    )
+    out = out.replace(imgRe, `$1${url}$2`)
+    const imgReAlt = new RegExp(
+      `(<img[^>]*\\ssrc=")[^"]*("[^>]*data-attachment-id="${id}")`,
+      'gi',
+    )
+    out = out.replace(imgReAlt, `$1${url}$2`)
+  }
+  return out
+}
+
+function useHydratedAttachmentHtml(html: string | null | undefined): string {
+  const [hydrated, setHydrated] = useState<string>(html ?? '')
+  const blobsRef = useRef<string[]>([])
+
+  useEffect(() => {
+    // Revoke previously held blob URLs to avoid leaks.
+    blobsRef.current.forEach((u) => URL.revokeObjectURL(u))
+    blobsRef.current = []
+
+    const src = html ?? ''
+    setHydrated(src)  // render un-hydrated first, swap in on resolve
+    if (!src) return
+
+    let cancelled = false
+    void (async () => {
+      const out = await hydrateAttachmentUrls(src, (u) =>
+        blobsRef.current.push(u),
+      )
+      if (!cancelled) setHydrated(out)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [html])
+
+  useEffect(() => {
+    return () => {
+      blobsRef.current.forEach((u) => URL.revokeObjectURL(u))
+      blobsRef.current = []
+    }
+  }, [])
+
+  return hydrated
+}
+
 function ToolbarButton({
   editor,
   onClick,
@@ -135,6 +246,10 @@ export function RichTextField({
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploading, setUploading] = useState(false)
+  // Canonical HTML we just emitted through onChange. Used to tell
+  // "this value prop change is our own roundtrip — keep editor as-is"
+  // from "external update — reset editor to hydrated value".
+  const lastEmittedCanonRef = useRef<string>('')
 
   const editor = useEditor({
     extensions: [
@@ -181,19 +296,53 @@ export function RichTextField({
     editable: !disabled,
     onUpdate: ({ editor: ed }) => {
       const html = ed.isEmpty ? '' : ed.getHTML()
-      onChange(html)
+      // Canonicalise: every `<img data-attachment-id="X">` must carry
+      // `src="/api/v1/attachments/X/download"` regardless of whether
+      // the editor currently shows a blob URL (hydrated) or a raw
+      // `createObjectURL` just used for the in-flight preview.
+      const canon = canonicaliseAttachmentUrls(html)
+      lastEmittedCanonRef.current = canon
+      onChange(canon)
     },
   })
 
-  // Sync external value updates (e.g. after save→refresh)
+  // Sync the editor on external value changes (not our own roundtrip).
+  // Images are hydrated asynchronously — we fetch each blob via the
+  // authenticated axios client, then apply the resulting HTML via
+  // setContent. The canonical form is used as the stable identity,
+  // preserving cursor/selection during normal typing.
+  const editorBlobsRef = useRef<string[]>([])
   useEffect(() => {
     if (!editor) return
-    const current = editor.getHTML()
-    if ((value || '') !== current) {
-      editor.commands.setContent(value || '', { emitUpdate: false })
+    const canonValue = canonicaliseAttachmentUrls(value || '')
+    if (canonValue === lastEmittedCanonRef.current) return  // our own roundtrip
+    lastEmittedCanonRef.current = canonValue
+
+    let cancelled = false
+    void (async () => {
+      const hydrated = await hydrateAttachmentUrls(
+        value || '',
+        (url) => editorBlobsRef.current.push(url),
+      )
+      if (cancelled || !editor) return
+      // Apply only if the editor still shows the same canonical version.
+      if (canonicaliseAttachmentUrls(editor.getHTML()) === canonValue) {
+        editor.commands.setContent(hydrated, { emitUpdate: false })
+      }
+    })()
+    return () => {
+      cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, editor])
+
+  // Revoke blob URLs on unmount to avoid memory leaks.
+  useEffect(() => {
+    return () => {
+      editorBlobsRef.current.forEach((u) => URL.revokeObjectURL(u))
+      editorBlobsRef.current = []
+    }
+  }, [])
 
   useEffect(() => {
     editor?.setEditable(!disabled)
@@ -239,9 +388,14 @@ export function RichTextField({
       })
       const attId = data?.id as string | undefined
       if (!attId) throw new Error('Upload returned no attachment id')
-      const src = `/api/v1/attachments/${attId}/download`
+      // Use a blob URL for the immediate in-editor preview (avoids a 401
+      // roundtrip to /download on the raw browser <img> load). The
+      // canonicaliser strips this back to the persistent `/download`
+      // form when onUpdate fires, so the DB never sees blob: URLs.
+      const previewUrl = URL.createObjectURL(file)
+      editorBlobsRef.current.push(previewUrl)
       editor.chain().focus().setImage({
-        src,
+        src: previewUrl,
         alt: file.name,
         'data-attachment-id': attId,
       } as never).run()
@@ -493,13 +647,21 @@ const PURIFY_CONFIG = {
     'href', 'rel', 'target',
     'src', 'alt', 'width', 'height', 'data-attachment-id', 'class', 'style',
   ],
+  // Allow `blob:` URIs so hydrated image srcs (authenticated blob URLs)
+  // survive sanitisation. Default DOMPurify regex omits the blob scheme.
+  ALLOWED_URI_REGEXP:
+    /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|file|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
 }
 
 export function RichTextDisplay({ value, className, empty = '—' }: RichTextDisplayProps) {
+  // Hydrate attachment URLs to authenticated blob URLs before display,
+  // otherwise `<img src="/api/v1/attachments/.../download">` 401s in the
+  // browser (auth header lives in localStorage, not cookies).
+  const hydrated = useHydratedAttachmentHtml(value)
   if (!value || !value.trim()) {
     return <span className="text-muted-foreground">{empty}</span>
   }
-  const clean = DOMPurify.sanitize(value, PURIFY_CONFIG)
+  const clean = DOMPurify.sanitize(hydrated, PURIFY_CONFIG)
   return (
     <div
       className={cn(

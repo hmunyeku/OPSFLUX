@@ -134,3 +134,47 @@ f1948184 feat(smart-form): migrate 12 more Create panels (batch)
 ```
 
 6 commits, ~1500 insertions. Déploiements Dokploy déclenchés après chaque batch.
+
+---
+
+## 5. Incident deploy + résolution (post-rédaction initiale)
+
+**Symptôme** : les 5 déploiements post-`f1948184` (migration batch des 12 panels) sont restés en `status: error` sur Dokploy. Bundle figé à `index-zIgMUuZd.js` (21:45 UTC), décalé du repo.
+
+**Diagnostic** : `tsc --noEmit` dans `apps/main/` a révélé 8 erreurs TS1127 « Invalid character » + TS1381/1382 « Unexpected token » dans `apps/main/src/pages/packlog/PackLogCreatePanels.tsx` lignes 221-225 et 570-575. Dump hexadécimal : bytes `0x01` (SOH) au début de chaque ligne du bloc `SmartFormWizardNav` injecté par le migrator batch.
+
+**Cause racine** : dans la substitution `re.sub(r"(\s*)</PanelContentLayout>", "\\1  <SmartFormWizardNav\\n…", src)`, le backreference `\1` a été interprété comme caractère littéral `0x01` (octal escape Python `\1`) dans certains cas au lieu de la référence de groupe — particulièrement quand le groupe capturé était une chaîne ambigüe avec un début de ligne.
+
+**Fix** (`4e11f794`) : remplacement de tous les octets `0x01` par deux espaces dans le seul fichier impacté (`PackLogCreatePanels.tsx`). Scan complet de `apps/main/src/**/*.tsx` : un seul fichier corrompu.
+
+**Vérification locale** :
+- `tsc --noEmit` → 0 erreur
+- `npm run build` → ✓ 28.88s, nouveau bundle `index-CHds_NYR.js` en local
+- `npm run build` en container Dokploy → ✓ bundle servi `index-Kctykalx.js`
+
+**Verification live** (22:06 UTC, post-fix) :
+- Dokploy `composeStatus: done`
+- Bundle `Kctykalx` contient : `severity_permanent_ban`, `scope_compliance`, `slashCommands` (confirme migration + search + Tiptap all live)
+- 8 types search → 200 chacun
+- `/notifications/unread-count` → 200
+
+**Leçon** : dans les futurs migrateurs Python, préférer `r"\g<1>"` ou des f-strings au lieu de `"\\1"` pour les backreferences. Le migrator `scripts/migrate_smartform.py` utilise déjà `\\1` sur un seul remplacement (celui dans `insert_toolbars` pour le wizard nav) — pas de corruption détectée sur les fichiers produits par ce script lors du premier run. La corruption vient du script multi-export ad-hoc utilisé pour `packlog` + `asset-registry`, qui n'est pas committé (exécuté en one-shot via heredoc). Si on doit re-migrer d'autres fichiers multi-export, basculer vers `r"\g<1>"`.
+
+---
+
+## 6. État final (session close)
+
+7 commits au total sur `main` :
+```
+4e11f794 fix(smart-form): strip 0x01 corruption in PackLog panels
+16324ede docs: overnight handoff 22 avr. 2026 — search + 24 SmartForm panels
+10636c4a fix(smart-form): insert toolbar + wizard nav in bare-form panels
+f1948184 feat(smart-form): migrate 12 more Create panels (batch)
+21f9ba03 feat(smart-form): migrate 8 more Create panels
+3ca71bf8 feat(smart-form): migrate Incident + PlannerActivity panels
+13351379 feat(smart-form): migrate MOC + Rotation Create panels to SmartForm
+1573931d feat(search): extend global search to all operational modules
+```
+
+Bundle de production : `index-Kctykalx.js` (Dokploy `done`).
+Backend API : OpsFlux stable, tous les endpoints module-list + search + notifications → 200.

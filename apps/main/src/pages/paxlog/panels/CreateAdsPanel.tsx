@@ -1,11 +1,12 @@
 import { useTranslation } from 'react-i18next'
-import { useCreateAds } from '@/hooks/usePaxlog'
+import { useCreateAds, usePaxCandidates } from '@/hooks/usePaxlog'
 import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormSection, FormGrid, DynamicPanelField, TagSelector, panelInputClass } from '@/components/layout/DynamicPanel'
-import { ClipboardList, Loader2 } from 'lucide-react'
+import { ClipboardList, Loader2, Plus, Search, Trash2, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -15,8 +16,19 @@ import { UserPicker } from '@/components/shared/UserPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useStagingRef } from '@/hooks/useStagingRef'
+import type { PaxCandidate } from '@/services/paxlogService'
 import { AllowedCompaniesPicker } from '../shared'
 import type { AllowedCompanySelection } from '../shared'
+
+/** One PAX pre-selected for the ADS being created. Mirrors backend
+ *  `AdsPaxEntry` shape. Local state only — sent as `pax_entries` on submit. */
+interface StagedPax {
+  user_id: string | null
+  contact_id: string | null
+  display_name: string
+  subtitle: string
+  pax_type: 'internal' | 'external'
+}
 
 export function CreateAdsPanel() {
   const { t } = useTranslation()
@@ -30,6 +42,31 @@ export function CreateAdsPanel() {
   // Staging — justificatifs (visa, invitation letter, company approval...)
   // attached directly in the Create panel. Backend re-targets on submit.
   const { stagingRef, stagingOwnerType } = useStagingRef('ads')
+
+  // Local-state PAX selection — sent as `pax_entries` in the AdsCreate
+  // payload. AdsPax rows are FK-bound (not polymorphic), so they don't
+  // need the staging infra — they're created in one pass by the backend.
+  const [stagedPax, setStagedPax] = useState<StagedPax[]>([])
+  const [paxSearch, setPaxSearch] = useState('')
+  const debouncedPaxSearch = useDebounce(paxSearch, 250)
+  const { data: paxCandidates } = usePaxCandidates(debouncedPaxSearch)
+  const paxKey = (c: { user_id?: string | null; contact_id?: string | null }) =>
+    (c.user_id ? `u:${c.user_id}` : '') + '|' + (c.contact_id ? `c:${c.contact_id}` : '')
+  const stagedPaxKeys = useMemo(() => new Set(stagedPax.map(paxKey)), [stagedPax])
+  const addPax = (c: PaxCandidate) => {
+    const entry: StagedPax = {
+      user_id: c.source === 'user' ? c.user_id ?? null : null,
+      contact_id: c.source === 'contact' ? c.contact_id ?? null : null,
+      display_name: `${c.last_name} ${c.first_name}`.trim(),
+      subtitle: c.source === 'user' ? (c.email ?? '') : (c.position ?? ''),
+      pax_type: (c.pax_type || c.type || 'external') as 'internal' | 'external',
+    }
+    if (stagedPaxKeys.has(paxKey(entry))) return
+    setStagedPax((prev) => [...prev, entry])
+    setPaxSearch('')
+  }
+  const removePax = (idx: number) =>
+    setStagedPax((prev) => prev.filter((_, i) => i !== idx))
 
   const [form, setForm] = useState<{
     type: 'individual' | 'team'
@@ -82,6 +119,10 @@ export function CreateAdsPanel() {
       outbound_transport_mode: form.outbound_transport_mode || null,
       return_transport_mode: form.return_transport_mode || null,
       staging_ref: stagingRef,
+      pax_entries: stagedPax.map((p) => ({
+        user_id: p.user_id,
+        contact_id: p.contact_id,
+      })),
     }
     await createAds.mutateAsync(payload)
     closeDynamicPanel()
@@ -225,6 +266,115 @@ export function CreateAdsPanel() {
             searchValue={companySearch}
             onSearchChange={setCompanySearch}
           />
+        </FormSection>
+
+        {/* ── Passagers : sélection directe à la création ── */}
+        <FormSection title={t('paxlog.create_ads.sections.passengers', 'Passagers') + ` (${stagedPax.length})`}>
+          {/* Sélection déjà effectuée */}
+          {stagedPax.length > 0 && (
+            <div className="space-y-1 mb-2">
+              {stagedPax.map((p, idx) => (
+                <div
+                  key={paxKey(p) + '-' + idx}
+                  className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2 py-1.5"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Users size={12} className="text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">{p.display_name}</p>
+                      {p.subtitle && (
+                        <p className="text-[10px] text-muted-foreground truncate">{p.subtitle}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={cn(
+                        'gl-badge text-[9px]',
+                        p.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral',
+                      )}
+                    >
+                      {p.pax_type === 'internal'
+                        ? t('paxlog.ads_detail.passenger_type.internal')
+                        : t('paxlog.ads_detail.passenger_type.external')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removePax(idx)}
+                      className="p-1 text-muted-foreground hover:text-destructive"
+                      title={t('common.delete') as string}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Recherche + sélection */}
+          <div className="space-y-2 rounded-md border border-border bg-card p-2">
+            <div className="relative">
+              <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                className={cn(panelInputClass, 'pl-7')}
+                placeholder={t('paxlog.ads_detail.search_pax_placeholder') as string}
+                value={paxSearch}
+                onChange={(e) => setPaxSearch(e.target.value)}
+              />
+            </div>
+            {paxCandidates && paxCandidates.length > 0 && (
+              <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+                {paxCandidates.map((c) => {
+                  const key = paxKey({
+                    user_id: c.source === 'user' ? c.user_id ?? null : null,
+                    contact_id: c.source === 'contact' ? c.contact_id ?? null : null,
+                  })
+                  const alreadyAdded = stagedPaxKeys.has(key)
+                  return (
+                    <button
+                      type="button"
+                      key={`${c.source}-${c.id}`}
+                      disabled={alreadyAdded}
+                      className={cn(
+                        'w-full flex items-center justify-between px-2 py-1.5 rounded text-xs text-left transition-colors',
+                        alreadyAdded
+                          ? 'opacity-40 cursor-not-allowed'
+                          : 'hover:bg-accent/60 cursor-pointer',
+                      )}
+                      onClick={() => addPax(c)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">
+                          {c.last_name} {c.first_name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {c.source === 'user'
+                            ? t('paxlog.ads_detail.pax_candidate.user', {
+                                email: c.email ? ` • ${c.email}` : '',
+                              })
+                            : t('paxlog.ads_detail.pax_candidate.contact', {
+                                position: c.position ? ` • ${c.position}` : '',
+                              })}
+                        </p>
+                      </div>
+                      <Plus size={12} className={alreadyAdded ? 'opacity-0' : 'text-primary'} />
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {debouncedPaxSearch.length >= 1 && paxCandidates && paxCandidates.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2 italic">
+                {t('paxlog.ads_detail.empty.pax_search', { search: debouncedPaxSearch })}
+              </p>
+            )}
+            {debouncedPaxSearch.length === 0 && (
+              <p className="text-[10px] text-muted-foreground italic">
+                {t('paxlog.create_ads.search_pax_hint', 'Commencez à taper pour rechercher un PAX (utilisateur interne ou contact).')}
+              </p>
+            )}
+          </div>
         </FormSection>
 
         <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>

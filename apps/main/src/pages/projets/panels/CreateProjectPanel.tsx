@@ -24,8 +24,10 @@ import { useToast } from '@/components/ui/Toast'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { NoteManager } from '@/components/shared/NoteManager'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { RichTextField } from '@/components/shared/RichTextField'
+import { TagManager } from '@/components/shared/TagManager'
 import { useCreateProject } from '@/hooks/useProjets'
 import { useCurrentEntity } from '@/hooks/useEntities'
 import { useStagingRef } from '@/hooks/useStagingRef'
@@ -208,6 +210,22 @@ export function CreateProjectPanel() {
 
               <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
                 <AttachmentManager
+                  ownerType={stagingOwnerType}
+                  ownerId={stagingRef}
+                  compact
+                />
+              </FormSection>
+
+              <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+                <NoteManager
+                  ownerType={stagingOwnerType}
+                  ownerId={stagingRef}
+                  compact
+                />
+              </FormSection>
+
+              <FormSection title={t('common.tags')} collapsible defaultExpanded={false}>
+                <TagManager
                   ownerType={stagingOwnerType}
                   ownerId={stagingRef}
                   compact

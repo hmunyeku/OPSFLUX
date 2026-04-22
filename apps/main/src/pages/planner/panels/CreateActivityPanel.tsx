@@ -20,9 +20,11 @@ import {
 import { VariablePobEditor } from '../VariablePobEditor'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { NoteManager } from '@/components/shared/NoteManager'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { RichTextField } from '@/components/shared/RichTextField'
+import { TagManager } from '@/components/shared/TagManager'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useCreateActivity } from '@/hooks/usePlanner'
@@ -227,6 +229,22 @@ export function CreateActivityPanel() {
 
           <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
             <AttachmentManager
+              ownerType={stagingOwnerType}
+              ownerId={stagingRef}
+              compact
+            />
+          </FormSection>
+
+          <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+            <NoteManager
+              ownerType={stagingOwnerType}
+              ownerId={stagingRef}
+              compact
+            />
+          </FormSection>
+
+          <FormSection title={t('common.tags')} collapsible defaultExpanded={false}>
+            <TagManager
               ownerType={stagingOwnerType}
               ownerId={stagingRef}
               compact

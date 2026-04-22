@@ -84,6 +84,13 @@ async def _assert_owner_in_entity(
     elif owner_type == "project":
         from app.models.common import Project
         ok = await _check(Project)
+    elif owner_type.endswith("_staging"):
+        # Staging owner types bypass existence check: owner_id is a
+        # client-generated UUID that only resolves once the parent is
+        # created (commit_staging_children re-targets the row). Security
+        # still applies through per-request uploader_id filters and
+        # eventual re-targeting by user id in the commit helper.
+        ok = True
     # else: unknown owner_type → deny
     if not ok:
         raise StructuredHTTPException(

@@ -8,6 +8,7 @@ import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormSection, 
 import { AlertTriangle, Loader2, User, Building2, Users } from 'lucide-react'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { NoteManager } from '@/components/shared/NoteManager'
 import { RichTextField } from '@/components/shared/RichTextField'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useStagingRef } from '@/hooks/useStagingRef'
@@ -275,6 +276,14 @@ export function CreateIncidentPanel() {
 
         <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
           <AttachmentManager
+            ownerType={stagingOwnerType}
+            ownerId={stagingRef}
+            compact
+          />
+        </FormSection>
+
+        <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+          <NoteManager
             ownerType={stagingOwnerType}
             ownerId={stagingRef}
             compact

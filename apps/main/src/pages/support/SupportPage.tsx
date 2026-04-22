@@ -29,6 +29,7 @@ import {
   type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { NoteManager } from '@/components/shared/NoteManager'
 import { RichTextField } from '@/components/shared/RichTextField'
 import { useStagingRef } from '@/hooks/useStagingRef'
 import { TabBar, PageNavBar } from '@/components/ui/Tabs'
@@ -238,6 +239,14 @@ function CreateTicketPanel() {
 
         <FormSection title={t('common.attachments')} collapsible defaultExpanded={false}>
           <AttachmentManager
+            ownerType={stagingOwnerType}
+            ownerId={stagingRef}
+            compact
+          />
+        </FormSection>
+
+        <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+          <NoteManager
             ownerType={stagingOwnerType}
             ownerId={stagingRef}
             compact

@@ -9,6 +9,8 @@ import { ClipboardList, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { ImputationManager } from '@/components/shared/ImputationManager'
+import { NoteManager } from '@/components/shared/NoteManager'
 import { UserPicker } from '@/components/shared/UserPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -230,6 +232,22 @@ export function CreateAdsPanel() {
             ownerType={stagingOwnerType}
             ownerId={stagingRef}
             compact
+          />
+        </FormSection>
+
+        <FormSection title={t('common.notes')} collapsible defaultExpanded={false}>
+          <NoteManager
+            ownerType={stagingOwnerType}
+            ownerId={stagingRef}
+            compact
+          />
+        </FormSection>
+
+        <FormSection title={t('paxlog.create_ads.sections.imputations', 'Imputations')} collapsible defaultExpanded={false}>
+          <ImputationManager
+            ownerType={stagingOwnerType}
+            ownerId={stagingRef}
+            editable
           />
         </FormSection>
 

@@ -202,19 +202,7 @@ function RequestsTab() {
         <StatCard label={t('packlog.requests.stats.blocked')} value={stats.blocked} accent="text-amber-600" />
         <StatCard label={t('packlog.requests.stats.submitted')} value={stats.submitted} />
       </div>
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex flex-wrap gap-1">
-          {[{ value: '', label: t('packlog.common.all') }, ...requestStatusOptions].map((option) => (
-            <button
-              key={option.value || 'all'}
-              className={status === option.value ? 'gl-button-sm gl-button-default' : 'gl-button-sm gl-button-default opacity-70 hover:opacity-100'}
-              onClick={() => { setStatus(option.value); setPage(1) }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Status filter moved into the DataTable visual-search toolbar. */}
       <PanelContent scroll={false}>
         <DataTable<CargoRequest>
           columns={columns}
@@ -222,6 +210,20 @@ function RequestsTab() {
           isLoading={isLoading}
           pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={setPage}
+          filters={[{
+            id: 'status',
+            label: t('packlog.requests.columns.status'),
+            type: 'multi-select',
+            operators: ['is', 'is_not'],
+            options: requestStatusOptions.map((o) => ({ value: o.value, label: o.label })),
+          }]}
+          activeFilters={status ? { status: [status] } : {}}
+          onFilterChange={(filterId, value) => {
+            if (filterId !== 'status') return
+            const arr = Array.isArray(value) ? value : value != null ? [value] : []
+            setStatus(arr.length > 0 ? String(arr[0]) : '')
+            setPage(1)
+          }}
           searchValue={search}
           onSearchChange={(value) => { setSearch(value); setPage(1) }}
           searchPlaceholder={t('packlog.requests.search_placeholder')}
@@ -273,24 +275,11 @@ function CargoTab() {
         <StatCard label={t('packlog.cargo.stats.delivered')} value={stats.delivered} accent="text-emerald-600" />
         <StatCard label={t('packlog.cargo.stats.incidents')} value={stats.incidents} accent="text-destructive" />
       </div>
-      {/* Status chip filter bar — grows with content on desktop too.
-          Previously `sm:h-9` forced a 36px cap while there are
-          15+ status chips that legitimately wrap to 2-3 rows,
-          causing the chip group to spill BELOW the bar and overlap
-          the DataTable toolbar (search + "7 résultats"). */}
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex flex-wrap gap-1">
-          {[{ value: '', label: t('packlog.common.all') }, ...cargoStatusOptions].map((option) => (
-            <button
-              key={option.value || 'all'}
-              className={status === option.value ? 'gl-button-sm gl-button-default' : 'gl-button-sm gl-button-default opacity-70 hover:opacity-100'}
-              onClick={() => { setStatus(option.value); setPage(1) }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Status filter moved into the DataTable visual-search toolbar
+          (token-based, collapses into a chip when active). The previous
+          always-on row of 15 status chips dominated the page vertically
+          and made users filter via buttons rather than the unified
+          search bar pattern used elsewhere. */}
       <PanelContent scroll={false}>
         <DataTable<CargoItem>
           columns={columns}
@@ -301,6 +290,23 @@ function CargoTab() {
           searchValue={search}
           onSearchChange={(value) => { setSearch(value); setPage(1) }}
           searchPlaceholder={t('packlog.cargo.search_placeholder')}
+          filters={[{
+            id: 'status',
+            label: t('packlog.cargo.columns.status'),
+            type: 'multi-select',
+            operators: ['is', 'is_not'],
+            options: cargoStatusOptions.map((o) => ({ value: o.value, label: o.label })),
+          }]}
+          activeFilters={status ? { status: [status] } : {}}
+          onFilterChange={(filterId, value) => {
+            if (filterId !== 'status') return
+            // Take the first selection when multi-select is collapsed to
+            // a single-value backend param. If the user clears the token,
+            // `value` is undefined — reset to ''.
+            const arr = Array.isArray(value) ? value : value != null ? [value] : []
+            setStatus(arr.length > 0 ? String(arr[0]) : '')
+            setPage(1)
+          }}
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'cargo' } })}
           emptyIcon={Package}
           emptyTitle={t('packlog.cargo.empty')}

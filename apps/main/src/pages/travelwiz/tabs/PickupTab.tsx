@@ -36,7 +36,6 @@ export function PickupTab() {
   const { data: roundDetail } = usePickupRound(selectedId ?? undefined)
 
   const items: AnyRow[] = data?.items ?? []
-  const total = data?.total ?? 0
 
   const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
     {
@@ -90,23 +89,7 @@ export function PickupTab() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {pickupStatusOptions.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => { setStatusFilter(opt.value); setPage(1) }}
-              className={cn(
-                'px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap',
-                statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} tournées</span>}
-      </div>
+      {/* Status filter moved into the DataTable visual-search toolbar. */}
 
       <div className="flex flex-1 min-h-0">
         {/* List */}
@@ -121,6 +104,20 @@ export function PickupTab() {
               searchValue={search}
               onSearchChange={(v) => { setSearch(v); setPage(1) }}
               searchPlaceholder="Rechercher une tournée..."
+              filters={[{
+                id: 'status',
+                label: 'Statut',
+                type: 'multi-select',
+                operators: ['is', 'is_not'],
+                options: pickupStatusOptions.filter((o: AnyRow) => o.value).map((o: AnyRow) => ({ value: o.value, label: o.label })),
+              }]}
+              activeFilters={statusFilter ? { status: [statusFilter] } : {}}
+              onFilterChange={(id, v) => {
+                if (id !== 'status') return
+                const arr = Array.isArray(v) ? v : v != null ? [v] : []
+                setStatusFilter(arr.length > 0 ? String(arr[0]) : '')
+                setPage(1)
+              }}
               onRowClick={(row) => setSelectedId(row.id)}
               emptyIcon={Route}
               emptyTitle="Aucune tournée de ramassage"

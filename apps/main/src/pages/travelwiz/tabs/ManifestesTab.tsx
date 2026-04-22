@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText, Users, Loader2, CheckCircle2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -40,7 +39,6 @@ export function ManifestesTab() {
   })
 
   const items: AnyRow[] = data?.items ?? []
-  const total = data?.total ?? 0
 
   const stats = useMemo(() => {
     const draft = items.filter((m: AnyRow) => m.status === 'draft').length
@@ -129,23 +127,7 @@ export function ManifestesTab() {
         <StatCard label={t('travelwiz.stats.pax_total')} value={stats.totalPax} icon={Users} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {manifestStatusOptions.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => { setStatusFilter(opt.value); setPage(1) }}
-              className={cn(
-                'px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap',
-                statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} manifestes</span>}
-      </div>
+      {/* Status filter moved into the DataTable visual-search toolbar. */}
 
       <PanelContent scroll={false}>
         <DataTable<AnyRow>
@@ -157,6 +139,20 @@ export function ManifestesTab() {
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
           searchPlaceholder="Rechercher par référence, voyage..."
+          filters={[{
+            id: 'status',
+            label: 'Statut',
+            type: 'multi-select',
+            operators: ['is', 'is_not'],
+            options: manifestStatusOptions.filter((o: AnyRow) => o.value).map((o: AnyRow) => ({ value: o.value, label: o.label })),
+          }]}
+          activeFilters={statusFilter ? { status: [statusFilter] } : {}}
+          onFilterChange={(id, v) => {
+            if (id !== 'status') return
+            const arr = Array.isArray(v) ? v : v != null ? [v] : []
+            setStatusFilter(arr.length > 0 ? String(arr[0]) : '')
+            setPage(1)
+          }}
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: row.original.voyage_id, meta: { subtype: 'voyage' } })}
           emptyIcon={FileText}
           emptyTitle="Aucun manifeste"

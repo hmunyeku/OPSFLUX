@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plane, Ship, Users, ArrowRight, Calendar, Weight } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -151,23 +150,7 @@ export function VoyagesTab() {
         <StatCard label={t('travelwiz.stats.pax_boarded')} value={stats.totalPax} icon={Users} accent="text-blue-500" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {voyageStatusOptions.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => { setStatusFilter(opt.value); setPage(1) }}
-              className={cn(
-                'px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap',
-                statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} voyages</span>}
-      </div>
+      {/* Status filter moved into the DataTable visual-search toolbar. */}
 
       <PanelContent scroll={false}>
         <DataTable<AnyRow>
@@ -179,6 +162,20 @@ export function VoyagesTab() {
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
           searchPlaceholder="Rechercher par code, vecteur..."
+          filters={[{
+            id: 'status',
+            label: t('common.status'),
+            type: 'multi-select',
+            operators: ['is', 'is_not'],
+            options: voyageStatusOptions.filter((o: AnyRow) => o.value).map((o: AnyRow) => ({ value: o.value, label: o.label })),
+          }]}
+          activeFilters={statusFilter ? { status: [statusFilter] } : {}}
+          onFilterChange={(id, v) => {
+            if (id !== 'status') return
+            const arr = Array.isArray(v) ? v : v != null ? [v] : []
+            setStatusFilter(arr.length > 0 ? String(arr[0]) : '')
+            setPage(1)
+          }}
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: row.id, meta: { subtype: 'voyage' } })}
           emptyIcon={Plane}
           emptyTitle="Aucun voyage"

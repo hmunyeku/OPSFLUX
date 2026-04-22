@@ -2,6 +2,7 @@
  * useFileManager — Core state + API calls for the file manager.
  */
 import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -53,6 +54,7 @@ export function getPreviewType(name: string): 'image' | 'pdf' | 'video' | 'audio
 const VM_KEY = 'opsflux:fm-view-mode'
 
 export function useFileManager() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const confirm = useConfirm()
 
@@ -122,7 +124,7 @@ export function useFileManager() {
       setCurrentPath(path)
       setSidebarOpen(false)
     } catch (err: any) {
-      toast({ title: 'Erreur de chargement', description: err?.response?.data?.detail || 'Impossible de lire le dossier.', variant: 'error' })
+      toast({ title: t('files.toast.load_error_title'), description: err?.response?.data?.detail || t('files.toast.load_error_description'), variant: 'error' })
     } finally {
       setLoading(false)
     }
@@ -150,7 +152,7 @@ export function useFileManager() {
   // ── Computed ──
   const breadcrumbs = useMemo(() => {
     const parts = currentPath.split('/').filter(Boolean)
-    return [{ name: 'Racine', path: '/' }, ...parts.map((p, i) => ({ name: p, path: '/' + parts.slice(0, i + 1).join('/') }))]
+    return [{ name: t('files.racine'), path: '/' }, ...parts.map((p, i) => ({ name: p, path: '/' + parts.slice(0, i + 1).join('/') }))]
   }, [currentPath])
 
   const filteredItems = useMemo(() => {
@@ -224,7 +226,7 @@ export function useFileManager() {
         await api.post(`/api/v1/admin/fs/upload?path=${encodeURIComponent(currentPath)}`, formData)
         successCount++
       } catch (err: any) {
-        toast({ title: `Erreur: ${file.name}`, description: err?.response?.data?.detail || 'Upload échoué', variant: 'error' })
+        toast({ title: t('files.toast.upload_error_title', { name: file.name }), description: err?.response?.data?.detail || t('files.toast.upload_error_description'), variant: 'error' })
       }
     }
     if (successCount > 0) {
@@ -235,29 +237,31 @@ export function useFileManager() {
 
   const handleDelete = useCallback(async (item: FSItem) => {
     const ok = await confirm({
-      title: 'Supprimer',
-      message: `Supprimer "${item.name}" ?${item.isDirectory ? ' Le dossier et son contenu seront supprimés.' : ''}`,
-      confirmLabel: 'Supprimer',
+      title: t('files.toast.delete_confirm_title'),
+      message: item.isDirectory
+        ? t('files.toast.delete_confirm_folder', { name: item.name })
+        : t('files.toast.delete_confirm_file', { name: item.name }),
+      confirmLabel: t('files.toast.delete_confirm_label'),
       variant: 'danger',
     })
     if (!ok) return
     try {
       await api.delete('/api/v1/admin/fs/delete', { params: { path: item.path } })
-      toast({ title: `"${item.name}" supprimé`, variant: 'success' })
+      toast({ title: t('files.toast.deleted_item', { name: item.name }), variant: 'success' })
       if (previewItem?.path === item.path) setPreviewItem(null)
       refresh()
     } catch (err: any) {
-      toast({ title: 'Erreur', description: err?.response?.data?.detail || 'Impossible de supprimer.', variant: 'error' })
+      toast({ title: t('files.toast.error'), description: err?.response?.data?.detail || t('files.toast.delete_error_description'), variant: 'error' })
     }
-  }, [confirm, refresh, toast, previewItem])
+  }, [confirm, refresh, toast, previewItem, t])
 
   const handleBatchDelete = useCallback(async (paths: Set<string>) => {
     const count = paths.size
     if (count === 0) return
     const ok = await confirm({
-      title: 'Supprimer',
-      message: `Supprimer ${count} élément(s) ?`,
-      confirmLabel: 'Supprimer',
+      title: t('files.toast.delete_confirm_title'),
+      message: t('files.toast.delete_confirm_batch', { count }),
+      confirmLabel: t('files.toast.delete_confirm_label'),
       variant: 'danger',
     })
     if (!ok) return
@@ -268,40 +272,40 @@ export function useFileManager() {
         deleted++
       } catch { /* continue */ }
     }
-    toast({ title: `${deleted}/${count} supprimé(s)`, variant: deleted === count ? 'success' : 'error' })
+    toast({ title: t('files.toast.batch_deleted', { deleted, total: count }), variant: deleted === count ? 'success' : 'error' })
     setPreviewItem(null)
     refresh()
-  }, [confirm, refresh, toast])
+  }, [confirm, refresh, toast, t])
 
   const handleCreateFolder = useCallback(async (name: string) => {
     try {
       const newPath = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`
       await api.post('/api/v1/admin/fs/mkdir', null, { params: { path: newPath } })
-      toast({ title: `Dossier "${name}" créé`, variant: 'success' })
+      toast({ title: t('files.toast.folder_created', { name }), variant: 'success' })
       refresh()
     } catch (err: any) {
-      toast({ title: 'Erreur', description: err?.response?.data?.detail || 'Impossible de créer le dossier.', variant: 'error' })
+      toast({ title: t('files.toast.error'), description: err?.response?.data?.detail || t('files.toast.create_folder_error_description'), variant: 'error' })
     }
     setNameDialog(null)
-  }, [currentPath, refresh, toast])
+  }, [currentPath, refresh, toast, t])
 
   const handleRename = useCallback(async (item: FSItem, newName: string) => {
     try {
       await api.post('/api/v1/admin/fs/rename', null, { params: { path: item.path, new_name: newName } })
-      toast({ title: `Renommé en "${newName}"`, variant: 'success' })
+      toast({ title: t('files.toast.renamed_to', { name: newName }), variant: 'success' })
       refresh()
     } catch (err: any) {
-      toast({ title: 'Erreur', description: err?.response?.data?.detail || 'Impossible de renommer.', variant: 'error' })
+      toast({ title: t('files.toast.error'), description: err?.response?.data?.detail || t('files.toast.rename_error_description'), variant: 'error' })
     }
     setNameDialog(null)
-  }, [refresh, toast])
+  }, [refresh, toast, t])
 
   const copyPath = useCallback((item: FSItem) => {
     navigator.clipboard.writeText(item.path).then(() => {
-      toast({ title: 'Chemin copié', variant: 'success' })
+      toast({ title: t('files.toast.path_copied'), variant: 'success' })
     })
     setContextMenu(null)
-  }, [toast])
+  }, [toast, t])
 
   const getDownloadUrl = useCallback((path: string) => {
     return `${apiBase}/api/v1/admin/fs/download?path=${encodeURIComponent(path)}`

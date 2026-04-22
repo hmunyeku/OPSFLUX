@@ -1,15 +1,8 @@
+import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, LayoutList, LayoutGrid, RefreshCw, FolderPlus, Upload, Trash2, Filter } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ViewMode, FileFilter } from '../hooks/useFileManager'
-
-const FILTER_OPTIONS: { value: FileFilter; label: string }[] = [
-  { value: '', label: 'Tous' },
-  { value: 'image', label: 'Images' },
-  { value: 'document', label: 'Documents' },
-  { value: 'video', label: 'Vidéos' },
-  { value: 'audio', label: 'Audio' },
-  { value: 'archive', label: 'Archives' },
-]
 
 interface FileToolbarProps {
   search: string
@@ -30,6 +23,15 @@ export function FileToolbar({
   filterType, onFilterChange, selectedCount,
   onBatchDelete, onCreateFolder, onUpload, onRefresh,
 }: FileToolbarProps) {
+  const { t } = useTranslation()
+  const filterOptions = useMemo<{ value: FileFilter; label: string }[]>(() => [
+    { value: '', label: t('common.all') },
+    { value: 'image', label: t('files.filter.images') },
+    { value: 'document', label: t('files.filter.documents') },
+    { value: 'video', label: t('files.filter.videos') },
+    { value: 'audio', label: t('files.filter.audio') },
+    { value: 'archive', label: t('files.filter.archives') },
+  ], [t])
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0 flex-wrap">
       {/* Search */}
@@ -39,7 +41,7 @@ export function FileToolbar({
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Filtrer..."
+          placeholder={t('files.toolbar.search_placeholder')}
           className="gl-form-input text-xs pl-8 w-full h-7"
           autoComplete="off"
         />
@@ -53,7 +55,7 @@ export function FileToolbar({
           onChange={(e) => onFilterChange(e.target.value as FileFilter)}
           className="gl-form-input text-xs h-7 pl-7 pr-6 appearance-none cursor-pointer"
         >
-          {FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {filterOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 
@@ -62,14 +64,14 @@ export function FileToolbar({
         <button
           onClick={() => onViewModeChange('list')}
           className={cn('p-1.5 transition-colors', viewMode === 'list' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-muted')}
-          title="Vue liste"
+          title={t('files.toolbar.view_list')}
         >
           <LayoutList size={13} />
         </button>
         <button
           onClick={() => onViewModeChange('grid')}
           className={cn('p-1.5 transition-colors', viewMode === 'grid' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-muted')}
-          title="Vue grille"
+          title={t('files.toolbar.view_grid')}
         >
           <LayoutGrid size={13} />
         </button>
@@ -79,13 +81,13 @@ export function FileToolbar({
       <div className="h-5 w-px bg-border" />
 
       {/* Actions */}
-      <button onClick={onRefresh} className="gl-button gl-button-default" title="Actualiser">
+      <button onClick={onRefresh} className="gl-button gl-button-default" title={t('files.toolbar.refresh')}>
         <RefreshCw size={13} />
       </button>
-      <button onClick={onCreateFolder} className="gl-button gl-button-default" title="Nouveau dossier">
+      <button onClick={onCreateFolder} className="gl-button gl-button-default" title={t('files.nouveau_dossier')}>
         <FolderPlus size={13} />
       </button>
-      <label className="p-1.5 rounded hover:bg-accent text-muted-foreground cursor-pointer" title="Uploader">
+      <label className="p-1.5 rounded hover:bg-accent text-muted-foreground cursor-pointer" title={t('files.toolbar.upload')}>
         <Upload size={13} />
         <input type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
       </label>
@@ -94,9 +96,9 @@ export function FileToolbar({
       {selectedCount > 0 && (
         <>
           <div className="h-5 w-px bg-border" />
-          <span className="text-[10px] text-primary font-medium">{selectedCount} sélectionné(s)</span>
-          <button onClick={onBatchDelete} className="gl-button-sm gl-button-danger" title="Supprimer la sélection">
-            <Trash2 size={11} /> Supprimer
+          <span className="text-[10px] text-primary font-medium">{t('files.toolbar.selected_count', { count: selectedCount })}</span>
+          <button onClick={onBatchDelete} className="gl-button-sm gl-button-danger" title={t('files.supprimer_la_selection')}>
+            <Trash2 size={11} /> {t('files.toast.delete_confirm_label')}
           </button>
         </>
       )}

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Folder, FileText, Image, Film, FileArchive, File, Music, ArrowUp, ArrowDown, Loader2, FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FSItem, SortField, SortDir } from '../hooks/useFileManager'
@@ -53,6 +54,7 @@ export function FileListView({
   sortBy, sortDir, onToggleSort, onSelectAll, onClearSelection,
   onToggleSelect, onOpen, onContextMenu,
 }: FileListViewProps) {
+  const { t } = useTranslation()
   if (loading) {
     return <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
   }
@@ -61,7 +63,7 @@ export function FileListView({
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
         <FolderOpen size={32} className="mb-2 opacity-30" />
-        <p className="text-sm">{search ? 'Aucun résultat' : 'Dossier vide'}</p>
+        <p className="text-sm">{search ? t('files.aucun_resultat') : t('files.dossier_vide')}</p>
       </div>
     )
   }

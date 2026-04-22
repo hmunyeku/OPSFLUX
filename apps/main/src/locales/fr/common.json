@@ -5967,7 +5967,46 @@
     "deposer_les_fichiers_ici": "Déposer les fichiers ici",
     "les_fichiers_seront_uploades_dans_le_dos": "Les fichiers seront uploadés dans le dossier courant",
     "nouveau_dossier": "Nouveau dossier",
-    "supprimer_la_selection": "Supprimer la sélection"
+    "renommer": "Renommer \"{{name}}\"",
+    "supprimer_la_selection": "Supprimer la sélection",
+    "racine": "Racine",
+    "dossier_vide": "Dossier vide",
+    "aucun_resultat": "Aucun résultat",
+    "toast": {
+      "load_error_title": "Erreur de chargement",
+      "load_error_description": "Impossible de lire le dossier.",
+      "upload_error_title": "Erreur : {{name}}",
+      "upload_error_description": "Upload échoué",
+      "delete_confirm_title": "Supprimer",
+      "delete_confirm_label": "Supprimer",
+      "delete_error_description": "Impossible de supprimer.",
+      "create_folder_error_description": "Impossible de créer le dossier.",
+      "rename_error_description": "Impossible de renommer.",
+      "path_copied": "Chemin copié",
+      "error": "Erreur",
+      "deleted_item": "\"{{name}}\" supprimé",
+      "delete_confirm_file": "Supprimer \"{{name}}\" ?",
+      "delete_confirm_folder": "Supprimer \"{{name}}\" ? Le dossier et son contenu seront supprimés.",
+      "delete_confirm_batch": "Supprimer {{count}} élément(s) ?",
+      "batch_deleted": "{{deleted}}/{{total}} supprimé(s)",
+      "folder_created": "Dossier \"{{name}}\" créé",
+      "renamed_to": "Renommé en \"{{name}}\""
+    },
+    "filter": {
+      "images": "Images",
+      "documents": "Documents",
+      "videos": "Vidéos",
+      "audio": "Audio",
+      "archives": "Archives"
+    },
+    "toolbar": {
+      "search_placeholder": "Filtrer...",
+      "view_list": "Vue liste",
+      "view_grid": "Vue grille",
+      "refresh": "Actualiser",
+      "upload": "Uploader",
+      "selected_count": "{{count}} sélectionné(s)"
+    }
   },
   "moc": {
     "page_title": "MOCTrack",

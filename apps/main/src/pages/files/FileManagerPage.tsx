@@ -225,7 +225,7 @@ export default function FileManagerPage() {
       {/* Name dialog */}
       {fm.nameDialog && (
         <NameDialog
-          title={fm.nameDialog.mode === 'create' ? 'Nouveau dossier' : `Renommer "${fm.nameDialog.item?.name}"`}
+          title={fm.nameDialog.mode === 'create' ? t('files.nouveau_dossier') : t('files.renommer', { name: fm.nameDialog.item?.name ?? '' })}
           defaultValue={fm.nameDialog.mode === 'rename' ? fm.nameDialog.item?.name : ''}
           onCancel={() => fm.setNameDialog(null)}
           onConfirm={(name) => {

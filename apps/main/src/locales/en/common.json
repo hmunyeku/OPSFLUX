@@ -5147,17 +5147,56 @@
     "vous_pouvez_maintenant_epingler_vos_pann": "You can now pin your floating panels."
   },
   "files": {
-    "impossible_de_charger_le_fichier": "Impossible de charger le fichier.",
+    "impossible_de_charger_le_fichier": "Failed to load the file.",
     "apercu_non_disponible": "Preview unavailable",
     "telechargez_le_fichier_pour_le_consulter": "Download the file to view it",
-    "copier_le_chemin": "Copier le chemin",
+    "copier_le_chemin": "Copy path",
     "acces_non_autorise": "Unauthorised access",
     "vous_n_avez_pas_la_permission_d_acceder": "You do not have permission to access the file manager.",
-    "gestionnaire_de_fichiers": "Gestionnaire de fichiers",
+    "gestionnaire_de_fichiers": "File manager",
     "deposer_les_fichiers_ici": "Drop files here",
     "les_fichiers_seront_uploades_dans_le_dos": "Files will be uploaded to the current folder",
-    "nouveau_dossier": "Nouveau dossier",
-    "supprimer_la_selection": "Delete selection"
+    "nouveau_dossier": "New folder",
+    "renommer": "Rename \"{{name}}\"",
+    "supprimer_la_selection": "Delete selection",
+    "racine": "Root",
+    "dossier_vide": "Empty folder",
+    "aucun_resultat": "No results",
+    "toast": {
+      "load_error_title": "Load error",
+      "load_error_description": "Failed to read folder.",
+      "upload_error_title": "Error: {{name}}",
+      "upload_error_description": "Upload failed",
+      "delete_confirm_title": "Delete",
+      "delete_confirm_label": "Delete",
+      "delete_error_description": "Failed to delete.",
+      "create_folder_error_description": "Failed to create folder.",
+      "rename_error_description": "Failed to rename.",
+      "path_copied": "Path copied",
+      "error": "Error",
+      "deleted_item": "\"{{name}}\" deleted",
+      "delete_confirm_file": "Delete \"{{name}}\"?",
+      "delete_confirm_folder": "Delete \"{{name}}\"? The folder and its contents will be removed.",
+      "delete_confirm_batch": "Delete {{count}} item(s)?",
+      "batch_deleted": "{{deleted}}/{{total}} deleted",
+      "folder_created": "Folder \"{{name}}\" created",
+      "renamed_to": "Renamed to \"{{name}}\""
+    },
+    "filter": {
+      "images": "Images",
+      "documents": "Documents",
+      "videos": "Videos",
+      "audio": "Audio",
+      "archives": "Archives"
+    },
+    "toolbar": {
+      "search_placeholder": "Filter...",
+      "view_list": "List view",
+      "view_grid": "Grid view",
+      "refresh": "Refresh",
+      "upload": "Upload",
+      "selected_count": "{{count}} selected"
+    }
   },
   "moc": {
     "page_title": "MOCTrack",

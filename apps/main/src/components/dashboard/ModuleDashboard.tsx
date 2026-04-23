@@ -31,6 +31,7 @@ import {
 import { DashboardGrid } from './DashboardGrid'
 import { DashboardEditorLayout } from './DashboardEditorLayout'
 import type { DashboardEditorHandle } from './DashboardEditorLayout'
+import { ModuleQuickActions } from './ModuleQuickActions'
 import { DashboardFilterProvider } from './DashboardFilterContext'
 import { DashboardFilterBar } from './DashboardFilterBar'
 import type { DashboardWidget } from '@/services/dashboardService'
@@ -185,7 +186,12 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
       ) : (
         <DashboardFilterProvider>
           <DashboardFilterBar />
-          <div className="px-5 py-4">
+          <div className="px-5 py-4 @container">
+            {/* Contextual shortcuts strip — 4 to 6 cards per module
+                (Nouvelle AdS, Conflits POB, Vue Gantt, etc.). Renders
+                above the widget grid so the user can launch the
+                common task of the module without hunting tabs. */}
+            <ModuleQuickActions module={module} />
             <DashboardGrid widgets={widgets} mode="view" />
           </div>
         </DashboardFilterProvider>

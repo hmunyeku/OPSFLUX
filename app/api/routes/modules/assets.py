@@ -13,14 +13,23 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user, require_permission
+from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
 from app.models.common import User
 from app.core.errors import StructuredHTTPException
 
-router = APIRouter(prefix="/api/v1/assets", tags=["assets"])
+# Legacy /api/v1/assets prefix — kept for backwards compatibility with
+# older clients that don't know the asset_registry namespace. Same
+# module-enabled gate as the canonical /api/v1/asset-registry router
+# so a tenant that disables the module can't reach data through this
+# back-door.
+router = APIRouter(
+    prefix="/api/v1/assets",
+    tags=["assets"],
+    dependencies=[require_module_enabled("asset_registry")],
+)
 
 
 @router.get("", dependencies=[require_permission("asset.read")])

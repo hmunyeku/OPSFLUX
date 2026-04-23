@@ -36,6 +36,15 @@
         "APP_ENV": "production"
       },
       "channel": "production"
+    },
+    "ios-simulator": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "APP_ENV": "staging"
+      }
     }
   },
   "submit": {

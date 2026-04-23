@@ -78,7 +78,10 @@ export function TravelWizPage() {
   const canCreate =
     activeTab === 'voyages' ? hasPermission('travelwiz.voyage.create')
       : activeTab === 'vectors' ? hasPermission('travelwiz.vector.create')
-        : activeTab === 'rotations' ? hasPermission('travelwiz.rotation.create')
+        // travelwiz.rotation.create is not a registered perm. Rotations
+        // are the nominal parents of voyages, so we gate on the same
+        // voyage.create perm.
+        : activeTab === 'rotations' ? hasPermission('travelwiz.voyage.create')
           : false
 
   const handleCreate = useCallback(() => {

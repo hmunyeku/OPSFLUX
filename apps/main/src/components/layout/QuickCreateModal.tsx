@@ -186,7 +186,9 @@ const CATEGORIES: QuickCreateCategory[] = [
         route: '/paxlog',
         module: 'paxlog',
         meta: { subtype: 'rotation' },
-        permission: 'paxlog.rotation.create',
+        // Backend uses paxlog.rotation.manage for all rotation-cycle ops
+        // (create/update/delete). There's no dedicated .create perm.
+        permission: 'paxlog.rotation.manage',
         keywords: ['rotation', 'cycle', 'on/off'],
       },
     ],
@@ -227,7 +229,10 @@ const CATEGORIES: QuickCreateCategory[] = [
         route: '/travelwiz',
         module: 'travelwiz',
         meta: { subtype: 'rotation' },
-        permission: 'travelwiz.rotation.create',
+        // POST /travelwiz/rotations has no dedicated perm upstream; we
+        // gate on voyage.create since a rotation is the nominal
+        // parent of voyages — same audience in practice.
+        permission: 'travelwiz.voyage.create',
         keywords: ['rotation', 'cadence'],
       },
     ],
@@ -373,7 +378,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         route: '/conformite',
         module: 'conformite',
         meta: { subtype: 'job-position' },
-        permission: 'conformite.job_position.create',
+        permission: 'conformite.jobposition.create',
         keywords: ['poste', 'function', 'job'],
       },
       {
@@ -421,7 +426,8 @@ const CATEGORIES: QuickCreateCategory[] = [
         icon: Users,
         route: '/users',
         module: 'users',
-        permission: 'core.users.create',
+        // Backend registers the perm as 'user.create' (no 'core.' prefix).
+        permission: 'user.create',
         keywords: ['user', 'utilisateur', 'compte'],
       },
       {

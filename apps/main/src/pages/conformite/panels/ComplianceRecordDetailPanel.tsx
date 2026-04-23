@@ -34,7 +34,8 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
   const confirm = useConfirm()
   const { hasPermission } = usePermission()
-  const canVerify = hasPermission('conformite.record.verify')
+  // Backend registers the perm as 'conformite.verify' (not .record.verify).
+  const canVerify = hasPermission('conformite.verify')
   const { statusLabels } = useConformiteDictionaryState()
   const record = data?.items.find((item) => item.id === id)
   const [detailTab, setDetailTab] = useState<'informations' | 'documents'>('informations')

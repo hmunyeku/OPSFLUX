@@ -29,7 +29,9 @@ export function JobPositionDetailPanel({ id }: { id: string }) {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { hasPermission } = usePermission()
-  const canReadRules = hasPermission('conformite.read')
+  // 'conformite.read' was never registered — gate on the rule-read
+  // perm since that's what the panel actually displays.
+  const canReadRules = hasPermission('conformite.rule.read')
   const { data } = useJobPositions({ page: 1, page_size: 100 })
   const jp = data?.items.find((j) => j.id === id)
   const updateJP = useUpdateJobPosition()

@@ -33,7 +33,10 @@ import { NameDialog } from './components/NameDialog'
 export default function FileManagerPage() {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canManage = hasPermission('admin.fs') || hasPermission('core.settings.manage')
+  // 'admin.fs' was never registered in the permission catalogue — the
+  // OR clause was always false in practice. Keep core.settings.manage
+  // which is the actual perm used by /files endpoints.
+  const canManage = hasPermission('core.settings.manage')
 
   const fm = useFileManager()
   const selection = useFileSelection(fm.items)

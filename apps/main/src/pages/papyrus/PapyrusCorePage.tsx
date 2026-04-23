@@ -1038,7 +1038,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 <div className="text-xs font-medium text-muted-foreground">Builder de formulaire</div>
                 <PapyrusFormBuilder
                   schema={linkedPapyrusForm.schema_json}
-                  disabled={!hasPermission('document.update')}
+                  disabled={!hasPermission('document.edit')}
                   isSaving={updatePapyrusForm.isPending}
                   onSave={handleSavePapyrusFormSchema}
                 />

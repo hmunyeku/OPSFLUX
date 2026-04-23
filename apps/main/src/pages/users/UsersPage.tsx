@@ -1953,7 +1953,9 @@ import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 function UserPermissionsTab({ userId }: { userId: string }) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canEdit = hasPermission('admin.rbac')
+  // 'admin.rbac' was never registered — use core.rbac.manage which
+  // is the perm actually enforced by the backend RBAC endpoints.
+  const canEdit = hasPermission('core.rbac.manage')
   const { data: overridesData } = useUserPermissionOverrides(userId)
   const setOverrides = useSetUserPermissionOverrides()
   const { toast } = useToast()

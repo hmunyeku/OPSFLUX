@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { useUIStore } from '@/stores/uiStore'
 import type { SearchResult, SearchResponse } from '@/types/api'
 
@@ -84,20 +85,20 @@ function iconForResultType(type: string): LucideIcon {
 
 function colorForResultType(type: string): string {
   switch (type) {
-    case 'asset':      return 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
-    case 'tier':       return 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-    case 'user':       return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-    case 'document':   return 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
-    case 'workflow':   return 'bg-pink-500/15 text-pink-600 dark:text-pink-400'
-    case 'moc':        return 'bg-orange-500/15 text-orange-600 dark:text-orange-400'
-    case 'project':    return 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
-    case 'activity':   return 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400'
-    case 'ads':        return 'bg-teal-500/15 text-teal-600 dark:text-teal-400'
-    case 'incident':   return 'bg-red-500/15 text-red-600 dark:text-red-400'
-    case 'voyage':     return 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
-    case 'cargo':      return 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-    case 'compliance': return 'bg-lime-500/15 text-lime-600 dark:text-lime-400'
-    default:           return 'bg-muted text-muted-foreground'
+    case 'asset':      return 'bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-blue-500/20'
+    case 'tier':       return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-amber-500/20'
+    case 'user':       return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20'
+    case 'document':   return 'bg-purple-500/15 text-purple-600 dark:text-purple-400 ring-purple-500/20'
+    case 'workflow':   return 'bg-pink-500/15 text-pink-600 dark:text-pink-400 ring-pink-500/20'
+    case 'moc':        return 'bg-orange-500/15 text-orange-600 dark:text-orange-400 ring-orange-500/20'
+    case 'project':    return 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 ring-indigo-500/20'
+    case 'activity':   return 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 ring-cyan-500/20'
+    case 'ads':        return 'bg-teal-500/15 text-teal-600 dark:text-teal-400 ring-teal-500/20'
+    case 'incident':   return 'bg-red-500/15 text-red-600 dark:text-red-400 ring-red-500/20'
+    case 'voyage':     return 'bg-sky-500/15 text-sky-600 dark:text-sky-400 ring-sky-500/20'
+    case 'cargo':      return 'bg-rose-500/15 text-rose-600 dark:text-rose-400 ring-rose-500/20'
+    case 'compliance': return 'bg-lime-500/15 text-lime-600 dark:text-lime-400 ring-lime-500/20'
+    default:           return 'bg-muted text-muted-foreground ring-border'
   }
 }
 
@@ -318,16 +319,55 @@ export function SearchPage() {
   const startItem = (currentPage - 1) * PAGE_SIZE + 1
   const endItem = Math.min(currentPage * PAGE_SIZE, totalResults)
 
+  // Per-scope result counts (for PageNavBar badges). Based on the
+  // current page's results — the full global count per type would
+  // require separate requests, intentionally kept simple for now.
+  const countByType = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const r of results) m[r.type] = (m[r.type] || 0) + 1
+    return m
+  }, [results])
+
+  const subtitleText =
+    hasSearched && totalResults > 0
+      ? t(
+          totalResults === 1 ? 'search.results_count' : 'search.results_count_plural',
+          { count: totalResults },
+        )
+      : undefined
+
   return (
-    <div className="flex flex-col h-full">
-      <PanelHeader icon={Search} title={t('search.title')} />
+    <>
+      <PanelHeader
+        icon={Search}
+        title={t('search.title')}
+        subtitle={subtitleText}
+      >
+        {isLoading && (
+          <Loader2 size={12} className="animate-spin text-muted-foreground" />
+        )}
+      </PanelHeader>
 
       <PanelContent className="bg-background">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+        {/* ── Scope pills — standard PageNavBar ─────────────── */}
+        <div className="px-4 pt-3 pb-2 border-b border-border/40 bg-background">
+          <PageNavBar
+            items={SCOPES.map((s) => ({
+              id: s.id,
+              label: t(s.labelKey),
+              icon: s.icon,
+              badge: s.id === 'all' ? undefined : countByType[s.id] || undefined,
+            }))}
+            activeId={urlScope}
+            onTabChange={(id) => handleScopeChange(id)}
+          />
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 space-y-4">
           {/* ── Search input ────────────────────────────────── */}
           <div className="relative">
             <Search
-              size={16}
+              size={15}
               className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
             />
             <input
@@ -342,7 +382,7 @@ export function SearchPage() {
                 }
               }}
               placeholder={t('search.placeholder')}
-              className="w-full h-10 px-4 pl-10 text-sm border border-border/60 rounded-lg bg-card focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors text-foreground placeholder:text-muted-foreground"
+              className="w-full h-10 px-4 pl-10 text-sm rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground hover:border-border focus:outline-none focus:bg-background focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
             />
             {isLoading && (
               <Loader2
@@ -351,40 +391,6 @@ export function SearchPage() {
               />
             )}
           </div>
-
-          {/* ── Scope tabs + results count ───────────────────── */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              {SCOPES.map((scope) => {
-                const isActive = urlScope === scope.id
-                const Icon = scope.icon
-                return (
-                  <button
-                    key={scope.id}
-                    onClick={() => handleScopeChange(scope.id)}
-                    className={cn(
-                      'gl-button-sm',
-                      isActive ? 'gl-button-primary' : 'gl-button-default',
-                    )}
-                  >
-                    <Icon size={13} />
-                    {t(scope.labelKey)}
-                  </button>
-                )
-              })}
-            </div>
-
-            {hasSearched && totalResults > 0 && (
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {t(totalResults === 1 ? 'search.results_count' : 'search.results_count_plural', { count: totalResults })}
-              </span>
-            )}
-          </div>
-
-          {/* ── Separator ────────────────────────────────────── */}
-          {(hasSearched || urlQuery.length >= 2) && (
-            <div className="border-t border-border/40" />
-          )}
 
           {/* ── Results ──────────────────────────────────────── */}
           {isLoading && !hasSearched && (
@@ -433,10 +439,10 @@ export function SearchPage() {
                       idx < filteredResults.length - 1 && 'border-b border-border/40',
                     )}
                   >
-                    {/* Type icon with color badge */}
+                    {/* Type icon in the standard chip (ring-1 ring-inset) */}
                     <div
                       className={cn(
-                        'flex items-center justify-center w-8 h-8 rounded-md shrink-0',
+                        'flex items-center justify-center w-8 h-8 rounded-md ring-1 ring-inset shrink-0',
                         colorClass,
                       )}
                     >
@@ -543,6 +549,6 @@ export function SearchPage() {
           )}
         </div>
       </PanelContent>
-    </div>
+    </>
   )
 }

@@ -1605,7 +1605,7 @@ export function GanttView({
           key: c.key,
           label: c.label,
           group_label: monthFmt.format(c.startDate),
-          is_today: scale === 'day' && c.startDate.toISOString().slice(0, 10) === todayISO,
+          is_today: scale === 'day' && toISO(c.startDate) === todayISO,
           is_weekend: scale === 'day' && (c.startDate.getDay() === 0 || c.startDate.getDay() === 6),
           is_dim: scale === 'day' && (c.startDate.getDay() === 0 || c.startDate.getDay() === 6),
         }))

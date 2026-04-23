@@ -182,7 +182,12 @@ export const GanttHeader = forwardRef<HTMLDivElement, GanttHeaderProps>(
           <div className="flex" style={{ height: HEADER_ROW_H }}>
             {cells.map((c, i) => {
               const isWeekend = showWeekends && (c.startDate.getDay() === 0 || c.startDate.getDay() === 6)
-              const isToday = c.key === new Date().toISOString().slice(0, 10)
+              // Compare against the LOCAL date so UTC+N timezones land on
+              // today's column, not tomorrow. `c.key` is produced by
+              // ganttEngine.buildCells which uses local components too.
+              const _now = new Date()
+              const _todayISO = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`
+              const isToday = c.key === _todayISO
               const width = cellWidths[i]
               // Month boundary marker: on day scale, emphasise the
               // first day of each month with a stronger left border so

@@ -88,7 +88,12 @@ export function buildCells(scale: TimeScale, start: Date, end: Date): TimeCell[]
   while (cur <= end) {
     if (scale === 'day') {
       const label = cur.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-      const key = cur.toISOString().slice(0, 10)
+      // Use LOCAL date components — `cur` is a local-midnight Date, and
+      // `.toISOString()` would convert it to UTC, shifting the key by
+      // -1 day for UTC+N timezones and breaking every date comparison
+      // downstream (notably the "today" header highlight + red line,
+      // which would land on the next day's column).
+      const key = toISO(cur)
       cells.push({ key, label, startDate: new Date(cur), endDate: new Date(cur), days: 1 })
       cur.setDate(cur.getDate() + 1)
     } else if (scale === 'week') {
@@ -100,7 +105,8 @@ export function buildCells(scale: TimeScale, start: Date, end: Date): TimeCell[]
       const effectiveStart = mon < start ? start : mon
       const days = Math.ceil((cellEnd.getTime() - effectiveStart.getTime()) / 86400000) + 1
       const label = `S${String(getISOWeek(mon)).padStart(2, '0')}`
-      const key = `w${mon.toISOString().slice(0, 10)}`
+      // Same reason as above — key must be the LOCAL date, not UTC.
+      const key = `w${toISO(mon)}`
       cells.push({ key, label, startDate: effectiveStart, endDate: cellEnd, days: Math.max(1, days) })
       cur.setTime(sun.getTime()); cur.setDate(cur.getDate() + 1)
     } else if (scale === 'month') {

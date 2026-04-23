@@ -53,7 +53,10 @@ class DokployConfig(BaseModel):
 class AgentRunnerConfig(BaseModel):
     """Non-sensitive config for a Claude Code / Codex runner."""
     runner_type: Literal["claude_code", "codex"]
-    auth_method: Literal["api_key", "subscription_login"]
+    # `oauth_token` is Claude-specific — it targets Pro/Max subscriptions
+    # via the CLAUDE_CODE_OAUTH_TOKEN env var. Anthropic docs call this
+    # "long-lived token". See `claude setup-token`.
+    auth_method: Literal["api_key", "oauth_token", "subscription_login"]
     credentials_volume_name: str | None = Field(default=None, max_length=100)
     model_preference: str = Field(..., min_length=1, max_length=100)
     max_tokens_budget_per_run: int = Field(default=200_000, ge=1000, le=5_000_000)
@@ -78,8 +81,12 @@ class DokployCredentials(BaseModel):
 
 
 class AgentRunnerCredentials(BaseModel):
-    # Only populated when auth_method = 'api_key'
+    # Exactly one of these is populated depending on auth_method:
+    #   * api_key_value   — for auth_method='api_key'
+    #   * oauth_token     — for auth_method='oauth_token' (Claude Pro/Max)
+    # `subscription_login` uses a Docker volume, no credential stored.
     api_key_value: str | None = None
+    oauth_token: str | None = None
 
 
 # ─── Requests ─────────────────────────────────────────────────────────

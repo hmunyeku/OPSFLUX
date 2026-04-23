@@ -51,6 +51,21 @@ MISSION_CONTENT=$(cat /workspace/MISSION.md)
 # ── Dispatch by runner ────────────────────────────────────────────
 case "${AGENT_RUNNER_TYPE:-}" in
     claude_code)
+        # Three supported auth modes:
+        #   - CLAUDE_CODE_OAUTH_TOKEN set → subscription auth (Pro/Max).
+        #     No billing required beyond the user's subscription.
+        #   - ANTHROPIC_API_KEY set → pay-per-token. Billing via the
+        #     Anthropic console credits.
+        #   - Neither → the user has mounted /home/agent/.claude with
+        #     a pre-logged-in session.
+        if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+            log "Auth: using CLAUDE_CODE_OAUTH_TOKEN (subscription)"
+        elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            log "Auth: using ANTHROPIC_API_KEY (pay-per-token)"
+        else
+            log "Auth: relying on mounted ~/.claude session"
+        fi
+
         log "Launching Claude Code…"
         # Claude Code rejects `--output-format stream-json` alongside
         # `-p/--print` without `--verbose`. The stream-json format is

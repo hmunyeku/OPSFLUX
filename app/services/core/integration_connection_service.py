@@ -131,6 +131,8 @@ def build_credentials_preview(
     elif connection_type == "agent_runner":
         if credentials.get("api_key_value"):
             preview["api_key_value"] = mask_secret(credentials["api_key_value"])
+        if credentials.get("oauth_token"):
+            preview["oauth_token"] = mask_secret(credentials["oauth_token"])
     return preview
 
 

@@ -217,6 +217,86 @@ async def fetch_runner_credentials(
     return config, credentials
 
 
+async def _mint_github_token_for_run(
+    pool: asyncpg.Pool, connection_id: UUID
+) -> str | None:
+    """Return a GitHub API token usable by `gh` inside the runner.
+
+    For PAT auth we just hand the token through. For GitHub App auth
+    we mint a fresh installation token via the GitHub API — valid for
+    1 hour, which is well above the typical wall-time cap of a run.
+    """
+    key = os.getenv("ENCRYPTION_KEY")
+    if not key:
+        return None
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT config,
+                   CASE WHEN credentials_encrypted IS NULL THEN NULL
+                        ELSE pgp_sym_decrypt(credentials_encrypted::bytea, $2)
+                   END AS plain
+              FROM integration_connections
+             WHERE id = $1 AND connection_type = 'github'
+            """,
+            connection_id, key,
+        )
+    if not row:
+        return None
+
+    raw_config = row["config"]
+    if isinstance(raw_config, str):
+        config = json.loads(raw_config) if raw_config else {}
+    else:
+        config = raw_config or {}
+    creds = json.loads(row["plain"]) if row["plain"] else {}
+
+    auth_method = config.get("auth_method")
+    if auth_method == "personal_access_token":
+        return creds.get("token")
+
+    if auth_method == "github_app":
+        app_id = config.get("app_id")
+        installation_id = config.get("installation_id")
+        private_key = creds.get("private_key")
+        if not (app_id and installation_id and private_key):
+            return None
+        try:
+            # python-jose ships with the worker base image indirectly;
+            # fall back to PyJWT if available. Runner images typically
+            # don't need this since the token is minted here and just
+            # forwarded as env.
+            from jose import jwt as jose_jwt  # type: ignore
+            import time
+            now = int(time.time())
+            app_jwt = jose_jwt.encode(
+                {"iat": now - 60, "exp": now + 9 * 60, "iss": app_id},
+                private_key,
+                algorithm="RS256",
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("JWT mint failed")
+            return None
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    f"https://api.github.com/app/installations/{installation_id}/access_tokens",
+                    headers={
+                        "Authorization": f"Bearer {app_jwt}",
+                        "Accept": "application/vnd.github+json",
+                        "X-GitHub-Api-Version": "2022-11-28",
+                    },
+                )
+                resp.raise_for_status()
+                return resp.json().get("token")
+        except Exception:  # noqa: BLE001
+            logger.exception("Installation token mint failed")
+            return None
+
+    return None
+
+
 async def run_container(run: dict[str, Any], pool: asyncpg.Pool) -> None:
     """Prepare the env + launch the agent container + stream its output.
 
@@ -262,20 +342,45 @@ async def run_container(run: dict[str, Any], pool: asyncpg.Pool) -> None:
             "Read Edit Write Glob Grep Bash(git:*) Bash(gh:*) Bash(pytest:*) Bash(npm:*) Bash(pip:*)"
         ),
     }
-    if runner_cfg.get("auth_method") == "api_key":
-        if runner_cfg.get("runner_type") == "claude_code":
-            env["ANTHROPIC_API_KEY"] = runner_creds.get("api_key_value") or ""
-        elif runner_cfg.get("runner_type") == "codex":
-            env["OPENAI_API_KEY"] = runner_creds.get("api_key_value") or ""
 
-    # GitHub token is minted via a short-lived call to the OPSFLUX API
-    # (not the worker directly — mint is done in the harness, passed
-    # down through the run row or fetched on demand). Leaving a hook
-    # here: if GITHUB_APP_TOKEN env is set, it's passed through as
-    # GITHUB_TOKEN to the container. Sprint 5 will replace this with
-    # a dynamic mint request.
-    if os.getenv("GITHUB_APP_TOKEN"):
-        env["GITHUB_TOKEN"] = os.environ["GITHUB_APP_TOKEN"]
+    # ── Runner auth ────────────────────────────────────────────────
+    # Three supported modes, in preference order for Claude Code:
+    #   1. OAuth token from a claude.ai subscription (no billing
+    #      required beyond the subscription). The user gets one with
+    #      `claude setup-token` locally, pastes it into the Agent
+    #      Runner connector credentials as `oauth_token`. Runner
+    #      picks it up as CLAUDE_CODE_OAUTH_TOKEN env.
+    #   2. Raw API key (pay-per-token via Anthropic console credit).
+    #      Stored as `api_key_value`. Runner gets ANTHROPIC_API_KEY.
+    #   3. Subscription login via mounted ~/.claude volume
+    #      (operator runs `claude /login` manually on a persistent
+    #      volume). Flagged when auth_method == 'subscription_login'.
+    runner_type = runner_cfg.get("runner_type", "claude_code")
+    if runner_type == "claude_code":
+        oauth = runner_creds.get("oauth_token")
+        api_key = runner_creds.get("api_key_value")
+        if oauth:
+            env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth
+            env["AGENT_AUTH_MODE"] = "oauth_token"
+        elif api_key:
+            env["ANTHROPIC_API_KEY"] = api_key
+            env["AGENT_AUTH_MODE"] = "api_key"
+    elif runner_type == "codex":
+        if runner_creds.get("api_key_value"):
+            env["OPENAI_API_KEY"] = runner_creds["api_key_value"]
+
+    # ── GitHub token (for `gh pr create` inside the runner) ───────
+    # Fetch the GitHub connector attached to this run and mint (or
+    # hand through) a short-lived token. Without this the runner
+    # can't push the branch nor open the PR — phase 4 would fail.
+    gh_conn_id = run.get("github_connection_id")
+    if gh_conn_id:
+        try:
+            gh_token = await _mint_github_token_for_run(pool, gh_conn_id)
+            if gh_token:
+                env["GITHUB_TOKEN"] = gh_token
+        except Exception:  # noqa: BLE001
+            logger.exception("Run %s: GitHub token mint failed, runner will skip PR step", run_id)
 
     client = docker.from_env()
 

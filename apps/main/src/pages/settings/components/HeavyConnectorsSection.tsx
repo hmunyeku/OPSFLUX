@@ -627,8 +627,9 @@ function AgentRunnerFields({ config, setConfig, credentials, setCredentials, isE
             value={auth}
             onChange={(e) => setConfig({ ...config, auth_method: e.target.value })}
           >
-            <option value="api_key">API Key</option>
-            <option value="subscription_login">Subscription login</option>
+            <option value="api_key">API Key (pay-per-token)</option>
+            <option value="oauth_token">OAuth token (abonnement Claude Pro/Max)</option>
+            <option value="subscription_login">Subscription login (volume ~/.claude)</option>
           </select>
         </div>
       </div>
@@ -683,6 +684,28 @@ function AgentRunnerFields({ config, setConfig, credentials, setCredentials, isE
             value={credentials.api_key_value ?? ''}
             onChange={(e) => setCredentials({ ...credentials, api_key_value: e.target.value })}
           />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Billing : consomme les crédits du compte Anthropic. Recharge sur{' '}
+            <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener noreferrer" className="text-primary underline">console.anthropic.com</a>.
+          </p>
+        </div>
+      )}
+      {auth === 'oauth_token' && (
+        <div>
+          <label className="gl-label-sm">OAuth token {isEdit && '(laisser vide pour conserver)'}</label>
+          <input
+            type="password"
+            required={!isEdit}
+            className="gl-form-input font-mono"
+            placeholder={preview?.oauth_token || 'sk-ant-oat01-...'}
+            value={credentials.oauth_token ?? ''}
+            onChange={(e) => setCredentials({ ...credentials, oauth_token: e.target.value })}
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Pour ton abonnement Claude Pro/Max. Génère-le localement via :{' '}
+            <code className="font-mono bg-muted px-1 rounded text-[10px]">claude setup-token</code>{' '}
+            — puis colle la valeur ici. Pas de facturation supplémentaire.
+          </p>
         </div>
       )}
       {auth === 'subscription_login' && (

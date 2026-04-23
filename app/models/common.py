@@ -20,7 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin, VerifiableMixin
@@ -2521,6 +2521,75 @@ class I18nMessage(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Track who last edited the message (for audit)
     updated_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+
+class IntegrationConnection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Heavy external connector for GitHub, Dokploy and agent runners.
+
+    Stores one row per named instance (e.g. "Dokploy Staging", "Dokploy
+    Prod"). Light integrations — OAuth2 social login, map API keys, etc.
+    — keep using the `Setting` key/value pattern; this table is dedicated
+    to connectors that need a lifecycle (test status, suspend, etc.) and
+    structured credentials.
+
+    The `credentials_encrypted` column is a pgcrypto `pgp_sym_encrypt`
+    blob of a JSON object. The service layer handles encryption and
+    decryption via the existing `ENCRYPTION_KEY` env var — no service-
+    level crypto introduced, so rotation and key management follow the
+    same rules as GDPR PII.
+    """
+    __tablename__ = "integration_connections"
+    __table_args__ = (
+        CheckConstraint(
+            "connection_type IN ('github', 'dokploy', 'agent_runner')",
+            name="ck_integration_connection_type",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'suspended', 'error', 'disabled')",
+            name="ck_integration_connection_status",
+        ),
+        Index(
+            "uq_integration_connection_entity_name",
+            "entity_id",
+            "name",
+            unique=True,
+        ),
+        Index("idx_integration_connection_type", "connection_type"),
+        Index(
+            "idx_integration_connection_entity_type",
+            "entity_id",
+            "connection_type",
+        ),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    connection_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    config: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default="'{}'"
+    )
+    # pgcrypto output (bytea). Encrypted/decrypted by the service layer
+    # using ENCRYPTION_KEY — never loaded into memory as raw bytes by the
+    # router layer.
+    credentials_encrypted: Mapped[bytes | None] = mapped_column(
+        BYTEA, nullable=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="active"
+    )
+    last_tested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_test_result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
 
 class I18nCatalogMeta(TimestampMixin, Base):

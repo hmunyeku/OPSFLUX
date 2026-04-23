@@ -7004,5 +7004,12 @@
       "description": "The requested resource does not exist.",
       "title": "Not found"
     }
+  },
+  "integrations": {
+    "heavy": {
+      "title": "Advanced connectors",
+      "description": "GitHub, Dokploy and Agent Runner. Required to enable the AI maintenance agent.",
+      "no_connector": "No connector configured."
+    }
   }
 }

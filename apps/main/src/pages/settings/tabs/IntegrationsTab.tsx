@@ -22,6 +22,7 @@ import api from '@/lib/api'
 import { useToast } from '@/components/ui/Toast'
 import { TagSelector } from '@/components/layout/DynamicPanel'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { HeavyConnectorsSection } from '@/pages/settings/components/HeavyConnectorsSection'
 import type { SettingRead } from '@/types/api'
 
 // ── Helpers ──
@@ -984,6 +985,9 @@ export function IntegrationsTab() {
 
   return (
     <>
+      {/* ── Heavy connectors (GitHub / Dokploy / Agent Runner) ── */}
+      <HeavyConnectorsSection />
+
       {/* ── Cartographie ── */}
       <CollapsibleSection
         id="cartographie-integration"

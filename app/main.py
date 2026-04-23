@@ -81,6 +81,7 @@ from app.api.routes.core.user_health_conditions import router as user_health_con
 from app.api.routes.core.medical_checks import router as medical_checks_router
 from app.api.routes.core.legal_identifiers import router as legal_identifiers_router
 from app.api.routes.core.integrations import router as integrations_router
+from app.api.routes.core.integration_connections import router as integration_connections_router
 from app.api.routes.core.gouti_sync import router as gouti_sync_router
 from app.api.routes.core.references import router as references_router
 from app.api.routes.core.social_networks import router as social_networks_router
@@ -357,6 +358,7 @@ app.include_router(user_health_conditions_router)
 app.include_router(medical_checks_router)
 app.include_router(legal_identifiers_router)
 app.include_router(integrations_router)
+app.include_router(integration_connections_router)
 app.include_router(gouti_sync_router)
 app.include_router(ws_notifications_router)
 app.include_router(workflow_router)

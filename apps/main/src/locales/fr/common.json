@@ -7004,5 +7004,12 @@
       "description": "La ressource demandée n’existe pas.",
       "title": "Introuvable"
     }
+  },
+  "integrations": {
+    "heavy": {
+      "title": "Connecteurs avancés",
+      "description": "GitHub, Dokploy et Agent Runner. Nécessaires pour activer l’agent de maintenance IA.",
+      "no_connector": "Aucun connecteur configuré."
+    }
   }
 }

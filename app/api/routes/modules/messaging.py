@@ -309,12 +309,19 @@ async def delete_announcement(
 async def dismiss_announcement(
     announcement_id: UUID,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Mark an announcement as read/dismissed by the current user."""
-    # Check announcement exists
+    # Tenant isolation: without the entity_id filter any authenticated
+    # user could probe for — and mark as dismissed — announcements
+    # belonging to sibling tenants. Low severity leak (marks read on
+    # their own receipt only) but violates cloisonnement contract.
     result = await db.execute(
-        select(Announcement).where(Announcement.id == announcement_id)
+        select(Announcement).where(
+            Announcement.id == announcement_id,
+            Announcement.entity_id == entity_id,
+        )
     )
     if not result.scalar_one_or_none():
         raise StructuredHTTPException(

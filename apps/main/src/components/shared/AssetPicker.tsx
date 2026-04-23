@@ -9,6 +9,7 @@
  * - Used by: Planner, PaxLog, TravelWiz, PID/PFD, Papyrus, etc.
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { safeLocal } from '@/lib/safeStorage'
 import { useTranslation } from 'react-i18next'
 import { Search, ChevronRight, ChevronDown, MapPin, Loader2, X, Clock, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -31,7 +32,7 @@ interface RecentAsset {
 
 function getRecentAssets(): RecentAsset[] {
   try {
-    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')
+    return JSON.parse(safeLocal.getItem(RECENT_KEY) || '[]')
   } catch {
     return []
   }
@@ -52,7 +53,7 @@ function trackAssetUsage(asset: { id: string; code: string; name: string; type: 
     const scoreB = b.count * Math.log(b.lastUsed)
     return scoreB - scoreA
   })
-  localStorage.setItem(RECENT_KEY, JSON.stringify(recents.slice(0, MAX_RECENT)))
+  safeLocal.setItem(RECENT_KEY, JSON.stringify(recents.slice(0, MAX_RECENT)))
 }
 
 // ── Tree search helper ───────────────────────────────────────

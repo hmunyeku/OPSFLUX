@@ -8,6 +8,7 @@
  * - Keyboard accessible, outside-click dismissal
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { safeLocal } from '@/lib/safeStorage'
 import { useTranslation } from 'react-i18next'
 import { Search, FolderKanban, Loader2, X, Clock, Star, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -28,7 +29,7 @@ interface RecentProject {
 
 function getRecentProjects(): RecentProject[] {
   try {
-    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')
+    return JSON.parse(safeLocal.getItem(RECENT_KEY) || '[]')
   } catch {
     return []
   }
@@ -48,7 +49,7 @@ function trackProjectUsage(project: { id: string; code: string; name: string; st
     const scoreB = b.count * Math.log(b.lastUsed)
     return scoreB - scoreA
   })
-  localStorage.setItem(RECENT_KEY, JSON.stringify(recents.slice(0, MAX_RECENT)))
+  safeLocal.setItem(RECENT_KEY, JSON.stringify(recents.slice(0, MAX_RECENT)))
 }
 
 // ── Status colors ───────────────────────────────────────────

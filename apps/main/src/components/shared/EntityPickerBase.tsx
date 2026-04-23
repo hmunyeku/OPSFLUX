@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { safeLocal } from '@/lib/safeStorage'
 import { useTranslation } from 'react-i18next'
 import type { LucideIcon } from 'lucide-react'
 import { ChevronDown, Clock, Loader2, Search, Star, X } from 'lucide-react'
@@ -37,7 +38,7 @@ interface RecentPickerItem extends PickerItem {
 
 function getRecentItems(storageKey: string): RecentPickerItem[] {
   try {
-    return JSON.parse(localStorage.getItem(storageKey) || '[]')
+    return JSON.parse(safeLocal.getItem(storageKey) || '[]')
   } catch {
     return []
   }
@@ -57,7 +58,7 @@ function trackRecentItem(storageKey: string, item: PickerItem) {
     recents.push({ ...item, count: 1, lastUsed: Date.now() })
   }
   recents.sort((a, b) => (b.count * Math.log(b.lastUsed)) - (a.count * Math.log(a.lastUsed)))
-  localStorage.setItem(storageKey, JSON.stringify(recents.slice(0, MAX_RECENT)))
+  safeLocal.setItem(storageKey, JSON.stringify(recents.slice(0, MAX_RECENT)))
 }
 
 export function EntityPickerBase<T>({

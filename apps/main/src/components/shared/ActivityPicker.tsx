@@ -7,6 +7,7 @@
  * - Shows title, type badge, status badge, asset name, dates
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { safeLocal } from '@/lib/safeStorage'
 import { useTranslation } from 'react-i18next'
 import { Search, Loader2, X, Clock, Star, ChevronDown, ListTodo, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -29,7 +30,7 @@ interface RecentActivity {
 
 function getRecentActivities(): RecentActivity[] {
   try {
-    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')
+    return JSON.parse(safeLocal.getItem(RECENT_KEY) || '[]')
   } catch {
     return []
   }
@@ -45,7 +46,7 @@ function trackActivityUsage(a: { id: string; title: string; type: string; status
     recents.push({ ...a, count: 1, lastUsed: Date.now() })
   }
   recents.sort((a, b) => b.count * Math.log(b.lastUsed) - a.count * Math.log(a.lastUsed))
-  localStorage.setItem(RECENT_KEY, JSON.stringify(recents.slice(0, MAX_RECENT)))
+  safeLocal.setItem(RECENT_KEY, JSON.stringify(recents.slice(0, MAX_RECENT)))
 }
 
 // ── Status/Type badges ──────────────────────────────────────

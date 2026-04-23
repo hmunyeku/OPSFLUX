@@ -1071,9 +1071,15 @@ async def enable_github_sync(
     """
     from app.services.integrations.github_support_sync import enable_sync
 
+    # Eager-load `comments` so `_enrich_ticket` (which touches
+    # `ticket.comments` for the count) doesn't trigger a lazy SELECT
+    # after commit — that would raise MissingGreenlet since the async
+    # session is already closed by that point.
     ticket = (
         await db.execute(
-            select(SupportTicket).where(
+            select(SupportTicket)
+            .options(selectinload(SupportTicket.comments))
+            .where(
                 SupportTicket.id == ticket_id,
                 SupportTicket.entity_id == entity_id,
             )
@@ -1091,7 +1097,16 @@ async def enable_github_sync(
         raise StructuredHTTPException(500, code="GITHUB_SYNC_ERROR", message=str(exc))
 
     await db.commit()
-    await db.refresh(ticket)
+    # Re-fetch with comments eagerly loaded (refresh doesn't re-run
+    # the selectinload options, so a plain refresh + _enrich_ticket
+    # would hit the same lazy-load trap).
+    ticket = (
+        await db.execute(
+            select(SupportTicket)
+            .options(selectinload(SupportTicket.comments))
+            .where(SupportTicket.id == ticket_id)
+        )
+    ).scalar_one()
 
     users_map = await _users_map(db, {ticket.reporter_id, *([ticket.assignee_id] if ticket.assignee_id else [])})
     return _enrich_ticket(ticket, users_map)
@@ -1107,9 +1122,14 @@ async def disable_github_sync(
 ):
     """Pause outbound mirroring. The link (issue number, URL) is kept so
     the admin can resume later without recreating the remote Issue."""
+    # Eager-load `comments` for the same MissingGreenlet reason as
+    # `enable_github_sync` — `_enrich_ticket` touches `ticket.comments`
+    # which is a lazy-loaded relationship.
     ticket = (
         await db.execute(
-            select(SupportTicket).where(
+            select(SupportTicket)
+            .options(selectinload(SupportTicket.comments))
+            .where(
                 SupportTicket.id == ticket_id,
                 SupportTicket.entity_id == entity_id,
             )
@@ -1119,6 +1139,13 @@ async def disable_github_sync(
         raise StructuredHTTPException(404, code="TICKET_NOT_FOUND", message="Ticket not found")
     ticket.github_sync_enabled = False
     await db.commit()
-    await db.refresh(ticket)
+    # refresh() does not replay selectinload options — re-query instead.
+    ticket = (
+        await db.execute(
+            select(SupportTicket)
+            .options(selectinload(SupportTicket.comments))
+            .where(SupportTicket.id == ticket_id)
+        )
+    ).scalar_one()
     users_map = await _users_map(db, {ticket.reporter_id, *([ticket.assignee_id] if ticket.assignee_id else [])})
     return _enrich_ticket(ticket, users_map)

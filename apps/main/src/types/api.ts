@@ -1359,9 +1359,15 @@ export interface ProjectCreate {
 export interface ProjectInitialTask {
   title: string
   priority?: 'low' | 'medium' | 'high' | 'critical'
+  start_date?: string | null
   due_date?: string | null
   is_milestone?: boolean
   estimated_hours?: number | null
+  /** 0-based index into the same initial_tasks list. Creates a
+   *  ProjectTaskDependency from that task to this one at save time. */
+  predecessor_index?: number | null
+  dependency_type?: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish'
+  lag_days?: number
 }
 
 export interface ProjectUpdate {

@@ -1687,12 +1687,27 @@ class ProjectRead(OpsFluxSchema):
 # Defined before ProjectCreate so `initial_tasks: list[ProjectInitialTask]`
 # resolves at module-load time without needing a forward ref + model_rebuild.
 class ProjectInitialTask(BaseModel):
-    """Minimal task seed accepted inside `ProjectCreate.initial_tasks`."""
+    """Minimal task seed accepted inside `ProjectCreate.initial_tasks`.
+
+    `predecessor_index` (optional) references another task defined
+    earlier in the same list — at creation time the backend wires a
+    ProjectTaskDependency from that task to this one, using
+    `dependency_type` + `lag_days` just like a normal dep.
+    """
     title: str = Field(..., min_length=1, max_length=300)
     priority: str = Field(default="medium", pattern=r"^(low|medium|high|critical)$")
+    start_date: datetime | None = None
     due_date: datetime | None = None
     is_milestone: bool = False
     estimated_hours: float | None = Field(default=None, ge=0)
+    # Antécédent — 0-based index into the same initial_tasks list of
+    # the predecessor task. None = no dependency.
+    predecessor_index: int | None = Field(default=None, ge=0)
+    dependency_type: str = Field(
+        default="finish_to_start",
+        pattern=r"^(finish_to_start|start_to_start|finish_to_finish|start_to_finish)$",
+    )
+    lag_days: int = Field(default=0)
 
 
 class ProjectCreate(BaseModel):

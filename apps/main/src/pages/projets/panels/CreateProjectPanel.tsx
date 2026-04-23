@@ -69,23 +69,41 @@ export function CreateProjectPanel() {
   const [initialTasks, setInitialTasks] = useState<ProjectInitialTask[]>([])
   const [taskDraftTitle, setTaskDraftTitle] = useState('')
   const [taskDraftPriority, setTaskDraftPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium')
+  const [taskDraftStartDate, setTaskDraftStartDate] = useState<string>('')
   const [taskDraftDueDate, setTaskDraftDueDate] = useState<string>('')
   const [taskDraftIsMilestone, setTaskDraftIsMilestone] = useState(false)
+  // Antécédent: index of the predecessor task in initialTasks (or ''
+  // for none). Kept as a string so the <select> value is trivially
+  // bindable; we parse on add.
+  const [taskDraftPredecessor, setTaskDraftPredecessor] = useState<string>('')
+  const [taskDraftDependencyType, setTaskDraftDependencyType] = useState<
+    'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish'
+  >('finish_to_start')
+  const [taskDraftLagDays, setTaskDraftLagDays] = useState<string>('0')
   const addTaskDraft = () => {
     const title = taskDraftTitle.trim()
     if (!title) return
+    const predIdx = taskDraftPredecessor === '' ? null : Number(taskDraftPredecessor)
     setInitialTasks((prev) => [
       ...prev,
       {
         title,
         priority: taskDraftPriority,
+        start_date: taskDraftIsMilestone ? (taskDraftDueDate || null) : (taskDraftStartDate || null),
         due_date: taskDraftDueDate || null,
         is_milestone: taskDraftIsMilestone,
+        predecessor_index: predIdx !== null && Number.isInteger(predIdx) && predIdx >= 0 ? predIdx : null,
+        dependency_type: predIdx !== null ? taskDraftDependencyType : undefined,
+        lag_days: predIdx !== null ? Number(taskDraftLagDays) || 0 : undefined,
       },
     ])
     setTaskDraftTitle('')
+    setTaskDraftStartDate('')
     setTaskDraftDueDate('')
     setTaskDraftIsMilestone(false)
+    setTaskDraftPredecessor('')
+    setTaskDraftDependencyType('finish_to_start')
+    setTaskDraftLagDays('0')
   }
   const removeTask = (idx: number) =>
     setInitialTasks((prev) => prev.filter((_, i) => i !== idx))
@@ -352,12 +370,32 @@ export function CreateProjectPanel() {
               >
                 {initialTasks.length > 0 && (
                   <div className="space-y-1 mb-2">
-                    {initialTasks.map((task, idx) => (
+                    {initialTasks.map((task, idx) => {
+                      const predTitle =
+                        task.predecessor_index !== null &&
+                        task.predecessor_index !== undefined &&
+                        initialTasks[task.predecessor_index]
+                          ? initialTasks[task.predecessor_index].title
+                          : null
+                      const depTypeShort =
+                        task.dependency_type === 'start_to_start' ? 'SS'
+                        : task.dependency_type === 'finish_to_finish' ? 'FF'
+                        : task.dependency_type === 'start_to_finish' ? 'SF'
+                        : 'FS'
+                      const dateLabel = task.is_milestone
+                        ? task.due_date
+                        : task.start_date && task.due_date
+                          ? `${task.start_date} → ${task.due_date}`
+                          : task.due_date || task.start_date
+                      return (
                       <div
                         key={`${task.title}-${idx}`}
                         className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2 py-1.5"
                       >
                         <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] text-muted-foreground/60 tabular-nums shrink-0">
+                            #{idx + 1}
+                          </span>
                           {task.is_milestone ? (
                             <Flag size={12} className="text-amber-500 shrink-0" />
                           ) : (
@@ -368,8 +406,11 @@ export function CreateProjectPanel() {
                             <p className="text-[10px] text-muted-foreground">
                               {[
                                 task.priority,
-                                task.due_date,
+                                dateLabel,
                                 task.is_milestone ? t('projets.milestone', 'Jalon') : null,
+                                predTitle
+                                  ? `${depTypeShort}${task.lag_days ? ` ${task.lag_days >= 0 ? '+' : ''}${task.lag_days}j` : ''} · ← ${predTitle}`
+                                  : null,
                               ]
                                 .filter(Boolean)
                                 .join(' • ')}
@@ -385,7 +426,8 @@ export function CreateProjectPanel() {
                           <Trash2 size={12} />
                         </button>
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
 
@@ -403,6 +445,8 @@ export function CreateProjectPanel() {
                     className={panelInputClass}
                     placeholder={t('projets.task_title_placeholder', 'Titre de la tâche…') as string}
                   />
+
+                  {/* Row 1: priority + dates + milestone */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <select
                       value={taskDraftPriority}
@@ -410,18 +454,37 @@ export function CreateProjectPanel() {
                         setTaskDraftPriority(e.target.value as 'low' | 'medium' | 'high' | 'critical')
                       }
                       className="gl-form-select text-xs h-7"
+                      title={t('common.priority_field', 'Priorité') as string}
                     >
                       <option value="low">{t('projets.priority.low', 'Basse')}</option>
                       <option value="medium">{t('projets.priority.medium', 'Moyenne')}</option>
                       <option value="high">{t('projets.priority.high', 'Haute')}</option>
                       <option value="critical">{t('projets.priority.critical', 'Critique')}</option>
                     </select>
-                    <input
-                      type="date"
-                      value={taskDraftDueDate}
-                      onChange={(e) => setTaskDraftDueDate(e.target.value)}
-                      className="gl-form-input text-xs h-7"
-                    />
+                    {!taskDraftIsMilestone && (
+                      <label className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                        {t('projets.task_start_date', 'Début')}
+                        <input
+                          type="date"
+                          value={taskDraftStartDate}
+                          onChange={(e) => setTaskDraftStartDate(e.target.value)}
+                          className="gl-form-input text-xs h-7"
+                          title={t('projets.task_start_date_hint', 'Date de début planifiée') as string}
+                        />
+                      </label>
+                    )}
+                    <label className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                      {taskDraftIsMilestone
+                        ? t('projets.task_milestone_date', 'Date du jalon')
+                        : t('projets.task_end_date', 'Fin')}
+                      <input
+                        type="date"
+                        value={taskDraftDueDate}
+                        onChange={(e) => setTaskDraftDueDate(e.target.value)}
+                        min={taskDraftStartDate || undefined}
+                        className="gl-form-input text-xs h-7"
+                      />
+                    </label>
                     <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                       <input
                         type="checkbox"
@@ -430,11 +493,72 @@ export function CreateProjectPanel() {
                       />
                       {t('projets.is_milestone', 'Jalon')}
                     </label>
+                  </div>
+
+                  {/* Row 2: antécédent — only if there's at least 1 task already */}
+                  {initialTasks.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border/40">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                        {t('projets.task_predecessor', 'Antécédent')}
+                      </span>
+                      <select
+                        value={taskDraftPredecessor}
+                        onChange={(e) => setTaskDraftPredecessor(e.target.value)}
+                        className="gl-form-select text-xs h-7 min-w-[140px]"
+                      >
+                        <option value="">
+                          {t('projets.task_predecessor_none', '— Aucun —')}
+                        </option>
+                        {initialTasks.map((tk, i) => (
+                          <option key={i} value={String(i)}>
+                            #{i + 1} — {tk.title}
+                          </option>
+                        ))}
+                      </select>
+                      {taskDraftPredecessor !== '' && (
+                        <>
+                          <select
+                            value={taskDraftDependencyType}
+                            onChange={(e) =>
+                              setTaskDraftDependencyType(
+                                e.target.value as
+                                  | 'finish_to_start'
+                                  | 'start_to_start'
+                                  | 'finish_to_finish'
+                                  | 'start_to_finish',
+                              )
+                            }
+                            className="gl-form-select text-xs h-7"
+                            title={t('projets.task_dependency_type', 'Type de dépendance') as string}
+                          >
+                            <option value="finish_to_start">FS — {t('projets.dep_fs', 'Fin → Début')}</option>
+                            <option value="start_to_start">SS — {t('projets.dep_ss', 'Début → Début')}</option>
+                            <option value="finish_to_finish">FF — {t('projets.dep_ff', 'Fin → Fin')}</option>
+                            <option value="start_to_finish">SF — {t('projets.dep_sf', 'Début → Fin')}</option>
+                          </select>
+                          <label className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                            {t('projets.task_lag_days', 'Décalage (j)')}
+                            <input
+                              type="number"
+                              step="1"
+                              value={taskDraftLagDays}
+                              onChange={(e) => setTaskDraftLagDays(e.target.value)}
+                              className="gl-form-input text-xs h-7 w-14"
+                              title={t('projets.task_lag_days_hint', 'Négatif = anticiper · Positif = retarder') as string}
+                            />
+                          </label>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Row 3: add button */}
+                  <div className="flex items-center justify-end pt-1">
                     <button
                       type="button"
                       onClick={addTaskDraft}
                       disabled={!taskDraftTitle.trim()}
-                      className="gl-button-sm gl-button-confirm inline-flex items-center gap-1 ml-auto disabled:opacity-50"
+                      className="gl-button-sm gl-button-confirm inline-flex items-center gap-1 disabled:opacity-50"
                     >
                       <Plus size={12} /> {t('common.add', 'Ajouter')}
                     </button>

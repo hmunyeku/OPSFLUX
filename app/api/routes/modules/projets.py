@@ -557,13 +557,17 @@ async def create_project(
 
     # Seed initial tasks (FK-linked). We preserve the order the user
     # supplied via the ProjectTask.order column so the detail view shows
-    # them in the same sequence.
+    # them in the same sequence. We also keep a list of the created task
+    # rows (in submission order) so the next loop can wire up the
+    # predecessor_index dependencies by position.
+    seeded_tasks: list[ProjectTask] = []
     for idx, task in enumerate(initial_tasks):
         due_date = task.get("due_date")
         is_milestone = bool(task.get("is_milestone"))
         # Milestones are zero-duration: force start_date = due_date.
-        start_date = due_date if is_milestone else None
-        db.add(ProjectTask(
+        # Otherwise honour the start_date the user typed (may be None).
+        start_date = due_date if is_milestone else task.get("start_date")
+        row = ProjectTask(
             project_id=project.id,
             title=task["title"],
             priority=task.get("priority") or "medium",
@@ -572,6 +576,29 @@ async def create_project(
             estimated_hours=task.get("estimated_hours"),
             status="todo",
             order=idx,
+        )
+        db.add(row)
+        seeded_tasks.append(row)
+
+    # Flush so the ORM assigns IDs before we build ProjectTaskDependency
+    # rows that reference them.
+    if seeded_tasks:
+        await db.flush()
+
+    # Wire predecessor dependencies — each task can point at a previous
+    # one by its 0-based index in the same initial_tasks array. We
+    # skip self-references and forward refs (pred must be < idx).
+    for idx, task in enumerate(initial_tasks):
+        pred_idx = task.get("predecessor_index")
+        if pred_idx is None:
+            continue
+        if not isinstance(pred_idx, int) or pred_idx < 0 or pred_idx >= idx:
+            continue  # silent skip: invalid user input
+        db.add(ProjectTaskDependency(
+            from_task_id=seeded_tasks[pred_idx].id,
+            to_task_id=seeded_tasks[idx].id,
+            dependency_type=task.get("dependency_type") or "finish_to_start",
+            lag_days=int(task.get("lag_days") or 0),
         ))
 
     # Re-target any polymorphic children (attachments, notes, tags, ...)

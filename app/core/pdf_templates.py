@@ -3824,9 +3824,9 @@ _MOC_REPORT_BODY_FR = r"""\
     </td>
   </tr>
 
-  <!-- Sub-header Nécessaire / Réalisé -->
+  <!-- Sub-header Nécessaire / Réalisé (Word leaves entity cell empty) -->
   <tr>
-    <td class="label">Process Engineer</td>
+    <td></td>
     <td class="greymid">Nécessaire</td>
     <td class="greymid">Réalisé</td>
     <td></td>

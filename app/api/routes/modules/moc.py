@@ -1198,14 +1198,29 @@ async def export_moc_pdf(
     # Service-side labels — dictionary lookups would be heavier; keep the
     # canonical FR labels here and let the template admin tweak the HTML
     # for language-specific wording.
+    # Labels aligned with the PERENCO "Rapport MOC" paper form (rev. 06,
+    # octobre 2025). Changes here propagate to the PDF rendering via the
+    # validations[] payload — keep in sync with the French form.
     ROLE_LABELS = {
-        "hse": "HSE / Safety",
-        "lead_process": "Lead Process",
+        "hse": "HSE",
+        "lead_process": "Lead Process Engineer",
         "production_manager": "Production Manager",
-        "gas_manager": "Gas Manager",
+        "gas_manager": "Gaz Manager",
         "maintenance_manager": "Maintenance Manager",
         "process_engineer": "Process Engineer",
-        "metier": "Métier",
+        "metier": "Métiers",
+    }
+    # Deterministic ordering for the PDF validation matrix (Tableau 3 of
+    # the paper form). Any role not in this list is rendered last in its
+    # DB order.
+    ROLE_ORDER = {
+        "hse": 0,
+        "lead_process": 1,
+        "production_manager": 2,
+        "gas_manager": 3,
+        "maintenance_manager": 4,
+        "metier": 5,
+        "process_engineer": 6,
     }
     COST_BUCKET_LABELS = {
         "lt_20": "< 20 MXAF",
@@ -1329,9 +1344,20 @@ async def export_moc_pdf(
     }
 
     # Per-validator comments can also carry inline Tiptap images — rewrite
-    # those URLs too before Jinja renders them.
+    # those URLs too before Jinja renders them. Sort by canonical role
+    # order so the PDF matrix always reads HSE → Lead → Prod → Gaz →
+    # Maintenance → Métiers → Process Engineer regardless of DB insertion
+    # order.
+    _ordered_validations = sorted(
+        moc.validations or [],
+        key=lambda v: (
+            ROLE_ORDER.get(v.role, 99),
+            v.metier_name or "",
+            v.created_at.isoformat() if v.created_at else "",
+        ),
+    )
     validations_payload = []
-    for v in moc.validations or []:
+    for v in _ordered_validations:
         rewritten_comments = _rewrite_inline_images(v.comments) if v.comments else None
         validations_payload.append({
             "role_label": ROLE_LABELS.get(v.role, v.role),

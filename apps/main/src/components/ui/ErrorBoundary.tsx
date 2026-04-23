@@ -1,5 +1,20 @@
 import React from 'react'
+import i18n from 'i18next'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+
+// Class components can't use hooks — pull translations from the
+// i18next instance directly. Falls back to the French literal if the
+// key isn't loaded yet (i.e. the boundary fired before i18n finished
+// initialising — unlikely but theoretically possible).
+const tx = (key: string, fallback: string) => {
+  try {
+    const v = i18n.t(key)
+    // When the key is missing, i18next returns the key itself.
+    return v && v !== key ? v : fallback
+  } catch {
+    return fallback
+  }
+}
 
 interface Props { children: React.ReactNode; fallback?: React.ReactNode }
 interface State { hasError: boolean; error: Error | null }
@@ -39,16 +54,19 @@ export class ErrorBoundary extends React.Component<Props, State> {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-destructive/15 to-highlight/10 ring-1 ring-destructive/20 shadow-[0_10px_40px_-15px_hsl(var(--destructive)/0.3)]">
               <AlertTriangle size={32} className="text-destructive" strokeWidth={1.8} />
             </div>
-            <h2 className="text-xl font-bold font-display tracking-tight">Une erreur est survenue</h2>
+            <h2 className="text-xl font-bold font-display tracking-tight">
+              {tx('error_boundary.title', 'Une erreur est survenue')}
+            </h2>
             <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
-              {this.state.error?.message || 'Une erreur inattendue s\'est produite. L\'équipe technique a été notifiée.'}
+              {this.state.error?.message
+                || tx('error_boundary.description', "Une erreur inattendue s'est produite. L'équipe technique a été notifiée.")}
             </p>
             <div className="mt-6 flex items-center justify-center gap-2">
               <button onClick={this.handleReset} className="gl-button-sm gl-button-default">
-                <RefreshCw size={13} /> Réessayer
+                <RefreshCw size={13} /> {tx('error_boundary.retry', 'Réessayer')}
               </button>
               <button onClick={this.handleHome} className="gl-button-sm gl-button-confirm">
-                <Home size={13} /> Accueil
+                <Home size={13} /> {tx('error_boundary.home', 'Accueil')}
               </button>
             </div>
           </div>

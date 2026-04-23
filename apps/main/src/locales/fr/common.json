@@ -147,6 +147,12 @@
       "finish": "Terminer"
     }
   },
+  "error_boundary": {
+    "title": "Une erreur est survenue",
+    "description": "Une erreur inattendue s'est produite. L'équipe technique a été notifiée.",
+    "retry": "Réessayer",
+    "home": "Accueil"
+  },
   "dynamic_panel": {
     "shrink_side": "Réduire en panneau latéral",
     "expand_full": "Agrandir en pleine largeur",

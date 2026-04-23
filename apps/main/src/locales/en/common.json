@@ -147,6 +147,12 @@
       "finish": "Finish"
     }
   },
+  "error_boundary": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. The technical team has been notified.",
+    "retry": "Retry",
+    "home": "Home"
+  },
   "dynamic_panel": {
     "shrink_side": "Shrink to side panel",
     "expand_full": "Expand to full width",

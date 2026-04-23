@@ -557,6 +557,21 @@ class PasswordHistory(UUIDPrimaryKeyMixin, Base):
 
 class AuditLog(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "audit_log"
+    __table_args__ = (
+        # Settings → Audit tab: paginated list scoped to the acting
+        # entity, ordered by created_at desc. Without this index the
+        # query grows linearly with total audit log size (every RBAC
+        # delete, login, sensitive action writes a row — hundreds
+        # per active tenant per day).
+        Index("idx_audit_log_entity_created", "entity_id", "created_at"),
+        # "What happened to resource X?" — the resource detail panels
+        # query by (resource_type, resource_id) when the audit trail
+        # drawer is opened. Compound index so the second predicate
+        # applies a proper range scan instead of a filter.
+        Index("idx_audit_log_resource", "resource_type", "resource_id"),
+        # "What did user X do?" — user activity view.
+        Index("idx_audit_log_user_created", "user_id", "created_at"),
+    )
 
     entity_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
     user_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))

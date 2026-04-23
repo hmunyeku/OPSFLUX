@@ -4116,10 +4116,10 @@ def render_template_string(template_str: str, variables: dict) -> str:
         tpl = _jinja_env.from_string(template_str)
         return tpl.render(**variables)
     except TemplateSyntaxError as e:
-        logger.error("PDF template syntax error: %s", e)
+        logger.exception("PDF template syntax error: %s", e)
         return f"<div style='color:red;padding:16px;border:2px solid red'><b>Erreur de syntaxe dans le template PDF:</b><br>{e}</div>"
     except Exception as e:
-        logger.error("PDF template render error: %s", e)
+        logger.exception("PDF template render error: %s", e)
         return f"<div style='color:red;padding:16px;border:2px solid red'><b>Erreur de rendu PDF:</b><br>{e}</div>"
 
 
@@ -4255,7 +4255,7 @@ def _html_to_pdf(html: str, template: "PdfTemplate | None" = None) -> bytes:
         pdf_bytes = html_doc.write_pdf(stylesheets=[css])
         return pdf_bytes
     except ImportError:
-        logger.error(
+        logger.exception(
             "weasyprint is not installed. Install with: pip install weasyprint"
         )
         raise RuntimeError("weasyprint is required for PDF generation but is not installed")

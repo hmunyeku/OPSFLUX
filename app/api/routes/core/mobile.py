@@ -165,13 +165,13 @@ async def mobile_bootstrap(
     try:
         forms = get_all_form_definitions()
     except Exception as exc:
-        logger.error("mobile.bootstrap: form generation failed: %s", exc)
+        logger.exception("mobile.bootstrap: form generation failed: %s", exc)
         forms = []
 
     try:
         portals = get_portal_definitions()
     except Exception as exc:
-        logger.error("mobile.bootstrap: portal generation failed: %s", exc)
+        logger.exception("mobile.bootstrap: portal generation failed: %s", exc)
         portals = []
 
     payload = {

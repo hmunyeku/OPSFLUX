@@ -425,7 +425,7 @@ async def sync_all_projects(
     try:
         gouti_projects = await connector.get_projects()
     except Exception as exc:
-        logger.error("Gouti sync — failed to fetch projects: %s", exc)
+        logger.exception("Gouti sync — failed to fetch projects: %s", exc)
         raise HTTPException(
             status_code=502,
             detail=f"Impossible de récupérer les projets depuis Gouti : {str(exc)[:300]}",
@@ -1510,7 +1510,7 @@ async def sync_single_project(
     try:
         gouti_data = await connector.get_project(project_id)
     except Exception as exc:
-        logger.error("Gouti single sync — failed to fetch project %s: %s", project_id, exc)
+        logger.exception("Gouti single sync — failed to fetch project %s: %s", project_id, exc)
         raise HTTPException(
             status_code=502,
             detail=f"Impossible de récupérer le projet {project_id} depuis Gouti : {str(exc)[:300]}",

@@ -130,7 +130,7 @@ async def verify_captcha(
                 )
             return True
     except httpx.TimeoutException:
-        logger.error("CAPTCHA verification timed out")
+        logger.exception("CAPTCHA verification timed out")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CAPTCHA verification unavailable. Please try again.",
@@ -138,7 +138,7 @@ async def verify_captcha(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("CAPTCHA verification error: %s", e)
+        logger.exception("CAPTCHA verification error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CAPTCHA verification unavailable. Please try again.",

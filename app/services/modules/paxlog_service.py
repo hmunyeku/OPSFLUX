@@ -1087,7 +1087,7 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
             )
 
         except Exception as e:
-            logger.error("Rotation cycle %s: failed to create AdS — %s", cycle_id, e)
+            logger.exception("Rotation cycle %s: failed to create AdS — %s", cycle_id, e)
             continue
 
     if created_count:

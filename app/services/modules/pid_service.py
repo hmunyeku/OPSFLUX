@@ -607,7 +607,7 @@ async def parse_and_sync_pid(
     try:
         root = ET.fromstring(xml_content)
     except ET.ParseError as e:
-        logger.error("Failed to parse XML for PID %s: %s", pid_id, e)
+        logger.exception("Failed to parse XML for PID %s: %s", pid_id, e)
         return {"error": f"Invalid XML: {e}", "equipment": 0, "lines": 0, "connections": 0}
 
     cells = root.findall(".//mxCell")

@@ -1216,7 +1216,7 @@ async def _proxy_backend_call(backend_slug: str, request: Request, path: str = "
         try:
             native = await get_or_create_backend(backend.slug, backend.config or {})
         except Exception as exc:
-            logger.error("Native backend '%s' init failed: %s", backend_slug, exc)
+            logger.exception("Native backend '%s' init failed: %s", backend_slug, exc)
             return JSONResponse(
                 {"error": f"Native backend '{backend_slug}' initialization failed: {str(exc)[:300]}"},
                 status_code=503,

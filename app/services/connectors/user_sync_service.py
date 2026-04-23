@@ -132,7 +132,7 @@ class LDAPUserSync(UserSyncProvider):
             return "ok", f"Connected to {self.server_url}"
         except ImportError:
             # ldap3 is a declared dependency; this means deployment is broken.
-            logger.error("ldap3 module not importable — check pyproject.toml deps and Docker image")
+            logger.exception("ldap3 module not importable — check pyproject.toml deps and Docker image")
             return "error", "ldap3 module not available in this build"
         except Exception as exc:
             return "error", str(exc)
@@ -141,7 +141,7 @@ class LDAPUserSync(UserSyncProvider):
         try:
             import ldap3
         except ImportError:
-            logger.error("ldap3 module not importable during fetch_users — deployment broken")
+            logger.exception("ldap3 module not importable during fetch_users — deployment broken")
             raise RuntimeError(
                 "LDAP sync failed: ldap3 module is declared in pyproject.toml but not "
                 "available at runtime. Check the Docker image build."

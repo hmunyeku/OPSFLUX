@@ -1759,7 +1759,7 @@ async def create_gouti_backend(config: dict) -> "NativeBackend":
         schema, settings = await _find_gouti_settings()
         logger.info("Gouti native: using credentials from schema '%s'", schema)
     except RuntimeError:
-        logger.error(
+        logger.exception(
             "Gouti native: aucun tenant avec Gouti configuré. "
             "Configurez Gouti dans Paramètres > Intégrations > Gouti."
         )

@@ -1476,7 +1476,7 @@ async def generate_recurring_activities(db: AsyncSession, entity_id: UUID) -> in
 
         await db.commit()
     except Exception as e:
-        logger.error("Error generating recurring activities: %s", e)
+        logger.exception("Error generating recurring activities: %s", e)
 
     return generated
 

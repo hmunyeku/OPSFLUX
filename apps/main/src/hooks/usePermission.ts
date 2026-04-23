@@ -3,8 +3,17 @@
  *
  * Usage:
  *   const { hasPermission, hasAny, loading } = usePermission()
- *   if (hasPermission('paxlog.ads.write')) { ... }
- *   if (hasAny(['paxlog.ads.write', 'paxlog.ads.approve'])) { ... }
+ *   if (hasPermission('paxlog.ads.update')) { ... }
+ *   if (hasAny(['paxlog.ads.update', 'paxlog.ads.approve'])) { ... }
+ *
+ * Permission strings MUST match the backend catalogue — the manifests
+ * in app/modules/<slug>/__init__.py plus the core list in
+ * app/services/core/permission_sync.py. Typos create 'dead UI gates'
+ * (buttons silently hidden from every user).
+ *
+ * To audit: `python scripts/audit_permissions.py` — exits non-zero if
+ * any hasPermission() call targets a perm that isn't registered in the
+ * backend catalogue.
  */
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'

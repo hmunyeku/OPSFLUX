@@ -146,7 +146,15 @@ Le pipeline technique est prêt — tous les bugs d'infrastructure sont résolus
 
 ### Build Android/iOS
 
-**Bloquant** : pas tes credentials EAS, pas de macOS pour iOS. Doc complète dans `apps/mobile/BUILD.md`.
+**✅ Débloqué** après que tu m'aies donné `EXPO_TOKEN`. Deux builds lancés :
+
+- **Android preview APK** : https://expo.dev/accounts/hmunyeku/projects/opsflux-mobile/builds/b9945c37-25db-499b-9244-6c7f19bc4a59
+  → Une fois `finished`, lien d'install direct dans cette même page.
+
+- **iOS simulator (.tar.gz)** : https://expo.dev/accounts/hmunyeku/projects/opsflux-mobile/builds/91393ae2-0bd8-4f88-b11a-efd6097d370a
+  → À glisser-déposer dans Xcode iOS Simulator sur macOS.
+
+**iOS device / App Store** nécessite un compte Apple Developer ($99/an) avec certificats de signature. Pas fait car pas les creds Apple. Procédure dans `apps/mobile/BUILD.md` quand tu seras prêt.
 
 ### Fixes des monolithes frontend
 

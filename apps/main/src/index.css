@@ -243,6 +243,19 @@
   80% { transform: rotate(0deg); }
 }
 
+/* Utility: repeating bell wobble for unread notifications in the topbar.
+ * 4-second cycle = quick shake then rest. Respects prefers-reduced-motion.
+ */
+.bell-wobble {
+  transform-origin: 50% 20%;
+  animation: opsflux-bell-wobble 4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bell-wobble {
+    animation: none;
+  }
+}
+
 .dark .skeleton-shimmer::after {
   background-image: linear-gradient(
     90deg,

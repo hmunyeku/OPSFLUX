@@ -22,14 +22,12 @@ import React, {
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { marked } from 'marked'
 import {
   X,
   Bot,
   BookOpen,
   Map,
-  Bell,
   LifeBuoy,
   Send,
   Loader2,
@@ -42,9 +40,6 @@ import {
   Video,
   Square,
   Paperclip,
-  CheckCheck,
-  ExternalLink,
-  Inbox,
   Sparkles,
   RotateCcw,
   StopCircle,
@@ -71,7 +66,7 @@ import { RichTextField } from '@/components/shared/RichTextField'
 
 // ── Types ──────────────────────────────────────────────────────
 
-type TabId = 'chat' | 'help' | 'tours' | 'alerts' | 'ticket'
+type TabId = 'chat' | 'help' | 'tours' | 'ticket'
 
 interface ChatMsg {
   role: 'user' | 'assistant'
@@ -79,15 +74,6 @@ interface ChatMsg {
   timestamp: number
 }
 
-interface Notification {
-  id: string
-  title: string
-  body: string | null
-  category: string
-  link: string | null
-  read: boolean
-  created_at: string
-}
 
 interface AssistantActionToken {
   type: 'go' | 'confirm-write'
@@ -440,7 +426,6 @@ function WorkflowItem({ workflow }: { workflow: WorkflowHelp }) {
 export function AssistantPanel() {
   const { t } = useTranslation()
   const { pathname } = useLocation()
-  const navigate = useNavigate()
   const { hasPermission } = usePermission()
   const { aiPanelOpen, toggleAIPanel, assistantTab, setAssistantTab } = useUIStore()
 
@@ -485,15 +470,15 @@ export function AssistantPanel() {
   // ── Tab visibility based on permissions ──
   const canChat = true // All authenticated users can use AI chat
   const canCreateTicket = hasPermission('support.ticket.create')
-  const canViewAlerts = true // All users see their notifications
+  // Alerts tab removed 2026-04-23 — the notification bell in the topbar
+  // and the /notifications journal page replace it.
 
   const tabs: { id: TabId; icon: typeof Bot; label: string; visible: boolean; badge?: number }[] = useMemo(() => [
     { id: 'chat', icon: Bot, label: t('assistant.tabs.chat'), visible: canChat },
     { id: 'help', icon: BookOpen, label: t('assistant.tabs.help'), visible: true },
     { id: 'tours', icon: Map, label: t('assistant.tabs.tours'), visible: true },
-    { id: 'alerts', icon: Bell, label: t('assistant.tabs.alerts'), visible: canViewAlerts },
     { id: 'ticket', icon: LifeBuoy, label: t('assistant.tabs.ticket'), visible: canCreateTicket },
-  ], [canChat, canViewAlerts, canCreateTicket])
+  ], [canChat, canCreateTicket])
 
   // Ensure active tab is visible
   useEffect(() => {
@@ -580,7 +565,6 @@ export function AssistantPanel() {
         {activeTab === 'chat' && <ChatTab currentModule={currentModule} />}
         {activeTab === 'help' && <HelpTab currentModule={currentModule} />}
         {activeTab === 'tours' && <ToursTab currentModule={currentModule} />}
-        {activeTab === 'alerts' && <AlertsTab navigate={navigate} />}
         {activeTab === 'ticket' && <TicketTab />}
       </div>
     </aside>
@@ -1150,124 +1134,6 @@ function ToursTab({ currentModule }: { currentModule: string }) {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════
-// TAB 4: ALERTS / NOTIFICATIONS
-// ═══════════════════════════════════════════════════════════════
-
-function AlertsTab({ navigate }: { navigate: (path: string) => void }) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
-
-  const { data: unreadCount } = useQuery({
-    queryKey: ['notifications', 'unread-count'],
-    queryFn: () => api.get('/api/v1/notifications/unread-count').then(r => r.data),
-    refetchInterval: 30_000,
-  })
-
-  const { data: notificationsData, isLoading } = useQuery({
-    queryKey: ['notifications', 'list'],
-    queryFn: () => api.get<{ items: Notification[] }>('/api/v1/notifications', { params: { page_size: 30 } }).then(r => r.data),
-  })
-
-  const markRead = useMutation({
-    mutationFn: (id: string) => api.patch(`/api/v1/notifications/${id}/read`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-    },
-  })
-
-  const markAllRead = useMutation({
-    mutationFn: () => api.post('/api/v1/notifications/mark-all-read'),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-    },
-  })
-
-  const notifications = notificationsData?.items ?? []
-
-  const CATEGORY_COLORS: Record<string, string> = {
-    info: 'bg-blue-500', warning: 'bg-amber-500', error: 'bg-red-500',
-    success: 'bg-green-500', workflow: 'bg-violet-500', system: 'bg-gray-500',
-  }
-
-  function timeAgo(dateStr: string): string {
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return "à l'instant"
-    if (mins < 60) return `${mins}min`
-    const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours}h`
-    const days = Math.floor(hours / 24)
-    return `${days}j`
-  }
-
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Header with mark all */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/10 shrink-0">
-        <span className="text-xs text-muted-foreground">
-          {(unreadCount?.count ?? 0) > 0
-            ? `${unreadCount.count} non lue(s)`
-            : 'Tout est lu'}
-        </span>
-        {(unreadCount?.count ?? 0) > 0 && (
-          <button
-            onClick={() => markAllRead.mutate()}
-            className="text-[10px] text-primary hover:underline flex items-center gap-1"
-          >
-            <CheckCheck size={10} /> Tout lire
-          </button>
-        )}
-      </div>
-
-      {/* Notification list */}
-      <div className="flex-1 overflow-y-auto">
-        {isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 size={16} className="animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {!isLoading && notifications.length === 0 && (
-          <div className="text-center py-8">
-            <Inbox size={24} className="mx-auto text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">{t('common.no_notification')}</p>
-          </div>
-        )}
-
-        {notifications.map(n => (
-          <div
-            key={n.id}
-            className={cn(
-              'px-4 py-2.5 border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer',
-              !n.read && 'bg-primary/5',
-            )}
-            onClick={() => {
-              if (!n.read) markRead.mutate(n.id)
-              if (n.link) navigate(n.link)
-            }}
-          >
-            <div className="flex items-start gap-2.5">
-              <div className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0', CATEGORY_COLORS[n.category] || 'bg-gray-500')} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className={cn('text-sm truncate', n.read ? 'text-muted-foreground' : 'text-foreground font-medium')}>
-                    {n.title}
-                  </p>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{timeAgo(n.created_at)}</span>
-                </div>
-                {n.body && (
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
-                )}
-              </div>
-              {n.link && <ExternalLink size={10} className="text-muted-foreground/50 mt-1.5 shrink-0" />}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 // ═══════════════════════════════════════════════════════════════
 // TAB 5: QUICK TICKET

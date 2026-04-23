@@ -34,6 +34,7 @@ const UsersPage = lazy(() => import('@/pages/users/UsersPage').then(m => ({ defa
 const EntitiesPage = lazy(() => import('@/pages/entities/EntitiesPage').then(m => ({ default: m.EntitiesPage })))
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const SearchPage = lazy(() => import('@/pages/search/SearchPage').then(m => ({ default: m.SearchPage })))
+const NotificationsPage = lazy(() => import('@/pages/notifications/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
 const CaptainPortalPage = lazy(() => import('@/pages/travelwiz/CaptainPortalPage').then(m => ({ default: m.CaptainPortalPage })))
 const TVModePage = lazy(() => import('@/pages/dashboard/TVModePage').then(m => ({ default: m.TVModePage })))
 const FileManagerPage = lazy(() => import('@/pages/files/FileManagerPage'))
@@ -117,6 +118,7 @@ export default function App() {
                   <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<LoaderFallback />}><FileManagerPage /></Suspense></RequirePermission>} />
                   <Route path="/support/*" element={<RequireModuleEnabled module="support"><RequirePermission permission="support.ticket.read"><SupportPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/moc/*" element={<RequireModuleEnabled module="moc"><RequirePermission permission="moc.read"><MOCPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="/settings/*" element={<SettingsPage />} />
                   {/* French path aliases → redirect to canonical English paths */}
                   <Route path="/workflows/*" element={<Navigate to="/workflow" replace />} />

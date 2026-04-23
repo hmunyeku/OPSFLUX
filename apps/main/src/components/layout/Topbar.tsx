@@ -32,7 +32,8 @@ import { cn } from '@/lib/utils'
 import { CommandPalette, useCommandPalette } from '@/components/ui/CommandPalette'
 // HelpSystem context no longer needed — help is in AssistantPanel
 import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
-// NotificationCenter and AnnouncementCenter removed — merged into AssistantPanel
+// Topbar notification bell — restored (2026-04-23). Journal page at /notifications.
+import { NotificationBell } from '@/components/layout/NotificationBell'
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { ROUTES } from '@/lib/routes'
@@ -466,6 +467,8 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           </span>
 
           <LanguageSwitcher />
+
+          <NotificationBell />
 
           <button
             data-tour="assistant-button"

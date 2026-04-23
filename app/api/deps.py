@@ -93,16 +93,57 @@ async def get_current_entity(
     request: Request,
     x_entity_id: str | None = Header(None, alias="X-Entity-ID"),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> UUID:
-    """Resolve the current entity from header or user default."""
+    """Resolve the current entity from header or user default.
+
+    Security: when the header claims an entity that differs from the
+    user's default, we verify membership — either the user's default
+    entity matches, or they belong to an active UserGroup in that
+    entity. Without this check, any authenticated user could set
+    X-Entity-ID to any UUID and read data filtered by that entity
+    on the (many) endpoints that use get_current_entity as a SQL
+    filter but don't run a permission check (they'd return that
+    entity's rows even though the user isn't a member).
+
+    Permission-guarded endpoints were already safe (get_user_permissions
+    returns an empty set for a non-member → 403), but non-guarded
+    ones weren't.
+    """
     if x_entity_id:
         try:
-            return UUID(x_entity_id)
+            claimed = UUID(x_entity_id)
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid X-Entity-ID header",
             )
+
+        # Fast path: user's default entity — always allowed.
+        if current_user.default_entity_id == claimed:
+            return claimed
+
+        # Second path: user is member of an active group in that entity.
+        # One lightweight EXISTS query per request; cheap and short-circuits
+        # cross-tenant probing at the earliest possible layer.
+        from sqlalchemy import exists, select
+        from app.models.common import UserGroup, UserGroupMember
+
+        member_exists_q = select(
+            exists().where(
+                UserGroupMember.user_id == current_user.id,
+                UserGroupMember.group_id == UserGroup.id,
+                UserGroup.entity_id == claimed,
+                UserGroup.active == True,  # noqa: E712
+            )
+        )
+        is_member = (await db.execute(member_exists_q)).scalar() or False
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied for the requested entity",
+            )
+        return claimed
 
     if current_user.default_entity_id:
         return current_user.default_entity_id

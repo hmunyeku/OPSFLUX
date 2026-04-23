@@ -492,6 +492,7 @@ async def update_group(
 @router.delete("/{group_id}", status_code=204)
 async def delete_group(
     group_id: UUID,
+    current_user: User = Depends(get_current_user),
     entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("core.rbac.manage"),
     db: AsyncSession = Depends(get_db),
@@ -510,6 +511,17 @@ async def delete_group(
             message="Group not found",
         )
 
+    # Snapshot group + member count before delete for the audit trail.
+    member_count = (await db.execute(
+        select(func.count()).select_from(UserGroupMember).where(UserGroupMember.group_id == group_id)
+    )).scalar() or 0
+    group_snapshot = {
+        "name": group.name,
+        "description": group.description,
+        "active": group.active,
+        "member_count": int(member_count),
+    }
+
     # Delete memberships
     await db.execute(delete(UserGroupMember).where(UserGroupMember.group_id == group_id))
     # Delete role associations
@@ -519,6 +531,23 @@ async def delete_group(
     # Delete group
     await db.delete(group)
     await db.commit()
+
+    # Audit trail: deleting a group (with its memberships) is a
+    # RBAC-sensitive event.
+    try:
+        from app.core.audit import record_audit
+        await record_audit(
+            db,
+            action="rbac.group.delete",
+            resource_type="group",
+            resource_id=str(group_id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details=group_snapshot,
+        )
+        await db.commit()
+    except Exception:
+        pass
 
     await invalidate_rbac_cache()
 

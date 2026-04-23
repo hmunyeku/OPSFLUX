@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, require_permission
+from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.core.rbac import (
     get_permission_mode,
@@ -19,7 +19,7 @@ from app.core.rbac import (
 )
 from app.services.core.module_lifecycle_service import is_module_enabled, normalize_module_slug
 from app.models.asset_registry import Installation
-from app.models.common import Permission, Role, RolePermission, Setting, UserGroup, UserGroupMember, UserGroupRole
+from app.models.common import Permission, Role, RolePermission, Setting, User, UserGroup, UserGroupMember, UserGroupRole
 from app.schemas.common import OpsFluxSchema
 from app.core.errors import StructuredHTTPException
 
@@ -344,6 +344,7 @@ async def set_role_permissions(
 @router.delete("/roles/{role_code}", status_code=204)
 async def delete_role(
     role_code: str,
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("core.rbac.manage"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -365,6 +366,14 @@ async def delete_role(
             message="Cannot delete the SUPER_ADMIN role",
         )
 
+    # Snapshot role attrs before delete for audit trail.
+    role_snapshot = {
+        "code": role.code,
+        "name": role.name,
+        "description": role.description,
+        "module": role.module,
+    }
+
     # Delete role-permission associations
     await db.execute(delete(RolePermission).where(RolePermission.role_code == role_code))
     # Delete group-role associations
@@ -372,6 +381,21 @@ async def delete_role(
     # Delete role
     await db.delete(role)
     await db.commit()
+
+    # Audit trail: deleting a role is a RBAC-sensitive event.
+    try:
+        from app.core.audit import record_audit
+        await record_audit(
+            db,
+            action="rbac.role.delete",
+            resource_type="role",
+            resource_id=role_code,
+            user_id=current_user.id,
+            details=role_snapshot,
+        )
+        await db.commit()
+    except Exception:
+        pass
 
     await invalidate_rbac_cache()
 

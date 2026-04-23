@@ -1565,6 +1565,15 @@ async def delete_user(
             pass  # Table may not exist
 
     try:
+        # Snapshot identity fields BEFORE delete so the audit log keeps
+        # a useful trail even after the row is gone.
+        deleted_snapshot = {
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "active": user.active,
+            "default_entity_id": str(user.default_entity_id) if user.default_entity_id else None,
+        }
         await db.delete(user)
         await db.commit()
     except Exception as exc:
@@ -1576,6 +1585,25 @@ async def delete_user(
                 "blockers": [str(exc)[:200]],
             },
         )
+
+    # Audit trail: hard-deleting a user is a sensitive RBAC/GDPR event.
+    # Record it BEFORE invalidating caches so the row is visible in the
+    # journal even if the cache call raises.
+    try:
+        from app.core.audit import record_audit
+        await record_audit(
+            db,
+            action="user.delete",
+            resource_type="user",
+            resource_id=str(user_id),
+            user_id=current_user.id,
+            entity_id=deleted_snapshot["default_entity_id"],
+            details=deleted_snapshot,
+        )
+        await db.commit()
+    except Exception:
+        # Don't fail the deletion because the audit path broke.
+        pass
 
     from app.core.rbac import invalidate_rbac_cache
     await invalidate_rbac_cache(user_id)

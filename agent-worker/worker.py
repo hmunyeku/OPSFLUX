@@ -206,7 +206,13 @@ async def fetch_runner_credentials(
         )
     if not row:
         raise ValueError(f"agent_runner connection {connection_id} missing")
-    config = row["config"] or {}
+    # asyncpg returns JSONB columns as their raw JSON string, not a
+    # decoded dict — unlike SQLAlchemy's JSONB. Decode explicitly.
+    raw_config = row["config"]
+    if isinstance(raw_config, str):
+        config = json.loads(raw_config) if raw_config else {}
+    else:
+        config = raw_config or {}
     credentials = json.loads(row["plain"]) if row["plain"] else {}
     return config, credentials
 

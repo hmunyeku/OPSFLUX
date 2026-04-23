@@ -575,6 +575,17 @@ class AuditLog(UUIDPrimaryKeyMixin, Base):
 
 class Notification(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "notifications"
+    __table_args__ = (
+        # The bell polls `COUNT(*) WHERE user_id AND entity_id AND read=false`
+        # every minute per connected user. Without a composite index the
+        # query degenerates to a full scan of the notifications table as
+        # it grows — linear backend load per online user.
+        Index("idx_notifications_user_entity_read", "user_id", "entity_id", "read"),
+        # Journal page + dropdown order by created_at desc with the same
+        # filters. Include created_at at the tail so ORDER BY becomes an
+        # index scan (no separate sort step).
+        Index("idx_notifications_user_entity_created", "user_id", "entity_id", "created_at"),
+    )
 
     entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     user_id: Mapped[PyUUID] = mapped_column(

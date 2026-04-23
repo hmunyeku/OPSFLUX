@@ -344,7 +344,7 @@ function ConnectorForm({
           type="text"
           required
           className="gl-form-input"
-          placeholder="Ex: Repo OpsFlux principal"
+          placeholder="Ex: Dépôt principal"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -437,7 +437,7 @@ function GithubFields({ config, setConfig, credentials, setCredentials, isEdit, 
             type="text"
             required
             className="gl-form-input"
-            placeholder="hmunyeku"
+            placeholder="votre-organisation"
             value={(config.repo_owner as string) ?? ''}
             onChange={(e) => setConfig({ ...config, repo_owner: e.target.value })}
           />
@@ -448,7 +448,7 @@ function GithubFields({ config, setConfig, credentials, setCredentials, isEdit, 
             type="text"
             required
             className="gl-form-input"
-            placeholder="OPSFLUX"
+            placeholder="nom-du-repo"
             value={(config.repo_name as string) ?? ''}
             onChange={(e) => setConfig({ ...config, repo_name: e.target.value })}
           />
@@ -515,7 +515,7 @@ function DokployFields({ config, setConfig, credentials, setCredentials, isEdit,
           type="url"
           required
           className="gl-form-input"
-          placeholder="http://72.60.188.156:3000/api"
+          placeholder="https://dokploy.exemple.com/api"
           value={(config.api_url as string) ?? ''}
           onChange={(e) => setConfig({ ...config, api_url: e.target.value })}
         />
@@ -536,7 +536,7 @@ function DokployFields({ config, setConfig, credentials, setCredentials, isEdit,
           <input
             type="text"
             className="gl-form-input font-mono"
-            placeholder="g4-VkoUKMCuO9i4Y3OgbG"
+            placeholder="id-du-compose-dokploy"
             value={(config.compose_id as string) ?? ''}
             onChange={(e) => setConfig({ ...config, compose_id: e.target.value, application_id: '' })}
           />
@@ -584,7 +584,7 @@ function DokployFields({ config, setConfig, credentials, setCredentials, isEdit,
         <input
           type="url"
           className="gl-form-input"
-          placeholder="https://api.opsflux.io/api/health"
+          placeholder="https://votre-domaine/api/health"
           value={(config.health_check_url as string) ?? ''}
           onChange={(e) => setConfig({ ...config, health_check_url: e.target.value })}
         />
@@ -691,7 +691,7 @@ function AgentRunnerFields({ config, setConfig, credentials, setCredentials, isE
           <input
             type="text"
             className="gl-form-input font-mono"
-            placeholder="claude-subscription-prod"
+            placeholder="ex: claude-subscription-prod"
             value={(config.credentials_volume_name as string) ?? ''}
             onChange={(e) => setConfig({ ...config, credentials_volume_name: e.target.value })}
           />

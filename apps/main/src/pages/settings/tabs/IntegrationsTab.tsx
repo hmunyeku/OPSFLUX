@@ -985,9 +985,6 @@ export function IntegrationsTab() {
 
   return (
     <>
-      {/* ── Heavy connectors (GitHub / Dokploy / Agent Runner) ── */}
-      <HeavyConnectorsSection />
-
       {/* ── Cartographie ── */}
       <CollapsibleSection
         id="cartographie-integration"
@@ -1202,6 +1199,9 @@ export function IntegrationsTab() {
         />
       )}
       </CollapsibleSection>
+
+      {/* ── Heavy connectors (GitHub / Dokploy / Agent Runner) — last, admin-grade ── */}
+      <HeavyConnectorsSection />
     </>
   )
 }

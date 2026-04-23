@@ -149,7 +149,7 @@ export function TicketGithubCard({
                 ) : (
                   <button
                     type="button"
-                    className="gl-button gl-button-sm gl-button-confirm text-primary"
+                    className="gl-button gl-button-sm gl-button-confirm"
                     onClick={handleResume}
                     disabled={enableSync.isPending}
                   >
@@ -189,7 +189,7 @@ export function TicketGithubCard({
                 )}
                 <button
                   type="button"
-                  className="gl-button gl-button-sm gl-button-confirm text-primary w-full justify-center"
+                  className="gl-button gl-button-sm gl-button-confirm w-full justify-center"
                   onClick={handleEnable}
                   disabled={!selectedConnId || enableSync.isPending}
                 >

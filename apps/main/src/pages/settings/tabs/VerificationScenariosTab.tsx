@@ -64,7 +64,7 @@ export function VerificationScenariosTab() {
         </div>
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-confirm text-primary"
+          className="gl-button gl-button-sm gl-button-confirm"
           onClick={() => setCreating(true)}
         >
           <Plus size={12} /> Nouveau scénario
@@ -328,7 +328,7 @@ function ScenarioForm({
         <button type="button" className="gl-button gl-button-sm gl-button-default" onClick={onClose}>
           <X size={12} /> Annuler
         </button>
-        <button type="submit" className="gl-button gl-button-sm gl-button-confirm text-primary" disabled={busy}>
+        <button type="submit" className="gl-button gl-button-sm gl-button-confirm" disabled={busy}>
           {busy ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
           {mode === 'create' ? 'Créer' : 'Enregistrer'}
         </button>

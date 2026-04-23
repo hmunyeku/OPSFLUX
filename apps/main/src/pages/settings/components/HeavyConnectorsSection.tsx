@@ -121,7 +121,7 @@ export function HeavyConnectorsSection() {
                 </div>
                 <button
                   type="button"
-                  className="gl-button gl-button-sm gl-button-confirm text-primary shrink-0"
+                  className="gl-button gl-button-sm gl-button-confirm shrink-0"
                   onClick={() => setCreatingType(type)}
                 >
                   <Plus size={12} />

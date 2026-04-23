@@ -196,7 +196,7 @@ export function TicketAgentTab({
               {canManage && config?.enabled && (
                 <button
                   type="button"
-                  className="gl-button gl-button-sm gl-button-confirm text-primary w-fit"
+                  className="gl-button gl-button-sm gl-button-confirm w-fit"
                   onClick={handleLaunch}
                   disabled={launch.isPending}
                 >
@@ -343,7 +343,7 @@ function ActiveRunCard({
               </button>
               <button
                 type="button"
-                className="gl-button gl-button-sm gl-button-confirm text-primary"
+                className="gl-button gl-button-sm gl-button-confirm"
                 onClick={() => onApprove(run)}
                 disabled={isApproving || isRejecting || isDeploying}
               >

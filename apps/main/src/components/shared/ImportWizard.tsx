@@ -450,7 +450,15 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
       const buf = await file.arrayBuffer()
       const decoder = new TextDecoder(enc)
       const text = decoder.decode(buf)
-      let parsed: unknown = JSON.parse(text)
+      // Malformed JSON from a user file must produce a helpful error,
+      // not crash the wizard step and blank the panel.
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(text)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        throw new Error(`Fichier JSON invalide : ${msg}`)
+      }
       // Support array of objects or { data: [...] }
       if (!Array.isArray(parsed)) {
         const obj = parsed as Record<string, unknown>

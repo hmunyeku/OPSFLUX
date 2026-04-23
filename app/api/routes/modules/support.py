@@ -1061,7 +1061,7 @@ async def enable_github_sync(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    _perm=Depends(require_permission("support.ticket.manage")),
+    _perm=require_permission("support.ticket.manage"),
 ):
     """Link the ticket to a GitHub connector and create the Issue.
 
@@ -1103,7 +1103,7 @@ async def disable_github_sync(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    _perm=Depends(require_permission("support.ticket.manage")),
+    _perm=require_permission("support.ticket.manage"),
 ):
     """Pause outbound mirroring. The link (issue number, URL) is kept so
     the admin can resume later without recreating the remote Issue."""

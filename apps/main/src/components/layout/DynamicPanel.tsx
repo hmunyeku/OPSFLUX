@@ -331,13 +331,13 @@ export function DynamicPanelShell({
           {!canNavigate && <div className="ml-auto" />}
 
           <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-border/60">
-            <button onClick={toggleMode} className={hdrBtn} title="Réduire en panneau latéral">
+            <button onClick={toggleMode} className={hdrBtn} title={t('dynamic_panel.shrink_side', 'Réduire en panneau latéral') as string}>
               <Minimize2 size={12} />
             </button>
-            <button onClick={detachDynamicPanel} className={hdrBtn} title="Détacher en modal flottant">
+            <button onClick={detachDynamicPanel} className={hdrBtn} title={t('dynamic_panel.detach', 'Détacher en modal flottant') as string}>
               <ExternalLink size={12} />
             </button>
-            <button onClick={closeDynamicPanel} className={hdrBtn} aria-label="Fermer">
+            <button onClick={closeDynamicPanel} className={hdrBtn} aria-label={t('common.close', 'Fermer') as string}>
               <X size={14} />
             </button>
           </div>
@@ -471,17 +471,17 @@ export function DynamicPanelShell({
           </button>
 
           {/* Expand to full */}
-          <button onClick={toggleMode} className={hdrBtn} title="Agrandir en pleine largeur">
+          <button onClick={toggleMode} className={hdrBtn} title={t('dynamic_panel.expand_full', 'Agrandir en pleine largeur') as string}>
             <Maximize2 size={12} />
           </button>
 
           {/* Detach */}
-          <button onClick={detachDynamicPanel} className={hdrBtn} title="Détacher en modal flottant">
+          <button onClick={detachDynamicPanel} className={hdrBtn} title={t('dynamic_panel.detach', 'Détacher en modal flottant') as string}>
             <ExternalLink size={12} />
           </button>
 
           {/* Close */}
-          <button onClick={closeDynamicPanel} className={hdrBtn} aria-label="Fermer le panneau">
+          <button onClick={closeDynamicPanel} className={hdrBtn} aria-label={t('dynamic_panel.close_panel', 'Fermer le panneau') as string}>
             <X size={14} />
           </button>
         </div>
@@ -1380,6 +1380,7 @@ function getViewLabel(view: DetachedPanel['view']): string {
 }
 
 function FloatingPanel({ panel, children }: { panel: DetachedPanel; children: React.ReactNode }) {
+  const { t } = useTranslation()
   const updateDetachedPanel = useUIStore((s) => s.updateDetachedPanel)
   const closeDetachedPanel = useUIStore((s) => s.closeDetachedPanel)
   const bringToFront = useUIStore((s) => s.bringToFront)
@@ -1610,21 +1611,21 @@ function FloatingPanel({ panel, children }: { panel: DetachedPanel; children: Re
           <button
             onClick={() => reattachPanel(panel.id)}
             className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors"
-            title="Rattacher au panneau latéral"
+            title={t('dynamic_panel.reattach', 'Rattacher au panneau latéral') as string}
           >
             <ExternalLink size={12} className="rotate-180" />
           </button>
           <button
             onClick={toggleMaximize}
             className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors"
-            title={maximized ? 'Restaurer' : 'Maximiser'}
+            title={maximized ? t('dynamic_panel.restore', 'Restaurer') as string : t('dynamic_panel.maximize', 'Maximiser') as string}
           >
             {maximized ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
           </button>
           <button
             onClick={() => closeDetachedPanel(panel.id)}
             className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-            title="Fermer"
+            title={t('common.close', 'Fermer') as string}
           >
             <X size={13} />
           </button>

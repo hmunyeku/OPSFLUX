@@ -147,6 +147,15 @@
       "finish": "Finish"
     }
   },
+  "dynamic_panel": {
+    "shrink_side": "Shrink to side panel",
+    "expand_full": "Expand to full width",
+    "detach": "Detach as floating window",
+    "reattach": "Dock to side panel",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close_panel": "Close panel"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

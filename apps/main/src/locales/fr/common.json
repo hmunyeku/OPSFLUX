@@ -147,6 +147,15 @@
       "finish": "Terminer"
     }
   },
+  "dynamic_panel": {
+    "shrink_side": "Réduire en panneau latéral",
+    "expand_full": "Agrandir en pleine largeur",
+    "detach": "Détacher en modal flottant",
+    "reattach": "Rattacher au panneau latéral",
+    "maximize": "Maximiser",
+    "restore": "Restaurer",
+    "close_panel": "Fermer le panneau"
+  },
   "common": {
     "save": "Sauvegarder",
     "cancel": "Annuler",

@@ -1792,6 +1792,65 @@ DEFAULT_TEMPLATES: list[dict] = [
         },
     },
     {
+        "slug": "gdpr_breach_report",
+        "name": "RGPD — Rapport de violation de données",
+        "description": (
+            "Envoyé au DPO (Data Protection Officer) quand un administrateur "
+            "déclare un incident de violation de données personnelles."
+        ),
+        "object_type": "system",
+        "variables_schema": {
+            "title": "Titre de l'incident",
+            "description": "Description factuelle de la violation",
+            "affected_data_types": "Types de données concernées (liste séparée par virgules)",
+            "affected_users": "Nombre estimé d'utilisateurs concernés",
+            "measures_taken": "Mesures déjà prises pour contenir la violation",
+            "breach_ref": "Référence unique du rapport (traçabilité)",
+            "reporter": "Email de la personne ayant déclaré la violation",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "[OpsFlux / RGPD] Violation de données — {{ title }} ({{ breach_ref }})",
+                "body_html": (
+                    "<p><strong>Objet :</strong> Notification de violation de données personnelles</p>"
+                    "<p><strong>Référence :</strong> {{ breach_ref }}</p>"
+                    "<p><strong>Déclarant :</strong> {{ reporter }}</p>"
+                    "<hr/>"
+                    "<h3>{{ title }}</h3>"
+                    "<p><strong>Description :</strong><br/>{{ description }}</p>"
+                    "<p><strong>Types de données concernées :</strong> {{ affected_data_types }}</p>"
+                    "<p><strong>Nombre estimé d'utilisateurs concernés :</strong> {{ affected_users }}</p>"
+                    "<p><strong>Mesures prises :</strong><br/>{{ measures_taken }}</p>"
+                    "<hr/>"
+                    "<p><em>En tant que DPO, vous devez évaluer l'obligation de notifier la "
+                    "CNIL (RGPD art. 33) dans les 72 heures, et les personnes concernées "
+                    "si le risque est élevé (art. 34).</em></p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "[OpsFlux / GDPR] Data breach — {{ title }} ({{ breach_ref }})",
+                "body_html": (
+                    "<p><strong>Subject:</strong> Personal data breach notification</p>"
+                    "<p><strong>Reference:</strong> {{ breach_ref }}</p>"
+                    "<p><strong>Reporter:</strong> {{ reporter }}</p>"
+                    "<hr/>"
+                    "<h3>{{ title }}</h3>"
+                    "<p><strong>Description:</strong><br/>{{ description }}</p>"
+                    "<p><strong>Affected data types:</strong> {{ affected_data_types }}</p>"
+                    "<p><strong>Estimated affected users:</strong> {{ affected_users }}</p>"
+                    "<p><strong>Measures taken:</strong><br/>{{ measures_taken }}</p>"
+                    "<hr/>"
+                    "<p><em>As DPO, assess whether a 72-hour supervisory-authority "
+                    "notification is required (GDPR art. 33), and direct notification "
+                    "to affected individuals if the risk is high (art. 34).</em></p>"
+                    "<p>Regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
         "slug": "integration_test_email",
         "name": "Email de test connecteur",
         "description": "Envoyé lors d'un test réel de la configuration SMTP.",

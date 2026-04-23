@@ -320,3 +320,89 @@ async def test_get_capacity_allows_same_entity_asset():
         assert isinstance(result, list)
     finally:
         psvc.get_current_capacity = original
+
+
+# ── New security regressions (2026-04-23) ─────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_dismiss_announcement_filters_by_entity_id():
+    """POST /announcements/{id}/dismiss must reject cross-tenant IDs."""
+    from app.api.routes.modules import messaging as mod
+    caller_entity = uuid4()
+    other_entity_id = uuid4()  # an announcement in a sibling tenant
+    current_user = SimpleNamespace(id=uuid4(), default_entity_id=caller_entity)
+
+    spy = QuerySpy(EmptyResult())
+
+    class DB:
+        async def execute(self, stmt):
+            return spy(stmt)
+
+    # The announcement does not exist in the caller's entity → 404.
+    with pytest.raises(HTTPException) as exc:
+        await mod.dismiss_announcement(
+            announcement_id=other_entity_id,
+            current_user=current_user,
+            entity_id=caller_entity,
+            db=DB(),
+        )
+    assert exc.value.status_code == 404
+
+    # Verify the SQL WHERE clause mentions entity_id.
+    from sqlalchemy.dialects import postgresql
+    compiled = str(spy.captured.compile(dialect=postgresql.dialect()))
+    assert "entity_id" in compiled.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_current_entity_rejects_non_member_entity():
+    """X-Entity-ID pointing at an entity the user is NOT member of → 403."""
+    from app.api import deps
+    from fastapi import HTTPException as HE
+
+    claimed_entity = uuid4()  # a tenant the user never joined
+    current_user = SimpleNamespace(id=uuid4(), default_entity_id=uuid4())
+
+    class DB:
+        async def execute(self, _stmt):
+            # membership EXISTS query returns False.
+            class R:
+                def scalar(self):
+                    return False
+            return R()
+
+    request = SimpleNamespace(headers={})
+
+    with pytest.raises(HE) as exc:
+        await deps.get_current_entity(
+            request=request,
+            x_entity_id=str(claimed_entity),
+            current_user=current_user,
+            db=DB(),
+        )
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_get_current_entity_allows_default_entity():
+    """Fast path: user acting in their own default entity bypasses the
+    membership EXISTS query (no DB round-trip)."""
+    from app.api import deps
+
+    default = uuid4()
+    current_user = SimpleNamespace(id=uuid4(), default_entity_id=default)
+
+    class DB:
+        async def execute(self, _stmt):  # pragma: no cover — must NOT be called
+            raise AssertionError("Fast path should skip DB membership check")
+
+    request = SimpleNamespace(headers={})
+
+    resolved = await deps.get_current_entity(
+        request=request,
+        x_entity_id=str(default),
+        current_user=current_user,
+        db=DB(),
+    )
+    assert resolved == default

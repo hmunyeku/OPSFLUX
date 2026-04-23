@@ -16,7 +16,7 @@
  * Keyboard: ArrowDown / ArrowUp navigate, Enter opens, Escape closes.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -121,10 +121,32 @@ export function TopbarSearchSuggestions({
 }: TopbarSearchSuggestionsProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   const q = query.trim()
   const canSearch = q.length >= 2
+
+  // Module-aware ranking: detect the current module from the URL and
+  // boost matching result types to the top. For instance, if the
+  // user is on /paxlog, ADS/AVM/incident results precede MOC and
+  // project hits. Keeps the global search surface fair without losing
+  // the current-context bias.
+  const currentModuleType = useMemo(() => {
+    // Each mapping turns a URL prefix into the `type` the backend
+    // emits (see search.py: type='ads','moc','project', etc.).
+    if (pathname.startsWith('/moc')) return ['moc']
+    if (pathname.startsWith('/projets')) return ['project']
+    if (pathname.startsWith('/planner')) return ['activity']
+    if (pathname.startsWith('/paxlog')) return ['ads', 'incident']
+    if (pathname.startsWith('/travelwiz')) return ['voyage']
+    if (pathname.startsWith('/packlog')) return ['cargo']
+    if (pathname.startsWith('/conformite')) return ['compliance']
+    if (pathname.startsWith('/tiers')) return ['tier']
+    if (pathname.startsWith('/users')) return ['user']
+    if (pathname.startsWith('/assets')) return ['asset']
+    return [] as string[]
+  }, [pathname])
 
   // Debounced query for the API — smart detectors run synchronously.
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -152,11 +174,23 @@ export function TopbarSearchSuggestions({
   // Flatten into a single scrollable list. Cap API results at 8 so the
   // dropdown stays scannable — full journal is still reachable via
   // Enter-with-no-selection (falls through to /search).
+  //
+  // Re-ranked so results whose type matches the current module land
+  // above the rest (stable sort within each half). Smart items
+  // (calc / code / action) always come first — they're the most
+  // action-oriented suggestions and shouldn't be pushed down.
   const items: SuggestionItem[] = useMemo(() => {
     const out: SuggestionItem[] = []
     smartItems.forEach((s) => out.push({ ...s, kind: 'smart' }))
-    const apiResults = (data?.results ?? []).slice(0, 8)
-    apiResults.forEach((r) =>
+    const api = data?.results ?? []
+    const boosted: ApiSearchResult[] = []
+    const rest: ApiSearchResult[] = []
+    for (const r of api) {
+      if (currentModuleType.includes(r.type)) boosted.push(r)
+      else rest.push(r)
+    }
+    const ordered = [...boosted, ...rest].slice(0, 8)
+    ordered.forEach((r) =>
       out.push({
         kind: 'result',
         id: `result-${r.type}-${r.id}`,
@@ -168,7 +202,7 @@ export function TopbarSearchSuggestions({
       }),
     )
     return out
-  }, [smartItems, data])
+  }, [smartItems, data, currentModuleType])
 
   // Keep selection valid when the list size changes.
   useEffect(() => {

@@ -243,7 +243,9 @@ export function SchedulerTab() {
       const { data } = await api.get<{ jobs: ScheduledJob[]; total: number }>('/api/v1/admin/scheduler/jobs')
       return data
     },
-    refetchInterval: 30000,
+    refetchInterval: 30_000,
+    // Don't hammer the admin scheduler endpoint on every hidden tab.
+    refetchIntervalInBackground: false,
   })
 
   // ── Mutations ──

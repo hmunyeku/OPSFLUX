@@ -70,6 +70,8 @@ function useSystemHealth() {
     queryKey: ['admin', 'health'],
     queryFn: fetchSystemHealth,
     refetchInterval: 30_000,
+    // Don't hammer the admin health endpoint when the tab is hidden.
+    refetchIntervalInBackground: false,
     staleTime: 10_000,
   })
 }

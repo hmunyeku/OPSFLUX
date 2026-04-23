@@ -516,6 +516,7 @@ export function useTripsToday() {
     queryKey: ['travelwiz', 'dashboard', 'trips-today'],
     queryFn: () => travelwizService.getTripsToday(),
     refetchInterval: 60_000,
+  refetchIntervalInBackground: false,
   })
 }
 
@@ -524,6 +525,7 @@ export function useCargoPending() {
     queryKey: ['travelwiz', 'dashboard', 'cargo-pending'],
     queryFn: () => travelwizService.getCargoPending(),
     refetchInterval: 60_000,
+  refetchIntervalInBackground: false,
   })
 }
 
@@ -532,6 +534,7 @@ export function useFleetKpis() {
     queryKey: ['travelwiz', 'dashboard', 'fleet-kpis'],
     queryFn: () => travelwizService.getFleetKpis(),
     refetchInterval: 60_000,
+  refetchIntervalInBackground: false,
   })
 }
 
@@ -571,6 +574,7 @@ export function useLatestWeather(siteId?: string) {
     queryKey: ['travelwiz', 'weather', 'latest', siteId],
     queryFn: () => travelwizService.getLatestWeather(siteId),
     refetchInterval: 5 * 60_000,
+  refetchIntervalInBackground: false,
   })
 }
 

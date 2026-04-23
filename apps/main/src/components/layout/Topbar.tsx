@@ -529,7 +529,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             {showUserMenu && (
               <div
                 // Glassy backdrop + accent strip vocabulary — matches
-                // NotificationCenter / ThemeMenu / AnnouncementCenter.
+                // NotificationBell / ThemeMenu popovers.
                 // motion-safe entrance: slight fade + 4px slide.
                 className="absolute right-0 top-full mt-1.5 w-60 rounded-xl bg-popover/95 backdrop-blur-md py-1 overflow-hidden border border-border/60 shadow-[0_10px_32px_-8px_rgba(0,0,0,0.25)] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150"
                 style={{ zIndex: 'var(--z-dropdown)' }}

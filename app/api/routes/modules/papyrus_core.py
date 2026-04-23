@@ -1323,11 +1323,30 @@ async def create_share_link(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import create_share_link as svc_create
+    from app.services.core.settings_service import get_scoped_setting_row
+
     body = body or {}
+    # Default share-link duration — entity-scoped setting first, then
+    # tenant-level fallback, then hardcoded 30 days. Admins can
+    # change it from Paramètres → Papyrus without a code push.
+    if "expires_days" in body and body.get("expires_days") is not None:
+        expires_days = int(body["expires_days"])
+    else:
+        expires_days = 30
+        row = await get_scoped_setting_row(
+            db, key="papyrus.share_link_default_days",
+            scope="entity", scope_id=str(entity_id),
+            include_legacy_fallback=True,
+        )
+        if row and isinstance(row.value, dict):
+            raw = row.value.get("days")
+            if isinstance(raw, int) and 1 <= raw <= 365:
+                expires_days = raw
+
     return await svc_create(
         document_id=doc_id,
         entity_id=entity_id,
-        expires_days=body.get("expires_days", 30),
+        expires_days=expires_days,
         otp_required=body.get("otp_required", False),
         max_accesses=body.get("max_accesses"),
         created_by=current_user.id,

@@ -106,13 +106,24 @@ export function NotificationBell() {
   const prevCountRef = useRef<number>(0)
   const firstLoadRef = useRef<boolean>(true)
 
-  // Unread count — polled every 30s; used for badge + animation + sound trigger.
+  // Unread count.
+  //
+  // Primary signal: the WebSocket in useWebSocket() invalidates this
+  // query on every push. Polling is the fallback path — it picks up
+  // changes made in other tabs, and keeps the badge fresh when the
+  // WS connection drops on an unstable network.
+  //
+  // 60s is a compromise: tight enough to feel alive on a stale tab
+  // (roughly one minute after an external change), loose enough to
+  // not batter the backend when WS is healthy and everything is
+  // already up to date.
   const { data: countData } = useQuery<UnreadCountResponse>({
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => api.get('/api/v1/notifications/unread-count').then((r) => r.data),
     enabled: !!user,
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 30_000,
   })
   const unreadCount = countData?.unread_count ?? 0
 

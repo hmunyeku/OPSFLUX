@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID as PyUUID
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -58,6 +59,26 @@ class SupportTicket(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     resolution_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     tags: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
+    # ── GitHub sync (optional) ──
+    # When non-null, this ticket is mirrored as a GitHub Issue via the
+    # referenced `integration_connections` row. `github_sync_enabled`
+    # gates outbound writes (a ticket can be linked but paused).
+    github_connection_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("integration_connections.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    github_issue_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    github_issue_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    github_pr_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    github_pr_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    github_sync_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    github_last_synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Relationships
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketComment.created_at")
     status_history = relationship("TicketStatusHistory", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketStatusHistory.created_at.desc()")
@@ -76,6 +97,13 @@ class TicketComment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     is_internal: Mapped[bool] = mapped_column(Boolean, server_default="false")
     attachment_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+
+    # ── Mirror provenance ──
+    # Populated when the comment originated from a webhook round-trip:
+    #   - `github_comment_id` lets us dedupe before mirroring back up
+    #   - `external_source` stores 'github' (room for future providers)
+    github_comment_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    external_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     # Relationships
     ticket = relationship("SupportTicket", back_populates="comments")

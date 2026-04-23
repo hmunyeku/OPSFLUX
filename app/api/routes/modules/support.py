@@ -541,6 +541,11 @@ async def resolve_ticket(
     ticket.resolution_notes = body.resolution_notes
     await _log_status_change(db, ticket.id, old, "resolved", current_user.id, body.resolution_notes)
 
+    # Close the linked GitHub Issue when the ticket is resolved.
+    if ticket.github_sync_enabled and ticket.github_issue_number:
+        from app.services.integrations.github_support_sync import mirror_status_change
+        await mirror_status_change(db, ticket, new_status="resolved")
+
     await db.commit()
 
     # Re-fetch with comments eagerly loaded to avoid MissingGreenlet
@@ -777,6 +782,16 @@ async def add_comment(
         attachment_ids=[str(a) for a in body.attachment_ids] if body.attachment_ids else None,
     )
     db.add(comment)
+    await db.flush()
+
+    # Mirror to GitHub if the ticket is linked + sync is on. Kept on the
+    # same transaction so a GitHub API error rolls back the comment
+    # rather than leaving it un-mirrored — safer than fire-and-forget
+    # when GitHub is the source of truth for an ongoing discussion.
+    if t.github_sync_enabled and t.github_issue_number and not body.is_internal:
+        from app.services.integrations.github_support_sync import mirror_comment
+        await mirror_comment(db, t, comment)
+
     await db.commit()
     await db.refresh(comment)
 
@@ -1028,3 +1043,82 @@ async def delete_ticket_todo(
 
     await db.delete(todo)
     await db.commit()
+
+
+# ── GitHub sync ──────────────────────────────────────────────────────────
+
+from pydantic import BaseModel as _PydBase  # local import: keep module top clean
+
+
+class GithubSyncEnableBody(_PydBase):
+    connection_id: UUID
+
+
+@router.post("/tickets/{ticket_id}/github-sync/enable", response_model=TicketRead)
+async def enable_github_sync(
+    ticket_id: UUID,
+    body: GithubSyncEnableBody,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    _perm=Depends(require_permission("support.ticket.manage")),
+):
+    """Link the ticket to a GitHub connector and create the Issue.
+
+    Idempotent: calling it again on an already-linked ticket just
+    flips `github_sync_enabled` back on without creating a duplicate
+    Issue.
+    """
+    from app.services.integrations.github_support_sync import enable_sync
+
+    ticket = (
+        await db.execute(
+            select(SupportTicket).where(
+                SupportTicket.id == ticket_id,
+                SupportTicket.entity_id == entity_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not ticket:
+        raise StructuredHTTPException(404, code="TICKET_NOT_FOUND", message="Ticket not found")
+
+    try:
+        await enable_sync(db, ticket, body.connection_id)
+    except ValueError as exc:
+        raise StructuredHTTPException(400, code="GITHUB_SYNC_ERROR", message=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("enable_github_sync failed")
+        raise StructuredHTTPException(500, code="GITHUB_SYNC_ERROR", message=str(exc))
+
+    await db.commit()
+    await db.refresh(ticket)
+
+    users_map = await _users_map(db, {ticket.reporter_id, *([ticket.assignee_id] if ticket.assignee_id else [])})
+    return _enrich_ticket(ticket, users_map)
+
+
+@router.post("/tickets/{ticket_id}/github-sync/disable", response_model=TicketRead)
+async def disable_github_sync(
+    ticket_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    _perm=Depends(require_permission("support.ticket.manage")),
+):
+    """Pause outbound mirroring. The link (issue number, URL) is kept so
+    the admin can resume later without recreating the remote Issue."""
+    ticket = (
+        await db.execute(
+            select(SupportTicket).where(
+                SupportTicket.id == ticket_id,
+                SupportTicket.entity_id == entity_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not ticket:
+        raise StructuredHTTPException(404, code="TICKET_NOT_FOUND", message="Ticket not found")
+    ticket.github_sync_enabled = False
+    await db.commit()
+    await db.refresh(ticket)
+    users_map = await _users_map(db, {ticket.reporter_id, *([ticket.assignee_id] if ticket.assignee_id else [])})
+    return _enrich_ticket(ticket, users_map)

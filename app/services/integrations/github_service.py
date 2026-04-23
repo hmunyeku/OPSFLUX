@@ -1,8 +1,15 @@
-"""GitHub integration — connection testing (Sprint 1 scope).
+"""GitHub integration — connection testing and Issue/PR sync.
 
-Sprint 1 only needs the `test_connection` entry point: hit the REST API
-once to confirm the credentials work and the repo is reachable. Issue /
-PR / webhook / branch-creation helpers arrive in Sprint 2+.
+Sprint 1 delivered `test_connection`. Sprint 2 adds the minimal Issue /
+Comment surface used by the Support↔GitHub bidirectional sync:
+
+  * `get_token_for(config, credentials)` — returns a short-lived API
+    token regardless of auth method (installation token for Apps,
+    raw PAT otherwise).
+  * `create_issue`, `add_issue_comment`, `close_issue`, `reopen_issue`
+  * `get_pr` — used to resolve PR URL/number referenced in an Issue.
+  * `verify_webhook_signature` — HMAC-SHA256 check before acting on
+    any incoming webhook payload.
 
 Auth methods supported:
   * `personal_access_token` — classic/fine-grained PAT in `Authorization`
@@ -13,6 +20,8 @@ Auth methods supported:
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
 import time
 from typing import Any
@@ -140,3 +149,128 @@ async def _mint_installation_token(
         )
         resp.raise_for_status()
         return resp.json()["token"]
+
+
+# ─── Sprint 2 — Issue / Comment sync surface ────────────────────────────
+
+_API_TIMEOUT_S = 20.0
+
+
+async def get_token_for(
+    config: dict[str, Any], credentials: dict[str, Any]
+) -> str:
+    """Return a usable GitHub API token for the given connector config.
+
+    For PAT auth that's just the stored token. For GitHub App auth we
+    mint a fresh installation token (TTL 1h) per call — cheap enough at
+    our volume, and avoids caching stale tokens after App rotations.
+    """
+    if config.get("auth_method") == "personal_access_token":
+        token = credentials.get("token")
+        if not token:
+            raise ValueError("PAT auth: credentials.token is empty")
+        return token
+    if config.get("auth_method") == "github_app":
+        return await _mint_installation_token(
+            config["app_id"], config["installation_id"], credentials["private_key"]
+        )
+    raise ValueError(f"Unsupported auth_method: {config.get('auth_method')}")
+
+
+def _repo_path(config: dict[str, Any]) -> str:
+    return f"{config['repo_owner']}/{config['repo_name']}"
+
+
+def _headers(token: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+
+async def create_issue(
+    config: dict[str, Any],
+    credentials: dict[str, Any],
+    *,
+    title: str,
+    body: str,
+    labels: list[str] | None = None,
+) -> dict[str, Any]:
+    """Create a GitHub Issue in the configured repo."""
+    token = await get_token_for(config, credentials)
+    payload: dict[str, Any] = {"title": title, "body": body}
+    if labels:
+        payload["labels"] = labels
+    async with httpx.AsyncClient(timeout=_API_TIMEOUT_S) as client:
+        resp = await client.post(
+            f"{_GITHUB_API}/repos/{_repo_path(config)}/issues",
+            json=payload,
+            headers=_headers(token),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def add_issue_comment(
+    config: dict[str, Any],
+    credentials: dict[str, Any],
+    *,
+    issue_number: int,
+    body: str,
+) -> dict[str, Any]:
+    """Post a comment on an Issue. Returns the created comment."""
+    token = await get_token_for(config, credentials)
+    async with httpx.AsyncClient(timeout=_API_TIMEOUT_S) as client:
+        resp = await client.post(
+            f"{_GITHUB_API}/repos/{_repo_path(config)}/issues/{issue_number}/comments",
+            json={"body": body},
+            headers=_headers(token),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def update_issue_state(
+    config: dict[str, Any],
+    credentials: dict[str, Any],
+    *,
+    issue_number: int,
+    state: str,  # 'open' | 'closed'
+    state_reason: str | None = None,
+) -> dict[str, Any]:
+    """Open / close an Issue."""
+    token = await get_token_for(config, credentials)
+    payload: dict[str, Any] = {"state": state}
+    if state_reason:
+        payload["state_reason"] = state_reason
+    async with httpx.AsyncClient(timeout=_API_TIMEOUT_S) as client:
+        resp = await client.patch(
+            f"{_GITHUB_API}/repos/{_repo_path(config)}/issues/{issue_number}",
+            json=payload,
+            headers=_headers(token),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+def verify_webhook_signature(
+    *, payload_body: bytes, signature_header: str | None, secret: str | None
+) -> bool:
+    """Constant-time HMAC-SHA256 verification.
+
+    GitHub sends the header `X-Hub-Signature-256: sha256=<hex>`. We refuse
+    any payload when either the header or the stored secret is missing —
+    no fallback, no optional skip.
+    """
+    if not signature_header or not secret:
+        return False
+    if not signature_header.startswith("sha256="):
+        return False
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        payload_body,
+        hashlib.sha256,
+    ).hexdigest()
+    provided = signature_header.split("=", 1)[1]
+    return hmac.compare_digest(expected, provided)

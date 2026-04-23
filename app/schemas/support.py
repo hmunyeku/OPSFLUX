@@ -58,6 +58,15 @@ class TicketRead(OpsFluxSchema):
     created_at: datetime
     updated_at: datetime
 
+    # GitHub sync (optional binding)
+    github_connection_id: UUID | None = None
+    github_issue_number: int | None = None
+    github_issue_url: str | None = None
+    github_pr_number: int | None = None
+    github_pr_url: str | None = None
+    github_sync_enabled: bool = False
+    github_last_synced_at: datetime | None = None
+
     # Enriched fields (added by the route)
     reporter_name: str | None = None
     assignee_name: str | None = None

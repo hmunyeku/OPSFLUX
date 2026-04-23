@@ -70,7 +70,11 @@ AGENT_IMAGE = os.getenv(
 )
 HEARTBEAT_INTERVAL_S = int(os.getenv("HEARTBEAT_INTERVAL_S", "30"))
 CLAIM_POLL_INTERVAL_S = int(os.getenv("CLAIM_POLL_INTERVAL_S", "5"))
-WORKER_NAME = os.getenv("WORKER_NAME", f"worker-{socket.gethostname()}-{os.getpid()}")
+# Note: `or` rather than `getenv(..., default=...)` — the compose passes
+# WORKER_NAME as empty by default so the env-var IS set but empty.
+# Falling back to hostname+pid per replica produces a unique row per
+# worker in agent_worker_pool (UNIQUE constraint on worker_name).
+WORKER_NAME = os.getenv("WORKER_NAME") or f"worker-{socket.gethostname()}-{os.getpid()}"
 
 
 _stop_event = asyncio.Event()

@@ -1,0 +1,45 @@
+# OPSFLUX Agent Worker pool — deploy this as a separate Dokploy project
+# ("opsflux-agent-workers") on the same VPS as the main OPSFLUX stack.
+#
+# Setup steps:
+#   1. Create a new Dokploy compose project pointing at this file.
+#   2. Populate env vars via Dokploy UI:
+#        - DATABASE_URL         (same Postgres as backend)
+#        - ENCRYPTION_KEY       (same value as backend)
+#        - OPSFLUX_API_URL      (internal URL of backend service)
+#        - OPSFLUX_INTERNAL_TOKEN  (shared secret backend ↔ worker)
+#   3. Deploy. The daemon auto-registers in agent_worker_pool.
+#
+# The image built from ./Dockerfile will be pushed to GHCR via the
+# Sprint 3 GitHub Actions workflow so Dokploy can pull it directly.
+
+services:
+  worker:
+    image: ghcr.io/hmunyeku/opsflux-agent-worker:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      OPSFLUX_API_URL: ${OPSFLUX_API_URL:-http://backend:8000}
+      OPSFLUX_INTERNAL_TOKEN: ${OPSFLUX_INTERNAL_TOKEN}
+      AGENT_IMAGE: ${AGENT_IMAGE:-ghcr.io/hmunyeku/opsflux-agent-runner:latest}
+      WORKER_NAME: ${WORKER_NAME:-}
+      WORKTREE_ROOT: /var/opsflux/agent-runs
+      LOG_ROOT: /var/log/opsflux-agent
+      LOG_LEVEL: INFO
+    volumes:
+      # Worker launches child containers via the host Docker daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Worktrees are mounted both into the worker AND into each child
+      # container at the same path, so paths line up.
+      - /var/opsflux/agent-runs:/var/opsflux/agent-runs
+      - /var/log/opsflux-agent:/var/log/opsflux-agent
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M

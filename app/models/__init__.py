@@ -108,3 +108,9 @@ from app.models.planner import (  # noqa: F401
 from app.models.common import CostImputation, ImportMapping  # noqa: F401
 from app.models.asset_registry_import import ImportRun  # noqa: F401
 
+from app.models.agent import (  # noqa: F401
+    AgentWorkerPool,
+    SupportAgentConfig,
+    SupportAgentPhaseCheckpoint,
+    SupportAgentRun,
+)

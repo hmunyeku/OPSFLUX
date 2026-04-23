@@ -10,7 +10,7 @@ import {
   LifeBuoy, Plus, Loader2, Trash2, Bug, Lightbulb, HelpCircle, MoreHorizontal,
   MessageSquare, CheckCircle2, Clock, AlertTriangle, ListTodo, Square, CheckSquare,
   BarChart3, ArrowRight, Send, X, Lock, Paperclip, Megaphone,
-  Eye, EyeOff, Pin, LayoutDashboard,
+  Eye, EyeOff, Pin, LayoutDashboard, Bot,
 } from 'lucide-react'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -53,6 +53,8 @@ import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
 import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
+import { TicketGithubCard } from '@/pages/support/components/TicketGithubCard'
+import { TicketAgentTab } from '@/pages/support/components/TicketAgentTab'
 // ── Constants (fallbacks — overridden by dictionary entries when available) ──
 
 const TYPE_ICONS: Record<string, typeof Bug> = { bug: Bug, improvement: Lightbulb, question: HelpCircle, other: MoreHorizontal }
@@ -277,7 +279,7 @@ function TicketDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
   const [commentText, setCommentText] = useState('')
   const [isInternal, setIsInternal] = useState(false)
-  const [detailTab, setDetailTab] = useState<'details' | 'comments' | 'attachments' | 'todos' | 'history'>('details')
+  const [detailTab, setDetailTab] = useState<'details' | 'comments' | 'attachments' | 'todos' | 'history' | 'agent'>('details')
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Auto-close panel if ticket was deleted or returns 404
@@ -381,6 +383,7 @@ function TicketDetailPanel({ id }: { id: string }) {
           { id: 'attachments' as const, label: 'Pièces jointes', icon: Paperclip },
           ...(isAdmin ? [{ id: 'todos' as const, label: 'Checklist', icon: ListTodo }] : []),
           { id: 'history' as const, label: 'Historique', icon: Clock },
+          { id: 'agent' as const, label: 'Agent IA', icon: Bot },
         ]}
         activeId={detailTab}
         onTabChange={setDetailTab}
@@ -389,6 +392,19 @@ function TicketDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         {detailTab === 'details' && (
           <>
+            <TicketGithubCard
+              ticket={{
+                id: ticket.id,
+                github_connection_id: (ticket as unknown as { github_connection_id: string | null }).github_connection_id ?? null,
+                github_issue_number: (ticket as unknown as { github_issue_number: number | null }).github_issue_number ?? null,
+                github_issue_url: (ticket as unknown as { github_issue_url: string | null }).github_issue_url ?? null,
+                github_pr_number: (ticket as unknown as { github_pr_number: number | null }).github_pr_number ?? null,
+                github_pr_url: (ticket as unknown as { github_pr_url: string | null }).github_pr_url ?? null,
+                github_sync_enabled: (ticket as unknown as { github_sync_enabled: boolean }).github_sync_enabled ?? false,
+                github_last_synced_at: (ticket as unknown as { github_last_synced_at: string | null }).github_last_synced_at ?? null,
+              }}
+              canManage={isAdmin}
+            />
             <FormSection title={t('common.information')}>
               <DetailFieldGrid>
                 <ReadOnlyRow label={t('common.reference')} value={<span className="font-mono font-semibold text-primary">{ticket.reference}</span>} />
@@ -501,6 +517,10 @@ function TicketDetailPanel({ id }: { id: string }) {
               <p className="text-xs text-muted-foreground text-center py-4">Aucun historique</p>
             )}
           </div>
+        )}
+
+        {detailTab === 'agent' && (
+          <TicketAgentTab ticketId={id} canManage={isAdmin} />
         )}
       </PanelContentLayout>
     </DynamicPanelShell>

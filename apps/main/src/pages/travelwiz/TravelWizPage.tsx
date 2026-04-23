@@ -43,7 +43,7 @@ export { CreateCargoRequestPanel, CreateCargoPanel, CargoRequestDetailPanel } fr
 // ── Tab definitions ───────────────────────────────────────────
 
 const TABS: { id: TravelWizTab; labelKey: string; icon: typeof Plane }[] = [
-  { id: 'dashboard', labelKey: 'travelwiz.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'dashboard', labelKey: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'voyages', labelKey: 'travelwiz.tabs.voyages', icon: Plane },
   { id: 'manifests', labelKey: 'travelwiz.tabs.manifests_pax', icon: FileText },
   { id: 'vectors', labelKey: 'travelwiz.tabs.vectors', icon: Ship },

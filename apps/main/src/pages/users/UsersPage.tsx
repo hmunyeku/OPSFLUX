@@ -2499,10 +2499,10 @@ export function UsersPage() {
             icon={Users}
             title={t('nav.accounts', 'Comptes')}
             subtitle={
-              activeTab === 'overview' ? 'Vue d\'ensemble des comptes'
+              activeTab === 'overview' ? t('users.overview_subtitle')
               : activeTab === 'users' ? t('users.subtitle')
-              : activeTab === 'groups' ? 'Gestion des groupes utilisateurs'
-              : 'Gestion des rôles et permissions associées'
+              : activeTab === 'groups' ? t('users.groups_subtitle')
+              : t('users.roles_subtitle')
             }
           >
             {activeTab === 'users' && canCreateUser && (
@@ -2516,7 +2516,7 @@ export function UsersPage() {
             {activeTab === 'groups' && (
               <ToolbarButton
                 icon={Plus}
-                label="Nouveau groupe"
+                label={t('users.new_group')}
                 variant="primary"
                 onClick={() => setCreateTrigger((c) => c + 1)}
               />
@@ -2524,7 +2524,7 @@ export function UsersPage() {
             {activeTab === 'roles' && (
               <ToolbarButton
                 icon={Plus}
-                label="Nouveau rôle"
+                label={t('users.new_role')}
                 variant="primary"
                 onClick={() => setCreateTrigger((c) => c + 1)}
               />
@@ -2534,10 +2534,10 @@ export function UsersPage() {
           {/* Tab bar */}
           <PageNavBar
             items={[
-              { id: 'overview' as const, label: 'Vue d\'ensemble', icon: LayoutDashboard },
+              { id: 'overview' as const, label: t('common.tab_overview'), icon: LayoutDashboard },
               { id: 'users' as const, label: t('users.title'), icon: Users },
-              { id: 'groups' as const, label: 'Groupes', icon: KeyRound },
-              { id: 'roles' as const, label: 'Rôles', icon: Shield },
+              { id: 'groups' as const, label: t('users.groups'), icon: KeyRound },
+              { id: 'roles' as const, label: t('users.roles'), icon: Shield },
             ]}
             activeId={activeTab}
             onTabChange={setActiveTab}

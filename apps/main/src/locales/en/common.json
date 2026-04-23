@@ -34,7 +34,8 @@
     "help": "Help",
     "collapse": "Collapse",
     "expand": "Expand",
-    "moc": "MOCTrack"
+    "moc": "MOCTrack",
+    "admin_section_label": "Administration"
   },
   "home": {
     "greeting": {
@@ -114,7 +115,8 @@
     "server_online": "Server connected",
     "server_offline": "Server unreachable",
     "verification_d_email": "Email verification",
-    "verification_en_cours": "Verifying..."
+    "verification_en_cours": "Verifying...",
+    "server_offline_hint": "Server is offline, try again shortly."
   },
   "topbar": {
     "acting_as": "Acting context",
@@ -144,8 +146,14 @@
       "skip_hint": "Optional step — you can fill it in later",
       "help": "Show help for this step",
       "help_short": "Help",
-      "finish": "Finish"
-    }
+      "finish": "Finish",
+      "help_full": "Help full",
+      "help_none": "Help none",
+      "help_see_full": "Help see full",
+      "help_title": "Help title",
+      "help_values": "Help values"
+    },
+    "simple_hint": "Simple hint"
   },
   "error_boundary": {
     "title": "Something went wrong",
@@ -525,7 +533,13 @@
     "modified_female": "Modified",
     "deleted_female": "Deleted",
     "superadmin": "Superadmin",
-    "active_female": "Active"
+    "active_female": "Active",
+    "archived_count": "Archived",
+    "complete": "Complete",
+    "last_name": "Last name",
+    "orientation": "Orientation",
+    "tab_overview": "Overview",
+    "unknown": "Unknown"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -1152,7 +1166,46 @@
       "tag": "Tag",
       "pipeline_id": "ID Pipeline",
       "dn_in": "DN (in)"
-    }
+    },
+    "kmz": {
+      "commit_button": "Commit button",
+      "commit_confirm_message": "Commit confirm message",
+      "commit_confirm_title": "Commit confirm title",
+      "commit_field_label": "Commit field label",
+      "commit_field_placeholder": "Commit field placeholder",
+      "commit_hint": "Commit hint",
+      "description": "Description",
+      "dropzone_hint": "Dropzone hint",
+      "dropzone_title": "Dropzone title",
+      "errors": {
+        "export_failed": "Export failed",
+        "import_failed": "Import failed",
+        "not_kmz": "Not kmz",
+        "parse_failed": "Parse failed"
+      },
+      "export_button": "Export button",
+      "export_ready": "Export ready",
+      "history_button": "History button",
+      "history_empty": "History empty",
+      "history_rolled_back": "History rolled back",
+      "history_title": "History title",
+      "import_ready_hint": "Import ready hint",
+      "import_success": "Import success",
+      "preview_ready": "Preview ready",
+      "report_created": "Report created",
+      "report_errors": "Report errors",
+      "report_matched": "Report matched",
+      "report_reset": "Report reset",
+      "report_skipped": "Report skipped",
+      "report_title": "Report title",
+      "report_warnings_title": "Report warnings title",
+      "rollback_button": "Rollback button",
+      "rollback_confirm_message": "Rollback confirm message",
+      "rollback_confirm_title": "Rollback confirm title",
+      "title": "Title",
+      "uploading": "Uploading"
+    },
+    "no_hierarchy_data": "No hierarchy data"
   },
   "tiers": {
     "title": "Companies",
@@ -1178,7 +1231,13 @@
         "access": "External access",
         "contact_details": "Employee contact details",
         "compliance": "References & compliance",
-        "notes_documents": "Notes & documents"
+        "notes_documents": "Notes & documents",
+        "addresses": "Addresses",
+        "emails": "Emails",
+        "legal_ids": "Legal ids",
+        "opening_hours": "Opening hours",
+        "phones": "Phones",
+        "socials": "Socials"
       },
       "auto_generated": "Auto-generated on creation",
       "trade_name": "Primary trade name",
@@ -1264,9 +1323,24 @@
         "payment_terms": "Net 30 days",
         "description": "Free description..."
       },
-      "blocking_section": "Blocking"
+      "blocking_section": "Blocking",
+      "contact_department": "Contact department",
+      "contact_position": "Contact position",
+      "no_related_projects": "No related projects"
     },
-    "tab_dashboard": "Tableau de bord"
+    "tab_dashboard": "Tableau de bord",
+    "contact_form": {
+      "errors": {
+        "name_required": "Name required"
+      },
+      "is_primary": "Is primary",
+      "placeholders": {
+        "first_name": "First name",
+        "last_name": "Last name"
+      }
+    },
+    "select_company": "Select company",
+    "select_contact": "Select contact"
   },
   "users": {
     "title": "Users",
@@ -1403,7 +1477,12 @@
       "permission_granted": "Permission accordée",
       "permission_revoked": "Permission retirée",
       "permission_error": "Erreur"
-    }
+    },
+    "user": "User",
+    "overview_subtitle": "Accounts overview",
+    "groups_subtitle": "Manage user groups",
+    "roles_subtitle": "Manage roles and associated permissions",
+    "select_user": "Select a user"
   },
   "conformite": {
     "title": "Compliance",
@@ -1443,7 +1522,45 @@
       "issued_at": "Issue date",
       "expires_at": "Expiry date",
       "issuer": "Issuer",
-      "reference_number": "Reference #"
+      "reference_number": "Reference #",
+      "attachment_required_hint": "Attachment required hint",
+      "attachment_upload_cta": "Attachment upload cta",
+      "attachments_help": "Attachments help",
+      "create_success": "Create success",
+      "detail_title": "Detail title",
+      "errors": {
+        "attachment_required": "Attachment required",
+        "attachment_upload_failed": "Attachment upload failed",
+        "missing_required": "Missing required"
+      },
+      "fields": {
+        "expires_at": "Expires at",
+        "issued_at": "Issued at",
+        "issuer": "Issuer",
+        "notes": "Notes",
+        "owner_id": "Owner id",
+        "owner_type": "Owner type",
+        "reference_number": "Reference number",
+        "status": "Status",
+        "type": "Type"
+      },
+      "owner_types": {
+        "asset": "Asset",
+        "job_position": "Job position",
+        "tier_contact": "Tier contact",
+        "user": "User"
+      },
+      "placeholders": {
+        "notes": "Notes",
+        "owner_id": "Owner id",
+        "type": "Type"
+      },
+      "sections": {
+        "attachments": "Attachments",
+        "general": "General",
+        "owner": "Owner",
+        "reference": "Reference"
+      }
     },
     "rules": {
       "title": "Compliance rules",
@@ -1591,7 +1708,10 @@
         "vaccine": "Vaccine",
         "driving_license": "Driving license",
         "medical_check": "Medical check"
-      }
+      },
+      "reject_prompt": "Reject prompt",
+      "reject_title": "Reject title",
+      "verify": "Verify"
     },
     "exemptions": {
       "title": "Exemptions",
@@ -1974,7 +2094,27 @@
       "pdf_error": "Erreur lors de la génération du PDF",
       "comment_added": "Commentaire ajouté",
       "breakdown_resolved": "Mise à jour marquée comme effectuée"
-    }
+    },
+    "errors": {
+      "asset_required": "Asset required"
+    },
+    "external_refs": "External refs",
+    "initial_tasks": "Initial tasks",
+    "is_milestone": "Is milestone",
+    "milestone": "Milestone",
+    "select": "Select",
+    "task": {
+      "planner": {
+        "already_linked": "Already linked",
+        "link_button": "Link button",
+        "sent": "Sent",
+        "unlink_button": "Unlink button",
+        "unlink_error": "Unlink error",
+        "unlinked": "Unlinked"
+      },
+      "view_project": "View project"
+    },
+    "task_title_placeholder": "Task title placeholder"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -2248,7 +2388,9 @@
     "entity_option": {
       "avis_sejour": "Visit Notice (AdS)",
       "ads": "Visit Notice (FSM)"
-    }
+    },
+    "validation_errors": "Validation errors",
+    "validation_warnings": "Validation warnings"
   },
   "search": {
     "title": "Search",
@@ -2485,6 +2627,17 @@
         "recent_ads": "Recent visit notices",
         "expiring_credentials": "Expiring credentials",
         "compliance_stats": "Compliance statistics"
+      },
+      "kpi": {
+        "active_incidents": "Active incidents",
+        "compliance_rate": "Compliance rate",
+        "compliant": "Compliant",
+        "expired": "Expired",
+        "expiring_soon": "Expiring soon",
+        "non_compliant": "Non compliant",
+        "pending_ads": "Pending ads",
+        "registered_pax": "Registered pax",
+        "total_pax": "Total pax"
       }
     },
     "requester": {
@@ -2623,7 +2776,9 @@
         "request": "Request",
         "type_destination": "Type and destination",
         "visit_details": "Visit details",
-        "allowed_companies": "Allowed companies"
+        "allowed_companies": "Allowed companies",
+        "imputations": "Imputations",
+        "passengers": "Passengers"
       },
       "checklist": {
         "destination": "Destination completed",
@@ -2680,7 +2835,8 @@
         "attachments_description": "Supporting documents (visa, invitation letter, host company approval).",
         "notes_description": "Internal notes visible only in OpsFlux.",
         "imputations_description": "Cost split by BU / cost center / project."
-      }
+      },
+      "search_pax_hint": "Search pax hint"
     },
     "create_avm": {
       "title": "New mission notice",
@@ -2733,6 +2889,10 @@
           "activity": "Ex: line inspection, project meeting, handover...",
           "notes": "Constraints, participants, dependencies..."
         }
+      },
+      "window": {
+        "end": "End",
+        "start": "Start"
       }
     },
     "ads_detail": {
@@ -2988,6 +3148,10 @@
       "empty": {
         "pax_search": "No result for “{{search}}”",
         "passengers": "No passenger. Add PAX before you can submit the visit notice."
+      },
+      "toasts": {
+        "submit_error": "Submit error",
+        "submitted": "Submitted"
       }
     },
     "avm_detail": {
@@ -3148,7 +3312,8 @@
       "status": {
         "resolved": "Resolved",
         "active": "Active"
-      }
+      },
+      "severity": "Severity"
     },
     "rotations_tab": {
       "columns": {
@@ -3158,7 +3323,8 @@
       "compliance": {
         "clear": "Compliant",
         "blocked_one": "1 blocker",
-        "blocked_other": "{{count}} blockers"
+        "blocked_other": "{{count}} blockers",
+        "blocked": "Blocked"
       },
       "cycle": "Cycle",
       "start": "Start",
@@ -3216,7 +3382,8 @@
       "boarding_status": "Boarding {{status}} on {{date}}",
       "completed_at": "Completed on {{date}}",
       "reference_evidence_help": "Add the profile and reference supporting files here, for example a medical certificate, attestations, qualifications, or any proof required for compliance verification.",
-      "add_compliance_record": "Add compliance record"
+      "add_compliance_record": "Add compliance record",
+      "back_to_ads": "Back to ads"
     },
     "records": {
       "create": "New record",
@@ -3442,7 +3609,16 @@
       "child_tasks_to_review": "{{count}} child task(s) to review in the detailed plan",
       "status_pending": "Pending",
       "status_responded": "Responded",
-      "status_forced": "Forced"
+      "status_forced": "Forced",
+      "accept_counter": "Accept counter",
+      "counter_accepted_success": "Counter accepted success",
+      "force_available_at": "Force available at",
+      "force_confirm": "Force confirm",
+      "force_description": "Force description",
+      "force_reason": "Force reason",
+      "force_reason_placeholder": "Force reason placeholder",
+      "force_title": "Force title",
+      "forced_success": "Forced success"
     },
     "capacity": {
       "empty_title": "No data",
@@ -3476,7 +3652,11 @@
     "forecast": {
       "description": "Load forecast based on the last 90 days and scheduled activities, with the observed real POB shown as a secondary signal.",
       "avg_real_pob": "Average real POB",
-      "real_pob_short": "R {{count}}"
+      "real_pob_short": "R {{count}}",
+      "capacity_max": "Capacity max",
+      "cumulative_title": "Cumulative title",
+      "projected_load": "Projected load",
+      "real_pob": "Real pob"
     },
     "revision_signals": {
       "title": "Suggested revisions",
@@ -4066,7 +4246,8 @@
       "add_field": "Add field",
       "save_schema": "Save schema",
       "saving": "Saving...",
-      "no_fields": "No fields. Add at least one field to build the form."
+      "no_fields": "No fields. Add at least one field to build the form.",
+      "fields_configured": "Fields configured"
     },
     "presets": {
       "title": "Papyrus presets",
@@ -4315,37 +4496,37 @@
       "profile_description": "The Profile section is where users maintain their identity, contact details, and personal reference data. Complete it first so workflows, signatures, notifications, and compliance checks can rely on accurate information.",
       "profile_workflow": {
         "title": "Configure your profile",
-        "steps": [
-          "Open Settings, then the Profile tab.",
-          "Fill in your identity, contact details, position, and any user record information required by your organization.",
-          "Add or update addresses, secondary emails, and other contact methods if your organization uses them.",
-          "Verify that your photo, language, and personal preferences match your day-to-day usage.",
-          "Save your changes, then review the completeness score or status if it is displayed."
-        ]
+        "steps": {
+          "0": "0",
+          "1": "1",
+          "2": "2",
+          "3": "3",
+          "4": "4"
+        }
       },
       "notifications_workflow": {
         "title": "Tune your notifications",
-        "steps": [
-          "Open the Notifications tab to choose which channels are used per event or per module.",
-          "Keep only the alerts that are operationally useful to reduce noise.",
-          "Then review the Preferences tab for language, appearance, and personal behaviors.",
-          "Validate the setup on a real event or with a known notification."
-        ]
+        "steps": {
+          "0": "0",
+          "1": "1",
+          "2": "2",
+          "3": "3"
+        }
       },
       "security_workflow": {
         "title": "Secure your access",
-        "steps": [
-          "Use the Password tab to rotate your access secrets.",
-          "Review Active Sessions and close the ones that should no longer remain open.",
-          "Create access tokens only when there is an explicit and limited need.",
-          "Revoke any token or connected application as soon as it is no longer needed."
-        ]
+        "steps": {
+          "0": "0",
+          "1": "1",
+          "2": "2",
+          "3": "3"
+        }
       },
-      "tips": [
-        "An up-to-date profile improves signatures, notifications, and compliance checks.",
-        "Personal preferences affect your user experience, but they do not replace permissions managed by administrators.",
-        "Review your active sessions and tokens regularly if you use OpsFlux across multiple devices."
-      ]
+      "tips": {
+        "0": "0",
+        "1": "1",
+        "2": "2"
+      }
     },
     "pdf_templates": {
       "count_summary": "{{count}} PDF template(s) configured",
@@ -4671,7 +4852,9 @@
       "entity_section_description": "Fallback imputation for dossiers created in this entity when no higher-priority rule applies.",
       "entity_card_title": "Entity imputation rule",
       "entity_card_description": "This rule acts as the last fallback for AdS and other dossiers when neither a project, a user preference, nor a BU provides a usable imputation.",
-      "entity_card_hint": "Current AdS resolution order: dossier project -> user default -> requester BU -> entity default -> first active cost center fallback."
+      "entity_card_hint": "Current AdS resolution order: dossier project -> user default -> requester BU -> entity default -> first active cost center fallback.",
+      "entity_description": "Entity description",
+      "entity_title": "Entity title"
     },
     "imputation_manager": {
       "add": "Add imputation",
@@ -5344,7 +5527,8 @@
     "category_error": "Error",
     "category_success": "Success",
     "category_workflow": "Workflow",
-    "category_system": "System"
+    "category_system": "System",
+    "unread_count": "{{count}} unread"
   },
   "quick_create": {
     "title": "Quick create",
@@ -6197,6 +6381,9 @@
       "refresh": "Refresh",
       "upload": "Upload",
       "selected_count": "{{count}} selected"
+    },
+    "preview": {
+      "loadError": "Failed to load preview"
     }
   },
   "moc": {
@@ -6221,7 +6408,8 @@
       "send_return": "Send return",
       "accord": "Approve",
       "refuse": "Refuse",
-      "save_signature": "Save signature"
+      "save_signature": "Save signature",
+      "new": "New MOC"
     },
     "columns": {
       "reference": "Reference",
@@ -6337,7 +6525,9 @@
       "manager": "MOC project manager",
       "manager_ph": "Assign a manager…",
       "linked_project": "Linked project",
-      "linked_project_view": "Open the project"
+      "linked_project_view": "Open the project",
+      "is_real_change": "Real change per MOC rules?",
+      "metier_code": "Trade code"
     },
     "flags": {
       "hazop": "HAZOP",
@@ -6807,6 +6997,12 @@
       "tag_name_required": "Le nom du tag est requis",
       "dcs_tag_created": "Tag DCS créé",
       "dcs_tag_create_error": "Erreur lors de la création du tag"
+    }
+  },
+  "errors": {
+    "not_found": {
+      "description": "The requested resource does not exist.",
+      "title": "Not found"
     }
   }
 }

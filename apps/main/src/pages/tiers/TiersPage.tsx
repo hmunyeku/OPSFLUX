@@ -1613,7 +1613,7 @@ function ContactDetailPanel({
 type TiersTab = 'dashboard' | 'entreprises' | 'contacts'
 
 const TABS: { id: TiersTab; label: string; icon: typeof Building2 }[] = [
-  { id: 'dashboard', label: 'tiers.tab_dashboard', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'entreprises', label: 'tiers.tab_companies', icon: Building2 },
   { id: 'contacts', label: 'tiers.tab_contacts', icon: Users },
 ]

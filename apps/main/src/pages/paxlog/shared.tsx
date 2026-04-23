@@ -87,7 +87,7 @@ export const AVM_STATUS_BADGES: Record<string, string> = {
 }
 
 export const ALL_TABS = [
-  { id: 'dashboard' as const, labelKey: 'paxlog.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'dashboard' as const, labelKey: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'ads' as const, labelKey: 'paxlog.tabs.ads', icon: ClipboardList },
   { id: 'waitlist' as const, labelKey: 'paxlog.tabs.waitlist', icon: Clock },
   { id: 'profiles' as const, labelKey: 'paxlog.tabs.profiles', icon: Users },

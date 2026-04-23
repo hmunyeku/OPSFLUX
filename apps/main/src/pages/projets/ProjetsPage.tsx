@@ -43,7 +43,7 @@ export { DashboardView }
 // -- View Tabs ----------------------------------------------------------------
 
 const PROJETS_TABS: { id: ViewTab; labelKey: string; icon: typeof FolderKanban }[] = [
-  { id: 'dashboard', labelKey: 'projets.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'dashboard', labelKey: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'projets', labelKey: 'projets.tabs.projets', icon: FolderKanban },
   { id: 'tableur', labelKey: 'projets.tabs.tableur', icon: Sheet },
   { id: 'kanban', labelKey: 'projets.tabs.kanban', icon: Layers },

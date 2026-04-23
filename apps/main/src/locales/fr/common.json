@@ -34,7 +34,8 @@
     "help": "Aide",
     "collapse": "Réduire",
     "expand": "Étendre",
-    "moc": "MOCTrack"
+    "moc": "MOCTrack",
+    "admin_section_label": "Administration"
   },
   "home": {
     "greeting": {
@@ -114,7 +115,8 @@
     "server_online": "Serveur connecté",
     "server_offline": "Serveur injoignable",
     "verification_d_email": "Vérification d'email",
-    "verification_en_cours": "Vérification en cours..."
+    "verification_en_cours": "Vérification en cours...",
+    "server_offline_hint": "Le serveur est hors ligne, réessayez dans quelques instants."
   },
   "topbar": {
     "acting_as": "Contexte d'action",
@@ -144,8 +146,14 @@
       "skip_hint": "Étape facultative — vous pourrez y revenir plus tard",
       "help": "Afficher l'aide de cette étape",
       "help_short": "Aide",
-      "finish": "Terminer"
-    }
+      "finish": "Terminer",
+      "help_full": "Ouvrir l\\u2019aide du module",
+      "help_none": "Aucune aide disponible pour cette étape.",
+      "help_see_full": "Cliquez sur l\\u2019icône ↗ pour voir les workflows détaillés du module.",
+      "help_title": "Aide",
+      "help_values": "Valeurs possibles"
+    },
+    "simple_hint": "Simple hint"
   },
   "error_boundary": {
     "title": "Une erreur est survenue",
@@ -525,7 +533,13 @@
     "modified_female": "Modifiée",
     "deleted_female": "Supprimée",
     "superadmin": "Superadmin",
-    "active_female": "Active"
+    "active_female": "Active",
+    "archived_count": "Archives",
+    "complete": "Complet",
+    "last_name": "Nom",
+    "orientation": "Orientation",
+    "tab_overview": "Vue d’ensemble",
+    "unknown": "Inconnu"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -1152,7 +1166,46 @@
       "tag": "Tag",
       "pipeline_id": "ID Pipeline",
       "dn_in": "DN (in)"
-    }
+    },
+    "kmz": {
+      "commit_button": "Commit button",
+      "commit_confirm_message": "Commit confirm message",
+      "commit_confirm_title": "Commit confirm title",
+      "commit_field_label": "Commit field label",
+      "commit_field_placeholder": "Commit field placeholder",
+      "commit_hint": "Commit hint",
+      "description": "Description",
+      "dropzone_hint": "Dropzone hint",
+      "dropzone_title": "Dropzone title",
+      "errors": {
+        "export_failed": "Export failed",
+        "import_failed": "Import failed",
+        "not_kmz": "Not kmz",
+        "parse_failed": "Parse failed"
+      },
+      "export_button": "Export button",
+      "export_ready": "Export ready",
+      "history_button": "History button",
+      "history_empty": "History empty",
+      "history_rolled_back": "History rolled back",
+      "history_title": "History title",
+      "import_ready_hint": "Import ready hint",
+      "import_success": "Import success",
+      "preview_ready": "Preview ready",
+      "report_created": "Report created",
+      "report_errors": "Report errors",
+      "report_matched": "Report matched",
+      "report_reset": "Report reset",
+      "report_skipped": "Report skipped",
+      "report_title": "Report title",
+      "report_warnings_title": "Report warnings title",
+      "rollback_button": "Rollback button",
+      "rollback_confirm_message": "Rollback confirm message",
+      "rollback_confirm_title": "Rollback confirm title",
+      "title": "Title",
+      "uploading": "Uploading"
+    },
+    "no_hierarchy_data": "No hierarchy data"
   },
   "tiers": {
     "title": "Entreprises",
@@ -1179,7 +1232,13 @@
         "access": "Accès externe",
         "contact_details": "Coordonnées de l'employé",
         "compliance": "Référentiels & conformité",
-        "notes_documents": "Notes & documents"
+        "notes_documents": "Notes & documents",
+        "addresses": "Adresses (additionnelles)",
+        "emails": "Emails (additionnels)",
+        "legal_ids": "Identifiants légaux",
+        "opening_hours": "Horaires d\\u2019ouverture",
+        "phones": "Téléphones (additionnels)",
+        "socials": "Réseaux sociaux"
       },
       "auto_generated": "Auto-généré à la création",
       "trade_name": "Nom commercial principal",
@@ -1265,8 +1324,23 @@
         "payment_terms": "30 jours net",
         "description": "Description libre..."
       },
-      "blocking_section": "Blocage"
-    }
+      "blocking_section": "Blocage",
+      "contact_department": "Département",
+      "contact_position": "Fonction",
+      "no_related_projects": "Aucun projet associe."
+    },
+    "contact_form": {
+      "errors": {
+        "name_required": "Name required"
+      },
+      "is_primary": "Contact principal",
+      "placeholders": {
+        "first_name": "Prénom",
+        "last_name": "Nom"
+      }
+    },
+    "select_company": "Sélectionner une entreprise...",
+    "select_contact": "Sélectionner un contact..."
   },
   "users": {
     "title": "Utilisateurs",
@@ -1403,7 +1477,12 @@
     "derniers_roles": "Derniers rôles",
     "aucun_role": "Aucun rôle",
     "affecter_a_un_groupe": "Affecter à un groupe",
-    "affecter_a_une_entite": "Affecter à une entité"
+    "affecter_a_une_entite": "Affecter à une entité",
+    "user": "Utilisateur",
+    "overview_subtitle": "Vue d’ensemble des comptes",
+    "groups_subtitle": "Gestion des groupes utilisateurs",
+    "roles_subtitle": "Gestion des rôles et permissions associées",
+    "select_user": "Sélectionner un utilisateur"
   },
   "conformite": {
     "title": "Conformité",
@@ -1480,7 +1559,45 @@
       "issued_at": "Date d'émission",
       "expires_at": "Date d'expiration",
       "issuer": "Émetteur",
-      "reference_number": "N° référence"
+      "reference_number": "N° référence",
+      "attachment_required_hint": "Attachment required hint",
+      "attachment_upload_cta": "Attachment upload cta",
+      "attachments_help": "Attachments help",
+      "create_success": "Create success",
+      "detail_title": "Detail title",
+      "errors": {
+        "attachment_required": "Attachment required",
+        "attachment_upload_failed": "Attachment upload failed",
+        "missing_required": "Missing required"
+      },
+      "fields": {
+        "expires_at": "Expires at",
+        "issued_at": "Issued at",
+        "issuer": "Issuer",
+        "notes": "Notes",
+        "owner_id": "Owner id",
+        "owner_type": "Owner type",
+        "reference_number": "Reference number",
+        "status": "Status",
+        "type": "Type"
+      },
+      "owner_types": {
+        "asset": "Asset",
+        "job_position": "Job position",
+        "tier_contact": "Tier contact",
+        "user": "User"
+      },
+      "placeholders": {
+        "notes": "Notes",
+        "owner_id": "Owner id",
+        "type": "Type"
+      },
+      "sections": {
+        "attachments": "Attachments",
+        "general": "General",
+        "owner": "Owner",
+        "reference": "Reference"
+      }
     },
     "rules": {
       "title": "Règles de conformité",
@@ -1628,7 +1745,10 @@
         "vaccine": "Vaccin",
         "driving_license": "Permis",
         "medical_check": "Visite médicale"
-      }
+      },
+      "reject_prompt": "Reject prompt",
+      "reject_title": "Reject title",
+      "verify": "Verify"
     },
     "exemptions": {
       "title": "Exemptions",
@@ -1974,7 +2094,27 @@
     "assigne": "Assigné",
     "pob_demande": "POB demandé",
     "heures_reelles": "Heures réelles",
-    "aucun_commentaire_pour_le_moment": "Aucun commentaire pour le moment"
+    "aucun_commentaire_pour_le_moment": "Aucun commentaire pour le moment",
+    "errors": {
+      "asset_required": "Site / installation obligatoire"
+    },
+    "external_refs": "Références externes",
+    "initial_tasks": "Tâches initiales",
+    "is_milestone": "Jalon",
+    "milestone": "Jalon",
+    "select": "Sélectionner un projet...",
+    "task": {
+      "planner": {
+        "already_linked": "Tâche déjà liée au Planner",
+        "link_button": "Lier au Planner",
+        "sent": "Tâche envoyée au Planner",
+        "unlink_button": "Retirer du Planner",
+        "unlink_error": "Erreur lors du retrait",
+        "unlinked": "Tâche retirée du Planner"
+      },
+      "view_project": "Voir le projet"
+    },
+    "task_title_placeholder": "Titre de la tâche…"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -2248,7 +2388,9 @@
     "entity_option": {
       "avis_sejour": "Avis de séjour (AdS)",
       "ads": "Avis de séjour (FSM)"
-    }
+    },
+    "validation_errors": "Validation errors",
+    "validation_warnings": "Validation warnings"
   },
   "search": {
     "title": "Recherche",
@@ -2485,6 +2627,17 @@
         "recent_ads": "AdS récents",
         "expiring_credentials": "Certifications expirantes",
         "compliance_stats": "Statistiques de conformité"
+      },
+      "kpi": {
+        "active_incidents": "Active incidents",
+        "compliance_rate": "Compliance rate",
+        "compliant": "Compliant",
+        "expired": "Expired",
+        "expiring_soon": "Expiring soon",
+        "non_compliant": "Non compliant",
+        "pending_ads": "Pending ads",
+        "registered_pax": "Registered pax",
+        "total_pax": "Total pax"
       }
     },
     "requester": {
@@ -2623,7 +2776,9 @@
         "request": "Demande",
         "type_destination": "Type et destination",
         "visit_details": "Détails de la visite",
-        "allowed_companies": "Entreprises autorisées"
+        "allowed_companies": "Entreprises autorisées",
+        "imputations": "Imputations",
+        "passengers": "Passagers"
       },
       "checklist": {
         "destination": "Destination renseignée",
@@ -2680,7 +2835,8 @@
         "attachments_description": "Justificatifs (visa, lettre d'invitation, accord entreprise d'accueil).",
         "notes_description": "Notes internes visibles uniquement dans OpsFlux.",
         "imputations_description": "Répartition des coûts par BU / centre de coût / projet."
-      }
+      },
+      "search_pax_hint": "Commencez à taper pour rechercher un PAX (utilisateur interne ou contact)."
     },
     "create_avm": {
       "title": "Nouvel avis de mission",
@@ -2733,6 +2889,10 @@
           "activity": "Ex: inspection ligne, réunion projet, handover...",
           "notes": "Contraintes, participants, dépendances..."
         }
+      },
+      "window": {
+        "end": "End",
+        "start": "Start"
       }
     },
     "ads_detail": {
@@ -2988,6 +3148,10 @@
       "empty": {
         "pax_search": "Aucun résultat pour « {{search}} »",
         "passengers": "Aucun passager. Ajoutez des PAX pour pouvoir soumettre l'AdS."
+      },
+      "toasts": {
+        "submit_error": "Submit error",
+        "submitted": "Submitted"
       }
     },
     "avm_detail": {
@@ -3148,7 +3312,8 @@
       "status": {
         "resolved": "Résolu",
         "active": "Actif"
-      }
+      },
+      "severity": "Severity"
     },
     "rotations_tab": {
       "columns": {
@@ -3158,7 +3323,8 @@
       "compliance": {
         "clear": "Conforme",
         "blocked_one": "1 blocage",
-        "blocked_other": "{{count}} blocages"
+        "blocked_other": "{{count}} blocages",
+        "blocked": "Blocked"
       },
       "cycle": "Cycle",
       "start": "Début",
@@ -3216,7 +3382,8 @@
       "boarding_status": "Boarding {{status}} le {{date}}",
       "completed_at": "Clôturé le {{date}}",
       "reference_evidence_help": "Ajoutez ici les pièces justificatives du profil et du référentiel, par exemple certificat médical, attestations, habilitations ou documents de preuve utiles à la vérification de conformité.",
-      "add_compliance_record": "Ajouter un enregistrement de conformité"
+      "add_compliance_record": "Ajouter un enregistrement de conformité",
+      "back_to_ads": "Back to ads"
     },
     "records": {
       "create": "Nouvel enregistrement",
@@ -3455,7 +3622,11 @@
     "forecast": {
       "description": "Prévision de charge basée sur les 90 derniers jours et les activités planifiées, avec rappel du POB réel constaté.",
       "avg_real_pob": "POB réel moyen",
-      "real_pob_short": "R {{count}}"
+      "real_pob_short": "R {{count}}",
+      "capacity_max": "Capacity max",
+      "cumulative_title": "Cumulative title",
+      "projected_load": "Projected load",
+      "real_pob": "Real pob"
     },
     "timeline_empty_title": "Timeline Gantt",
     "timeline_empty_description": "La vue Gantt interactive sera disponible ici. Visualisez vos projets, tâches et jalons sur une frise chronologique.",
@@ -3536,7 +3707,16 @@
       "child_tasks_to_review": "{{count}} sous-tâche(s) à revoir dans le planning détaillé",
       "status_pending": "En attente",
       "status_responded": "Répondu",
-      "status_forced": "Forcé"
+      "status_forced": "Forcé",
+      "accept_counter": "Accept counter",
+      "counter_accepted_success": "Counter accepted success",
+      "force_available_at": "Force available at",
+      "force_confirm": "Force confirm",
+      "force_description": "Force description",
+      "force_reason": "Force reason",
+      "force_reason_placeholder": "Force reason placeholder",
+      "force_title": "Force title",
+      "forced_success": "Forced success"
     },
     "capacity": {
       "empty_title": "Aucune donnée",
@@ -4076,7 +4256,8 @@
       "add_field": "Ajouter un champ",
       "save_schema": "Enregistrer le schéma",
       "saving": "Enregistrement...",
-      "no_fields": "Aucun champ. Ajoutez au moins un champ pour construire le formulaire."
+      "no_fields": "Aucun champ. Ajoutez au moins un champ pour construire le formulaire.",
+      "fields_configured": "Fields configured"
     },
     "presets": {
       "title": "Presets Papyrus",
@@ -4361,37 +4542,37 @@
       "profile_description": "La section Profil sert à maintenir votre identité, vos coordonnées et vos informations personnelles de référence. Complétez-la en premier pour fiabiliser les workflows, signatures, notifications et contrôles de conformité.",
       "profile_workflow": {
         "title": "Configurer son profil",
-        "steps": [
-          "Ouvrez Paramètres puis l’onglet Profil.",
-          "Renseignez votre identité, vos coordonnées, votre poste et vos informations utiles au dossier utilisateur.",
-          "Ajoutez ou mettez à jour vos adresses, emails secondaires et autres moyens de contact si votre organisation les utilise.",
-          "Vérifiez que votre photo, votre langue et vos préférences personnelles sont cohérentes avec votre usage quotidien.",
-          "Enregistrez vos changements puis contrôlez le score ou l’état de complétude si celui-ci est affiché."
-        ]
+        "steps": {
+          "0": "0",
+          "1": "1",
+          "2": "2",
+          "3": "3",
+          "4": "4"
+        }
       },
       "notifications_workflow": {
         "title": "Régler ses notifications",
-        "steps": [
-          "Ouvrez l’onglet Notifications pour choisir les canaux utilisés par événement ou par module.",
-          "Activez uniquement les alertes réellement utiles pour éviter le bruit opérationnel.",
-          "Contrôlez ensuite l’onglet Préférences pour la langue, l’apparence et les comportements personnels.",
-          "Testez vos réglages sur un événement réel ou via une notification connue."
-        ]
+        "steps": {
+          "0": "0",
+          "1": "1",
+          "2": "2",
+          "3": "3"
+        }
       },
       "security_workflow": {
         "title": "Sécuriser son accès",
-        "steps": [
-          "Utilisez l’onglet Mot de passe pour renouveler vos secrets d’accès.",
-          "Contrôlez les Sessions actives et fermez celles qui ne doivent plus rester ouvertes.",
-          "Générez des jetons d’accès uniquement si vous en avez un besoin explicite et limité.",
-          "Révoquez immédiatement tout jeton ou application qui n’est plus nécessaire."
-        ]
+        "steps": {
+          "0": "0",
+          "1": "1",
+          "2": "2",
+          "3": "3"
+        }
       },
-      "tips": [
-        "Un profil à jour améliore la qualité des signatures, des notifications et des contrôles de conformité.",
-        "Les préférences personnelles agissent sur votre expérience utilisateur, mais ne remplacent pas les droits gérés par l’administrateur.",
-        "Pensez à vérifier régulièrement vos sessions et vos jetons si vous utilisez OpsFlux sur plusieurs appareils."
-      ]
+      "tips": {
+        "0": "0",
+        "1": "1",
+        "2": "2"
+      }
     },
     "pdf_templates": {
       "count_summary": "{{count}} modèle(s) PDF configuré(s)",
@@ -4912,7 +5093,9 @@
       "entity_section_description": "Fallback d’imputation pour les dossiers créés dans cette entité quand aucune règle plus prioritaire ne s’applique.",
       "entity_card_title": "Règle d’imputation entité",
       "entity_card_description": "Cette règle sert de dernier filet pour les AdS et autres dossiers lorsque ni projet, ni préférence utilisateur, ni BU ne fournissent d’imputation exploitable.",
-      "entity_card_hint": "Ordre actuel de résolution AdS: projet du dossier -> défaut utilisateur -> BU du demandeur -> défaut entité -> fallback premier centre de coût actif."
+      "entity_card_hint": "Ordre actuel de résolution AdS: projet du dossier -> défaut utilisateur -> BU du demandeur -> défaut entité -> fallback premier centre de coût actif.",
+      "entity_description": "Entity description",
+      "entity_title": "Entity title"
     },
     "imputation_manager": {
       "add": "Ajouter une imputation",
@@ -5390,7 +5573,8 @@
     "category_error": "Erreur",
     "category_success": "Succès",
     "category_workflow": "Workflow",
-    "category_system": "Système"
+    "category_system": "Système",
+    "unread_count": "{{count}} non lu"
   },
   "quick_create": {
     "title": "Création rapide",
@@ -6231,6 +6415,9 @@
       "refresh": "Actualiser",
       "upload": "Uploader",
       "selected_count": "{{count}} sélectionné(s)"
+    },
+    "preview": {
+      "loadError": "Impossible de charger l’aperçu"
     }
   },
   "moc": {
@@ -6255,7 +6442,8 @@
       "send_return": "Envoyer le renvoi",
       "accord": "Accord",
       "refuse": "Refus",
-      "save_signature": "Enregistrer la signature"
+      "save_signature": "Enregistrer la signature",
+      "new": "Nouveau MOC"
     },
     "columns": {
       "reference": "Référence",
@@ -6371,7 +6559,9 @@
       "manager": "Chef de projet MOC",
       "manager_ph": "Assigner un responsable…",
       "linked_project": "Projet lié",
-      "linked_project_view": "Ouvrir le projet"
+      "linked_project_view": "Ouvrir le projet",
+      "is_real_change": "Véritable changement au sens MOC ?",
+      "metier_code": "Code métier"
     },
     "flags": {
       "hazop": "HAZOP",
@@ -6808,5 +6998,11 @@
       "all": "Partout"
     },
     "pinned": "Épinglée"
+  },
+  "errors": {
+    "not_found": {
+      "description": "La ressource demandée n’existe pas.",
+      "title": "Introuvable"
+    }
   }
 }

@@ -58,7 +58,7 @@ type AlertRow = {
 }
 
 const TAB_DEFS: { id: PackLogTab; labelKey: string; icon: typeof LayoutDashboard }[] = [
-  { id: 'dashboard', labelKey: 'packlog.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'dashboard', labelKey: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'requests', labelKey: 'packlog.tabs.requests', icon: FileText },
   { id: 'cargo', labelKey: 'packlog.tabs.cargo', icon: Package },
   { id: 'catalog', labelKey: 'packlog.tabs.catalog', icon: Boxes },

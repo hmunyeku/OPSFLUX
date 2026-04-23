@@ -40,7 +40,7 @@ import { MOCCreatePanel } from './panels/MOCCreatePanel'
 type MOCTab = 'dashboard' | 'list'
 
 const TABS: { id: MOCTab; labelKey: string; icon: typeof LayoutDashboard }[] = [
-  { id: 'dashboard', labelKey: 'moc.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'dashboard', labelKey: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'list', labelKey: 'moc.tabs.list', icon: ClipboardList },
 ]
 

@@ -80,7 +80,7 @@ export function updatePackLogRuleConfig(
 export function useConformiteTabs() {
   const { t } = useTranslation()
   return useMemo<{ id: ConformiteTab; label: string; icon: typeof ShieldCheck }[]>(() => [
-    { id: 'dashboard', label: t('conformite.tabs.dashboard'), icon: LayoutDashboard },
+    { id: 'dashboard', label: t('common.tab_dashboard'), icon: LayoutDashboard },
     { id: 'fiches', label: t('conformite.tabs.fiches_poste'), icon: Briefcase },
     { id: 'referentiel', label: t('conformite.tabs.referentiel'), icon: ClipboardList },
     { id: 'regles', label: t('conformite.tabs.regles'), icon: Scale },

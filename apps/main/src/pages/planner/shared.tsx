@@ -17,7 +17,7 @@ export type PlannerTab = 'dashboard' | 'gantt' | 'activities' | 'conflicts' | 'c
 // Tab definitions use i18n keys — the labels are resolved at render time
 // inside PlannerPage via useMemo + useTranslation.
 export const TAB_DEFS: { id: PlannerTab; labelKey: string; icon: typeof CalendarRange }[] = [
-  { id: 'dashboard', labelKey: 'planner.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'dashboard', labelKey: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'gantt', labelKey: 'planner.tabs.timeline', icon: GanttChart },
   { id: 'activities', labelKey: 'planner.tabs.activities', icon: ListTodo },
   { id: 'conflicts', labelKey: 'planner.tabs.conflicts', icon: AlertTriangle },

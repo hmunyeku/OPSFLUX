@@ -10,6 +10,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Plus, Trash2, X } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { useSaveScopedSetting, useScopedSettingsMap } from '@/hooks/useSettings'
 import {
@@ -246,6 +247,7 @@ export function MOCConfigTab() {
 function MOCTypesAdmin() {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const confirm = useConfirm()
   const { data: types = [], isLoading } = useMOCTypes(true)
   const createType = useCreateMOCType()
   const updateType = useUpdateMOCType()
@@ -276,7 +278,13 @@ function MOCTypesAdmin() {
   }
 
   const onDelete = async (type: MOCType) => {
-    if (!window.confirm(t('moc.settings.types.confirm_delete', { label: type.label }) as string)) return
+    const ok = await confirm({
+      title: t('moc.settings.types.confirm_delete_title', 'Supprimer ce type MOC ?'),
+      message: t('moc.settings.types.confirm_delete', { label: type.label }) as string,
+      variant: 'danger',
+      confirmLabel: t('common.delete', 'Supprimer'),
+    })
+    if (!ok) return
     try {
       await deleteType.mutateAsync(type.id)
       toast({ title: t('moc.settings.types.deleted'), variant: 'success' })

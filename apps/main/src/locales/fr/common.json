@@ -222,6 +222,8 @@
     "close": "Fermer",
     "double_click_to_edit": "Double-cliquez pour modifier",
     "set_default": "Définir par défaut",
+    "verified": "Vérifié",
+    "verified_on": "Vérifié le {{date}}",
     "apply": "Appliquer",
     "add": "Ajouter",
     "submit": "Soumettre",
@@ -6514,7 +6516,8 @@
         "metier_ph": "Code métier",
         "created": "Type créé",
         "deleted": "Type supprimé",
-        "confirm_delete": "Supprimer le type « {{label}} » ?"
+        "confirm_delete": "Supprimer le type « {{label}} » ?",
+        "confirm_delete_title": "Supprimer ce type MOC ?"
       }
     }
   },

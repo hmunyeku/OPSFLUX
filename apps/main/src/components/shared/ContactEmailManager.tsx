@@ -140,7 +140,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                   <Star size={10} className="text-yellow-500 fill-yellow-500 shrink-0" />
                 )}
                 {ce.verified ? (
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400 shrink-0" title={ce.verified_at ? `Vérifié le ${new Date(ce.verified_at).toLocaleDateString()}` : 'Vérifié'}>
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400 shrink-0" title={ce.verified_at ? t('common.verified_on', { date: new Date(ce.verified_at).toLocaleDateString(), defaultValue: `Vérifié le ${new Date(ce.verified_at).toLocaleDateString()}` }) as string : t('common.verified', 'Vérifié') as string}>
                     <ShieldCheck size={10} />
                   </span>
                 ) : (

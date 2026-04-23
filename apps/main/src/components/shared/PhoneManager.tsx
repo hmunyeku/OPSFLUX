@@ -390,7 +390,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                   </div>
                 </div>
                 {phone.verified ? (
-                  <span className="shrink-0 h-5 w-5 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center" title={phone.verified_at ? `Vérifié le ${new Date(phone.verified_at).toLocaleDateString()}` : 'Vérifié'}>
+                  <span className="shrink-0 h-5 w-5 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center" title={phone.verified_at ? t('common.verified_on', { date: new Date(phone.verified_at).toLocaleDateString(), defaultValue: `Vérifié le ${new Date(phone.verified_at).toLocaleDateString()}` }) as string : t('common.verified', 'Vérifié') as string}>
                     <ShieldCheck size={10} className="text-green-500" />
                   </span>
                 ) : verifyingPhoneId === phone.id ? (

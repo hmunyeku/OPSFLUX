@@ -222,6 +222,8 @@
     "close": "Close",
     "double_click_to_edit": "Double-click to edit",
     "set_default": "Set as default",
+    "verified": "Verified",
+    "verified_on": "Verified on {{date}}",
     "apply": "Apply",
     "add": "Add",
     "submit": "Submit",
@@ -6480,7 +6482,8 @@
         "metier_ph": "Discipline code",
         "created": "Type created",
         "deleted": "Type deleted",
-        "confirm_delete": "Delete type \"{{label}}\"?"
+        "confirm_delete": "Delete type \"{{label}}\"?",
+        "confirm_delete_title": "Delete this MOC type?"
       }
     }
   },

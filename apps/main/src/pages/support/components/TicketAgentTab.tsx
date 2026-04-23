@@ -1,7 +1,7 @@
 /**
  * "Agent IA" tab on the ticket detail — launch / monitor / cancel runs.
  */
-import { Bot, Play, XCircle, CheckCircle2, Loader2, AlertCircle, ExternalLink, Github, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Bot, Play, XCircle, CheckCircle2, Loader2, AlertCircle, ExternalLink, Github, ThumbsUp, ThumbsDown, Rocket, Eye } from 'lucide-react'
 import {
   useAgentRunsForTicket,
   useLaunchAgentRun,
@@ -9,6 +9,8 @@ import {
   useApproveAgentRun,
   useRejectAgentRun,
   useAgentConfig,
+  useVerificationResults,
+  useDeployAndVerify,
   type AgentRun,
   type AgentPhase,
 } from '@/hooks/useAgentRuns'
@@ -40,8 +42,32 @@ export function TicketAgentTab({
   const cancel = useCancelAgentRun()
   const approve = useApproveAgentRun()
   const reject = useRejectAgentRun()
+  const deployVerify = useDeployAndVerify()
   const { toast } = useToast()
   const confirm = useConfirm()
+
+  const handleDeployAndVerify = async (run: AgentRun) => {
+    const ok = await confirm({
+      title: 'Déployer sur staging et lancer Playwright ?',
+      message: 'La branche agent sera déployée sur l’environnement staging Dokploy, suivi des scénarios Playwright pertinents.',
+      confirmLabel: 'Déployer et vérifier',
+    })
+    if (!ok) return
+    try {
+      const result = await deployVerify.mutateAsync(run.id)
+      const label = result.deploy_ok
+        ? `Déploiement OK — ${result.passed ?? 0}✓ / ${result.failed ?? 0}✗ / ${result.critical_failures ?? 0} critiques`
+        : `Déploiement échoué : ${result.deploy_message ?? 'erreur'}`
+      toast({
+        title: 'Deploy + verify terminé',
+        description: label,
+        variant: result.deploy_ok && !result.critical_failures ? 'success' : 'error',
+      })
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast({ title: 'Échec deploy+verify', description: msg || String(err), variant: 'error' })
+    }
+  }
 
   const handleApprove = async (run: AgentRun) => {
     const ok = await confirm({
@@ -156,9 +182,11 @@ export function TicketAgentTab({
               onCancel={handleCancel}
               onApprove={handleApprove}
               onReject={handleReject}
+              onDeployAndVerify={handleDeployAndVerify}
               canManage={canManage}
               isApproving={approve.isPending}
               isRejecting={reject.isPending}
+              isDeploying={deployVerify.isPending}
             />
           ) : (
             <div className="flex flex-col gap-2">
@@ -210,17 +238,21 @@ function ActiveRunCard({
   onCancel,
   onApprove,
   onReject,
+  onDeployAndVerify,
   canManage,
   isApproving,
   isRejecting,
+  isDeploying,
 }: {
   run: AgentRun
   onCancel: (r: AgentRun) => void
   onApprove: (r: AgentRun) => void
   onReject: (r: AgentRun) => void
+  onDeployAndVerify: (r: AgentRun) => void
   canManage: boolean
   isApproving: boolean
   isRejecting: boolean
+  isDeploying: boolean
 }) {
   const currentIdx = PHASES.findIndex((p) => p.id === run.current_phase)
   const awaitingApproval = run.status === 'awaiting_human'
@@ -296,14 +328,24 @@ function ActiveRunCard({
               Approbation requise
             </p>
             <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-0.5">
-              Tous les gates sont verts. La PR attend ton feu vert pour être mergée.
+              Tous les gates sont verts. Tu peux déployer sur staging + vérifier avant
+              approbation, ou approuver directement (le CI/CD prendra le relais).
             </p>
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2 mt-2 flex-wrap">
+              <button
+                type="button"
+                className="gl-button gl-button-sm gl-button-default"
+                onClick={() => onDeployAndVerify(run)}
+                disabled={isApproving || isRejecting || isDeploying}
+              >
+                {isDeploying ? <Loader2 size={12} className="animate-spin" /> : <Rocket size={12} />}
+                Déployer + vérifier (staging)
+              </button>
               <button
                 type="button"
                 className="gl-button gl-button-sm gl-button-confirm text-primary"
                 onClick={() => onApprove(run)}
-                disabled={isApproving || isRejecting}
+                disabled={isApproving || isRejecting || isDeploying}
               >
                 {isApproving ? <Loader2 size={12} className="animate-spin" /> : <ThumbsUp size={12} />}
                 Approuver et merger
@@ -312,7 +354,7 @@ function ActiveRunCard({
                 type="button"
                 className="gl-button gl-button-sm gl-button-default text-destructive"
                 onClick={() => onReject(run)}
-                disabled={isApproving || isRejecting}
+                disabled={isApproving || isRejecting || isDeploying}
               >
                 {isRejecting ? <Loader2 size={12} className="animate-spin" /> : <ThumbsDown size={12} />}
                 Rejeter
@@ -320,6 +362,10 @@ function ActiveRunCard({
             </div>
           </div>
         </div>
+      )}
+
+      {run.dokploy_deploy_url && (
+        <VerificationResultsPanel runId={run.id} />
       )}
 
       {canManage && !awaitingApproval && (
@@ -377,4 +423,82 @@ function StatusBadge({ status }: { status: string }) {
           ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
           : 'bg-muted text-muted-foreground'
   return <span className={`text-[10px] px-1.5 py-0.5 rounded ${cls}`}>{status}</span>
+}
+
+function VerificationResultsPanel({ runId }: { runId: string }) {
+  const { data: results = [], isLoading } = useVerificationResults(runId)
+
+  if (isLoading) {
+    return (
+      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+        <Loader2 size={10} className="animate-spin" /> Chargement des résultats Playwright…
+      </div>
+    )
+  }
+  if (results.length === 0) {
+    return null
+  }
+
+  const passed = results.filter((r) => r.status === 'passed').length
+  const failed = results.filter((r) => r.status === 'failed' || r.status === 'error').length
+  const critFail = results.filter(
+    (r) => (r.status === 'failed' || r.status === 'error') && r.criticality === 'critical',
+  ).length
+
+  return (
+    <div className="border border-border/60 rounded bg-muted/30 p-3 space-y-2">
+      <div className="flex items-center gap-2 text-xs">
+        <Eye size={12} className="text-primary" />
+        <span className="font-medium">Vérification Playwright</span>
+        <span className="ml-auto text-[11px] text-muted-foreground">
+          {passed}✓ {failed}✗ {critFail > 0 && `· ${critFail} critique(s)`}
+        </span>
+      </div>
+      <ul className="space-y-1">
+        {results.map((r) => (
+          <li
+            key={r.id}
+            className="flex items-start gap-2 text-[11px] py-1 px-1.5 rounded hover:bg-muted/60"
+          >
+            {r.status === 'passed' ? (
+              <CheckCircle2 size={11} className="text-green-600 mt-0.5 shrink-0" />
+            ) : r.status === 'skipped' ? (
+              <span className="text-muted-foreground mt-0.5 shrink-0">⊘</span>
+            ) : (
+              <XCircle size={11} className="text-destructive mt-0.5 shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-medium">{r.scenario_name}</span>
+                <span
+                  className={`text-[9px] px-1 rounded ${
+                    r.criticality === 'critical'
+                      ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
+                      : r.criticality === 'important'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300'
+                        : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {r.criticality}
+                </span>
+                {r.duration_seconds != null && (
+                  <span className="text-[10px] text-muted-foreground">{r.duration_seconds}s</span>
+                )}
+              </div>
+              {r.error_excerpt && (
+                <p className="text-[10px] text-destructive font-mono mt-0.5 line-clamp-3">
+                  {r.error_excerpt}
+                </p>
+              )}
+              {r.console_errors.length > 0 && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {r.console_errors.length} console error(s)
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }

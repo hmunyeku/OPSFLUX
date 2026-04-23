@@ -22,7 +22,7 @@ import {
   Activity, Hash, BookOpen, ShieldCheck, Database,
   Users, CalendarClock, Ship, Boxes, FolderKanban,
   Languages, ClipboardList,
-  Sliders, LayoutTemplate, Briefcase, Server,
+  Sliders, LayoutTemplate, Briefcase, Server, CircleCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -142,6 +142,7 @@ import { ActivityTab } from './tabs/ActivityTab'
 import { PreferencesTab } from './tabs/PreferencesTab'
 import { GeneralConfigTab } from './tabs/GeneralConfigTab'
 import { IntegrationsTab } from './tabs/IntegrationsTab'
+import { VerificationScenariosTab } from './tabs/VerificationScenariosTab'
 import { EmailTemplatesTab } from './tabs/EmailTemplatesTab'
 import { PdfTemplatesTab } from './tabs/PdfTemplatesTab'
 // RbacAdminTab moved to UsersPage (Comptes)
@@ -205,6 +206,9 @@ registerSettingsSection({ id: 'numbering',      label: 'Numérotation',   icon: 
 // Group 2: Templates de documents
 registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText,   component: EmailTemplatesTab, category: 'general', parentId: 'grp-templates', order: 10, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'pdf-templates',   label: 'Modèles PDF',       icon: FileOutput, component: PdfTemplatesTab,   category: 'general', parentId: 'grp-templates', order: 20, requiredPermission: 'core.settings.manage' })
+
+// Agent IA — verification scenarios (Sprint 6)
+registerSettingsSection({ id: 'verification-scenarios', label: 'Scénarios Playwright', icon: CircleCheck, component: VerificationScenariosTab, category: 'general', parentId: 'grp-config', order: 60, requiredPermission: 'core.settings.manage' })
 
 // Group 3: Modules métier — one per business module
 registerSettingsSection({ id: 'projets-config',   label: 'Projets',   icon: FolderKanban,   component: ProjetsConfigTab,   category: 'general', parentId: 'grp-modules', order: 10, requiredPermission: 'core.settings.manage' })

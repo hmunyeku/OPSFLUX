@@ -12,7 +12,7 @@ import type { AssetTreeNode } from '@/types/api'
 import type { AdsStayChangeRequest, StayProgramCreate, PaxCandidate, AdsPax } from '@/services/paxlogService'
 import { paxlogService } from '@/services/paxlogService'
 import { cn } from '@/lib/utils'
-import { ReadOnlyRow, DynamicPanelShell, DynamicPanelField, FormGrid, FormSection, PanelActionButton, DangerConfirmButton, DetailFieldGrid, panelInputClass } from '@/components/layout/DynamicPanel'
+import { ReadOnlyRow, DynamicPanelShell, DynamicPanelField, FormGrid, FormSection, PanelActionButton, DangerConfirmButton, DetailFieldGrid, PanelContentLayout, panelInputClass } from '@/components/layout/DynamicPanel'
 import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag, Info, Users, BedDouble, BookOpen } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -612,7 +612,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
         </div>
       }
     >
-      <div className="p-4 space-y-5">
+      <PanelContentLayout>
         {showExternalLinkForm && (
           <div className="border border-primary/30 rounded-lg bg-primary/5 p-3 space-y-3">
             <div className="space-y-1">
@@ -1612,7 +1612,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
           </div>
         </FormSection>
         </>)}
-      </div>
+      </PanelContentLayout>
     </DynamicPanelShell>
   )
 }

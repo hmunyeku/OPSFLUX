@@ -254,7 +254,11 @@ const TAG_TYPE_OPTIONS = [
 type PidPfdTab = 'dashboard' | 'documents' | 'equipements' | 'lignes' | 'tags' | 'bibliotheque'
 
 const TABS: { id: PidPfdTab; label: string; icon: typeof FileText }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  // First tab translates via common.tab_dashboard for parity with
+  // the other modules (MOC, PackLog, PaxLog, Planner, Projets,
+  // TravelWiz all use "Tableau de bord"). Raw 'Dashboard' string here
+  // bypassed i18n entirely.
+  { id: 'dashboard', label: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'documents', label: 'Documents PID', icon: FileText },
   { id: 'equipements', label: 'Equipements', icon: Cpu },
   { id: 'lignes', label: 'Lignes process', icon: GitBranch },
@@ -1357,8 +1361,13 @@ export function PidPfdPage() {
             {toolbarAction}
           </PanelHeader>
 
-          {/* Tab bar */}
-          <PageNavBar items={TABS} activeId={activeTab} onTabChange={handleTabChange} />
+          {/* Tab bar — translate labels so common.tab_dashboard + 5
+              module-specific labels render properly. */}
+          <PageNavBar
+            items={TABS.map((tab) => ({ ...tab, label: t(tab.label) }))}
+            activeId={activeTab}
+            onTabChange={handleTabChange}
+          />
 
           <PanelContent scroll={false}>
             {renderTabContent()}

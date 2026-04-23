@@ -230,6 +230,7 @@
     "set_default": "Set as default",
     "verified": "Verified",
     "verified_on": "Verified on {{date}}",
+    "tab_dashboard": "Dashboard",
     "apply": "Apply",
     "add": "Add",
     "submit": "Submit",

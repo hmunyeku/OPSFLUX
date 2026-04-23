@@ -903,7 +903,7 @@ const MOBILE_HIDDEN_ANN_COLS = new Set(['display_location', 'created_at', 'activ
 
 export function SupportPage() {
   useOpenDetailFromPath({ matchers: [{ prefix: '/support/', module: 'support' }] })
-  useTranslation()
+  const { t } = useTranslation()
   const ticketColumns = useTicketColumns()
   const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<SupportTab>('dashboard')
@@ -962,7 +962,7 @@ export function SupportPage() {
 
         <PageNavBar
           items={[
-            { id: 'dashboard' as const, label: 'Tableau de bord', icon: LayoutDashboard },
+            { id: 'dashboard' as const, label: t('common.tab_dashboard', 'Tableau de bord'), icon: LayoutDashboard },
             { id: 'tickets' as const, label: 'Tickets', icon: LifeBuoy },
             ...(canManageAnnouncements ? [{ id: 'announcements' as const, label: 'Annonces', icon: Megaphone }] : []),
           ]}

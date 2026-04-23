@@ -498,6 +498,7 @@ export function QuickCreateModal({ open, onClose }: QuickCreateModalProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const setDynamicPanelMode = useUIStore((s) => s.setDynamicPanelMode)
   const { hasPermission } = usePermission()
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -552,7 +553,14 @@ export function QuickCreateModal({ open, onClose }: QuickCreateModalProps) {
     // dispatcher is mounted and picks up the store change.
     // A microtask is enough — React Router's navigation is synchronous
     // within the same render cycle for client-side routes.
+    //
+    // QuickCreate opens in FULL-SCREEN mode so the wizard sections
+    // have room to breathe — wizards cramped into the docked side
+    // panel look amputated (the user complained about this). The
+    // user can still collapse back to docked via the shrink icon in
+    // the panel header.
     queueMicrotask(() => {
+      setDynamicPanelMode('full')
       openDynamicPanel({ type: 'create', module: it.module, meta: it.meta })
     })
     onClose()

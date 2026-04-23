@@ -895,7 +895,7 @@ export function WorkflowPage() {
           match the rest of the app. */}
       <PageNavBar
         items={[
-          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { id: 'dashboard', label: t('common.tab_dashboard', 'Tableau de bord'), icon: LayoutDashboard },
           { id: 'definitions', label: t('workflow.definitions'), icon: GitBranch },
           { id: 'instances', label: t('workflow.instance_list'), icon: LayoutList },
         ]}

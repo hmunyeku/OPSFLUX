@@ -230,6 +230,7 @@
     "set_default": "Définir par défaut",
     "verified": "Vérifié",
     "verified_on": "Vérifié le {{date}}",
+    "tab_dashboard": "Tableau de bord",
     "apply": "Appliquer",
     "add": "Ajouter",
     "submit": "Soumettre",
@@ -5847,7 +5848,7 @@
       "lifting_provider_example": "Entreprise, site, prestataire..."
     },
     "tabs": {
-      "dashboard": "Dashboard",
+      "dashboard": "Tableau de bord",
       "requests": "Demandes",
       "cargo": "Colis",
       "catalog": "Catalogue SAP",

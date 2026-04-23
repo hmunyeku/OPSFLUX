@@ -6,7 +6,7 @@ import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary
 import { useUsers } from '@/hooks/useUsers'
 import { useState, useEffect } from 'react'
 import type { MissionPreparationTaskUpdate, MissionVisaFollowupUpdate, MissionAllowanceRequestUpdate, MissionNoticeModifyRequest, MissionProgramRead } from '@/services/paxlogService'
-import { DynamicPanelShell, PanelActionButton, FormGrid, FormSection, DynamicPanelField, panelInputClass, ReadOnlyRow } from '@/components/layout/DynamicPanel'
+import { DynamicPanelShell, PanelActionButton, FormGrid, FormSection, DynamicPanelField, PanelContentLayout, panelInputClass, ReadOnlyRow } from '@/components/layout/DynamicPanel'
 import { Briefcase, Loader2, Download, Send, CheckCircle2, FileCheck2, XCircle, RefreshCw, X, Link2, Info, ClipboardCheck, Users, BookOpen } from 'lucide-react'
 import { PanelContent } from '@/components/layout/PanelHeader'
 import { TabBar } from '@/components/ui/Tabs'
@@ -232,7 +232,7 @@ export function AvmDetailPanel({ id }: { id?: string }) {
         </>
       }
     >
-      <div className="p-4 space-y-5">
+      <PanelContentLayout>
         <TabBar<AvmDetailTab>
           items={(() => {
             const lbl = (k: string, fb: string) => { const r = t(k); return r === k ? fb : r }
@@ -874,7 +874,7 @@ export function AvmDetailPanel({ id }: { id?: string }) {
           </div>
         </FormSection>
         </>)}
-      </div>
+      </PanelContentLayout>
     </DynamicPanelShell>
   )
 }

@@ -111,8 +111,11 @@ import type {
 
 type ReportEditorTab = 'dashboard' | 'documents' | 'templates' | 'doc-types'
 
+// Labels are i18n keys; the renderer below runs them through t() so
+// EN users see the translated text. Dashboard uses the shared
+// common.tab_dashboard for cross-module parity.
 const TABS: { id: ReportEditorTab; label: string; icon: typeof FileText }[] = [
-  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'documents', label: 'Documents', icon: Files },
   { id: 'templates', label: 'Templates', icon: FileCode2 },
   { id: 'doc-types', label: 'Types de document', icon: FolderCog },
@@ -2031,7 +2034,7 @@ export function ReportEditorPage() {
           </PanelHeader>
 
           <PageNavBar
-            items={TABS}
+            items={TABS.map((tab) => ({ ...tab, label: t(tab.label) }))}
             activeId={activeTab}
             onTabChange={handleTabChange}
             rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-papyrus" /> : null}

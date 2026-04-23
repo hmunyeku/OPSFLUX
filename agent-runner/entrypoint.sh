@@ -52,8 +52,12 @@ MISSION_CONTENT=$(cat /workspace/MISSION.md)
 case "${AGENT_RUNNER_TYPE:-}" in
     claude_code)
         log "Launching Claude Code…"
+        # Claude Code rejects `--output-format stream-json` alongside
+        # `-p/--print` without `--verbose`. The stream-json format is
+        # what we parse later, so `--verbose` is required.
         timeout "${MAX_WALL_TIME_SECONDS:-1800}" claude \
             --output-format stream-json \
+            --verbose \
             --allowed-tools "${ALLOWED_TOOLS_LIST:-Read Edit Write Glob Grep Bash(git:*) Bash(gh:*) Bash(pytest:*) Bash(npm:*) Bash(pip:*)}" \
             --max-turns 100 \
             --model "${MODEL_PREFERENCE:-claude-sonnet-4-5}" \

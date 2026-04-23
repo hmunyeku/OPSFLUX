@@ -12,7 +12,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useAddresses, useCreateAddress, useUpdateAddress } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
-import { DynamicPanelShell, DynamicPanelField, PanelActionButton, TagSelector, panelInputClass } from '@/components/layout/DynamicPanel'
+import { PanelContentLayout, DynamicPanelShell, DynamicPanelField, PanelActionButton, TagSelector, panelInputClass } from '@/components/layout/DynamicPanel'
 import {
   SmartFormProvider,
   SmartFormSection,

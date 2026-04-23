@@ -1,27 +1,53 @@
-# OPSFLUX Agent Worker pool — deploy this as a separate Dokploy project
-# ("opsflux-agent-workers") on the same VPS as the main OPSFLUX stack.
+# =============================================================================
+# OPSFLUX Agent Worker Pool — opt-in companion compose
+# =============================================================================
 #
-# Setup steps:
-#   1. Create a new Dokploy compose project pointing at this file.
-#   2. Populate env vars via Dokploy UI:
-#        - DATABASE_URL         (same Postgres as backend)
-#        - ENCRYPTION_KEY       (same value as backend)
-#        - OPSFLUX_API_URL      (internal URL of backend service)
-#        - OPSFLUX_INTERNAL_TOKEN  (shared secret backend ↔ worker)
-#   3. Deploy. The daemon auto-registers in agent_worker_pool.
+# This project runs alongside the main OPSFLUX stack. Keep it out of the
+# main compose on purpose:
+#   * Installs that don't want the autonomous maintenance agent never
+#     build this image.
+#   * A broken worker build during development cannot take down the API.
+#   * The pool can scale horizontally without touching the backend.
 #
-# The image built from ./Dockerfile will be pushed to GHCR via the
-# Sprint 3 GitHub Actions workflow so Dokploy can pull it directly.
+# Both projects share the external `dokploy-network` so the worker
+# reaches the main Postgres (service name `db`) and backend HTTP
+# (service name `backend`) by DNS without any external URL.
+#
+# Deploy steps (reproducible, no out-of-band config):
+#   1. In Dokploy, create a second "Docker Compose" project in the SAME
+#      parent project as OPSFLUX, pointing at this repo path:
+#          agent-worker/docker-compose.yml
+#   2. Paste the env vars below. All four MUST match what the main
+#      OPSFLUX backend uses (same Postgres, same ENCRYPTION_KEY,
+#      same OPSFLUX_INTERNAL_TOKEN):
+#
+#        POSTGRES_USER=postgres            # same as main project
+#        POSTGRES_PASSWORD=...             # same as main project
+#        POSTGRES_DB=opsflux               # same as main project
+#        ENCRYPTION_KEY=...                # same as main project
+#        OPSFLUX_INTERNAL_TOKEN=...        # same as main project
+#
+#   3. Deploy. Each replica auto-registers in `agent_worker_pool` and
+#      starts polling `support_agent_runs` for pending work.
+#
+# The worker image is built from `./Dockerfile`. CI
+# (`.github/workflows/agent-worker-image.yml`) also pushes it to
+# `ghcr.io/hmunyeku/opsflux-agent-worker:latest` so a fresh install
+# can skip the local build and pull directly.
 
 services:
   worker:
-    image: ghcr.io/hmunyeku/opsflux-agent-worker:latest
     build:
       context: .
       dockerfile: Dockerfile
+    image: ghcr.io/hmunyeku/opsflux-agent-worker:latest
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      # Point at the main OPSFLUX Postgres via Docker DNS. Matches the
+      # hostname `db` exposed by the main compose project on the shared
+      # `dokploy-network`. No driver prefix — asyncpg on the worker
+      # side handles that itself.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-opsflux}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       OPSFLUX_API_URL: ${OPSFLUX_API_URL:-http://backend:8000}
       OPSFLUX_INTERNAL_TOKEN: ${OPSFLUX_INTERNAL_TOKEN}
@@ -29,12 +55,13 @@ services:
       WORKER_NAME: ${WORKER_NAME:-}
       WORKTREE_ROOT: /var/opsflux/agent-runs
       LOG_ROOT: /var/log/opsflux-agent
-      LOG_LEVEL: INFO
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:
-      # Worker launches child containers via the host Docker daemon.
+      # Launch child containers via the host Docker daemon.
       - /var/run/docker.sock:/var/run/docker.sock
-      # Worktrees are mounted both into the worker AND into each child
-      # container at the same path, so paths line up.
+      # Worktrees and logs are mounted both into the worker AND into
+      # each child runner container at the same path — host paths must
+      # line up or the agent can't read its mission / write its report.
       - /var/opsflux/agent-runs:/var/opsflux/agent-runs
       - /var/log/opsflux-agent:/var/log/opsflux-agent
     deploy:
@@ -43,3 +70,9 @@ services:
         limits:
           cpus: '1'
           memory: 512M
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true

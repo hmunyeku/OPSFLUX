@@ -197,3 +197,13 @@ volumes:
 networks:
   dokploy-network:
     external: true
+
+# The autonomous maintenance agent worker pool is a separate opt-in
+# compose project at `./agent-worker/docker-compose.yml`. Keeping it
+# out of this file means:
+#   * Installs that don't want the AI agent don't build its image
+#   * Worker crashes during agent development can't take down the API
+#   * The worker pool can scale replicas independently
+# To deploy it, create a second Dokploy compose project pointing at
+# `./agent-worker/docker-compose.yml` in the same repo. Both share the
+# same Postgres via the `dokploy-network` external network.

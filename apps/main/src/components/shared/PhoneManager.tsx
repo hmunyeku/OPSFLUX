@@ -365,7 +365,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                 key={phone.id}
                 className="flex flex-wrap sm:flex-nowrap items-center gap-2 py-2 px-3 rounded-lg border border-border/40 bg-card hover:border-border hover:shadow-sm group cursor-pointer transition-all"
                 onDoubleClick={() => setEditingId(phone.id)}
-                title="Double-cliquez pour modifier"
+                title={t('common.double_click_to_edit', 'Double-cliquez pour modifier') as string}
               >
                 <div className="shrink-0 h-7 w-7 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
                   {flag ? (
@@ -443,7 +443,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                     <button
                       onClick={() => handleSetDefault(phone.id)}
                       className="p-0.5 rounded hover:bg-accent text-muted-foreground"
-                      title="Définir par défaut"
+                      title={t('common.set_default', 'Définir par défaut') as string}
                     >
                       <Star size={10} />
                     </button>

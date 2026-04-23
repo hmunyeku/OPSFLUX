@@ -142,7 +142,7 @@ export function OpeningHoursManager({ ownerType, ownerId, compact }: OpeningHour
                         key={slot.id}
                         className="flex items-center gap-2 group"
                         onDoubleClick={() => setEditingId(slot.id)}
-                        title="Double-cliquez pour modifier"
+                        title={t('common.double_click_to_edit', 'Double-cliquez pour modifier') as string}
                       >
                         <Clock size={10} className="text-muted-foreground shrink-0" />
                         {slot.is_closed ? (

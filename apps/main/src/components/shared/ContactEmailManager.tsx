@@ -127,7 +127,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                 key={ce.id}
                 className="flex items-center gap-2 text-sm group"
                 onDoubleClick={() => setEditingId(ce.id)}
-                title="Double-cliquez pour modifier"
+                title={t('common.double_click_to_edit', 'Double-cliquez pour modifier') as string}
               >
                 <Mail size={12} className="text-muted-foreground shrink-0" />
                 <span className="text-[10px] font-medium text-muted-foreground uppercase w-16 shrink-0">
@@ -159,7 +159,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                     <button
                       onClick={() => handleSetDefault(ce.id)}
                       className="p-0.5 rounded hover:bg-accent text-muted-foreground"
-                      title="Définir par défaut"
+                      title={t('common.set_default', 'Définir par défaut') as string}
                     >
                       <Star size={10} />
                     </button>

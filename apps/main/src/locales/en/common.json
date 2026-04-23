@@ -220,6 +220,8 @@
     "minimize": "Minimize",
     "remove": "Remove",
     "close": "Close",
+    "double_click_to_edit": "Double-click to edit",
+    "set_default": "Set as default",
     "apply": "Apply",
     "add": "Add",
     "submit": "Submit",

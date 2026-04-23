@@ -125,7 +125,7 @@ export function SocialNetworkManager({ ownerType, ownerId, compact }: SocialNetw
                 key={sn.id}
                 className="flex items-center gap-2 text-sm group"
                 onDoubleClick={() => setEditingId(sn.id)}
-                title="Double-cliquez pour modifier"
+                title={t('common.double_click_to_edit', 'Double-cliquez pour modifier') as string}
               >
                 <Icon size={12} className="text-muted-foreground shrink-0" />
                 <span className="text-[10px] font-medium text-muted-foreground uppercase w-16 shrink-0">

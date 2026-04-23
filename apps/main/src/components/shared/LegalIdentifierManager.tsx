@@ -178,7 +178,7 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
                 key={ident.id}
                 className="flex items-center gap-2 text-sm group"
                 onDoubleClick={() => setEditingId(ident.id)}
-                title="Double-cliquez pour modifier"
+                title={t('common.double_click_to_edit', 'Double-cliquez pour modifier') as string}
               >
                 <FileText size={12} className="text-muted-foreground shrink-0" />
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase min-w-[60px] shrink-0">

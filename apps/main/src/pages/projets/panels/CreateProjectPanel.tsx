@@ -456,10 +456,13 @@ export function CreateProjectPanel() {
                       className="gl-form-select text-xs h-7"
                       title={t('common.priority_field', 'Priorité') as string}
                     >
-                      <option value="low">{t('projets.priority.low', 'Basse')}</option>
-                      <option value="medium">{t('projets.priority.medium', 'Moyenne')}</option>
-                      <option value="high">{t('projets.priority.high', 'Haute')}</option>
-                      <option value="critical">{t('projets.priority.critical', 'Critique')}</option>
+                      {/* Priorities read from the `project_priority` dictionary
+                          — admins can override labels per entity. Fallback is
+                          PROJECT_PRIORITY_LABELS_FALLBACK so display stays
+                          readable if the dictionary hasn't been seeded. */}
+                      {projectPriorityOptions.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
                     </select>
                     {!taskDraftIsMilestone && (
                       <label className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">

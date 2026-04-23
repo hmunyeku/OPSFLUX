@@ -29,7 +29,7 @@
  * (/paxlog/ads/..., /paxlog/incidents/..., etc.) with different
  * `meta.subtype` values.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -57,6 +57,17 @@ export function useOpenDetailFromPath({
   const { pathname } = useLocation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const lastHandledRef = useRef<string | null>(null)
+  // Stabilise `matchers` by its serialised form: callers typically
+  // pass a fresh array literal every render (inline), which would
+  // re-run the effect every frame and fight with manual panel close.
+  // Serialising is cheap here (handful of short strings) and lets the
+  // effect dep change only when the shape actually changes.
+  const matchersKey = JSON.stringify(matchers)
+  const stableMatchers = useMemo(
+    () => matchers,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [matchersKey],
+  )
 
   useEffect(() => {
     if (!enabled) return
@@ -64,7 +75,7 @@ export function useOpenDetailFromPath({
     // panel doesn't trigger a reopen on the next re-render.
     if (lastHandledRef.current === pathname) return
 
-    for (const m of matchers) {
+    for (const m of stableMatchers) {
       if (!pathname.startsWith(m.prefix)) continue
       const tail = pathname.slice(m.prefix.length)
       // Tail can be the bare UUID or UUID/… (nested segments). Match
@@ -80,5 +91,5 @@ export function useOpenDetailFromPath({
       })
       return
     }
-  }, [pathname, enabled, matchers, openDynamicPanel])
+  }, [pathname, enabled, stableMatchers, openDynamicPanel])
 }

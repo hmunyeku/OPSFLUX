@@ -1,11 +1,13 @@
 /**
  * "Agent IA" tab on the ticket detail — launch / monitor / cancel runs.
  */
-import { Bot, Play, XCircle, CheckCircle2, Loader2, AlertCircle, ExternalLink, Github } from 'lucide-react'
+import { Bot, Play, XCircle, CheckCircle2, Loader2, AlertCircle, ExternalLink, Github, ThumbsUp, ThumbsDown } from 'lucide-react'
 import {
   useAgentRunsForTicket,
   useLaunchAgentRun,
   useCancelAgentRun,
+  useApproveAgentRun,
+  useRejectAgentRun,
   useAgentConfig,
   type AgentRun,
   type AgentPhase,
@@ -36,8 +38,42 @@ export function TicketAgentTab({
   const { data: config } = useAgentConfig()
   const launch = useLaunchAgentRun()
   const cancel = useCancelAgentRun()
+  const approve = useApproveAgentRun()
+  const reject = useRejectAgentRun()
   const { toast } = useToast()
   const confirm = useConfirm()
+
+  const handleApprove = async (run: AgentRun) => {
+    const ok = await confirm({
+      title: 'Approuver et merger la PR ?',
+      message: `La PR #${run.github_pr_number} sera squash-mergée sur le repo. Le pipeline CI/CD déclenchera un déploiement.`,
+      confirmLabel: 'Approuver et merger',
+    })
+    if (!ok) return
+    try {
+      await approve.mutateAsync(run.id)
+      toast({ title: 'PR mergée', variant: 'success' })
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast({ title: 'Merge impossible', description: msg || String(err), variant: 'error' })
+    }
+  }
+
+  const handleReject = async (run: AgentRun) => {
+    const ok = await confirm({
+      title: 'Rejeter ce run ?',
+      message: `La PR #${run.github_pr_number ?? '(?)'} sera fermée. Tu peux laisser un motif pour l’agent.`,
+      confirmLabel: 'Rejeter',
+      variant: 'danger',
+    })
+    if (!ok) return
+    try {
+      await reject.mutateAsync({ runId: run.id })
+      toast({ title: 'Run rejeté', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'Erreur', description: String(err), variant: 'error' })
+    }
+  }
 
   const activeRun = runs.find((r) => !TERMINAL.includes(r.status))
   const previousRuns = runs.filter((r) => TERMINAL.includes(r.status))
@@ -115,7 +151,15 @@ export function TicketAgentTab({
           )}
 
           {activeRun ? (
-            <ActiveRunCard run={activeRun} onCancel={handleCancel} canCancel={canManage} />
+            <ActiveRunCard
+              run={activeRun}
+              onCancel={handleCancel}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              canManage={canManage}
+              isApproving={approve.isPending}
+              isRejecting={reject.isPending}
+            />
           ) : (
             <div className="flex flex-col gap-2">
               <p className="text-xs text-muted-foreground">
@@ -164,13 +208,22 @@ export function TicketAgentTab({
 function ActiveRunCard({
   run,
   onCancel,
-  canCancel,
+  onApprove,
+  onReject,
+  canManage,
+  isApproving,
+  isRejecting,
 }: {
   run: AgentRun
   onCancel: (r: AgentRun) => void
-  canCancel: boolean
+  onApprove: (r: AgentRun) => void
+  onReject: (r: AgentRun) => void
+  canManage: boolean
+  isApproving: boolean
+  isRejecting: boolean
 }) {
   const currentIdx = PHASES.findIndex((p) => p.id === run.current_phase)
+  const awaitingApproval = run.status === 'awaiting_human'
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
@@ -235,7 +288,41 @@ function ActiveRunCard({
         {run.wall_time_seconds != null && <span>· {run.wall_time_seconds}s</span>}
       </div>
 
-      {canCancel && (
+      {awaitingApproval && canManage && (
+        <div className="flex items-start gap-2 p-3 rounded bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800">
+          <AlertCircle size={14} className="text-blue-700 dark:text-blue-300 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-blue-900 dark:text-blue-200">
+              Approbation requise
+            </p>
+            <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-0.5">
+              Tous les gates sont verts. La PR attend ton feu vert pour être mergée.
+            </p>
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                className="gl-button gl-button-sm gl-button-confirm text-primary"
+                onClick={() => onApprove(run)}
+                disabled={isApproving || isRejecting}
+              >
+                {isApproving ? <Loader2 size={12} className="animate-spin" /> : <ThumbsUp size={12} />}
+                Approuver et merger
+              </button>
+              <button
+                type="button"
+                className="gl-button gl-button-sm gl-button-default text-destructive"
+                onClick={() => onReject(run)}
+                disabled={isApproving || isRejecting}
+              >
+                {isRejecting ? <Loader2 size={12} className="animate-spin" /> : <ThumbsDown size={12} />}
+                Rejeter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {canManage && !awaitingApproval && (
         <button
           type="button"
           className="gl-button gl-button-sm gl-button-default text-destructive"

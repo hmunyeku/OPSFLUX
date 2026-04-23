@@ -274,3 +274,153 @@ def verify_webhook_signature(
     ).hexdigest()
     provided = signature_header.split("=", 1)[1]
     return hmac.compare_digest(expected, provided)
+
+
+# ─── Sprint 5 — PR inspection + merge ──────────────────────────────────
+
+async def get_pr(
+    config: dict[str, Any],
+    credentials: dict[str, Any],
+    *,
+    pr_number: int,
+) -> dict[str, Any]:
+    """Fetch a pull request's metadata."""
+    token = await get_token_for(config, credentials)
+    async with httpx.AsyncClient(timeout=_API_TIMEOUT_S) as client:
+        resp = await client.get(
+            f"{_GITHUB_API}/repos/{_repo_path(config)}/pulls/{pr_number}",
+            headers=_headers(token),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def get_pr_files(
+    config: dict[str, Any],
+    credentials: dict[str, Any],
+    *,
+    pr_number: int,
+) -> list[dict[str, Any]]:
+    """List files changed in a PR with their filename/additions/deletions."""
+    token = await get_token_for(config, credentials)
+    async with httpx.AsyncClient(timeout=_API_TIMEOUT_S) as client:
+        resp = await client.get(
+            f"{_GITHUB_API}/repos/{_repo_path(config)}/pulls/{pr_number}/files",
+            headers=_headers(token),
+            params={"per_page": 300},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def get_pr_checks(
+    config: dict[str, Any],
+    credentials: dict[str, Any],
+    *,
+    commit_sha: str,
+) -> dict[str, Any]:
+    """Aggregate CI status for a commit.
+
+    GitHub exposes this via `/commits/{sha}/check-runs`. We return a
+    minimal shape: `{"total": N, "succeeded": N, "failed": N,
+    "pending": N, "runs": [...]}`.
+    """
+    token = await get_token_for(config, credentials)
+    async with httpx.AsyncClient(timeout=_API_TIMEOUT_S) as client:
+        resp = await client.get(
+            f"{_GITHUB_API}/repos/{_repo_path(config)}/commits/{commit_sha}/check-runs",
+            headers=_headers(token),
+            params={"per_page": 100},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    runs = data.get("check_runs") or []
+    total = len(runs)
+    succeeded = sum(1 for r in runs if r.get("conclusion") == "success")
+    failed = sum(1 for r in runs if r.get("conclusion") in ("failure", "timed_out", "cancelled"))
+    pending = sum(1 for r in runs if r.get("status") in ("queued", "in_progress"))
+    return {
+        "total": total,
+        "succeeded": succeeded,
+        "failed": failed,
+        "pending": pending,
+        "runs": [
+            {
+                "name": r.get("name"),
+                "status": r.get("status"),
+                "conclusion": r.get("conclusion"),
+            }
+            for r in runs
+        ],
+    }
+
+
+async def merge_pr(
+    config: dict[str, Any],
+    credentials: dict[str, Any],
+    *,
+    pr_number: int,
+    merge_method: str = "squash",
+    commit_title: str | None = None,
+    commit_message: str | None = None,
+) -> dict[str, Any]:
+    """Merge a PR. Returns the merge payload or raises on 4xx/5xx."""
+    token = await get_token_for(config, credentials)
+    payload: dict[str, Any] = {"merge_method": merge_method}
+    if commit_title:
+        payload["commit_title"] = commit_title
+    if commit_message:
+        payload["commit_message"] = commit_message
+    async with httpx.AsyncClient(timeout=_API_TIMEOUT_S) as client:
+        resp = await client.put(
+            f"{_GITHUB_API}/repos/{_repo_path(config)}/pulls/{pr_number}/merge",
+            json=payload,
+            headers=_headers(token),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def close_pr(
+    config: dict[str, Any],
+    credentials: dict[str, Any],
+    *,
+    pr_number: int,
+    rejection_reason: str | None = None,
+) -> dict[str, Any]:
+    """Close a PR without merging. Optionally post a rejection comment first."""
+    token = await get_token_for(config, credentials)
+    if rejection_reason:
+        async with httpx.AsyncClient(timeout=_API_TIMEOUT_S) as client:
+            await client.post(
+                f"{_GITHUB_API}/repos/{_repo_path(config)}/issues/{pr_number}/comments",
+                json={"body": f"PR rejetée : {rejection_reason}"},
+                headers=_headers(token),
+            )
+    async with httpx.AsyncClient(timeout=_API_TIMEOUT_S) as client:
+        resp = await client.patch(
+            f"{_GITHUB_API}/repos/{_repo_path(config)}/pulls/{pr_number}",
+            json={"state": "closed"},
+            headers=_headers(token),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def mark_pr_ready_for_review(
+    config: dict[str, Any],
+    credentials: dict[str, Any],
+    *,
+    pr_node_id: str,
+) -> None:
+    """Convert a draft PR to ready-for-review (GraphQL only — REST has no PATCH field)."""
+    token = await get_token_for(config, credentials)
+    async with httpx.AsyncClient(timeout=_API_TIMEOUT_S) as client:
+        await client.post(
+            f"{_GITHUB_API}/graphql",
+            headers=_headers(token),
+            json={
+                "query": "mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){clientMutationId}}",
+                "variables": {"id": pr_node_id},
+            },
+        )

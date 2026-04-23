@@ -99,6 +99,35 @@ export function useCancelAgentRun() {
   })
 }
 
+export function useApproveAgentRun() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (runId: string) => {
+      const { data } = await api.post<AgentRun>(`/api/v1/support/agent/runs/${runId}/approve`)
+      return data
+    },
+    onSuccess: (run) => {
+      qc.invalidateQueries({ queryKey: ['agent-runs', 'ticket', run.ticket_id] })
+      qc.invalidateQueries({ queryKey: ['ticket', run.ticket_id] })
+    },
+  })
+}
+
+export function useRejectAgentRun() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ runId, reason }: { runId: string; reason?: string }) => {
+      const { data } = await api.post<AgentRun>(`/api/v1/support/agent/runs/${runId}/reject`, {
+        reason,
+      })
+      return data
+    },
+    onSuccess: (run) => {
+      qc.invalidateQueries({ queryKey: ['agent-runs', 'ticket', run.ticket_id] })
+    },
+  })
+}
+
 export interface AgentConfig {
   enabled: boolean
   default_autonomy_mode: AgentAutonomyMode

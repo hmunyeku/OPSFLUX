@@ -35,8 +35,10 @@ from app.models.support import SupportTicket
 from app.services.agent.harness import (
     HarnessError,
     apply_post_exec_callback,
+    approve_and_merge,
     get_or_create_config,
     launch_run,
+    reject_run,
 )
 
 logger = logging.getLogger(__name__)
@@ -302,6 +304,91 @@ async def cancel_agent_run(
     await db.commit()
     await db.refresh(row)
     return row
+
+
+# ─── Approval workflow (Sprint 5) ──────────────────────────────────────
+
+
+class RejectBody(BaseModel):
+    reason: str | None = None
+
+
+@router.post(
+    "/runs/{run_id}/approve",
+    response_model=RunRead,
+    dependencies=[require_permission("support.ticket.manage")],
+)
+async def approve_agent_run(
+    run_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    run = (
+        await db.execute(
+            select(SupportAgentRun).where(
+                SupportAgentRun.id == run_id,
+                SupportAgentRun.entity_id == entity_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not run:
+        raise HTTPException(404, "Run not found")
+    try:
+        await approve_and_merge(db, run, current_user.id)
+    except HarnessError as exc:
+        raise HTTPException(400, str(exc))
+    await record_audit(
+        db,
+        action="agent_run.approve",
+        resource_type="agent_run",
+        resource_id=str(run_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+    )
+    await db.commit()
+    await db.refresh(run)
+    return run
+
+
+@router.post(
+    "/runs/{run_id}/reject",
+    response_model=RunRead,
+    dependencies=[require_permission("support.ticket.manage")],
+)
+async def reject_agent_run(
+    run_id: UUID,
+    body: RejectBody,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    run = (
+        await db.execute(
+            select(SupportAgentRun).where(
+                SupportAgentRun.id == run_id,
+                SupportAgentRun.entity_id == entity_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not run:
+        raise HTTPException(404, "Run not found")
+    try:
+        await reject_run(db, run, current_user.id, body.reason)
+    except HarnessError as exc:
+        raise HTTPException(400, str(exc))
+    await record_audit(
+        db,
+        action="agent_run.reject",
+        resource_type="agent_run",
+        resource_id=str(run_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"reason": body.reason} if body.reason else None,
+    )
+    await db.commit()
+    await db.refresh(run)
+    return run
 
 
 # ─── Worker → Backend callback (internal) ──────────────────────────────

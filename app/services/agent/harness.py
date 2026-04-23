@@ -260,11 +260,23 @@ async def apply_post_exec_callback(
 ) -> None:
     """Called by the worker after a container exits.
 
-    v1 scope (Sprint 3): only bumps the `current_phase` stepper, records
-    a `report` checkpoint, and wires circuit-breaker increments on
-    failure. Deployment + Playwright verification (phases 5-6) arrive
-    in Sprint 5-6.
+    Sprint 5 scope:
+      1. Extract PR metadata from REPORT.json (the worker already stored
+         the raw report on the run row).
+      2. Run the post-exec gate suite (forbidden paths, line budget,
+         secret scan, CI status).
+      3. If all gates pass, either:
+           - `observation` mode → post a comment on the ticket, leave
+             the PR as-is, flip status to `completed`.
+           - `recommendation` mode → post a summary on the ticket + PR,
+             status stays `completed`, human merges manually.
+           - `autonomous_with_approval` → flip to `awaiting_human`.
+      4. If any gate fails, mark the run `failed`, close the PR, write
+         `failed_gates` so the UI can render what went wrong.
+      5. Update circuit-breaker counters + budget.
     """
+    from app.services.agent.gates import run_all_gates
+
     run = (
         await db.execute(
             select(SupportAgentRun).where(SupportAgentRun.id == run_id)
@@ -276,9 +288,54 @@ async def apply_post_exec_callback(
     run.current_phase = "report"
     run.updated_at = datetime.now(UTC)
 
-    # Update config budget + circuit breaker state
+    # Lift PR metadata from the report the agent produced
+    if run.report_json:
+        pr = (run.report_json or {}).get("pr") or {}
+        if pr.get("number") and not run.github_pr_number:
+            run.github_pr_number = int(pr["number"])
+            run.github_pr_url = pr.get("url")
+        if pr.get("commit_sha") and not run.github_commit_sha:
+            run.github_commit_sha = pr["commit_sha"]
+        if pr.get("branch") and not run.github_branch:
+            run.github_branch = pr["branch"]
+        metrics = (run.report_json or {}).get("metrics") or {}
+        if metrics.get("total_tokens_used"):
+            run.llm_tokens_used = int(metrics["total_tokens_used"])
+
+    # Run gates — unless the report itself says 'failed', in which case
+    # skip gates (no PR to inspect) and go straight to failed.
+    report_status = (run.report_json or {}).get("status") if run.report_json else None
+
+    if report_status in ("success", "partial"):
+        gate_results = await run_all_gates(db, run.id)
+        all_ok = all(r["ok"] for r in gate_results.values())
+        if all_ok:
+            if run.autonomy_mode == "autonomous_with_approval":
+                run.status = "awaiting_human"
+            else:
+                run.status = "completed"
+        else:
+            run.status = "failed"
+            # Close the PR so admins don't accidentally merge something
+            # that tripped a gate.
+            try:
+                await _close_pr_on_failure(db, run)
+            except Exception:  # noqa: BLE001
+                logger.exception("Could not auto-close PR after gate failure")
+    else:
+        run.status = "failed"
+
+    run.ended_at = datetime.now(UTC)
+
+    # Post report comment on the ticket + PR (best effort)
+    try:
+        await _post_run_report(db, run)
+    except Exception:  # noqa: BLE001
+        logger.exception("Run report posting failed")
+
+    # Circuit breaker / budget
     config = await get_or_create_config(db, run.entity_id)
-    if run.status == "failed" or run.status == "failed_and_reverted":
+    if run.status in ("failed", "failed_and_reverted"):
         config.current_consecutive_failures += 1
         if config.current_consecutive_failures >= config.circuit_breaker_threshold:
             config.circuit_breaker_tripped_at = datetime.now(UTC)
@@ -286,8 +343,186 @@ async def apply_post_exec_callback(
                 "Circuit breaker tripped for entity %s (failures=%d)",
                 config.entity_id, config.current_consecutive_failures,
             )
-    elif run.status == "completed":
+    elif run.status in ("completed", "awaiting_human"):
         config.current_consecutive_failures = 0
 
     if run.llm_cost_usd:
         config.current_month_spent_usd += run.llm_cost_usd
+
+
+async def _close_pr_on_failure(
+    db: AsyncSession, run: SupportAgentRun
+) -> None:
+    if not (run.github_pr_number and run.github_connection_id):
+        return
+    conn = (
+        await db.execute(
+            select(IntegrationConnection).where(
+                IntegrationConnection.id == run.github_connection_id
+            )
+        )
+    ).scalar_one_or_none()
+    if not conn:
+        return
+    from app.services.core.integration_connection_service import load_credentials
+    from app.services.integrations import github_service
+
+    credentials = await load_credentials(db, conn.id)
+    await github_service.close_pr(
+        conn.config, credentials,
+        pr_number=run.github_pr_number,
+        rejection_reason="Post-exec gates failed — see OPSFLUX ticket for details",
+    )
+
+
+async def _post_run_report(
+    db: AsyncSession, run: SupportAgentRun
+) -> None:
+    """Post a concise run summary on the ticket and on the linked PR."""
+    from app.models.support import SupportTicket, TicketComment
+    from app.services.core.integration_connection_service import load_credentials
+    from app.services.integrations import github_service
+
+    ticket = (
+        await db.execute(
+            select(SupportTicket).where(SupportTicket.id == run.ticket_id)
+        )
+    ).scalar_one_or_none()
+    if not ticket:
+        return
+
+    summary_lines = [
+        f"**Agent run {str(run.id)[:8]} terminé — statut : `{run.status}`**",
+        "",
+        f"- Mode : `{run.autonomy_mode}` / Déploiement : `{run.deployment_mode}`",
+        f"- Tokens utilisés : `{run.llm_tokens_used:,}` · Coût : `${float(run.llm_cost_usd):.4f}`",
+    ]
+    if run.github_pr_url:
+        summary_lines.append(f"- PR : {run.github_pr_url}")
+    if run.report_json:
+        rc = run.report_json.get("root_cause")
+        if rc:
+            summary_lines.append(f"- Cause racine identifiée : {rc[:200]}")
+    if run.failed_gates:
+        summary_lines.append("")
+        summary_lines.append("**Échecs de gates :**")
+        for name, info in run.failed_gates.items():
+            summary_lines.append(f"  - `{name}` : {info.get('message')}")
+
+    if run.status == "awaiting_human":
+        summary_lines.append("")
+        summary_lines.append("→ **Approbation admin requise** dans OPSFLUX avant merge.")
+    elif run.status == "completed":
+        summary_lines.append("")
+        summary_lines.append("→ Tous les gates sont verts. PR prête à review.")
+    elif run.status == "failed":
+        summary_lines.append("")
+        summary_lines.append("→ Le run a échoué. La PR a été fermée automatiquement.")
+
+    body = "\n".join(summary_lines)
+
+    # Ticket-side comment (reuses existing infra)
+    db.add(TicketComment(
+        ticket_id=ticket.id,
+        author_id=ticket.reporter_id,  # fallback — the agent runs as the ticket reporter
+        body=body,
+        is_internal=False,
+        external_source="agent",
+    ))
+
+    # PR-side comment (best effort)
+    if run.github_pr_number and run.github_connection_id:
+        conn = (
+            await db.execute(
+                select(IntegrationConnection).where(
+                    IntegrationConnection.id == run.github_connection_id
+                )
+            )
+        ).scalar_one_or_none()
+        if conn:
+            credentials = await load_credentials(db, conn.id)
+            try:
+                await github_service.add_issue_comment(
+                    conn.config, credentials,
+                    issue_number=run.github_pr_number,
+                    body=body,
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception("Could not post PR summary comment")
+
+
+# ─── Approval workflow (Sprint 5) ────────────────────────────────────
+
+async def approve_and_merge(
+    db: AsyncSession, run: SupportAgentRun, approver_id: UUID
+) -> None:
+    """Merge the PR attached to a run that's `awaiting_human`.
+
+    Raises HarnessError if the run isn't in the right state or the PR
+    can't be merged.
+    """
+    if run.status != "awaiting_human":
+        raise HarnessError(f"Run not awaiting approval (status={run.status})")
+    if not (run.github_pr_number and run.github_connection_id):
+        raise HarnessError("No PR attached to this run")
+
+    conn = (
+        await db.execute(
+            select(IntegrationConnection).where(
+                IntegrationConnection.id == run.github_connection_id
+            )
+        )
+    ).scalar_one_or_none()
+    if not conn:
+        raise HarnessError("GitHub connection has disappeared")
+
+    from app.services.core.integration_connection_service import load_credentials
+    from app.services.integrations import github_service
+
+    credentials = await load_credentials(db, conn.id)
+    try:
+        result = await github_service.merge_pr(
+            conn.config, credentials,
+            pr_number=run.github_pr_number,
+            merge_method="squash",
+            commit_title=f"[agent-run {str(run.id)[:8]}] merge PR #{run.github_pr_number}",
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HarnessError(f"GitHub merge failed: {exc}")
+
+    run.status = "completed"
+    run.approved_by = approver_id
+    run.approved_at = datetime.now(UTC)
+    run.current_phase = "post_merge"
+    run.github_commit_sha = result.get("sha") or run.github_commit_sha
+
+
+async def reject_run(
+    db: AsyncSession, run: SupportAgentRun, rejecter_id: UUID, reason: str | None
+) -> None:
+    if run.status not in ("awaiting_human", "completed"):
+        raise HarnessError(f"Run not in a rejectable state (status={run.status})")
+    run.status = "rejected"
+    run.cancelled_by = rejecter_id
+    run.ended_at = datetime.now(UTC)
+
+    if run.github_pr_number and run.github_connection_id:
+        conn = (
+            await db.execute(
+                select(IntegrationConnection).where(
+                    IntegrationConnection.id == run.github_connection_id
+                )
+            )
+        ).scalar_one_or_none()
+        if conn:
+            from app.services.core.integration_connection_service import load_credentials
+            from app.services.integrations import github_service
+            credentials = await load_credentials(db, conn.id)
+            try:
+                await github_service.close_pr(
+                    conn.config, credentials,
+                    pr_number=run.github_pr_number,
+                    rejection_reason=reason or "Rejeté par l'administrateur",
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception("Could not close rejected PR")

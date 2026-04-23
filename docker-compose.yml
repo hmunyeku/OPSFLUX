@@ -22,6 +22,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # The autonomous maintenance agent worker pool runs in its own
+    # Dokploy compose project (see `agent-worker/docker-compose.yml`)
+    # and needs raw Postgres access via the shared `dokploy-network`.
+    # Auth is still password-gated — this just lets the worker DNS-
+    # resolve the db container by its name.
+    networks:
+      - default
+      - dokploy-network
 
   # ─── Redis 7 ─────────────────────────────────────────────────
   redis:

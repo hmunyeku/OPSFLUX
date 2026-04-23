@@ -43,11 +43,14 @@ services:
     image: ghcr.io/hmunyeku/opsflux-agent-worker:latest
     restart: unless-stopped
     environment:
-      # Point at the main OPSFLUX Postgres via Docker DNS. Matches the
-      # hostname `db` exposed by the main compose project on the shared
-      # `dokploy-network`. No driver prefix — asyncpg on the worker
-      # side handles that itself.
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-opsflux}
+      # Point at the main OPSFLUX Postgres via Docker DNS. Container
+      # names on the shared `dokploy-network` are the only reliable
+      # DNS aliases, so we default to the Dokploy naming scheme
+      # `<project-slug>-db-1`. Override via POSTGRES_HOST if your
+      # install uses a different slug or a non-Dokploy setup.
+      # No driver prefix — asyncpg on the worker side handles that
+      # itself.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-opsflux-3gj1u6-db-1}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-opsflux}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       OPSFLUX_API_URL: ${OPSFLUX_API_URL:-http://backend:8000}
       OPSFLUX_INTERNAL_TOKEN: ${OPSFLUX_INTERNAL_TOKEN}

@@ -496,6 +496,13 @@ async def approve_and_merge(
     run.current_phase = "post_merge"
     run.github_commit_sha = result.get("sha") or run.github_commit_sha
 
+    # If a Dokploy prod connector is wired and the merge succeeded, the
+    # pipeline CI/CD of the repo is expected to deploy automatically.
+    # We do NOT trigger Dokploy prod from here — merging `main` is the
+    # signal, the normal deploy flow kicks in. For Mode B runs where
+    # `dokploy_prod_connection_id` is set, the existing project is
+    # already wired to deploy on push, so no extra call needed.
+
 
 async def reject_run(
     db: AsyncSession, run: SupportAgentRun, rejecter_id: UUID, reason: str | None

@@ -113,6 +113,60 @@ export function useApproveAgentRun() {
   })
 }
 
+export interface VerificationResult {
+  id: string
+  scenario_id: string | null
+  scenario_name: string
+  criticality: 'critical' | 'important' | 'nice_to_have'
+  status: 'pending' | 'running' | 'passed' | 'failed' | 'skipped' | 'error'
+  duration_seconds: number | null
+  error_excerpt: string | null
+  screenshots_paths: string[]
+  video_path: string | null
+  console_errors: string[]
+  target_url: string | null
+  started_at: string | null
+  ended_at: string | null
+}
+
+export function useVerificationResults(runId: string | null) {
+  return useQuery({
+    queryKey: ['agent-run-verification', runId],
+    queryFn: async () => {
+      if (!runId) return []
+      const { data } = await api.get<VerificationResult[]>(
+        `/api/v1/support/agent/runs/${runId}/verification-results`,
+      )
+      return data
+    },
+    enabled: !!runId,
+  })
+}
+
+export function useDeployAndVerify() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (runId: string) => {
+      const { data } = await api.post(
+        `/api/v1/support/agent/runs/${runId}/deploy-and-verify`,
+      )
+      return data as {
+        deploy_ok: boolean
+        deploy_message?: string
+        deploy_url?: string
+        total?: number
+        passed?: number
+        failed?: number
+        critical_failures?: number
+      }
+    },
+    onSuccess: (_, runId) => {
+      qc.invalidateQueries({ queryKey: ['agent-run-verification', runId] })
+      qc.invalidateQueries({ queryKey: ['agent-runs'] })
+    },
+  })
+}
+
 export function useRejectAgentRun() {
   const qc = useQueryClient()
   return useMutation({

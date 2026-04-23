@@ -391,6 +391,104 @@ async def reject_agent_run(
     return run
 
 
+# ─── Deploy + Verify (Sprint 6) ────────────────────────────────────────
+
+
+class VerificationResultRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    scenario_id: UUID | None
+    scenario_name: str
+    criticality: str
+    status: str
+    duration_seconds: int | None
+    error_excerpt: str | None
+    screenshots_paths: list
+    video_path: str | None
+    console_errors: list
+    target_url: str | None
+    started_at: datetime | None
+    ended_at: datetime | None
+
+
+@router.post(
+    "/runs/{run_id}/deploy-and-verify",
+    dependencies=[require_permission("support.ticket.manage")],
+)
+async def trigger_deploy_and_verify(
+    run_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin-triggered Mode A pipeline: deploy to staging + run Playwright.
+
+    Idempotent-ish: if the run has a `dokploy_deploy_url` already, we
+    skip the deploy step and run verification only.
+    """
+    from app.services.agent.deploy_and_verify import deploy_and_verify
+
+    run = (
+        await db.execute(
+            select(SupportAgentRun).where(
+                SupportAgentRun.id == run_id,
+                SupportAgentRun.entity_id == entity_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not run:
+        raise HTTPException(404, "Run not found")
+    if run.status not in ("completed", "awaiting_human"):
+        raise HTTPException(400, f"Run status must be completed or awaiting_human (is: {run.status})")
+
+    result = await deploy_and_verify(db, run)
+    await record_audit(
+        db,
+        action="agent_run.deploy_and_verify",
+        resource_type="agent_run",
+        resource_id=str(run_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details=result,
+    )
+    await db.commit()
+    await db.refresh(run)
+    return result
+
+
+@router.get(
+    "/runs/{run_id}/verification-results",
+    response_model=list[VerificationResultRead],
+    dependencies=[require_permission("support.ticket.read")],
+)
+async def list_verification_results(
+    run_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.agent import SupportAgentVerificationResult
+
+    # Entity check via the parent run
+    run = (
+        await db.execute(
+            select(SupportAgentRun).where(
+                SupportAgentRun.id == run_id,
+                SupportAgentRun.entity_id == entity_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not run:
+        raise HTTPException(404, "Run not found")
+    rows = (
+        await db.execute(
+            select(SupportAgentVerificationResult)
+            .where(SupportAgentVerificationResult.agent_run_id == run_id)
+            .order_by(SupportAgentVerificationResult.created_at)
+        )
+    ).scalars().all()
+    return list(rows)
+
+
 # ─── Worker → Backend callback (internal) ──────────────────────────────
 
 @router.post("/runs/{run_id}/post-exec", status_code=204)

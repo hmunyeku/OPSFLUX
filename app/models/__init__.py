@@ -113,4 +113,6 @@ from app.models.agent import (  # noqa: F401
     SupportAgentConfig,
     SupportAgentPhaseCheckpoint,
     SupportAgentRun,
+    SupportAgentVerificationResult,
+    SupportVerificationScenario,
 )

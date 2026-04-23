@@ -17,6 +17,7 @@
  *   setPref('gantt', { ...gantt, barH: 20 })
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { safeLocal } from '@/lib/safeStorage'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 
@@ -27,7 +28,7 @@ type Prefs = Record<string, unknown>
 
 function loadCache(): Prefs {
   try {
-    return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')
+    return JSON.parse(safeLocal.getItem(CACHE_KEY) || '{}')
   } catch {
     return {}
   }
@@ -35,7 +36,7 @@ function loadCache(): Prefs {
 
 function saveCache(p: Prefs) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(p))
+    safeLocal.setItem(CACHE_KEY, JSON.stringify(p))
   } catch { /* quota / privacy mode */ }
 }
 

@@ -24,6 +24,7 @@
  * and `<key>` in the settings table.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { safeLocal } from '@/lib/safeStorage'
 import api from '@/lib/api'
 import type { SettingRead } from '@/types/api'
 
@@ -42,7 +43,7 @@ interface UseFilterPersistenceOptions {
 
 function readLocalStorage<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(LS_PREFIX + key)
+    const raw = safeLocal.getItem(LS_PREFIX + key)
     if (raw == null) return fallback
     const parsed = JSON.parse(raw)
     if (parsed == null) return fallback
@@ -54,7 +55,7 @@ function readLocalStorage<T>(key: string, fallback: T): T {
 
 function writeLocalStorage<T>(key: string, value: T): void {
   try {
-    localStorage.setItem(LS_PREFIX + key, JSON.stringify(value))
+    safeLocal.setItem(LS_PREFIX + key, JSON.stringify(value))
   } catch {
     // Quota exceeded or storage disabled — silently ignore.
   }

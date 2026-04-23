@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { entityService, type EntityListParams, type EntityCreate, type EntityUpdate } from '@/services/entityService'
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/components/ui/Toast'
+import { safeLocal } from '@/lib/safeStorage'
 
 export function useMyEntities() {
   return useQuery({
@@ -21,8 +22,8 @@ export function useSwitchEntity() {
     mutationFn: (entityId: string) => entityService.switchEntity(entityId),
     onSuccess: (_, entityId) => {
       // Reset acting context and update active entity before any refetch.
-      localStorage.setItem('acting_context', 'own')
-      localStorage.setItem('entity_id', entityId)
+      safeLocal.setItem('acting_context', 'own')
+      safeLocal.setItem('entity_id', entityId)
       setActingContext('own')
       setCurrentEntity(entityId)
       // Purge the most sensitive entity-scoped caches first.

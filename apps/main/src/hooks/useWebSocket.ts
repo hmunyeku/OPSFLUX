@@ -6,6 +6,7 @@
  * Dispatches received notifications to React Query cache.
  */
 import { useEffect, useRef, useCallback, useState } from 'react'
+import { safeLocal } from '@/lib/safeStorage'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/components/ui/Toast'
@@ -33,7 +34,7 @@ const RECONNECT_SUSPEND_MS = 120_000
 
 export function useWebSocket() {
   const { isAuthenticated } = useAuthStore()
-  const accessToken = localStorage.getItem('access_token')
+  const accessToken = safeLocal.getItem('access_token')
   const qc = useQueryClient()
   const { toast } = useToast()
   const wsRef = useRef<WebSocket | null>(null)

@@ -38,9 +38,11 @@ import { CreateRotationPanel } from './panels/CreateRotationPanel'
 import { CreateAvmPanel } from './panels/CreateAvmPanel'
 import { AvmDetailPanel } from './panels/AvmDetailPanel'
 
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 const VALID_PAXLOG_TABS = new Set<MainTabId>(['dashboard', 'ads', 'waitlist', 'profiles', 'compliance', 'signalements', 'rotations', 'avm'])
 
 export function PaxLogPage() {
+  useOpenDetailFromPath({ matchers: [{ prefix: '/paxlog/ads/', module: 'paxlog', meta: { subtype: 'ads' } }, { prefix: '/paxlog/avm/', module: 'paxlog', meta: { subtype: 'avm' } }, { prefix: '/paxlog/profiles/', module: 'paxlog', meta: { subtype: 'profile' } }] })
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as MainTabId | null

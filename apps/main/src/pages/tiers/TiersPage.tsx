@@ -84,6 +84,7 @@ import { RichTextField } from '@/components/shared/RichTextField'
 import { ExternalRefManager } from '@/components/shared/ExternalRefManager'
 import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
 
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 // -- Constants ----------------------------------------------------------------
 
 const EMPTY_CONTACT_FORM: TierContactCreate = {
@@ -1702,6 +1703,7 @@ function useContactColumns() {
 const VALID_TIERS_TABS = new Set<TiersTab>(['dashboard', 'entreprises', 'contacts'])
 
 export function TiersPage() {
+  useOpenDetailFromPath({ matchers: [{ prefix: '/tiers/', module: 'tiers' }] })
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as TiersTab | null

@@ -52,6 +52,7 @@ import { useUsers } from '@/hooks/useUsers'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 // ── Constants (fallbacks — overridden by dictionary entries when available) ──
 
 const TYPE_ICONS: Record<string, typeof Bug> = { bug: Bug, improvement: Lightbulb, question: HelpCircle, other: MoreHorizontal }
@@ -901,6 +902,7 @@ const MOBILE_HIDDEN_TICKET_COLS = new Set(['reporter_name', 'assignee_name', 'co
 const MOBILE_HIDDEN_ANN_COLS = new Set(['display_location', 'created_at', 'active'])
 
 export function SupportPage() {
+  useOpenDetailFromPath({ matchers: [{ prefix: '/support/', module: 'support' }] })
   useTranslation()
   const ticketColumns = useTicketColumns()
   const isMobile = useIsMobile()

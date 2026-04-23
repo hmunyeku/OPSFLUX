@@ -44,6 +44,7 @@ import { CargoDetailPanel } from '@/pages/packlog/PackLogCargoDetailPanel'
 import { useTranslation } from 'react-i18next'
 import type { CargoItem, CargoRequest, Manifest, TravelArticle } from '@/types/api'
 
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 type PackLogTab = 'dashboard' | 'requests' | 'cargo' | 'catalog' | 'tracking' | 'alerts'
 
 type AlertRow = {
@@ -804,6 +805,7 @@ function AlertsTab() {
 const VALID_PL_TABS = new Set<PackLogTab>(['dashboard', 'requests', 'cargo', 'catalog', 'tracking', 'alerts'])
 
 export function PackLogPage() {
+  useOpenDetailFromPath({ matchers: [{ prefix: '/packlog/cargo-requests/', module: 'packlog', meta: { subtype: 'cargo-request' } }, { prefix: '/packlog/cargos/', module: 'packlog', meta: { subtype: 'cargo' } }] })
   const { t } = useTranslation()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)

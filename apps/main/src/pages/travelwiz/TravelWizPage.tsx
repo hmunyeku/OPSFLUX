@@ -35,6 +35,7 @@ import { VoyageDetailPanel } from './panels/VoyageDetailPanel'
 import { VectorDetailPanel } from './panels/VectorDetailPanel'
 import { RotationDetailPanel } from './panels/RotationDetailPanel'
 
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 // Re-exports kept for backward compatibility with any external consumer.
 export { CargoTab } from './tabs/CargoTab'
 export { CreateCargoRequestPanel, CreateCargoPanel, CargoRequestDetailPanel } from './panels/CargoRequestPanels'
@@ -56,6 +57,7 @@ const TABS: { id: TravelWizTab; labelKey: string; icon: typeof Plane }[] = [
 const VALID_TW_TABS = new Set<TravelWizTab>(['dashboard', 'voyages', 'manifests', 'vectors', 'rotations', 'cargo', 'fleet_map', 'pickup', 'weather'])
 
 export function TravelWizPage() {
+  useOpenDetailFromPath({ matchers: [{ prefix: '/travelwiz/voyages/', module: 'travelwiz', meta: { subtype: 'voyage' } }, { prefix: '/travelwiz/vectors/', module: 'travelwiz', meta: { subtype: 'vector' } }, { prefix: '/travelwiz/rotations/', module: 'travelwiz', meta: { subtype: 'rotation' } }] })
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as TravelWizTab | null

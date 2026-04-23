@@ -1949,6 +1949,7 @@ function UserJournalTab({ userId }: { userId: string }) {
 // ── Permissions Tab (uses shared PermissionMatrix) ────────
 import { PermissionMatrix } from '@/components/shared/PermissionMatrix'
 
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 function UserPermissionsTab({ userId }: { userId: string }) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
@@ -2290,6 +2291,7 @@ void AccountsOverview // keep for reference — replaced by ModuleDashboard
 type AccountsTab = 'overview' | 'users' | 'groups' | 'roles'
 
 export function UsersPage() {
+  useOpenDetailFromPath({ matchers: [{ prefix: '/users/', module: 'users' }] })
   const { t } = useTranslation()
   const userColumns = useMemo(() => getUserColumns(t), [t])
   const [activeTab, setActiveTab] = useState<AccountsTab>('overview')

@@ -11,6 +11,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/react-table'
 import { ClipboardList, LayoutDashboard, Plus, Rocket, UserCircle2 } from 'lucide-react'
@@ -56,6 +57,8 @@ export function MOCPage() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
+  // Deep link: /moc/{uuid} → open that MOC's detail panel.
+  useOpenDetailFromPath({ matchers: [{ prefix: '/moc/', module: 'moc' }] })
   // Full-panel takes over the main area (auto on mobile < 768px via the
   // DynamicPanelShell itself). Hide the page content side-by-side so the
   // detail / create panel actually gets the full width.

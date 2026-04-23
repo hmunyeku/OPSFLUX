@@ -147,7 +147,9 @@ async def global_search(
                         id=str(a.id),
                         title=a.name,
                         subtitle=a.code,
-                        url=f"/assets/{a.id}",
+                        # Deep-linked to AssetRegistryPage which opens the
+                        # installation detail panel from this URL.
+                        url=f"/assets/installation/{a.id}",
                     )
                 )
         except Exception:

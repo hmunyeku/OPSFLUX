@@ -66,7 +66,9 @@ import { VerificationsTab } from './tabs/VerificationsTab'
 import { RulesMatrixView } from './tabs/RulesTab'
 import { formatDate } from '@/lib/i18n'
 
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 export function ConformitePage() {
+  useOpenDetailFromPath({ matchers: [{ prefix: '/conformite/records/', module: 'conformite', meta: { subtype: 'record' } }, { prefix: '/conformite/exemptions/', module: 'conformite', meta: { subtype: 'exemption' } }, { prefix: '/conformite/job-positions/', module: 'conformite', meta: { subtype: 'job-position' } }] })
   const { t } = useTranslation()
   const tabs = useConformiteTabs()
   const [searchParams, setSearchParams] = useSearchParams()

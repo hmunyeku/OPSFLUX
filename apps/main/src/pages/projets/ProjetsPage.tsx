@@ -35,6 +35,7 @@ import { CreateProjectPanel } from './panels/CreateProjectPanel'
 import { ProjectDetailPanel } from './panels/ProjectDetailPanel'
 import { GoutiSyncToolbar } from './panels/GoutiImportModal'
 
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 // Re-export DashboardView for backward compatibility (previously exported
 // from this file by the legacy dashboard migration path).
 export { DashboardView }
@@ -52,6 +53,7 @@ const PROJETS_TABS: { id: ViewTab; labelKey: string; icon: typeof FolderKanban }
 const VALID_VIEW_TABS = new Set<ViewTab>(['dashboard', 'projets', 'tableur', 'kanban', 'planning'])
 
 export function ProjetsPage() {
+  useOpenDetailFromPath({ matchers: [{ prefix: '/projets/', module: 'projets' }] })
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as ViewTab | null

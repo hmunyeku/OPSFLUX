@@ -49,6 +49,7 @@ import { MapsTab } from './MapsTab'
 import { ROUTES } from '@/lib/routes'
 
 
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 // ── Status badge helper ──────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
@@ -832,6 +833,7 @@ const TAB_MODULE: Record<TabKey, string> = {
 }
 
 export function AssetRegistryPage() {
+  useOpenDetailFromPath({ matchers: [{ prefix: '/assets/field/', module: 'ar-field' }, { prefix: '/assets/site/', module: 'ar-site' }, { prefix: '/assets/installation/', module: 'ar-installation' }, { prefix: '/assets/equipment/', module: 'ar-equipment' }, { prefix: '/assets/pipeline/', module: 'ar-pipeline' }, { prefix: '/assets/', module: 'ar-installation' }] })
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { hasPermission } = usePermission()

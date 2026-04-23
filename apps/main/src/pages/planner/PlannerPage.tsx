@@ -53,7 +53,9 @@ import { ScenarioDetailPanel } from './panels/ScenarioDetailPanel'
 import { ActivityDetailPanel } from './panels/ActivityDetailPanel'
 import { CreateActivityPanel } from './panels/CreateActivityPanel'
 
+import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 export function PlannerPage() {
+  useOpenDetailFromPath({ matchers: [{ prefix: '/planner/activity/', module: 'planner' }, { prefix: '/planner/scenario/', module: 'planner', meta: { subtype: 'scenario' } }] })
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as PlannerTab | null

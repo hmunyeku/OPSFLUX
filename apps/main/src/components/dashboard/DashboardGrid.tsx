@@ -66,21 +66,56 @@ export function DashboardGrid({ widgets: rawWidgets, mode, onRemoveWidget, onUpd
   // the right on tablets — not what users expect. A calm stack at
   // full grid width is both more readable and more consistent with
   // mobile behaviour.
+  //
+  // On desktop we ALSO compact: the stored positions can contain
+  // vertical gaps (e.g. a widget was removed, or rows were left
+  // unused). Rather than render those gaps, we lay the widgets out
+  // with a simple row-packer that preserves the left-right intent
+  // (x, w) but slides each widget up to the first row where its
+  // footprint is free. Storage is untouched — this only affects
+  // presentation, so the user's original layout is restored the
+  // next time they enter edit mode.
   const responsiveWidgets = useMemo(() => {
-    if (scale >= 1) return widgets // desktop — honour user layout
-    // Sort by original position (top-to-bottom, left-to-right) so
-    // stacking preserves the visual hierarchy the user designed.
+    if (scale < 1) {
+      // Narrow viewport — stack full-width vertically by reading order.
+      const sorted = [...widgets].sort((a, b) => {
+        const ay = a.position?.y ?? 0, by = b.position?.y ?? 0
+        if (ay !== by) return ay - by
+        return (a.position?.x ?? 0) - (b.position?.x ?? 0)
+      })
+      let currentY = 0
+      return sorted.map((w) => {
+        const origH = w.position?.h ?? 4
+        const pos = { x: 0, y: currentY, w: cols, h: origH }
+        currentY += origH
+        return { ...w, position: pos }
+      })
+    }
+
+    // Desktop — compact vertically while keeping x/w intact.
+    // 1. Sort widgets by (y, x) so the visual order matches what
+    //    the user laid out.
     const sorted = [...widgets].sort((a, b) => {
       const ay = a.position?.y ?? 0, by = b.position?.y ?? 0
       if (ay !== by) return ay - by
       return (a.position?.x ?? 0) - (b.position?.x ?? 0)
     })
-    let currentY = 0
-    return sorted.map((w) => {
-      const origH = w.position?.h ?? 4
-      const pos = { x: 0, y: currentY, w: cols, h: origH }
-      currentY += origH
-      return { ...w, position: pos }
+    // 2. For each widget, walk its column footprint and find the
+    //    lowest row where every column it occupies is free.
+    const columnHeights = new Array(cols).fill(0) as number[]
+    return sorted.map((wd) => {
+      const x = Math.max(0, Math.min(cols - 1, wd.position?.x ?? 0))
+      const origW = Math.max(1, wd.position?.w ?? 4)
+      const w = Math.min(origW, cols - x)
+      const h = Math.max(1, wd.position?.h ?? 4)
+      let y = 0
+      for (let c = x; c < x + w; c++) {
+        if (columnHeights[c] > y) y = columnHeights[c]
+      }
+      for (let c = x; c < x + w; c++) {
+        columnHeights[c] = y + h
+      }
+      return { ...wd, position: { x, y, w, h } }
     })
   }, [widgets, cols, scale])
   const sensors = useSensors(

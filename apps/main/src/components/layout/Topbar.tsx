@@ -34,6 +34,7 @@ import { CommandPalette, useCommandPalette } from '@/components/ui/CommandPalett
 import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
 // Topbar notification bell — restored (2026-04-23). Journal page at /notifications.
 import { NotificationBell } from '@/components/layout/NotificationBell'
+import { QuickCreateModal } from '@/components/layout/QuickCreateModal'
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { ROUTES } from '@/lib/routes'
@@ -278,6 +279,9 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   // toggles a full-width slide-down search bar instead. Tapping
   // outside or pressing Escape closes it.
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  // Quick-create modal — global "+" shortcut, YetiCRM-style grid of
+  // creatable entities by category. Triggered from the "+" button.
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const mobileSearchRef = useRef<HTMLInputElement>(null)
@@ -455,9 +459,13 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             <Search size={15} />
           </button>
 
-          {/* Create button — desktop only (each module has its own create button) */}
+          {/* Create button — desktop only. Opens QuickCreateModal. */}
           <span className="hidden sm:inline-flex">
-            <TopbarIconButton icon={Plus} label={t('common.create')} />
+            <TopbarIconButton
+              icon={Plus}
+              label={t('quick_create.title', 'Création rapide')}
+              onClick={() => setQuickCreateOpen(true)}
+            />
           </span>
 
           <div className="mx-1.5 h-4 w-px bg-border hidden sm:block" />
@@ -635,6 +643,9 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
       {/* Command Palette overlay */}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+
+      {/* Quick-create modal (global "+" shortcut) */}
+      <QuickCreateModal open={quickCreateOpen} onClose={() => setQuickCreateOpen(false)} />
     </>
   )
 }

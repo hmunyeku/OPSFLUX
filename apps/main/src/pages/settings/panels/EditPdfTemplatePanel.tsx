@@ -23,7 +23,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
-  DynamicPanelShell,
+  PanelContentLayout, DynamicPanelShell,
   DynamicPanelField,
   FormGrid,
   FormSection,
@@ -621,7 +621,8 @@ function CreatePdfTemplatePanel() {
         </>
       }
     >
-      <form id="create-pdf-template-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+      <form id="create-pdf-template-form" onSubmit={handleSubmit} >
+        <PanelContentLayout>
         <FormSection title={t('settings.pdf_templates_editor.sections.metadata')}>
           <FormGrid>
             <DynamicPanelField label={t('settings.pdf_templates_editor.fields.slug')} required>
@@ -662,6 +663,7 @@ function CreatePdfTemplatePanel() {
             </DynamicPanelField>
           </FormGrid>
         </FormSection>
+        </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )

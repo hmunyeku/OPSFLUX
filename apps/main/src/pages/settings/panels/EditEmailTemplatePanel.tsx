@@ -47,7 +47,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
 import {
-  DynamicPanelShell,
+  PanelContentLayout, DynamicPanelShell,
   DynamicPanelField,
   FormSection,
   PanelActionButton,
@@ -350,7 +350,8 @@ function CreatePanel() {
         </>
       }
     >
-      <form id="create-template-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+      <form id="create-template-form" onSubmit={handleSubmit} >
+        <PanelContentLayout>
         <FormSection title={t('common.information')}>
           <DynamicPanelField label="Slug (identifiant technique)" required>
             <input
@@ -392,6 +393,7 @@ function CreatePanel() {
             </select>
           </DynamicPanelField>
         </FormSection>
+        </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )

@@ -10,7 +10,7 @@ import { Key, Loader2, Copy, Check } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { useCreateToken } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
-import { DynamicPanelShell, DynamicPanelField, PanelActionButton, panelInputClass } from '@/components/layout/DynamicPanel'
+import { PanelContentLayout, DynamicPanelShell, DynamicPanelField, PanelActionButton, panelInputClass } from '@/components/layout/DynamicPanel'
 import {
   SmartFormProvider,
   SmartFormSection,
@@ -95,7 +95,7 @@ function CreateTokenInner() {
           </PanelActionButton>
         }
       >
-        <div className="p-4 space-y-4">
+        <PanelContentLayout>
           <div className="rounded-lg border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 p-4">
             <p className="text-sm font-semibold text-green-800 dark:text-green-200 mb-2">
               Votre jeton d'accès personnel
@@ -112,7 +112,7 @@ function CreateTokenInner() {
               </button>
             </div>
           </div>
-        </div>
+        </PanelContentLayout>
       </DynamicPanelShell>
     )
   }
@@ -134,7 +134,8 @@ function CreateTokenInner() {
         </>
       }
     >
-      <form id="create-token-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+      <form id="create-token-form" onSubmit={handleSubmit} >
+        <PanelContentLayout>
         <SmartFormToolbar />
         <SmartFormSimpleHint />
         <SmartFormInlineHelpDrawer />
@@ -191,6 +192,8 @@ function CreateTokenInner() {
           />
 
         )}
+
+        </PanelContentLayout>
 
       </form>
     </DynamicPanelShell>

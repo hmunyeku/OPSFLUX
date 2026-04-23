@@ -174,7 +174,8 @@ function CreateAddressInner() {
         </>
       }
     >
-      <form id="create-address-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+      <form id="create-address-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
         <SmartFormToolbar />
         <SmartFormSimpleHint />
         <SmartFormInlineHelpDrawer />
@@ -264,7 +265,7 @@ function CreateAddressInner() {
           />
 
         )}
-
+        </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )

@@ -35,6 +35,7 @@ import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
 // Topbar notification bell — restored (2026-04-23). Journal page at /notifications.
 import { NotificationBell } from '@/components/layout/NotificationBell'
 import { QuickCreateModal } from '@/components/layout/QuickCreateModal'
+import { TopbarSearchSuggestions } from '@/components/layout/TopbarSearchSuggestions'
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { ROUTES } from '@/lib/routes'
@@ -282,6 +283,17 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   // Quick-create modal — global "+" shortcut, YetiCRM-style grid of
   // creatable entities by category. Triggered from the "+" button.
   const [quickCreateOpen, setQuickCreateOpen] = useState(false)
+  // Live-suggestions dropdown under the topbar search input. Open
+  // whenever the input is focused AND has a non-empty query.
+  const [searchFocused, setSearchFocused] = useState(false)
+  const searchAnchorRef = useRef<HTMLDivElement>(null)
+  const searchKeyHandlerRef = useRef<((e: KeyboardEvent) => boolean) | null>(null)
+  const registerSearchKeyHandler = useCallback(
+    (handler: (e: KeyboardEvent) => boolean) => {
+      searchKeyHandlerRef.current = handler
+    },
+    [],
+  )
   const menuRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const mobileSearchRef = useRef<HTMLInputElement>(null)
@@ -409,16 +421,29 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
         {/* ── Center: Contextual search input (hidden on < sm to free space) ── */}
         <div data-tour="search-bar" className="hidden sm:flex flex-1 justify-center px-2 sm:px-4 min-w-0">
-          <div className="relative w-full max-w-lg">
+          <div ref={searchAnchorRef} className="relative w-full max-w-lg">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               ref={searchInputRef}
               type="text"
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              // Delay blur close so a click on a suggestion (which
+              // steals focus) has time to fire onMouseDown first.
+              onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)}
               onKeyDown={(e) => {
+                // Let the suggestions dropdown intercept first.
+                if (searchKeyHandlerRef.current) {
+                  const handled = searchKeyHandlerRef.current(e.nativeEvent)
+                  if (handled) {
+                    e.preventDefault()
+                    return
+                  }
+                }
                 if (e.key === 'Enter' && globalSearch.trim()) {
                   navigate(`/search?q=${encodeURIComponent(globalSearch.trim())}`)
+                  setSearchFocused(false)
                 }
               }}
               placeholder={placeholder}
@@ -646,6 +671,21 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
       {/* Quick-create modal (global "+" shortcut) */}
       <QuickCreateModal open={quickCreateOpen} onClose={() => setQuickCreateOpen(false)} />
+
+      {/* Live search suggestions under the topbar input */}
+      <TopbarSearchSuggestions
+        query={globalSearch}
+        open={searchFocused && globalSearch.trim().length > 0}
+        onClose={() => setSearchFocused(false)}
+        anchorRef={searchAnchorRef}
+        registerKeyHandler={registerSearchKeyHandler}
+        onFallback={() => {
+          if (globalSearch.trim()) {
+            navigate(`/search?q=${encodeURIComponent(globalSearch.trim())}`)
+          }
+          setSearchFocused(false)
+        }}
+      />
     </>
   )
 }

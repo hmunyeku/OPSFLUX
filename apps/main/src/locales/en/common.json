@@ -2095,7 +2095,13 @@
     "command_palette": "Command palette",
     "navigate": "navigate",
     "open": "open",
-    "close": "close"
+    "close": "close",
+    "suggestions": "Suggestions",
+    "searching": "Searching...",
+    "no_suggestions": "No suggestions. Press Enter to run a full search.",
+    "hint_enter_select": "to open the selection",
+    "hint_enter_full": "to run the full search",
+    "view_full_results": "View all results →"
   },
   "imputations": {
     "page_title": "Imputations",

@@ -39,6 +39,7 @@ const CaptainPortalPage = lazy(() => import('@/pages/travelwiz/CaptainPortalPage
 const TVModePage = lazy(() => import('@/pages/dashboard/TVModePage').then(m => ({ default: m.TVModePage })))
 const FileManagerPage = lazy(() => import('@/pages/files/FileManagerPage'))
 const SupportPage = lazy(() => import('@/pages/support/SupportPage').then(m => ({ default: m.SupportPage })))
+const SatisfactionPage = lazy(() => import('@/pages/support/SatisfactionPage').then(m => ({ default: m.SatisfactionPage })))
 const MOCPage = lazy(() => import('@/pages/moc/MOCPage').then(m => ({ default: m.MOCPage })))
 const HomePage = lazy(() => import('@/pages/home/HomePage').then(m => ({ default: m.HomePage })))
 const NotFoundPage = lazy(() => import('@/pages/errors/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
@@ -116,6 +117,7 @@ export default function App() {
                   <Route path="/papyrus/*" element={<RequireModuleEnabled module="papyrus"><RequirePermission permission="document.read"><PapyrusPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/pid-pfd/*" element={<RequireModuleEnabled module="pid_pfd"><RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<LoaderFallback />}><FileManagerPage /></Suspense></RequirePermission>} />
+                  <Route path="/support/satisfaction/:ticketId" element={<RequireModuleEnabled module="support"><SatisfactionPage /></RequireModuleEnabled>} />
                   <Route path="/support/*" element={<RequireModuleEnabled module="support"><RequirePermission permission="support.ticket.read"><SupportPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/moc/*" element={<RequireModuleEnabled module="moc"><RequirePermission permission="moc.read"><MOCPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/notifications" element={<NotificationsPage />} />

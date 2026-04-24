@@ -59,6 +59,21 @@ class SupportTicket(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     resolution_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     tags: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
+    # ── SLA tracking ──
+    # Set the first time ANY user other than the reporter posts a
+    # comment (or the ticket gets assigned/moved to in_progress).
+    # Powers SLA compliance reporting in the supervision dashboard.
+    first_response_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    # ── Satisfaction survey (reporter-side, post-resolution) ──
+    satisfaction_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    satisfaction_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    satisfaction_submitted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
     # ── GitHub sync (optional) ──
     # When non-null, this ticket is mirrored as a GitHub Issue via the
     # referenced `integration_connections` row. `github_sync_enabled`

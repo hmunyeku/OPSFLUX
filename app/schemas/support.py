@@ -58,6 +58,12 @@ class TicketRead(OpsFluxSchema):
     created_at: datetime
     updated_at: datetime
 
+    # SLA tracking + post-resolution satisfaction (nullable until set)
+    first_response_at: datetime | None = None
+    satisfaction_rating: int | None = None
+    satisfaction_feedback: str | None = None
+    satisfaction_submitted_at: datetime | None = None
+
     # GitHub sync (optional binding)
     github_connection_id: UUID | None = None
     github_issue_number: int | None = None

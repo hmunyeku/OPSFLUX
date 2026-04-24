@@ -1795,6 +1795,44 @@ DEFAULT_TEMPLATES: list[dict] = [
         },
     },
     {
+        "slug": "ticket_satisfaction_survey",
+        "name": "Enquête satisfaction après clôture",
+        "description": "Envoyé au demandeur à la clôture du ticket pour recueillir sa note (1-5) et un commentaire libre.",
+        "object_type": "support_ticket",
+        "versions": {
+            "fr": {
+                "subject": "Notez votre expérience sur le ticket {{reference}}",
+                "body_html": (
+                    "<html><body style='font-family:Arial,sans-serif;color:#333'>"
+                    "<h2 style='color:#2563eb'>Merci pour votre confiance</h2>"
+                    "<p>Votre ticket <strong>{{reference}}</strong> — « {{title}} » vient d'être clôturé.</p>"
+                    "<p>Votre avis nous aide à améliorer le support OpsFlux. Prenez <strong>30 secondes</strong> pour nous noter :</p>"
+                    "<p style='text-align:center;margin:24px 0'>"
+                    "<a href='{{survey_link}}' style='background:#2563eb;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600'>Donner mon avis</a>"
+                    "</p>"
+                    "<p style='color:#6b7280;font-size:12px'>Vous pouvez noter de 1 (très insatisfait) à 5 (très satisfait) et laisser un commentaire libre.</p>"
+                    "<p style='color:#999;font-size:12px;margin-top:24px'>OpsFlux — Support</p>"
+                    "</body></html>"
+                ),
+            },
+            "en": {
+                "subject": "Rate your support experience on ticket {{reference}}",
+                "body_html": (
+                    "<html><body style='font-family:Arial,sans-serif;color:#333'>"
+                    "<h2 style='color:#2563eb'>Thanks for your trust</h2>"
+                    "<p>Your ticket <strong>{{reference}}</strong> — « {{title}} » has just been closed.</p>"
+                    "<p>Your feedback helps us improve OpsFlux support. Please take <strong>30 seconds</strong> to rate your experience:</p>"
+                    "<p style='text-align:center;margin:24px 0'>"
+                    "<a href='{{survey_link}}' style='background:#2563eb;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600'>Leave my feedback</a>"
+                    "</p>"
+                    "<p style='color:#6b7280;font-size:12px'>Rate from 1 (very dissatisfied) to 5 (very satisfied) and optionally add a comment.</p>"
+                    "<p style='color:#999;font-size:12px;margin-top:24px'>OpsFlux — Support</p>"
+                    "</body></html>"
+                ),
+            },
+        },
+    },
+    {
         "slug": "gdpr_export_ready",
         "name": "Export RGPD prêt",
         "description": "Envoyé quand l'export des données personnelles de l'utilisateur est prêt.",

@@ -611,11 +611,46 @@ async def close_ticket(
     await db.commit()
     await db.refresh(ticket, ["comments"])
 
+    # Kick off satisfaction survey to the reporter — best effort, does
+    # not block the close response.
+    try:
+        await _send_satisfaction_survey(db, ticket, entity_id)
+    except Exception:  # noqa: BLE001
+        logger.exception("Could not send satisfaction survey for ticket %s", ticket.id)
+
     user_ids = {ticket.reporter_id}
     if ticket.assignee_id:
         user_ids.add(ticket.assignee_id)
     umap = await _users_map(db, user_ids)
     return _enrich_ticket(ticket, umap)
+
+
+async def _send_satisfaction_survey(
+    db: AsyncSession, ticket: SupportTicket, entity_id: UUID,
+) -> None:
+    """Email the reporter a link to rate their support experience.
+
+    No-op if the reporter already submitted a rating (idempotent across
+    reopen → close cycles).
+    """
+    if ticket.satisfaction_submitted_at is not None:
+        return
+    from app.core.email_templates import render_and_send_email
+    reporter = await db.get(User, ticket.reporter_id)
+    if not reporter or not reporter.email:
+        return
+    await render_and_send_email(
+        db, slug="ticket_satisfaction_survey",
+        entity_id=entity_id,
+        to=reporter.email,
+        language=reporter.language or "fr",
+        user_id=reporter.id,
+        variables={
+            "reference": ticket.reference,
+            "title": ticket.title,
+            "survey_link": f"https://app.opsflux.io/support/satisfaction/{ticket.id}",
+        },
+    )
 
 
 @router.post("/tickets/{ticket_id}/reopen", response_model=TicketRead)
@@ -783,6 +818,16 @@ async def add_comment(
     )
     db.add(comment)
     await db.flush()
+
+    # SLA tracking: first public response from anyone other than the
+    # reporter locks in the first_response_at timestamp. Internal
+    # comments don't count — the reporter never sees them.
+    if (
+        t.first_response_at is None
+        and not body.is_internal
+        and acting_user_id != t.reporter_id
+    ):
+        t.first_response_at = datetime.now(UTC)
 
     # Mirror to GitHub if the ticket is linked + sync is on. Kept on the
     # same transaction so a GitHub API error rolls back the comment
@@ -1149,3 +1194,70 @@ async def disable_github_sync(
     ).scalar_one()
     users_map = await _users_map(db, {ticket.reporter_id, *([ticket.assignee_id] if ticket.assignee_id else [])})
     return _enrich_ticket(ticket, users_map)
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# SATISFACTION SURVEY (public-ish — only the reporter can submit)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class SatisfactionSubmitBody(_PydBase):
+    rating: int
+    feedback: str | None = None
+
+
+@router.post("/tickets/{ticket_id}/satisfaction", response_model=TicketRead)
+async def submit_satisfaction(
+    ticket_id: UUID,
+    body: SatisfactionSubmitBody,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reporter-only: record a 1..5 satisfaction rating + optional note.
+
+    The endpoint is idempotent — once `satisfaction_submitted_at` is
+    set, further calls return the ticket unchanged (HTTP 200) so the
+    UI can safely deduplicate without reading state first.
+    """
+    if not (1 <= body.rating <= 5):
+        raise StructuredHTTPException(
+            400, code="INVALID_RATING",
+            message="Rating must be between 1 and 5",
+        )
+
+    ticket = (
+        await db.execute(
+            select(SupportTicket)
+            .options(selectinload(SupportTicket.comments))
+            .where(
+                SupportTicket.id == ticket_id,
+                SupportTicket.entity_id == entity_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not ticket:
+        raise StructuredHTTPException(
+            404, code="TICKET_NOT_FOUND", message="Ticket not found",
+        )
+    # Only the reporter can submit their own satisfaction rating.
+    if ticket.reporter_id != current_user.id:
+        raise StructuredHTTPException(
+            403, code="NOT_REPORTER",
+            message="Seul le demandeur du ticket peut noter la résolution.",
+        )
+
+    # Idempotent no-op if already submitted.
+    if ticket.satisfaction_submitted_at is None:
+        ticket.satisfaction_rating = body.rating
+        ticket.satisfaction_feedback = (body.feedback or "").strip() or None
+        ticket.satisfaction_submitted_at = datetime.now(UTC)
+        await db.commit()
+        await db.refresh(ticket, ["comments"])
+
+    user_ids = {ticket.reporter_id}
+    if ticket.assignee_id:
+        user_ids.add(ticket.assignee_id)
+    umap = await _users_map(db, user_ids)
+    return _enrich_ticket(ticket, umap)

@@ -20,7 +20,7 @@ import {
   ShieldCheck, Lock, Unlock, AlertTriangle, Globe,
   Phone, Mail, MapPin, MessageSquare, Paperclip, Camera, Upload, Link2,
   LayoutDashboard,
-  FileText, Stamp, Heart, CreditCard, Syringe, Languages, Car, Wifi, Stethoscope,
+  FileText, Stamp, Heart, CreditCard, Syringe, Languages, Car, Stethoscope,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CountryFlag } from '@/components/ui/CountryFlag'
@@ -42,14 +42,14 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
-import { useUsers, useUser, useCreateUser, useUpdateUser, useDeleteUser, useRevokeAllSessions, useUserEntities, useAssignUserToEntity, useRemoveUserFromEntity, useSendPasswordReset, useUsersStats, useRecentActivity, useUserTierLinks, useLinkUserToTier, useUnlinkUserFromTier, useProfileCompleteness, useAdminUploadAvatar, useAdminSetAvatarFromURL } from '@/hooks/useUsers'
+import { useUsers, useUser, useCreateUser, useUpdateUser, useDeleteUser, useRevokeAllSessions, useUserEntities, useAssignUserToEntity, useRemoveUserFromEntity, useSendPasswordReset, useUserTierLinks, useLinkUserToTier, useUnlinkUserFromTier, useProfileCompleteness, useAdminUploadAvatar, useAdminSetAvatarFromURL } from '@/hooks/useUsers'
 import { useAllEntities } from '@/hooks/useEntities'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { usePageSize } from '@/hooks/usePageSize'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { RolesTab, GroupsTab, GroupDetailPanel, RoleDetailPanel, CreateGroupForm } from '@/pages/settings/tabs/RbacAdminTab'
-import { useRoles, useGroups, useAddGroupMembers, useUserPermissionOverrides, useSetUserPermissionOverrides } from '@/hooks/useRbac'
+import { useGroups, useAddGroupMembers, useUserPermissionOverrides, useSetUserPermissionOverrides } from '@/hooks/useRbac'
 import { usePermission } from '@/hooks/usePermission'
 import { usePhones, useContactEmails, useAddresses, useNotes, useAttachments } from '@/hooks/useSettings'
 import { useSSOProviders, useDeleteSSOProvider, useUserIPLocation } from '@/hooks/useUserSubModels'
@@ -1950,6 +1950,7 @@ function UserJournalTab({ userId }: { userId: string }) {
 import { PermissionMatrix } from '@/components/shared/PermissionMatrix'
 
 import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
+import { BatchAssignModal } from './BatchAssignModal'
 function UserPermissionsTab({ userId }: { userId: string }) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
@@ -1998,298 +1999,7 @@ function UserPermissionsTab({ userId }: { userId: string }) {
     />
   )
 }
-// ── Overview Dashboard ─────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: AccountsTab) => void; onCreateGroup: () => void }) {
-  const { t } = useTranslation()
-  const { data: usersData, isLoading: usersLoading } = useUsers({ page: 1, page_size: 1 })
-  const { data: activeUsersData } = useUsers({ page: 1, page_size: 1, active: true })
-  const { data: userStats } = useUsersStats()
-  const { data: roles, isLoading: rolesLoading } = useRoles()
-  const { data: groupsData, isLoading: groupsLoading } = useGroups({ page: 1, page_size: 1 })
-  const { data: recentData } = useRecentActivity(5)
-  const { hasPermission: hasPerm } = usePermission()
-  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
-  const setDynamicPanelMode = useUIStore((s) => s.setDynamicPanelMode)
-
-  const openFullScreen = useCallback((view: Parameters<typeof openDynamicPanel>[0]) => {
-    setDynamicPanelMode('full')
-    openDynamicPanel(view)
-  }, [setDynamicPanelMode, openDynamicPanel])
-
-  const totalUsers = usersData?.total ?? 0
-  const activeUsers = activeUsersData?.total ?? 0
-  const inactiveUsers = totalUsers - activeUsers
-  const onlineUsers = userStats?.online ?? 0
-  const totalRoles = roles?.length ?? 0
-  const totalGroups = groupsData?.total ?? 0
-  const anyLoading = usersLoading || rolesLoading || groupsLoading
-
-  const stats: { label: string; value: number; icon: React.ElementType; color: string; bg: string; tab: AccountsTab; pulse?: boolean }[] = [
-    { label: 'Utilisateurs', value: totalUsers, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10', tab: 'users' },
-    { label: 'Actifs', value: activeUsers, icon: UserCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/10', tab: 'users' },
-    { label: 'En ligne', value: onlineUsers, icon: Wifi, color: 'text-green-500', bg: 'bg-green-500/10', tab: 'users', pulse: true },
-    { label: 'Archivés', value: inactiveUsers, icon: UserX, color: 'text-amber-500', bg: 'bg-amber-500/10', tab: 'users' },
-    { label: 'Groupes', value: totalGroups, icon: KeyRound, color: 'text-violet-500', bg: 'bg-violet-500/10', tab: 'groups' },
-    { label: 'Rôles', value: totalRoles, icon: Shield, color: 'text-indigo-500', bg: 'bg-indigo-500/10', tab: 'roles' },
-  ]
-
-  const quickActions = [
-    ...(hasPerm('user.create') || hasPerm('core.users.manage') ? [{ label: t('users.create'), icon: UserCheck, onClick: () => openFullScreen({ type: 'create', module: 'users' }) }] : []),
-    { label: 'Nouveau groupe', icon: KeyRound, onClick: () => onCreateGroup() },
-    { label: 'Voir les rôles', icon: Shield, onClick: () => onNavigate('roles') },
-    { label: 'Voir les utilisateurs', icon: Users, onClick: () => onNavigate('users') },
-  ]
-
-  return (
-    <div className="flex-1 overflow-auto p-6 space-y-6">
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {stats.map((card) => {
-          const Icon = card.icon
-          return (
-            <button key={card.label} onClick={() => onNavigate(card.tab)} className="rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/30 hover:shadow-sm text-left cursor-pointer group">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-                  {card.label}
-                  {card.pulse && card.value > 0 && <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />}
-                </span>
-                <div className={cn('h-7 w-7 rounded-md flex items-center justify-center', card.bg)}>
-                  <Icon size={14} className={card.color} />
-                </div>
-              </div>
-              <div className="mt-2">
-                {anyLoading ? (
-                  <Loader2 size={14} className="animate-spin text-muted-foreground" />
-                ) : (
-                  <span className="text-2xl font-bold text-foreground tabular-nums group-hover:text-primary transition-colors">{card.value}</span>
-                )}
-              </div>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Quick actions */}
-      <div>
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Actions rapides</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {quickActions.map((action) => {
-            const Icon = action.icon
-            return (
-              <button
-                key={action.label}
-                onClick={action.onClick}
-                className="gl-button gl-button-confirm flex text-left hover:border-primary/30 hover:bg-primary/[0.02] group"
-              >
-                <Icon size={14} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{action.label}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Recent activity widgets */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Recent users */}
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            <span className="flex items-center gap-1.5"><Users size={11} /> Derniers utilisateurs</span>
-          </h3>
-          <div className="space-y-1">
-            {!recentData ? (
-              <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto mt-2" />
-            ) : recentData.users.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-3">Aucun utilisateur</p>
-            ) : (
-              recentData.users.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => openDynamicPanel({ type: 'detail', module: 'users', id: u.id })}
-                  className="flex items-center gap-2.5 w-full p-1.5 rounded-md hover:bg-accent/50 transition-colors text-left"
-                >
-                  <div className={cn('h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0', getAvatarColor(`${u.first_name} ${u.last_name}`))}>
-                    {u.first_name?.[0]}{u.last_name?.[0]}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-foreground truncate">{u.first_name} {u.last_name}</div>
-                    <div className="text-[10px] text-muted-foreground truncate">{relativeTime(u.updated_at)}</div>
-                  </div>
-                  <span className={cn(
-                    'text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0',
-                    u.action === 'created' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-blue-500/10 text-blue-600'
-                  )}>
-                    {u.action === 'created' ? 'Créé' : 'Modifié'}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Recent groups */}
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            <span className="flex items-center gap-1.5"><KeyRound size={11} /> Derniers groupes</span>
-          </h3>
-          <div className="space-y-1">
-            {!recentData ? (
-              <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto mt-2" />
-            ) : recentData.groups.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-3">Aucun groupe</p>
-            ) : (
-              recentData.groups.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => onNavigate('groups')}
-                  className="flex items-center gap-2.5 w-full p-1.5 rounded-md hover:bg-accent/50 transition-colors text-left"
-                >
-                  <div className="h-7 w-7 rounded-md bg-violet-500/10 flex items-center justify-center shrink-0">
-                    <KeyRound size={12} className="text-violet-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-foreground truncate">{g.name}</div>
-                    <div className="text-[10px] text-muted-foreground truncate">{g.role_names?.join(', ') || g.role_codes?.join(', ') || '—'} · {g.member_count} membre{g.member_count !== 1 ? 's' : ''} · {relativeTime(g.updated_at)}</div>
-                  </div>
-                  <span className={cn(
-                    'text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0',
-                    g.action === 'created' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-blue-500/10 text-blue-600'
-                  )}>
-                    {g.action === 'created' ? 'Créé' : 'Modifié'}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Recent roles */}
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            <span className="flex items-center gap-1.5"><Shield size={11} /> Derniers rôles</span>
-          </h3>
-          <div className="space-y-1">
-            {!recentData ? (
-              <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto mt-2" />
-            ) : recentData.roles.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-3">Aucun rôle</p>
-            ) : (
-              recentData.roles.map((r) => (
-                <button
-                  key={r.code}
-                  onClick={() => onNavigate('roles')}
-                  className="flex items-center gap-2.5 w-full p-1.5 rounded-md hover:bg-accent/50 transition-colors text-left"
-                >
-                  <div className="h-7 w-7 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
-                    <Shield size={12} className="text-indigo-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-foreground truncate">{r.name}</div>
-                    <div className="text-[10px] text-muted-foreground truncate">{r.module ?? 'core'} · {relativeTime(r.updated_at)}</div>
-                  </div>
-                  <span className={cn(
-                    'text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0',
-                    r.action === 'created' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-blue-500/10 text-blue-600'
-                  )}>
-                    {r.action === 'created' ? 'Créé' : 'Modifié'}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Batch Assignment Modal ─────────────────────────────────
-interface BatchAssignItem {
-  id: string
-  label: string
-  sublabel?: string
-  meta?: string
-  badge?: string
-  icon?: import('lucide-react').LucideIcon
-  iconClassName?: string
-}
-
-function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending, onSelect, onClose }: {
-  title: string
-  subtitle: string
-  searchPlaceholder: string
-  items: BatchAssignItem[]
-  isPending: boolean
-  onSelect: (id: string) => void
-  onClose: () => void
-}) {
-  const { t } = useTranslation()
-  const [search, setSearch] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-
-  const filtered = useMemo(() => {
-    if (!search) return items
-    const q = search.toLowerCase()
-    return items.filter((i) =>
-      i.label.toLowerCase().includes(q) ||
-      i.sublabel?.toLowerCase().includes(q) ||
-      i.badge?.toLowerCase().includes(q)
-    )
-  }, [items, search])
-
-  return (
-    <div className="gl-modal-backdrop" onClick={onClose}>
-      <div className="gl-modal-card !bg-card !max-w-sm" onClick={(e) => e.stopPropagation()}>
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
-        </div>
-        <input
-          ref={inputRef}
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={searchPlaceholder}
-          className="gl-input w-full text-sm"
-        />
-        <div className="space-y-0.5 max-h-72 overflow-y-auto">
-          {filtered.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">{t('common.no_results')}</p>
-          ) : filtered.map((item) => {
-            const Icon = item.icon
-            return (
-            <button
-              key={item.id}
-              onClick={() => onSelect(item.id)}
-              disabled={isPending}
-              className="w-full text-left px-3 py-2 rounded-md hover:bg-accent/50 flex items-center gap-2.5 transition-colors group"
-            >
-              {Icon && <Icon size={13} className={cn('shrink-0', item.iconClassName)} />}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium text-foreground truncate">{item.label}</span>
-                  {item.badge && <span className="gl-badge gl-badge-neutral text-[9px] shrink-0">{item.badge}</span>}
-                </div>
-                {item.sublabel && <p className="text-[11px] text-muted-foreground truncate">{item.sublabel}</p>}
-              </div>
-              {item.meta && <span className="text-[10px] text-muted-foreground shrink-0 ml-auto">{item.meta}</span>}
-            </button>
-            )
-          })}
-        </div>
-        <button onClick={onClose} className="gl-button-sm gl-button-default w-full text-xs">{t('common.cancel')}</button>
-      </div>
-    </div>
-  )
-}
-
 // ── Main Page ──────────────────────────────────────────────
-void AccountsOverview // keep for reference — replaced by ModuleDashboard
 type AccountsTab = 'overview' | 'users' | 'groups' | 'roles'
 
 export function UsersPage() {

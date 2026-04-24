@@ -15,12 +15,13 @@
 import { useState } from 'react'
 import {
   FileEdit, AlertTriangle, GitMerge, XCircle, ExternalLink, ChevronDown, ChevronRight,
-  Terminal, Edit3, Search, FileText, ListChecks, CircleAlert, Bot,
+  Terminal, Edit3, Search, FileText, ListChecks, CircleAlert, Bot, RefreshCw,
 } from 'lucide-react'
 import {
   type AgentRun, type AgentLogEntry,
-  useAgentLogExcerpt,
+  useAgentLogExcerpt, useRetryCiAgentRun,
 } from '@/hooks/useAgentRuns'
+import { useToast } from '@/components/ui/Toast'
 
 interface Props {
   run: AgentRun
@@ -43,6 +44,10 @@ export function AgentRunReviewPanel({
   const failedGates = run.failed_gates
   const hasPR = Boolean(run.github_pr_url)
   const [logsOpen, setLogsOpen] = useState(false)
+  const { toast } = useToast()
+  const retryCi = useRetryCiAgentRun()
+  const ciFailed = Boolean(failedGates?.ci_status && !failedGates.ci_status.ok)
+  const canRetryCi = canManage && ciFailed && hasPR && run.status !== 'rejected'
 
   return (
     <div className="space-y-3">
@@ -158,6 +163,23 @@ export function AgentRunReviewPanel({
             <XCircle size={11} />
             {isRejecting ? 'Rejet…' : 'Rejeter'}
           </button>
+          {canRetryCi && (
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-default"
+              disabled={retryCi.isPending || isMerging || isRejecting}
+              onClick={() => {
+                retryCi.mutate(run.id, {
+                  onSuccess: () => toast({ variant: 'success', title: 'Run de correction CI lancé' }),
+                  onError: (e) => toast({ variant: 'error', title: (e as Error).message || 'Échec du retry' }),
+                })
+              }}
+              title="L'agent va reprendre la même branche, lire les logs CI et tenter de corriger."
+            >
+              <RefreshCw size={11} className={retryCi.isPending ? 'animate-spin' : ''} />
+              {retryCi.isPending ? 'Relance…' : 'Corriger les CI rouges'}
+            </button>
+          )}
         </div>
       )}
 

@@ -37,6 +37,7 @@ from app.services.agent.harness import (
     apply_post_exec_callback,
     approve_and_merge,
     get_or_create_config,
+    launch_ci_retry_run,
     launch_run,
     reject_run,
 )
@@ -322,6 +323,57 @@ async def cancel_agent_run(
     await db.commit()
     await db.refresh(row)
     return row
+
+
+# ─── CI-failure retry ────────────────────────────────────────────────
+
+@router.post(
+    "/runs/{run_id}/retry-ci",
+    response_model=RunRead,
+    dependencies=[require_permission("support.ticket.manage")],
+)
+async def retry_agent_run_ci(
+    run_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Launch a new run that continues the parent branch to fix failing CI.
+
+    Only works when the parent run has a PR on record AND its
+    `failed_gates.ci_status.ok == False`. The new run reuses the same
+    branch — it will add commits rather than create a new PR.
+    """
+    parent = (
+        await db.execute(
+            select(SupportAgentRun).where(
+                SupportAgentRun.id == run_id,
+                SupportAgentRun.entity_id == entity_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not parent:
+        raise HTTPException(404, "Parent run not found")
+
+    try:
+        new_run = await launch_ci_retry_run(
+            db, parent_run=parent, triggered_by=current_user
+        )
+    except HarnessError as exc:
+        raise HTTPException(400, str(exc))
+
+    await record_audit(
+        db,
+        action="agent_run.retry_ci",
+        resource_type="agent_run",
+        resource_id=str(new_run.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"parent_run_id": str(parent.id)},
+    )
+    await db.commit()
+    await db.refresh(new_run)
+    return new_run
 
 
 # ─── Digest on-demand (Sprint 7) ──────────────────────────────────────

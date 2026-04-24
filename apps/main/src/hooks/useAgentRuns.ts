@@ -221,6 +221,20 @@ export function useDeployAndVerify() {
   })
 }
 
+export function useRetryCiAgentRun() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (runId: string) => {
+      const { data } = await api.post<AgentRun>(`/api/v1/support/agent/runs/${runId}/retry-ci`)
+      return data
+    },
+    onSuccess: (run) => {
+      qc.invalidateQueries({ queryKey: ['agent-runs', 'ticket', run.ticket_id] })
+      qc.invalidateQueries({ queryKey: ['agent-supervision'] })
+    },
+  })
+}
+
 export function useRejectAgentRun() {
   const qc = useQueryClient()
   return useMutation({

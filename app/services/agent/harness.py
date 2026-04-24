@@ -293,6 +293,166 @@ async def launch_run(
     return run
 
 
+async def launch_ci_retry_run(
+    db: AsyncSession,
+    *,
+    parent_run: SupportAgentRun,
+    triggered_by: User,
+) -> SupportAgentRun:
+    """Create a new run that continues the parent run's branch to fix CI.
+
+    Preconditions:
+      - parent_run has a github_pr_number and a github_branch
+      - parent_run.failed_gates contains a non-OK `ci_status` entry
+        (otherwise there is nothing to retry)
+
+    The new run:
+      - Targets the same ticket
+      - Inherits autonomy + deployment mode from the parent
+      - Gets a mission_md that says "continue on the existing branch,
+        fix only the failing CI checks" — with the failing checks +
+        a logs excerpt injected as context.
+      - Stores `{"parent_run_id": ...}` in its report_json for lineage
+        (the worker will overwrite report_json with its own content,
+        so we only use this for bootstrap-time tracking in the UI).
+    """
+    if not parent_run.github_pr_number or not parent_run.github_branch:
+        raise HarnessError("Le run parent n'a pas de PR — rien à retry.")
+    if not parent_run.github_connection_id:
+        raise HarnessError("Le run parent n'a pas de connecteur GitHub.")
+
+    failed_gates = parent_run.failed_gates or {}
+    ci_gate = failed_gates.get("ci_status")
+    if not ci_gate or ci_gate.get("ok"):
+        raise HarnessError("Le run parent n'a pas d'échec CI à corriger.")
+
+    ticket = (
+        await db.execute(
+            select(SupportTicket).where(SupportTicket.id == parent_run.ticket_id)
+        )
+    ).scalar_one_or_none()
+    if not ticket:
+        raise HarnessError("Ticket parent introuvable.")
+
+    config = await get_or_create_config(db, ticket.entity_id)
+    await _check_feature_gates(db, config)
+
+    # ── Fetch CI check details + logs from GitHub ──
+    failed_checks: list[dict[str, Any]] = []
+    logs_excerpt = ""
+    try:
+        from app.services.core.integration_connection_service import load_credentials
+        from app.services.integrations import github_service
+
+        gh_conn = (
+            await db.execute(
+                select(IntegrationConnection).where(
+                    IntegrationConnection.id == parent_run.github_connection_id
+                )
+            )
+        ).scalar_one()
+        credentials = await load_credentials(db, gh_conn.id)
+        if parent_run.github_commit_sha:
+            checks = await github_service.get_pr_checks(
+                gh_conn.config, credentials, commit_sha=parent_run.github_commit_sha
+            )
+            # Worker-side payload shape: {succeeded, pending, failed, runs}
+            for r in (checks.get("runs") or []):
+                if r.get("conclusion") in ("failure", "cancelled", "timed_out"):
+                    failed_checks.append({
+                        "name": r.get("name"),
+                        "conclusion": r.get("conclusion"),
+                        "details_url": r.get("details_url") or r.get("html_url"),
+                        "check_run_id": r.get("id"),
+                    })
+            # Best-effort: fetch the log excerpt of the FIRST failing run
+            if failed_checks and hasattr(github_service, "get_check_run_logs"):
+                try:
+                    logs_excerpt = await github_service.get_check_run_logs(
+                        gh_conn.config, credentials,
+                        check_run_id=failed_checks[0]["check_run_id"],
+                        max_chars=4000,
+                    ) or ""
+                except Exception:  # noqa: BLE001
+                    logger.exception("Could not fetch CI logs for retry context")
+    except Exception:  # noqa: BLE001
+        logger.exception("CI context fetch failed — retry will proceed with stub context")
+
+    # Fallback: if we could not fetch checks, use what the gate recorded.
+    if not failed_checks:
+        details = ci_gate.get("details") or {}
+        for r in (details.get("runs") or []):
+            if r.get("conclusion") in ("failure", "cancelled", "timed_out"):
+                failed_checks.append({
+                    "name": r.get("name"),
+                    "conclusion": r.get("conclusion"),
+                    "details_url": r.get("details_url") or r.get("html_url"),
+                })
+
+    github_repo = {
+        "owner": None, "name": None, "default_branch": "main",
+    }
+    gh_conn = (
+        await db.execute(
+            select(IntegrationConnection).where(
+                IntegrationConnection.id == parent_run.github_connection_id
+            )
+        )
+    ).scalar_one_or_none()
+    if gh_conn:
+        github_repo = {
+            "owner": gh_conn.config.get("repo_owner"),
+            "name": gh_conn.config.get("repo_name"),
+            "default_branch": gh_conn.config.get("default_branch", "main"),
+        }
+
+    # Create the new run — reuses the parent's connectors and branch.
+    run = SupportAgentRun(
+        ticket_id=ticket.id,
+        entity_id=ticket.entity_id,
+        status="pending",
+        current_phase="fix",
+        autonomy_mode=parent_run.autonomy_mode,
+        deployment_mode=parent_run.deployment_mode,
+        github_connection_id=parent_run.github_connection_id,
+        agent_runner_connection_id=parent_run.agent_runner_connection_id,
+        dokploy_staging_connection_id=parent_run.dokploy_staging_connection_id,
+        dokploy_prod_connection_id=parent_run.dokploy_prod_connection_id,
+        github_branch=parent_run.github_branch,
+        github_pr_number=parent_run.github_pr_number,
+        github_pr_url=parent_run.github_pr_url,
+        triggered_by=triggered_by.id,
+        triggered_automatically=False,
+        report_json={"parent_run_id": str(parent_run.id), "retry_kind": "ci_fix"},
+    )
+    db.add(run)
+    await db.flush()
+
+    retry_ctx = {
+        "parent_run_id": str(parent_run.id),
+        "parent_branch": parent_run.github_branch,
+        "parent_pr_number": parent_run.github_pr_number,
+        "failed_checks": failed_checks,
+        "logs_excerpt": logs_excerpt,
+    }
+
+    run.mission_md_content = build_mission_md(
+        ticket=ticket,
+        run=run,
+        config=config,
+        github_repo=github_repo,
+        recent_comments=[],
+        retry_ci_context=retry_ctx,
+    )
+    await db.flush()
+    logger.info(
+        "Launched CI-retry run %s (parent=%s, pr=%s, branch=%s, %d failed checks)",
+        run.id, parent_run.id, parent_run.github_pr_number,
+        parent_run.github_branch, len(failed_checks),
+    )
+    return run
+
+
 async def apply_post_exec_callback(
     db: AsyncSession, run_id: UUID
 ) -> None:

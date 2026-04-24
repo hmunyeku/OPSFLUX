@@ -36,6 +36,7 @@ def build_mission_md(
     config: SupportAgentConfig | None,
     github_repo: dict[str, Any],
     recent_comments: list[dict[str, Any]] | None = None,
+    retry_ci_context: dict[str, Any] | None = None,
 ) -> str:
     """Assemble the MISSION.md for this run.
 
@@ -68,6 +69,53 @@ def build_mission_md(
     default_branch = github_repo.get("default_branch") or "main"
     branch_name = f"agent-fix/ticket-{ticket.reference}"
 
+    # If this is a CI-fix retry, continue on the same branch and focus
+    # narrowly on making the failing checks green. Override the default
+    # "create a new branch" instructions further down.
+    retry_section = ""
+    retry_branch_override = None
+    if retry_ci_context:
+        parent_run_id = retry_ci_context.get("parent_run_id", "?")
+        parent_branch = retry_ci_context.get("parent_branch")
+        parent_pr = retry_ci_context.get("parent_pr_number")
+        failed_checks = retry_ci_context.get("failed_checks") or []
+        logs_excerpt = retry_ci_context.get("logs_excerpt") or ""
+        if parent_branch:
+            retry_branch_override = parent_branch
+        checks_md = "\n".join(
+            f"  - **{c.get('name', '?')}** ({c.get('conclusion', '?')}) — {c.get('details_url', '')}"
+            for c in failed_checks[:10]
+        )
+        retry_section = f"""
+
+## ⚠ MODE: CI FIX (retry run)
+
+Ce run est un retry du run précédent `{parent_run_id}` dont la PR a
+produit des checks CI en **échec**. Tu dois :
+
+1. **Checkout** la branche existante `{parent_branch}` (ne PAS en
+   créer une nouvelle).
+2. **Analyser** les logs d'échec ci-dessous, identifier la cause de
+   chaque check rouge.
+3. **Corriger** en modifiant le minimum de lignes supplémentaires.
+4. **Commit + push** sur la même branche — la PR #{parent_pr} sera
+   mise à jour automatiquement, pas besoin d'en créer une nouvelle.
+
+### Checks en échec
+{checks_md or "  _(détail indisponible)_"}
+
+### Extrait des logs (tronqué)
+
+```
+{logs_excerpt[:4000]}
+```
+
+Concentre-toi UNIQUEMENT sur faire passer ces checks. N'ajoute pas
+de nouvelles fonctionnalités. Si tu ne peux pas corriger en moins
+de {max_lines} lignes supplémentaires, termine proprement avec
+`status: "partial"` et `failure_reason: "CI_FIX_REQUIRES_HUMAN"`.
+"""
+
     return f"""# Mission : Résolution du ticket OPSFLUX {ticket.reference}
 
 Tu es un agent de maintenance logicielle autonome. Ta mission est de
@@ -80,8 +128,8 @@ produisant une Pull Request GitHub sur le dépôt
 - Run ID : `{run.id}`
 - Mode d'autonomie : `{run.autonomy_mode}`
 - Mode de déploiement prévu : `{run.deployment_mode}`
-- Branche de départ : `{default_branch}`
-- Branche à créer : `{branch_name}`
+- Branche de départ : `{retry_branch_override or default_branch}`
+- Branche à {"continuer" if retry_branch_override else "créer"} : `{retry_branch_override or branch_name}`{retry_section}
 
 ## Ticket
 

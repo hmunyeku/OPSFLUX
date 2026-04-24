@@ -273,6 +273,24 @@ class SupportAgentConfig(Base):
     current_month_start: Mapped[date] = mapped_column(
         Date, nullable=False, server_default=func.current_date()
     )
+
+    # ── Scheduler + daily digest (Sprint 7) ──
+    # When both window hours are set the scheduler auto-triggers runs
+    # only inside [start, end] UTC. Wrap-around supported (start=23,
+    # end=6). When either is NULL the window check is skipped.
+    auto_window_start_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    auto_window_end_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    auto_max_runs_per_window: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="3"
+    )
+    auto_report_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    auto_report_hour_utc: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="7"
+    )
+    last_digest_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

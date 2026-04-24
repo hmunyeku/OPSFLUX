@@ -73,6 +73,13 @@ class AgentConfigRead(BaseModel):
     current_consecutive_failures: int
     circuit_breaker_tripped_at: datetime | None
     current_month_spent_usd: float
+    # Sprint 7 — scheduler knobs
+    auto_window_start_hour: int | None = None
+    auto_window_end_hour: int | None = None
+    auto_max_runs_per_window: int = 3
+    auto_report_email: str | None = None
+    auto_report_hour_utc: int = 7
+    last_digest_sent_at: datetime | None = None
     updated_at: datetime
 
 
@@ -94,6 +101,12 @@ class AgentConfigUpdate(BaseModel):
     circuit_breaker_cooldown_hours: int | None = None
     max_lines_modified_per_run: int | None = None
     forbidden_path_patterns: list | None = None
+    # Sprint 7 — scheduler
+    auto_window_start_hour: int | None = None
+    auto_window_end_hour: int | None = None
+    auto_max_runs_per_window: int | None = None
+    auto_report_email: str | None = None
+    auto_report_hour_utc: int | None = None
 
 
 # ─── Run schemas ───────────────────────────────────────────────────────
@@ -309,6 +322,40 @@ async def cancel_agent_run(
     await db.commit()
     await db.refresh(row)
     return row
+
+
+# ─── Digest on-demand (Sprint 7) ──────────────────────────────────────
+
+
+@router.post(
+    "/config/send-digest-now",
+    dependencies=[require_permission("core.settings.manage")],
+)
+async def send_digest_now(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger the daily digest email immediately, for preview/testing."""
+    from app.services.agent.scheduler import send_digest_now as _send_digest_now
+
+    try:
+        result = await _send_digest_now(db, entity_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("send-digest-now failed")
+        raise HTTPException(500, str(exc))
+    await record_audit(
+        db,
+        action="agent_digest.manual_send",
+        resource_type="agent_config",
+        resource_id=str(entity_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+    )
+    await db.commit()
+    return result
 
 
 # ─── Log excerpt for the UI ─────────────────────────────────────────

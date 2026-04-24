@@ -187,6 +187,15 @@ async def lifespan(app: FastAPI):
     # APScheduler
     await start_scheduler()
 
+    # ── Agent maintenance scheduler (Sprint 7) ──
+    # Fire-and-forget background tasks — they stop when the event
+    # loop shuts down. pg_advisory_lock ensures only one uvicorn
+    # worker drives them in a multi-worker deploy.
+    import asyncio as _asyncio
+    from app.services.agent.scheduler import auto_trigger_loop, daily_digest_loop
+    app.state.agent_trigger_task = _asyncio.create_task(auto_trigger_loop())
+    app.state.agent_digest_task = _asyncio.create_task(daily_digest_loop())
+
     logger.info("OpsFlux ready — %d modules loaded", len(registry.get_all_modules()))
 
     yield

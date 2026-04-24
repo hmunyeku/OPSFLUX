@@ -42,5 +42,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Pass the commit SHA into the build so the image embeds
+          # it as a label and env var — makes it trivial to verify
+          # which version is actually running in production.
+          build-args: |
+            AGENT_RUNNER_BUILD_SHA=${{ github.sha }}
           cache-from: type=gha,scope=${{ inputs.image }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image }}

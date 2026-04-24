@@ -58,31 +58,45 @@ RUN npm install -g eslint prettier typescript @types/node
 RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh \
     | sh -s -- -b /usr/local/bin
 
+# gosu — minimal, static setuid-safe user-switcher used by the
+# bootstrap entrypoint to drop from root → agent AFTER fixing
+# permissions at runtime. Without this a redeployed image that
+# somehow inherits a root-owned /home/agent/.claude (stale volume,
+# legacy layer, sneaky tmpfs) cannot self-heal and every Bash
+# invocation by Claude Code fails with EACCES.
+RUN set -eux; \
+    arch="$(dpkg --print-architecture | awk -F- '{print $NF}')"; \
+    curl -fsSL -o /usr/local/bin/gosu \
+      "https://github.com/tianon/gosu/releases/download/1.17/gosu-${arch}"; \
+    chmod +x /usr/local/bin/gosu; \
+    gosu nobody true
+
 # Non-root user
 RUN useradd -m -u 1001 -s /bin/bash agent \
     # Pre-create ~/.claude with the right ownership so Claude Code
-    # can write its session-env / cache files. Without this the
-    # volume (or the runtime mkdir) ends up root-owned and every
-    # tool call inside the container fails with EACCES.
+    # can write its session-env / cache files. The runtime bootstrap
+    # below re-asserts ownership on every start as a self-healing
+    # safety net.
     && mkdir -p /home/agent/.claude /home/agent/.claude/session-env \
     && chown -R agent:agent /home/agent/.claude \
     && chmod -R 700 /home/agent/.claude
 
-# Workspace volume mount point (mounted read-write from host)
-USER agent
-WORKDIR /workspace
+# Mark this image with its build SHA so we can verify which version
+# is actually running in production (docker inspect | grep labels).
+ARG AGENT_RUNNER_BUILD_SHA=unknown
+LABEL org.opencontainers.image.revision="${AGENT_RUNNER_BUILD_SHA}"
+ENV AGENT_RUNNER_BUILD_SHA=${AGENT_RUNNER_BUILD_SHA}
 
 # NOTE: deliberately NO `VOLUME ["/home/agent/.claude"]` directive.
 # Anonymous volumes default to root-owned, breaking the agent user.
-# For subscription_login mode the operator should mount a named
-# volume explicitly via docker run -v / compose, after a one-time
-# `claude /login` run with proper ownership.
 
-# Entrypoint
+# Entrypoints — we keep the container starting as root so the
+# bootstrap can fix /home/agent/.claude perms, then drop privileges
+# via gosu before exec'ing the real agent entrypoint.
+COPY bootstrap.sh /bootstrap.sh
 COPY --chown=agent:agent entrypoint.sh /entrypoint.sh
+RUN chmod +x /bootstrap.sh /entrypoint.sh
 
-USER root
-RUN chmod +x /entrypoint.sh
-USER agent
-
-ENTRYPOINT ["/entrypoint.sh"]
+WORKDIR /workspace
+# Deliberately NO `USER agent` — bootstrap.sh switches via gosu.
+ENTRYPOINT ["/bootstrap.sh"]

@@ -59,15 +59,24 @@ RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main
     | sh -s -- -b /usr/local/bin
 
 # Non-root user
-RUN useradd -m -u 1001 -s /bin/bash agent
+RUN useradd -m -u 1001 -s /bin/bash agent \
+    # Pre-create ~/.claude with the right ownership so Claude Code
+    # can write its session-env / cache files. Without this the
+    # volume (or the runtime mkdir) ends up root-owned and every
+    # tool call inside the container fails with EACCES.
+    && mkdir -p /home/agent/.claude /home/agent/.claude/session-env \
+    && chown -R agent:agent /home/agent/.claude \
+    && chmod -R 700 /home/agent/.claude
 
 # Workspace volume mount point (mounted read-write from host)
 USER agent
 WORKDIR /workspace
 
-# Volume for Claude Code subscription credentials (optional, only when
-# agent_runner auth_method == 'subscription_login')
-VOLUME ["/home/agent/.claude"]
+# NOTE: deliberately NO `VOLUME ["/home/agent/.claude"]` directive.
+# Anonymous volumes default to root-owned, breaking the agent user.
+# For subscription_login mode the operator should mount a named
+# volume explicitly via docker run -v / compose, after a one-time
+# `claude /login` run with proper ownership.
 
 # Entrypoint
 COPY --chown=agent:agent entrypoint.sh /entrypoint.sh

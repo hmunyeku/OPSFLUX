@@ -165,6 +165,13 @@ function MOCListTab() {
     [],
   )
 
+  const managerFilterOptions = useMemo(
+    () => [
+      { value: 'true', label: t('moc.filters.mine_as_manager') },
+    ],
+    [t],
+  )
+
   const columns: ColumnDef<MOC>[] = useMemo(
     () => [
       {
@@ -332,20 +339,16 @@ function MOCListTab() {
         setSearch(v)
         setPage(1)
       }}
+      filters={[
+        {
+          id: 'mine_as_manager',
+          label: t('moc.filters.mine_as_manager'),
+          type: 'select',
+          options: managerFilterOptions,
+        },
+      ]}
       toolbarLeft={
         <div className="flex items-center gap-2">
-          <label className="inline-flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer">
-            <input
-              type="checkbox"
-              className="h-3.5 w-3.5"
-              checked={mineAsManager}
-              onChange={(e) => {
-                setMineAsManager(e.target.checked)
-                setPage(1)
-              }}
-            />
-            {t('moc.filters.mine_as_manager')}
-          </label>
           <select
             className="gl-form-input h-6 text-[11px] px-1.5 py-0"
             value={projectFilter}
@@ -380,6 +383,7 @@ function MOCListTab() {
         status: statusFilter,
         site_label: siteFilter,
         priority: priorityFilter,
+        mine_as_manager: mineAsManager ? 'true' : undefined,
       }}
       onFilterChange={(id: string, value: unknown) => {
         if (id === 'status') {
@@ -390,6 +394,9 @@ function MOCListTab() {
           setPage(1)
         } else if (id === 'priority') {
           setPriorityFilter(value as string | undefined)
+          setPage(1)
+        } else if (id === 'mine_as_manager') {
+          setMineAsManager(value === 'true')
           setPage(1)
         }
       }}

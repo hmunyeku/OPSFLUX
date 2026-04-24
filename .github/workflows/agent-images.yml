@@ -1,0 +1,86 @@
+name: Build agent images
+
+# Unified build for agent-runner, agent-worker, playwright-runner.
+# Each job is gated by paths-filter so only the changed image rebuilds.
+# Replaces 3 separate workflows (agent-runner-image.yml,
+# agent-worker-image.yml, playwright-runner-image.yml) to save GHA
+# quota.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent-runner/**'
+      - 'agent-worker/**'
+      - 'playwright-runner/**'
+      - '.github/workflows/agent-images.yml'
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Which image to build'
+        required: false
+        default: 'all'
+        type: choice
+        options: [all, agent-runner, agent-worker, playwright-runner]
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      agent_runner: ${{ steps.filter.outputs.agent_runner }}
+      agent_worker: ${{ steps.filter.outputs.agent_worker }}
+      playwright_runner: ${{ steps.filter.outputs.playwright_runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            agent_runner:
+              - 'agent-runner/**'
+            agent_worker:
+              - 'agent-worker/**'
+            playwright_runner:
+              - 'playwright-runner/**'
+
+  agent-runner:
+    needs: changes
+    if: >-
+      (github.event_name == 'push' && needs.changes.outputs.agent_runner == 'true') ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.image == 'all' || github.event.inputs.image == 'agent-runner'))
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      image: agent-runner
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+
+  agent-worker:
+    needs: changes
+    if: >-
+      (github.event_name == 'push' && needs.changes.outputs.agent_worker == 'true') ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.image == 'all' || github.event.inputs.image == 'agent-worker'))
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      image: agent-worker
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+
+  playwright-runner:
+    needs: changes
+    if: >-
+      (github.event_name == 'push' && needs.changes.outputs.playwright_runner == 'true') ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.image == 'all' || github.event.inputs.image == 'playwright-runner'))
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      image: playwright-runner
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write

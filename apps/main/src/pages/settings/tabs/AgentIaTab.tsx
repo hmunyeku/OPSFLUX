@@ -191,11 +191,42 @@ export function AgentIaTab() {
         <Row label="Heure d'envoi (UTC)">
           <input type="number" min={0} max={23} className="gl-form-input" value={Number(form.auto_report_hour_utc ?? 7)} onChange={(e) => set('auto_report_hour_utc', parseInt(e.target.value) || 7)} />
         </Row>
-        <div className="flex items-center gap-2">
-          <button type="button" className="gl-button gl-button-sm gl-button-default" onClick={handleSendDigestNow} disabled={sendingDigest || !form.auto_report_email}>
-            {sendingDigest ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-            Envoyer maintenant (test)
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* The send-now endpoint reads config.auto_report_email from
+              the DB, not the unsaved form — disable the button until
+              the saved value matches what the user typed, otherwise
+              click would 400. */}
+          {(() => {
+            const savedEmail = String(config.auto_report_email ?? '')
+            const typedEmail = String(form.auto_report_email ?? '')
+            const needsSave = typedEmail !== savedEmail
+            const cantSend = sendingDigest || !savedEmail
+            return (
+              <>
+                <button
+                  type="button"
+                  className="gl-button gl-button-sm gl-button-default"
+                  onClick={handleSendDigestNow}
+                  disabled={cantSend}
+                  title={
+                    !savedEmail
+                      ? "Renseigne puis enregistre l'email destinataire d'abord"
+                      : needsSave
+                        ? "Tu as modifié l'email — enregistre d'abord, puis reclique"
+                        : undefined
+                  }
+                >
+                  {sendingDigest ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                  Envoyer maintenant (test)
+                </button>
+                {needsSave && savedEmail && (
+                  <span className="text-[10px] text-amber-600">
+                    Modifications non enregistrées — clique "Enregistrer" avant d'envoyer
+                  </span>
+                )}
+              </>
+            )
+          })()}
           {config.last_digest_sent_at && (
             <span className="text-[10px] text-muted-foreground">
               Dernier envoi : {new Date(config.last_digest_sent_at as unknown as string).toLocaleString()}

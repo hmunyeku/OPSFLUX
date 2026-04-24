@@ -23,6 +23,7 @@ import {
   Users, CalendarClock, Ship, Boxes, FolderKanban,
   Languages, ClipboardList,
   Sliders, LayoutTemplate, Briefcase, Server, CircleCheck, Bot,
+  Search, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -346,6 +347,46 @@ export function SettingsPage() {
   const userItems = buildSidebarItems(userSections, userGroups)
   const generalItems = buildSidebarItems(generalSections, generalGroups)
 
+  // Settings search — 50+ tabs across user/general categories makes
+  // a linear scan painful. `searchQuery` narrows the sidebar to
+  // matching labels across categories, group children included.
+  const [searchQuery, setSearchQuery] = useState('')
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+  const matchesSearch = useCallback((label: string | undefined): boolean => {
+    if (!normalizedQuery) return true
+    if (!label) return false
+    return label.toLowerCase().includes(normalizedQuery)
+  }, [normalizedQuery])
+
+  const filterSidebarItems = useCallback(
+    (items: typeof userItems, groupChildrenMap: Record<string, SettingsSection[]> = {}) => {
+      if (!normalizedQuery) return items
+      const filtered: typeof items = []
+      for (const entry of items) {
+        if (entry.type === 'section') {
+          if (matchesSearch(entry.item.label)) filtered.push(entry)
+        } else {
+          // Group matches if its label matches OR any child matches.
+          // If group label matches → keep group with all its children.
+          // If only children match → promote them as flat sections.
+          const groupMatches = matchesSearch(entry.item.label)
+          if (groupMatches) {
+            filtered.push(entry)
+          } else {
+            const kids = groupChildrenMap[entry.item.id] ?? []
+            for (const child of kids) {
+              if (matchesSearch(child.label)) {
+                filtered.push({ type: 'section', item: child })
+              }
+            }
+          }
+        }
+      }
+      return filtered
+    },
+    [normalizedQuery, matchesSearch],
+  )
+
   // Flatten all sections for mobile tab strip (skip groups, show children inline)
   const userGroupChildren = useGroupChildren('access')
   const allFlatSections = useMemo(() => {
@@ -419,61 +460,107 @@ export function SettingsPage() {
 
       {/* ── Desktop settings sub-sidebar ── */}
       <div className="hidden md:block w-[240px] shrink-0 border-r border-border bg-background overflow-y-auto">
-        {/* User settings group */}
-        <div className="px-5 pt-3 pb-2">
-          <span className="text-sm font-semibold text-foreground">{t('settings.title')}</span>
+        {/* Search bar — filters the entire sidebar (both categories,
+            group children included). Empty query renders everything
+            unchanged. */}
+        <div className="px-3 pt-3 pb-1">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('common.search', 'Rechercher…') as string}
+              className="w-full h-8 pl-8 pr-7 text-xs rounded-md border border-border bg-muted/30 focus:bg-background focus:border-primary/40 focus:outline-none transition-colors"
+              aria-label={t('common.search_settings', 'Rechercher un paramètre') as string}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted text-muted-foreground"
+                aria-label={t('common.clear', 'Effacer') as string}
+              >
+                <X size={11} />
+              </button>
+            )}
+          </div>
         </div>
-        <nav className="px-2 space-y-0.5">
-          {userItems.map((entry) =>
-            entry.type === 'section' ? (
-              <SidebarItem
-                key={entry.item.id}
-                section={entry.item}
-                isActive={activeTab === entry.item.id}
-                onClick={() => handleTabChange(entry.item.id)}
-                badge={badges[entry.item.id]}
-              />
-            ) : (
-              <SidebarGroup
-                key={entry.item.id}
-                group={entry.item}
-                activeTab={activeTab}
-                onSelectTab={handleTabChange}
-                badges={badges}
-              />
-            ),
-          )}
-        </nav>
 
-        {/* General settings group (if any modules registered) */}
-        {generalItems.length > 0 && (
-          <>
-            <div className="px-5 pt-5 pb-2">
-              <span className="text-sm font-semibold text-foreground">{t('settings.general')}</span>
-            </div>
-            <nav className="px-2 pb-4 space-y-0.5">
-              {generalItems.map((entry) =>
-                entry.type === 'section' ? (
-                  <SidebarItem
-                    key={entry.item.id}
-                    section={entry.item}
-                    isActive={activeTab === entry.item.id}
-                    onClick={() => handleTabChange(entry.item.id)}
-                    badge={badges[entry.item.id]}
-                  />
-                ) : (
-                  <SidebarGroup
-                    key={entry.item.id}
-                    group={entry.item}
-                    activeTab={activeTab}
-                    onSelectTab={handleTabChange}
-                    badges={badges}
-                  />
-                ),
+        {(() => {
+          const filteredUser = filterSidebarItems(userItems, { access: userGroupChildren })
+          const filteredGeneral = filterSidebarItems(generalItems, {})
+          const isEmpty = normalizedQuery && filteredUser.length === 0 && filteredGeneral.length === 0
+          return (
+            <>
+              {isEmpty && (
+                <div className="px-5 py-6 text-center text-xs text-muted-foreground">
+                  {t('settings.no_match', 'Aucun paramètre trouvé')}
+                </div>
               )}
-            </nav>
-          </>
-        )}
+
+              {filteredUser.length > 0 && (
+                <>
+                  {/* User settings group */}
+                  <div className="px-5 pt-3 pb-2">
+                    <span className="text-sm font-semibold text-foreground">{t('settings.title')}</span>
+                  </div>
+                  <nav className="px-2 space-y-0.5">
+                    {filteredUser.map((entry) =>
+                      entry.type === 'section' ? (
+                        <SidebarItem
+                          key={entry.item.id}
+                          section={entry.item}
+                          isActive={activeTab === entry.item.id}
+                          onClick={() => handleTabChange(entry.item.id)}
+                          badge={badges[entry.item.id]}
+                        />
+                      ) : (
+                        <SidebarGroup
+                          key={entry.item.id}
+                          group={entry.item}
+                          activeTab={activeTab}
+                          onSelectTab={handleTabChange}
+                          badges={badges}
+                        />
+                      ),
+                    )}
+                  </nav>
+                </>
+              )}
+
+              {/* General settings group (if any modules registered) */}
+              {filteredGeneral.length > 0 && (
+                <>
+                  <div className="px-5 pt-5 pb-2">
+                    <span className="text-sm font-semibold text-foreground">{t('settings.general')}</span>
+                  </div>
+                  <nav className="px-2 pb-4 space-y-0.5">
+                    {filteredGeneral.map((entry) =>
+                      entry.type === 'section' ? (
+                        <SidebarItem
+                          key={entry.item.id}
+                          section={entry.item}
+                          isActive={activeTab === entry.item.id}
+                          onClick={() => handleTabChange(entry.item.id)}
+                          badge={badges[entry.item.id]}
+                        />
+                      ) : (
+                        <SidebarGroup
+                          key={entry.item.id}
+                          group={entry.item}
+                          activeTab={activeTab}
+                          onSelectTab={handleTabChange}
+                          badges={badges}
+                        />
+                      ),
+                    )}
+                  </nav>
+                </>
+              )}
+            </>
+          )
+        })()}
       </div>
 
       {/* ── Content area (static panel + optional dynamic panel) ── */}

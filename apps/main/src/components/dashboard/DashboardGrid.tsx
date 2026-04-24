@@ -24,6 +24,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { LayoutGrid } from 'lucide-react'
 import type { DashboardWidget } from '@/services/dashboardService'
 import { WidgetCard } from './WidgetCard'
+import { WidgetErrorBoundary } from './WidgetErrorBoundary'
 import { cn } from '@/lib/utils'
 
 const COLS_DESKTOP = 12
@@ -222,7 +223,9 @@ function GridCell({ widget, mode, onRemove, onUpdate }: {
 
   return (
     <div style={{ gridColumn: `${x + 1} / span ${w}`, gridRow: `${y + 1} / span ${h}`, minHeight: 0 }}>
-      <WidgetCard widget={widget} mode={mode} onRemove={onRemove} onUpdate={onUpdate} />
+      <WidgetErrorBoundary widgetLabel={widget.title || widget.type}>
+        <WidgetCard widget={widget} mode={mode} onRemove={onRemove} onUpdate={onUpdate} />
+      </WidgetErrorBoundary>
     </div>
   )
 }
@@ -308,13 +311,15 @@ function SortableGridCell({ widget, mode, onRemove, onUpdate }: {
   return (
     <div ref={(node) => { setNodeRef(node); (cellRef as React.MutableRefObject<HTMLDivElement | null>).current = node }} style={style}
       className={cn('relative', isDragging && 'ring-2 ring-primary rounded-md')}>
-      <WidgetCard
-        widget={widget}
-        mode={mode}
-        onRemove={onRemove}
-        onUpdate={onUpdate}
-        dragHandleProps={{ ...listeners, ...attributes }}
-      />
+      <WidgetErrorBoundary widgetLabel={widget.title || widget.type}>
+        <WidgetCard
+          widget={widget}
+          mode={mode}
+          onRemove={onRemove}
+          onUpdate={onUpdate}
+          dragHandleProps={{ ...listeners, ...attributes }}
+        />
+      </WidgetErrorBoundary>
       {/* Resize handle */}
       {mode === 'edit' && (
         <div

@@ -309,19 +309,50 @@ async def apply_post_exec_callback(
     if report_status in ("success", "partial"):
         gate_results = await run_all_gates(db, run.id)
         all_ok = all(r["ok"] for r in gate_results.values())
+        # Distinguish "hard" gate failures (forbidden paths, secrets,
+        # bad PR) from "soft" ones (CI failed, line budget exceeded).
+        # For recommendation mode, soft failures should keep the PR
+        # open so the admin can review and fix — closing the PR is
+        # too aggressive for a human-in-the-loop workflow.
+        SOFT_GATES = {"ci_status", "line_budget"}
+        hard_failures = {
+            name: info
+            for name, info in gate_results.items()
+            if not info["ok"] and name not in SOFT_GATES
+        }
+        soft_failures = {
+            name: info
+            for name, info in gate_results.items()
+            if not info["ok"] and name in SOFT_GATES
+        }
+
         if all_ok:
             if run.autonomy_mode == "autonomous_with_approval":
                 run.status = "awaiting_human"
             else:
                 run.status = "completed"
-        else:
+        elif hard_failures:
+            # Forbidden paths or secret leak — always close the PR.
             run.status = "failed"
-            # Close the PR so admins don't accidentally merge something
-            # that tripped a gate.
             try:
                 await _close_pr_on_failure(db, run)
             except Exception:  # noqa: BLE001
                 logger.exception("Could not auto-close PR after gate failure")
+        else:
+            # Only soft failures (CI red, lines over budget). Keep
+            # the PR open — flag the run as needing human attention
+            # rather than failed-and-closed.
+            if run.autonomy_mode == "autonomous_with_approval":
+                run.status = "awaiting_human"
+            else:
+                # In recommendation mode the human is already going to
+                # review the PR. Mark `completed` with the soft failure
+                # surfaced via the report comment, not closed.
+                run.status = "completed"
+            logger.info(
+                "Run %s: soft gates failed (%s) — PR kept open for human review",
+                run.id, list(soft_failures.keys()),
+            )
     else:
         run.status = "failed"
 

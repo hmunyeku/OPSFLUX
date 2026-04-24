@@ -1,0 +1,129 @@
+# =============================================================================
+# OPSFLUX — Staging compose (deployed by the agent's verify step)
+# =============================================================================
+#
+# DO NOT deploy this manually. It gets created on Dokploy by
+# `scripts/setup_agent_staging.py` and redeployed on a feature branch
+# by the agent's `deploy_and_verify.py` step whenever a PR needs
+# visual / functional validation before a human clicks "Merger".
+#
+# Shape vs the prod `docker-compose.yml`:
+#   * Same build contexts, same Dockerfiles — staging IS the PR build.
+#   * Different Traefik hosts (`*.${DOMAIN}` → e.g. `app.staging.opsflux.io`)
+#     so prod and staging don't collide on the shared `dokploy-network`.
+#   * `isolatedDeployment: true` on the Dokploy side already gives us a
+#     separate docker network + separate named volumes, so the staging
+#     db is a fresh Postgres — no risk of corrupting prod data.
+#   * pgAdmin, drawio, vitrine are omitted from staging — nobody needs
+#     to review marketing or db tooling on a PR.
+#
+# If you need to change hostnames or services, this is the only file
+# to edit. Redeploying it is a Dokploy UI click OR the agent's verify
+# step.
+
+services:
+  db:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-opsflux}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/opt/opsflux/static
+    user: "${UID:-0}:${GID:-0}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      sh -c "
+        mkdir -p /opt/opsflux/static/avatars /opt/opsflux/static/attachments &&
+        alembic upgrade head &&
+        python -m scripts.seed_i18n &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+      "
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.services.opsflux-staging-api.loadbalancer.server.port=8000"
+      - "traefik.http.routers.opsflux-staging-api.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-staging-api.rule=Host(`api.${DOMAIN:-staging.opsflux.io}`)"
+      - "traefik.http.routers.opsflux-staging-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.opsflux-staging-api.service=opsflux-staging-api"
+    networks:
+      - default
+      - dokploy-network
+
+  frontend:
+    build:
+      context: ./apps/main
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://api.${DOMAIN:-staging.opsflux.io}
+        BUILD_ID: "staging"
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.opsflux-staging-app.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-staging-app.rule=Host(`app.${DOMAIN:-staging.opsflux.io}`)"
+      - "traefik.http.routers.opsflux-staging-app.tls.certresolver=letsencrypt"
+      - "traefik.http.services.opsflux-staging-app.loadbalancer.server.port=80"
+    networks:
+      - default
+      - dokploy-network
+
+  ext-paxlog:
+    build:
+      context: ./apps/ext-paxlog
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://api.${DOMAIN:-staging.opsflux.io}
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.opsflux-staging-ext.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-staging-ext.rule=Host(`ext.${DOMAIN:-staging.opsflux.io}`)"
+      - "traefik.http.routers.opsflux-staging-ext.tls.certresolver=letsencrypt"
+      - "traefik.http.services.opsflux-staging-ext.loadbalancer.server.port=80"
+    networks:
+      - default
+      - dokploy-network
+
+volumes:
+  pg_data:
+  uploads_data:
+
+networks:
+  dokploy-network:
+    external: true

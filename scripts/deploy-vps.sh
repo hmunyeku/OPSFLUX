@@ -158,6 +158,39 @@ show_status() {
   echo "Frontend: $APP"
 }
 
+setup_agent_staging() {
+  # Post-deploy: make sure the Dokploy staging compose + the OpsFlux
+  # Dokploy-staging connector + the `default_dokploy_staging_id` wiring
+  # on support_agent_config all exist. Idempotent — safe to re-run on
+  # every deploy, no-ops if already set up.
+  #
+  # Reads required env vars from the running backend container so
+  # there's nothing to configure on the host:
+  #   API_DOKPLOY, API_DOKPLOY_URL, DOKPLOY_COMPOSE_ID,
+  #   DATABASE_URL, ENCRYPTION_KEY
+  echo "=== Setup agent staging chain (idempotent) ==="
+  if ! docker ps --format '{{.Names}}' | grep -q "^${PROJECT}-backend-1$"; then
+    echo "WARN: backend not running, skipping staging setup"
+    return 0
+  fi
+  docker exec "${PROJECT}-backend-1" bash -c '
+    set -e
+    cd /app
+    export DOKPLOY_API_URL="${API_DOKPLOY_URL:-http://72.60.188.156:3000/api}"
+    export DOKPLOY_API_TOKEN="${API_DOKPLOY}"
+    export DOKPLOY_PROD_COMPOSE_ID="${DOKPLOY_COMPOSE_ID}"
+    # Resolve project id from the prod composes environment.
+    ENV_ID=$(curl -sf -H "x-api-key: ${API_DOKPLOY}" \
+      "${DOKPLOY_API_URL}/compose.one?composeId=${DOKPLOY_COMPOSE_ID}" \
+      | python -c "import sys,json;print(json.load(sys.stdin)[\"environmentId\"])")
+    export DOKPLOY_PROJECT_ID=$(curl -sf -H "x-api-key: ${API_DOKPLOY}" \
+      "${DOKPLOY_API_URL}/environment.one?environmentId=${ENV_ID}" \
+      | python -c "import sys,json;print(json.load(sys.stdin)[\"projectId\"])")
+    echo "projectId=${DOKPLOY_PROJECT_ID}"
+    python scripts/setup_agent_staging.py
+  ' || echo "WARN: staging chain setup failed (non-fatal, can be re-run)"
+}
+
 case "$TARGET" in
   backend)   deploy_backend ;;
   frontend)  deploy_frontend ;;
@@ -166,7 +199,14 @@ case "$TARGET" in
   services)  deploy_services ;;
   all)       deploy_services && deploy_backend && deploy_frontend && deploy_ext_paxlog ;;
   status)    show_status ;;
-  *)         echo "Usage: $0 [backend|frontend|ext-paxlog|both|services|all|status]"; exit 1 ;;
+  setup-staging) setup_agent_staging ;;
+  *)         echo "Usage: $0 [backend|frontend|ext-paxlog|both|services|all|status|setup-staging]"; exit 1 ;;
 esac
+
+# Post-deploy: always (re)verify the staging chain after anything that
+# touched the backend. No-op if already set up.
+if [ "$TARGET" = "backend" ] || [ "$TARGET" = "both" ] || [ "$TARGET" = "all" ]; then
+  setup_agent_staging || true
+fi
 
 echo "=== Deploy complete ==="

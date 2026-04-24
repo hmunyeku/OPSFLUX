@@ -627,29 +627,39 @@ async def provider_capacity_heatmap(
     """Get daily PAX load per asset from the daily_pax_load materialized view.
 
     Falls back to an inline query from ads + ads_pax if the materialized
-    view does not exist yet.
+    view does not exist yet. If both paths fail (missing tables, no
+    entity context), returns an empty dataset instead of throwing —
+    a dashboard widget must never crash the page.
     """
+    if entity_id is None:
+        return {"data": []}
     try:
-        result = await db.execute(text("""
-            SELECT
-                dpl.asset_id,
-                a.name  AS asset_name,
-                dpl.date,
-                dpl.load,
-                dpl.capacity,
-                CASE WHEN dpl.capacity > 0
-                     THEN ROUND((dpl.load::numeric / dpl.capacity) * 100, 1)
-                     ELSE 0
-                END AS percentage
-            FROM daily_pax_load dpl
-            JOIN ar_installations a ON a.id = dpl.asset_id
-            WHERE a.entity_id = :entity_id
-              AND dpl.date BETWEEN CURRENT_DATE AND CURRENT_DATE + 30
-            ORDER BY a.name, dpl.date
-        """), {"entity_id": str(entity_id)})
-    except Exception:
-        # Materialized view may not exist — fallback to inline computation
-        result = await db.execute(text("""
+        try:
+            result = await db.execute(text("""
+                SELECT
+                    dpl.asset_id,
+                    a.name  AS asset_name,
+                    dpl.date,
+                    dpl.load,
+                    dpl.capacity,
+                    CASE WHEN dpl.capacity > 0
+                         THEN ROUND((dpl.load::numeric / dpl.capacity) * 100, 1)
+                         ELSE 0
+                    END AS percentage
+                FROM daily_pax_load dpl
+                JOIN ar_installations a ON a.id = dpl.asset_id
+                WHERE a.entity_id = :entity_id
+                  AND dpl.date BETWEEN CURRENT_DATE AND CURRENT_DATE + 30
+                ORDER BY a.name, dpl.date
+            """), {"entity_id": str(entity_id)})
+        except Exception:
+            # Materialized view may not exist — fallback to inline computation
+            # Roll back the failed transaction before retrying on the same session.
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            result = await db.execute(text("""
             SELECT
                 asset.id   AS asset_id,
                 asset.name AS asset_name,
@@ -679,21 +689,31 @@ async def provider_capacity_heatmap(
             ORDER BY asset.name, date
         """), {"entity_id": str(entity_id)})
 
-    rows = result.mappings().all()
+        rows = result.mappings().all()
 
-    return {
-        "data": [
-            {
-                "asset_id": str(r["asset_id"]),
-                "asset_name": r["asset_name"],
-                "date": r["date"].isoformat() if r["date"] else None,
-                "load": r["load"],
-                "capacity": r["capacity"],
-                "percentage": float(r["percentage"]) if r["percentage"] else 0,
-            }
-            for r in rows
-        ],
-    }
+        return {
+            "data": [
+                {
+                    "asset_id": str(r["asset_id"]),
+                    "asset_name": r["asset_name"],
+                    "date": r["date"].isoformat() if r["date"] else None,
+                    "load": r["load"],
+                    "capacity": r["capacity"],
+                    "percentage": float(r["percentage"]) if r["percentage"] else 0,
+                }
+                for r in rows
+            ],
+        }
+    except Exception as exc:  # noqa: BLE001 — dashboard widgets must never crash
+        import logging
+        logging.getLogger(__name__).warning(
+            "capacity_heatmap provider failed, returning empty: %s", exc,
+        )
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        return {"data": [], "error": "unavailable"}
 
 
 async def provider_planner_gantt_mini(

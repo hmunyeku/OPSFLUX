@@ -64,6 +64,7 @@ import { VerificationDetailPanel } from './panels/VerificationDetailPanel'
 // Tabs
 import { VerificationsTab } from './tabs/VerificationsTab'
 import { RulesMatrixView } from './tabs/RulesTab'
+import { MatrixTab } from './tabs/MatrixTab'
 import { formatDate } from '@/lib/i18n'
 
 import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
@@ -397,6 +398,8 @@ export function ConformitePage() {
             storageKey="conformite-transferts"
           />
         )
+      case 'matrice':
+        return <MatrixTab />
     }
   }
 

@@ -3,12 +3,12 @@
  */
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ShieldCheck, LayoutDashboard, Briefcase, ClipboardList, Scale, ShieldOff, FileCheck, ClipboardCheck, GitBranch } from 'lucide-react'
+import { ShieldCheck, LayoutDashboard, Briefcase, ClipboardList, Scale, ShieldOff, FileCheck, ClipboardCheck, GitBranch, Grid3x3 } from 'lucide-react'
 import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
 
-export type ConformiteTab = 'dashboard' | 'referentiel' | 'enregistrements' | 'verifications' | 'exemptions' | 'fiches' | 'regles' | 'transferts'
+export type ConformiteTab = 'dashboard' | 'matrice' | 'referentiel' | 'enregistrements' | 'verifications' | 'exemptions' | 'fiches' | 'regles' | 'transferts'
 
-export const VALID_CONF_TABS = new Set<ConformiteTab>(['dashboard', 'referentiel', 'enregistrements', 'verifications', 'exemptions', 'fiches', 'regles', 'transferts'])
+export const VALID_CONF_TABS = new Set<ConformiteTab>(['dashboard', 'matrice', 'referentiel', 'enregistrements', 'verifications', 'exemptions', 'fiches', 'regles', 'transferts'])
 
 export const CATEGORY_COLORS_MAP: Record<string, string> = {
   formation: 'bg-blue-600',
@@ -81,6 +81,7 @@ export function useConformiteTabs() {
   const { t } = useTranslation()
   return useMemo<{ id: ConformiteTab; label: string; icon: typeof ShieldCheck }[]>(() => [
     { id: 'dashboard', label: t('common.tab_dashboard'), icon: LayoutDashboard },
+    { id: 'matrice', label: t('conformite.tabs.matrice', 'Matrice'), icon: Grid3x3 },
     { id: 'fiches', label: t('conformite.tabs.fiches_poste'), icon: Briefcase },
     { id: 'referentiel', label: t('conformite.tabs.referentiel'), icon: ClipboardList },
     { id: 'regles', label: t('conformite.tabs.regles'), icon: Scale },

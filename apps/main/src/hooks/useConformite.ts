@@ -21,6 +21,57 @@ export function useComplianceKPIs() {
   })
 }
 
+// ── Matrix view (owner × compliance_type) ──
+
+export interface ComplianceMatrixCell {
+  status: 'valid' | 'expiring' | 'expired' | 'missing' | 'pending' | 'rejected'
+  expires_at: string | null
+  record_id: string | null
+}
+export interface ComplianceMatrixRow {
+  owner_type: string
+  owner_id: string
+  owner_name: string
+  owner_extra: string | null
+  cells: Record<string, ComplianceMatrixCell>
+}
+export interface ComplianceMatrixResponse {
+  compliance_types: Array<{ id: string; name: string; category: string }>
+  rows: ComplianceMatrixRow[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export function useComplianceMatrix(params: {
+  owner_type?: 'user' | 'tier_contact' | 'tier'
+  search?: string
+  category?: string
+  expiring_within_days?: number
+  page?: number
+  page_size?: number
+}) {
+  const page = params.page ?? 1
+  const page_size = params.page_size ?? 50
+  return useQuery({
+    queryKey: ['compliance-matrix', params],
+    queryFn: async () => {
+      const api = (await import('@/lib/api')).default
+      const { data } = await api.get<ComplianceMatrixResponse>('/api/v1/conformite/matrix', {
+        params: {
+          owner_type: params.owner_type ?? 'user',
+          search: params.search || undefined,
+          category: params.category || undefined,
+          expiring_within_days: params.expiring_within_days ?? 30,
+          limit: page_size,
+          offset: (page - 1) * page_size,
+        },
+      })
+      return data
+    },
+  })
+}
+
 // ── Types (referentiel) ──
 
 export function useComplianceTypes(params: { page?: number; page_size?: number; category?: string; search?: string } = {}) {

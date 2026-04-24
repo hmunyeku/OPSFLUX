@@ -2163,3 +2163,188 @@ async def verify_record(
         "detail": f"Record {body.action}d",
         "verification_status": record.verification_status,
     }
+
+
+# ─── Matrix view: owner × compliance_type ─────────────────────────────
+#
+# Gives ops a grid-level overview of where each owner (user/tier/asset)
+# stands on each compliance requirement. Each cell encodes the latest
+# record status + nearest expiration so front-end can render colour-
+# coded dots and click through to the record.
+
+class MatrixCell(BaseModel):
+    status: str  # valid | expiring | expired | missing | pending | rejected
+    expires_at: datetime | None = None
+    record_id: UUID | None = None
+
+
+class MatrixRow(BaseModel):
+    owner_type: str
+    owner_id: UUID
+    owner_name: str
+    owner_extra: str | None = None  # e.g. job title / tier code — purely display
+    cells: dict[str, MatrixCell]  # keyed by compliance_type_id
+
+
+class MatrixResponse(BaseModel):
+    compliance_types: list[ComplianceTypeRead]
+    rows: list[MatrixRow]
+    total: int
+    limit: int
+    offset: int
+
+
+@router.get(
+    "/matrix",
+    response_model=MatrixResponse,
+    dependencies=[require_permission("conformite.record.read")],
+)
+async def get_compliance_matrix(
+    owner_type: str = "user",
+    search: str | None = None,
+    category: str | None = None,
+    expiring_within_days: int = 30,
+    limit: int = 50,
+    offset: int = 0,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Matrix view: rows = owners, cols = compliance types.
+
+    - owner_type: one of `user`, `tier_contact`, `tier`, `asset`.
+      Each renders a slightly different label (e.g. user → full name).
+    - category: restrict to one compliance category (formation/medical/…).
+    - expiring_within_days: records expiring before now+N days are
+      flagged 'expiring' (orange) instead of 'valid' (green).
+
+    Return shape lets the frontend render a sticky-header table with
+    one column per compliance_type (ordered by category then name)
+    and one row per owner. A missing entry in `cells[type_id]` means
+    no record yet — frontend renders an empty '—' cell as 'missing'.
+    """
+    if owner_type not in {"user", "tier_contact", "tier"}:
+        raise HTTPException(400, "owner_type must be one of: user, tier_contact, tier")
+
+    # 1) Load applicable compliance types, optionally filtered by category
+    types_q = select(ComplianceType).where(
+        ComplianceType.entity_id == entity_id,
+        ComplianceType.active == True,  # noqa: E712
+    )
+    if category:
+        types_q = types_q.where(ComplianceType.category == category)
+    types_q = types_q.order_by(ComplianceType.category, ComplianceType.name)
+    types = list((await db.execute(types_q)).scalars().all())
+    type_ids = [t.id for t in types]
+
+    # 2) Resolve owner list (paginated, per owner_type)
+    owners: list[tuple[UUID, str, str | None]] = []
+    total_owners = 0
+    if owner_type == "user":
+        # Active users whose default entity matches. Users may belong
+        # to multiple entities via groups, but for matrix display we
+        # anchor on default_entity_id which is what the Ops UI
+        # already filters by.
+        base = select(User).where(
+            User.default_entity_id == entity_id,
+            User.active == True,  # noqa: E712
+        )
+        if search:
+            like = f"%{search.lower()}%"
+            base = base.where(sqla_func.lower(User.first_name + " " + User.last_name).like(like))
+        count_stmt = select(sqla_func.count()).select_from(base.subquery())
+        total_owners = int((await db.execute(count_stmt)).scalar_one())
+        rows = (
+            await db.execute(
+                base.order_by(User.last_name, User.first_name).limit(limit).offset(offset)
+            )
+        ).scalars().all()
+        for u in rows:
+            owners.append((u.id, f"{u.first_name or ''} {u.last_name or ''}".strip() or u.email, u.email))
+    elif owner_type == "tier":
+        base = select(Tier).where(Tier.entity_id == entity_id, Tier.active == True)  # noqa: E712
+        if search:
+            like = f"%{search.lower()}%"
+            base = base.where(sqla_func.lower(Tier.name).like(like))
+        count_stmt = select(sqla_func.count()).select_from(base.subquery())
+        total_owners = int((await db.execute(count_stmt)).scalar_one())
+        rows = (
+            await db.execute(base.order_by(Tier.name).limit(limit).offset(offset))
+        ).scalars().all()
+        for t in rows:
+            owners.append((t.id, t.name, t.code))
+    elif owner_type == "tier_contact":
+        base = (
+            select(TierContact, Tier)
+            .join(Tier, Tier.id == TierContact.tier_id)
+            .where(Tier.entity_id == entity_id)
+        )
+        if search:
+            like = f"%{search.lower()}%"
+            base = base.where(
+                sqla_func.lower(TierContact.first_name + " " + TierContact.last_name).like(like)
+            )
+        count_stmt = select(sqla_func.count()).select_from(base.subquery())
+        total_owners = int((await db.execute(count_stmt)).scalar_one())
+        rows = (
+            await db.execute(
+                base.order_by(TierContact.last_name).limit(limit).offset(offset)
+            )
+        ).all()
+        for row in rows:
+            c, tier = row[0], row[1]
+            owners.append((c.id, f"{c.first_name or ''} {c.last_name or ''}".strip(), tier.name))
+    owner_ids = [o[0] for o in owners]
+
+    # 3) Bulk-load the latest record per (owner, type) for this page
+    recs_by_owner_type: dict[tuple[UUID, UUID], ComplianceRecord] = {}
+    if owner_ids and type_ids:
+        recs_q = (
+            select(ComplianceRecord)
+            .where(
+                ComplianceRecord.entity_id == entity_id,
+                ComplianceRecord.owner_type == owner_type,
+                ComplianceRecord.owner_id.in_(owner_ids),
+                ComplianceRecord.compliance_type_id.in_(type_ids),
+                ComplianceRecord.active == True,  # noqa: E712
+            )
+            # Latest issued_at first → later inserts overwrite so the
+            # cell reflects the most recent record.
+            .order_by(ComplianceRecord.issued_at.asc().nullsfirst())
+        )
+        for rec in (await db.execute(recs_q)).scalars().all():
+            recs_by_owner_type[(rec.owner_id, rec.compliance_type_id)] = rec
+
+    # 4) Build the cell grid
+    from datetime import timezone as _tz
+    now = datetime.now(_tz.utc)
+    expiring_cutoff = now + timedelta(days=expiring_within_days)
+
+    def _cell_for(rec: ComplianceRecord | None) -> MatrixCell:
+        if rec is None:
+            return MatrixCell(status="missing")
+        # Record statuses from the model: valid / expired / pending / rejected.
+        # We additionally derive 'expiring' for valid records whose
+        # expires_at falls within the cutoff window.
+        status = rec.status or "valid"
+        if status == "valid" and rec.expires_at and rec.expires_at <= expiring_cutoff:
+            status = "expired" if rec.expires_at <= now else "expiring"
+        return MatrixCell(status=status, expires_at=rec.expires_at, record_id=rec.id)
+
+    result_rows: list[MatrixRow] = []
+    for (oid, name, extra) in owners:
+        cells = {
+            str(t.id): _cell_for(recs_by_owner_type.get((oid, t.id)))
+            for t in types
+        }
+        result_rows.append(MatrixRow(
+            owner_type=owner_type, owner_id=oid, owner_name=name,
+            owner_extra=extra, cells=cells,
+        ))
+
+    return MatrixResponse(
+        compliance_types=[ComplianceTypeRead.model_validate(t) for t in types],
+        rows=result_rows,
+        total=total_owners,
+        limit=limit,
+        offset=offset,
+    )

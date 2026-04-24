@@ -45,6 +45,15 @@ _AUTO_CLOSE_WARN_BEFORE_DAYS = int(os.getenv("AUTO_CLOSE_WARN_BEFORE_DAYS", "6")
 
 # Advisory lock for the housekeeping loop (distinct from the other two)
 _HOUSEKEEPING_LOCK_ID = 0x4F50534E_48534B50  # 'OPSN'+'HSKP'
+_WEEKLY_DIGEST_LOCK_ID = 0x4F50534E_57454B44  # 'OPSN'+'WEKD'
+_WEEKLY_DIGEST_INTERVAL_S = int(os.getenv("WEEKLY_DIGEST_INTERVAL_S", "3600"))
+
+# Orphan rescue — a run that sits in preparing/running without its
+# updated_at being bumped for longer than this is considered dead
+# (the worker was killed by a redeploy, OOM, crash).
+_ORPHAN_RESCUE_LOCK_ID = 0x4F50534E_4F525048  # 'OPSN'+'ORPH'
+_ORPHAN_RESCUE_INTERVAL_S = int(os.getenv("ORPHAN_RESCUE_INTERVAL_S", "300"))
+_ORPHAN_STALE_AFTER_MINUTES = int(os.getenv("ORPHAN_STALE_AFTER_MINUTES", "45"))
 
 
 # ─── Lock primitives ──────────────────────────────────────────────────
@@ -649,6 +658,164 @@ async def _run_housekeeping_once() -> None:
             )
 
 
+async def weekly_digest_loop() -> None:
+    """Send a 7-day digest every Monday morning at auto_report_hour_utc."""
+    logger.info("Weekly digest loop started (interval=%ds)", _WEEKLY_DIGEST_INTERVAL_S)
+    while True:
+        try:
+            await _run_weekly_digest_once()
+        except Exception:  # noqa: BLE001
+            logger.exception("Weekly digest pass crashed")
+        await asyncio.sleep(_WEEKLY_DIGEST_INTERVAL_S)
+
+
+async def _run_weekly_digest_once() -> None:
+    async with AsyncSessionLocal() as db:
+        got = await _try_acquire_lock(db, _WEEKLY_DIGEST_LOCK_ID)
+        if not got:
+            return
+        try:
+            now = datetime.now(UTC)
+            # Monday = weekday 0 only, at the configured hour.
+            if now.weekday() != 0:
+                return
+            configs = (
+                await db.execute(
+                    select(SupportAgentConfig).where(
+                        SupportAgentConfig.enabled == True,  # noqa: E712
+                        SupportAgentConfig.auto_report_email.isnot(None),
+                    )
+                )
+            ).scalars().all()
+            for config in configs:
+                if now.hour != config.auto_report_hour_utc:
+                    continue
+                # Idempotency — use a `last_weekly_digest_sent_at` marker
+                # stored in a dedicated comment on the config? Simpler:
+                # check the last_digest_sent_at is from this morning,
+                # and send the weekly ON TOP of the daily once.
+                # The weekly digest is distinguished by subject line.
+                try:
+                    await _send_weekly_digest_for_entity(db, config, now)
+                    await db.commit()
+                except Exception:  # noqa: BLE001
+                    logger.exception(
+                        "Weekly digest send failed for entity %s", config.entity_id,
+                    )
+                    await db.rollback()
+        finally:
+            await db.execute(
+                text("SELECT pg_advisory_unlock(:id)").bindparams(id=_WEEKLY_DIGEST_LOCK_ID),
+            )
+
+
+async def _send_weekly_digest_for_entity(
+    db: AsyncSession, config: SupportAgentConfig, now: datetime,
+) -> None:
+    """Aggregate last 7 days + send HTML email with trends."""
+    since = now - timedelta(days=7)
+    runs = (
+        await db.execute(
+            select(SupportAgentRun)
+            .where(
+                SupportAgentRun.entity_id == config.entity_id,
+                SupportAgentRun.created_at >= since,
+            )
+            .order_by(SupportAgentRun.created_at.desc())
+        )
+    ).scalars().all()
+
+    total = len(runs)
+    completed = sum(1 for r in runs if r.status == "completed")
+    awaiting = sum(1 for r in runs if r.status == "awaiting_human")
+    failed = sum(1 for r in runs if r.status in ("failed", "failed_and_reverted"))
+    rejected = sum(1 for r in runs if r.status == "rejected")
+    total_tokens = sum(int(r.llm_tokens_used or 0) for r in runs)
+    total_cost = sum(float(r.llm_cost_usd or 0) for r in runs)
+    success_rate = (completed / total * 100) if total else 0
+
+    # Group by day for a tiny sparkline-ish view
+    by_day: dict[str, int] = {}
+    for r in runs:
+        day = r.created_at.strftime("%a")
+        by_day[day] = by_day.get(day, 0) + 1
+    sparkline = " ".join(f"{d}:{by_day.get(d, 0)}" for d in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+
+    html = f'''
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:20px;background:#f5f5f5;font-family:Helvetica,Arial,sans-serif;color:#1f2937;">
+  <div style="max-width:720px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;">
+    <div style="padding:20px;border-bottom:1px solid #e5e7eb;background:#065f46;color:#fff;">
+      <h1 style="margin:0;font-size:18px;">📊 Agent OPSFLUX — Rapport hebdomadaire</h1>
+      <p style="margin:4px 0 0;font-size:12px;opacity:0.8;">
+        Bilan des 7 derniers jours · Semaine {now.strftime("%V")} · {now.strftime('%Y-%m-%d')}
+      </p>
+    </div>
+    <div style="padding:20px;">
+      <div style="padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;margin-bottom:16px;">
+        <div style="font-size:14px;color:#065f46;font-weight:600;">Taux de succès : {success_rate:.0f}%</div>
+        <div style="font-size:12px;color:#374151;margin-top:4px;">
+          {completed} runs mergeables sur {total} lancés
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <Stat label="Runs" val="{total}"/>
+        <Stat label="Complétés" val="{completed}" color="#16a34a"/>
+        <Stat label="En review" val="{awaiting}" color="#2563eb"/>
+        <Stat label="Échecs" val="{failed + rejected}" color="#dc2626"/>
+      </div>
+      <div style="margin-top:16px;padding:12px;background:#f9fafb;border-radius:6px;font-size:12px;">
+        <strong>Par jour :</strong> <code style="font-family:monospace;">{sparkline}</code>
+      </div>
+      <div style="margin-top:16px;padding:12px;background:#f9fafb;border-radius:6px;font-size:12px;">
+        <strong>Consommation :</strong> {total_tokens:,} tokens · ${total_cost:.2f} USD
+        <br><strong>Budget mensuel :</strong> ${float(config.current_month_spent_usd):.2f} / ${float(config.monthly_budget_usd):.0f}
+      </div>
+    </div>
+  </div>
+</body></html>
+    '''.strip().replace(
+        '<Stat label="Runs" val="' + str(total) + '"/>',
+        f'<div style="flex:1;min-width:100px;border:1px solid #e5e7eb;border-radius:6px;padding:10px;"><div style="font-size:10px;text-transform:uppercase;color:#6b7280;">Runs</div><div style="font-size:24px;font-weight:700;">{total}</div></div>'
+    ).replace(
+        '<Stat label="Complétés" val="' + str(completed) + '" color="#16a34a"/>',
+        f'<div style="flex:1;min-width:100px;border:1px solid #e5e7eb;border-radius:6px;padding:10px;"><div style="font-size:10px;text-transform:uppercase;color:#16a34a;">Complétés</div><div style="font-size:24px;font-weight:700;color:#16a34a;">{completed}</div></div>'
+    ).replace(
+        '<Stat label="En review" val="' + str(awaiting) + '" color="#2563eb"/>',
+        f'<div style="flex:1;min-width:100px;border:1px solid #e5e7eb;border-radius:6px;padding:10px;"><div style="font-size:10px;text-transform:uppercase;color:#2563eb;">En review</div><div style="font-size:24px;font-weight:700;color:#2563eb;">{awaiting}</div></div>'
+    ).replace(
+        '<Stat label="Échecs" val="' + str(failed + rejected) + '" color="#dc2626"/>',
+        f'<div style="flex:1;min-width:100px;border:1px solid #e5e7eb;border-radius:6px;padding:10px;"><div style="font-size:10px;text-transform:uppercase;color:#dc2626;">Échecs</div><div style="font-size:24px;font-weight:700;color:#dc2626;">{failed + rejected}</div></div>'
+    )
+
+    import aiosmtplib
+    from email.message import EmailMessage
+
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_user = os.getenv("SMTP_USERNAME")
+    smtp_pass = os.getenv("SMTP_PASSWORD")
+    smtp_from = os.getenv("SMTP_FROM_ADDRESS", smtp_user or "noreply@opsflux.io")
+    smtp_from_name = os.getenv("SMTP_FROM_NAME", "OpsFlux Agent")
+
+    if not (smtp_host and smtp_user and smtp_pass):
+        logger.warning("SMTP not configured — skipping weekly digest")
+        return
+
+    msg = EmailMessage()
+    msg["Subject"] = f"📊 Agent OPSFLUX — Bilan semaine {now.strftime('%V')}"
+    msg["From"] = f"{smtp_from_name} <{smtp_from}>"
+    msg["To"] = config.auto_report_email
+    msg.set_content(f"Bilan hebdomadaire : {total} runs, {success_rate:.0f}% succès, ${total_cost:.2f}.")
+    msg.add_alternative(html, subtype="html")
+
+    await aiosmtplib.send(
+        msg, hostname=smtp_host, port=int(os.getenv("SMTP_PORT", "465")),
+        username=smtp_user, password=smtp_pass, use_tls=True,
+    )
+    logger.info("Weekly digest sent to %s", config.auto_report_email)
+
+
 async def send_digest_now(db: AsyncSession, entity_id: UUID) -> dict[str, Any]:
     """Admin-triggered digest send for preview / testing."""
     config = (
@@ -665,3 +832,97 @@ async def send_digest_now(db: AsyncSession, entity_id: UUID) -> dict[str, Any]:
         "sent_to": config.auto_report_email,
         "timestamp": datetime.now(UTC).isoformat(),
     }
+
+
+
+# ─── Orphan Rescue ────────────────────────────────────────────────────
+
+async def orphan_rescue_loop() -> None:
+    """Reset runs that got stuck in preparing/running when a worker died.
+
+    A worker that is killed mid-execution (redeploy, OOM, crash)
+    leaves the run in `preparing` or `running` forever. This loop
+    periodically scans for such runs whose `updated_at` is older
+    than `ORPHAN_STALE_AFTER_MINUTES` (default 45 min — longer than
+    any realistic phase) and marks them as `failed` with an
+    explanatory error_message.
+
+    Also runs ONCE at process startup to clean up survivors from
+    the previous deploy cycle.
+    """
+    logger.info(
+        "Agent orphan-rescue loop started (interval=%ds, stale after %dmin)",
+        _ORPHAN_RESCUE_INTERVAL_S, _ORPHAN_STALE_AFTER_MINUTES,
+    )
+    # Run immediately at startup (covers redeploy recovery) then on
+    # the normal interval.
+    await _run_orphan_rescue_once(startup=True)
+    while True:
+        await asyncio.sleep(_ORPHAN_RESCUE_INTERVAL_S)
+        try:
+            await _run_orphan_rescue_once(startup=False)
+        except Exception:  # noqa: BLE001
+            logger.exception("Orphan rescue pass crashed")
+
+
+async def _run_orphan_rescue_once(*, startup: bool) -> None:
+    async with AsyncSessionLocal() as db:
+        got = await _try_acquire_lock(db, _ORPHAN_RESCUE_LOCK_ID)
+        if not got:
+            return
+        try:
+            stale_cutoff = datetime.now(UTC) - timedelta(minutes=_ORPHAN_STALE_AFTER_MINUTES)
+            # On startup the grace period is shorter — any run still
+            # `running` across a restart is orphaned by definition
+            # (the worker lives in a sibling container, not in the
+            # backend process).
+            if startup:
+                # Still apply a small grace (5 min) to avoid racing
+                # with a run that just transitioned to running right
+                # before the restart.
+                stale_cutoff = datetime.now(UTC) - timedelta(minutes=5)
+
+            stuck = (
+                await db.execute(
+                    select(SupportAgentRun).where(
+                        SupportAgentRun.status.in_(["preparing", "running"]),
+                        SupportAgentRun.updated_at < stale_cutoff,
+                    )
+                )
+            ).scalars().all()
+            if not stuck:
+                return
+
+            reason = (
+                "Orphaned at startup — worker process died across a restart."
+                if startup
+                else f"No worker heartbeat for {_ORPHAN_STALE_AFTER_MINUTES}min — presumed dead."
+            )
+            for run in stuck:
+                run.status = "failed"
+                run.ended_at = datetime.now(UTC)
+                if run.started_at is not None and run.wall_time_seconds is None:
+                    run.wall_time_seconds = int(
+                        (datetime.now(UTC) - run.started_at).total_seconds()
+                    )
+                existing = (run.error_message or "").strip()
+                suffix = f"[orphan-rescue] {reason}"
+                run.error_message = f"{existing}\n{suffix}".strip() if existing else suffix
+                # Mark a synthetic failed_gate so the UI review panel
+                # surfaces the reason clearly.
+                gates = dict(run.failed_gates or {})
+                gates["worker_heartbeat"] = {
+                    "ok": False,
+                    "message": reason,
+                    "details": {"rescued_by": "scheduler.orphan_rescue"},
+                }
+                run.failed_gates = gates
+            await db.commit()
+            logger.warning(
+                "[orphan-rescue] marked %d run(s) as failed (startup=%s)",
+                len(stuck), startup,
+            )
+        finally:
+            await db.execute(
+                text("SELECT pg_advisory_unlock(:id)").bindparams(id=_ORPHAN_RESCUE_LOCK_ID),
+            )

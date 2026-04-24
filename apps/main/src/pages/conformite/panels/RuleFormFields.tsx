@@ -9,6 +9,10 @@ import {
   panelInputClass,
   PanelContentLayout,
 } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormSection,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { ConditionBuilder } from '@/components/shared/ConditionBuilder'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import {
@@ -236,9 +240,38 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
 
   const ct = typesData?.items?.find((t: any) => t.id === form.compliance_type_id)
 
+  // SmartForm context is optional — when rendered inside a
+  // SmartFormProvider (create + edit panels), section levels
+  // react to mode. Standalone callers still work because
+  // SmartFormSection gracefully no-ops without a provider.
+  const smartCtx = useSmartForm()
+  const isSmart = Boolean(smartCtx)
+
+  // Reusable wrappers: pick SmartFormSection when inside a
+  // provider (mode-aware), fall back to the classic FormSection
+  // otherwise. Same visual treatment in both cases.
+  const EssentialSection = ({ id, title, children }: { id: string; title: string; children: React.ReactNode }) => (
+    isSmart ? (
+      <SmartFormSection id={id} title={title} level="essential" help={{ description: title }}>
+        {children}
+      </SmartFormSection>
+    ) : (
+      <FormSection title={title}>{children}</FormSection>
+    )
+  )
+  const AdvancedSection = ({ id, title, children, defaultExpanded = false, collapsible }: { id: string; title: string; children: React.ReactNode; defaultExpanded?: boolean; collapsible?: boolean }) => (
+    isSmart ? (
+      <SmartFormSection id={id} title={title} level="advanced" help={{ description: title }} defaultExpanded={defaultExpanded} collapsible={collapsible}>
+        {children}
+      </SmartFormSection>
+    ) : (
+      <FormSection title={title} defaultExpanded={defaultExpanded} collapsible={collapsible}>{children}</FormSection>
+    )
+  )
+
   return (
     <PanelContentLayout>
-      <FormSection title={t('common.general')}>
+      <EssentialSection id="t_rule_general" title={t('common.general')}>
         <FormGrid>
           <DynamicPanelField label="Type de conformité" required span="full">
             {typeReadOnly ? (
@@ -301,9 +334,9 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
             />
           </DynamicPanelField>
         </FormGrid>
-      </FormSection>
+      </EssentialSection>
 
-      <FormSection title="Validité & Rappels" defaultExpanded={false}>
+      <AdvancedSection id="t_rule_validity" title="Validité & Rappels" defaultExpanded={false}>
         <FormGrid>
           <DynamicPanelField label="Entrée en vigueur">
             <input type="date" value={form.effective_from ?? ''} onChange={(e) => setForm({ ...form, effective_from: e.target.value || null })} className={panelInputClass} />
@@ -321,9 +354,9 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
             <input type="number" value={form.renewal_reminder_days ?? ''} onChange={(e) => setForm({ ...form, renewal_reminder_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="60" />
           </DynamicPanelField>
         </FormGrid>
-      </FormSection>
+      </AdvancedSection>
 
-      <FormSection title="Conditions d'application" defaultExpanded={false} collapsible>
+      <AdvancedSection id="t_rule_conditions" title="Conditions d'application" defaultExpanded={false} collapsible>
         {form.target_type === 'packlog_cargo' ? (
           <RuleTargetSpecificDesigner form={form} setForm={setForm} />
         ) : (
@@ -332,7 +365,7 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
             onChange={(v) => setForm({ ...form, condition_json: v })}
           />
         )}
-      </FormSection>
+      </AdvancedSection>
     </PanelContentLayout>
   )
 }

@@ -1,9 +1,17 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Scale, Paperclip } from 'lucide-react'
+import { Scale } from 'lucide-react'
 import {
   DynamicPanelShell,
 } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormProvider,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormInlineHelpDrawer,
+  SmartFormWizardNav,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -11,10 +19,20 @@ import { useComplianceTypes, useJobPositions, useCreateComplianceRule } from '@/
 import { RuleFormFields } from './RuleFormFields'
 
 export function CreateRulePanel() {
+  return (
+    <SmartFormProvider panelId="create-compliance-rule" defaultMode="simple">
+      <CreateRulePanelInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreateRulePanelInner() {
+  const _ctx = useSmartForm()
   const { t } = useTranslation()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const createRule = useCreateComplianceRule()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { toast } = useToast()
   const { data: typesData } = useComplianceTypes({ page_size: 200 })
   const { data: jpData } = useJobPositions({ page_size: 200 })
@@ -38,10 +56,14 @@ export function CreateRulePanel() {
     condition_json: null,
   })
 
-  const handleCreate = async () => {
+  // After create, open the rule edit panel so the user can attach
+  // supporting docs, notes, sub-conditions — the standard
+  // "polymorphic add-ons after save" flow used by every other
+  // create panel (compliance records, MOCs, etc.).
+  const handleCreate = useCallback(async () => {
     if (!form.compliance_type_id) return
     try {
-      await createRule.mutateAsync({
+      const created = await createRule.mutateAsync({
         compliance_type_id: form.compliance_type_id,
         target_type: form.target_type,
         target_value: form.target_value || undefined,
@@ -56,38 +78,49 @@ export function CreateRulePanel() {
         condition_json: form.condition_json,
       })
       toast({ title: t('conformite.toast.rule_created'), variant: 'success' })
-      closeDynamicPanel()
+      // Reopen on the edit surface — same detail view that already
+      // hosts AttachmentManager / NoteManager so operators can add
+      // polymorphic children without closing the panel.
+      openDynamicPanel({
+        type: 'edit',
+        module: 'conformite',
+        id: created.id,
+        meta: { subtype: 'rule' },
+      })
     } catch {
       toast({ title: t('conformite.toast.error'), variant: 'error' })
     }
-  }
+  }, [form, createRule, toast, t, openDynamicPanel])
 
   const actionItems = useMemo<ActionItem[]>(() => [
-    { id: 'cancel', label: 'Annuler', priority: 40, onClick: closeDynamicPanel },
+    { id: 'cancel', label: t('common.cancel'), priority: 40, onClick: closeDynamicPanel },
     {
       id: 'create',
-      label: 'Creer',
+      label: t('common.create'),
       variant: 'primary',
       priority: 100,
       loading: createRule.isPending,
       disabled: !form.compliance_type_id || createRule.isPending,
       onClick: handleCreate,
     },
-  ], [closeDynamicPanel, createRule.isPending, form.compliance_type_id, handleCreate])
+  ], [closeDynamicPanel, createRule.isPending, form.compliance_type_id, handleCreate, t])
 
   return (
     <DynamicPanelShell
-      title="Nouvelle regle"
-      subtitle="Conformite"
+      title={t('conformite.rules.create', 'Nouvelle règle')}
+      subtitle={t('conformite.title', 'Conformité')}
       icon={<Scale size={14} className="text-primary" />}
       actionItems={actionItems}
     >
+      <SmartFormToolbar />
+      <SmartFormSimpleHint />
+      <SmartFormInlineHelpDrawer />
+
       <RuleFormFields form={form} setForm={setForm} typesData={typesData} jpData={jpData} />
-      <div className="px-4 pb-2">
-        <p className="text-xs text-muted-foreground italic flex items-center gap-1.5">
-          <Paperclip size={11} /> Les pièces jointes pourront être ajoutées après la création de la règle.
-        </p>
-      </div>
+
+      {_ctx?.mode === 'wizard' && (
+        <SmartFormWizardNav onSubmit={handleCreate} onCancel={closeDynamicPanel} />
+      )}
     </DynamicPanelShell>
   )
 }

@@ -78,15 +78,118 @@ async def _dispatch_test(
     if conn_type == "dokploy":
         return await dokploy_service.test_connection(config, credentials)
     if conn_type == "agent_runner":
-        # Agent runner tests arrive in Sprint 5. For now we mark the row
-        # as tested with a placeholder — its creation is still valid so
-        # the UI can save it and revisit later.
-        return (
-            True,
-            "Agent runner configured — live test will ship with Sprint 5",
-            {"placeholder": True},
-        )
+        return await _test_agent_runner(config, credentials)
     return False, f"Unknown connection_type: {conn_type}", {}
+
+
+async def _test_agent_runner(
+    config: dict[str, Any], credentials: dict[str, Any]
+) -> tuple[bool, str, dict[str, Any]]:
+    """Ping the underlying provider to confirm the credentials work.
+
+    Strategy:
+      - `claude_code` + `api_key` → POST /v1/messages with a 1-token
+        prompt, x-api-key header. Cheapest valid call: returns 401 on
+        bad key, 400 with `credit_balance_too_low` on no credit, 200
+        with a tiny response on success.
+      - `claude_code` + `oauth_token` → same endpoint, Authorization
+        Bearer header, anthropic-beta `oauth-2025-04-20` header.
+      - `claude_code` + `subscription_login` → no live test possible
+        (the volume is mounted only inside the runner container);
+        returns OK with a note.
+      - `codex` + `api_key` → GET /v1/models on OpenAI; lists models.
+    """
+    import httpx
+
+    runner_type = config.get("runner_type")
+    auth_method = config.get("auth_method", "api_key")
+
+    if runner_type == "claude_code":
+        if auth_method == "subscription_login":
+            return True, (
+                "Subscription login uses a mounted ~/.claude volume — "
+                "no live API ping possible from the backend. Will be "
+                "exercised on the next agent run."
+            ), {"auth_method": auth_method}
+
+        # Build a minimal /v1/messages payload — 1 user msg, 1-token max
+        body = {
+            "model": config.get("model_preference") or "claude-sonnet-4-5",
+            "max_tokens": 1,
+            "messages": [{"role": "user", "content": "ping"}],
+        }
+        headers: dict[str, str] = {
+            "content-type": "application/json",
+            "anthropic-version": "2023-06-01",
+        }
+        if auth_method == "api_key":
+            api_key = credentials.get("api_key_value")
+            if not api_key:
+                return False, "api_key_value missing in credentials", {}
+            headers["x-api-key"] = api_key
+        elif auth_method == "oauth_token":
+            token = credentials.get("oauth_token")
+            if not token:
+                return False, "oauth_token missing in credentials", {}
+            headers["authorization"] = f"Bearer {token}"
+            headers["anthropic-beta"] = "oauth-2025-04-20"
+        else:
+            return False, f"Unknown auth_method: {auth_method}", {}
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    json=body, headers=headers,
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Anthropic ping failed")
+            return False, f"Network error: {exc}", {}
+
+        if resp.status_code == 200:
+            return True, f"Anthropic API reachable ({auth_method})", {
+                "model": body["model"],
+                "auth_method": auth_method,
+            }
+        if resp.status_code == 401:
+            return False, "Authentication rejected by Anthropic", {}
+        if resp.status_code == 400:
+            data = resp.json() if resp.content else {}
+            err_msg = (data.get("error") or {}).get("message", "")
+            if "credit balance" in err_msg.lower():
+                return False, (
+                    "Anthropic credit balance is too low. Recharge on "
+                    "console.anthropic.com or switch to OAuth token "
+                    "(uses your Pro/Max subscription, no extra billing)."
+                ), {"raw": data}
+            return False, f"Bad request: {err_msg or resp.text[:200]}", {}
+        return False, f"HTTP {resp.status_code}: {resp.text[:200]}", {}
+
+    if runner_type == "codex":
+        if auth_method != "api_key":
+            return False, f"Codex only supports api_key auth, got {auth_method}", {}
+        api_key = credentials.get("api_key_value")
+        if not api_key:
+            return False, "api_key_value missing in credentials", {}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    "https://api.openai.com/v1/models",
+                    headers={"authorization": f"Bearer {api_key}"},
+                )
+        except Exception as exc:  # noqa: BLE001
+            return False, f"Network error: {exc}", {}
+        if resp.status_code == 200:
+            data = resp.json()
+            count = len(data.get("data", []))
+            return True, f"OpenAI API reachable ({count} models available)", {
+                "model_count": count,
+            }
+        if resp.status_code == 401:
+            return False, "OpenAI authentication rejected", {}
+        return False, f"HTTP {resp.status_code}: {resp.text[:200]}", {}
+
+    return False, f"Unsupported runner_type: {runner_type}", {}
 
 
 # ─── List ──────────────────────────────────────────────────────────────

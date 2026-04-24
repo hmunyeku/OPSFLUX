@@ -192,9 +192,12 @@ async def lifespan(app: FastAPI):
     # loop shuts down. pg_advisory_lock ensures only one uvicorn
     # worker drives them in a multi-worker deploy.
     import asyncio as _asyncio
-    from app.services.agent.scheduler import auto_trigger_loop, daily_digest_loop
+    from app.services.agent.scheduler import (
+        auto_trigger_loop, daily_digest_loop, ticket_housekeeping_loop,
+    )
     app.state.agent_trigger_task = _asyncio.create_task(auto_trigger_loop())
     app.state.agent_digest_task = _asyncio.create_task(daily_digest_loop())
+    app.state.agent_housekeeping_task = _asyncio.create_task(ticket_housekeeping_loop())
 
     logger.info("OpsFlux ready — %d modules loaded", len(registry.get_all_modules()))
 

@@ -22,7 +22,7 @@ import {
   Activity, Hash, BookOpen, ShieldCheck, Database,
   Users, CalendarClock, Ship, Boxes, FolderKanban,
   Languages, ClipboardList,
-  Sliders, LayoutTemplate, Briefcase, Server, CircleCheck,
+  Sliders, LayoutTemplate, Briefcase, Server, CircleCheck, Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -143,6 +143,7 @@ import { PreferencesTab } from './tabs/PreferencesTab'
 import { GeneralConfigTab } from './tabs/GeneralConfigTab'
 import { IntegrationsTab } from './tabs/IntegrationsTab'
 import { VerificationScenariosTab } from './tabs/VerificationScenariosTab'
+import { AgentIaTab } from './tabs/AgentIaTab'
 import { EmailTemplatesTab } from './tabs/EmailTemplatesTab'
 import { PdfTemplatesTab } from './tabs/PdfTemplatesTab'
 // RbacAdminTab moved to UsersPage (Comptes)
@@ -207,8 +208,9 @@ registerSettingsSection({ id: 'numbering',      label: 'Numérotation',   icon: 
 registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText,   component: EmailTemplatesTab, category: 'general', parentId: 'grp-templates', order: 10, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'pdf-templates',   label: 'Modèles PDF',       icon: FileOutput, component: PdfTemplatesTab,   category: 'general', parentId: 'grp-templates', order: 20, requiredPermission: 'core.settings.manage' })
 
-// Agent IA — verification scenarios (Sprint 6)
+// Agent IA — verification scenarios (Sprint 6) + config (Sprint 7)
 registerSettingsSection({ id: 'verification-scenarios', label: 'Scénarios Playwright', icon: CircleCheck, component: VerificationScenariosTab, category: 'general', parentId: 'grp-config', order: 60, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'agent-ia', label: 'Agent IA', icon: Bot, component: AgentIaTab, category: 'general', parentId: 'grp-config', order: 55, requiredPermission: 'core.settings.manage' })
 
 // Group 3: Modules métier — one per business module
 registerSettingsSection({ id: 'projets-config',   label: 'Projets',   icon: FolderKanban,   component: ProjetsConfigTab,   category: 'general', parentId: 'grp-modules', order: 10, requiredPermission: 'core.settings.manage' })

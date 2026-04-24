@@ -230,6 +230,44 @@ async def launch_run(
     db.add(run)
     await db.flush()
 
+    # ── FSM transition: ticket open → in_progress + notify reporter ──
+    # When the agent starts working on an `open` ticket, flip it to
+    # `in_progress` so the reporter sees the status change in the UI
+    # and receives an email. No-op if the ticket is already being
+    # worked on.
+    if ticket.status == "open":
+        from app.models.support import TicketStatusHistory
+        old_status = ticket.status
+        ticket.status = "in_progress"
+        db.add(TicketStatusHistory(
+            ticket_id=ticket.id,
+            old_status=old_status,
+            new_status="in_progress",
+            changed_by=triggered_by.id,
+            note="Agent IA a pris le ticket en charge",
+        ))
+        # Email to reporter (best effort — don't fail the launch)
+        try:
+            from app.core.email_templates import render_and_send_email
+            from app.models.common import User
+            reporter = await db.get(User, ticket.reporter_id)
+            if reporter and reporter.email:
+                await render_and_send_email(
+                    db, slug="ticket_agent_started",
+                    entity_id=ticket.entity_id,
+                    to=reporter.email,
+                    language=reporter.language or "fr",
+                    user_id=reporter.id,
+                    variables={
+                        "reference": ticket.reference,
+                        "title": ticket.title,
+                        "link": f"https://app.opsflux.io/support?ticket={ticket.id}",
+                        "run_id": str(run.id)[:8],
+                    },
+                )
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to notify reporter on agent launch")
+
     # Fetch last 5 comments for context
     recent = (
         await db.execute(

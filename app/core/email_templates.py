@@ -1754,6 +1754,47 @@ DEFAULT_TEMPLATES: list[dict] = [
         },
     },
     {
+        "slug": "ticket_agent_started",
+        "name": "Agent IA en cours",
+        "description": "Envoyé au demandeur quand l'agent IA prend en charge le ticket.",
+        "object_type": "support_ticket",
+        "versions": {
+            "fr": {
+                "subject": "🤖 Agent IA travaille sur votre ticket {{reference}}",
+                "body_html": (
+                    "<html><body style='font-family:Arial,sans-serif;color:#333'>"
+                    "<h2 style='color:#2563eb'>Agent IA en action</h2>"
+                    "<p>Votre ticket <strong>{{reference}}</strong> — « {{title}} » est en cours de traitement par l'agent de maintenance IA d'OpsFlux.</p>"
+                    "<p style='color:#666;font-size:14px'>Run ID : <code>{{run_id}}</code></p>"
+                    "<p>L'agent analyse votre demande et préparera une correction. Vous recevrez un nouveau message dès que le travail sera terminé et qu'une Pull Request sera prête pour review.</p>"
+                    "<p><a href='{{link}}' style='background:#2563eb;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none'>Voir le ticket</a></p>"
+                    "<p style='color:#999;font-size:12px'>OpsFlux — Support automatisé</p>"
+                    "</body></html>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "ticket_auto_close_warning",
+        "name": "Ticket bientôt fermé",
+        "description": "Envoyé 24h avant la fermeture automatique d'un ticket résolu.",
+        "object_type": "support_ticket",
+        "versions": {
+            "fr": {
+                "subject": "Votre ticket {{reference}} sera clôturé dans 24h",
+                "body_html": (
+                    "<html><body style='font-family:Arial,sans-serif;color:#333'>"
+                    "<h2 style='color:#ca8a04'>Clôture automatique imminente</h2>"
+                    "<p>Votre ticket <strong>{{reference}}</strong> — « {{title}} » est marqué comme résolu depuis {{days_resolved}} jours.</p>"
+                    "<p>Il sera automatiquement clôturé dans <strong>24 heures</strong>. Si le problème persiste, veuillez ajouter un commentaire pour le maintenir ouvert.</p>"
+                    "<p><a href='{{link}}' style='background:#ca8a04;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none'>Voir le ticket</a></p>"
+                    "<p style='color:#999;font-size:12px'>OpsFlux — Support</p>"
+                    "</body></html>"
+                ),
+            },
+        },
+    },
+    {
         "slug": "gdpr_export_ready",
         "name": "Export RGPD prêt",
         "description": "Envoyé quand l'export des données personnelles de l'utilisateur est prêt.",

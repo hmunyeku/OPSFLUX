@@ -245,6 +245,13 @@ export interface AgentConfig {
   current_consecutive_failures: number
   circuit_breaker_tripped_at: string | null
   allow_direct_deployment: boolean
+  // Sprint 7 — scheduler
+  auto_window_start_hour?: number | null
+  auto_window_end_hour?: number | null
+  auto_max_runs_per_window?: number
+  auto_report_email?: string | null
+  auto_report_hour_utc?: number
+  last_digest_sent_at?: string | null
 }
 
 export function useAgentConfig() {

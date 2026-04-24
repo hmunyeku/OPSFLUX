@@ -39,6 +39,12 @@ _DIGEST_LOCK_ID = 0x4F50534E_44494753  # 'OPSN'+'DIGS'
 
 _TRIGGER_INTERVAL_S = int(os.getenv("AGENT_SCHEDULER_TRIGGER_INTERVAL_S", "300"))
 _DIGEST_INTERVAL_S = int(os.getenv("AGENT_SCHEDULER_DIGEST_INTERVAL_S", "900"))
+_TICKET_HOUSEKEEPING_INTERVAL_S = int(os.getenv("TICKET_HOUSEKEEPING_INTERVAL_S", "3600"))
+_AUTO_CLOSE_RESOLVED_AFTER_DAYS = int(os.getenv("AUTO_CLOSE_RESOLVED_AFTER_DAYS", "7"))
+_AUTO_CLOSE_WARN_BEFORE_DAYS = int(os.getenv("AUTO_CLOSE_WARN_BEFORE_DAYS", "6"))
+
+# Advisory lock for the housekeeping loop (distinct from the other two)
+_HOUSEKEEPING_LOCK_ID = 0x4F50534E_48534B50  # 'OPSN'+'HSKP'
 
 
 # ─── Lock primitives ──────────────────────────────────────────────────
@@ -493,6 +499,154 @@ async def daily_digest_loop() -> None:
         except Exception:  # noqa: BLE001
             logger.exception("Digest pass crashed")
         await asyncio.sleep(_DIGEST_INTERVAL_S)
+
+
+async def ticket_housekeeping_loop() -> None:
+    """Auto-close resolved tickets + send 24h warning emails.
+
+    Runs every hour. Picks up tickets that have been in `resolved`
+    status for too long without new activity and moves them to
+    `closed`, emailing the reporter on both the warning (24h
+    before) and the actual close.
+    """
+    logger.info(
+        "Ticket housekeeping loop started (interval=%ds, close after %dd)",
+        _TICKET_HOUSEKEEPING_INTERVAL_S,
+        _AUTO_CLOSE_RESOLVED_AFTER_DAYS,
+    )
+    while True:
+        try:
+            await _run_housekeeping_once()
+        except Exception:  # noqa: BLE001
+            logger.exception("Housekeeping pass crashed")
+        await asyncio.sleep(_TICKET_HOUSEKEEPING_INTERVAL_S)
+
+
+async def _run_housekeeping_once() -> None:
+    async with AsyncSessionLocal() as db:
+        got = await _try_acquire_lock(db, _HOUSEKEEPING_LOCK_ID)
+        if not got:
+            return
+        try:
+            from app.core.email_templates import render_and_send_email
+            from app.models.common import User
+            from app.models.support import (
+                SupportTicket, TicketComment, TicketStatusHistory,
+            )
+
+            now = datetime.now(UTC)
+            warn_cutoff = now - timedelta(days=_AUTO_CLOSE_WARN_BEFORE_DAYS)
+            close_cutoff = now - timedelta(days=_AUTO_CLOSE_RESOLVED_AFTER_DAYS)
+
+            # Fetch all resolved tickets that haven't been closed yet.
+            # We filter post-hoc on last comment date to keep the
+            # query simple.
+            resolved = (
+                await db.execute(
+                    select(SupportTicket).where(
+                        SupportTicket.status == "resolved",
+                        SupportTicket.resolved_at.is_not(None),
+                    )
+                )
+            ).scalars().all()
+
+            warned = closed = 0
+            for t in resolved:
+                if t.resolved_at is None:
+                    continue
+                # Last activity = latest of resolved_at and last comment.
+                last_comment_at = (
+                    await db.execute(
+                        select(func.max(TicketComment.created_at))
+                        .where(TicketComment.ticket_id == t.id)
+                    )
+                ).scalar()
+                last_activity = last_comment_at or t.resolved_at
+                if last_activity.tzinfo is None:
+                    last_activity = last_activity.replace(tzinfo=UTC)
+
+                days_resolved = (now - last_activity).days
+
+                if last_activity < close_cutoff:
+                    # Close it.
+                    old_status = t.status
+                    t.status = "closed"
+                    t.closed_at = now
+                    db.add(TicketStatusHistory(
+                        ticket_id=t.id,
+                        old_status=old_status,
+                        new_status="closed",
+                        changed_by=t.reporter_id,
+                        note=f"Clôture automatique après {days_resolved} jours sans activité",
+                    ))
+                    closed += 1
+                    try:
+                        reporter = await db.get(User, t.reporter_id)
+                        if reporter and reporter.email:
+                            await render_and_send_email(
+                                db, slug="ticket_resolved",
+                                entity_id=t.entity_id,
+                                to=reporter.email,
+                                language=reporter.language or "fr",
+                                user_id=reporter.id,
+                                variables={
+                                    "reference": t.reference,
+                                    "title": t.title,
+                                    "link": f"https://app.opsflux.io/support?ticket={t.id}",
+                                },
+                            )
+                    except Exception:  # noqa: BLE001
+                        logger.exception("Close email failed for %s", t.reference)
+                elif last_activity < warn_cutoff:
+                    # Warn once — use a comment as sentinel so we
+                    # don't spam daily.
+                    already_warned = (
+                        await db.execute(
+                            select(TicketComment).where(
+                                TicketComment.ticket_id == t.id,
+                                TicketComment.external_source == "auto_close_warning",
+                            )
+                        )
+                    ).scalar_one_or_none()
+                    if already_warned:
+                        continue
+                    db.add(TicketComment(
+                        ticket_id=t.id,
+                        author_id=t.reporter_id,
+                        body="⏰ Rappel automatique : ce ticket sera clôturé dans 24h sans nouvelle activité.",
+                        is_internal=True,
+                        external_source="auto_close_warning",
+                    ))
+                    warned += 1
+                    try:
+                        reporter = await db.get(User, t.reporter_id)
+                        if reporter and reporter.email:
+                            await render_and_send_email(
+                                db, slug="ticket_auto_close_warning",
+                                entity_id=t.entity_id,
+                                to=reporter.email,
+                                language=reporter.language or "fr",
+                                user_id=reporter.id,
+                                variables={
+                                    "reference": t.reference,
+                                    "title": t.title,
+                                    "days_resolved": days_resolved,
+                                    "link": f"https://app.opsflux.io/support?ticket={t.id}",
+                                },
+                            )
+                    except Exception:  # noqa: BLE001
+                        logger.exception("Warn email failed for %s", t.reference)
+
+            if warned or closed:
+                logger.info(
+                    "Housekeeping: %d ticket(s) warned, %d ticket(s) closed",
+                    warned, closed,
+                )
+            await db.commit()
+        finally:
+            await db.execute(
+                text("SELECT pg_advisory_unlock(:id)").bindparams(id=_HOUSEKEEPING_LOCK_ID),
+            )
 
 
 async def send_digest_now(db: AsyncSession, entity_id: UUID) -> dict[str, Any]:

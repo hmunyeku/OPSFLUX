@@ -825,6 +825,27 @@ async def approve_and_merge(
     from app.services.integrations import github_service
 
     credentials = await load_credentials(db, conn.id)
+
+    # The agent creates PRs as `--draft` (mission_builder.py) so the
+    # human reviewer sees them flagged as work-in-progress. GitHub
+    # refuses to merge a draft via REST (`405 Method Not Allowed`);
+    # we need to flip it to ready-for-review first. We discover
+    # `draft` + `node_id` from the REST PR metadata and use the
+    # GraphQL markPullRequestReadyForReview mutation if needed.
+    try:
+        pr_meta = await github_service.get_pr(
+            conn.config, credentials, pr_number=run.github_pr_number,
+        )
+        if pr_meta.get("draft") and pr_meta.get("node_id"):
+            await github_service.mark_pr_ready_for_review(
+                conn.config, credentials, pr_node_id=pr_meta["node_id"],
+            )
+    except Exception as exc:  # noqa: BLE001 — log and push on; merge will fail loudly if still draft
+        logger.warning(
+            "approve_and_merge: could not flip PR #%s to ready-for-review: %s",
+            run.github_pr_number, exc,
+        )
+
     try:
         result = await github_service.merge_pr(
             conn.config, credentials,

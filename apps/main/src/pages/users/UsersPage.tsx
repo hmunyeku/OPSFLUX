@@ -655,7 +655,16 @@ export function UsersPage() {
             onTabChange={setActiveTab}
           />
 
-          <div className="flex-1 min-h-0">
+          <div className={cn(
+            'flex-1 min-h-0',
+            // Overview tab hosts a widget grid (ModuleDashboard). Without
+            // overflow-auto the grid overflows the viewport and the whole
+            // page becomes unscrollable — /users#overview was losing
+            // everything below the fold. Other tabs render their own
+            // scrolling DataTable / GroupsTab / RolesTab which handle
+            // overflow internally.
+            activeTab === 'overview' ? 'overflow-auto' : '',
+          )}>
           {activeTab === 'overview' ? (
               <ModuleDashboard module="users" />
           ) : activeTab === 'groups' ? (

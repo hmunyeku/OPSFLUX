@@ -9,7 +9,9 @@ import {
   ReadOnlyRow,
   PanelContentLayout,
   DetailFieldGrid,
+  panelInputClass,
 } from '@/components/layout/DynamicPanel'
+import { cn } from '@/lib/utils'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { useUIStore } from '@/stores/uiStore'
@@ -85,7 +87,20 @@ export function TypeDetailPanel({ id }: { id: string }) {
             </DetailFieldGrid>
           </FormSection>
           <FormSection title={t('common.description')}>
-            <InlineEditableRow label="Description" value={ct.description || ''} onSave={(v) => handleSave('description', v)} />
+            {/* Full-width — FormSection labels this block already,
+                the inner label row was cramping multiline content. */}
+            <textarea
+              defaultValue={ct.description || ''}
+              onBlur={(e) => {
+                const next = e.target.value.trim()
+                if (next !== (ct.description || '').trim()) {
+                  handleSave('description', next)
+                }
+              }}
+              rows={5}
+              className={cn(panelInputClass, 'w-full min-h-[120px] text-sm leading-relaxed whitespace-pre-wrap')}
+              placeholder={t('common.description') as string}
+            />
           </FormSection>
         </PanelContentLayout>
       )}

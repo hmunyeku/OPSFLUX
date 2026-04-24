@@ -1535,9 +1535,29 @@ export function ProjectDetailPanel({ id }: { id: string }) {
             purpose/summary is the first thing the reader sees. */}
         {(project.description || isProjectFieldEditable(project, 'description', capabilities)) && (
           <FormSection title={t('common.description')} collapsible defaultExpanded storageKey="project-detail-desc">
-            {isProjectFieldEditable(project, 'description', capabilities)
-              ? <InlineEditableRow label="Description" value={project.description || ''} onSave={(v) => handleSave('description', v)} />
-              : <ReadOnlyRow label={t('common.description')} value={<span className="text-sm whitespace-pre-wrap">{project.description || '—'}</span>} />}
+            {/* Full-width rendering — the FormSection already labels
+                this block, so wrapping in a label/value row with a
+                160px left column just cramps long markdown into a
+                narrow stripe. Textual multiline content gets its own
+                layout instead. */}
+            {isProjectFieldEditable(project, 'description', capabilities) ? (
+              <textarea
+                defaultValue={project.description || ''}
+                onBlur={(e) => {
+                  const next = e.target.value.trim()
+                  if (next !== (project.description || '').trim()) {
+                    handleSave('description', next || null)
+                  }
+                }}
+                rows={8}
+                className={cn(panelInputClass, 'w-full min-h-[160px] text-sm leading-relaxed whitespace-pre-wrap')}
+                placeholder="Description du projet…"
+              />
+            ) : (
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                {project.description || '—'}
+              </p>
+            )}
           </FormSection>
         )}
 

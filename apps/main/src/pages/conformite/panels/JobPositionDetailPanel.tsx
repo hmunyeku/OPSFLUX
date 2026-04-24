@@ -10,6 +10,7 @@ import {
   ReadOnlyRow,
   PanelContentLayout,
   DetailFieldGrid,
+  panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -111,7 +112,19 @@ export function JobPositionDetailPanel({ id }: { id: string }) {
             </DetailFieldGrid>
           </FormSection>
           <FormSection title={t('common.description')}>
-            <InlineEditableRow label="Description" value={jp.description || ''} onSave={(v) => handleSave('description', v)} />
+            {/* Full-width — FormSection already labels the block. */}
+            <textarea
+              defaultValue={jp.description || ''}
+              onBlur={(e) => {
+                const next = e.target.value.trim()
+                if (next !== (jp.description || '').trim()) {
+                  handleSave('description', next)
+                }
+              }}
+              rows={5}
+              className={cn(panelInputClass, 'w-full min-h-[120px] text-sm leading-relaxed whitespace-pre-wrap')}
+              placeholder={t('common.description') as string}
+            />
           </FormSection>
         </PanelContentLayout>
       )}

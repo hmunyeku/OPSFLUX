@@ -445,61 +445,93 @@ export function RulesMatrixView({
                     {filteredTypes.map((type) => (
                       <th
                         key={type.id}
+                        // Vertical rotated headers — fit 24+ columns
+                        // in the visible width without horizontal
+                        // scroll. 32px data columns + 90px header
+                        // height = readable labels, compact grid.
                         className={cn(
-                          'border-b border-r border-border px-1 py-2 text-center font-medium min-w-[50px] max-w-[70px] cursor-help transition-colors',
+                          'border-b border-r border-border text-center font-medium cursor-help transition-colors align-bottom',
+                          'p-0',
                           hoveredCol === type.id ? 'bg-primary/10 text-primary' : 'text-foreground',
                         )}
+                        style={{ width: 32, minWidth: 32, maxWidth: 32, height: 90 }}
                         title={`${type.name}\n${categoryGroupLabels[type.category] ?? type.category} · ${type.validity_days ? `${type.validity_days}j` : 'Permanent'}${type.is_mandatory ? ' · Obligatoire' : ''}`}
                       >
-                        <div className="flex flex-col items-center gap-0.5">
+                        <div className="flex flex-col items-center justify-end gap-1 h-full pb-1">
                           {selectedCategory === 'all' && (
-                            <span className={`w-2 h-2 rounded-full ${CATEGORY_COLORS_MAP[type.category] ?? 'bg-zinc-500'}`} title={categoryGroupLabels[type.category] ?? type.category} />
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${CATEGORY_COLORS_MAP[type.category] ?? 'bg-zinc-500'}`} title={categoryGroupLabels[type.category] ?? type.category} />
                           )}
-                          <span className="text-[9px] leading-tight block truncate px-0.5">{type.code}</span>
+                          <span
+                            className="text-[10px] leading-none whitespace-nowrap font-semibold tabular-nums"
+                            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                          >
+                            {type.code}
+                          </span>
                         </div>
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, idx) => (
-                    <tr key={row.id} className={idx % 2 === 0 ? 'bg-card' : 'bg-accent/20'}>
-                      <td className={cn(
-                        'sticky left-0 z-10 border-r border-border px-2 sm:px-3 py-2 transition-colors min-w-[120px] sm:min-w-[200px]',
-                        hoveredRow === row.id ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-card' : 'bg-accent/40',
-                      )}>
-                        <span className={cn('font-medium text-[11px] sm:text-xs', hoveredRow === row.id ? 'text-primary' : 'text-foreground')}>{row.label}</span>
-                        {row.sub && <span className="text-muted-foreground ml-1 sm:ml-1.5 text-[9px] sm:text-[10px] hidden sm:inline">{row.sub}</span>}
-                      </td>
-                      {filteredTypes.map((type) => {
-                        const key = activeTargetTab === 'all'
-                          ? `${type.id}::all::__all__`
-                          : `${type.id}::${activeTargetTab}::${row.id}`
-                        const rule = ruleMap.get(key)
-                        return (
-                          <td
-                            key={type.id}
-                            className={cn(
-                              'border-r border-border/30 text-center cursor-pointer transition-colors min-w-[40px] sm:min-w-[50px] py-1 sm:py-0',
-                              (hoveredCol === type.id || hoveredRow === row.id) ? 'bg-primary/5' : '',
-                              'hover:bg-primary/10 active:bg-primary/15',
-                            )}
-                            onMouseEnter={() => { setHoveredCol(type.id); setHoveredRow(row.id) }}
-                            onMouseLeave={() => { setHoveredCol(null); setHoveredRow(null) }}
-                            onClick={() => handleCellClick(type.id, row.id === '__all__' ? '__all__' : row.id)}
-                            title={rule
-                              ? `${type.name} (${type.category})\n${t('conformite.rules.matrix.validity_days')}: ${rule.override_validity_days ?? type.validity_days ?? '∞'}j${rule.grace_period_days ? ` · ${t('conformite.rules.matrix.grace')}: ${rule.grace_period_days}j` : ''}${rule.renewal_reminder_days ? ` · ${t('conformite.rules.matrix.reminder')}: ${rule.renewal_reminder_days}j` : ''}\n${t('common.priority')}: ${rulePriorityLabels[rule.priority] ?? rule.priority}${rule.effective_from ? `\n${t('conformite.rules.matrix.effective_from')}: ${formatDate(rule.effective_from)}` : ''}\n${t('conformite.rules.matrix.edit_rule')}`
-                              : `${t('conformite.rules.matrix.create_rule')} ${type.name}`
-                            }
-                          >
-                            {rule ? (
-                              <Check size={14} className={cn('mx-auto', rule.applicability === 'contextual' ? 'text-blue-500 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400')} />
-                            ) : null}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
+                  {rows.map((row, idx) => {
+                    const isRowHovered = hoveredRow === row.id
+                    // Zebra stripe base for the row. Hovered row gets
+                    // a stronger tint that covers even the non-sticky
+                    // cells — handled via the <tr> background so the
+                    // underlying zebra shows through ticked cells.
+                    const zebraClass = idx % 2 === 0 ? 'bg-card' : 'bg-accent/20'
+                    return (
+                      <tr
+                        key={row.id}
+                        className={cn(
+                          'transition-colors',
+                          isRowHovered ? 'bg-primary/5' : zebraClass,
+                        )}
+                        onMouseLeave={() => { setHoveredCol(null); setHoveredRow(null) }}
+                      >
+                        <td className={cn(
+                          'sticky left-0 z-10 border-r border-border px-2 sm:px-3 py-1.5 transition-colors min-w-[120px] sm:min-w-[200px]',
+                          isRowHovered ? 'bg-primary/10' : zebraClass,
+                        )}>
+                          <span className={cn('font-medium text-[11px] sm:text-xs', isRowHovered ? 'text-primary' : 'text-foreground')}>{row.label}</span>
+                          {row.sub && <span className="text-muted-foreground ml-1 sm:ml-1.5 text-[9px] sm:text-[10px] hidden sm:inline">{row.sub}</span>}
+                        </td>
+                        {filteredTypes.map((type) => {
+                          const key = activeTargetTab === 'all'
+                            ? `${type.id}::all::__all__`
+                            : `${type.id}::${activeTargetTab}::${row.id}`
+                          const rule = ruleMap.get(key)
+                          const checked = Boolean(rule)
+                          return (
+                            <td
+                              key={type.id}
+                              className={cn(
+                                'border-r border-border/30 text-center cursor-pointer transition-colors p-0',
+                                // Checked cells get a green tint so
+                                // the matrix pattern jumps out. Hover
+                                // (col or row) shifts to primary tint.
+                                checked
+                                  ? 'bg-emerald-500/10 hover:bg-emerald-500/20'
+                                  : 'hover:bg-primary/10 active:bg-primary/15',
+                                (hoveredCol === type.id && !checked) ? 'bg-primary/5' : '',
+                              )}
+                              style={{ width: 32, minWidth: 32, maxWidth: 32, height: 28 }}
+                              onMouseEnter={() => { setHoveredCol(type.id); setHoveredRow(row.id) }}
+                              onClick={() => handleCellClick(type.id, row.id === '__all__' ? '__all__' : row.id)}
+                              title={rule
+                                ? `${type.name} (${type.category})\n${t('conformite.rules.matrix.validity_days')}: ${rule.override_validity_days ?? type.validity_days ?? '∞'}j${rule.grace_period_days ? ` · ${t('conformite.rules.matrix.grace')}: ${rule.grace_period_days}j` : ''}${rule.renewal_reminder_days ? ` · ${t('conformite.rules.matrix.reminder')}: ${rule.renewal_reminder_days}j` : ''}\n${t('common.priority')}: ${rulePriorityLabels[rule.priority] ?? rule.priority}${rule.effective_from ? `\n${t('conformite.rules.matrix.effective_from')}: ${formatDate(rule.effective_from)}` : ''}\n${t('conformite.rules.matrix.edit_rule')}`
+                                : `${t('conformite.rules.matrix.create_rule')} ${type.name}`
+                              }
+                            >
+                              {rule ? (
+                                <Check size={12} className={cn('mx-auto', rule.applicability === 'contextual' ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400')} />
+                              ) : null}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    )
+                  })}
                   {rows.length === 0 && (
                     <tr>
                       <td colSpan={filteredTypes.length + 1} className="text-center py-8 text-muted-foreground text-xs">

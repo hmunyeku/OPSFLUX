@@ -487,13 +487,20 @@ async def _post_run_report(
 async def approve_and_merge(
     db: AsyncSession, run: SupportAgentRun, approver_id: UUID
 ) -> None:
-    """Merge the PR attached to a run that's `awaiting_human`.
+    """Merge the PR attached to a run.
 
-    Raises HarnessError if the run isn't in the right state or the PR
-    can't be merged.
+    Works for two states:
+      * `awaiting_human` — autonomous_with_approval mode is asking for a
+        decision before merging on its own.
+      * `completed` (recommendation mode) — the run finished and produced
+        a PR; admin reviews + merges from the OPSFLUX UI without leaving.
+
+    Raises HarnessError otherwise (failed runs, no PR attached, etc.).
     """
-    if run.status != "awaiting_human":
-        raise HarnessError(f"Run not awaiting approval (status={run.status})")
+    if run.status not in ("awaiting_human", "completed"):
+        raise HarnessError(
+            f"Run not in a mergeable state (status={run.status})"
+        )
     if not (run.github_pr_number and run.github_connection_id):
         raise HarnessError("No PR attached to this run")
 

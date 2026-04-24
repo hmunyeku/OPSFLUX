@@ -55,6 +55,10 @@ services:
         condition: service_healthy
     volumes:
       - uploads_data:/opt/opsflux/static
+      # Read-only mount of agent worker logs so the `/agent/runs/{id}/log-excerpt`
+      # endpoint can stream what the agent did. The worker pool writes
+      # to /var/log/opsflux-agent on the host; backend reads from there.
+      - /var/log/opsflux-agent:/var/log/opsflux-agent:ro
     user: "${UID:-0}:${GID:-0}"
     extra_hosts:
       - "host.docker.internal:host-gateway"

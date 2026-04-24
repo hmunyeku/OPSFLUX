@@ -120,6 +120,11 @@ class RunRead(BaseModel):
     ended_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    # Surface the agent's full structured report and gate failures so the
+    # UI can render diagnosis / files modified / reasoning directly,
+    # without a second round-trip.
+    report_json: dict | None = None
+    failed_gates: dict | None = None
 
 
 class LaunchRunBody(BaseModel):
@@ -304,6 +309,149 @@ async def cancel_agent_run(
     await db.commit()
     await db.refresh(row)
     return row
+
+
+# ─── Log excerpt for the UI ─────────────────────────────────────────
+
+
+class LogEntry(BaseModel):
+    timestamp: str | None
+    type: str
+    summary: str
+    is_error: bool = False
+
+
+@router.get(
+    "/runs/{run_id}/log-excerpt",
+    response_model=list[LogEntry],
+    dependencies=[require_permission("support.ticket.read")],
+)
+async def get_run_log_excerpt(
+    run_id: UUID,
+    limit: int = Query(default=200, ge=1, le=1000),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return a parsed, UI-friendly stream of the agent's actions.
+
+    Reads the worker-side `stream.jsonl` from the shared `agent_logs`
+    volume mounted at `/var/log/opsflux-agent/<run_id>/stream.jsonl`,
+    extracts the most useful events (tool calls, agent messages,
+    errors) and returns them in chronological order. Avoids dumping
+    raw 50KB JSON blobs to the client.
+    """
+    import json as _json
+    import os
+    from pathlib import Path
+
+    # Entity isolation
+    run = (
+        await db.execute(
+            select(SupportAgentRun).where(
+                SupportAgentRun.id == run_id,
+                SupportAgentRun.entity_id == entity_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    log_root = Path(os.getenv("AGENT_LOG_ROOT", "/var/log/opsflux-agent"))
+    stream_path = log_root / str(run_id) / "stream.jsonl"
+    if not stream_path.exists():
+        return []
+
+    entries: list[LogEntry] = []
+    try:
+        with stream_path.open(encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if len(entries) >= limit:
+                    break
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = _json.loads(line)
+                except _json.JSONDecodeError:
+                    continue
+                ts = obj.get("timestamp")
+                etype = obj.get("type", "?")
+                msg = obj.get("message") or {}
+
+                if etype == "system" and obj.get("subtype") == "init":
+                    entries.append(LogEntry(
+                        timestamp=ts, type="init",
+                        summary=f"Agent initialised (model={obj.get('model')})",
+                    ))
+                elif etype == "assistant" and isinstance(msg.get("content"), list):
+                    for block in msg["content"]:
+                        if block.get("type") == "text":
+                            t = (block.get("text") or "")[:280]
+                            if t.strip():
+                                entries.append(LogEntry(
+                                    timestamp=ts, type="agent_text", summary=t,
+                                ))
+                        elif block.get("type") == "tool_use":
+                            tool_name = block.get("name", "?")
+                            inp = block.get("input", {})
+                            if tool_name == "Bash":
+                                cmd = (inp.get("command") or "")[:160]
+                                entries.append(LogEntry(
+                                    timestamp=ts, type="bash",
+                                    summary=f"$ {cmd}",
+                                ))
+                            elif tool_name in ("Edit", "Write"):
+                                p = inp.get("file_path", "?")
+                                entries.append(LogEntry(
+                                    timestamp=ts, type="edit",
+                                    summary=f"{tool_name} → {p}",
+                                ))
+                            elif tool_name == "Read":
+                                p = inp.get("file_path", "?")
+                                entries.append(LogEntry(
+                                    timestamp=ts, type="read",
+                                    summary=f"Read {p}",
+                                ))
+                            elif tool_name == "Grep":
+                                pat = (inp.get("pattern") or "")[:80]
+                                entries.append(LogEntry(
+                                    timestamp=ts, type="grep",
+                                    summary=f"Grep {pat!r}",
+                                ))
+                            elif tool_name == "TodoWrite":
+                                entries.append(LogEntry(
+                                    timestamp=ts, type="todo",
+                                    summary="Updated todo list",
+                                ))
+                            else:
+                                entries.append(LogEntry(
+                                    timestamp=ts, type="tool",
+                                    summary=f"Tool {tool_name}",
+                                ))
+                elif etype == "user" and isinstance(msg.get("content"), list):
+                    for block in msg["content"]:
+                        if block.get("type") == "tool_result" and block.get("is_error"):
+                            content = block.get("content", "")
+                            if isinstance(content, list):
+                                content = " ".join(
+                                    str(c.get("text", c)) for c in content
+                                )
+                            entries.append(LogEntry(
+                                timestamp=ts, type="error", is_error=True,
+                                summary=str(content)[:280],
+                            ))
+                elif etype == "result":
+                    entries.append(LogEntry(
+                        timestamp=ts, type="end",
+                        summary=f"Agent finished — {obj.get('subtype', '?')} "
+                                f"(turns={obj.get('num_turns')}, "
+                                f"cost=${obj.get('total_cost_usd', 0)})",
+                    ))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Log read failed")
+        raise HTTPException(500, f"Could not read logs: {exc}")
+
+    return entries
 
 
 # ─── Approval workflow (Sprint 5) ──────────────────────────────────────

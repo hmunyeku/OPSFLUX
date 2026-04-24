@@ -31,6 +31,36 @@ export type AgentPhase =
   | 'report'
   | 'post_merge'
 
+export interface AgentReportFile {
+  path: string
+  lines_added: number
+  lines_removed: number
+  purpose: string
+}
+
+export interface AgentReport {
+  status: 'success' | 'partial' | 'failed'
+  failure_reason?: string | null
+  phases_completed?: string[]
+  root_cause?: string
+  files_modified?: AgentReportFile[]
+  tests_added?: { path: string; name: string }[]
+  pr?: {
+    number?: number | null
+    url?: string | null
+    branch?: string
+    commit_sha?: string
+  }
+  metrics?: {
+    total_tokens_used?: number
+    wall_time_seconds?: number
+    iterations_required?: number
+  }
+  reasoning_summary?: string
+  warnings?: string[]
+  next_steps_recommended?: string[]
+}
+
 export interface AgentRun {
   id: string
   ticket_id: string
@@ -52,6 +82,30 @@ export interface AgentRun {
   ended_at: string | null
   created_at: string
   updated_at: string
+  report_json: AgentReport | null
+  failed_gates: Record<string, { ok: boolean; message: string; details?: Record<string, unknown> }> | null
+}
+
+export interface AgentLogEntry {
+  timestamp: string | null
+  type: 'init' | 'agent_text' | 'bash' | 'edit' | 'read' | 'grep' | 'todo' | 'tool' | 'error' | 'end'
+  summary: string
+  is_error: boolean
+}
+
+export function useAgentLogExcerpt(runId: string | null, opts?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['agent-run-logs', runId],
+    queryFn: async () => {
+      if (!runId) return []
+      const { data } = await api.get<AgentLogEntry[]>(
+        `/api/v1/support/agent/runs/${runId}/log-excerpt`,
+        { params: { limit: 300 } },
+      )
+      return data
+    },
+    enabled: opts?.enabled !== false && !!runId,
+  })
 }
 
 const TERMINAL: AgentRunStatus[] = ['completed', 'failed', 'cancelled', 'rejected', 'failed_and_reverted']

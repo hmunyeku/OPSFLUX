@@ -16,6 +16,7 @@ import {
 } from '@/hooks/useAgentRuns'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { AgentRunReviewPanel } from './AgentRunReviewPanel'
 
 const PHASES: { id: AgentPhase; label: string }[] = [
   { id: 'triage', label: 'Triage' },
@@ -208,6 +209,34 @@ export function TicketAgentTab({
           )}
         </div>
       </div>
+
+      {/* Latest finished run with PR — full review panel */}
+      {(() => {
+        const latestReviewable = previousRuns.find(
+          (r) => (r.status === 'completed' || r.status === 'awaiting_human') && r.github_pr_url,
+        )
+        if (!latestReviewable) return null
+        return (
+          <div className="border border-border/60 rounded-lg bg-card">
+            <div className="px-4 py-2.5 border-b border-border/40">
+              <span className="text-sm font-semibold">Dernier run — proposition de l'agent</span>
+              <span className="ml-2 text-[10px] text-muted-foreground font-mono">
+                {latestReviewable.id.slice(0, 8)}
+              </span>
+            </div>
+            <div className="p-4">
+              <AgentRunReviewPanel
+                run={latestReviewable}
+                onMerge={handleApprove}
+                onReject={handleReject}
+                isMerging={approve.isPending}
+                isRejecting={reject.isPending}
+                canManage={canManage}
+              />
+            </div>
+          </div>
+        )
+      })()}
 
       {previousRuns.length > 0 && (
         <div className="border border-border/60 rounded-lg bg-card">

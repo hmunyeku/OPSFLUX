@@ -399,11 +399,18 @@ Lecture rapide en 30 secondes : section **Synthèse transverse** en bas.
 
 ### Top 5 dettes techniques à traiter en priorité
 
-1. 🚨 **Monolithes frontend** — 11 fichiers > 1500 lignes. Règle : split systématique quand un fichier dépasse 800 lignes.
-   - ~~`UsersPage.tsx`~~ ✅ **splitté** (2790 → 902, −66 %) en 6 fichiers : UsersPage (table + routing), UserDetailPanel (987), UserEntitiesTab, UserInnerTabs (journal+permissions), CreateUserPanel, BatchAssignModal
-   - `PapyrusCorePage.tsx` (2675)
-   - `RbacAdminTab.tsx` (2300)
-   - `ProjectDetailPanel.tsx` (2226)
+1. 🚨 **Monolithes frontend** — 10 des 11 fichiers > 1500 lignes ont été splittés. `AdsDetailPanel.tsx` (1621, un seul composant monolithique sans sous-sections) reste en l'état — splitter nécessiterait de restructurer la logique même.
+   - ~~`UsersPage.tsx`~~ ✅ 2790 → 902 (−66 %) — 6 fichiers
+   - ~~`PapyrusCorePage.tsx`~~ ✅ 2675 → 2093 (−22 %)
+   - ~~`RbacAdminTab.tsx`~~ ✅ 2300 → 1835 (−20 %)
+   - ~~`ProjectDetailPanel.tsx`~~ ✅ 2226 → 1756 (−21 %)
+   - ~~`GanttView.tsx`~~ ✅ 2093 → 1831 (−13 %) — helpers purs extraits
+   - ~~`TiersPage.tsx`~~ ✅ 2067 → 1483 (−28 %)
+   - ~~`PidPfdPage.tsx`~~ ✅ 2001 → 1354 (−32 %)
+   - ~~`MOCDetailPanel.tsx`~~ ✅ 1766 → 1193 (−32 %)
+   - ~~`EditPdfTemplatePanel.tsx`~~ ✅ 1687 → 1183 (−30 %)
+   - ~~`DetailPanels.tsx` (asset-registry)~~ ✅ 1579 → 907 (−43 %)
+   - `AdsDetailPanel.tsx` (1621) — **non splitté** (cf. note ci-dessus)
 
 2. 🚨 **paxlog.py backend** — 11,631 lignes encore malgré split précédent. Finaliser l'extraction en sous-routers.
 

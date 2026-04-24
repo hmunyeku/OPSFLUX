@@ -40,11 +40,13 @@ import {
   Redo2,
   Type,
   Variable,
+  ChevronRight,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
+import { TextDiffViewer } from '@/components/shared/TextDiffViewer'
 import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
 import {
   PanelContentLayout, DynamicPanelShell,
@@ -1002,6 +1004,20 @@ function VersionEditor({
           </p>
         </div>
 
+        {/* Diff preview — shows what changed vs the saved version
+            so operators don't publish surprise edits. Collapsed by
+            default; rendering is cheap (LCS over template-sized HTML)
+            but we hide it until the user opens it to keep the panel
+            uncluttered during normal edits. */}
+        {hasChanges && (
+          <CollapsibleDiff
+            originalSubject={version.subject}
+            modifiedSubject={subject}
+            originalBody={version.body_html}
+            modifiedBody={bodyHtml}
+          />
+        )}
+
         {/* Save/cancel buttons */}
         {hasChanges && (
           <div className="flex items-center gap-2 pt-1 border-t border-border/50">
@@ -1019,6 +1035,54 @@ function VersionEditor({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function CollapsibleDiff({
+  originalSubject, modifiedSubject, originalBody, modifiedBody,
+}: {
+  originalSubject: string
+  modifiedSubject: string
+  originalBody: string
+  modifiedBody: string
+}) {
+  const [open, setOpen] = useState(false)
+  const subjectChanged = originalSubject !== modifiedSubject
+  const bodyChanged = originalBody !== modifiedBody
+  if (!subjectChanged && !bodyChanged) return null
+  return (
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 w-full px-3 py-2 text-left"
+      >
+        <ChevronRight size={12} className={cn('text-muted-foreground transition-transform', open && 'rotate-90')} />
+        <span className="text-xs font-medium text-foreground">
+          Voir les modifications
+        </span>
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {subjectChanged && 'sujet '}
+          {bodyChanged && 'corps'}
+        </span>
+      </button>
+      {open && (
+        <div className="border-t border-amber-500/20 p-3 space-y-3 bg-background">
+          {subjectChanged && (
+            <div>
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Sujet</div>
+              <TextDiffViewer original={originalSubject} modified={modifiedSubject} />
+            </div>
+          )}
+          {bodyChanged && (
+            <div>
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Corps HTML</div>
+              <TextDiffViewer original={originalBody} modified={modifiedBody} hideContext />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

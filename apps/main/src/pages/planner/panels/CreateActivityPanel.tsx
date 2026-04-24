@@ -58,6 +58,7 @@ function ActivityInner() {
   const { t } = useTranslation()
   const { toast } = useToast()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const ctx = useSmartForm()
   const createActivity = useCreateActivity()
   const activityTypeLabels = useDictionaryLabels('planner_activity_type', ACTIVITY_TYPE_LABELS_FALLBACK)
@@ -92,13 +93,17 @@ function ActivityInner() {
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     createActivity.mutate(normalizeNames({ ...form, staging_ref: stagingRef }), {
-      onSuccess: () => {
+      onSuccess: (created) => {
         toast({ title: t('planner.toast.activity_created'), variant: 'success' })
-        closeDynamicPanel()
+        if (created?.id) {
+          openDynamicPanel({ type: 'detail', module: 'planner', id: created.id })
+        } else {
+          closeDynamicPanel()
+        }
       },
       onError: () => toast({ title: t('planner.toast.creation_error'), variant: 'error' }),
     })
-  }, [form, stagingRef, createActivity, toast, closeDynamicPanel, t])
+  }, [form, stagingRef, createActivity, toast, closeDynamicPanel, openDynamicPanel, t])
 
   return (
     <DynamicPanelShell

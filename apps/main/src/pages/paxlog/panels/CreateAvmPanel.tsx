@@ -37,6 +37,7 @@ function CreateAvmInner() {
   const createAvm = useCreateAvm()
   const { stagingRef, stagingOwnerType } = useStagingRef('avm')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const missionTypeOptions = useDictionaryOptions('mission_type')
   const missionActivityTypeOptions = useDictionaryOptions('mission_activity_type')
 
@@ -112,7 +113,7 @@ function CreateAvmInner() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createAvm.mutateAsync({
+    const created = await createAvm.mutateAsync({
       title: form.title,
       description: form.description || undefined,
       staging_ref: stagingRef,
@@ -138,7 +139,7 @@ function CreateAvmInner() {
           notes: program.notes || null,
         })),
     })
-    closeDynamicPanel()
+    openDynamicPanel({ type: 'detail', module: 'paxlog', id: created.id, meta: { subtype: 'avm' } })
   }
 
   return (

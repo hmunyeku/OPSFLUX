@@ -35,6 +35,7 @@ function IncidentInner() {
   const { t } = useTranslation()
   const createIncident = useCreatePaxIncident()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const ctx = useSmartForm()
   const severityOptions = useDictionaryOptions('pax_incident_severity')
   const [targetScope, setTargetScope] = useState<'pax' | 'company' | 'group'>('pax')
@@ -84,7 +85,7 @@ function IncidentInner() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createIncident.mutateAsync({
+    const created = await createIncident.mutateAsync({
       severity: form.severity,
       description: form.description,
       incident_date: form.incident_date,
@@ -97,7 +98,7 @@ function IncidentInner() {
       ban_end_date: form.ban_end_date || null,
       staging_ref: stagingRef,
     })
-    closeDynamicPanel()
+    openDynamicPanel({ type: 'detail', module: 'paxlog', id: created.id, meta: { subtype: 'incident' } })
   }
 
   const showBanDates = form.severity === 'temp_ban' || form.severity === 'permanent_ban'

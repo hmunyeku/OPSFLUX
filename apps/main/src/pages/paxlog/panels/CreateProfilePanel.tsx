@@ -32,6 +32,7 @@ function CreateProfileInner() {
   const { t } = useTranslation()
   const createProfile = useCreatePaxProfile()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const paxTypeOptions = useDictionaryOptions('pax_type')
   const paxTypeLabels = useDictionaryLabels('pax_type', { internal: t('paxlog.internal'), external: t('paxlog.external') })
 
@@ -58,7 +59,7 @@ function CreateProfileInner() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createProfile.mutateAsync(normalizeNames({
+    const created = await createProfile.mutateAsync(normalizeNames({
       type: form.type,
       first_name: form.first_name,
       last_name: form.last_name,
@@ -68,7 +69,7 @@ function CreateProfileInner() {
       company_id: form.type === 'external' ? form.company_id || undefined : undefined,
       user_id: form.type === 'internal' ? form.user_id || undefined : undefined,
     }))
-    closeDynamicPanel()
+    openDynamicPanel({ type: 'detail', module: 'paxlog', id: created.id, meta: { subtype: 'profile' } })
   }
 
   const handleUserSelect = (user: { id: string; first_name: string; last_name: string; email: string }) => {

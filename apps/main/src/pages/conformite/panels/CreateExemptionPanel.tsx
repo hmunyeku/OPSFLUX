@@ -31,6 +31,7 @@ function CreateExemptionInner() {
   const { t } = useTranslation()
   const createExemption = useCreateExemption()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { toast } = useToast()
 
   const { data: recordsData } = useComplianceRecords({ page: 1, page_size: 200 })
@@ -50,8 +51,8 @@ function CreateExemptionInner() {
       return
     }
     try {
-      await createExemption.mutateAsync(form)
-      closeDynamicPanel()
+      const created = await createExemption.mutateAsync(form)
+      openDynamicPanel({ type: 'detail', module: 'conformite', id: created.id, meta: { subtype: 'exemption' } })
       toast({ title: t('conformite.toast.exemption_created'), variant: 'success' })
     } catch {
       toast({ title: t('conformite.toast.exemption_creation_error'), variant: 'error' })

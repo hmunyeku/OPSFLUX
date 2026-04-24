@@ -31,6 +31,7 @@ function CreateJobPositionInner() {
   const { t } = useTranslation()
   const createJP = useCreateJobPosition()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { toast } = useToast()
   const [form, setForm] = useState<JobPositionCreate>({
     name: '',
@@ -41,8 +42,8 @@ function CreateJobPositionInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await createJP.mutateAsync(normalizeNames(form))
-      closeDynamicPanel()
+      const created = await createJP.mutateAsync(normalizeNames(form))
+      openDynamicPanel({ type: 'detail', module: 'conformite', id: created.id, meta: { subtype: 'job-position' } })
       toast({ title: t('conformite.toast.job_position_created'), variant: 'success' })
     } catch {
       toast({ title: t('conformite.toast.error'), variant: 'error' })

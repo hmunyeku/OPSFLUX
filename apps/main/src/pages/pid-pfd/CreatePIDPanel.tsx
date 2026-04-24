@@ -16,6 +16,15 @@ import {
   InlineEditableTags,
   type ActionItem,
 } from '@/components/layout/DynamicPanel'
+import {
+  SmartFormProvider,
+  SmartFormSection,
+  SmartFormToolbar,
+  SmartFormSimpleHint,
+  SmartFormInlineHelpDrawer,
+  SmartFormWizardNav,
+  useSmartForm,
+} from '@/components/layout/SmartForm'
 import { TabBar } from '@/components/ui/Tabs'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -60,7 +69,16 @@ const TAG_TYPE_OPTIONS = [
 // -- Create PID Panel ---------------------------------------------------------
 
 export function CreatePIDPanel() {
-  const { closeDynamicPanel } = useUIStore()
+  return (
+    <SmartFormProvider panelId="create-pid" defaultMode="simple">
+      <CreatePIDPanelInner />
+    </SmartFormProvider>
+  )
+}
+
+function CreatePIDPanelInner() {
+  const ctx = useSmartForm()
+  const { closeDynamicPanel, openDynamicPanel } = useUIStore()
   const { t } = useTranslation()
   const { toast } = useToast()
   const createPID = useCreatePIDDocument()
@@ -72,32 +90,92 @@ export function CreatePIDPanel() {
       return
     }
     try {
-      await createPID.mutateAsync(form)
+      const created = await createPID.mutateAsync(form)
       toast({ title: t('pidpfd.toast.success'), description: t('pidpfd.toast.pid_created') })
-      closeDynamicPanel()
+      // Reopen on the PID detail so the user can immediately add
+      // equipment / process lines / DCS tags — polymorphic children
+      // after create.
+      if (created?.id) {
+        openDynamicPanel({ type: 'detail', module: 'pid-pfd', id: created.id })
+      } else {
+        closeDynamicPanel()
+      }
     } catch {
       toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.pid_create_error'), variant: 'error' })
     }
-  }, [form, createPID, toast, closeDynamicPanel])
+  }, [form, createPID, toast, t, closeDynamicPanel, openDynamicPanel])
+
+  const actionItems = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: t('common.cancel'), priority: 40, onClick: closeDynamicPanel },
+    {
+      id: 'create',
+      label: t('common.create'),
+      variant: 'primary',
+      priority: 100,
+      loading: createPID.isPending,
+      disabled: createPID.isPending || !form.title.trim(),
+      onClick: handleSubmit,
+    },
+  ], [t, closeDynamicPanel, createPID.isPending, form.title, handleSubmit])
 
   return (
-    <DynamicPanelShell title="Nouveau PID" icon={<FilePlus2 size={14} />} onClose={closeDynamicPanel}>
+    <DynamicPanelShell
+      title={t('pidpfd.create_pid', 'Nouveau PID')}
+      subtitle="PID/PFD"
+      icon={<FilePlus2 size={14} className="text-primary" />}
+      actionItems={actionItems}
+    >
       <PanelContentLayout>
-        <FormSection title={t('common.information')}>
-          <div className="space-y-3 p-3">
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+
+        <SmartFormSection
+          id="t_pid_identity"
+          title={t('common.information')}
+          level="essential"
+          help={{ description: t('pidpfd.sections.identity_help', 'Titre et type du document — champs obligatoires') }}
+        >
+          <div className="space-y-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Titre *</label>
-              <input className="gl-form-input text-sm w-full" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Titre du document PID" />
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                {t('common.title_field', 'Titre')} <span className="text-destructive">*</span>
+              </label>
+              <input
+                className="gl-form-input text-sm w-full"
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder={t('pidpfd.placeholders.title', 'Titre du document PID') as string}
+              />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Type</label>
-              <select className="gl-form-select text-sm w-full" value={form.pid_type} onChange={(e) => setForm((f) => ({ ...f, pid_type: e.target.value }))}>
+              <select
+                className="gl-form-select text-sm w-full"
+                value={form.pid_type}
+                onChange={(e) => setForm((f) => ({ ...f, pid_type: e.target.value }))}
+              >
                 {Object.entries(PID_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
+          </div>
+        </SmartFormSection>
+
+        <SmartFormSection
+          id="t_pid_drawing"
+          title={t('pidpfd.sections.drawing', 'Dessin')}
+          level="advanced"
+          help={{ description: t('pidpfd.sections.drawing_help', 'Format feuille, échelle, numéro — valeurs par défaut A1 / 1:50') }}
+          defaultExpanded={false}
+        >
+          <div className="space-y-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Format feuille</label>
-              <select className="gl-form-select text-sm w-full" value={form.sheet_format} onChange={(e) => setForm((f) => ({ ...f, sheet_format: e.target.value }))}>
+              <select
+                className="gl-form-select text-sm w-full"
+                value={form.sheet_format}
+                onChange={(e) => setForm((f) => ({ ...f, sheet_format: e.target.value }))}
+              >
                 <option value="A0">A0</option>
                 <option value="A1">A1</option>
                 <option value="A2">A2</option>
@@ -107,20 +185,28 @@ export function CreatePIDPanel() {
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Échelle</label>
-              <input className="gl-form-input text-sm w-full" value={form.scale} onChange={(e) => setForm((f) => ({ ...f, scale: e.target.value }))} placeholder="1:50" />
+              <input
+                className="gl-form-input text-sm w-full"
+                value={form.scale}
+                onChange={(e) => setForm((f) => ({ ...f, scale: e.target.value }))}
+                placeholder="1:50"
+              />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Numéro de dessin</label>
-              <input className="gl-form-input text-sm w-full" value={form.drawing_number} onChange={(e) => setForm((f) => ({ ...f, drawing_number: e.target.value }))} placeholder="DWG-001" />
+              <input
+                className="gl-form-input text-sm w-full"
+                value={form.drawing_number}
+                onChange={(e) => setForm((f) => ({ ...f, drawing_number: e.target.value }))}
+                placeholder="DWG-001"
+              />
             </div>
           </div>
-        </FormSection>
-        <div className="p-3 border-t border-border">
-          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createPID.isPending}>
-            {createPID.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <FilePlus2 size={12} className="mr-2" />}
-            Créer le PID
-          </button>
-        </div>
+        </SmartFormSection>
+
+        {ctx?.mode === 'wizard' && (
+          <SmartFormWizardNav onSubmit={handleSubmit} onCancel={closeDynamicPanel} />
+        )}
       </PanelContentLayout>
     </DynamicPanelShell>
   )

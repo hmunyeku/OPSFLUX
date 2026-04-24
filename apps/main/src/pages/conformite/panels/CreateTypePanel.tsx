@@ -32,6 +32,7 @@ function CreateTypeInner() {
   const { t } = useTranslation()
   const createType = useCreateComplianceType()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { toast } = useToast()
   const { categoryOptions } = useConformiteDictionaryState()
   const [form, setForm] = useState<ComplianceTypeCreate>({
@@ -45,8 +46,8 @@ function CreateTypeInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await createType.mutateAsync(normalizeNames(form))
-      closeDynamicPanel()
+      const created = await createType.mutateAsync(normalizeNames(form))
+      openDynamicPanel({ type: 'detail', module: 'conformite', id: created.id })
       toast({ title: t('conformite.toast.type_created'), variant: 'success' })
     } catch {
       toast({ title: t('conformite.toast.error'), variant: 'error' })

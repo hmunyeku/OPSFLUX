@@ -30,6 +30,7 @@ function CreateRotationInner() {
   const { t } = useTranslation()
   const createRotation = useCreateRotationCycle()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
   const [paxSearch, setPaxSearch] = useState('')
   const { data: paxData, isLoading: paxLoading } = usePaxProfiles({ page: 1, page_size: 20, search: paxSearch || undefined })
@@ -47,7 +48,7 @@ function CreateRotationInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.user_id && !form.contact_id) return
-    await createRotation.mutateAsync({
+    const created = await createRotation.mutateAsync({
       user_id: form.user_id,
       contact_id: form.contact_id,
       site_asset_id: form.site_asset_id,
@@ -56,7 +57,7 @@ function CreateRotationInner() {
       start_date: form.start_date,
       notes: form.notes || undefined,
     })
-    closeDynamicPanel()
+    openDynamicPanel({ type: 'detail', module: 'paxlog', id: created.id, meta: { subtype: 'rotation' } })
   }
 
   return (

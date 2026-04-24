@@ -52,6 +52,7 @@ function AdsInner() {
   const ctx = useSmartForm()
   const createAds = useCreateAds()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const currentUser = useAuthStore((s) => s.user)
   const [companySearch, setCompanySearch] = useState('')
   const visitCategoryOptions = useDictionaryOptions('visit_category')
@@ -142,8 +143,8 @@ function AdsInner() {
         contact_id: p.contact_id,
       })),
     }
-    await createAds.mutateAsync(payload)
-    closeDynamicPanel()
+    const created = await createAds.mutateAsync(payload)
+    openDynamicPanel({ type: 'detail', module: 'paxlog', id: created.id })
   }
 
   return (

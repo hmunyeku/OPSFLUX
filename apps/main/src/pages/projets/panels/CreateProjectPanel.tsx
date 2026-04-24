@@ -51,6 +51,7 @@ export function CreateProjectPanel() {
   const { t } = useTranslation()
   const createProject = useCreateProject()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { toast } = useToast()
   const projectStatusLabels = useDictionaryLabels('project_status', PROJECT_STATUS_LABELS_FALLBACK)
   const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
@@ -146,8 +147,8 @@ export function CreateProjectPanel() {
         staging_ref: stagingRef,
         initial_tasks: initialTasks,
       }
-      await createProject.mutateAsync(normalizeNames(payload))
-      closeDynamicPanel()
+      const created = await createProject.mutateAsync(normalizeNames(payload))
+      openDynamicPanel({ type: 'detail', module: 'projets', id: created.id })
       toast({ title: t('projets.toast.project_created'), variant: 'success' })
     } catch {
       toast({ title: t('projets.toast.error'), variant: 'error' })

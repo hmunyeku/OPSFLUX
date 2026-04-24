@@ -400,18 +400,18 @@ Lecture rapide en 30 secondes : section **Synthèse transverse** en bas.
 ### Top 5 dettes techniques à traiter en priorité
 
 1. 🚨 **Monolithes frontend** — 11 fichiers > 1500 lignes. Règle : split systématique quand un fichier dépasse 800 lignes.
-   - `UsersPage.tsx` (2790) — le pire
+   - `UsersPage.tsx` (2790 → **2500**, en cours ; BatchAssignModal extrait, dead code AccountsOverview purgé)
    - `PapyrusCorePage.tsx` (2675)
    - `RbacAdminTab.tsx` (2300)
    - `ProjectDetailPanel.tsx` (2226)
 
 2. 🚨 **paxlog.py backend** — 11,631 lignes encore malgré split précédent. Finaliser l'extraction en sous-routers.
 
-3. 🐛 **`capacity_heatmap` widget** — throw en prod à chaque dashboard render. Fix ou disable.
+3. 🐛 ~~**`capacity_heatmap` widget**~~ — ✅ **fixé** (commit `cd8f13fa`) : provider entouré d'un try/except qui retourne `{data:[], error:"unavailable"}` au lieu de crasher le dashboard. Rollback entre la MV et le fallback pour garder la session utilisable.
 
 4. ⚠ **Duplication schema** — Record vs Rule en conformité, voyage/vector dans travelwiz. Consolider via Pydantic héritage.
 
-5. ⚠ **Assets page 15 lignes placeholder** — redirect vers asset-registry ou supprimer.
+5. ⚠ ~~**Assets page 15 lignes placeholder**~~ — ✅ **vérifié** : c'est déjà un redirect fonctionnel vers `/assets` (= AssetRegistryPage). Route legacy `/assets-legacy/*` conservée comme filet de sécurité. Pas de bug.
 
 ### Top 5 améliorations fonctionnelles impactantes
 
@@ -447,7 +447,7 @@ Lecture rapide en 30 secondes : section **Synthèse transverse** en bas.
 
 ### Dette infra
 
-- **Docker images 3 separate CI workflows** (agent-runner, agent-worker, playwright-runner) — les unifier en un workflow matrix saverait minutes/mois de GHA quota.
+- ~~**Docker images 3 separate CI workflows**~~ — ✅ **unifiés** (commit `b906e7ea`) : `agent-images.yml` dispatche vers `_build-image.yml` réutilisable avec gating paths-filter. Chaque image ne rebuild que si son dossier a changé.
 - **Alembic heads** actuellement 148 puis 149-153 — surveiller que les merges ne recréent pas de multi-heads.
 - **Frontend bundle** : le main bundle `index-*.js` pèse 590 KB (visible dans logs frontend). Potential pour lazy loading par module.
 

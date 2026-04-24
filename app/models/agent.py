@@ -148,6 +148,13 @@ class SupportAgentRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     mission_md_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     report_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # List of attachments (ticket PJ + inline description <img>)
+    # the worker should copy into /workspace/.attachments/ before
+    # launching the agent container. Populated by launch_run(),
+    # consumed by agent-worker. Survives agent completion (unlike
+    # report_json which gets overwritten).
+    attachments_manifest: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     failed_gates: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 

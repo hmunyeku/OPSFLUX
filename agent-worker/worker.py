@@ -148,7 +148,7 @@ async def claim_next_run(pool: asyncpg.Pool, worker_id: UUID) -> dict[str, Any] 
                 SELECT id, ticket_id, entity_id, autonomy_mode, deployment_mode,
                        github_connection_id, agent_runner_connection_id,
                        dokploy_staging_connection_id, dokploy_prod_connection_id,
-                       mission_md_content, worktree_path
+                       mission_md_content, worktree_path, attachments_manifest
                   FROM support_agent_runs
                  WHERE status = 'pending'
                  ORDER BY created_at
@@ -297,6 +297,85 @@ async def _mint_github_token_for_run(
     return None
 
 
+async def _stage_attachments(
+    run_id: UUID,
+    manifest: Any,
+    worktree: Path,
+) -> None:
+    """Download each attachment in the manifest into worktree/.attachments/.
+
+    The manifest was populated by the backend harness; it's a JSONB list
+    of dicts with attachment_id + filename + content_type. We fetch each
+    via the scoped internal endpoint (GET /runs/{id}/attachments/{aid}/bytes)
+    so the agent container sees ready-to-read files — no network calls
+    needed on the agent side.
+
+    Best-effort: a single failed download does not abort the run, but we
+    log it so the supervisor can see the issue.
+    """
+    if not manifest:
+        return
+    # asyncpg returns JSONB as a string in some paths; normalise.
+    if isinstance(manifest, str):
+        try:
+            manifest = json.loads(manifest)
+        except json.JSONDecodeError:
+            logger.warning("Run %s: attachments_manifest not decodable JSON", run_id)
+            return
+    if not isinstance(manifest, list) or not manifest:
+        return
+    if not OPSFLUX_INTERNAL_TOKEN:
+        logger.warning("Run %s: OPSFLUX_INTERNAL_TOKEN missing — skipping attachments", run_id)
+        return
+
+    att_dir = worktree / ".attachments"
+    att_dir.mkdir(parents=True, exist_ok=True)
+    att_dir.chmod(0o777)
+
+    api_host = os.getenv("OPSFLUX_API_PUBLIC_HOST", "api.opsflux.io")
+    headers = {
+        "X-Internal-Token": OPSFLUX_INTERNAL_TOKEN,
+        # TrustedHost on the backend rejects requests whose Host header
+        # isn't on ALLOWED_HOSTS — force the public hostname even
+        # though we're calling through the internal network.
+        "Host": api_host,
+    }
+    ok, fail = 0, 0
+    async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
+        for entry in manifest:
+            aid = entry.get("attachment_id")
+            fname = entry.get("filename")
+            if not aid or not fname:
+                fail += 1
+                continue
+            url = f"{OPSFLUX_API_URL}/api/v1/support/agent/runs/{run_id}/attachments/{aid}/bytes"
+            try:
+                resp = await client.get(url)
+                if resp.status_code != 200:
+                    logger.warning(
+                        "Run %s: attachment %s fetch returned %s",
+                        run_id, aid, resp.status_code,
+                    )
+                    fail += 1
+                    continue
+                data = resp.content
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Run %s: attachment %s fetch error: %s", run_id, aid, exc)
+                fail += 1
+                continue
+
+            safe_name = fname.replace("/", "_").replace("..", "_")
+            target = att_dir / safe_name
+            target.write_bytes(data)
+            target.chmod(0o644)
+            ok += 1
+
+    logger.info(
+        "Run %s: staged %d/%d attachments under %s",
+        run_id, ok, ok + fail, att_dir,
+    )
+
+
 async def run_container(run: dict[str, Any], pool: asyncpg.Pool) -> None:
     """Prepare the env + launch the agent container + stream its output.
 
@@ -329,6 +408,15 @@ async def run_container(run: dict[str, Any], pool: asyncpg.Pool) -> None:
     log_dir = LOG_ROOT / str(run_id)
     log_dir.mkdir(parents=True, exist_ok=True)
     log_dir.chmod(0o777)
+
+    # ── Attachments: download ticket PJ + inline <img> referenced
+    # ──               in the mission into /workspace/.attachments/
+    # so the agent can read them directly. Skips silently on failure —
+    # an attachment the worker can't reach shouldn't kill the run.
+    try:
+        await _stage_attachments(run_id, run.get("attachments_manifest"), worktree)
+    except Exception:  # noqa: BLE001
+        logger.exception("Run %s: attachment staging failed (non-fatal)", run_id)
 
     # Env for the container
     env = {

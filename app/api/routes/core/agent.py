@@ -804,6 +804,55 @@ async def worker_post_exec_callback(
     await db.commit()
 
 
+@router.get("/runs/{run_id}/attachments/{attachment_id}/bytes")
+async def worker_get_attachment_bytes(
+    run_id: UUID,
+    attachment_id: UUID,
+    x_internal_token: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Worker-side: stream raw attachment bytes into the container's
+    /workspace/.attachments/ folder.
+
+    Scoped: the attachment_id must appear in this specific run's
+    attachments_manifest, preventing a worker (or a leaked token) from
+    vacuuming every file in the system.
+
+    Auth: X-Internal-Token shared secret (same as post-exec).
+    """
+    from fastapi.responses import Response
+
+    expected = os.getenv("OPSFLUX_INTERNAL_TOKEN")
+    if not expected or x_internal_token != expected:
+        raise HTTPException(401, "Invalid internal token")
+
+    run = (
+        await db.execute(
+            select(SupportAgentRun).where(SupportAgentRun.id == run_id)
+        )
+    ).scalar_one_or_none()
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    manifest = run.attachments_manifest or []
+    entry = next(
+        (e for e in manifest if str(e.get("attachment_id")) == str(attachment_id)),
+        None,
+    )
+    if not entry:
+        raise HTTPException(404, "Attachment not in this run's manifest")
+
+    from app.core.storage_service import get_file_bytes
+    data = await get_file_bytes(entry["storage_path"])
+    if data is None:
+        raise HTTPException(404, "File missing from storage")
+
+    return Response(
+        content=data,
+        media_type=entry.get("content_type") or "application/octet-stream",
+    )
+
+
 # ─── Supervision dashboard ────────────────────────────────────────────
 #
 # Cross-ticket overview for admins: volume, success rate, cost, recent

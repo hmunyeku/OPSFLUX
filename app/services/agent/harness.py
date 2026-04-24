@@ -281,16 +281,125 @@ async def launch_run(
         {"author_id": str(c.author_id), "body": c.body} for c in recent
     ]
 
+    # Build the attachments manifest (ticket PJ + inline <img> in the
+    # description/comments). The worker will download the bytes to
+    # /workspace/.attachments/<filename> before launching the agent.
+    attachments_manifest = await _collect_attachments_manifest(
+        db, ticket=ticket, comments=recent,
+    )
+    run.attachments_manifest = attachments_manifest or None
+
     run.mission_md_content = build_mission_md(
         ticket=ticket,
         run=run,
         config=config,
         github_repo=github_repo,
         recent_comments=recent_dicts,
+        attachments_manifest=attachments_manifest,
     )
 
     await db.flush()
     return run
+
+
+async def _collect_attachments_manifest(
+    db: AsyncSession,
+    *,
+    ticket: SupportTicket,
+    comments: list[TicketComment],
+) -> list[dict[str, Any]]:
+    """Gather ticket attachments + inline <img> references.
+
+    Sources:
+      - `attachments` rows where owner_type='support_ticket' and
+        owner_id=<ticket.id> (files directly attached to the ticket).
+      - Each comment's `attachment_ids` JSONB list.
+      - `<img src="/api/v1/attachments/{id}/...">` tags embedded in
+        the ticket description or comment bodies, pointing back to
+        our own storage — these are reified as real manifest entries
+        so the agent can see the image locally.
+
+    Dedupes on attachment_id. Safe when empty: returns [].
+    """
+    from app.models.common import Attachment
+    import re as _re
+
+    manifest: dict[str, dict[str, Any]] = {}
+
+    def _add(att: Attachment, source: str) -> None:
+        aid = str(att.id)
+        if aid in manifest:
+            return
+        manifest[aid] = {
+            "attachment_id": aid,
+            "filename": att.filename,
+            "original_name": att.original_name,
+            "content_type": att.content_type,
+            "size_bytes": int(att.size_bytes or 0),
+            "storage_path": att.storage_path,
+            "source": source,
+            "description": att.description,
+        }
+
+    # 1) Direct ticket attachments
+    direct = (
+        await db.execute(
+            select(Attachment).where(
+                Attachment.owner_type == "support_ticket",
+                Attachment.owner_id == ticket.id,
+                Attachment.deleted_at.is_(None),
+            )
+        )
+    ).scalars().all()
+    for a in direct:
+        _add(a, source="ticket")
+
+    # 2) Attachments referenced by comments via attachment_ids JSONB
+    comment_att_ids: list[str] = []
+    for c in comments:
+        for aid in (c.attachment_ids or []):
+            if aid:
+                comment_att_ids.append(str(aid))
+    if comment_att_ids:
+        rows = (
+            await db.execute(
+                select(Attachment).where(
+                    Attachment.id.in_(comment_att_ids),
+                    Attachment.deleted_at.is_(None),
+                )
+            )
+        ).scalars().all()
+        for a in rows:
+            _add(a, source="comment")
+
+    # 3) Inline <img> refs in description + comment bodies — match
+    # our own /api/v1/attachments/<uuid> pattern.
+    IMG_RE = _re.compile(
+        r"/api/v1/attachments/([0-9a-fA-F-]{36})",
+    )
+    bodies: list[str] = []
+    if ticket.description:
+        bodies.append(ticket.description)
+    for c in comments:
+        if c.body:
+            bodies.append(c.body)
+    inline_ids: list[str] = []
+    for b in bodies:
+        inline_ids.extend(IMG_RE.findall(b))
+    inline_ids = [i for i in inline_ids if i not in manifest]
+    if inline_ids:
+        rows = (
+            await db.execute(
+                select(Attachment).where(
+                    Attachment.id.in_(inline_ids),
+                    Attachment.deleted_at.is_(None),
+                )
+            )
+        ).scalars().all()
+        for a in rows:
+            _add(a, source="description_img")
+
+    return list(manifest.values())
 
 
 async def launch_ci_retry_run(

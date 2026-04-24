@@ -37,6 +37,7 @@ def build_mission_md(
     github_repo: dict[str, Any],
     recent_comments: list[dict[str, Any]] | None = None,
     retry_ci_context: dict[str, Any] | None = None,
+    attachments_manifest: list[dict[str, Any]] | None = None,
 ) -> str:
     """Assemble the MISSION.md for this run.
 
@@ -63,6 +64,33 @@ def build_mission_md(
         for c in recent_comments[-5:]:
             author = c.get("author_name") or c.get("author_id", "?")
             comments_md += f"\n- **@{author}** — {c.get('body', '')[:500]}"
+
+    # Attachments section — the worker daemon pre-downloads each file
+    # into /workspace/.attachments/<filename> before launching the
+    # container, so the agent can read/view them directly.
+    attachments_md = ""
+    if attachments_manifest:
+        lines = ["\n\n### Pièces jointes\n"]
+        lines.append(
+            "Les fichiers ci-dessous ont été copiés dans "
+            "`/workspace/.attachments/` — utilise le tool Read ou View "
+            "pour les inspecter (utile pour les captures d'écran de bugs "
+            "visuels).\n"
+        )
+        for a in attachments_manifest:
+            fname = a.get("filename", "?")
+            orig = a.get("original_name") or fname
+            ctype = a.get("content_type", "")
+            size_kb = (a.get("size_bytes") or 0) // 1024
+            source = a.get("source", "ticket")
+            desc = a.get("description") or ""
+            desc_suffix = f" — _{desc}_" if desc else ""
+            lines.append(
+                f"- `/workspace/.attachments/{fname}` "
+                f"(**{orig}**, {ctype}, {size_kb} KB, source: {source})"
+                f"{desc_suffix}"
+            )
+        attachments_md = "\n".join(lines)
 
     forbidden_md = "\n".join(f"  - `{p}`" for p in forbidden)
 
@@ -144,6 +172,7 @@ produisant une Pull Request GitHub sur le dépôt
 {ticket.description or "_(pas de description fournie)_"}
 
 {comments_md}
+{attachments_md}
 
 ## Contraintes impératives
 

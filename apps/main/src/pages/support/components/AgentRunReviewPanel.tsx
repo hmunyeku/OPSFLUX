@@ -43,6 +43,11 @@ export function AgentRunReviewPanel({
   const report = run.report_json
   const failedGates = run.failed_gates
   const hasPR = Boolean(run.github_pr_url)
+  // Merge/reject only makes sense once the run has settled into a
+  // reviewable state. Guards against the 400 you get when clicking
+  // "Merger" while the run is still in triage/fix — the backend
+  // requires status in ('awaiting_human', 'completed').
+  const isMergeable = hasPR && (run.status === 'awaiting_human' || run.status === 'completed')
   const [logsOpen, setLogsOpen] = useState(false)
   const { toast } = useToast()
   const retryCi = useRetryCiAgentRun()
@@ -136,7 +141,7 @@ export function AgentRunReviewPanel({
       )}
 
       {/* Action buttons */}
-      {canManage && hasPR && run.status !== 'rejected' && (
+      {canManage && isMergeable && run.status !== 'rejected' && (
         <div className="flex gap-2 flex-wrap pt-1">
           <a
             href={run.github_pr_url!}

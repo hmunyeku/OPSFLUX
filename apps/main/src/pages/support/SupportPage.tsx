@@ -55,6 +55,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 import { TicketGithubCard } from '@/pages/support/components/TicketGithubCard'
 import { TicketAgentTab } from '@/pages/support/components/TicketAgentTab'
+import { AgentSupervisionPanel } from '@/pages/support/components/AgentSupervisionPanel'
 // ── Constants (fallbacks — overridden by dictionary entries when available) ──
 
 const TYPE_ICONS: Record<string, typeof Bug> = { bug: Bug, improvement: Lightbulb, question: HelpCircle, other: MoreHorizontal }
@@ -915,7 +916,7 @@ function AnnouncementsAdminTab() {
 
 // ── Main Page ───────────────────────────────────────────────
 
-type SupportTab = 'dashboard' | 'tickets' | 'announcements'
+type SupportTab = 'dashboard' | 'tickets' | 'announcements' | 'agent'
 
 // Columns to hide on mobile (< 768px)
 const MOBILE_HIDDEN_TICKET_COLS = new Set(['reporter_name', 'assignee_name', 'comment_count', 'created_at', 'ticket_type'])
@@ -985,6 +986,7 @@ export function SupportPage() {
             { id: 'dashboard' as const, label: t('common.tab_dashboard', 'Tableau de bord'), icon: LayoutDashboard },
             { id: 'tickets' as const, label: 'Tickets', icon: LifeBuoy },
             ...(canManageAnnouncements ? [{ id: 'announcements' as const, label: 'Annonces', icon: Megaphone }] : []),
+            ...(isAdmin ? [{ id: 'agent' as const, label: 'Agent IA', icon: Bot }] : []),
           ]}
           activeId={activeTab}
           onTabChange={(id) => setActiveTab(id as SupportTab)}
@@ -1025,6 +1027,12 @@ export function SupportPage() {
         {activeTab === 'announcements' && (
           <PanelContent scroll={false}>
             <AnnouncementsAdminTab />
+          </PanelContent>
+        )}
+
+        {activeTab === 'agent' && isAdmin && (
+          <PanelContent scroll={false}>
+            <AgentSupervisionPanel />
           </PanelContent>
         )}
       </div>}

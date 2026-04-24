@@ -703,3 +703,151 @@ async def worker_post_exec_callback(
 
     await apply_post_exec_callback(db, run_id)
     await db.commit()
+
+
+# ─── Supervision dashboard ────────────────────────────────────────────
+#
+# Cross-ticket overview for admins: volume, success rate, cost, recent
+# failures, circuit-breaker state. Powers the /admin/support/agent page.
+
+class AgentSupervisionSummary(BaseModel):
+    window_days: int
+    total_runs: int
+    runs_by_status: dict[str, int]
+    success_rate: float            # completed / total, 0..1
+    active_runs: int               # pending + preparing + running + awaiting_human
+    total_cost_usd: float
+    total_tokens: int
+    avg_wall_time_seconds: float | None
+    avg_cost_usd: float | None
+    monthly_budget_usd: float
+    monthly_spent_usd: float
+    budget_used_ratio: float       # spent / budget, 0..1 (can exceed 1)
+    circuit_breaker_tripped_at: datetime | None
+    consecutive_failures: int
+    daily_timeseries: list[dict]   # [{"date": "YYYY-MM-DD", "total": N, "success": N, "failed": N}]
+    recent_failures: list[dict]    # last 10 failed/rejected runs
+
+
+@router.get(
+    "/supervision",
+    response_model=AgentSupervisionSummary,
+    dependencies=[require_permission("support.ticket.manage")],
+)
+async def get_supervision_summary(
+    window_days: int = Query(default=7, ge=1, le=90),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregated metrics for the admin supervision page."""
+    from collections import defaultdict
+    from datetime import timedelta
+
+    from sqlalchemy import func as sa_func
+
+    now = datetime.now(UTC)
+    window_start = now - timedelta(days=window_days)
+
+    # ── runs in window ─────────────────────────────────────────────
+    runs_in_window = (
+        await db.execute(
+            select(SupportAgentRun).where(
+                SupportAgentRun.entity_id == entity_id,
+                SupportAgentRun.created_at >= window_start,
+            )
+        )
+    ).scalars().all()
+
+    runs_by_status: dict[str, int] = defaultdict(int)
+    total_cost = 0.0
+    total_tokens = 0
+    wall_times: list[int] = []
+    costs_completed: list[float] = []
+    for r in runs_in_window:
+        runs_by_status[r.status] += 1
+        total_cost += float(r.llm_cost_usd or 0)
+        total_tokens += int(r.llm_tokens_used or 0)
+        if r.wall_time_seconds is not None:
+            wall_times.append(r.wall_time_seconds)
+        if r.status == "completed" and r.llm_cost_usd is not None:
+            costs_completed.append(float(r.llm_cost_usd))
+
+    total = len(runs_in_window)
+    completed = runs_by_status.get("completed", 0)
+    success_rate = (completed / total) if total else 0.0
+
+    active_states = ("pending", "preparing", "running", "awaiting_human")
+    active_runs = sum(runs_by_status.get(s, 0) for s in active_states)
+
+    # ── config / budget ────────────────────────────────────────────
+    config = (
+        await db.execute(
+            select(SupportAgentConfig).where(SupportAgentConfig.entity_id == entity_id)
+        )
+    ).scalar_one_or_none()
+    monthly_budget = float(config.monthly_budget_usd) if config else 0.0
+    monthly_spent = float(config.current_month_spent_usd) if config else 0.0
+    budget_used_ratio = (monthly_spent / monthly_budget) if monthly_budget > 0 else 0.0
+    cb_tripped = config.circuit_breaker_tripped_at if config else None
+    consecutive_failures = int(config.current_consecutive_failures) if config else 0
+
+    # ── daily timeseries ───────────────────────────────────────────
+    daily: dict[str, dict[str, int]] = {}
+    for i in range(window_days):
+        d = (now - timedelta(days=i)).date().isoformat()
+        daily[d] = {"total": 0, "success": 0, "failed": 0}
+    for r in runs_in_window:
+        d = r.created_at.date().isoformat()
+        if d not in daily:
+            continue
+        daily[d]["total"] += 1
+        if r.status == "completed":
+            daily[d]["success"] += 1
+        elif r.status in ("failed", "failed_and_reverted", "rejected"):
+            daily[d]["failed"] += 1
+    timeseries = [
+        {"date": d, **stats}
+        for d, stats in sorted(daily.items())
+    ]
+
+    # ── recent failures ────────────────────────────────────────────
+    failed_rows = (
+        await db.execute(
+            select(SupportAgentRun).where(
+                SupportAgentRun.entity_id == entity_id,
+                SupportAgentRun.status.in_(["failed", "failed_and_reverted", "rejected"]),
+            ).order_by(SupportAgentRun.created_at.desc()).limit(10)
+        )
+    ).scalars().all()
+    recent_failures = [
+        {
+            "id": str(r.id),
+            "ticket_id": str(r.ticket_id),
+            "status": r.status,
+            "current_phase": r.current_phase,
+            "error_message": (r.error_message or "")[:280],
+            "created_at": r.created_at.isoformat(),
+            "ended_at": r.ended_at.isoformat() if r.ended_at else None,
+            "cost_usd": float(r.llm_cost_usd or 0),
+        }
+        for r in failed_rows
+    ]
+
+    return AgentSupervisionSummary(
+        window_days=window_days,
+        total_runs=total,
+        runs_by_status=dict(runs_by_status),
+        success_rate=round(success_rate, 3),
+        active_runs=active_runs,
+        total_cost_usd=round(total_cost, 4),
+        total_tokens=total_tokens,
+        avg_wall_time_seconds=(sum(wall_times) / len(wall_times)) if wall_times else None,
+        avg_cost_usd=(sum(costs_completed) / len(costs_completed)) if costs_completed else None,
+        monthly_budget_usd=monthly_budget,
+        monthly_spent_usd=monthly_spent,
+        budget_used_ratio=round(budget_used_ratio, 3),
+        circuit_breaker_tripped_at=cb_tripped,
+        consecutive_failures=consecutive_failures,
+        daily_timeseries=timeseries,
+        recent_failures=recent_failures,
+    )

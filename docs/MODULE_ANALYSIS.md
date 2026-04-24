@@ -400,7 +400,7 @@ Lecture rapide en 30 secondes : section **Synthèse transverse** en bas.
 ### Top 5 dettes techniques à traiter en priorité
 
 1. 🚨 **Monolithes frontend** — 11 fichiers > 1500 lignes. Règle : split systématique quand un fichier dépasse 800 lignes.
-   - `UsersPage.tsx` (2790 → **2500**, en cours ; BatchAssignModal extrait, dead code AccountsOverview purgé)
+   - ~~`UsersPage.tsx`~~ ✅ **splitté** (2790 → 902, −66 %) en 6 fichiers : UsersPage (table + routing), UserDetailPanel (987), UserEntitiesTab, UserInnerTabs (journal+permissions), CreateUserPanel, BatchAssignModal
    - `PapyrusCorePage.tsx` (2675)
    - `RbacAdminTab.tsx` (2300)
    - `ProjectDetailPanel.tsx` (2226)

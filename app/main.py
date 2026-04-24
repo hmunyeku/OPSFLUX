@@ -194,10 +194,12 @@ async def lifespan(app: FastAPI):
     import asyncio as _asyncio
     from app.services.agent.scheduler import (
         auto_trigger_loop, daily_digest_loop, ticket_housekeeping_loop,
+        weekly_digest_loop,
     )
     app.state.agent_trigger_task = _asyncio.create_task(auto_trigger_loop())
     app.state.agent_digest_task = _asyncio.create_task(daily_digest_loop())
     app.state.agent_housekeeping_task = _asyncio.create_task(ticket_housekeeping_loop())
+    app.state.agent_weekly_task = _asyncio.create_task(weekly_digest_loop())
 
     logger.info("OpsFlux ready — %d modules loaded", len(registry.get_all_modules()))
 

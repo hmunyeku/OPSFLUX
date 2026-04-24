@@ -939,10 +939,17 @@ async def obsolete_document(
 async def export_pdf(
     doc_id: UUID,
     revision_id: Optional[str] = None,
+    inline: bool = False,
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Export document as PDF via the centralized PDF template engine."""
+    """Export document as PDF via the centralized PDF template engine.
+
+    When `inline=true` is passed, the Content-Disposition header is set
+    to `inline` instead of `attachment` — the browser (or a frontend
+    iframe) can render the PDF in place instead of forcing a download.
+    Used by the Papyrus document detail panel's inline preview.
+    """
 
     from app.services.modules.papyrus_document_service import get_document, get_revision
     from app.core.pdf_templates import render_pdf
@@ -1001,10 +1008,11 @@ async def export_pdf(
             message="Template PDF 'document.export' introuvable. Créez-le dans Paramètres > Modèles PDF.",
         )
 
+    disposition = "inline" if inline else "attachment"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{doc.number}.pdf"'},
+        headers={"Content-Disposition": f'{disposition}; filename="{doc.number}.pdf"'},
     )
 
 

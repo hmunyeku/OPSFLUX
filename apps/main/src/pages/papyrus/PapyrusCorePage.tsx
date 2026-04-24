@@ -15,9 +15,10 @@ import {
   FileText, Plus, Loader2, Trash2, LayoutDashboard, Files, FileCode2, FolderCog,
   Send, CheckCircle2, XCircle, Globe, Download, Link2, Clock,
   Archive, PenTool, GitCompare, ChevronDown, ChevronRight, Folder, PanelLeftClose, PanelLeft, Upload,
-  Info, Paperclip,
+  Info, Paperclip, Eye,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
+import { InlinePdfViewer } from '@/components/shared/InlinePdfViewer'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
@@ -444,6 +445,11 @@ function DocumentDetailPanel({ id }: { id: string }) {
   const canApproveDoc = hasPermission('document.approve')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
+  // Inline PDF preview — toggled by the "Aperçu" button next to the
+  // existing Télécharger PDF. Uses the new ?inline=true flag on the
+  // export endpoint so the blob comes back with Content-Disposition:
+  // inline and the iframe viewer can render it directly.
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false)
 
   const { data: doc, isLoading: docLoading } = useDocument(id)
   const { data: revisions, isLoading: revisionsLoading } = useRevisions(id)
@@ -1314,6 +1320,10 @@ function DocumentDetailPanel({ id }: { id: string }) {
 
             {/* Export & Share */}
             <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+              <button onClick={() => setPdfPreviewOpen(true)} className="gl-button-sm gl-button-default">
+                <Eye size={12} />
+                <span>Aperçu</span>
+              </button>
               <button onClick={handleExportPdf} className="gl-button-sm gl-button-default">
                 <Download size={12} />
                 <span>PDF</span>
@@ -1443,6 +1453,16 @@ function DocumentDetailPanel({ id }: { id: string }) {
           <AttachmentManager ownerType="document" ownerId={doc.id} compact />
         </FormSection>
       </PanelContentLayout>
+      )}
+
+      {/* Inline PDF preview modal — lazy-loaded on demand */}
+      {pdfPreviewOpen && doc && (
+        <InlinePdfViewer
+          url={`/api/v1/papyrus/documents/${doc.id}/export/pdf?inline=true`}
+          title={`${doc.number || ''} — ${doc.title}`}
+          downloadName={`${doc.number || 'document'}.pdf`}
+          onClose={() => setPdfPreviewOpen(false)}
+        />
       )}
     </DynamicPanelShell>
   )

@@ -170,6 +170,7 @@ function CreateFieldInner() {
   const { toast } = useToast()
   const createField = useCreateField()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
   const dictEnv = useDictionaryOptions('environment_type')
   const envOptions = dictEnv.length > 0 ? dictEnv : ENVIRONMENT_FALLBACK
@@ -183,7 +184,7 @@ function CreateFieldInner() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createField.mutateAsync({
+    const created = await createField.mutateAsync({
       code: form.code, name: form.name, country: form.country,
       operator: form.operator || null,
       basin: form.basin || null, block_name: form.block_name || null,
@@ -202,7 +203,7 @@ function CreateFieldInner() {
       notes: form.notes || null,
     } as OilFieldCreate)
     toast({ title: t('assets.field_created'), variant: 'success' })
-    closeDynamicPanel()
+    openDynamicPanel({ type: 'detail', module: 'ar-field', id: created.id })
   }
 
   return (
@@ -367,6 +368,7 @@ function CreateSiteInner() {
   const { toast } = useToast()
   const createSite = useCreateSite()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: fieldsData } = useFields({ page: 1, page_size: 500 })
 
   const dictEnv = useDictionaryOptions('environment_type')
@@ -383,7 +385,7 @@ function CreateSiteInner() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createSite.mutateAsync({
+    const created = await createSite.mutateAsync({
       field_id: form.field_id, code: form.code, name: form.name,
       site_type: form.site_type, environment: form.environment, country: form.country,
       latitude: form.latitude ?? null, longitude: form.longitude ?? null,
@@ -401,7 +403,7 @@ function CreateSiteInner() {
       notes: form.notes || null,
     } as OilSiteCreate)
     toast({ title: t('assets.site_created'), variant: 'success' })
-    closeDynamicPanel()
+    openDynamicPanel({ type: 'detail', module: 'ar-site', id: created.id })
   }
 
   return (
@@ -594,6 +596,7 @@ function CreateInstallationInner() {
   const { toast } = useToast()
   const createInstallation = useCreateInstallation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: sitesData } = useSites({ page: 1, page_size: 500 })
 
   const dictEnv = useDictionaryOptions('environment_type')
@@ -610,7 +613,7 @@ function CreateInstallationInner() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createInstallation.mutateAsync({
+    const created = await createInstallation.mutateAsync({
       site_id: form.site_id, code: form.code, name: form.name,
       installation_type: form.installation_type, environment: form.environment,
       latitude: form.latitude ?? null, longitude: form.longitude ?? null,
@@ -629,7 +632,7 @@ function CreateInstallationInner() {
       notes: form.notes || null,
     } as InstallationCreate)
     toast({ title: t('assets.installation_created'), variant: 'success' })
-    closeDynamicPanel()
+    openDynamicPanel({ type: 'detail', module: 'ar-installation', id: created.id })
   }
 
   return (
@@ -823,6 +826,7 @@ function CreateEquipmentInner() {
   const { toast } = useToast()
   const createEquipment = useCreateEquipment()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
   const { data: installationsData } = useInstallations({ page: 1, page_size: 500 })
 
@@ -844,7 +848,7 @@ function CreateEquipmentInner() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createEquipment.mutateAsync({
+    const created = await createEquipment.mutateAsync({
       tag_number: form.tag_number, name: form.name, equipment_class: form.equipment_class,
       installation_id: form.installation_id || null, deck_id: form.deck_id || null,
       area: form.area || null, sub_area: form.sub_area || null,
@@ -869,7 +873,7 @@ function CreateEquipmentInner() {
       notes: form.notes || null,
     } as EquipmentCreate)
     toast({ title: t('assets.equipment_created'), variant: 'success' })
-    closeDynamicPanel()
+    openDynamicPanel({ type: 'detail', module: 'ar-equipment', id: created.id })
   }
 
   return (
@@ -1105,6 +1109,7 @@ function CreatePipelineInner() {
   const { toast } = useToast()
   const createPipeline = useCreatePipeline()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: installationsData } = useInstallations({ page: 1, page_size: 500 })
 
   const dictService = useDictionaryOptions('pipeline_service')
@@ -1121,7 +1126,7 @@ function CreatePipelineInner() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createPipeline.mutateAsync({
+    const created = await createPipeline.mutateAsync({
       pipeline_id: form.pipeline_id, name: form.name, service: form.service,
       from_installation_id: form.from_installation_id, to_installation_id: form.to_installation_id,
       from_node_description: form.from_node_description || null, to_node_description: form.to_node_description || null,
@@ -1148,7 +1153,7 @@ function CreatePipelineInner() {
       notes: form.notes || null,
     } as PipelineCreate)
     toast({ title: t('assets.pipeline_created'), variant: 'success' })
-    closeDynamicPanel()
+    openDynamicPanel({ type: 'detail', module: 'ar-pipeline', id: created.id })
   }
 
   return (

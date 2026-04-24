@@ -158,7 +158,17 @@ export default defineConfig({
           'query': ['@tanstack/react-query'],
           'ui-icons': ['lucide-react'],
           'i18n': ['i18next', 'react-i18next'],
+          // Heavy + rarely-used libraries split into their own chunks
+          // so the main bundle stays lean. Users who never open Edit
+          // PDF Template (Monaco, ~500 KB) / a Gantt / a Papyrus flow
+          // editor don't download those bytes.
           'flow-editor': ['@xyflow/react'],
+          'monaco': ['@monaco-editor/react'],
+          'charts': ['recharts'],
+          'table': ['@tanstack/react-table', '@tanstack/react-virtual'],
+          'dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+          'sanitize': ['dompurify'],
+          'date': ['date-fns'],
         },
       },
     },

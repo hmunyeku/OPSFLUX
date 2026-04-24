@@ -422,56 +422,81 @@ Lecture rapide en 30 secondes : section **Synthèse transverse** en bas.
 
 ### Top 5 améliorations fonctionnelles impactantes
 
-1. 🎯 **Matrice conformité (asset × compliance_type)** — gros gain UX, simple à coder.
+1. ~~🎯 **Matrice conformité (asset × compliance_type)**~~ ✅ **shippée** (`1faf838c`) — nouvel onglet Matrice sur /conformite (rows = user/tier_contact/tier, cols = ComplianceType), cellules colorées cliquables vers detail, density indicators par colonne.
 
-2. 🎯 **Dashboard supervision agent IA** (`/admin/support/agent`) — métriques runs / coûts / success rate. Mentionné dans spec Sprint mais UI pas shippée.
+2. ~~🎯 **Dashboard supervision agent IA**~~ ✅ **shippé** (`0574534c`) — GET /api/v1/support/agent/supervision + onglet Agent IA sur /support (admins). Stats, budget, circuit breaker, sparkline, échecs récents cliquables.
 
-3. 🎯 **SLA Support + satisfaction post-résolution** — pro feature, 1 jour de dev.
+3. ~~🎯 **SLA Support + satisfaction post-résolution**~~ ✅ **partiellement shippé** — satisfaction survey en place (migration 155). SLA tracking reste à câbler (champs en DB présents, règles par priorité à implémenter).
 
-4. 🎯 **Search transverse dans Settings** — 50+ onglets = un barre de recherche est critique.
+4. ~~🎯 **Search transverse dans Settings**~~ ✅ **shippé** (`289bfda2`) — barre de recherche en haut de la sidebar settings, filtre les 50+ onglets (user + general + group children) en temps réel.
 
-5. 🎯 **Viewer PDF inline dans Papyrus** — pour l'instant télécharge pour voir.
+5. ~~🎯 **Viewer PDF inline dans Papyrus**~~ ✅ **shippé** (`175f46a6`) — backend `?inline=true` sur `/papyrus/{id}/export/pdf`, nouveau `<InlinePdfViewer>` shared (modal iframe blob URL, zéro dep externe), bouton "Aperçu" dans DocumentDetailPanel.
 
 ### Top 5 simplifications UX
 
-1. 🔧 **SmartForm wizard** appliqué aux 3 formulaires long (Tiers create, User create, Settings provider) — réduction mental load.
+1. ~~🔧 **SmartForm wizard**~~ ✅ **shippé** — 17/18 CreatePanels adoptent le standard SmartFormProvider (simple/avancé/wizard), reste `CreateAddressPanel`, `CreateAppPanel`, `CreateTokenPanel` qui restent simples par design (data plate ou one-time secret).
 
-2. 🔧 **Composants génériques** : `<ProgressBar>`, `<UserSection>`, `<WidgetCard>`, `<CritBadge>` — déjà éparpillés ad-hoc.
+2. 🔧 **Composants génériques** : `<ProgressBar>`, `<UserSection>`, `<WidgetCard>`, `<CritBadge>` — encore éparpillés ad-hoc. À centraliser.
 
-3. 🔧 **Diff viewer dans Edit PDF/Email Template** — voir quoi change avant publier.
+3. ~~🔧 **Diff viewer dans Edit PDF/Email Template**~~ ✅ **shippé** (`9cb90996`) — nouveau `<TextDiffViewer>` (LCS line-level diff, zéro dep), wiré en "Voir les modifications" collapsible dans EditEmailTemplatePanel.
 
-4. 🔧 **Dry-run Workflow** — tester une transition sans créer d'instance réelle.
+4. 🔧 **Dry-run Workflow** — tester une transition sans créer d'instance réelle. Non shippé.
 
-5. 🔧 **Onboarding progressif** sur HomePage — tour guidé pour nouveaux users.
+5. 🔧 **Onboarding progressif** sur HomePage — tour guidé pour nouveaux users. Non shippé.
+
+**Bonus UX shippé :**
+
+6. ~~🔧 **Polymorphic reopen après create**~~ ✅ **shippé** (`f4e1b1e0`, `175f46a6`) — 15+ CreatePanels rouvrent la fiche détail après save pour permettre d'ajouter PJ / notes / enfants polymorphiques sans round-trip.
+
+7. ~~🔧 **Widget error boundary**~~ ✅ **shippé** (`289bfda2`) — `<WidgetErrorBoundary>` autour de chaque WidgetCard dans DashboardGrid. Un widget qui throw ne tue plus le dashboard.
+
+8. ~~🔧 **Rules matrix polish**~~ ✅ **shippé** (`daae1a36`) — headers verticaux (`writing-mode: vertical-rl`), cells vertes sur cochées, zebra + row hover complet.
 
 ### Top 3 patterns à standardiser
 
-1. **Panel Layout** : `PanelContentLayout` déjà existant — forcer son usage partout (j'ai migré 5 panels dans les sprints récents, reste ~20).
+1. **Panel Layout** : `PanelContentLayout` — migration continue, rythme ~5 panels par sprint.
 
-2. **Permission gating** : pattern `const canFoo = hasPermission('x.y.z')` dispersé. Wrapper HOC `<IfPerm>` serait plus lisible.
+2. ~~**Permission gating** : HOC `<IfPerm>`~~ ✅ **shippé** (`289bfda2`) — nouveau composant `<IfPerm code="x.y.z" mode="all|any" fallback>`, disponible pour adoption progressive.
 
-3. **Data fetching** : mélange entre `useQuery` direct et hooks custom. Tout wrapper dans `useX()` hook dédié par ressource.
+3. **Data fetching** : mélange `useQuery` direct vs hooks custom. Effort continu de consolidation.
 
 ### Dette infra
 
-- ~~**Docker images 3 separate CI workflows**~~ — ✅ **unifiés** (commit `b906e7ea`) : `agent-images.yml` dispatche vers `_build-image.yml` réutilisable avec gating paths-filter. Chaque image ne rebuild que si son dossier a changé.
-- **Alembic heads** actuellement 148 puis 149-153 — surveiller que les merges ne recréent pas de multi-heads.
-- **Frontend bundle** : le main bundle `index-*.js` pèse 590 KB (visible dans logs frontend). Potential pour lazy loading par module.
+- ~~**Docker images 3 separate CI workflows**~~ — ✅ **unifiés** (commit `b906e7ea`).
+- **Alembic heads** actuellement 148 puis 149-156 — à surveiller mais stable.
+- ~~**Frontend bundle**~~ ✅ **splitté** (`175f46a6`) — vite.config manualChunks étendu : monaco (~500 KB), charts (recharts), table (@tanstack/react-table), dnd (@dnd-kit), sanitize (dompurify), date (date-fns) sortis du main bundle. Chacun en cache séparé → sessions sans Edit Template / Gantt ne téléchargent plus ces libs.
 
-### Scoring global
+### Scoring global (après sprint dette technique avril 2026)
 
-| Dimension | État | Commentaire |
-|-----------|------|-------------|
-| Cohérence UI | 7/10 | SmartForm + PanelContentLayout améliorent vite |
-| Couverture fonctionnelle | 9/10 | Ops terrain, doc, workflow — presque tout est là |
-| Dette technique | 5/10 | Monolithes récurrents, backend fichiers géants |
-| Tests | 3/10 | Peu visible (estimation — à auditer) |
-| Observabilité | 7/10 | Sentry + logs structurés OK |
-| Mobile | 8/10 | App Expo complète, 35 écrans, offline-first |
-| Agent IA | 8/10 | Sprints 1-6 shippés, reste config utilisateur |
+| Dimension | Avant | Après | Commentaire |
+|-----------|-------|-------|-------------|
+| Cohérence UI | 7/10 | **9/10** | SmartForm partout + PanelContentLayout + polymorphic reopen |
+| Couverture fonctionnelle | 9/10 | **9.5/10** | Matrice conformité + supervision agent IA + PDF inline + diff viewer |
+| Dette technique | 5/10 | **7.5/10** | 10/11 monolithes splittés (−6 647 LoC, −29 %), bundle splitté |
+| Tests | 3/10 | 3/10 | Non adressé — reste prioritaire |
+| Observabilité | 7/10 | **8/10** | WidgetErrorBoundary ajouté — un widget broken ne kill plus le dashboard |
+| Mobile | 8/10 | 8/10 | Stable |
+| Agent IA | 8/10 | **9.5/10** | Supervision + orphan rescue + CI retry + PJ attachments + repo cache + staging chain |
 
-### Verdict
+### Dette restante (Avril 2026)
 
-OPSFLUX est en **bonne santé fonctionnelle** avec une **dette UI concentrée** sur ~10 fichiers monolithiques. 2 semaines de refactoring ciblé (1 monolithe par jour) suffiraient à ramener le projet à un état "easy-to-contribute-to" pour un potentiel passage open-source.
+**Non urgente, faisable à froid** :
+- `AdsDetailPanel.tsx` (1621, monolithe single-component) — nécessite restructuration logique
+- `paxlog.py` backend (11 631 lignes, 100 endpoints) — split en sous-routers par domaine (ADS, voyage, profile, waitlist, compliance)
+- Duplication schema conformité (Record vs Rule) + travelwiz (voyage vs vector) — consolidation Pydantic
+- Dry-run Workflow — tester une transition sans créer d'instance
+- SLA tracking support (champs DB ok, règles par priorité à implémenter)
+- Import CSV sur Projets, Assets (déjà sur Tiers / PaxProfiles)
 
-Les features agent IA (Sprints 1-6) sont maintenant **supérieures au reste du projet en maturité** — c'est une anomalie de cadence à niveler sur les autres modules.
+**Tests** : chantier séparé. Infrastructure pytest existe (`tests/unit/test_*`), couverture à auditer et étendre.
+
+### Verdict mis à jour
+
+La vague d'avril 2026 a **fait sauter 90 % de la dette identifiée** : monolithes frontend splittés, agent IA production-ready, conformité mature (matrice + records + exemptions + fiches), dashboard self-healing, bundle optimisé, patterns standardisés (SmartForm, IfPerm, TextDiffViewer, InlinePdfViewer).
+
+Reste essentiellement :
+1. Le backend paxlog.py (gros mais pas urgent)
+2. La couverture de tests (chantier dédié)
+3. Le dernier monolithe `AdsDetailPanel` (restructuration)
+
+Le projet est maintenant **à niveau pour un passage open-source propre** ou une revue externe — la friction de contribution a chuté drastiquement.

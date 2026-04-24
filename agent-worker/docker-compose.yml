@@ -58,6 +58,11 @@ services:
       WORKER_NAME: ${WORKER_NAME:-}
       WORKTREE_ROOT: /var/opsflux/agent-runs
       LOG_ROOT: /var/log/opsflux-agent
+      # Persistent bare-clone cache shared across runs. First run per
+      # repo does a full `git clone --mirror`; subsequent runs just
+      # `git fetch --prune` and `git clone --reference` from the cache.
+      # Turns a ~30-60s clone into a ~2s one.
+      AGENT_REPO_CACHE_ROOT: /var/opsflux/agent-cache
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:
       # Launch child containers via the host Docker daemon.
@@ -67,6 +72,10 @@ services:
       # line up or the agent can't read its mission / write its report.
       - /var/opsflux/agent-runs:/var/opsflux/agent-runs
       - /var/log/opsflux-agent:/var/log/opsflux-agent
+      # Named volume so the bare-clone cache survives worker restarts
+      # and redeploys. Shared between the 2 replicas (concurrent
+      # `git fetch` on the same cache is safe — git locks internally).
+      - agent-repo-cache:/var/opsflux/agent-cache
     deploy:
       replicas: 2
       resources:
@@ -79,3 +88,6 @@ services:
 networks:
   dokploy-network:
     external: true
+
+volumes:
+  agent-repo-cache: {}

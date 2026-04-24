@@ -297,6 +297,171 @@ async def _mint_github_token_for_run(
     return None
 
 
+REPO_CACHE_ROOT = Path(os.getenv("AGENT_REPO_CACHE_ROOT", "/var/opsflux/agent-cache"))
+
+
+async def _prepare_worktree_repo(
+    run_id: UUID,
+    gh_conn_id: UUID | None,
+    gh_token: str | None,
+    worktree: Path,
+    pool: asyncpg.Pool,
+) -> dict[str, Any] | None:
+    """Clone the target repo into <worktree>/repo/ before launching the agent.
+
+    Without this, the agent has to figure out the repo URL, clone the
+    entire history itself (~30-60s per run), configure git credentials
+    by hand, and hope the credential helper sticks. All of that is now
+    done once, server-side, with a persistent bare-clone cache to
+    avoid re-downloading the same objects across runs.
+
+    Sequence:
+      1. Look up the GitHub connector config (owner, name, default_branch).
+      2. Maintain a local bare-mirror at `/var/opsflux/agent-cache/<owner>_<name>.git`
+         — first call does a full mirror clone, subsequent calls just
+         `git fetch --all --prune` against the cache. Shared across
+         every run on this worker.
+      3. `git clone --reference <cache>` into `<worktree>/repo/` —
+         near-instant because objects are hardlinked from the cache.
+      4. Pre-configure `user.email`, `user.name` and a credential
+         helper that echoes the GITHUB_TOKEN on demand, so the agent's
+         `git push` inside the container just works.
+      5. Chmod the tree so the container's agent user (uid 1001) can
+         read/write without root help.
+
+    Returns repo metadata ({owner, name, default_branch, clone_path})
+    or None on failure (run will proceed but agent will have to
+    fall back to cloning by hand — same behaviour as before).
+    """
+    if not gh_conn_id:
+        return None
+
+    # Look up connector config (repo coordinates live here, not in
+    # credentials — only the token is a secret).
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT config FROM integration_connections WHERE id = $1",
+            gh_conn_id,
+        )
+    if not row:
+        return None
+    cfg = row["config"]
+    if isinstance(cfg, str):
+        try:
+            cfg = json.loads(cfg)
+        except json.JSONDecodeError:
+            return None
+    owner = cfg.get("repo_owner")
+    name = cfg.get("repo_name")
+    default_branch = cfg.get("default_branch") or "main"
+    if not (owner and name):
+        return None
+
+    REPO_CACHE_ROOT.mkdir(parents=True, exist_ok=True)
+    cache_dir = REPO_CACHE_ROOT / f"{owner}_{name}.git"
+    clone_url = f"https://github.com/{owner}/{name}.git"
+    auth_clone_url = (
+        f"https://x-access-token:{gh_token}@github.com/{owner}/{name}.git"
+        if gh_token else clone_url
+    )
+
+    import subprocess
+
+    def _run(cmd: list[str], cwd: Path | None = None, timeout: int = 120) -> tuple[int, str]:
+        try:
+            p = subprocess.run(
+                cmd, cwd=str(cwd) if cwd else None,
+                capture_output=True, text=True, timeout=timeout,
+            )
+            return p.returncode, (p.stdout + p.stderr)[-500:]
+        except subprocess.TimeoutExpired:
+            return 124, f"timeout after {timeout}s"
+        except Exception as exc:  # noqa: BLE001
+            return 1, str(exc)
+
+    # 1) Maintain the bare cache.
+    loop = asyncio.get_running_loop()
+    if not cache_dir.exists():
+        code, out = await loop.run_in_executor(
+            None, _run, ["git", "clone", "--mirror", auth_clone_url, str(cache_dir)], None, 300,
+        )
+        if code != 0:
+            logger.warning("Run %s: repo cache bootstrap failed: %s", run_id, out)
+            return None
+    else:
+        # Update the cache. Prune stale remote branches so deleted
+        # feature branches on GitHub don't linger in the cache.
+        code, out = await loop.run_in_executor(
+            None, _run,
+            ["git", "--git-dir", str(cache_dir), "fetch", "--all", "--prune", "--quiet"],
+            None, 120,
+        )
+        if code != 0:
+            logger.info(
+                "Run %s: cache fetch returned %s (will still try clone): %s",
+                run_id, code, out,
+            )
+
+    # 2) Clone the worktree from the cache (fast, hardlinked objects).
+    clone_path = worktree / "repo"
+    if clone_path.exists():
+        # Wipe stale dir from a previous run
+        import shutil
+        shutil.rmtree(clone_path, ignore_errors=True)
+    code, out = await loop.run_in_executor(
+        None, _run,
+        ["git", "clone", "--reference", str(cache_dir),
+         "--dissociate",  # copy needed objects into the worktree so
+         # deleting the cache later doesn't corrupt the worktree
+         auth_clone_url, str(clone_path)],
+        None, 180,
+    )
+    if code != 0:
+        logger.warning("Run %s: worktree clone failed: %s", run_id, out)
+        return None
+
+    # 3) Pre-configure git identity + credential helper so the agent
+    # can `git push` without configuring anything itself.
+    await loop.run_in_executor(
+        None, _run,
+        ["git", "-C", str(clone_path), "config", "user.email", "agent@opsflux.io"],
+        None, 10,
+    )
+    await loop.run_in_executor(
+        None, _run,
+        ["git", "-C", str(clone_path), "config", "user.name", "OpsFlux Maintenance Agent"],
+        None, 10,
+    )
+    if gh_token:
+        # Embed the token in the remote URL so `git push` authenticates
+        # without a credential helper. The token is short-lived (~1h
+        # installation token) so exposure in .git/config is bounded
+        # to the run duration — worktree dir gets wiped afterwards.
+        await loop.run_in_executor(
+            None, _run,
+            ["git", "-C", str(clone_path), "remote", "set-url", "origin", auth_clone_url],
+            None, 10,
+        )
+
+    # 4) Make the tree writable by the container's agent user (uid 1001).
+    import subprocess as _sp
+    try:
+        _sp.run(["chown", "-R", "1001:1001", str(clone_path)], check=False, timeout=30)
+    except Exception:  # noqa: BLE001
+        pass
+
+    logger.info(
+        "Run %s: worktree repo ready at %s (cached from %s, branch=%s)",
+        run_id, clone_path, cache_dir, default_branch,
+    )
+    return {
+        "owner": owner,
+        "name": name,
+        "default_branch": default_branch,
+        "clone_path": str(clone_path),
+    }
+
+
 async def _stage_attachments(
     run_id: UUID,
     manifest: Any,
@@ -468,6 +633,7 @@ async def run_container(run: dict[str, Any], pool: asyncpg.Pool) -> None:
     # hand through) a short-lived token. Without this the runner
     # can't push the branch nor open the PR — phase 4 would fail.
     gh_conn_id = run.get("github_connection_id")
+    gh_token: str | None = None
     if gh_conn_id:
         try:
             gh_token = await _mint_github_token_for_run(pool, gh_conn_id)
@@ -475,6 +641,20 @@ async def run_container(run: dict[str, Any], pool: asyncpg.Pool) -> None:
                 env["GITHUB_TOKEN"] = gh_token
         except Exception:  # noqa: BLE001
             logger.exception("Run %s: GitHub token mint failed, runner will skip PR step", run_id)
+
+    # ── Pre-clone the repo into <worktree>/repo/ using a persistent
+    # bare-cache, so the agent starts inside a ready-to-work git
+    # repository instead of cloning 50MB of history every run.
+    # Credential helper is pre-configured, so `git push` just works.
+    try:
+        repo_info = await _prepare_worktree_repo(
+            run_id, gh_conn_id, gh_token, worktree, pool,
+        )
+        if repo_info:
+            env["AGENT_REPO_PATH"] = "/workspace/repo"
+            env["AGENT_REPO_DEFAULT_BRANCH"] = repo_info["default_branch"]
+    except Exception:  # noqa: BLE001 — non-fatal; agent can fall back to manual clone
+        logger.exception("Run %s: worktree repo prep failed (agent will self-clone)", run_id)
 
     client = docker.from_env()
 

@@ -177,8 +177,12 @@ produisant une Pull Request GitHub sur le dépôt
 ## Contraintes impératives
 
 ### Scope
-- Tu travailles dans `/workspace`, worktree git isolé.
-- Tu DOIS créer la branche `{branch_name}` depuis `{default_branch}`.
+- Le dépôt est **déjà cloné** dans `/workspace/repo/` — `cd /workspace/repo`
+  pour toutes tes commandes git. Pas besoin de re-cloner, le `origin`
+  est configuré avec un token d'authentification valide, et `user.email`/
+  `user.name` sont déjà pré-remplis. Tu peux `git push` directement.
+- Tu DOIS créer la branche `{branch_name}` depuis `{default_branch}`
+  (ex: `git checkout -b {branch_name}` après `git checkout {default_branch} && git pull`).
 - Maximum **{max_lines} lignes modifiées** au total sur la PR.
 - Pas de refactoring massif. Concentre-toi strictement sur le bug.
 - Pas de modifications cosmétiques non liées.

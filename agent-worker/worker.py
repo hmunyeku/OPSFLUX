@@ -337,9 +337,15 @@ async def run_container(run: dict[str, Any], pool: asyncpg.Pool) -> None:
         "AGENT_AUTH_MODE": runner_cfg.get("auth_method", "api_key"),
         "MODEL_PREFERENCE": runner_cfg.get("model_preference", "claude-sonnet-4-5"),
         "MAX_WALL_TIME_SECONDS": str(runner_cfg.get("max_wall_time_seconds", 1800)),
+        # Bash tool allowed broadly because Claude Code's per-command
+        # allowlist (e.g. `Bash(git:*)`) requires approval for any
+        # multi-command bash like `cd && npx tsc`. The runner is
+        # already a sandboxed ephemeral container with restricted
+        # network egress, so the security posture comes from the
+        # outer container, not from the inner allowlist.
         "ALLOWED_TOOLS_LIST": os.getenv(
             "ALLOWED_TOOLS_LIST",
-            "Read Edit Write Glob Grep Bash(git:*) Bash(gh:*) Bash(pytest:*) Bash(npm:*) Bash(pip:*)"
+            "Read Edit Write Glob Grep Bash TodoWrite Task WebFetch"
         ),
     }
 

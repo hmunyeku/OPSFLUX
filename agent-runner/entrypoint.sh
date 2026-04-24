@@ -73,7 +73,7 @@ case "${AGENT_RUNNER_TYPE:-}" in
         timeout "${MAX_WALL_TIME_SECONDS:-1800}" claude \
             --output-format stream-json \
             --verbose \
-            --allowed-tools "${ALLOWED_TOOLS_LIST:-Read Edit Write Glob Grep Bash(git:*) Bash(gh:*) Bash(pytest:*) Bash(npm:*) Bash(pip:*)}" \
+            --allowed-tools "${ALLOWED_TOOLS_LIST:-Read Edit Write Glob Grep Bash TodoWrite Task WebFetch}" \
             --max-turns 100 \
             --model "${MODEL_PREFERENCE:-claude-sonnet-4-5}" \
             -p "$MISSION_CONTENT" \

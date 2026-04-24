@@ -6,7 +6,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  CalendarRange, ListTodo, Clock, Users, CheckCircle2, XCircle, Send, Ban,
+  CalendarRange, ListTodo, Clock, Users, CheckCircle2, XCircle, Send, Ban, ChevronDown, ChevronUp, BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -74,6 +74,8 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
+  const [showStats, setShowStats] = useState(false)
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [filters, setFilters] = useFilterPersistence<ActivitiesTabFilters>(
     'planner.activities.filters',
     DEFAULT_ACTIVITIES_FILTERS,
@@ -319,12 +321,31 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
 
   return (
     <>
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label={t('planner.stats.total')} value={total} icon={ListTodo} />
-        <StatCard label={t('planner.stats.pending_validation')} value={stats.submitted} icon={Clock} accent="text-blue-600 dark:text-blue-400" />
-        <StatCard label={t('planner.stats.in_progress')} value={stats.inProgress} icon={CalendarRange} accent="text-amber-600 dark:text-amber-400" />
-        <StatCard label={t('planner.stats.pax_planned')} value={stats.totalPax} icon={Users} />
+      {/* Stats grid — collapsible on mobile, always visible on desktop */}
+      <div className="border-b border-border">
+        {/* Mobile toggle button */}
+        <button
+          type="button"
+          onClick={() => setShowStats(!showStats)}
+          className="md:hidden w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/5 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <BarChart3 size={14} className="text-muted-foreground" />
+            Statistiques
+          </span>
+          {showStats ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+
+        {/* Stats grid — hidden by default on mobile, always shown on desktop */}
+        <div className={cn(
+          "grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3",
+          showStats ? "block" : "hidden md:grid"
+        )}>
+          <StatCard label={t('planner.stats.total')} value={total} icon={ListTodo} />
+          <StatCard label={t('planner.stats.pending_validation')} value={stats.submitted} icon={Clock} accent="text-blue-600 dark:text-blue-400" />
+          <StatCard label={t('planner.stats.in_progress')} value={stats.inProgress} icon={CalendarRange} accent="text-amber-600 dark:text-amber-400" />
+          <StatCard label={t('planner.stats.pax_planned')} value={stats.totalPax} icon={Users} />
+        </div>
       </div>
 
       {/* Filter bar — status chip row moved into the DataTable toolbar
@@ -365,43 +386,65 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} activites</span>}
       </div>
 
-      {/* Advanced filter row (asset, project, date range) — wraps
-          to 2 rows on mobile so each picker has room to breathe. */}
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-10 shrink-0 bg-background-subtle">
-        <div className="flex-1 min-w-[180px] max-w-[260px]">
-          <AssetPicker
-            value={filters.assetId}
-            onChange={(id) => updateFilter('assetId', id)}
-            placeholder="Tous assets"
-            clearable
-          />
-        </div>
-        <div className="flex-1 min-w-[180px] max-w-[260px]">
-          <ProjectPicker
-            value={filters.projectId}
-            onChange={(id) => updateFilter('projectId', id)}
-            placeholder="Tous projets"
-            clearable
-          />
-        </div>
-        <div className="flex items-center gap-1.5 sm:ml-auto shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">Période</span>
-          <input
-            type="date"
-            className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
-            value={filters.startDate ?? ''}
-            onChange={(e) => updateFilter('startDate', e.target.value || null)}
-            title="Début"
-          />
-          <span className="text-muted-foreground text-xs">→</span>
-          <input
-            type="date"
-            className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
-            value={filters.endDate ?? ''}
-            onChange={(e) => updateFilter('endDate', e.target.value || null)}
-            min={filters.startDate ?? undefined}
-            title="Fin"
-          />
+      {/* Advanced filter row — collapsible on mobile */}
+      <div className="border-b border-border bg-background-subtle">
+        {/* Mobile toggle button */}
+        <button
+          type="button"
+          onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+          className="md:hidden w-full flex items-center justify-between px-3.5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span className="flex items-center gap-1.5">
+            Filtres avancés
+            {hasAdvancedFilters && (
+              <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
+                {[filters.assetId, filters.projectId, filters.startDate, filters.endDate].filter(Boolean).length}
+              </span>
+            )}
+          </span>
+          {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        {/* Filter controls — hidden by default on mobile, always shown on desktop */}
+        <div className={cn(
+          "flex flex-wrap items-center gap-2 gap-y-1.5 px-3.5 py-1.5 min-h-10 shrink-0",
+          showAdvancedFilters ? "flex" : "hidden md:flex"
+        )}>
+          <div className="flex-1 min-w-[180px] max-w-[260px]">
+            <AssetPicker
+              value={filters.assetId}
+              onChange={(id) => updateFilter('assetId', id)}
+              placeholder="Tous assets"
+              clearable
+            />
+          </div>
+          <div className="flex-1 min-w-[180px] max-w-[260px]">
+            <ProjectPicker
+              value={filters.projectId}
+              onChange={(id) => updateFilter('projectId', id)}
+              placeholder="Tous projets"
+              clearable
+            />
+          </div>
+          <div className="flex items-center gap-1.5 sm:ml-auto shrink-0">
+            <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">Période</span>
+            <input
+              type="date"
+              className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
+              value={filters.startDate ?? ''}
+              onChange={(e) => updateFilter('startDate', e.target.value || null)}
+              title="Début"
+            />
+            <span className="text-muted-foreground text-xs">→</span>
+            <input
+              type="date"
+              className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
+              value={filters.endDate ?? ''}
+              onChange={(e) => updateFilter('endDate', e.target.value || null)}
+              min={filters.startDate ?? undefined}
+              title="Fin"
+            />
+          </div>
         </div>
       </div>
 

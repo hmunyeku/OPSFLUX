@@ -325,6 +325,53 @@ async def cancel_agent_run(
     return row
 
 
+# ─── Circuit breaker reset (admin escape hatch) ──────────────────────
+#
+# A superadmin must ALWAYS be able to unblock the agent, even after
+# the circuit breaker has tripped. Exposed via POST rather than PATCH
+# so we can audit it as an explicit action rather than a silent
+# config edit.
+
+@router.post(
+    "/config/reset-circuit-breaker",
+    response_model=AgentConfigRead,
+    dependencies=[require_permission("core.settings.manage")],
+)
+async def reset_circuit_breaker(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Clear the tripped circuit breaker and zero the failure counter.
+
+    Idempotent: if the breaker isn't tripped, this is a no-op except
+    for the audit trail entry. Requires the same permission as any
+    other agent config change (`core.settings.manage`).
+    """
+    config = await get_or_create_config(db, entity_id)
+    previously_tripped = config.circuit_breaker_tripped_at is not None
+    previous_failures = config.current_consecutive_failures
+
+    config.circuit_breaker_tripped_at = None
+    config.current_consecutive_failures = 0
+
+    await record_audit(
+        db,
+        action="agent_config.reset_circuit_breaker",
+        resource_type="agent_config",
+        resource_id=str(entity_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "was_tripped": previously_tripped,
+            "consecutive_failures_before": previous_failures,
+        },
+    )
+    await db.commit()
+    await db.refresh(config)
+    return config
+
+
 # ─── CI-failure retry ────────────────────────────────────────────────
 
 @router.post(

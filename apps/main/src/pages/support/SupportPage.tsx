@@ -30,7 +30,7 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { NoteManager } from '@/components/shared/NoteManager'
-import { RichTextField } from '@/components/shared/RichTextField'
+import { RichTextField, RichTextDisplay } from '@/components/shared/RichTextField'
 import { useStagingRef } from '@/hooks/useStagingRef'
 import { TabBar, PageNavBar } from '@/components/ui/Tabs'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
@@ -263,6 +263,59 @@ function CreateTicketPanel() {
 
 // ── Ticket Detail Panel ─────────────────────────────────────
 
+// Inline rich-text row — renders HTML on display, swaps to the full
+// RichTextField editor on click. Used for the ticket description
+// which is stored as HTML because the creation form uses Tiptap.
+function InlineRichTextRow({
+  label, value, onSave,
+}: {
+  label: string
+  value: string
+  onSave: (v: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  useEffect(() => { setDraft(value) }, [value])
+  if (!editing) {
+    return (
+      <div className="group flex items-start gap-2 py-1.5">
+        <span className="text-[11px] text-muted-foreground min-w-[100px] pt-0.5">{label}</span>
+        <div className="flex-1 min-w-0">
+          <RichTextDisplay value={value} />
+        </div>
+        <button
+          type="button"
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-primary hover:underline"
+          onClick={() => setEditing(true)}
+        >
+          Modifier
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      <RichTextField value={draft} onChange={setDraft} />
+      <div className="flex gap-2 justify-end">
+        <button
+          type="button"
+          className="gl-button-sm gl-button-default"
+          onClick={() => { setDraft(value); setEditing(false) }}
+        >
+          Annuler
+        </button>
+        <button
+          type="button"
+          className="gl-button-sm gl-button-confirm"
+          onClick={() => { onSave(draft); setEditing(false) }}
+        >
+          Enregistrer
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function TicketDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { data: ticket, isError } = useTicket(id)
@@ -424,7 +477,16 @@ function TicketDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             <FormSection title={t('common.description')} collapsible defaultExpanded>
-              <InlineEditableRow label="Description" value={ticket.description || ''} onSave={(v) => handleSave('description', v)} />
+              {/* The description was captured via a rich-text editor on
+                  ticket creation (RichTextField), so the stored value is
+                  HTML. Render it through RichTextDisplay so tags are
+                  interpreted instead of shown literally. Clicking the
+                  pencil swaps to an inline editor. */}
+              <InlineRichTextRow
+                label="Description"
+                value={ticket.description || ''}
+                onSave={(v) => handleSave('description', v)}
+              />
             </FormSection>
 
             {ticket.resolution_notes && (

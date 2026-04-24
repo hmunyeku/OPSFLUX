@@ -167,39 +167,41 @@ export function TicketGithubCard({
             </p>
             {canManage && (
               <div className="space-y-2">
-                <select
-                  className="gl-form-input text-xs"
-                  value={selectedConnId}
-                  onChange={(e) => setSelectedConnId(e.target.value)}
-                  disabled={isLoading || activeConns.length === 0}
-                >
-                  <option value="">— Choisir un connecteur —</option>
-                  {activeConns.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} (
-                      {String((c.config as { repo_owner?: string }).repo_owner)}/
-                      {String((c.config as { repo_name?: string }).repo_name)})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="gl-form-input text-xs flex-1 min-w-0"
+                    value={selectedConnId}
+                    onChange={(e) => setSelectedConnId(e.target.value)}
+                    disabled={isLoading || activeConns.length === 0}
+                  >
+                    <option value="">— Choisir un connecteur —</option>
+                    {activeConns.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} (
+                        {String((c.config as { repo_owner?: string }).repo_owner)}/
+                        {String((c.config as { repo_name?: string }).repo_name)})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="gl-button gl-button-sm gl-button-confirm shrink-0 whitespace-nowrap"
+                    onClick={handleEnable}
+                    disabled={!selectedConnId || enableSync.isPending}
+                  >
+                    {enableSync.isPending ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Github size={12} />
+                    )}
+                    Créer l’Issue GitHub et activer la sync
+                  </button>
+                </div>
                 {activeConns.length === 0 && !isLoading && (
                   <p className="text-[10px] text-muted-foreground italic">
                     Aucun connecteur GitHub actif. Créez-en un via Paramètres → Intégrations.
                   </p>
                 )}
-                <button
-                  type="button"
-                  className="gl-button gl-button-sm gl-button-confirm w-full justify-center"
-                  onClick={handleEnable}
-                  disabled={!selectedConnId || enableSync.isPending}
-                >
-                  {enableSync.isPending ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : (
-                    <Github size={12} />
-                  )}
-                  Créer l’Issue GitHub et activer la sync
-                </button>
               </div>
             )}
           </>

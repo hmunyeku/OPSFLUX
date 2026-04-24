@@ -26,6 +26,7 @@ export function AgentIaTab() {
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [forbiddenText, setForbiddenText] = useState('')
   const [sendingDigest, setSendingDigest] = useState(false)
+  const [resettingBreaker, setResettingBreaker] = useState(false)
 
   useEffect(() => {
     if (config) {
@@ -59,6 +60,22 @@ export function AgentIaTab() {
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       toast({ title: 'Erreur', description: msg || String(err), variant: 'error' })
+    }
+  }
+
+  const handleResetCircuitBreaker = async () => {
+    if (!window.confirm('Réinitialiser le circuit breaker ? Les runs pourront être relancés immédiatement.')) return
+    setResettingBreaker(true)
+    try {
+      await api.post('/api/v1/support/agent/config/reset-circuit-breaker')
+      toast({ title: 'Circuit breaker réinitialisé', variant: 'success' })
+      // Update local state optimistically so the banner disappears.
+      setForm((f) => ({ ...f, circuit_breaker_tripped_at: null, current_consecutive_failures: 0 }))
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast({ title: 'Échec réinitialisation', description: msg || String(err), variant: 'error' })
+    } finally {
+      setResettingBreaker(false)
     }
   }
 
@@ -223,9 +240,21 @@ export function AgentIaTab() {
               <span className="text-muted-foreground">Échecs consécutifs :</span>{' '}
               <strong>{Number((config as unknown as Record<string, unknown>).current_consecutive_failures ?? 0)}</strong>
             </div>
-            <div>
+            <div className="flex items-center gap-2">
               {(config as unknown as Record<string, unknown>).circuit_breaker_tripped_at ? (
-                <span className="text-destructive"><AlertTriangle size={10} className="inline" /> Circuit breaker actif</span>
+                <>
+                  <span className="text-destructive"><AlertTriangle size={10} className="inline" /> Circuit breaker actif</span>
+                  <button
+                    type="button"
+                    className="gl-button gl-button-xs gl-button-default ml-auto"
+                    onClick={handleResetCircuitBreaker}
+                    disabled={resettingBreaker}
+                    title="Ré-autorise les runs immédiatement. Action auditée."
+                  >
+                    {resettingBreaker ? <Loader2 size={10} className="animate-spin" /> : '↺'}
+                    Réinitialiser
+                  </button>
+                </>
               ) : (
                 <span className="text-green-700 dark:text-green-400">✓ Prêt</span>
               )}

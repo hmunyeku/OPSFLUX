@@ -1692,34 +1692,46 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               </DetailFieldGrid>
             </FormSection>
 
-            {/* Calcul d'avancement — méthode de pondération choisie pour ce projet */}
-            <FormSection title="Calcul d'avancement" collapsible defaultExpanded={false} storageKey="project-detail-progress-method">
-              <p className="text-[11px] text-muted-foreground mb-2">
-                Détermine comment l'avancement de ce projet ({project.progress}%) est calculé à partir de l'avancement de chaque tâche. La modification recalcule immédiatement l'avancement.
-              </p>
-              <div>
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Méthode</label>
-                <select
-                  value={project.progress_weight_method || ''}
-                  onChange={(e) => handleSave('progress_weight_method', e.target.value || null)}
-                  className={`${panelInputClass} w-full text-xs mt-0.5`}
-                  disabled={!isProjectFieldEditable(project, 'progress_weight_method', capabilities)}
+            {/* Calcul d'avancement — pondération du % d'avancement à partir des tâches */}
+            <FormSection
+              title={`Calcul d'avancement (${project.progress}%)`}
+              collapsible
+              defaultExpanded={false}
+              storageKey="project-detail-progress-method"
+              headerExtra={
+                <span
+                  className="text-[10px] text-muted-foreground/70 hidden sm:inline"
+                  title="La modification recalcule immédiatement l'avancement."
                 >
-                  <option value="">{standardLabel}</option>
-                  {PROGRESS_WEIGHT_METHOD_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                {project.progress_weight_method && (
-                  <p className="text-[11px] text-muted-foreground/80 italic mt-1.5">
-                    {PROGRESS_WEIGHT_METHOD_OPTIONS.find((o) => o.value === project.progress_weight_method)?.description}
+                  Pondération du %
+                </span>
+              }
+            >
+              <div className="flex flex-col gap-1 py-1.5 sm:flex-row sm:items-start sm:gap-3">
+                <span
+                  className="text-[10px] text-muted-foreground shrink-0 font-semibold uppercase tracking-wider sm:text-xs sm:font-medium sm:tracking-wide sm:pt-1"
+                  style={{ width: 'var(--opsflux-label-w, 8rem)' } as React.CSSProperties}
+                >
+                  Méthode
+                </span>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <select
+                    value={project.progress_weight_method || ''}
+                    onChange={(e) => handleSave('progress_weight_method', e.target.value || null)}
+                    className={`${panelInputClass} w-full text-sm`}
+                    disabled={!isProjectFieldEditable(project, 'progress_weight_method', capabilities)}
+                  >
+                    <option value="">{standardLabel}</option>
+                    {PROGRESS_WEIGHT_METHOD_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-muted-foreground/80 italic">
+                    {project.progress_weight_method
+                      ? PROGRESS_WEIGHT_METHOD_OPTIONS.find((o) => o.value === project.progress_weight_method)?.description
+                      : <>Hérite de <strong>Paramètres → Projets</strong>.</>}
                   </p>
-                )}
-                {!project.progress_weight_method && (
-                  <p className="text-[11px] text-muted-foreground/80 italic mt-1.5">
-                    Mode <strong>{standardLabel}</strong> — utilise la méthode configurée dans <strong>Paramètres → Projets</strong>.
-                  </p>
-                )}
+                </div>
               </div>
             </FormSection>
 

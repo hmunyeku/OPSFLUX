@@ -1638,6 +1638,14 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")  # draft, planned, active, on_hold, completed, cancelled
     priority: Mapped[str] = mapped_column(String(10), nullable=False, default="medium")  # low, medium, high, critical
     weather: Mapped[str] = mapped_column(String(10), nullable=False, default="sunny")  # sunny, cloudy, rainy, stormy
+    # Tendance qualitative — saisie par le chef de projet pour signaler la
+    # direction perçue du projet, indépendamment de la progression chiffrée
+    # ('up' = amélioration, 'flat' = stable, 'down' = dégradation).
+    trend: Mapped[str] = mapped_column(String(10), nullable=False, default="flat", server_default="flat")
+    # Couleur de différenciation visuelle dans les listes/Kanban/Gantt.
+    # Stockée en hex (#RRGGBB). Optionnelle — quand absente, l'UI dérive
+    # la couleur depuis le code projet (hash) pour rester déterministe.
+    color: Mapped[str | None] = mapped_column(String(9))
     progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

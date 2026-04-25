@@ -1662,6 +1662,8 @@ class ProjectRead(OpsFluxSchema):
     status: str
     priority: str
     weather: str
+    trend: str = "flat"
+    color: str | None = None
     progress: int
     start_date: datetime | None = None
     end_date: datetime | None = None
@@ -1726,6 +1728,8 @@ class ProjectCreate(BaseModel):
     status: str = "draft"
     priority: str = "medium"
     weather: str = "sunny"
+    trend: str = Field(default="flat", pattern=r"^(up|flat|down)$")
+    color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
     start_date: datetime | None = None
     end_date: datetime | None = None
     budget: float | None = None
@@ -1767,6 +1771,8 @@ class ProjectUpdate(BaseModel):
     status: str | None = None
     priority: str | None = None
     weather: str | None = None
+    trend: str | None = Field(default=None, pattern=r"^(up|flat|down)$")
+    color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
     progress: int | None = None
     start_date: datetime | None = None
     end_date: datetime | None = None

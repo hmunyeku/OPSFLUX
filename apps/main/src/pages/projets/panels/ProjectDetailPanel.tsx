@@ -1404,6 +1404,75 @@ function ActivityFeedSection({ projectId }: { projectId: string }) {
   )
 }
 
+// -- Project Color Picker (preset palette + reset) ---------------------------
+
+const PROJECT_COLOR_PRESETS = [
+  { value: '#1e40af', label: 'Bleu' },
+  { value: '#0891b2', label: 'Cyan' },
+  { value: '#047857', label: 'Vert' },
+  { value: '#65a30d', label: 'Lime' },
+  { value: '#b45309', label: 'Ambre' },
+  { value: '#dc2626', label: 'Rouge' },
+  { value: '#c026d3', label: 'Magenta' },
+  { value: '#7c3aed', label: 'Violet' },
+  { value: '#374151', label: 'Gris' },
+  { value: '#0f172a', label: 'Slate' },
+]
+
+function ProjectColorPicker({
+  value,
+  onChange,
+  onCancel,
+}: {
+  value: string | null
+  onChange: (color: string | null) => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => onChange(null)}
+        className={cn(
+          'h-7 px-2 text-[10px] rounded border border-dashed border-border hover:border-foreground/40 hover:bg-muted',
+          !value && 'border-primary/40 bg-primary/5 text-primary',
+        )}
+        title="Couleur automatique (déduite du code projet)"
+      >
+        Auto
+      </button>
+      {PROJECT_COLOR_PRESETS.map((c) => (
+        <button
+          key={c.value}
+          type="button"
+          onClick={() => onChange(c.value)}
+          className={cn(
+            'w-6 h-6 rounded border-2 transition-transform hover:scale-110',
+            value === c.value ? 'border-foreground' : 'border-white/20',
+          )}
+          style={{ backgroundColor: c.value }}
+          title={c.label}
+        />
+      ))}
+      <input
+        type="color"
+        value={value || '#3b82f6'}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-6 h-6 rounded border border-border cursor-pointer p-0"
+        title="Couleur personnalisée"
+      />
+      <button
+        type="button"
+        onClick={onCancel}
+        className="h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-muted"
+        title="Fermer"
+      >
+        <X size={12} />
+      </button>
+    </div>
+  )
+}
+
 // -- Project Description Editor (rich text wrapper with save-on-blur) --------
 //
 // Wraps RichTextField with local-draft semantics: keeps a local copy of the
@@ -1611,6 +1680,26 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <span className="text-sm font-display font-semibold text-primary tabular-nums">{project.progress}%</span>
             </div>
           </div>
+          {/* Tendance — qualitative indicator (up/flat/down) set manually */}
+          {(() => {
+            const trend = project.trend ?? 'flat'
+            const arrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'
+            const cls = trend === 'up'
+              ? 'border-green-500/30 bg-green-500/5 text-green-600'
+              : trend === 'down'
+              ? 'border-red-500/30 bg-red-500/5 text-red-600'
+              : 'border-border/40 bg-card/40 text-muted-foreground'
+            const label = trend === 'up' ? 'En amélioration' : trend === 'down' ? 'En dégradation' : 'Stable'
+            return (
+              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg border', cls)}>
+                <span className="text-xl leading-none font-bold">{arrow}</span>
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Tendance</span>
+                  <span className="text-sm font-display font-semibold">{label}</span>
+                </div>
+              </div>
+            )
+          })()}
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
             <ListTodo size={16} className="text-muted-foreground" />
             <div className="flex flex-col leading-tight">
@@ -1670,6 +1759,27 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                   ? <InlineEditableTags label="Priorité" value={project.priority} options={projectPriorityOptions} onSave={(v) => handleSave('priority', v)} />
                   : <ReadOnlyRow label={t('common.priority_field')} value={<span className="text-sm">{projectPriorityLabels[project.priority] || project.priority}</span>} />}
                 <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
+                <InlineEditableTags
+                  label="Tendance"
+                  value={project.trend ?? 'flat'}
+                  options={[
+                    { value: 'up', label: '↗ En amélioration' },
+                    { value: 'flat', label: '→ Stable' },
+                    { value: 'down', label: '↘ En dégradation' },
+                  ]}
+                  onSave={(v) => handleSave('trend', v)}
+                />
+                <InlinePickerField
+                  label="Couleur"
+                  displayValue={project.color ? `${project.color}` : '— Auto'}
+                  renderPicker={(onDone) => (
+                    <ProjectColorPicker
+                      value={project.color}
+                      onChange={(c) => { handleSave('color', c); onDone() }}
+                      onCancel={onDone}
+                    />
+                  )}
+                />
               </DetailFieldGrid>
               <DetailFieldGrid>
                 <InlinePickerField

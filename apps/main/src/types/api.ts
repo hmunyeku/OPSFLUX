@@ -1267,6 +1267,8 @@ export interface Project {
   status: 'draft' | 'planned' | 'active' | 'on_hold' | 'completed' | 'cancelled'
   priority: 'low' | 'medium' | 'high' | 'critical'
   weather: 'sunny' | 'cloudy' | 'rainy' | 'stormy'
+  trend: 'up' | 'flat' | 'down'
+  color: string | null
   progress: number
   start_date: string | null
   end_date: string | null

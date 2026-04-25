@@ -105,10 +105,9 @@ export function CargoReadinessSection({
   missingRequirements: string[]
   workflowBlockingItems: string[]
 }) {
-  const { t } = useTranslation()
   const displayedItems = workflowBlockingItems.length > 0 ? workflowBlockingItems : missingRequirements
   return (
-    <FormSection title={t('packlog.completude_du_dossier')} collapsible defaultExpanded>
+    <FormSection title="Complétude du dossier" collapsible defaultExpanded>
       <div className="space-y-2">
         <div
           className={cn(
@@ -145,12 +144,13 @@ export function CargoLocationSection({
   pickupMapUrl: string | null
   pickupMapEmbedUrl: string | null
 }) {
-  const { t } = useTranslation()
   return (
-    <FormSection title={t('packlog.localisation_d_enlevement')} collapsible defaultExpanded>
+    <FormSection title="Localisation d’enlèvement" collapsible defaultExpanded>
       <div className="space-y-2">
-        <DetailRow label="Lieu" value={pickupLocationLabel ?? '—'} />
-        <DetailRow label={t('geo.coordinates')} value={pickupCoordinatesLabel} />
+        <DetailFieldGrid>
+          <ReadOnlyRow label="Lieu" value={pickupLocationLabel ?? '—'} />
+          <ReadOnlyRow label="Coordonnées" value={pickupCoordinatesLabel} />
+        </DetailFieldGrid>
         {pickupMapEmbedUrl ? (
           <div className="space-y-2">
             <div className="overflow-hidden rounded-lg border border-border">
@@ -175,7 +175,7 @@ export function CargoLocationSection({
             )}
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">{t('packlog.aucune_coordonnee_cartographique_renseig')}</p>
+          <p className="text-xs text-muted-foreground">Aucune coordonnée cartographique renseignée.</p>
         )}
       </div>
     </FormSection>
@@ -189,16 +189,15 @@ export function CargoFilesSection({
   cargoId: string
   attachmentEvidence: CargoAttachmentEvidence[] | undefined
 }) {
-  const { t } = useTranslation()
   const photoCount = attachmentEvidence?.filter((item) => item.evidence_type === 'cargo_photo').length ?? 0
   const otherCount = attachmentEvidence?.filter((item) => item.evidence_type !== 'cargo_photo').length ?? 0
   return (
-    <FormSection title={t('packlog.fichiers_operationnels')} collapsible defaultExpanded>
+    <FormSection title="Fichiers opérationnels" collapsible defaultExpanded>
       <div className="space-y-3">
         <AttachmentManager ownerType="cargo_item" ownerId={cargoId} compact />
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.photos_qualifiees')}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Photos qualifiées</p>
             <p className="text-sm font-semibold text-foreground">{photoCount}</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
@@ -289,7 +288,6 @@ export function CargoPackageElementsSection({
   savingReturn: boolean
   savingDisposition: boolean
 }) {
-  const { t } = useTranslation()
   return (
     <FormSection title={`Éléments du colis (${elements?.length ?? 0})`} collapsible defaultExpanded>
       {elements && elements.length > 0 ? (
@@ -321,7 +319,7 @@ export function CargoPackageElementsSection({
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,160px)_minmax(0,1fr)_auto]">
-                  <DynamicPanelField label={t('packlog.quantite_de_retour')}>
+                  <DynamicPanelField label="Quantité de retour">
                     <input
                       type="number"
                       min={0}
@@ -332,13 +330,13 @@ export function CargoPackageElementsSection({
                       className={panelInputClass}
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('packlog.notes_retour')}>
+                  <DynamicPanelField label="Notes retour">
                     <input
                       type="text"
                       value={draft.return_notes}
                       onChange={(e) => onDraftChange(element.id, { return_notes: e.target.value })}
                       className={panelInputClass}
-                      placeholder={t('packlog.observation_retour_ecarts_zone')}
+                      placeholder="Observation retour / écarts / zone"
                     />
                   </DynamicPanelField>
                   <div className="flex items-end">
@@ -415,25 +413,25 @@ export function CargoBackReturnSection({
   return (
     <FormSection title="Initiation back cargo" collapsible defaultExpanded={false}>
       {!isDelivered ? (
-        <p className="text-xs text-muted-foreground">{t('packlog.le_back_cargo_ne_peut_etre_initie_qu_apr')}</p>
+        <p className="text-xs text-muted-foreground">Le back cargo ne peut être initié qu’après une livraison finale ou intermédiaire.</p>
       ) : (
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <DynamicPanelField label={t('packlog.type_de_retour')}>
+            <DynamicPanelField label="Type de retour">
               <select value={returnDraft.return_type} onChange={(e) => onChange({ return_type: e.target.value })} className={panelInputClass}>
                 {returnTypeOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
             </DynamicPanelField>
-            <DynamicPanelField label={t('packlog.photos_de_preuve')}>
+            <DynamicPanelField label="Photos de preuve">
               <input type="number" min={0} step={1} value={returnDraft.photo_evidence_count} onChange={(e) => onChange({ photo_evidence_count: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />
             </DynamicPanelField>
             <DynamicPanelField label="Notes" span="full">
               <textarea value={returnDraft.notes} onChange={(e) => onChange({ notes: e.target.value })} className={`${panelInputClass} min-h-[72px] resize-y`} rows={3} placeholder={`Précise le contexte du retour ${returnTypeLabels[returnType] ?? ''}`.trim()} />
             </DynamicPanelField>
             {needsWaste && (
-              <DynamicPanelField label={t('packlog.bordereau_dechet')}>
+              <DynamicPanelField label="Bordereau déchet">
                 <input type="text" value={returnDraft.waste_manifest_ref} onChange={(e) => onChange({ waste_manifest_ref: e.target.value })} className={panelInputClass} />
               </DynamicPanelField>
             )}
@@ -442,7 +440,7 @@ export function CargoBackReturnSection({
                 <DynamicPanelField label="Laissez-passer">
                   <input type="text" value={returnDraft.pass_number} onChange={(e) => onChange({ pass_number: e.target.value })} className={panelInputClass} />
                 </DynamicPanelField>
-                <DynamicPanelField label={t('packlog.reference_inventaire')}>
+                <DynamicPanelField label={t('common.inventory_reference')}>
                   <input type="text" value={returnDraft.inventory_reference} onChange={(e) => onChange({ inventory_reference: e.target.value })} className={panelInputClass} />
                 </DynamicPanelField>
                 <DynamicPanelField label="Double signature">
@@ -455,10 +453,10 @@ export function CargoBackReturnSection({
             )}
             {needsReintegration && (
               <>
-                <DynamicPanelField label={t('packlog.reference_inventaire')}>
+                <DynamicPanelField label={t('common.inventory_reference')}>
                   <input type="text" value={returnDraft.inventory_reference} onChange={(e) => onChange({ inventory_reference: e.target.value })} className={panelInputClass} />
                 </DynamicPanelField>
-                <DynamicPanelField label={t('packlog.code_sap_confirme')}>
+                <DynamicPanelField label="Code SAP confirmé">
                   <label className="inline-flex items-center gap-2 text-xs">
                     <input type="checkbox" checked={returnDraft.sap_code_confirmed} onChange={(e) => onChange({ sap_code_confirmed: e.target.checked })} />
                     Confirmation SAP reçue
@@ -524,7 +522,7 @@ export function CargoReturnSummarySection({
     }
   })()
   return (
-    <FormSection title={t('packlog.synthese_retour_colis')} collapsible defaultExpanded>
+    <FormSection title="Synthèse retour colis" collapsible defaultExpanded>
       {!elements || elements.length === 0 ? (
         <p className="text-xs text-muted-foreground">
           Aucun élément détaillé. La synthèse retour deviendra exploitable quand le colis sera découpé en sous-éléments.
@@ -533,12 +531,12 @@ export function CargoReturnSummarySection({
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('packlog.couverture_retour')}</p>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Couverture retour</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{Math.round(summary.coverageRatio * 100)}%</p>
               <p className="text-xs text-muted-foreground">{summary.totalReturned} / {summary.totalSent} unités</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('packlog.etat_agrege')}</p>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">État agrégé</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{aggregateStatusLabel}</p>
               <p className="text-xs text-muted-foreground">{summary.returnedElements} élément(s) avec retour saisi</p>
             </div>
@@ -589,7 +587,7 @@ export function CargoHistorySection({ cargoHistory }: { cargoHistory: Array<{ id
           })}
         </div>
       ) : (
-        <p className="py-2 text-xs text-muted-foreground">{t('conformite.aucun_historique_disponible')}</p>
+        <p className="py-2 text-xs text-muted-foreground">{t('common.no_history_available')}</p>
       )}
     </FormSection>
   )
@@ -608,9 +606,8 @@ export function CargoEvidenceQualificationSection({
   cargoEvidenceOptions: Array<{ value: string; label: string }>
   updateCargoAttachmentEvidence: { mutate: (args: { cargoId: string; attachmentId: string; evidence_type: CargoAttachmentEvidence['evidence_type'] }) => void }
 }) {
-  const { t } = useTranslation()
   return (
-    <FormSection title={t('packlog.qualification_des_preuves')} collapsible defaultExpanded={false}>
+    <FormSection title="Qualification des preuves" collapsible defaultExpanded={false}>
       {attachments && attachments.length > 0 ? (
         <div className="space-y-2">
           {attachments.map((attachment) => (
@@ -638,7 +635,7 @@ export function CargoEvidenceQualificationSection({
           ))}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">{t('packlog.aucune_piece_jointe_a_qualifier')}</p>
+        <p className="text-xs text-muted-foreground">Aucune pièce jointe à qualifier.</p>
       )}
     </FormSection>
   )

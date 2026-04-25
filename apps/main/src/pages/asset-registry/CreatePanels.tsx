@@ -303,7 +303,7 @@ function CreateFieldInner() {
           </FormGrid>
         </SmartFormSection>
 
-        <FormSection title={t('asset_registry.geologie_reserves')} collapsible>
+        <SmartFormSection id="t_asset_registry_geologie_reserves" title={t('asset_registry.geologie_reserves')} level="essential" collapsible help={{ description: t('asset_registry.geologie_reserves') }}>
           <FormGrid>
             <DynamicPanelField label={t('asset_registry.annee_decouverte')}>
               <input type="number" min={1900} max={2100} value={form.discovery_year ?? ''} onChange={numChange(set, 'discovery_year')} className={panelInputClass} />
@@ -484,7 +484,7 @@ function CreateSiteInner() {
           </FormGrid>
         </SmartFormSection>
 
-        <FormSection title={t('assets.access')} collapsible>
+        <SmartFormSection id="t_assets_access" title={t('assets.access')} level="essential" collapsible help={{ description: t('assets.access') }}>
           <FormGrid>
             <DynamicPanelField label={t('asset_registry.acces_route')}>{boolSelect(form.access_road, (v) => set({ access_road: v }), panelInputClass)}</DynamicPanelField>
             <DynamicPanelField label={t('assets.access_helicopter')}>{boolSelect(form.access_helicopter, (v) => set({ access_helicopter: v }), panelInputClass)}</DynamicPanelField>
@@ -503,7 +503,7 @@ function CreateSiteInner() {
           </FormGrid>
         </SmartFormSection>
 
-        <FormSection title={t('assets.operations')} collapsible>
+        <SmartFormSection id="t_assets_operations" title={t('assets.operations')} level="essential" collapsible help={{ description: t('assets.operations') }}>
           <FormGrid>
             <DynamicPanelField label={t('asset_registry.occupe_manned')}>{boolSelect(form.manned, (v) => set({ manned: v }), panelInputClass)}</DynamicPanelField>
             <DynamicPanelField label="POB max">
@@ -520,7 +520,7 @@ function CreateSiteInner() {
           </FormGrid>
         </SmartFormSection>
 
-        <FormSection title={t('assets.design_conditions')} collapsible>
+        <SmartFormSection id="t_assets_design_conditions" title={t('assets.design_conditions')} level="essential" collapsible help={{ description: t('assets.design_conditions') }}>
           <FormGrid>
             <DynamicPanelField label="Vent max (m/s)">
               <input type="number" step="0.1" min={0} value={form.max_wind_speed_ms ?? ''} onChange={numChange(set, 'max_wind_speed_ms')} className={panelInputClass} />
@@ -735,7 +735,7 @@ function CreateInstallationInner() {
           </FormGrid>
         </SmartFormSection>
 
-        <FormSection title={t('asset_registry.caracteristiques')} collapsible>
+        <SmartFormSection id="t_asset_registry_caracteristiques" title={t('asset_registry.caracteristiques')} level="essential" collapsible help={{ description: t('asset_registry.caracteristiques') }}>
           <FormGrid>
             <DynamicPanelField label={t('asset_registry.occupe_manned')}>{boolSelect(form.is_manned, (v) => set({ is_manned: v }), panelInputClass)}</DynamicPanelField>
             <DynamicPanelField label={t('asset_registry.normalement_non_occupe')}>{boolSelect(form.is_normally_unmanned, (v) => set({ is_normally_unmanned: v }), panelInputClass)}</DynamicPanelField>
@@ -1020,7 +1020,7 @@ function CreateEquipmentInner() {
           </FormGrid>
         </SmartFormSection>
 
-        <FormSection title={t('asset_registry.documents_references')} collapsible>
+        <SmartFormSection id="t_asset_registry_documents_references" title={t('asset_registry.documents_references')} level="essential" collapsible help={{ description: t('asset_registry.documents_references') }}>
           <FormGrid>
             <DynamicPanelField label="N° plan">
               <input type="text" value={form.drawing_number || ''} onChange={(e) => set({ drawing_number: e.target.value })} className={panelInputClass} />
@@ -1277,7 +1277,7 @@ function CreatePipelineInner() {
           </FormGrid>
         </SmartFormSection>
 
-        <FormSection title={t('asset_registry.materiaux_revetement')} collapsible>
+        <SmartFormSection id="t_asset_registry_materiaux_revetement" title={t('asset_registry.materiaux_revetement')} level="essential" collapsible help={{ description: t('asset_registry.materiaux_revetement') }}>
           <FormGrid>
             <DynamicPanelField label={t('asset_registry.materiau_tube')}>
               <input type="text" value={form.pipe_material || ''} onChange={(e) => set({ pipe_material: e.target.value })} className={panelInputClass} placeholder="CS API 5L" />
@@ -1340,7 +1340,7 @@ function CreatePipelineInner() {
           </FormGrid>
         </SmartFormSection>
 
-        <FormSection title={t('asset_registry.integrite_reglementaire')} collapsible>
+        <SmartFormSection id="t_asset_registry_integrite_reglementaire" title={t('asset_registry.integrite_reglementaire')} level="essential" collapsible help={{ description: t('asset_registry.integrite_reglementaire') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.design_code')}>
               <input type="text" value={form.design_code || ''} onChange={(e) => set({ design_code: e.target.value })} className={panelInputClass} placeholder="ASME B31.8" />

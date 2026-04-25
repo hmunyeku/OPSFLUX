@@ -7,7 +7,6 @@ import {
   DynamicPanelField,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
-import { useTranslation } from 'react-i18next'
 import type { DashboardWidget } from '@/services/dashboardService'
 
 const REFRESH_OPTIONS = [
@@ -71,7 +70,7 @@ export function WidgetSettingsCommon({ widget, onUpdateMeta, onUpdateConfig }: W
             className={`${panelInputClass} min-h-[50px]`}
             value={widget.description || ''}
             onChange={(e) => onUpdateMeta({ description: e.target.value || null })}
-            placeholder={t('dashboard.description_du_widget')}
+            placeholder="Description du widget..."
           />
         </DynamicPanelField>
         <DynamicPanelField label="Rafraîchissement">
@@ -87,8 +86,8 @@ export function WidgetSettingsCommon({ widget, onUpdateMeta, onUpdateConfig }: W
         </DynamicPanelField>
       </FormSection>
 
-      <FormSection title="Apparence" collapsible defaultExpanded={false} storageKey="widget-settings-appearance">
-        <DynamicPanelField label={t('dashboard.couleur_de_fond')}>
+      <FormSection title={t('common.appearance')} collapsible defaultExpanded={false} storageKey="widget-settings-appearance">
+        <DynamicPanelField label="Couleur de fond">
           <div className="flex items-center gap-2">
             <select
               className="gl-form-select flex-1"

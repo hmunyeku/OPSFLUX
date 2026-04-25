@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, LayoutList, LayoutGrid, RefreshCw, FolderPlus, Upload, Trash2, Filter } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import type { ViewMode, FileFilter } from '../hooks/useFileManager'
 
@@ -25,6 +24,14 @@ export function FileToolbar({
   onBatchDelete, onCreateFolder, onUpload, onRefresh,
 }: FileToolbarProps) {
   const { t } = useTranslation()
+  const filterOptions = useMemo<{ value: FileFilter; label: string }[]>(() => [
+    { value: '', label: t('common.all') },
+    { value: 'image', label: t('files.filter.images') },
+    { value: 'document', label: t('files.filter.documents') },
+    { value: 'video', label: t('files.filter.videos') },
+    { value: 'audio', label: t('files.filter.audio') },
+    { value: 'archive', label: t('files.filter.archives') },
+  ], [t])
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0 flex-wrap">
       {/* Search */}
@@ -77,7 +84,7 @@ export function FileToolbar({
       <button onClick={onRefresh} className="gl-button gl-button-default" title={t('files.toolbar.refresh')}>
         <RefreshCw size={13} />
       </button>
-      <button onClick={onCreateFolder} className="p-1.5 rounded hover:bg-accent text-muted-foreground" title={t('files.nouveau_dossier')}>
+      <button onClick={onCreateFolder} className="gl-button gl-button-default" title={t('files.nouveau_dossier')}>
         <FolderPlus size={13} />
       </button>
       <label className="p-1.5 rounded hover:bg-accent text-muted-foreground cursor-pointer" title={t('files.toolbar.upload')}>
@@ -89,9 +96,9 @@ export function FileToolbar({
       {selectedCount > 0 && (
         <>
           <div className="h-5 w-px bg-border" />
-          <span className="text-[10px] text-primary font-medium">{selectedCount} sélectionné(s)</span>
+          <span className="text-[10px] text-primary font-medium">{t('files.toolbar.selected_count', { count: selectedCount })}</span>
           <button onClick={onBatchDelete} className="gl-button-sm gl-button-danger" title={t('files.supprimer_la_selection')}>
-            <Trash2 size={11} /> Supprimer
+            <Trash2 size={11} /> {t('files.toast.delete_confirm_label')}
           </button>
         </>
       )}

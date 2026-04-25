@@ -514,19 +514,19 @@ export function CargoDetailPanel({ id }: { id: string }) {
         {editing ? (
           <FormSection title={t('common.information')}>
             <FormGrid>
-              <DynamicPanelField label={t('paxlog.reference')}>
+              <DynamicPanelField label={t('common.reference')}>
                 <span className="text-sm font-mono font-medium text-foreground">{cargo.code}</span>
               </DynamicPanelField>
-              <DynamicPanelField label={t('conformite.rules.packlog.conditions.cargo_type')}>
+              <DynamicPanelField label={t('common.package_type')}>
                 <select value={editForm.cargo_type ?? ''} onChange={(e) => setEditForm({ ...editForm, cargo_type: e.target.value || null })} className={panelInputClass}>
                   {cargoTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label={t('packlog.demande_d_expedition')}>
+              <DynamicPanelField label={t('common.shipment_request_label')}>
                 <select value={editForm.request_id ?? ''} onChange={(e) => setEditForm({ ...editForm, request_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">{t('packlog.selectionner_une_demande')}</option>
+                  <option value="">Sélectionner une demande...</option>
                   {cargoRequests.map((request) => (
                     <option key={request.id} value={request.id}>{request.request_code} — {request.title}</option>
                   ))}
@@ -535,27 +535,27 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   Le colis doit rester rattaché à une demande d'expédition pour conserver le flux métier parent → enfants.
                 </p>
               </DynamicPanelField>
-              <DynamicPanelField label={t('conformite.rules.packlog.fields.designation')}>
+              <DynamicPanelField label={t('common.designation')}>
                 <input type="text" value={editForm.designation ?? ''} onChange={(e) => setEditForm({ ...editForm, designation: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.sap_article')}>
                 <input type="text" value={editForm.sap_article_code ?? ''} onChange={(e) => setEditForm({ ...editForm, sap_article_code: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Poids (kg)"><input type="number" min={0} step="any" value={editForm.weight_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Largeur (cm)"><input type="number" min={0} step="any" value={editForm.width_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, width_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Longueur (cm)"><input type="number" min={0} step="any" value={editForm.length_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, length_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Hauteur (cm)"><input type="number" min={0} step="any" value={editForm.height_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, height_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Surface totale (m²)"><input type="number" min={0} step="any" value={editForm.surface_m2 ?? ''} onChange={(e) => setEditForm({ ...editForm, surface_m2: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label={t('travelwiz.nombre_de_colis')}><input type="number" min={1} step={1} value={editForm.package_count ?? ''} onChange={(e) => setEditForm({ ...editForm, package_count: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Empilable">
+              <DynamicPanelField label={t('common.weight_kg')}><input type="number" min={0} step="any" value={editForm.weight_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.width_cm')}><input type="number" min={0} step="any" value={editForm.width_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, width_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.length_cm')}><input type="number" min={0} step="any" value={editForm.length_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, length_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.height_cm')}><input type="number" min={0} step="any" value={editForm.height_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, height_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.total_area_m2')}><input type="number" min={0} step="any" value={editForm.surface_m2 ?? ''} onChange={(e) => setEditForm({ ...editForm, surface_m2: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.package_count')}><input type="number" min={1} step={1} value={editForm.package_count ?? ''} onChange={(e) => setEditForm({ ...editForm, package_count: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label={t('common.stackable')}>
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={editForm.stackable ?? false} onChange={(e) => setEditForm({ ...editForm, stackable: e.target.checked })} />
                   Empilable
                 </label>
               </DynamicPanelField>
-              <DynamicPanelField label={t('travelwiz.propriete_du_materiel')}>
+              <DynamicPanelField label={t('common.material_ownership')}>
                 <select value={editForm.ownership_type ?? ''} onChange={(e) => setEditForm({ ...editForm, ownership_type: e.target.value || null })} className={panelInputClass}>
-                  <option value="">{t('common.select_option')}</option>
+                  <option value="">{t('common.select')}</option>
                   {ownershipOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
@@ -569,7 +569,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label={t('packlog.zone_de_chargement_prevue')}>
+              <DynamicPanelField label={t('common.loading_zone')}>
                 <select
                   value={editForm.planned_zone_id ?? ''}
                   onChange={(e) => setEditForm({ ...editForm, planned_zone_id: e.target.value || null })}
@@ -585,38 +585,38 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label={t('packlog.hazmat_valide')}>
+              <DynamicPanelField label="HAZMAT validé">
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={editForm.hazmat_validated ?? false} onChange={(e) => setEditForm({ ...editForm, hazmat_validated: e.target.checked })} />
                   Conforme et validé pour transport HAZMAT
                 </label>
               </DynamicPanelField>
-              <DynamicPanelField label={t('packlog.colis_reutilisable')}>
+              <DynamicPanelField label={t('common.reusable_package')}>
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={(editForm as { is_reusable?: boolean }).is_reusable ?? false} onChange={(e) => setEditForm({ ...editForm, is_reusable: e.target.checked } as typeof editForm)} />
                   Emballage retournable (basket, skid, coffre DNV…)
                 </label>
               </DynamicPanelField>
               {(editForm as { is_reusable?: boolean }).is_reusable && (
-                <DynamicPanelField label={t('packlog.date_retour_prevue')}>
+                <DynamicPanelField label={t('common.expected_return_date')}>
                   <input type="date" value={(editForm as { expected_return_date?: string | null }).expected_return_date ?? ''} onChange={(e) => setEditForm({ ...editForm, expected_return_date: e.target.value || null } as typeof editForm)} className={panelInputClass} />
                 </DynamicPanelField>
               )}
-              <DynamicPanelField label={t('packlog.contexte_herite_de_la_demande')} span="full">
+              <DynamicPanelField label="Contexte hérité de la demande" span="full">
                 <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 md:grid-cols-4">
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.columns.sender')}</p><p className="mt-1 text-sm text-foreground">{cargo.sender_name ?? '—'}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Destination</p><p className="mt-1 text-sm text-foreground">{cargo.destination_name ?? cargo.receiver_name ?? '—'}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Projet</p><p className="mt-1 text-sm text-foreground">{projectLabel ?? '—'}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Imputation</p><p className="mt-1 text-sm text-foreground">{cargo.imputation_reference_name ?? cargo.imputation_reference_code ?? '—'}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.sender')}</p><p className="mt-1 text-sm text-foreground">{cargo.sender_name ?? '—'}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.destination')}</p><p className="mt-1 text-sm text-foreground">{cargo.destination_name ?? cargo.receiver_name ?? '—'}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.project')}</p><p className="mt-1 text-sm text-foreground">{projectLabel ?? '—'}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.imputation')}</p><p className="mt-1 text-sm text-foreground">{cargo.imputation_reference_name ?? cargo.imputation_reference_code ?? '—'}</p></div>
                 </div>
               </DynamicPanelField>
-              <DynamicPanelField label={t('travelwiz.document_prepare_le')}>
+              <DynamicPanelField label={t('common.document_prepared_on')}>
                 <input type="datetime-local" value={editForm.document_prepared_at ?? ''} onChange={(e) => setEditForm({ ...editForm, document_prepared_at: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label={t('travelwiz.mise_a_disposition')}>
+              <DynamicPanelField label={t('common.availability')}>
                 <input type="datetime-local" value={editForm.available_from ?? ''} onChange={(e) => setEditForm({ ...editForm, available_from: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label={t('packlog.lieu_d_enlevement')} span="full">
+              <DynamicPanelField label={t('common.pickup_location')} span="full">
                 <input type="text" value={editForm.pickup_location_label ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_location_label: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.latitude')}>
@@ -625,7 +625,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label={t('common.longitude')}>
                 <input type="number" step="any" value={editForm.pickup_longitude ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_longitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label={t('travelwiz.apercu_cartographique')} span="full">
+              <DynamicPanelField label={t('common.map_preview')} span="full">
                 {editingPickupMapEmbedUrl ? (
                   <div className="space-y-2">
                     <div className="overflow-hidden rounded-lg border border-border">
@@ -639,37 +639,37 @@ export function CargoDetailPanel({ id }: { id: string }) {
                     )}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">{t('travelwiz.renseigne_latitude_et_longitude_pour_vis')}</p>
+                  <p className="text-xs text-muted-foreground">Renseigne latitude et longitude pour visualiser le point de pickup sur la carte.</p>
                 )}
               </DynamicPanelField>
-              <DynamicPanelField label={t('travelwiz.contact_utilisateur')}>
-                <UserPicker value={editForm.pickup_contact_user_id ?? null} onChange={(id) => setEditForm({ ...editForm, pickup_contact_user_id: id ?? null })} placeholder="Aucun" />
+              <DynamicPanelField label={t('common.user_contact')}>
+                <UserPicker value={editForm.pickup_contact_user_id ?? null} onChange={(id) => setEditForm({ ...editForm, pickup_contact_user_id: id ?? null })} placeholder={t('common.none_option')} />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.company_contact')}>
                 <ContactPicker value={editForm.pickup_contact_tier_contact_id ?? null} onChange={(id) => setEditForm({ ...editForm, pickup_contact_tier_contact_id: id ?? null })} placeholder={t('common.none_option')} tierId={editForm.sender_tier_id ?? null} />
               </DynamicPanelField>
-              <DynamicPanelField label={t('travelwiz.nom_libre_du_contact')}>
+              <DynamicPanelField label={t('common.free_contact_name')}>
                 <input type="text" value={editForm.pickup_contact_name ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_name: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label={t('travelwiz.telephone_contact')}>
+              <DynamicPanelField label={t('common.contact_phone')}>
                 <input type="text" value={editForm.pickup_contact_phone ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_phone: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label="Levage fourni par">
                 <input type="text" value={editForm.lifting_provider ?? ''} onChange={(e) => setEditForm({ ...editForm, lifting_provider: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label={t('packlog.oreilles_certifiees')}>
+              <DynamicPanelField label="Oreilles certifiées">
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={editForm.lifting_points_certified ?? false} onChange={(e) => setEditForm({ ...editForm, lifting_points_certified: e.target.checked })} />
                   Certification disponible
                 </label>
               </DynamicPanelField>
-              <DynamicPanelField label={t('packlog.ticket_de_pesee')}>
+              <DynamicPanelField label="Ticket de pesée">
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={editForm.weight_ticket_provided ?? false} onChange={(e) => setEditForm({ ...editForm, weight_ticket_provided: e.target.checked })} />
                   Preuve de pesée disponible
                 </label>
               </DynamicPanelField>
-              <DynamicPanelField label={t('travelwiz.photos_et_documents')} span="full">
+              <DynamicPanelField label={t('common.photos_documents')} span="full">
                 <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                   Les preuves visuelles et documentaires se gèrent via les fichiers joints du colis, pas par saisie manuelle de compteurs.
                 </div>
@@ -679,55 +679,57 @@ export function CargoDetailPanel({ id }: { id: string }) {
           </FormSection>
         ) : (
           <>
-            <SectionColumns>
-              <div className="@container space-y-5">
-                <FormSection title="Details">
-                  <DetailRow label="Code" value={cargo.code} />
-                  <DetailRow label={t('packlog.demande_d_expedition')} value={cargo.request_code ? `${cargo.request_code} — ${cargo.request_title ?? ''}`.trim() : '—'} />
-                  <DetailRow label="Statut demande" value={cargoRequestStatusLabel} />
-                  <DetailRow label="Type" value={cargoTypeLabels[cargo.cargo_type] ?? cargo.cargo_type ?? '—'} />
-                  <DetailRow label="Workflow dossier" value={cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status} />
-                  <DetailRow label={t('conformite.rules.packlog.fields.designation')} value={cargo.designation ?? '—'} />
-                  <DetailRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString('fr-FR')} kg` : '—'} />
-                  <DetailRow label="Dimensions" value={cargo.width_cm && cargo.length_cm && cargo.height_cm ? `${cargo.width_cm} × ${cargo.length_cm} × ${cargo.height_cm} cm` : '—'} />
-                  <DetailRow label="Surface totale" value={cargo.surface_m2 != null ? `${cargo.surface_m2.toLocaleString('fr-FR')} m²` : '—'} />
-                  <DetailRow label={t('travelwiz.nombre_de_colis')} value={cargo.package_count?.toString() ?? '—'} />
-                  <DetailRow label="Empilable" value={cargo.stackable ? 'Oui' : 'Non'} />
-                  <DetailRow label={t('packlog.volume_estime')} value={volumeLabel} />
-                  <DetailRow label="Voyage" value={cargo.voyage_code ?? '—'} />
-                  <DetailRow label="Manifeste" value={manifestLabel ?? '—'} />
-                  <DetailRow label={t('packlog.zone_prevue')} value={cargo.planned_zone_name ?? '—'} />
-                  <DetailRow label="Expediteur" value={cargo.sender_name ?? '—'} />
-                  <DetailRow label="Destinataire" value={cargo.receiver_name ?? cargo.request_receiver_name ?? '—'} />
-                  <DetailRow label={t('packlog.site_de_destination')} value={cargo.destination_name ?? '—'} />
-                  <DetailRow label="Projet" value={projectLabel ?? '—'} />
-                  <DetailRow label="Imputation" value={cargo.imputation_reference_name ? `${cargo.imputation_reference_code ?? ''} ${cargo.imputation_reference_name}`.trim() : '—'} />
-                  <DetailRow label={t('travelwiz.propriete_du_materiel')} value={cargo.ownership_type ? (ownershipLabels[cargo.ownership_type] ?? cargo.ownership_type) : '—'} />
-                  <DetailRow label="Article SAP" value={cargo.sap_article_code ?? '—'} />
-                  <DetailRow label={t('packlog.hazmat_valide')} value={cargo.hazmat_validated ? 'Oui' : 'Non'} />
-                  <DetailRow label={t('packlog.reutilisable')} value={cargo.is_reusable ? 'Oui — retour attendu' : 'Non'} />
-                  {cargo.is_reusable && cargo.expected_return_date && (
-                    <DetailRow label={t('packlog.date_retour_prevue')} value={new Date(cargo.expected_return_date).toLocaleDateString('fr-FR')} />
-                  )}
-                  {(cargo.sub_item_count ?? 0) > 0 && (
-                    <DetailRow label="Sous-colis (emballage)" value={`${cargo.sub_item_count} colis contenus`} />
-                  )}
-                  <DetailRow label="Demandeur" value={cargo.requester_name ?? cargo.request_requester_name ?? '—'} />
-                  <DetailRow label={t('packlog.prepare_le')} value={cargo.document_prepared_at ? new Date(cargo.document_prepared_at).toLocaleString('fr-FR') : '—'} />
-                  <DetailRow label={t('packlog.disponible_le')} value={cargo.available_from ? new Date(cargo.available_from).toLocaleString('fr-FR') : '—'} />
-                  <DetailRow label={t('packlog.lieu_d_enlevement')} value={cargo.pickup_location_label ?? '—'} />
-                  <DetailRow label={t('packlog.coordonnees_enlevement')} value={cargo.pickup_latitude != null && cargo.pickup_longitude != null ? `${cargo.pickup_latitude}, ${cargo.pickup_longitude}` : '—'} />
-                  <DetailRow label={t('packlog.contact_d_enlevement')} value={cargo.pickup_contact_display_name ?? cargo.pickup_contact_name ?? '—'} />
-                  <DetailRow label={t('packlog.telephone_d_enlevement')} value={cargo.pickup_contact_phone ?? '—'} />
-                  <DetailRow label="Levage fourni par" value={cargo.lifting_provider ?? '—'} />
-                  <DetailRow label={t('travelwiz.oreilles_de_levage_certifiees')} value={cargo.lifting_points_certified ? 'Oui' : 'Non'} />
-                  <DetailRow label={t('packlog.ticket_de_pesee')} value={cargo.weight_ticket_provided ? 'Oui' : 'Non'} />
-                  <DetailRow label="Photos" value={cargo.photo_evidence_count?.toString() ?? '0'} />
-                  <DetailRow label="Documents" value={cargo.document_attachment_count?.toString() ?? '0'} />
-                  <DetailRow label="Description" value={cargo.description ?? '—'} />
-                  <DetailRow label="Notes avarie" value={cargo.damage_notes ?? '—'} />
-                  {cargo.received_at && <DetailRow label={t('packlog.recu_le')} value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
-                  <DetailRow label={t('papyrus.cree_le')} value={new Date(cargo.created_at).toLocaleDateString('fr-FR')} />
+            {/* Tab: Informations */}
+            {activeTab === 'details' && (
+              <div className="space-y-4">
+                <SectionColumns>
+                  <div className="@container space-y-4">
+                    <FormSection title={t('common.identification')}>
+                      <DetailFieldGrid>
+                        <ReadOnlyRow label={t('common.code_field')} value={cargo.code} />
+                        <ReadOnlyRow label="Designation" value={cargo.designation ?? '—'} />
+                        <ReadOnlyRow label={t('common.type_field')} value={cargoTypeLabels[cargo.cargo_type] ?? cargo.cargo_type ?? '—'} />
+                        <ReadOnlyRow label="Article SAP" value={cargo.sap_article_code ?? '—'} />
+                        <ReadOnlyRow label="Propriété" value={cargo.ownership_type ? (ownershipLabels[cargo.ownership_type] ?? cargo.ownership_type) : '—'} />
+                        <ReadOnlyRow label="Réutilisable" value={cargo.is_reusable ? 'Oui — retour attendu' : 'Non'} />
+                        {cargo.is_reusable && cargo.expected_return_date && (
+                          <ReadOnlyRow label="Date retour prévue" value={formatDate(cargo.expected_return_date)} />
+                        )}
+                        <ReadOnlyRow label="HAZMAT validé" value={cargo.hazmat_validated ? 'Oui' : 'Non'} />
+                      </DetailFieldGrid>
+                    </FormSection>
+                  </div>
+                  <div className="@container space-y-4">
+                    <FormSection title="Dimensions & Poids">
+                      <DetailFieldGrid>
+                        <ReadOnlyRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString('fr-FR')} kg` : '—'} />
+                        <ReadOnlyRow label="Dimensions" value={cargo.width_cm && cargo.length_cm && cargo.height_cm ? `${cargo.width_cm} × ${cargo.length_cm} × ${cargo.height_cm} cm` : '—'} />
+                        <ReadOnlyRow label="Surface totale" value={cargo.surface_m2 != null ? `${cargo.surface_m2.toLocaleString('fr-FR')} m²` : '—'} />
+                        <ReadOnlyRow label="Volume estimé" value={volumeLabel} />
+                        <ReadOnlyRow label={t('common.package_count')} value={cargo.package_count?.toString() ?? '—'} />
+                        <ReadOnlyRow label="Empilable" value={cargo.stackable ? 'Oui' : 'Non'} />
+                      </DetailFieldGrid>
+                    </FormSection>
+                  </div>
+                </SectionColumns>
+
+                <FormSection title="Demande & Traçabilité">
+                  <DetailFieldGrid>
+                    <ReadOnlyRow label="Demande d'expédition" value={cargo.request_code ? `${cargo.request_code} — ${cargo.request_title ?? ''}`.trim() : '—'} />
+                    <ReadOnlyRow label="Statut demande" value={cargoRequestStatusLabel} />
+                    <ReadOnlyRow label="Workflow dossier" value={cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status} />
+                    <ReadOnlyRow label={t('common.requester')} value={cargo.requester_name ?? cargo.request_requester_name ?? '—'} />
+                    <ReadOnlyRow label={t('common.sender')} value={cargo.sender_name ?? '—'} />
+                    <ReadOnlyRow label={t('common.recipient')} value={cargo.receiver_name ?? cargo.request_receiver_name ?? '—'} />
+                    <ReadOnlyRow label={t('common.project')} value={projectLabel ?? '—'} />
+                    <ReadOnlyRow label={t('common.imputation')} value={cargo.imputation_reference_name ? `${cargo.imputation_reference_code ?? ''} ${cargo.imputation_reference_name}`.trim() : '—'} />
+                    <ReadOnlyRow label="Préparé le" value={cargo.document_prepared_at ? new Date(cargo.document_prepared_at).toLocaleString('fr-FR') : '—'} />
+                    <ReadOnlyRow label="Disponible le" value={cargo.available_from ? new Date(cargo.available_from).toLocaleString('fr-FR') : '—'} />
+                    <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(cargo.created_at)} />
+                    {cargo.received_at && <ReadOnlyRow label="Reçu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
+                    <ReadOnlyRow label={t('common.description')} value={cargo.description ?? '—'} />
+                    {cargo.damage_notes && <ReadOnlyRow label="Notes avarie" value={cargo.damage_notes} />}
+                  </DetailFieldGrid>
                 </FormSection>
 
                 <CargoReadinessSection missingRequirements={missingRequirements} workflowBlockingItems={workflowBlockingItems} />
@@ -853,83 +855,10 @@ export function CargoDetailPanel({ id }: { id: string }) {
               </div>
             )}
 
-            <CargoPackageElementsSection
-              cargoStatus={cargo.status}
-              elements={packageElements}
-              drafts={packageElementDrafts}
-              cargoStatusLabels={cargoStatusLabels}
-              packageReturnStatusLabels={packageReturnStatusLabels}
-              packageReturnStatusOptions={packageReturnStatusOptions}
-              onDraftChange={updatePackageElementDraft}
-              onSubmitReturn={handlePackageElementReturn}
-              onSubmitDisposition={handlePackageElementDisposition}
-              savingReturn={updatePackageElementReturn.isPending}
-              savingDisposition={updatePackageElementDisposition.isPending}
-            />
-
-            <CargoReturnSummarySection elements={packageElements} packageReturnStatusLabels={packageReturnStatusLabels} />
-
-            <CargoBackReturnSection
-              isDelivered={isDelivered}
-              returnDraft={returnDraft}
-              returnTypeOptions={backCargoReturnTypeOptions}
-              returnTypeLabels={backCargoReturnTypeLabels}
-              onChange={updateReturnDraft}
-              onSubmit={handleInitiateBackCargo}
-              isSubmitting={initiateReturn.isPending}
-            />
-
-            <FormSection title="Matching SAP" collapsible defaultExpanded={false}>
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <p className="text-[10px] text-muted-foreground mb-1">{t('packlog.recherche_par_description')}</p>
-                  <button className="gl-button-sm gl-button-default text-xs inline-flex items-center gap-1" onClick={() => { if (cargo.description) sapMatch.mutate(cargo.description) }} disabled={sapMatch.isPending || !cargo.description}>
-                    {sapMatch.isPending ? <Loader2 size={10} className="animate-spin" /> : <Search size={10} />}
-                    Rechercher SAP
-                  </button>
-                </div>
-              </div>
-              {sapMatch.data && (
-                <div className="mt-2 p-2 rounded border border-border bg-muted/30">
-                  {sapMatch.data.matched ? (
-                    <p className="text-xs text-foreground">
-                      <span className="font-mono font-medium">{sapMatch.data.sap_code}</span>
-                      {' — '}{sapMatch.data.description}
-                      {' '}({Math.round(sapMatch.data.confidence * 100)}% confiance)
-                    </p>
-                  ) : <p className="text-xs text-muted-foreground">{t('packlog.aucun_article_sap_correspondant')}</p>}
-                </div>
-              )}
-            </FormSection>
-
-            <CargoHistorySection cargoHistory={cargoHistory} />
-
-            <CargoEvidenceQualificationSection
-              cargoId={cargo.id}
-              attachments={attachments}
-              evidenceByAttachmentId={evidenceByAttachmentId}
-              cargoEvidenceOptions={cargoEvidenceOptions}
-              updateCargoAttachmentEvidence={updateCargoAttachmentEvidence}
-            />
-
-            <FormSection title="Preuves attendues" collapsible defaultExpanded={false}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {requiredEvidenceTypes.map((code) => {
-                  const present = (attachmentEvidence ?? []).some((item) => item.evidence_type === code)
-                  return (
-                    <div
-                      key={code}
-                      className={cn(
-                        'rounded-lg border px-3 py-2 text-xs',
-                        present ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-border/60 bg-card text-muted-foreground',
-                      )}
-                    >
-                      {cargoEvidenceLabels[code] ?? code}
-                    </div>
-                  )
-                })}
-              </div>
-            </FormSection>
+            {/* Tab: Historique */}
+            {activeTab === 'historique' && (
+              <CargoHistorySection cargoHistory={cargoHistory} />
+            )}
           </>
         )}
       </PanelContentLayout>

@@ -213,13 +213,6 @@ export interface LegalIdentifierUpdate {
   expires_at?: string | null
 }
 
-/** @deprecated Use LegalIdentifier */
-export type TierIdentifier = LegalIdentifier
-/** @deprecated Use LegalIdentifierCreate */
-export type TierIdentifierCreate = LegalIdentifierCreate
-/** @deprecated Use LegalIdentifierUpdate */
-export type TierIdentifierUpdate = LegalIdentifierUpdate
-
 // ── Tier Blocks (Blocking/Unblocking) ───────────────────────
 export interface TierBlock {
   id: string
@@ -606,11 +599,6 @@ export interface MedicalCheckCreate {
   notes?: string | null
   document_url?: string | null
 }
-/** @deprecated Use MedicalCheckRead */
-export type UserMedicalCheckRead = MedicalCheckRead
-/** @deprecated Use MedicalCheckCreate */
-export type UserMedicalCheckCreate = MedicalCheckCreate
-
 // ── User SSO Providers ────────────────────────────────────
 export interface UserSSOProviderRead {
   id: string
@@ -820,13 +808,6 @@ export interface AddressCreate {
 
 export type AddressUpdate = Partial<Omit<AddressCreate, 'owner_type' | 'owner_id'>>
 
-/** @deprecated Use Address instead */
-export type UserAddress = Address
-/** @deprecated Use AddressCreate instead */
-export type UserAddressCreate = AddressCreate
-/** @deprecated Use AddressUpdate instead */
-export type UserAddressUpdate = AddressUpdate
-
 // ── Notification Preferences ───────────────────────────────
 export interface NotificationPreference {
   global_level: string
@@ -994,6 +975,8 @@ export interface FileAttachment {
   content_type: string
   size_bytes: number
   description: string | null
+  /** Optional typed category (driven by per-module dictionary, e.g. `moc_attachment_type`). */
+  category: string | null
   uploaded_by: string
   created_at: string
 }
@@ -1365,6 +1348,26 @@ export interface ProjectCreate {
   asset_id: string
   // Optionnel : laisser vide pour utiliser le défaut admin.
   progress_weight_method?: ProgressWeightMethod | null
+  // Client-generated UUID used during create to stage polymorphic children
+  // (attachments, notes, tags…) before the project row exists. Backend
+  // re-targets rows with owner_type='project_staging' on successful create.
+  staging_ref?: string | null
+  // Optional seed tasks created alongside the project in the same transaction.
+  initial_tasks?: ProjectInitialTask[]
+}
+
+export interface ProjectInitialTask {
+  title: string
+  priority?: 'low' | 'medium' | 'high' | 'critical'
+  start_date?: string | null
+  due_date?: string | null
+  is_milestone?: boolean
+  estimated_hours?: number | null
+  /** 0-based index into the same initial_tasks list. Creates a
+   *  ProjectTaskDependency from that task to this one at save time. */
+  predecessor_index?: number | null
+  dependency_type?: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish'
+  lag_days?: number
 }
 
 export interface ProjectUpdate {
@@ -1392,14 +1395,6 @@ export interface ProjectMember {
   user_id: string | null
   contact_id: string | null
   role: string
-  allocation_pct: number
-  start_date: string | null
-  end_date: string | null
-  hourly_rate: number | null
-  daily_rate: number | null
-  currency: string | null
-  specialty: string | null
-  notes: string | null
   active: boolean
   created_at: string
   member_name?: string | null
@@ -1432,236 +1427,6 @@ export interface ProjectMemberUpdate {
   active?: boolean
 }
 
-// ── Task allocations (affectation membre × tâche) ──
-
-export interface ProjectTaskAllocation {
-  id: string
-  entity_id: string
-  project_id: string
-  task_id: string
-  member_id: string
-  planned_hours: number
-  allocation_pct: number
-  start_date: string | null
-  end_date: string | null
-  notes: string | null
-  created_at: string
-  member_name?: string | null
-  task_title?: string | null
-  actual_hours?: number | null
-}
-
-export interface ProjectTaskAllocationCreate {
-  task_id: string
-  member_id: string
-  planned_hours?: number
-  allocation_pct?: number
-  start_date?: string | null
-  end_date?: string | null
-  notes?: string | null
-}
-
-export interface ProjectTaskAllocationUpdate {
-  planned_hours?: number
-  allocation_pct?: number
-  start_date?: string | null
-  end_date?: string | null
-  notes?: string | null
-}
-
-export interface AllocationMatrixCell {
-  member_id: string
-  allocation_id: string | null
-  planned_hours: number
-  allocation_pct: number
-  actual_hours: number
-  variance_hours: number
-}
-
-export interface AllocationMatrixRow {
-  task_id: string
-  task_title: string
-  task_status: string
-  estimated_hours: number | null
-  actual_hours_total: number
-  planned_hours_total: number
-  cells: AllocationMatrixCell[]
-}
-
-export interface AllocationMatrixMember {
-  member_id: string
-  member_name: string
-  specialty: string | null
-  allocation_pct: number
-}
-
-export interface AllocationMatrix {
-  members: AllocationMatrixMember[]
-  tasks: AllocationMatrixRow[]
-}
-
-// ── Task losses (pertes) ──
-
-export type LossCategory = 'weather' | 'material' | 'equipment' | 'manpower' | 'contractual' | 'accident' | 'other'
-
-export interface ProjectTaskLoss {
-  id: string
-  entity_id: string
-  project_id: string
-  task_id: string | null
-  member_id: string | null
-  date: string
-  category: LossCategory | string
-  hours_lost: number | null
-  cost_amount: number | null
-  currency: string | null
-  description: string
-  reported_by: string | null
-  created_at: string
-  task_title?: string | null
-  member_name?: string | null
-  reporter_name?: string | null
-}
-
-export interface ProjectTaskLossCreate {
-  task_id?: string | null
-  member_id?: string | null
-  date: string
-  category: string
-  hours_lost?: number | null
-  cost_amount?: number | null
-  currency?: string | null
-  description: string
-}
-
-export interface ProjectTaskLossUpdate {
-  task_id?: string | null
-  member_id?: string | null
-  date?: string
-  category?: string
-  hours_lost?: number | null
-  cost_amount?: number | null
-  currency?: string | null
-  description?: string
-}
-
-// ── Project report ──
-
-export interface ProjectReport {
-  project: {
-    id: string
-    code: string
-    name: string
-    status: string
-    progress: number
-    currency: string | null
-    budget: number | null
-    start_date: string | null
-    end_date: string | null
-  }
-  kpis: {
-    tasks_count: number
-    members_count: number
-    total_planned_hours: number
-    total_actual_hours: number
-    variance_hours: number
-    total_cost: number
-    total_lost_hours: number
-    total_lost_cost: number
-    completion_pct: number
-  }
-  tasks: Array<{
-    task_id: string
-    title: string
-    status: string
-    estimated_hours: number | null
-    planned_hours: number
-    actual_hours: number
-    variance_hours: number
-    completion_pct: number
-  }>
-  members: Array<{
-    member_id: string
-    member_name: string | null
-    specialty: string | null
-    allocation_pct: number
-    planned_hours: number
-    actual_hours: number
-    cost: number
-    currency: string | null
-  }>
-  time_entries_by_status: Record<string, number>
-  losses_by_category: Array<{
-    category: string
-    hours_lost: number
-    cost_amount: number
-    count: number
-  }>
-}
-
-// ── Time entries (pointage) ──
-
-export type ProjectTimeEntryStatus = 'draft' | 'submitted' | 'validated' | 'rejected'
-
-export interface ProjectTimeEntry {
-  id: string
-  entity_id: string
-  project_id: string
-  member_id: string
-  task_id: string | null
-  date: string
-  hours: number
-  description: string | null
-  status: ProjectTimeEntryStatus
-  rate_snapshot: number | null
-  currency_snapshot: string | null
-  submitted_at: string | null
-  approved_by: string | null
-  approved_at: string | null
-  rejected_reason: string | null
-  created_at: string
-  member_name?: string | null
-  task_title?: string | null
-  cost?: number | null
-}
-
-export interface ProjectTimeEntryCreate {
-  member_id: string
-  task_id?: string | null
-  date: string
-  hours: number
-  description?: string | null
-}
-
-export interface ProjectTimeEntryUpdate {
-  task_id?: string | null
-  date?: string
-  hours?: number
-  description?: string | null
-}
-
-export interface ProjectTimeSummaryByStatus {
-  hours: number
-  cost: number
-}
-
-export interface ProjectTimeSummaryMember {
-  member_id: string
-  member_name: string | null
-  specialty: string | null
-  by_status: Partial<Record<ProjectTimeEntryStatus, ProjectTimeSummaryByStatus>>
-  total_hours: number
-  total_cost: number
-}
-
-export interface ProjectTimeSummary {
-  members: ProjectTimeSummaryMember[]
-  totals: {
-    hours: number
-    cost: number
-  }
-}
-
 export interface ProjectTask {
   id: string
   project_id: string
@@ -1686,6 +1451,8 @@ export interface ProjectTask {
   weight: number | null
   order: number
   active: boolean
+  /** True = jalon (start_date == due_date, pas de sous-tâche). Rendered as a diamond on the Gantt and with a ♦ indicator in task tables. */
+  is_milestone: boolean
   created_at: string
   assignee_name?: string | null
 }
@@ -1709,6 +1476,7 @@ export interface ProjectTaskCreate {
   estimated_hours?: number | null
   pob_quota?: number
   weight?: number | null
+  is_milestone?: boolean
 }
 
 export interface ProjectTaskUpdate {
@@ -1726,6 +1494,8 @@ export interface ProjectTaskUpdate {
   order?: number
   pob_quota?: number
   weight?: number | null
+  is_milestone?: boolean
+  parent_id?: string | null
 }
 
 export interface ProjectMilestone {
@@ -2120,6 +1890,7 @@ export interface RotationCreate {
   departure_base_id: string
   schedule_cron?: string | null
   schedule_description?: string | null
+  staging_ref?: string | null
 }
 
 export interface RotationUpdate {
@@ -2394,6 +2165,7 @@ export interface CargoItemCreate {
   parent_cargo_id?: string | null
   is_reusable?: boolean
   expected_return_date?: string | null
+  staging_ref?: string | null
 }
 
 export interface CargoItemUpdate {
@@ -2512,6 +2284,7 @@ export interface CargoRequestCreate {
   destination_asset_id?: string | null
   requester_user_id?: string | null
   requester_name?: string | null
+  staging_ref?: string | null
 }
 
 export interface CargoRequestUpdate {
@@ -2661,6 +2434,8 @@ export interface PlannerActivityCreate {
   drilling_program_ref?: string | null
   regulatory_ref?: string | null
   work_order_ref?: string | null
+  // Client-generated UUID to commit polymorphic children staged during Create.
+  staging_ref?: string | null
 }
 
 export interface PlannerActivityUpdate {
@@ -2754,7 +2529,7 @@ export interface PlannerRevisionDecisionRequest {
   signal_id: string
   created_at: string
   due_at: string | null
-  status: 'pending' | 'responded' | 'forced'
+  status: 'pending' | 'responded' | 'forced' | 'counter_accepted'
   project_id: string | null
   project_code: string | null
   project_name: string | null
@@ -3556,3 +3331,238 @@ export interface ImportExecuteResponse {
   errors: RowValidationError[]
   total_processed: number
 }
+
+// ════════════════════════════════════════════════════════════════════
+// Project resources & time tracking — added by cranky-wilbur merge
+// ════════════════════════════════════════════════════════════════════
+
+// ── Task allocations (affectation membre × tâche) ──
+
+export interface ProjectTaskAllocation {
+  id: string
+  entity_id: string
+  project_id: string
+  task_id: string
+  member_id: string
+  planned_hours: number
+  allocation_pct: number
+  start_date: string | null
+  end_date: string | null
+  notes: string | null
+  created_at: string
+  member_name?: string | null
+  task_title?: string | null
+  actual_hours?: number | null
+}
+
+export interface ProjectTaskAllocationCreate {
+  task_id: string
+  member_id: string
+  planned_hours?: number
+  allocation_pct?: number
+  start_date?: string | null
+  end_date?: string | null
+  notes?: string | null
+}
+
+export interface ProjectTaskAllocationUpdate {
+  planned_hours?: number
+  allocation_pct?: number
+  start_date?: string | null
+  end_date?: string | null
+  notes?: string | null
+}
+
+export interface AllocationMatrixCell {
+  member_id: string
+  allocation_id: string | null
+  planned_hours: number
+  allocation_pct: number
+  actual_hours: number
+  variance_hours: number
+}
+
+export interface AllocationMatrixRow {
+  task_id: string
+  task_title: string
+  task_status: string
+  estimated_hours: number | null
+  actual_hours_total: number
+  planned_hours_total: number
+  cells: AllocationMatrixCell[]
+}
+
+export interface AllocationMatrixMember {
+  member_id: string
+  member_name: string
+  specialty: string | null
+  allocation_pct: number
+}
+
+export interface AllocationMatrix {
+  members: AllocationMatrixMember[]
+  tasks: AllocationMatrixRow[]
+}
+
+// ── Task losses (pertes) ──
+
+export type LossCategory = 'weather' | 'material' | 'equipment' | 'manpower' | 'contractual' | 'accident' | 'other'
+
+export interface ProjectTaskLoss {
+  id: string
+  entity_id: string
+  project_id: string
+  task_id: string | null
+  member_id: string | null
+  date: string
+  category: LossCategory | string
+  hours_lost: number | null
+  cost_amount: number | null
+  currency: string | null
+  description: string
+  reported_by: string | null
+  created_at: string
+  task_title?: string | null
+  member_name?: string | null
+  reporter_name?: string | null
+}
+
+export interface ProjectTaskLossCreate {
+  task_id?: string | null
+  member_id?: string | null
+  date: string
+  category: string
+  hours_lost?: number | null
+  cost_amount?: number | null
+  currency?: string | null
+  description: string
+}
+
+export interface ProjectTaskLossUpdate {
+  task_id?: string | null
+  member_id?: string | null
+  date?: string
+  category?: string
+  hours_lost?: number | null
+  cost_amount?: number | null
+  currency?: string | null
+  description?: string
+}
+
+// ── Project report ──
+
+export interface ProjectReport {
+  project: {
+    id: string
+    code: string
+    name: string
+    status: string
+    progress: number
+    currency: string | null
+    budget: number | null
+    start_date: string | null
+    end_date: string | null
+  }
+  kpis: {
+    tasks_count: number
+    members_count: number
+    total_planned_hours: number
+    total_actual_hours: number
+    variance_hours: number
+    total_cost: number
+    total_lost_hours: number
+    total_lost_cost: number
+    completion_pct: number
+  }
+  tasks: Array<{
+    task_id: string
+    title: string
+    status: string
+    estimated_hours: number | null
+    planned_hours: number
+    actual_hours: number
+    variance_hours: number
+    completion_pct: number
+  }>
+  members: Array<{
+    member_id: string
+    member_name: string | null
+    specialty: string | null
+    allocation_pct: number
+    planned_hours: number
+    actual_hours: number
+    cost: number
+    currency: string | null
+  }>
+  time_entries_by_status: Record<string, number>
+  losses_by_category: Array<{
+    category: string
+    hours_lost: number
+    cost_amount: number
+    count: number
+  }>
+}
+
+// ── Time entries (pointage) ──
+
+export type ProjectTimeEntryStatus = 'draft' | 'submitted' | 'validated' | 'rejected'
+
+export interface ProjectTimeEntry {
+  id: string
+  entity_id: string
+  project_id: string
+  member_id: string
+  task_id: string | null
+  date: string
+  hours: number
+  description: string | null
+  status: ProjectTimeEntryStatus
+  rate_snapshot: number | null
+  currency_snapshot: string | null
+  submitted_at: string | null
+  approved_by: string | null
+  approved_at: string | null
+  rejected_reason: string | null
+  created_at: string
+  member_name?: string | null
+  task_title?: string | null
+  cost?: number | null
+}
+
+export interface ProjectTimeEntryCreate {
+  member_id: string
+  task_id?: string | null
+  date: string
+  hours: number
+  description?: string | null
+}
+
+export interface ProjectTimeEntryUpdate {
+  task_id?: string | null
+  date?: string
+  hours?: number
+  description?: string | null
+}
+
+export interface ProjectTimeSummaryByStatus {
+  hours: number
+  cost: number
+}
+
+export interface ProjectTimeSummaryMember {
+  member_id: string
+  member_name: string | null
+  specialty: string | null
+  by_status: Partial<Record<ProjectTimeEntryStatus, ProjectTimeSummaryByStatus>>
+  total_hours: number
+  total_cost: number
+}
+
+export interface ProjectTimeSummary {
+  members: ProjectTimeSummaryMember[]
+  totals: {
+    hours: number
+    cost: number
+  }
+}
+

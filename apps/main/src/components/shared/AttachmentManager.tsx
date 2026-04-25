@@ -81,7 +81,6 @@ function canPreview(contentType: string): boolean {
 
 /** Authenticated media component — fetches via API and renders as blob URL */
 function AuthMediaPreview({ src, contentType, name }: { src: string; contentType: string; name: string }) {
-  const { t } = useTranslation()
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [error, setError] = useState(false)
 
@@ -99,7 +98,7 @@ function AuthMediaPreview({ src, contentType, name }: { src: string; contentType
     return () => { if (revoke) URL.revokeObjectURL(revoke) }
   }, [src])
 
-  if (error) return <p className="text-xs text-muted-foreground p-2">{t('shared.impossible_de_charger_l_apercu')}</p>
+  if (error) return <p className="text-xs text-muted-foreground p-2">Impossible de charger l'aperçu.</p>
   if (!blobUrl) return <div className="flex items-center justify-center py-6"><Loader2 size={14} className="animate-spin text-muted-foreground" /></div>
 
   const base = baseContentType(contentType)
@@ -136,7 +135,15 @@ interface AttachmentManagerProps {
   hiddenCategories?: string[]
 }
 
-export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm, readOnly }: AttachmentManagerProps) {
+export function AttachmentManager({
+  ownerType,
+  ownerId,
+  compact,
+  initialShowForm,
+  readOnly,
+  categoryDictionary,
+  hiddenCategories,
+}: AttachmentManagerProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const rawCategoryOptions = useDictionaryOptions(categoryDictionary ?? '')
@@ -330,7 +337,7 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
                 <button
                   onClick={() => downloadFile(att.id, att.original_name)}
                   className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  title={t('shared.telecharger')}
+                  title="Télécharger"
                 >
                   <Download size={11} />
                 </button>
@@ -365,7 +372,7 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
 
       {/* Empty state */}
       {!isLoading && attachments.length === 0 && (
-        <EmptyState icon={Paperclip} title={t('shared.attachments.empty')} description={t('shared.attachments.empty_description')} size="compact" />
+        <EmptyState icon={Paperclip} title="Aucun fichier" description="Aucun fichier joint." size="compact" />
       )}
     </div>
   )

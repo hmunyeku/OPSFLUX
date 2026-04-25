@@ -985,16 +985,6 @@ export function ProjectGanttWrapper() {
 
   return (
     <>
-      <div className="mb-2 flex items-center gap-2">
-        <button
-          onClick={() => setShowProjectSelector(true)}
-          className="gl-button-sm gl-button-default"
-        >
-          {projectSelection.mode === 'all' ? 'Tous les projets' : `${projectSelection.projectIds.length} projet(s)`}
-        </button>
-        <span className="text-xs text-muted-foreground">{projects.length} projets · {rows.length - projects.length} tâches</span>
-      </div>
-
       <div className="flex-1 min-h-[400px]">
         <GanttCore
           leadingToolbar={leadingToolbar}

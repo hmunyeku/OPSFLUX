@@ -639,51 +639,24 @@ function TrackingTab() {
                 </div>
               </div>
             )}
-          </div>
-          <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.scan_results.title')}</p>
-            <div className="mt-2 space-y-2">
-              {isScanLoading && debouncedScan ? (
-                <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.loading')}</p>
-              ) : scanCandidates.length > 0 ? (
-                scanCandidates.map((item) => (
-                  <button
-                    key={item.id}
-                    className="gl-button gl-button-default w-full justify-between text-left"
-                    onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}
-                  >
-                    <div>
-                      <p className="font-mono text-xs text-foreground">{item.tracking_code}</p>
-                      <p className="mt-1 text-sm font-medium text-foreground">{item.designation || item.description}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{item.request_code ?? '—'} · {item.voyage_code ?? t('packlog.tracking.scan_results.no_voyage')}</p>
-                    </div>
-                    <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[item.status] ?? item.status}</span>
-                  </button>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.empty')}</p>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="mt-3 rounded-lg border border-border/60 bg-card px-3 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.manifests.title')}</p>
-            <span className="text-xs text-muted-foreground">{t('packlog.tracking.manifests.count', { count: manifestGroups.filter((group) => group.actionableItems.length > 0).length })}</span>
-          </div>
-          <div className="mt-3 space-y-3">
-            {manifestGroups.some((group) => group.actionableItems.length > 0) ? (
-              manifestGroups.map((group) => {
-                if (group.actionableItems.length === 0) return null
-                const receivedCount = group.items.filter((item) => isCargoReceivedLike(item)).length
-                return (
-                  <div key={group.manifestId} className="rounded-lg border border-border/60 px-3 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-foreground">{group.manifest?.reference || group.manifestId}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {t('packlog.tracking.manifests.summary', { voyage: group.items[0]?.voyage_code ?? '—', received: receivedCount, total: group.items.length, pending: group.actionableItems.length })}
-                        </p>
+
+            {/* Type-ahead candidates — only when user typed & no exact match */}
+            {debouncedScan && !quickTarget && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.scan_results.title')}</p>
+                {isScanLoading ? (
+                  <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.loading')}</p>
+                ) : scanCandidates.length > 0 ? (
+                  scanCandidates.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="flex w-full items-start justify-between gap-2 text-left rounded-md border border-border/60 bg-background px-2.5 py-2 hover:bg-chrome hover:border-border transition-colors cursor-pointer"
+                      onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono text-[11px] text-foreground truncate">{item.tracking_code}</p>
+                        <p className="mt-0.5 text-xs font-medium text-foreground truncate">{item.designation || item.description}</p>
                       </div>
                       <span className="gl-badge gl-badge-neutral shrink-0 text-[10px]">{cargoStatusLabels[item.status] ?? item.status}</span>
                     </button>

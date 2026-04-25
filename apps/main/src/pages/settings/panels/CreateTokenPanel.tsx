@@ -134,8 +134,12 @@ function CreateTokenInner() {
         </>
       }
     >
-      <form id="create-token-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title="Informations">
+      <form id="create-token-form" onSubmit={handleSubmit} >
+        <PanelContentLayout>
+        <SmartFormToolbar />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
+        <SmartFormSection id="t_common_information" title={t('common.information')} level="essential" help={{ description: t('common.information') }}>
           <DynamicPanelField label={t('settings.nom_du_jeton')} required>
             <input
               type="text"

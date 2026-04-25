@@ -191,6 +191,7 @@ interface WidgetCardProps {
 
 export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _badge }: WidgetCardProps) {
   const { t } = useTranslation()
+  const displayTitle = resolveWidgetTitle(widget, t)
   const { filterParams } = useDashboardFilters()
   // Use config.widget_id (provider ID) for data fetching, fallback to widget.id
   const dataWidgetId = (widget.config?.widget_id as string) || widget.id
@@ -317,8 +318,8 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
             <button onClick={handleExport} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title={t('common.export')}>
               <Download className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground')} />
             </button>
-            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10" title={t('common.fullscreen')}>
-              <Maximize2 className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/40' : 'text-muted-foreground/30')} />
+            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title={t('common.fullscreen')}>
+              <Maximize2 className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground')} />
             </button>
             {mode === 'edit' && onRemove && (
               <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/10 transition-colors" title={t('common.delete')}>
@@ -375,11 +376,10 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
 // ── Error State ─────────────────────────────────────────────────
 
 function WidgetError({ onRetry }: { error?: unknown; onRetry: () => void }) {
-  const { t } = useTranslation()
   return (
     <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
       <AlertTriangle className="h-5 w-5 text-destructive" />
-      <p className="text-xs text-muted-foreground">{t('common.error_loading')}</p>
+      <p className="text-xs text-muted-foreground">Erreur de chargement</p>
       <button
         onClick={onRetry}
         className="text-xs text-primary hover:underline"

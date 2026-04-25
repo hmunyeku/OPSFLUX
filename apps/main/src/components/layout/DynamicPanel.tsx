@@ -380,10 +380,15 @@ export function DynamicPanelShell({
           {children}
         </div>
 
-        {/* Mobile sticky bottom action bar — only renders on < sm */}
+        {/* Mobile sticky bottom action bar — only renders on < sm.
+            Horizontal scroll if too many buttons to fit on a phone width
+            (iPhone SE / Android compact). The inner gap-2 keeps spacing
+            consistent; flex-nowrap forces children to stay on one line so
+            the overflow-x-auto kicks in. The end-padding ensures the last
+            button isn't flush with the screen edge during scroll. */}
         {actionsNode && (
           <div
-            className="sm:hidden flex items-center justify-end gap-2 border-t border-border px-3 py-2 shrink-0 bg-background"
+            className="sm:hidden flex items-center gap-2 border-t border-border px-3 py-2 shrink-0 bg-background overflow-x-auto flex-nowrap whitespace-nowrap [scrollbar-width:thin]"
             style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
           >
             {actionsNode}
@@ -537,6 +542,13 @@ export function FormGrid({
  * so that nested container queries (FormGrid, DetailFieldGrid) respond
  * to the actual column width, not the outer panel width.
  */
+/**
+ * @deprecated Sections must NEVER appear side-by-side per April 2026 design
+ * rules — each section takes the full width of the boxed content area. This
+ * helper is kept for backwards compatibility but now stacks children
+ * vertically (single column) instead of using a 2-column grid. Migrate to
+ * a plain `<div className="space-y-6">` over time.
+ */
 export function SectionColumns({
   children,
   className,
@@ -545,17 +557,7 @@ export function SectionColumns({
   className?: string
 }) {
   return (
-    <div
-      className={cn(
-        'grid gap-x-8 gap-y-5 grid-cols-1',
-        // Kick into 2 columns earlier (was @[700px]) so docked panels
-        // benefit too. Detail panels typically pass 2 children — wider
-        // breakpoints are not added here because that would leave an
-        // empty column.
-        '@[640px]:grid-cols-2',
-        className,
-      )}
-    >
+    <div className={cn('space-y-6', className)}>
       {children}
     </div>
   )
@@ -567,6 +569,16 @@ export function SectionColumns({
  * Use inside a FormSection in detail panels to arrange InlineEditableRow /
  * ReadOnlyRow items in a 2-column grid when space allows.
  */
+/**
+ * Grid layout for fields inside a section.
+ *
+ * Per April 2026 design rules:
+ *  - 1 column on mobile / narrow containers (< 600px)
+ *  - 2 columns max on wider containers — NEVER 3+
+ *  - Subtle vertical separator between the two columns to make the
+ *    alignment visible without being noisy
+ *  - Generous horizontal gap so label/value pairs breathe
+ */
 export function DetailFieldGrid({
   children,
   className,
@@ -577,16 +589,16 @@ export function DetailFieldGrid({
   return (
     <div
       className={cn(
-        'grid gap-x-8 gap-y-0 grid-cols-1',
-        // 2 cols once the container is at least 500px wide so each field has
-        // ~240px for its value — enough for typical dates / labels without
-        // breaking long strings character-by-character.
-        '@[500px]:grid-cols-2',
-        // 3 cols on very wide containers (e.g. full-mode panel column on a
-        // 1920px monitor where each SectionColumns half is ~870px). Lets
-        // dense field groups (Identité, Informations légales) lay out as
-        // 3-up instead of 2-up + lots of empty space.
-        '@[860px]:grid-cols-3',
+        'grid gap-x-10 gap-y-0 grid-cols-1',
+        // 2 cols once the section has enough width. Each column hosts a
+        // {label, value} pair so the pair takes ~50% of the section width.
+        '@[600px]:grid-cols-2',
+        // Subtle column separator between the 2 columns: visible only when
+        // the 2-col layout kicks in (gap-x-10 = 40px between cols).
+        '@[600px]:divide-x @[600px]:divide-border/30',
+        // Add small left padding in the second column so the divider has
+        // visual room and doesn't hug the content.
+        '[&>*:nth-child(2n)]:@[600px]:pl-5',
         className,
       )}
     >
@@ -595,11 +607,18 @@ export function DetailFieldGrid({
   )
 }
 
-/* ─── Panel Content Layout — responsive wrapper for all panel content ── */
+/* ─── Panel Content Layout — responsive boxed wrapper for all panel content ── */
 
 /**
  * Replaces `<div className="p-4 space-y-5">` inside DynamicPanelShell.
- * On wide panels (full mode), increases padding, caps max-width and centers.
+ *
+ * Design system rules (consolidated April 2026):
+ *  - On full-screen / boxed mode: capped max-width with horizontal margin
+ *    so content occupies 80-90% of viewport (centered, breathable).
+ *  - Sections always stack vertically (one per row, never side-by-side):
+ *    spacing managed via `space-y-6`. Wider gap than before for readability.
+ *  - Padding scales with available width: tight on mobile, generous on
+ *    large screens.
  */
 export function PanelContentLayout({
   children,
@@ -611,14 +630,18 @@ export function PanelContentLayout({
   return (
     <div
       className={cn(
-        'p-4 space-y-5',
-        '@[800px]:px-8 @[800px]:py-6',
-        // Wider cap on big screens — readable line length is preserved by
-        // the per-section grids (SectionColumns / DetailFieldGrid) which
-        // split into 2 columns once the container is wide enough. The cap
-        // only kicks in around ~2000px so detail panels in full mode use
-        // the full main area on typical 1440-1920px monitors.
-        '@[1200px]:max-w-[1800px] @[1200px]:mx-auto',
+        // Mobile: tight padding, sections stacked with comfortable gap.
+        'p-4 space-y-6',
+        // Tablet+: more breathing room.
+        '@[640px]:px-6 @[640px]:py-5',
+        // Desktop: bigger padding + center the content. Cap to ~85% of
+        // viewport via max-w with auto margins so very wide panels stay
+        // readable (boxed mode). The fixed-px values are sized so the
+        // content occupies ~80-90% on a 1440-1920px monitor.
+        '@[1024px]:px-10 @[1024px]:py-6',
+        '@[1280px]:max-w-[1280px] @[1280px]:mx-auto',
+        '@[1600px]:max-w-[1440px]',
+        '@[1920px]:max-w-[1600px]',
         className,
       )}
     >
@@ -687,31 +710,39 @@ export function FormSection({
   }, [storageKey, resolvedId])
 
   return (
-    <fieldset className={cn('space-y-4', className)}>
+    <fieldset
+      className={cn(
+        // Each section is a self-contained card with subtle border + light
+        // background, taking the full available width. Sections always
+        // stack vertically (one per row) per April 2026 design.
+        'border border-border/40 rounded-lg bg-card/30 p-5 space-y-4',
+        className,
+      )}
+    >
       {(title || headerExtra) && (
         collapsible ? (
-          <div className="flex items-center gap-1.5 w-full">
+          <div className="flex items-center gap-2 w-full -mx-1">
             <button
               type="button"
               onClick={toggle}
-              className="flex items-center gap-1.5 flex-1 text-left group cursor-pointer select-none"
+              className="flex items-center gap-1.5 flex-1 text-left group cursor-pointer select-none px-1 py-0.5 rounded-md hover:bg-muted/40"
             >
               <ChevronRight
-                size={13}
+                size={14}
                 className={cn(
                   'shrink-0 text-muted-foreground transition-transform duration-200',
                   expanded && 'rotate-90',
                 )}
               />
-              <legend className="text-sm font-semibold text-foreground">
+              <legend className="text-sm font-display font-semibold text-foreground tracking-tight">
                 {title}
               </legend>
             </button>
-            {headerExtra && <span className="ml-auto">{headerExtra}</span>}
+            {headerExtra && <span className="ml-auto px-1">{headerExtra}</span>}
           </div>
         ) : (
-          <div className="flex items-center gap-2 pb-2">
-            <legend className="text-sm font-semibold text-foreground flex-1">
+          <div className="flex items-center gap-2 pb-2 border-b border-border/30">
+            <legend className="text-sm font-display font-semibold text-foreground flex-1 tracking-tight">
               {title}
             </legend>
             {headerExtra && <span className="ml-auto">{headerExtra}</span>}
@@ -953,8 +984,10 @@ export function InlineEditableRow({
 
   if (editing) {
     return (
-      <div className="flex items-center gap-3 py-1.5 border-b border-border/50">
-        <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
+      <div className="flex items-start gap-3 py-2.5 border-b border-border/30">
+        <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1.5 font-medium uppercase tracking-wide">
+          {label}
+        </span>
         <div className="flex-1 flex items-center gap-1.5">
           <input
             type={type}
@@ -963,17 +996,17 @@ export function InlineEditableRow({
             onKeyDown={onKeyDown}
             onBlur={commit}
             autoFocus
-            className="gl-form-input h-7 text-sm"
+            className="gl-form-input h-8 text-sm flex-1"
           />
           <button
             onClick={commit}
-            className="shrink-0 h-7 w-7 flex items-center justify-center rounded-lg text-success hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+            className="shrink-0 h-8 w-8 flex items-center justify-center rounded-md text-success hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
           >
             <Check size={14} />
           </button>
           <button
             onMouseDown={(e) => { e.preventDefault(); cancel() }}
-            className="shrink-0 h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+            className="shrink-0 h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent transition-colors"
           >
             <X size={14} />
           </button>
@@ -985,15 +1018,31 @@ export function InlineEditableRow({
   return (
     <div
       className={cn(
-        "group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
-        !disabled && "hover:bg-accent/50 cursor-pointer",
+        "group flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0 transition-colors",
       )}
       onDoubleClick={startEdit}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
-      <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}{suffix && value ? ` ${suffix}` : ''}</span>
-      {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
+      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1.5 font-medium uppercase tracking-wide">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5 break-words flex items-center gap-2",
+          !disabled && "hover:bg-muted/50 cursor-pointer",
+        )}
+      >
+        <span className="flex-1 min-w-0 break-words">
+          {displayValue || value || <span className="text-muted-foreground/60">—</span>}
+          {suffix && value ? <span className="text-muted-foreground"> {suffix}</span> : null}
+        </span>
+        {!disabled && (
+          <Pencil
+            size={11}
+            className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors"
+          />
+        )}
+      </span>
     </div>
   )
 }
@@ -1055,15 +1104,23 @@ export function InlineEditableSelect({
   return (
     <div
       className={cn(
-        'group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors',
-        !disabled && 'hover:bg-accent/50 cursor-pointer',
+        'group flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0 transition-colors',
       )}
       onDoubleClick={startEdit}
       title={disabled ? undefined : 'Double-cliquer pour modifier'}
     >
-      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
-      <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}</span>
-      {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
+      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1.5 font-medium uppercase tracking-wide">{label}</span>
+      <span
+        className={cn(
+          'flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5 break-words flex items-center gap-2',
+          !disabled && 'hover:bg-muted/50 cursor-pointer',
+        )}
+      >
+        <span className="flex-1 min-w-0 break-words">
+          {displayValue || value || <span className="text-muted-foreground/60">—</span>}
+        </span>
+        {!disabled && <Pencil size={11} className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors" />}
+      </span>
     </div>
   )
 }
@@ -1280,28 +1337,45 @@ export function InlineEditableTags({
   return (
     <div
       className={cn(
-        "group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
-        !disabled && "hover:bg-accent/50 cursor-pointer",
+        "group flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0 transition-colors",
       )}
       onDoubleClick={() => !disabled && setEditing(true)}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
-      <span className="text-sm text-foreground flex-1 min-w-0">
-        <span className="gl-badge gl-badge-neutral">{displayLabel}</span>
+      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1.5 font-medium uppercase tracking-wide">{label}</span>
+      <span
+        className={cn(
+          "flex-1 min-w-0 bg-muted/30 rounded-md px-2.5 py-1.5 flex items-center gap-2",
+          !disabled && "hover:bg-muted/50 cursor-pointer",
+        )}
+      >
+        <span className="flex-1 min-w-0">
+          <span className="gl-badge gl-badge-neutral">{displayLabel}</span>
+        </span>
+        {!disabled && <Pencil size={11} className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors" />}
       </span>
-      {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
   )
 }
 
 /* ─── Read-Only Row ───────────────────────────────────────────── */
+//
+// Layout per April 2026 design system:
+//  - Label in muted foreground on the left, fixed-width column.
+//  - Value chip with subtle bg-muted/30 background to make it stand out
+//    discreetly without dominating the page.
+//  - Aligned vertically in the parent grid (DetailFieldGrid 2-col) so
+//    every row in a section lines up.
 
 export function ReadOnlyRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0">
-      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
-      <span className="text-sm text-foreground flex-1 min-w-0">{value}</span>
+    <div className="flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0">
+      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1.5 font-medium uppercase tracking-wide">
+        {label}
+      </span>
+      <span className="flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5 break-words">
+        {value || <span className="text-muted-foreground/60">—</span>}
+      </span>
     </div>
   )
 }

@@ -16,7 +16,7 @@ import {
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
-import { Info, Paperclip, LayoutList, BarChart3 } from 'lucide-react'
+import { Info, Paperclip, LayoutList, BarChart3, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
@@ -950,14 +950,56 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
 
 function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTask[] }) {
   const [showCreate, setShowCreate] = useState(false)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<'order' | 'due_date' | 'priority' | 'progress'>('order')
 
-  const todoCount = tasks.filter(t => t.status === 'todo').length
-  const inProgressCount = tasks.filter(t => t.status === 'in_progress').length
-  const reviewCount = tasks.filter(t => t.status === 'review').length
-  const doneCount = tasks.filter(t => t.status === 'done').length
+  const counts = useMemo(() => ({
+    todo: tasks.filter(t => t.status === 'todo').length,
+    in_progress: tasks.filter(t => t.status === 'in_progress').length,
+    review: tasks.filter(t => t.status === 'review').length,
+    done: tasks.filter(t => t.status === 'done').length,
+    cancelled: tasks.filter(t => t.status === 'cancelled').length,
+  }), [tasks])
 
-  // Build a tree from parent_id so the list preserves Gouti-style hierarchy
-  // (and any OpsFlux-native task tree built via the "sub-task" field).
+  // Apply filters: search across title + status filter.
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase()
+    return tasks.filter(t => {
+      if (statusFilter && t.status !== statusFilter) return false
+      if (s && !(t.title || '').toLowerCase().includes(s)) return false
+      return true
+    })
+  }, [tasks, search, statusFilter])
+
+  // When filters are active, show a flat sorted list (no hierarchy) so
+  // the matching tasks aren't hidden under a collapsed parent. Fallback
+  // to the hierarchical tree only when no filter is applied — that's
+  // the typical reading mode for medium projects with WBS structure.
+  const isFiltered = !!search.trim() || !!statusFilter
+
+  const sorted = useMemo(() => {
+    const list = [...filtered]
+    const priorityRank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+    if (sortBy === 'due_date') {
+      list.sort((a, b) => {
+        const da = a.due_date ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER
+        const db = b.due_date ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER
+        return da - db
+      })
+    } else if (sortBy === 'priority') {
+      list.sort((a, b) =>
+        (priorityRank[a.priority ?? 'medium'] ?? 9) -
+        (priorityRank[b.priority ?? 'medium'] ?? 9),
+      )
+    } else if (sortBy === 'progress') {
+      list.sort((a, b) => (b.progress ?? 0) - (a.progress ?? 0))
+    } else {
+      list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    }
+    return list
+  }, [filtered, sortBy])
+
   const tree = useMemo(() => {
     const byParent = new Map<string | null, ProjectTask[]>()
     for (const t of tasks) {
@@ -978,19 +1020,35 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
       nodes.push(
         <TaskRow key={t.id} task={t} projectId={projectId} allTasks={tasks} depth={depth} />,
       )
-      // Recurse into subtasks
       nodes.push(...walk(t.id, depth + 1))
     }
     return nodes
   }
-  const rootNodes = walk(null, 0)
-  // Orphan safety: tasks whose parent_id doesn't exist in the flat set
-  const knownIds = new Set(tasks.map(t => t.id))
-  const orphanNodes = tasks
-    .filter(t => t.parent_id && !knownIds.has(t.parent_id))
-    .map(t => (
-      <TaskRow key={t.id} task={t} projectId={projectId} allTasks={tasks} depth={0} />
-    ))
+
+  const renderRows = (): React.ReactNode => {
+    if (isFiltered) {
+      // Flat sorted view — matching tasks always visible regardless of parent.
+      return sorted.map(t => (
+        <TaskRow key={t.id} task={t} projectId={projectId} allTasks={tasks} depth={0} />
+      ))
+    }
+    const rootNodes = walk(null, 0)
+    const knownIds = new Set(tasks.map(t => t.id))
+    const orphanNodes = tasks
+      .filter(t => t.parent_id && !knownIds.has(t.parent_id))
+      .map(t => (
+        <TaskRow key={t.id} task={t} projectId={projectId} allTasks={tasks} depth={0} />
+      ))
+    return [...rootNodes, ...orphanNodes]
+  }
+
+  const STATUS_PILLS: { value: string; label: string; cls: string; count: number }[] = [
+    { value: 'todo', label: 'À faire', cls: 'bg-muted text-muted-foreground', count: counts.todo },
+    { value: 'in_progress', label: 'En cours', cls: 'bg-primary/10 text-primary', count: counts.in_progress },
+    { value: 'review', label: 'Revue', cls: 'bg-yellow-500/10 text-yellow-600', count: counts.review },
+    { value: 'done', label: 'Terminées', cls: 'bg-green-500/10 text-green-600', count: counts.done },
+    { value: 'cancelled', label: 'Annulées', cls: 'bg-red-500/5 text-red-500', count: counts.cancelled },
+  ]
 
   return (
     <FormSection
@@ -999,20 +1057,80 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
       defaultExpanded
       storageKey="project-detail-tasks"
     >
-      {/* Kanban counters — like Gouti kanban columns header */}
-      <div className="flex items-center gap-2 text-[10px] mb-2 flex-wrap">
-        <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{todoCount} a faire</span>
-        <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">{inProgressCount} en cours</span>
-        {reviewCount > 0 && <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600">{reviewCount} revue</span>}
-        <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">{doneCount} terminées</span>
+      {/* Status filter pills — click to filter, click again to clear */}
+      <div className="flex items-center gap-1 text-[10px] mb-2 flex-wrap">
+        {STATUS_PILLS.filter(p => p.count > 0 || statusFilter === p.value).map(p => {
+          const active = statusFilter === p.value
+          return (
+            <button
+              key={p.value}
+              onClick={() => setStatusFilter(active ? null : p.value)}
+              className={cn(
+                'px-1.5 py-0.5 rounded transition-all',
+                p.cls,
+                active ? 'ring-1 ring-foreground/40 font-semibold' : 'opacity-70 hover:opacity-100',
+              )}
+            >
+              {p.count} {p.label.toLowerCase()}
+            </button>
+          )
+        })}
+        {statusFilter && (
+          <button
+            onClick={() => setStatusFilter(null)}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline ml-1"
+          >
+            Tout
+          </button>
+        )}
       </div>
 
-      {/* Task treegrid (hierarchy preserved via parent_id) */}
-      {tasks.length > 0 ? (
-        <div role="tree" aria-label="Hiérarchie des tâches" className="border border-border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
-          {rootNodes}
-          {orphanNodes}
+      {/* Search + Sort */}
+      {tasks.length > 4 && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <div className="relative flex-1">
+            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher une tâche…"
+              className={`${panelInputClass} text-xs pl-7 w-full h-7`}
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X size={11} />
+              </button>
+            )}
+          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className={`${panelInputClass} text-xs h-7 w-[110px]`}
+            title="Trier par"
+          >
+            <option value="order">Ordre WBS</option>
+            <option value="due_date">Date</option>
+            <option value="priority">Priorité</option>
+            <option value="progress">Avancement</option>
+          </select>
         </div>
+      )}
+
+      {/* Task treegrid (hierarchy preserved when no filter; flat when filtered) */}
+      {tasks.length > 0 ? (
+        filtered.length === 0 ? (
+          <div className="text-[11px] text-muted-foreground text-center py-4 border border-dashed border-border/40 rounded">
+            Aucune tâche ne correspond aux filtres
+          </div>
+        ) : (
+          <div role="tree" aria-label="Hiérarchie des tâches" className="border border-border/40 rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
+            {renderRows()}
+          </div>
+        )
       ) : (
         <EmptyState icon={ListTodo} title="Aucune tâche" variant="search" size="compact" />
       )}

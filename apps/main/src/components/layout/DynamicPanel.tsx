@@ -730,16 +730,28 @@ export function FormSection({
           </div>
         )
       )}
-      {/* Content with animated expand/collapse */}
+      {/* Content with animated expand/collapse.
+          Important: when expanded, overflow MUST be visible so absolute-
+          positioned dropdowns inside (UserPicker, AssetPicker, popovers)
+          can escape the section bounds. Only the closing animation needs
+          overflow-hidden — and at that point the section is already
+          collapsing to 0 height anyway, so the dropdown auto-disappears
+          as the parent shrinks. We render children unconditionally so the
+          animation plays in both directions; for the collapsed state we
+          rely on max-h-0 + opacity-0 to hide the body. */}
       {collapsible ? (
-        <div
-          className={cn(
-            'overflow-hidden transition-all duration-200 ease-in-out',
-            expanded ? 'max-h-[3000px] opacity-100' : 'max-h-0 opacity-0',
-          )}
-        >
-          {children}
-        </div>
+        expanded ? (
+          <div className="transition-opacity duration-200 ease-in-out opacity-100">
+            {children}
+          </div>
+        ) : (
+          <div
+            className="overflow-hidden transition-all duration-200 ease-in-out max-h-0 opacity-0"
+            aria-hidden="true"
+          >
+            {children}
+          </div>
+        )
       ) : (
         children
       )}

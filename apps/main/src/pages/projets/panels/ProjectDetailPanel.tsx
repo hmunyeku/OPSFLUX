@@ -19,7 +19,6 @@ import { TabBar } from '@/components/ui/Tabs'
 import { Info, Paperclip, LayoutList, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
-import { useDebounce } from '@/hooks/useDebounce'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
 import {
   DynamicPanelShell,

@@ -188,6 +188,12 @@ export function WeatherIcon({ weather, size = 14 }: { weather: string; size?: nu
  * with a rich picker component (AssetPicker, user <select>, etc.).
  * When the picker fires a selection, the parent saves and we return to
  * read mode via the `onDone` callback passed to `renderPicker`.
+ *
+ * Visual layout: matches InlineEditableRow / ReadOnlyRow exactly so
+ * pickers (Chef de projet, Site/Installation, etc.) align with the rest
+ * of the detail-panel rows — uppercase label on the left at fixed width
+ * (CSS var --opsflux-label-w), value chip on subtle bg-muted/30 on the
+ * right. April 2026 design system.
  */
 export function InlinePickerField({
   label,
@@ -202,22 +208,34 @@ export function InlinePickerField({
 
   if (editing) {
     return (
-      <div>
-        <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-0.5">{label}</label>
-        {renderPicker(() => setEditing(false))}
+      <div className="flex flex-col gap-1 py-1.5 border-b border-border/20 sm:flex-row sm:items-start sm:gap-3">
+        <span
+          className="text-[10px] text-muted-foreground shrink-0 font-semibold uppercase tracking-wider sm:text-xs sm:font-medium sm:tracking-wide sm:pt-1"
+          style={{ width: 'var(--opsflux-label-w, 8rem)' } as React.CSSProperties}
+        >
+          {label}
+        </span>
+        <div className="flex-1 min-w-0">
+          {renderPicker(() => setEditing(false))}
+        </div>
       </div>
     )
   }
 
   return (
     <div
-      className="group cursor-pointer"
+      className="group flex flex-col gap-1 py-1.5 border-b border-border/20 last:border-0 sm:flex-row sm:items-start sm:gap-3"
       onDoubleClick={() => setEditing(true)}
       title="Double-cliquez pour modifier"
     >
-      <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-0.5">{label}</label>
-      <span className="text-sm text-foreground group-hover:text-primary transition-colors">
-        {displayValue}
+      <span
+        className="text-[10px] text-muted-foreground shrink-0 font-semibold uppercase tracking-wider sm:text-xs sm:font-medium sm:tracking-wide sm:pt-1"
+        style={{ width: 'var(--opsflux-label-w, 8rem)' } as React.CSSProperties}
+      >
+        {label}
+      </span>
+      <span className="flex-1 min-w-0 text-sm text-foreground bg-muted/30 hover:bg-muted/60 hover:ring-1 hover:ring-primary/20 cursor-pointer rounded-md px-2.5 py-1.5 transition-colors break-words [overflow-wrap:anywhere]">
+        {displayValue || <span className="text-muted-foreground/60">—</span>}
       </span>
     </div>
   )

@@ -16,19 +16,17 @@
  *   /projects/{pid}/{time-summary,allocation-matrix}
  */
 import { useState } from 'react'
-import { Loader2, Trash2, X, Check, Send, Plus, Clock, AlertTriangle } from 'lucide-react'
+import { Loader2, Trash2, Plus, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FormSection, panelInputClass } from '@/components/layout/DynamicPanel'
 import {
   useProjectTasks,
-  useProjectTimeEntries, useCreateProjectTimeEntry, useSubmitProjectTimeEntry,
-  useApproveProjectTimeEntry, useRejectProjectTimeEntry, useDeleteProjectTimeEntry,
-  useProjectTimeSummary,
   useProjectAllocationMatrix, useCreateProjectAllocation,
   useUpdateProjectAllocation, useDeleteProjectAllocation,
   useProjectLosses, useCreateProjectLoss, useDeleteProjectLoss,
   useProjectReport,
 } from '@/hooks/useProjets'
+import { WeeklyTimesheetGrid } from './WeeklyTimesheetGrid'
 import type { ProjectMember as ProjectMemberType } from '@/types/api'
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -42,166 +40,21 @@ const TIME_STATUS_BADGE: Record<string, string> = {
   rejected: 'bg-red-500/10 text-red-600',
 }
 const TIME_STATUS_LABEL: Record<string, string> = {
-  draft: 'Brouillon', submitted: 'Soumis', validated: 'Validé', rejected: 'Rejeté',
+  draft: 'Brouillon', submitted: 'Soumis', validated: 'Valide', rejected: 'Rejete',
 }
+// Re-export for compatibility (currently unused after rewrite, kept for any
+// downstream consumer of this module).
+void TIME_STATUS_BADGE; void TIME_STATUS_LABEL
 
-export function TimeTrackingSection({ projectId, members }: { projectId: string; members: ProjectMemberType[] }) {
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const [showAdd, setShowAdd] = useState(false)
-  const [memberId, setMemberId] = useState('')
-  const [taskId, setTaskId] = useState('')
-  const [date, setDate] = useState(todayStr)
-  const [hours, setHours] = useState('')
-  const [description, setDescription] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
-
-  const { data: entries } = useProjectTimeEntries(projectId, statusFilter ? { status: statusFilter } : {})
-  const { data: tasks } = useProjectTasks(projectId)
-  const { data: summary } = useProjectTimeSummary(projectId)
-  const createEntry = useCreateProjectTimeEntry()
-  const submitEntry = useSubmitProjectTimeEntry()
-  const approveEntry = useApproveProjectTimeEntry()
-  const rejectEntry = useRejectProjectTimeEntry()
-  const deleteEntry = useDeleteProjectTimeEntry()
-
-  const reset = () => {
-    setMemberId(''); setTaskId(''); setDate(todayStr); setHours(''); setDescription('')
-    setShowAdd(false)
-  }
-
-  const handleSubmitEntry = async () => {
-    if (!memberId || !hours) return
-    await createEntry.mutateAsync({
-      projectId,
-      payload: {
-        member_id: memberId,
-        task_id: taskId || null,
-        date,
-        hours: parseFloat(hours),
-        description: description || null,
-      },
-    })
-    reset()
-  }
-
-  const handleReject = async (entryId: string) => {
-    const reason = window.prompt('Motif du rejet ?')
-    if (!reason) return
-    await rejectEntry.mutateAsync({ projectId, entryId, reason })
-  }
-
+export function TimeTrackingSection({ projectId }: { projectId: string; members: ProjectMemberType[] }) {
   return (
     <FormSection
-      title={`Pointage${entries && entries.length ? ` (${entries.length})` : ''}`}
+      title="Feuille de temps"
       collapsible
       defaultExpanded={false}
       storageKey="project-detail-timesheet"
     >
-      {summary && summary.totals.hours > 0 && (
-        <div className="flex items-center gap-3 text-[11px] mb-2 px-2 py-1.5 rounded bg-muted/40">
-          <span className="text-muted-foreground">Total :</span>
-          <span className="font-medium">{summary.totals.hours.toFixed(1)} h</span>
-          {summary.totals.cost > 0 && (
-            <>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-medium">{summary.totals.cost.toFixed(2)}</span>
-            </>
-          )}
-        </div>
-      )}
-
-      <div className="flex items-center gap-1 mb-2 text-[10px]">
-        <span className="text-muted-foreground">Filtrer :</span>
-        {(['', 'draft', 'submitted', 'validated', 'rejected'] as const).map(s => (
-          <button
-            key={s || 'all'}
-            onClick={() => setStatusFilter(s)}
-            className={cn(
-              'px-1.5 py-0.5 rounded',
-              statusFilter === s ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground',
-            )}
-          >
-            {s ? TIME_STATUS_LABEL[s] : 'Tous'}
-          </button>
-        ))}
-      </div>
-
-      {entries && entries.length > 0 ? (
-        <div className="space-y-1 mb-2">
-          {entries.map((te) => (
-            <div key={te.id} className="group flex items-center gap-2 text-xs py-1 border-b border-border/40 last:border-0">
-              <Clock size={11} className="text-muted-foreground shrink-0" />
-              <span className="text-muted-foreground tabular-nums w-[80px] shrink-0">{te.date}</span>
-              <span className="font-medium tabular-nums w-[40px] shrink-0">{te.hours}h</span>
-              <span className="flex-1 min-w-0 truncate">
-                {te.member_name || '?'}
-                {te.task_title && <span className="text-muted-foreground"> · {te.task_title}</span>}
-                {te.description && <span className="text-muted-foreground"> — {te.description}</span>}
-              </span>
-              {te.cost && te.currency_snapshot && (
-                <span className="text-[10px] text-muted-foreground shrink-0">{te.cost.toFixed(2)} {te.currency_snapshot}</span>
-              )}
-              <span className={cn('px-1.5 py-0.5 rounded text-[9px] shrink-0', TIME_STATUS_BADGE[te.status])}>
-                {TIME_STATUS_LABEL[te.status]}
-              </span>
-              <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                {te.status === 'draft' && (
-                  <>
-                    <button title="Soumettre" onClick={() => submitEntry.mutate({ projectId, entryId: te.id })} className="p-0.5 rounded hover:bg-primary/10 text-primary">
-                      <Send size={10} />
-                    </button>
-                    <button title="Supprimer" onClick={() => deleteEntry.mutate({ projectId, entryId: te.id })} className="p-0.5 rounded hover:bg-red-500/10 text-red-500">
-                      <Trash2 size={10} />
-                    </button>
-                  </>
-                )}
-                {te.status === 'submitted' && (
-                  <>
-                    <button title="Approuver" onClick={() => approveEntry.mutate({ projectId, entryId: te.id })} className="p-0.5 rounded hover:bg-green-500/10 text-green-600">
-                      <Check size={10} />
-                    </button>
-                    <button title="Rejeter" onClick={() => handleReject(te.id)} className="p-0.5 rounded hover:bg-red-500/10 text-red-500">
-                      <X size={10} />
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-[11px] text-muted-foreground text-center py-2">Aucun pointage</div>
-      )}
-
-      {!showAdd ? (
-        <button onClick={() => setShowAdd(true)} disabled={members.length === 0} className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1 disabled:opacity-40">
-          <Plus size={12} /> Ajouter un pointage
-        </button>
-      ) : (
-        <div className="flex flex-col gap-1.5 p-2 border border-border rounded-md bg-muted/30">
-          <div className="grid grid-cols-2 gap-1.5">
-            <select value={memberId} onChange={(e) => setMemberId(e.target.value)} className={`${panelInputClass} text-xs`}>
-              <option value="">— Membre —</option>
-              {members.map(m => (
-                <option key={m.id} value={m.id}>{m.member_name || '(inconnu)'}{m.specialty ? ` (${m.specialty})` : ''}</option>
-              ))}
-            </select>
-            <select value={taskId} onChange={(e) => setTaskId(e.target.value)} className={`${panelInputClass} text-xs`}>
-              <option value="">— Tâche (optionnel) —</option>
-              {tasks?.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-            </select>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${panelInputClass} text-xs`} />
-            <input type="number" min={0.25} max={24} step={0.25} value={hours} onChange={(e) => setHours(e.target.value)} placeholder="Heures" className={`${panelInputClass} text-xs`} />
-            <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optionnel)" className={`${panelInputClass} text-xs col-span-2`} />
-          </div>
-          <div className="flex justify-end gap-1">
-            <button onClick={reset} className="px-2 py-0.5 text-[10px] rounded hover:bg-muted text-muted-foreground">Annuler</button>
-            <button onClick={handleSubmitEntry} disabled={createEntry.isPending || !memberId || !hours} className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40">
-              {createEntry.isPending ? <Loader2 size={10} className="animate-spin" /> : 'Enregistrer'}
-            </button>
-          </div>
-        </div>
-      )}
+      <WeeklyTimesheetGrid projectId={projectId} />
     </FormSection>
   )
 }

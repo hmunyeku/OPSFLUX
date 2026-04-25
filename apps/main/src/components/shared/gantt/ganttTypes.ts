@@ -178,6 +178,13 @@ export interface GanttBarData {
    */
   externalTitle?: string
   externalTitlePosition?: 'before' | 'after'
+  /**
+   * Short label rendered immediately to the RIGHT of the bar (e.g. assignee
+   * initials "AND", "SBE"). Distinct from externalTitle: rightLabel is a
+   * dedicated slot for compact metadata (3-4 chars), while externalTitle
+   * replaces the on-bar text.
+   */
+  rightLabel?: string
 }
 
 // ── Dependency ───────────────────────────────────────────────────

@@ -376,6 +376,23 @@ export function GanttBarComponent({
         )}
       </div>
 
+      {/* Right-label (assignee initials, e.g. "AND", "SBE"). Rendered just
+          past the bar's end edge so it doesn't overlap the bar content.
+          Gouti-style. Hidden when a drag preview is showing to avoid
+          clutter. */}
+      {bar.rightLabel && !preview && (
+        <div
+          className="absolute z-30 pointer-events-none text-[10px] font-semibold tabular-nums tracking-wider text-muted-foreground"
+          style={{
+            left: visualLeft + visualWidth + 4,
+            top: top + (barHeight - 12) / 2,
+            lineHeight: '12px',
+          }}
+        >
+          {bar.rightLabel}
+        </div>
+      )}
+
       {/* Preview date tooltip — shows the proposed new dates while dragging */}
       {preview && (
         <div

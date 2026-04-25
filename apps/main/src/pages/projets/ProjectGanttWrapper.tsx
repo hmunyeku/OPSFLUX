@@ -199,6 +199,30 @@ export function ProjectGanttWrapper() {
     })),
   })
 
+  // Critical path per expanded project — used to highlight critical task
+  // bars in red (Gouti-style "Chemin critique" toggle). Only enabled when
+  // a single project is expanded to avoid N round-trips on big portfolios;
+  // users can drill into one project at a time to see its critical path.
+  const cpmQueries = useQueries({
+    queries: expandedIds.map(pid => ({
+      queryKey: ['project-cpm', pid],
+      queryFn: () => projetsService.getCpm(pid),
+      enabled: expanded.has(pid),
+      staleTime: 60_000,
+    })),
+  })
+
+  const criticalTaskIds = useMemo(() => {
+    const set = new Set<string>()
+    expandedIds.forEach((_, i) => {
+      const q = cpmQueries[i]
+      if (q?.data?.critical_path_task_ids) {
+        for (const tid of q.data.critical_path_task_ids) set.add(tid)
+      }
+    })
+    return set
+  }, [expandedIds, cpmQueries])
+
   // Milestones are a subtype of task (ProjectTask.is_milestone = true),
   // so they arrive via `taskQueries` alongside regular tasks. No
   // separate query needed.
@@ -351,6 +375,19 @@ export function ProjectGanttWrapper() {
 
             if (task.start_date && task.due_date) {
               const isMs = task.is_milestone === true
+              const isCritical = criticalTaskIds.has(task.id)
+              // Compute assignee initials (e.g. "Hervé Munyeku" → "HM").
+              // Shown to the right of the bar like Gouti's responsable
+              // labels (AND, SBE, BWI, …).
+              const assigneeInitials = task.assignee_name
+                ? task.assignee_name
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .map((p) => p[0])
+                    .join('')
+                    .slice(0, 3)
+                    .toUpperCase()
+                : null
               allBars.push({
                 id: task.id,
                 rowId: task.id,
@@ -365,6 +402,8 @@ export function ProjectGanttWrapper() {
                 isDraft: task.status === 'todo',
                 isSummary: !isMs && hasKids,
                 isMilestone: isMs,
+                isCritical,
+                rightLabel: assigneeInitials || undefined,
                 draggable: !isMs, // dragging a diamond is ambiguous
                 resizable: !isMs, // a point-in-time has no duration to resize
                 meta: { projectId: project.id, taskId: task.id },
@@ -372,6 +411,7 @@ export function ProjectGanttWrapper() {
                   ...(isMs ? [['Jalon', task.title] as [string, string]] : []),
                   ['Statut', task.status],
                   ['Priorité', task.priority || '—'],
+                  ...(isCritical ? [['Chemin critique', 'oui'] as [string, string]] : []),
                   ...(task.assignee_name ? [['Assigné', task.assignee_name] as [string, string]] : []),
                   ...(task.estimated_hours ? [['Estimé', `${task.estimated_hours}h`] as [string, string]] : []),
                 ],
@@ -400,7 +440,7 @@ export function ProjectGanttWrapper() {
     }
 
     return { rows: allRows, bars: allBars, deps: allDeps }
-  }, [projects, expanded, tasksByProject, depsByProject])
+  }, [projects, expanded, tasksByProject, depsByProject, criticalTaskIds])
 
   // ── Callbacks ─────────────────────────────────────────────────
 

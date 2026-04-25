@@ -1392,6 +1392,14 @@ export interface ProjectMember {
   user_id: string | null
   contact_id: string | null
   role: string
+  allocation_pct: number
+  start_date: string | null
+  end_date: string | null
+  hourly_rate: number | null
+  daily_rate: number | null
+  currency: string | null
+  specialty: string | null
+  notes: string | null
   active: boolean
   created_at: string
   member_name?: string | null
@@ -1401,6 +1409,90 @@ export interface ProjectMemberCreate {
   user_id?: string | null
   contact_id?: string | null
   role?: string
+  allocation_pct?: number
+  start_date?: string | null
+  end_date?: string | null
+  hourly_rate?: number | null
+  daily_rate?: number | null
+  currency?: string | null
+  specialty?: string | null
+  notes?: string | null
+}
+
+export interface ProjectMemberUpdate {
+  role?: string
+  allocation_pct?: number
+  start_date?: string | null
+  end_date?: string | null
+  hourly_rate?: number | null
+  daily_rate?: number | null
+  currency?: string | null
+  specialty?: string | null
+  notes?: string | null
+  active?: boolean
+}
+
+// ── Time entries (pointage) ──
+
+export type ProjectTimeEntryStatus = 'draft' | 'submitted' | 'validated' | 'rejected'
+
+export interface ProjectTimeEntry {
+  id: string
+  entity_id: string
+  project_id: string
+  member_id: string
+  task_id: string | null
+  date: string
+  hours: number
+  description: string | null
+  status: ProjectTimeEntryStatus
+  rate_snapshot: number | null
+  currency_snapshot: string | null
+  submitted_at: string | null
+  approved_by: string | null
+  approved_at: string | null
+  rejected_reason: string | null
+  created_at: string
+  member_name?: string | null
+  task_title?: string | null
+  cost?: number | null
+}
+
+export interface ProjectTimeEntryCreate {
+  member_id: string
+  task_id?: string | null
+  date: string
+  hours: number
+  description?: string | null
+}
+
+export interface ProjectTimeEntryUpdate {
+  task_id?: string | null
+  date?: string
+  hours?: number
+  description?: string | null
+}
+
+export interface ProjectTimeSummaryByStatus {
+  hours: number
+  cost: number
+}
+
+export interface ProjectTimeSummaryMember {
+  member_id: string
+  member_name: string | null
+  specialty: string | null
+  by_status: Partial<Record<ProjectTimeEntryStatus, ProjectTimeSummaryByStatus>>
+  total_hours: number
+  total_cost: number
+}
+
+export interface ProjectTimeSummary {
+  members: ProjectTimeSummaryMember[]
+  totals: {
+    hours: number
+    cost: number
+  }
 }
 
 export interface ProjectTask {

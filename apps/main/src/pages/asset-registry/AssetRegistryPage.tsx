@@ -86,6 +86,7 @@ const ENVIRONMENT_FILTER_OPTIONS = [
 ]
 
 const SITE_TYPE_OPTIONS = [
+  // ── Oil & Gas (industriel) ──
   { value: 'CPF', label: 'CPF' },
   { value: 'FPSO', label: 'FPSO' },
   { value: 'WELL_PAD', label: 'Well Pad' },
@@ -94,10 +95,21 @@ const SITE_TYPE_OPTIONS = [
   { value: 'CAMP', label: 'Camp' },
   { value: 'AIRSTRIP', label: 'Airstrip' },
   { value: 'JETTY', label: 'Jetty' },
+  // ── Civil / construction (cf E2E bug #15 — manquaient pour tout
+  // projet de bâtiment, infrastructure ou aménagement) ──
+  { value: 'CONSTRUCTION_SITE', label: 'Chantier de construction' },
+  { value: 'RESIDENTIAL', label: 'Site résidentiel' },
+  { value: 'COMMERCIAL_BUILDING', label: 'Bâtiment commercial' },
+  { value: 'INDUSTRIAL_PLANT', label: 'Site industriel' },
+  { value: 'INFRASTRUCTURE', label: 'Infrastructure (route, pont…)' },
+  { value: 'WAREHOUSE', label: 'Entrepôt / logistique' },
+  { value: 'OFFICE_BUILDING', label: 'Immeuble de bureaux' },
+  { value: 'PUBLIC_FACILITY', label: 'Bâtiment public' },
   { value: 'OTHER', label: 'Autre' },
 ]
 
 const INSTALLATION_TYPE_OPTIONS = [
+  // ── Oil & Gas ──
   { value: 'JACKET_PLATFORM', label: 'Plateforme jacket' },
   { value: 'FIXED_PLATFORM', label: 'Plateforme fixe' },
   { value: 'FPSO', label: 'FPSO' },
@@ -107,6 +119,15 @@ const INSTALLATION_TYPE_OPTIONS = [
   { value: 'TANK_FARM', label: 'Tank Farm' },
   { value: 'SUBSEA_TEMPLATE', label: 'Template subsea' },
   { value: 'BUOY', label: 'Bouée' },
+  { value: 'LIVING_QUARTERS', label: 'Quartiers vie' },
+  // ── Civil / construction ──
+  { value: 'BUILDING', label: 'Bâtiment' },
+  { value: 'HOUSE', label: 'Maison individuelle' },
+  { value: 'APARTMENT_BUILDING', label: 'Immeuble' },
+  { value: 'FACTORY', label: 'Usine' },
+  { value: 'BRIDGE', label: 'Pont' },
+  { value: 'ROAD', label: 'Route' },
+  { value: 'PARKING', label: 'Parking' },
   { value: 'OTHER', label: 'Autre' },
 ]
 

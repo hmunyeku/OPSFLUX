@@ -63,6 +63,9 @@ import {
   useProjects, useProject, useCreateProject, useUpdateProject, useArchiveProject,
   useProjectTasks, useCreateProjectTask, useUpdateProjectTask, useDeleteProjectTask,
   useProjectMembers, useAddProjectMember, useRemoveProjectMember,
+  useProjectTimeEntries, useCreateProjectTimeEntry, useSubmitProjectTimeEntry,
+  useApproveProjectTimeEntry, useRejectProjectTimeEntry, useDeleteProjectTimeEntry,
+  useProjectTimeSummary,
   useProjectMilestones, useCreateProjectMilestone, useUpdateProjectMilestone, useDeleteProjectMilestone,
   useAllProjectTasks, useSubProjects,
   useGoutiStatus, useGoutiSyncOne,
@@ -2159,11 +2162,25 @@ function MemberRow({ member, projectId }: { member: ProjectMemberType; projectId
   const memberRoleLabels = useDictionaryLabels('project_member_role', PROJECT_MEMBER_ROLE_LABELS_FALLBACK)
 
   const roleLbl = memberRoleLabels[member.role] ?? member.role
+  const rateLabel = member.hourly_rate
+    ? `${member.hourly_rate}/h ${member.currency || ''}`.trim()
+    : member.daily_rate
+    ? `${member.daily_rate}/j ${member.currency || ''}`.trim()
+    : null
 
   return (
     <div className="group flex items-center gap-2 text-xs py-1.5 border-b border-border/40 last:border-0">
       <Users size={11} className="text-muted-foreground shrink-0" />
-      <span className="flex-1 truncate text-foreground">{member.member_name || '(inconnu)'}</span>
+      <div className="flex-1 min-w-0">
+        <div className="truncate text-foreground">{member.member_name || '(inconnu)'}</div>
+        {(member.specialty || rateLabel || member.allocation_pct < 100) && (
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+            {member.specialty && <span className="truncate">{member.specialty}</span>}
+            {member.allocation_pct < 100 && <span>· {member.allocation_pct}%</span>}
+            {rateLabel && <span>· {rateLabel}</span>}
+          </div>
+        )}
+      </div>
       <span className="text-muted-foreground text-[10px]">{roleLbl}</span>
       {confirmDelete ? (
         <div className="flex items-center gap-0.5">
@@ -2184,9 +2201,17 @@ function MemberRow({ member, projectId }: { member: ProjectMemberType; projectId
 function MemberQuickAdd({ projectId }: { projectId: string }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedUserId, setSelectedUserId] = useState('')
   const [role, setRole] = useState('member')
+  // Advanced fields (allocation, dates, taux, spécialité)
+  const [allocationPct, setAllocationPct] = useState(100)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [hourlyRate, setHourlyRate] = useState('')
+  const [dailyRate, setDailyRate] = useState('')
+  const [specialty, setSpecialty] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const debouncedSearch = useDebounce(search, 300)
   const { data: usersData } = useUsers({ search: debouncedSearch || undefined, page_size: 10, active: true })
@@ -2203,12 +2228,35 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
     setShowDropdown(false)
   }
 
-  const handleSubmit = async () => {
-    if (!selectedUserId) return
-    await addMember.mutateAsync({ projectId, payload: { user_id: selectedUserId, role } })
+  const reset = () => {
     setSelectedUserId('')
     setSearch('')
     setRole('member')
+    setAllocationPct(100)
+    setStartDate('')
+    setEndDate('')
+    setHourlyRate('')
+    setDailyRate('')
+    setSpecialty('')
+    setShowAdvanced(false)
+  }
+
+  const handleSubmit = async () => {
+    if (!selectedUserId) return
+    await addMember.mutateAsync({
+      projectId,
+      payload: {
+        user_id: selectedUserId,
+        role,
+        allocation_pct: allocationPct,
+        start_date: startDate || null,
+        end_date: endDate || null,
+        hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
+        daily_rate: dailyRate ? parseFloat(dailyRate) : null,
+        specialty: specialty || null,
+      },
+    })
+    reset()
   }
 
   if (!open) {
@@ -2223,47 +2271,302 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="flex items-center gap-1.5">
-      <div className="relative flex-1" ref={dropdownRef}>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setSelectedUserId(''); setShowDropdown(true) }}
-          onFocus={() => setShowDropdown(true)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') { setOpen(false); setSearch(''); setSelectedUserId('') }
-          }}
-          className={`${panelInputClass} w-full text-xs`}
-          placeholder={t('paxlog.search_user')}
-          autoFocus
-        />
-        {showDropdown && search.length > 0 && users.length > 0 && (
-          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-md max-h-[200px] overflow-y-auto">
-            {users.map(u => (
-              <button
-                key={u.id}
-                type="button"
-                className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted flex flex-col"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelect(u.id, `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email)}
-              >
-                <span className="font-medium text-foreground">{u.first_name ?? ''} {u.last_name ?? ''}</span>
-                <span className="text-muted-foreground">{u.email}</span>
-              </button>
-            ))}
-          </div>
-        )}
+    <div className="flex flex-col gap-1.5 p-2 border border-border rounded-md bg-muted/30">
+      <div className="flex items-center gap-1.5">
+        <div className="relative flex-1" ref={dropdownRef}>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setSelectedUserId(''); setShowDropdown(true) }}
+            onFocus={() => setShowDropdown(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') { setOpen(false); reset() }
+            }}
+            className={`${panelInputClass} w-full text-xs`}
+            placeholder={t('paxlog.search_user')}
+            autoFocus
+          />
+          {showDropdown && search.length > 0 && users.length > 0 && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-md max-h-[200px] overflow-y-auto">
+              {users.map(u => (
+                <button
+                  key={u.id}
+                  type="button"
+                  className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted flex flex-col"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelect(u.id, `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email)}
+                >
+                  <span className="font-medium text-foreground">{u.first_name ?? ''} {u.last_name ?? ''}</span>
+                  <span className="text-muted-foreground">{u.email}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <select value={role} onChange={(e) => setRole(e.target.value)} className={`${panelInputClass} w-[100px] text-xs`}>
+          {memberRoleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(s => !s)}
+          className="p-1 text-[10px] text-muted-foreground hover:text-foreground"
+          title={showAdvanced ? 'Masquer les options' : 'Plus d\'options'}
+        >
+          {showAdvanced ? '−' : '+'}
+        </button>
+        <button onClick={handleSubmit} disabled={addMember.isPending || !selectedUserId} className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-40">
+          {addMember.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+        </button>
+        <button onClick={() => { setOpen(false); reset() }} className="p-1 rounded hover:bg-muted text-muted-foreground">
+          <X size={12} />
+        </button>
       </div>
-      <select value={role} onChange={(e) => setRole(e.target.value)} className={`${panelInputClass} w-[100px] text-xs`}>
-        {memberRoleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-      </select>
-      <button onClick={handleSubmit} disabled={addMember.isPending || !selectedUserId} className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-40">
-        {addMember.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-      </button>
-      <button onClick={() => { setOpen(false); setSearch(''); setSelectedUserId('') }} className="p-1 rounded hover:bg-muted text-muted-foreground">
-        <X size={12} />
-      </button>
+      {showAdvanced && (
+        <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+          <label className="flex items-center gap-1">
+            <span className="text-muted-foreground w-[80px]">Allocation %</span>
+            <input type="number" min={0} max={100} value={allocationPct} onChange={(e) => setAllocationPct(parseInt(e.target.value || '100', 10))} className={`${panelInputClass} text-xs flex-1`} />
+          </label>
+          <label className="flex items-center gap-1">
+            <span className="text-muted-foreground w-[80px]">Spécialité</span>
+            <input type="text" value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Plombier, Architecte…" className={`${panelInputClass} text-xs flex-1`} />
+          </label>
+          <label className="flex items-center gap-1">
+            <span className="text-muted-foreground w-[80px]">Début</span>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`${panelInputClass} text-xs flex-1`} />
+          </label>
+          <label className="flex items-center gap-1">
+            <span className="text-muted-foreground w-[80px]">Fin</span>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`${panelInputClass} text-xs flex-1`} />
+          </label>
+          <label className="flex items-center gap-1">
+            <span className="text-muted-foreground w-[80px]">Taux horaire</span>
+            <input type="number" min={0} step={0.01} value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} className={`${panelInputClass} text-xs flex-1`} />
+          </label>
+          <label className="flex items-center gap-1">
+            <span className="text-muted-foreground w-[80px]">Taux jour</span>
+            <input type="number" min={0} step={0.01} value={dailyRate} onChange={(e) => setDailyRate(e.target.value)} className={`${panelInputClass} text-xs flex-1`} />
+          </label>
+        </div>
+      )}
     </div>
+  )
+}
+
+// -- Time Tracking Section (pointage) ---------------------------------------
+//
+// Lightweight inline timesheet: list current entries, quick-add a new entry,
+// submit / approve / reject inline. Workflow: draft → submitted → validated.
+
+function TimeTrackingSection({ projectId, members }: { projectId: string; members: ProjectMemberType[] }) {
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const [showAdd, setShowAdd] = useState(false)
+  const [memberId, setMemberId] = useState('')
+  const [taskId, setTaskId] = useState('')
+  const [date, setDate] = useState(todayStr)
+  const [hours, setHours] = useState('')
+  const [description, setDescription] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('')
+
+  const { data: entries } = useProjectTimeEntries(projectId, statusFilter ? { status: statusFilter } : {})
+  const { data: tasks } = useProjectTasks(projectId)
+  const { data: summary } = useProjectTimeSummary(projectId)
+  const createEntry = useCreateProjectTimeEntry()
+  const submitEntry = useSubmitProjectTimeEntry()
+  const approveEntry = useApproveProjectTimeEntry()
+  const rejectEntry = useRejectProjectTimeEntry()
+  const deleteEntry = useDeleteProjectTimeEntry()
+
+  const reset = () => {
+    setMemberId(''); setTaskId(''); setDate(todayStr); setHours(''); setDescription('')
+    setShowAdd(false)
+  }
+
+  const handleSubmitEntry = async () => {
+    if (!memberId || !hours) return
+    await createEntry.mutateAsync({
+      projectId,
+      payload: {
+        member_id: memberId,
+        task_id: taskId || null,
+        date,
+        hours: parseFloat(hours),
+        description: description || null,
+      },
+    })
+    reset()
+  }
+
+  const handleReject = async (entryId: string) => {
+    const reason = window.prompt('Motif du rejet ?')
+    if (!reason) return
+    await rejectEntry.mutateAsync({ projectId, entryId, reason })
+  }
+
+  const STATUS_BADGE: Record<string, string> = {
+    draft: 'bg-muted text-muted-foreground',
+    submitted: 'bg-blue-500/10 text-blue-600',
+    validated: 'bg-green-500/10 text-green-600',
+    rejected: 'bg-red-500/10 text-red-600',
+  }
+  const STATUS_LABEL: Record<string, string> = {
+    draft: 'Brouillon', submitted: 'Soumis', validated: 'Validé', rejected: 'Rejeté',
+  }
+
+  return (
+    <FormSection
+      title={`Pointage${entries && entries.length ? ` (${entries.length})` : ''}`}
+      collapsible
+      defaultExpanded={false}
+      storageKey="project-detail-timesheet"
+    >
+      {/* Summary header */}
+      {summary && summary.totals.hours > 0 && (
+        <div className="flex items-center gap-3 text-[11px] mb-2 px-2 py-1.5 rounded bg-muted/40">
+          <span className="text-muted-foreground">Total :</span>
+          <span className="font-medium">{summary.totals.hours.toFixed(1)} h</span>
+          {summary.totals.cost > 0 && (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-medium">{summary.totals.cost.toFixed(2)}</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Status filter */}
+      <div className="flex items-center gap-1 mb-2 text-[10px]">
+        <span className="text-muted-foreground">Filtrer :</span>
+        {(['', 'draft', 'submitted', 'validated', 'rejected'] as const).map(s => (
+          <button
+            key={s || 'all'}
+            onClick={() => setStatusFilter(s)}
+            className={cn(
+              'px-1.5 py-0.5 rounded',
+              statusFilter === s ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground',
+            )}
+          >
+            {s ? STATUS_LABEL[s] : 'Tous'}
+          </button>
+        ))}
+      </div>
+
+      {/* Entries list */}
+      {entries && entries.length > 0 ? (
+        <div className="space-y-1 mb-2">
+          {entries.map((te) => (
+            <div key={te.id} className="group flex items-center gap-2 text-xs py-1 border-b border-border/40 last:border-0">
+              <Clock size={11} className="text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground tabular-nums w-[80px] shrink-0">{te.date}</span>
+              <span className="font-medium tabular-nums w-[40px] shrink-0">{te.hours}h</span>
+              <span className="flex-1 min-w-0 truncate">
+                {te.member_name || '?'}
+                {te.task_title && <span className="text-muted-foreground"> · {te.task_title}</span>}
+                {te.description && <span className="text-muted-foreground"> — {te.description}</span>}
+              </span>
+              {te.cost && te.currency_snapshot && (
+                <span className="text-[10px] text-muted-foreground shrink-0">{te.cost.toFixed(2)} {te.currency_snapshot}</span>
+              )}
+              <span className={cn('px-1.5 py-0.5 rounded text-[9px] shrink-0', STATUS_BADGE[te.status])}>
+                {STATUS_LABEL[te.status]}
+              </span>
+              <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                {te.status === 'draft' && (
+                  <>
+                    <button
+                      title="Soumettre"
+                      onClick={() => submitEntry.mutate({ projectId, entryId: te.id })}
+                      className="p-0.5 rounded hover:bg-primary/10 text-primary"
+                    >
+                      <Send size={10} />
+                    </button>
+                    <button
+                      title="Supprimer"
+                      onClick={() => deleteEntry.mutate({ projectId, entryId: te.id })}
+                      className="p-0.5 rounded hover:bg-red-500/10 text-red-500"
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                  </>
+                )}
+                {te.status === 'submitted' && (
+                  <>
+                    <button
+                      title="Approuver"
+                      onClick={() => approveEntry.mutate({ projectId, entryId: te.id })}
+                      className="p-0.5 rounded hover:bg-green-500/10 text-green-600"
+                    >
+                      <Check size={10} />
+                    </button>
+                    <button
+                      title="Rejeter"
+                      onClick={() => handleReject(te.id)}
+                      className="p-0.5 rounded hover:bg-red-500/10 text-red-500"
+                    >
+                      <X size={10} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-[11px] text-muted-foreground text-center py-2">Aucun pointage</div>
+      )}
+
+      {/* Quick-add */}
+      {!showAdd ? (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1"
+          disabled={members.length === 0}
+        >
+          <Plus size={12} /> Ajouter un pointage
+        </button>
+      ) : (
+        <div className="flex flex-col gap-1.5 p-2 border border-border rounded-md bg-muted/30">
+          <div className="grid grid-cols-2 gap-1.5">
+            <select value={memberId} onChange={(e) => setMemberId(e.target.value)} className={`${panelInputClass} text-xs`}>
+              <option value="">— Membre —</option>
+              {members.map(m => (
+                <option key={m.id} value={m.id}>{m.member_name || '(inconnu)'}{m.specialty ? ` (${m.specialty})` : ''}</option>
+              ))}
+            </select>
+            <select value={taskId} onChange={(e) => setTaskId(e.target.value)} className={`${panelInputClass} text-xs`}>
+              <option value="">— Tâche (optionnel) —</option>
+              {tasks?.map(t => (
+                <option key={t.id} value={t.id}>{t.title}</option>
+              ))}
+            </select>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${panelInputClass} text-xs`} />
+            <input type="number" min={0.25} max={24} step={0.25} value={hours} onChange={(e) => setHours(e.target.value)} placeholder="Heures" className={`${panelInputClass} text-xs`} />
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Description (optionnel)"
+              className={`${panelInputClass} text-xs col-span-2`}
+            />
+          </div>
+          <div className="flex justify-end gap-1">
+            <button
+              onClick={() => { reset() }}
+              className="px-2 py-0.5 text-[10px] rounded hover:bg-muted text-muted-foreground"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleSubmitEntry}
+              disabled={createEntry.isPending || !memberId || !hours}
+              className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+            >
+              {createEntry.isPending ? <Loader2 size={10} className="animate-spin" /> : 'Enregistrer'}
+            </button>
+          </div>
+        </div>
+      )}
+    </FormSection>
   )
 }
 
@@ -2992,6 +3295,9 @@ function ProjectDetailPanel({ id }: { id: string }) {
               )}
               <MemberQuickAdd projectId={id} />
             </FormSection>
+
+            {/* Pointage / Time tracking */}
+            <TimeTrackingSection projectId={id} members={members ?? []} />
           </div>
 
           <div className="@container space-y-5">

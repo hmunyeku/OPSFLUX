@@ -1737,6 +1737,14 @@ class ProjectMemberRead(OpsFluxSchema):
     user_id: UUID | None = None
     contact_id: UUID | None = None
     role: str
+    allocation_pct: int = 100
+    start_date: date | None = None
+    end_date: date | None = None
+    hourly_rate: float | None = None
+    daily_rate: float | None = None
+    currency: str | None = None
+    specialty: str | None = None
+    notes: str | None = None
     active: bool
     created_at: datetime
     # Enriched
@@ -1747,6 +1755,71 @@ class ProjectMemberCreate(BaseModel):
     user_id: UUID | None = None
     contact_id: UUID | None = None
     role: str = "member"
+    allocation_pct: int = Field(default=100, ge=0, le=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    hourly_rate: float | None = Field(default=None, ge=0)
+    daily_rate: float | None = Field(default=None, ge=0)
+    currency: str | None = None
+    specialty: str | None = None
+    notes: str | None = None
+
+
+class ProjectMemberUpdate(BaseModel):
+    role: str | None = None
+    allocation_pct: int | None = Field(default=None, ge=0, le=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    hourly_rate: float | None = Field(default=None, ge=0)
+    daily_rate: float | None = Field(default=None, ge=0)
+    currency: str | None = None
+    specialty: str | None = None
+    notes: str | None = None
+    active: bool | None = None
+
+
+# ── Project time entries (pointage) ─────────────────────────────────────
+
+class ProjectTimeEntryRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    project_id: UUID
+    member_id: UUID
+    task_id: UUID | None = None
+    date: date
+    hours: float
+    description: str | None = None
+    status: str
+    rate_snapshot: float | None = None
+    currency_snapshot: str | None = None
+    submitted_at: datetime | None = None
+    approved_by: UUID | None = None
+    approved_at: datetime | None = None
+    rejected_reason: str | None = None
+    created_at: datetime
+    # Enriched
+    member_name: str | None = None
+    task_title: str | None = None
+    cost: float | None = None  # hours * rate_snapshot if available
+
+
+class ProjectTimeEntryCreate(BaseModel):
+    member_id: UUID
+    task_id: UUID | None = None
+    date: date
+    hours: float = Field(..., gt=0, le=24)
+    description: str | None = None
+
+
+class ProjectTimeEntryUpdate(BaseModel):
+    task_id: UUID | None = None
+    date: date | None = None
+    hours: float | None = Field(default=None, gt=0, le=24)
+    description: str | None = None
+
+
+class ProjectTimeEntryReject(BaseModel):
+    reason: str = Field(..., min_length=1)
 
 
 class ProjectTaskRead(OpsFluxSchema):

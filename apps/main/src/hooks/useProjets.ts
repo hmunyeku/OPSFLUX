@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projetsService } from '@/services/projetsService'
 import type {
   ProjectCreate, ProjectUpdate,
-  ProjectMemberCreate,
+  ProjectMemberCreate, ProjectMemberUpdate,
+  ProjectTimeEntryCreate, ProjectTimeEntryUpdate,
   ProjectTaskCreate, ProjectTaskUpdate,
   ProjectMilestoneCreate, ProjectMilestoneUpdate,
   PlanningRevisionCreate, PlanningRevisionUpdate,
@@ -109,6 +110,17 @@ export function useAddProjectMember() {
   })
 }
 
+export function useUpdateProjectMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, memberId, payload }: { projectId: string; memberId: string; payload: ProjectMemberUpdate }) =>
+      projetsService.updateMember(projectId, memberId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-members', projectId] })
+    },
+  })
+}
+
 export function useRemoveProjectMember() {
   const qc = useQueryClient()
   return useMutation({
@@ -118,6 +130,98 @@ export function useRemoveProjectMember() {
       qc.invalidateQueries({ queryKey: ['project-members', projectId] })
       qc.invalidateQueries({ queryKey: ['projects'] })
     },
+  })
+}
+
+// ── Time entries (pointage) ──
+
+export function useProjectTimeEntries(
+  projectId: string | undefined,
+  params: { member_id?: string; task_id?: string; status?: string; date_from?: string; date_to?: string } = {},
+) {
+  return useQuery({
+    queryKey: ['project-time-entries', projectId, params],
+    queryFn: () => projetsService.listTimeEntries(projectId!, params),
+    enabled: !!projectId,
+  })
+}
+
+export function useCreateProjectTimeEntry() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, payload }: { projectId: string; payload: ProjectTimeEntryCreate }) =>
+      projetsService.createTimeEntry(projectId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-time-entries', projectId] })
+      qc.invalidateQueries({ queryKey: ['project-time-summary', projectId] })
+    },
+  })
+}
+
+export function useUpdateProjectTimeEntry() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, entryId, payload }: { projectId: string; entryId: string; payload: ProjectTimeEntryUpdate }) =>
+      projetsService.updateTimeEntry(projectId, entryId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-time-entries', projectId] })
+    },
+  })
+}
+
+export function useSubmitProjectTimeEntry() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, entryId }: { projectId: string; entryId: string }) =>
+      projetsService.submitTimeEntry(projectId, entryId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-time-entries', projectId] })
+    },
+  })
+}
+
+export function useApproveProjectTimeEntry() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, entryId }: { projectId: string; entryId: string }) =>
+      projetsService.approveTimeEntry(projectId, entryId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-time-entries', projectId] })
+      qc.invalidateQueries({ queryKey: ['project-time-summary', projectId] })
+    },
+  })
+}
+
+export function useRejectProjectTimeEntry() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, entryId, reason }: { projectId: string; entryId: string; reason: string }) =>
+      projetsService.rejectTimeEntry(projectId, entryId, reason),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-time-entries', projectId] })
+    },
+  })
+}
+
+export function useDeleteProjectTimeEntry() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, entryId }: { projectId: string; entryId: string }) =>
+      projetsService.deleteTimeEntry(projectId, entryId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-time-entries', projectId] })
+    },
+  })
+}
+
+export function useProjectTimeSummary(
+  projectId: string | undefined,
+  params: { date_from?: string; date_to?: string } = {},
+) {
+  return useQuery({
+    queryKey: ['project-time-summary', projectId, params],
+    queryFn: () => projetsService.getTimeSummary(projectId!, params),
+    enabled: !!projectId,
   })
 }
 

@@ -1656,19 +1656,78 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 class ProjectMember(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Membre d'une equipe projet."""
+    """Membre d'une équipe projet — interne (User) ou externe (TierContact).
+
+    Capacité & coût : allocation_pct (0-100, ex: 50 = mi-temps),
+    period (start_date / end_date), hourly/daily rate dans la devise
+    du membre (override de la devise projet). Spécialité libre pour
+    qualifier le rôle métier (« Plombier », « Architecte », etc.).
+    """
     __tablename__ = "project_members"
-    __table_args__ = (Index("idx_project_members_project", "project_id"),)
+    __table_args__ = (
+        Index("idx_project_members_project", "project_id"),
+        Index("idx_project_members_user", "user_id"),
+        Index("idx_project_members_contact", "contact_id"),
+    )
 
     project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
     user_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     contact_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tier_contacts.id"))
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="member")  # manager, member, reviewer, stakeholder
+    # Capacité allouée sur le projet (0-100). 100 = temps plein dédié.
+    allocation_pct: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    # Période d'affectation (NULL = sans contrainte).
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    # Coûts. Currency optionnel : si NULL, hérite de la devise du projet.
+    hourly_rate: Mapped[float | None] = mapped_column(Float)
+    daily_rate: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str | None] = mapped_column(String(10))
+    # Spécialité métier libre (ex: « Plombier », « Architecte », « DevOps »).
+    specialty: Mapped[str | None] = mapped_column(String(150))
+    notes: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     project: Mapped["Project"] = relationship(back_populates="members")
     user: Mapped["User | None"] = relationship(foreign_keys=[user_id])
     contact: Mapped["TierContact | None"] = relationship(foreign_keys=[contact_id])
+    time_entries: Mapped[list["ProjectTimeEntry"]] = relationship(back_populates="member", cascade="all, delete-orphan")
+
+
+class ProjectTimeEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Pointage d'un membre projet sur une journée (et optionnellement une tâche).
+
+    Workflow : draft → submitted → validated | rejected.
+    Snapshot taux+devise au moment de la soumission pour figer le coût
+    historique (le taux du membre peut changer plus tard sans
+    affecter les pointages déjà validés).
+    """
+    __tablename__ = "project_time_entries"
+    __table_args__ = (
+        Index("idx_pte_project_date", "project_id", "date"),
+        Index("idx_pte_member_date", "member_id", "date"),
+        Index("idx_pte_status", "status"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    member_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("project_members.id", ondelete="CASCADE"), nullable=False)
+    task_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="SET NULL"))
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    hours: Mapped[float] = mapped_column(Float, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")  # draft, submitted, validated, rejected
+    # Snapshot de coût au moment de la validation
+    rate_snapshot: Mapped[float | None] = mapped_column(Float)
+    currency_snapshot: Mapped[str | None] = mapped_column(String(10))
+    # Workflow trace
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejected_reason: Mapped[str | None] = mapped_column(Text)
+
+    member: Mapped["ProjectMember"] = relationship(back_populates="time_entries")
+    approver: Mapped["User | None"] = relationship(foreign_keys=[approved_by])
 
 
 class ProjectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):

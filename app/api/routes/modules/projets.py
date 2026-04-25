@@ -1,7 +1,7 @@
 """Projets (project management) module routes — projects, tasks, members, milestones,
 planning revisions, deliverables, actions, change logs."""
 
-from datetime import datetime, timezone
+from datetime import date as date_type, datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,6 +21,7 @@ from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.common import (
     AuditLog,
     Project, ProjectMember, ProjectTask, ProjectMilestone,
+    ProjectTimeEntry,
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
     ProjectTaskDependency, ProjectWBSNode, CostCenter,
     ProjectTaskAssignee, ProjectComment, ProjectStatusHistory,
@@ -30,7 +31,8 @@ from app.models.asset_registry import Installation
 from app.schemas.common import (
     PaginatedResponse,
     ProjectCreate, ProjectRead, ProjectUpdate,
-    ProjectMemberCreate, ProjectMemberRead,
+    ProjectMemberCreate, ProjectMemberRead, ProjectMemberUpdate,
+    ProjectTimeEntryCreate, ProjectTimeEntryRead, ProjectTimeEntryUpdate, ProjectTimeEntryReject,
     ProjectTaskCreate, ProjectTaskRead, ProjectTaskUpdate, ProjectTaskEnriched,
     ProjectMilestoneCreate, ProjectMilestoneRead, ProjectMilestoneUpdate,
     PlanningRevisionCreate, PlanningRevisionRead, PlanningRevisionUpdate,
@@ -894,13 +896,53 @@ async def add_project_member(
     _: None = require_permission("project.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_project_or_404(db, project_id, entity_id)
-    member = ProjectMember(project_id=project_id, **body.model_dump())
+    project = await _get_project_or_404(db, project_id, entity_id)
+    if not body.user_id and not body.contact_id:
+        raise HTTPException(status_code=422, detail="Either user_id or contact_id is required")
+    if body.user_id and body.contact_id:
+        raise HTTPException(status_code=422, detail="Provide user_id OR contact_id, not both")
+    payload = body.model_dump()
+    # Default member's currency to the project's currency if not provided.
+    if not payload.get("currency"):
+        payload["currency"] = project.currency
+    member = ProjectMember(project_id=project_id, **payload)
     db.add(member)
     await db.commit()
     await db.refresh(member)
     d = {c.key: getattr(member, c.key) for c in member.__table__.columns}
     d["member_name"] = None
+    if member.user_id:
+        u = await db.get(User, member.user_id)
+        if u:
+            d["member_name"] = f"{u.first_name} {u.last_name}"
+    return d
+
+
+@router.patch("/{project_id}/members/{member_id}", response_model=ProjectMemberRead)
+async def update_project_member(
+    project_id: UUID,
+    member_id: UUID,
+    body: ProjectMemberUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    member = await db.scalar(
+        select(ProjectMember).where(ProjectMember.id == member_id, ProjectMember.project_id == project_id)
+    )
+    if not member:
+        raise HTTPException(404, "Member not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(member, key, value)
+    await db.commit()
+    await db.refresh(member)
+    d = {c.key: getattr(member, c.key) for c in member.__table__.columns}
+    d["member_name"] = None
+    if member.user_id:
+        u = await db.get(User, member.user_id)
+        if u:
+            d["member_name"] = f"{u.first_name} {u.last_name}"
     return d
 
 
@@ -923,6 +965,317 @@ async def remove_project_member(
     await delete_entity(member, db, "project_member", entity_id=member.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Member removed"}
+
+
+# ── Project Time Entries (pointage) ───────────────────────────────────
+#
+# Workflow: draft → submitted → validated | rejected
+# Once validated, the rate is snapshotted from the member's hourly_rate
+# (or daily_rate / 8) so historical cost stays correct even if the
+# member's rate is updated later.
+
+def _enrich_time_entry(te: "ProjectTimeEntry", member_name: str | None, task_title: str | None) -> dict:
+    d = {c.key: getattr(te, c.key) for c in te.__table__.columns}
+    d["member_name"] = member_name
+    d["task_title"] = task_title
+    d["cost"] = te.hours * te.rate_snapshot if te.rate_snapshot else None
+    return d
+
+
+async def _get_member_name(db: AsyncSession, member: ProjectMember) -> str | None:
+    if member.user_id:
+        u = await db.get(User, member.user_id)
+        return f"{u.first_name} {u.last_name}" if u else None
+    return None
+
+
+@router.get("/{project_id}/time-entries", response_model=list[ProjectTimeEntryRead])
+async def list_project_time_entries(
+    project_id: UUID,
+    member_id: UUID | None = None,
+    task_id: UUID | None = None,
+    status: str | None = None,
+    date_from: date_type | None = None,
+    date_to: date_type | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    query = select(ProjectTimeEntry).where(ProjectTimeEntry.project_id == project_id)
+    if member_id:
+        query = query.where(ProjectTimeEntry.member_id == member_id)
+    if task_id:
+        query = query.where(ProjectTimeEntry.task_id == task_id)
+    if status:
+        query = query.where(ProjectTimeEntry.status == status)
+    if date_from:
+        query = query.where(ProjectTimeEntry.date >= date_from)
+    if date_to:
+        query = query.where(ProjectTimeEntry.date <= date_to)
+    query = query.order_by(ProjectTimeEntry.date.desc(), ProjectTimeEntry.created_at.desc())
+    result = await db.execute(query)
+    entries = result.scalars().all()
+    enriched = []
+    for te in entries:
+        member = await db.get(ProjectMember, te.member_id)
+        member_name = await _get_member_name(db, member) if member else None
+        task_title = None
+        if te.task_id:
+            task = await db.get(ProjectTask, te.task_id)
+            task_title = task.title if task else None
+        enriched.append(_enrich_time_entry(te, member_name, task_title))
+    return enriched
+
+
+@router.post("/{project_id}/time-entries", response_model=ProjectTimeEntryRead, status_code=201)
+async def create_project_time_entry(
+    project_id: UUID,
+    body: ProjectTimeEntryCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    # Verify the member belongs to this project
+    member = await db.scalar(
+        select(ProjectMember).where(
+            ProjectMember.id == body.member_id,
+            ProjectMember.project_id == project_id,
+            ProjectMember.active == True,  # noqa: E712
+        )
+    )
+    if not member:
+        raise HTTPException(404, "Member not found in this project")
+    te = ProjectTimeEntry(
+        entity_id=entity_id,
+        project_id=project_id,
+        **body.model_dump(),
+    )
+    db.add(te)
+    await db.commit()
+    await db.refresh(te)
+    member_name = await _get_member_name(db, member)
+    task_title = None
+    if te.task_id:
+        task = await db.get(ProjectTask, te.task_id)
+        task_title = task.title if task else None
+    return _enrich_time_entry(te, member_name, task_title)
+
+
+@router.patch("/{project_id}/time-entries/{entry_id}", response_model=ProjectTimeEntryRead)
+async def update_project_time_entry(
+    project_id: UUID,
+    entry_id: UUID,
+    body: ProjectTimeEntryUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    te = await db.scalar(
+        select(ProjectTimeEntry).where(
+            ProjectTimeEntry.id == entry_id,
+            ProjectTimeEntry.project_id == project_id,
+        )
+    )
+    if not te:
+        raise HTTPException(404, "Time entry not found")
+    if te.status not in ("draft", "rejected"):
+        raise HTTPException(409, "Only draft or rejected entries can be edited")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(te, key, value)
+    # Editing a rejected entry resets it to draft so it can be resubmitted.
+    if te.status == "rejected":
+        te.status = "draft"
+        te.rejected_reason = None
+    await db.commit()
+    await db.refresh(te)
+    member = await db.get(ProjectMember, te.member_id)
+    member_name = await _get_member_name(db, member) if member else None
+    task_title = None
+    if te.task_id:
+        task = await db.get(ProjectTask, te.task_id)
+        task_title = task.title if task else None
+    return _enrich_time_entry(te, member_name, task_title)
+
+
+@router.post("/{project_id}/time-entries/{entry_id}/submit", response_model=ProjectTimeEntryRead)
+async def submit_project_time_entry(
+    project_id: UUID,
+    entry_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Move a draft entry to submitted (awaiting validation)."""
+    from datetime import datetime as _dt, timezone as _tz
+    await _get_project_or_404(db, project_id, entity_id)
+    te = await db.scalar(
+        select(ProjectTimeEntry).where(
+            ProjectTimeEntry.id == entry_id,
+            ProjectTimeEntry.project_id == project_id,
+        )
+    )
+    if not te:
+        raise HTTPException(404, "Time entry not found")
+    if te.status != "draft":
+        raise HTTPException(409, f"Cannot submit entry in status '{te.status}'")
+    te.status = "submitted"
+    te.submitted_at = _dt.now(_tz.utc)
+    await db.commit()
+    await db.refresh(te)
+    member = await db.get(ProjectMember, te.member_id)
+    member_name = await _get_member_name(db, member) if member else None
+    return _enrich_time_entry(te, member_name, None)
+
+
+@router.post("/{project_id}/time-entries/{entry_id}/approve", response_model=ProjectTimeEntryRead)
+async def approve_project_time_entry(
+    project_id: UUID,
+    entry_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Validate a submitted entry. Snapshots the member's rate at this moment."""
+    from datetime import datetime as _dt, timezone as _tz
+    project = await _get_project_or_404(db, project_id, entity_id)
+    te = await db.scalar(
+        select(ProjectTimeEntry).where(
+            ProjectTimeEntry.id == entry_id,
+            ProjectTimeEntry.project_id == project_id,
+        )
+    )
+    if not te:
+        raise HTTPException(404, "Time entry not found")
+    if te.status != "submitted":
+        raise HTTPException(409, f"Cannot approve entry in status '{te.status}'")
+    member = await db.get(ProjectMember, te.member_id)
+    if member:
+        # Snapshot the rate. Prefer hourly_rate, else daily_rate / 8.
+        if member.hourly_rate is not None:
+            te.rate_snapshot = float(member.hourly_rate)
+        elif member.daily_rate is not None:
+            te.rate_snapshot = float(member.daily_rate) / 8.0
+        te.currency_snapshot = member.currency or project.currency
+    te.status = "validated"
+    te.approved_by = current_user.id
+    te.approved_at = _dt.now(_tz.utc)
+    await db.commit()
+    await db.refresh(te)
+    member_name = await _get_member_name(db, member) if member else None
+    return _enrich_time_entry(te, member_name, None)
+
+
+@router.post("/{project_id}/time-entries/{entry_id}/reject", response_model=ProjectTimeEntryRead)
+async def reject_project_time_entry(
+    project_id: UUID,
+    entry_id: UUID,
+    body: ProjectTimeEntryReject,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reject a submitted entry with a reason. The member can edit and resubmit."""
+    await _get_project_or_404(db, project_id, entity_id)
+    te = await db.scalar(
+        select(ProjectTimeEntry).where(
+            ProjectTimeEntry.id == entry_id,
+            ProjectTimeEntry.project_id == project_id,
+        )
+    )
+    if not te:
+        raise HTTPException(404, "Time entry not found")
+    if te.status != "submitted":
+        raise HTTPException(409, f"Cannot reject entry in status '{te.status}'")
+    te.status = "rejected"
+    te.rejected_reason = body.reason
+    await db.commit()
+    await db.refresh(te)
+    member = await db.get(ProjectMember, te.member_id)
+    member_name = await _get_member_name(db, member) if member else None
+    return _enrich_time_entry(te, member_name, None)
+
+
+@router.delete("/{project_id}/time-entries/{entry_id}", status_code=204)
+async def delete_project_time_entry(
+    project_id: UUID,
+    entry_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Only draft entries can be deleted."""
+    await _get_project_or_404(db, project_id, entity_id)
+    te = await db.scalar(
+        select(ProjectTimeEntry).where(
+            ProjectTimeEntry.id == entry_id,
+            ProjectTimeEntry.project_id == project_id,
+        )
+    )
+    if not te:
+        raise HTTPException(404, "Time entry not found")
+    if te.status != "draft":
+        raise HTTPException(409, "Only draft entries can be deleted")
+    await db.delete(te)
+    await db.commit()
+    return None
+
+
+@router.get("/{project_id}/time-summary")
+async def get_project_time_summary(
+    project_id: UUID,
+    date_from: date_type | None = None,
+    date_to: date_type | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregated time + cost per member, with status breakdown."""
+    await _get_project_or_404(db, project_id, entity_id)
+    query = select(
+        ProjectTimeEntry.member_id,
+        ProjectTimeEntry.status,
+        sqla_func.sum(ProjectTimeEntry.hours).label("total_hours"),
+        sqla_func.sum(
+            ProjectTimeEntry.hours * sqla_func.coalesce(ProjectTimeEntry.rate_snapshot, 0)
+        ).label("total_cost"),
+    ).where(ProjectTimeEntry.project_id == project_id)
+    if date_from:
+        query = query.where(ProjectTimeEntry.date >= date_from)
+    if date_to:
+        query = query.where(ProjectTimeEntry.date <= date_to)
+    query = query.group_by(ProjectTimeEntry.member_id, ProjectTimeEntry.status)
+    result = await db.execute(query)
+    rows = result.all()
+    by_member: dict[str, dict] = {}
+    for row in rows:
+        mid = str(row.member_id)
+        if mid not in by_member:
+            member = await db.get(ProjectMember, row.member_id)
+            by_member[mid] = {
+                "member_id": mid,
+                "member_name": (await _get_member_name(db, member)) if member else None,
+                "specialty": member.specialty if member else None,
+                "by_status": {},
+                "total_hours": 0.0,
+                "total_cost": 0.0,
+            }
+        by_member[mid]["by_status"][row.status] = {
+            "hours": float(row.total_hours or 0),
+            "cost": float(row.total_cost or 0),
+        }
+        by_member[mid]["total_hours"] += float(row.total_hours or 0)
+        by_member[mid]["total_cost"] += float(row.total_cost or 0)
+    return {
+        "members": list(by_member.values()),
+        "totals": {
+            "hours": sum(m["total_hours"] for m in by_member.values()),
+            "cost": sum(m["total_cost"] for m in by_member.values()),
+        },
+    }
 
 
 # ── Project Tasks ─────────────────────────────────────────────────────────

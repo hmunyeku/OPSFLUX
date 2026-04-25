@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light theme — synced with src/utils/colors.ts */
+    --color-background: 249 250 251;   /* #f9fafb */
+    --color-surface: 255 255 255;      /* #ffffff */
+    --color-surface-alt: 243 244 246;  /* #f3f4f6 */
+    --color-text-primary: 17 24 39;    /* #111827 */
+    --color-text-secondary: 75 85 99;  /* #4b5563 */
+    --color-text-muted: 156 163 175;   /* #9ca3af */
+    --color-text-inverse: 255 255 255; /* #ffffff */
+    --color-border: 229 231 235;       /* #e5e7eb */
+  }
+
+  .dark:root {
+    --color-background: 17 24 39;
+    --color-surface: 31 41 55;
+    --color-surface-alt: 55 65 81;
+    --color-text-primary: 243 244 246;
+    --color-text-secondary: 209 213 219;
+    --color-text-muted: 156 163 175;
+    --color-text-inverse: 17 24 39;
+    --color-border: 55 65 81;
+  }
+}

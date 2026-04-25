@@ -1,0 +1,60 @@
+# Critical flow — create an ADS via the dynamic form.
+# Assumes the user is already logged in and has paxlog.ads.create permission.
+
+appId: ${APP_ID:-com.opsflux.mobile.preview}
+---
+- launchApp
+- waitForAnimationToEnd
+
+# Find and tap any "Créer ADS" / "Avis de séjour" action on the portal home.
+- assertVisible:
+    text: ".*ADS.*|.*Avis.*"
+    timeout: 5000
+
+- tapOn:
+    text: ".*Créer.*ADS.*|.*Nouvel.*ADS.*|.*Avis de séjour.*"
+
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 03-ads-form-step1
+
+# Step 1: Identification — pick visit category
+- tapOn:
+    text: "Catégorie de visite"
+- tapOn:
+    text: "Maintenance"
+
+# Visit purpose
+- tapOn:
+    text: "Objet de la visite"
+- inputText: "Test Maestro - inspection routine"
+
+# Date debut + fin (we tap and accept whatever picker comes up)
+- tapOn:
+    text: "Date de début"
+- runFlow:
+    when:
+      visible: "OK"
+    commands:
+      - tapOn: "OK"
+- tapOn:
+    text: "Date de fin"
+- runFlow:
+    when:
+      visible: "OK"
+    commands:
+      - tapOn: "OK"
+
+- tapOn: "Suivant"
+- waitForAnimationToEnd
+- takeScreenshot: 03-ads-form-step2
+
+# Step 2 (PAX) — we just verify the screen rendered, then exit
+- assertVisible: "Personnel"
+
+- back
+- runFlow:
+    when:
+      visible: "Annuler la saisie"
+    commands:
+      - tapOn: "Confirmer"

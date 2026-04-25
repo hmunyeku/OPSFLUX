@@ -1,0 +1,414 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Utility: hide scrollbar but keep scroll functionality ── */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * OpsFlux — GitLab Pajamas Design Tokens
+ *
+ * Typography: local system sans-serif stack, 16px (1rem) base.
+ * Spacing: 8px base unit.
+ * Border-radius: 4px for controls, 4px for cards (Pajamas standard).
+ * Shadows: minimal — only overlaid elements get shadow.
+ * ═══════════════════════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    /* ── Surfaces ──────────────────────────────────────── */
+    --background: 0 0% 100%;
+    --background-subtle: 0 0% 98.4%;
+    --background-muted: 220 13% 95.5%;
+    --foreground: 220 15% 13%;
+
+    /* Application chrome (sidebar + topbar) — Pajamas gray-10 */
+    --chrome: 220 13% 95.5%;
+    --chrome-hover: 220 13% 91%;
+    --chrome-active: 220 13% 87%;
+
+    /* ── Brand — GitLab Pajamas blue-500 ───────────────── */
+    --primary: 217 73% 46%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 217 73% 95%;
+    --primary-hover: 217 73% 40%;
+
+    --secondary: 220 13% 95.5%;
+    --secondary-foreground: 220 15% 13%;
+
+    /* ── Text hierarchy ────────────────────────────────── */
+    --muted: 220 13% 95.5%;
+    --muted-foreground: 220 8% 46%;
+
+    --accent: 220 14% 93%;
+    --accent-foreground: 220 15% 13%;
+
+    /* ── Semantic status ───────────────────────────────── */
+    --destructive: 0 68% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --warning: 33 90% 50%;
+    --success: 152 56% 40%;
+
+    /* ── Structure ─────────────────────────────────────── */
+    --border: 220 13% 89%;
+    --border-strong: 220 10% 78%;
+    --input: 220 13% 89%;
+    --ring: 217 73% 46%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 13%;
+
+    /* ── Radius — Pajamas: 8px standard (updated 2025+) ── */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+    --radius: 0.5rem;
+
+    /* ── Layout constants ──────────────────────────────── */
+    --topbar-height: 2.75rem;
+    --panel-header-height: 2.5rem;
+    --sidebar-width-icons: 3rem;
+    --sidebar-width-expanded: 12rem;
+
+    /* ── DataTable ─────────────────────────────────────── */
+    --dt-row-py: 0.375rem; /* 6px — vertical padding per row cell */
+
+    /* ── Z-index ───────────────────────────────────────── */
+    --z-sidebar: 10;
+    --z-topbar: 100;
+    --z-dropdown: 200;
+    --z-modal: 300;
+    --z-toast: 400;
+  }
+
+  .dark {
+    --background: 222 28% 7%;
+    --background-subtle: 222 28% 10%;
+    --background-muted: 222 20% 15%;
+    --foreground: 210 20% 93%;
+
+    --chrome: 222 28% 10%;
+    --chrome-hover: 222 20% 15%;
+    --chrome-active: 222 20% 19%;
+
+    --primary: 217 73% 62%;
+    --primary-foreground: 222 28% 7%;
+    --primary-light: 217 73% 15%;
+    --primary-hover: 217 73% 68%;
+
+    --secondary: 222 20% 15%;
+    --secondary-foreground: 210 20% 93%;
+
+    --muted: 222 20% 15%;
+    --muted-foreground: 218 12% 60%;
+
+    --accent: 222 20% 18%;
+    --accent-foreground: 210 20% 93%;
+
+    --destructive: 0 55% 48%;
+    --destructive-foreground: 210 20% 93%;
+    --warning: 33 90% 50%;
+    --success: 152 56% 40%;
+
+    --border: 222 20% 18%;
+    --border-strong: 222 15% 28%;
+    --input: 222 20% 18%;
+    --ring: 217 73% 62%;
+
+    --card: 222 28% 10%;
+    --card-foreground: 210 20% 93%;
+    --popover: 222 28% 10%;
+    --popover-foreground: 210 20% 93%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    /* Inter for clean BI dashboard look, with system font fallbacks */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', Ubuntu, Cantarell, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * Pajamas Component Base Styles (audited against GitLab 2025)
+ *
+ * Buttons: 32px height, 12px horiz-padding, 8px radius, weight 400.
+ * Inputs:  32px height, 12px horiz-padding, 8px radius, inset shadow.
+ * Labels:  above inputs, weight 600, mb 8px.
+ * ═══════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* ── Buttons ──────────────────────────────────────────────── */
+  /* Mobile bumps the height to ~44px (Apple HIG) while keeping the
+     dense desktop sizing (32px / 28px) intact via the sm: variant.
+     Mobile users get touch-friendly targets without bloating the
+     desktop UI. */
+  .gl-button {
+    @apply inline-flex items-center justify-center gap-1.5
+           h-10 sm:h-8 px-3 text-sm font-normal leading-none
+           transition-all whitespace-nowrap cursor-pointer
+           disabled:opacity-50 disabled:pointer-events-none;
+    border-radius: 0.5rem;
+  }
+  .gl-button-sm {
+    @apply inline-flex items-center justify-center gap-1
+           h-9 sm:h-7 px-2.5 text-xs font-normal leading-none
+           transition-all whitespace-nowrap cursor-pointer
+           disabled:opacity-50 disabled:pointer-events-none;
+    border-radius: 0.5rem;
+  }
+  .gl-button-default {
+    @apply bg-background text-foreground shadow-none;
+    border: 0.8px solid hsl(var(--border-strong));
+  }
+  .gl-button-default:hover {
+    background-color: hsl(var(--chrome));
+    border-color: hsl(var(--border-strong));
+  }
+  .gl-button-confirm {
+    @apply bg-primary text-primary-foreground shadow-none;
+    border: 0.8px solid hsl(var(--primary-hover));
+  }
+  .gl-button-confirm:hover {
+    background-color: hsl(var(--primary-hover));
+  }
+  .gl-button-danger {
+    @apply text-destructive bg-background shadow-none;
+    border: 0.8px solid hsl(var(--destructive) / 0.4);
+  }
+  .gl-button-danger:hover {
+    @apply bg-destructive text-destructive-foreground;
+  }
+
+  /* ── Form inputs (inset box-shadow border like GitLab) ───── */
+  /* Mobile bumps the height to 40px so taps land cleanly on iOS
+     Safari (which auto-zooms when an input is < 16px text). The
+     base font-size stays at sm:text-sm but mobile gets text-base
+     to prevent the iOS auto-zoom-on-focus zoom-in behaviour. */
+  .gl-form-input {
+    @apply w-full h-10 sm:h-8 border-0 bg-background
+           px-3 py-2 text-base sm:text-sm text-foreground
+           placeholder:text-muted-foreground
+           focus:outline-none
+           transition-colors;
+    border-radius: 0.5rem;
+    box-shadow: inset 0 0 0 1px hsl(var(--border-strong));
+  }
+  .gl-form-input:focus {
+    box-shadow: inset 0 0 0 1px hsl(var(--ring)), 0 0 0 2px hsl(var(--ring) / 0.15);
+  }
+  .gl-form-select {
+    @apply w-full h-10 sm:h-8 border-0 bg-background
+           pl-3 pr-8 py-2 text-base sm:text-sm text-foreground
+           focus:outline-none
+           transition-colors;
+    border-radius: 0.5rem;
+    box-shadow: inset 0 0 0 1px hsl(var(--border-strong));
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.375rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25rem 1.25rem;
+  }
+  .gl-form-select:focus {
+    box-shadow: inset 0 0 0 1px hsl(var(--ring)), 0 0 0 2px hsl(var(--ring) / 0.15);
+  }
+
+  /* ── Checkbox ─────────────────────────────────────────── */
+  .gl-checkbox {
+    @apply h-4 w-4 rounded border-border text-primary
+           focus:ring-primary/30 focus:ring-offset-0
+           cursor-pointer transition-colors;
+  }
+
+  /* ── Labels ───────────────────────────────────────────────── */
+  .gl-label {
+    @apply block text-sm font-semibold text-foreground mb-2;
+  }
+  .gl-label-sm {
+    @apply block text-xs font-semibold text-foreground mb-1;
+  }
+
+  /* ── Headings (Pajamas gl-heading-2: 25px/600/-0.25px) ──── */
+  .gl-heading-2 {
+    font-size: 1.5625rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.25px;
+    color: hsl(var(--foreground));
+    margin: 0;
+  }
+
+  /* ── Settings sticky section header ────────────────────────── */
+  /* Sticks inside the PanelContent scroll container.
+     Uses negative margins + padding to span the full scroll width
+     so that scrolled content is hidden behind the background. */
+  .settings-sticky-header {
+    position: sticky;
+    top: -1rem;
+    z-index: 5;
+    background-color: hsl(var(--background));
+    display: flex;
+    align-items: flex-end;
+    padding: 1.25rem 0 0.5rem;
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  /* ── Inline modal pattern ─────────────────────────────────── */
+  /* Used by pages that render their own ad-hoc modals (resolve
+     conflict, decide revision, etc.) instead of using the shared
+     Dialog component. Mobile-friendly defaults: full-width with
+     small horizontal margin, capped height with internal scroll. */
+  .gl-modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-0;
+  }
+  .gl-modal-card {
+    @apply bg-background rounded-lg border border-border shadow-lg
+           w-full max-w-md p-4 sm:p-5 space-y-4
+           max-h-[90vh] overflow-y-auto;
+  }
+
+  /* ── Badges ───────────────────────────────────────────────── */
+  .gl-badge {
+    @apply inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium leading-none;
+  }
+  .gl-badge-success {
+    @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400;
+  }
+  .gl-badge-neutral {
+    @apply bg-muted text-muted-foreground;
+  }
+  .gl-badge-info {
+    @apply bg-primary-light text-primary;
+  }
+  .gl-badge-warning {
+    @apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400;
+  }
+  .gl-badge-danger {
+    @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+  }
+  .gl-badge-purple {
+    @apply bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400;
+  }
+
+  /* ── Tabs ────────────────────────────────────────────────────
+   * .gl-tab-bar         → horizontal scroll container for tab buttons
+   * .gl-tab-button      → individual tab (icon + label hidden on mobile)
+   * .gl-tab-active      → selected tab state
+   * .gl-tab-inactive    → unselected tab state
+   * .gl-tab-badge       → count badge next to a tab label
+   * .gl-subtab-bar      → secondary/nested tab container (smaller)
+   * .gl-subtab-button   → secondary tab button
+   * ──────────────────────────────────────────────────────────── */
+  .gl-tab-bar {
+    @apply flex items-center gap-0.5 sm:gap-1 px-2 sm:px-4
+           border-b border-border shrink-0 overflow-x-auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .gl-tab-bar::-webkit-scrollbar { display: none; }
+  .gl-tab-button {
+    @apply flex items-center gap-1.5 px-2 sm:px-3 py-2 text-sm font-medium
+           border-b-2 -mb-px transition-colors whitespace-nowrap;
+  }
+  .gl-tab-active {
+    @apply border-primary text-primary;
+  }
+  .gl-tab-inactive {
+    @apply border-transparent text-muted-foreground;
+  }
+  .gl-tab-inactive:hover {
+    @apply text-foreground border-border;
+  }
+  .gl-tab-badge {
+    @apply text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center;
+  }
+
+  /* Sub-tabs (secondary, smaller variant) */
+  .gl-subtab-bar {
+    @apply flex items-center gap-0.5 sm:gap-1
+           border-b border-border pb-0 overflow-x-auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .gl-subtab-bar::-webkit-scrollbar { display: none; }
+  .gl-subtab-button {
+    @apply px-2 sm:px-3 py-1.5 text-xs font-medium rounded-t-lg
+           border border-b-0 transition-colors -mb-px whitespace-nowrap;
+  }
+  .gl-subtab-active {
+    @apply bg-background border-border text-foreground;
+  }
+  .gl-subtab-inactive {
+    @apply bg-transparent border-transparent text-muted-foreground;
+  }
+  .gl-subtab-inactive:hover {
+    @apply text-foreground bg-accent/50;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * iOS Safari auto-zoom-on-focus prevention
+ *
+ * Mobile Safari aggressively zooms in whenever the user taps an
+ * input/select/textarea whose computed font-size is < 16px. This
+ * results in the page being zoomed and shifted on every focus, then
+ * a manual unzoom is required, breaking flow on every form.
+ *
+ * Fix: force a 16px font-size on form fields at < sm. The visual
+ * weight of the input grows by ~2px which is acceptable on mobile;
+ * the alternative (tiny inputs that trigger auto-zoom) is much
+ * worse.
+ *
+ * Targets:
+ * - all native form fields
+ * - applies only on viewports < 640px (sm) so desktop dense layout
+ *   is preserved.
+ * ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * Scrollbar
+ * ═══════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.45);
+}

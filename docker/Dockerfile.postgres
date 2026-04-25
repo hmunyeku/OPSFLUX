@@ -1,0 +1,11 @@
+FROM pgvector/pgvector:pg16
+
+# Install PostGIS on top of pgvector
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       postgresql-16-postgis-3 \
+       postgresql-16-postgis-3-scripts \
+    && rm -rf /var/lib/apt/lists/*
+
+# Bake extension init script into image (avoids bind mount issues on Dokploy)
+COPY init-extensions.sql /docker-entrypoint-initdb.d/init-extensions.sql

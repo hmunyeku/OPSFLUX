@@ -1,41 +1,54 @@
-# Dependencies
-node_modules/
-
-# Expo
-.expo/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
 dist/
-web-build/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
 
-# Build artifacts
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.orig.*
-android/
-ios/
+# Node
+node_modules/
+apps/main/dist/
+apps/captain/dist/
+apps/ext-paxlog/dist/
+.vite/
 
 # Environment
 .env
-.env.local
-.env.production
-
-# Test & Coverage
-coverage/
-__snapshots__/
+.env.*
+!.env.example
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Google Services (contains API keys)
-google-services.json
-GoogleService-Info.plist
+# Docker
+docker-compose.override.yml
 
-# EAS
-.eas/
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+coverage/
+
+# Alembic
+alembic/versions/__pycache__/
+
+# Logs
+*.log
+
+# Claude
+.claude/

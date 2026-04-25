@@ -1,0 +1,197 @@
+# =============================================================================
+# OpsFlux — Production Docker Compose (Dokploy)
+# =============================================================================
+# Dokploy creates .env from compose environment settings.
+# Domains & SSL managed by Dokploy's built-in Traefik.
+
+services:
+  # ─── PostgreSQL 16 + pgvector + PostGIS ──────────────────────
+  db:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-opsflux}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis 7 ─────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ─── Backend FastAPI ─────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/opt/opsflux/static
+    user: "${UID:-0}:${GID:-0}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      sh -c "
+        mkdir -p /opt/opsflux/static/avatars /opt/opsflux/static/attachments &&
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+      "
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.services.opsflux-api.loadbalancer.server.port=8000"
+      - "traefik.http.routers.opsflux-api-web.entrypoints=web"
+      - "traefik.http.routers.opsflux-api-web.rule=Host(`api.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-api-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.opsflux-api-web.service=opsflux-api"
+      - "traefik.http.routers.opsflux-api-websecure.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-api-websecure.rule=Host(`api.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-api-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.opsflux-api-websecure.service=opsflux-api"
+      # ── MCP Gateway (mcp.opsflux.io → backend /mcp-gw/) ──
+      - "traefik.http.routers.opsflux-mcp-web.entrypoints=web"
+      - "traefik.http.routers.opsflux-mcp-web.rule=Host(`mcp.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-mcp-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.opsflux-mcp-web.service=opsflux-api"
+      - "traefik.http.routers.opsflux-mcp-websecure.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-mcp-websecure.rule=Host(`mcp.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-mcp-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.opsflux-mcp-websecure.service=opsflux-api"
+    networks:
+      - default
+      - dokploy-network
+
+  # ─── Frontend React PWA (nginx) ─────────────────────────────
+  frontend:
+    build:
+      context: ./apps/main
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://api.${DOMAIN:-opsflux.io}
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.opsflux-app-web.entrypoints=web"
+      - "traefik.http.routers.opsflux-app-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.opsflux-app-web.rule=Host(`app.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-app-websecure.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-app-websecure.rule=Host(`app.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-app-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.opsflux-app.loadbalancer.server.port=80"
+    networks:
+      - default
+      - dokploy-network
+
+  # ─── Portail externe PaxLog (nginx) ─────────────────────────
+  ext-paxlog:
+    build:
+      context: ./apps/ext-paxlog
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://api.${DOMAIN:-opsflux.io}
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.opsflux-ext-paxlog-web.entrypoints=web"
+      - "traefik.http.routers.opsflux-ext-paxlog-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.opsflux-ext-paxlog-web.rule=Host(`ext.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-ext-paxlog-websecure.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-ext-paxlog-websecure.rule=Host(`ext.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-ext-paxlog-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.opsflux-ext-paxlog.loadbalancer.server.port=80"
+    networks:
+      - default
+      - dokploy-network
+
+  # ─── Vitrine www.opsflux.io (marketing site) ────────────────
+  vitrine:
+    build:
+      context: ./apps/vitrine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # www.opsflux.io
+      - "traefik.http.routers.vitrine.rule=Host(`www.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.vitrine.entrypoints=websecure"
+      - "traefik.http.routers.vitrine.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vitrine.loadbalancer.server.port=80"
+      # opsflux.io naked domain → redirect to www
+      - "traefik.http.routers.vitrine-root.rule=Host(`${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.vitrine-root.entrypoints=websecure"
+      - "traefik.http.routers.vitrine-root.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.vitrine-root.middlewares=vitrine-www-redirect"
+      - "traefik.http.middlewares.vitrine-www-redirect.redirectregex.regex=^https://${DOMAIN:-opsflux.io}/(.*)"
+      - "traefik.http.middlewares.vitrine-www-redirect.redirectregex.replacement=https://www.${DOMAIN:-opsflux.io}/$${1}"
+      - "traefik.http.middlewares.vitrine-www-redirect.redirectregex.permanent=true"
+    networks:
+      - default
+      - dokploy-network
+
+  # ─── Draw.io (self-hosted — module PID/PFD) ─────────────────
+  drawio:
+    image: jgraph/drawio:latest
+    restart: unless-stopped
+    environment:
+      DRAWIO_SELF_CONTAINED: "1"
+
+  # ─── pgAdmin 4 (DB management — superadmin only) ──
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@opsflux.io
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-OpsFlux2024!}
+      PGADMIN_DISABLE_POSTFIX: "true"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.pgadmin-web.entrypoints=web"
+      - "traefik.http.routers.pgadmin-web.rule=Host(`db.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.pgadmin-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.pgadmin-websecure.entrypoints=websecure"
+      - "traefik.http.routers.pgadmin-websecure.rule=Host(`db.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.pgadmin-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
+    networks:
+      - default
+      - dokploy-network
+
+volumes:
+  pg_data:
+  uploads_data:
+  pgadmin_data:
+
+networks:
+  dokploy-network:
+    external: true

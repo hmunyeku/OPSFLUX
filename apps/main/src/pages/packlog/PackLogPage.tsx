@@ -1,0 +1,808 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import type { ColumnDef } from '@tanstack/react-table'
+import {
+  AlertTriangle,
+  Boxes,
+  FileDown,
+  FileText,
+  LayoutDashboard,
+  Package,
+  Plus,
+  ScanSearch,
+  Search,
+  Truck,
+} from 'lucide-react'
+import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
+import { renderRegisteredPanel } from '@/components/layout/DetachedPanelRenderer'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
+import { TabBar } from '@/components/ui/Tabs'
+import { DataTable } from '@/components/ui/DataTable/DataTable'
+import { useToast } from '@/components/ui/Toast'
+import { usePageSize } from '@/hooks/usePageSize'
+import { useDebounce } from '@/hooks/useDebounce'
+import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
+import { usePermission } from '@/hooks/usePermission'
+import { useAllManifests } from '@/hooks/useTravelWiz'
+import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
+import {
+  usePackLogArticles,
+  usePackLogCargo,
+  usePackLogCargoItem,
+  usePackLogCargoRequests,
+  useReceivePackLogCargo,
+  usePackLogSapMatch,
+  useImportPackLogArticlesCsv,
+  useUpdatePackLogCargoStatus,
+} from '@/hooks/usePackLog'
+import { useUIStore } from '@/stores/uiStore'
+import { CargoWorkspaceProvider } from '@/pages/packlog/packlogWorkspace'
+import { CreateArticlePanel, PackLogArticleDetailPanel } from '@/pages/packlog/PackLogArticlePanels'
+import { CreateCargoPanel, CreateCargoRequestPanel } from '@/pages/packlog/PackLogCreatePanels'
+import { CargoRequestDetailPanel } from '@/pages/packlog/PackLogRequestDetailPanel'
+import { CargoDetailPanel } from '@/pages/packlog/PackLogCargoDetailPanel'
+import { useTranslation } from 'react-i18next'
+import type { CargoItem, CargoRequest, Manifest, TravelArticle } from '@/types/api'
+
+type PackLogTab = 'dashboard' | 'requests' | 'cargo' | 'catalog' | 'tracking' | 'alerts'
+
+type AlertRow = {
+  kind: 'request' | 'cargo'
+  id: string
+  reference: string
+  label: string
+  alert: string
+  status: string
+  created_at: string
+}
+
+const TABS: { id: PackLogTab; label: string; icon: typeof LayoutDashboard }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'requests', label: 'Demandes', icon: FileText },
+  { id: 'cargo', label: 'Colis', icon: Package },
+  { id: 'catalog', label: 'Catalogue SAP', icon: Boxes },
+  { id: 'tracking', label: 'Tracking', icon: ScanSearch },
+  { id: 'alerts', label: 'Alertes', icon: AlertTriangle },
+]
+
+registerPanelRenderer('packlog', (view) => {
+  if (view.type === 'create') {
+    if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CreateCargoRequestPanel /></CargoWorkspaceProvider>
+    if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CreateCargoPanel /></CargoWorkspaceProvider>
+    if (view.meta?.subtype === 'article') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CreateArticlePanel /></CargoWorkspaceProvider>
+  }
+  if (view.type === 'detail' && 'id' in view) {
+    if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CargoRequestDetailPanel id={view.id} /></CargoWorkspaceProvider>
+    if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CargoDetailPanel id={view.id} /></CargoWorkspaceProvider>
+    if (view.meta?.subtype === 'article') return <CargoWorkspaceProvider module="packlog" label="PackLog"><PackLogArticleDetailPanel id={view.id} /></CargoWorkspaceProvider>
+  }
+  return null
+})
+
+function formatDateShort(value: string | null | undefined, locale = 'fr-FR') {
+  if (!value) return '—'
+  try {
+    return new Date(value).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
+  } catch {
+    return value
+  }
+}
+
+function formatDateTimeShort(value: string | null | undefined, locale = 'fr-FR') {
+  if (!value) return '—'
+  try {
+    return new Date(value).toLocaleString(locale, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return value
+  }
+}
+
+function isCargoReceivedLike(item: Pick<CargoItem, 'status' | 'received_at'>) {
+  return Boolean(item.received_at) || item.status === 'delivered_final'
+}
+
+function parsePackLogScanValue(raw: string): { kind: 'cargo-id' | 'request-id' | 'tracking'; value: string } | null {
+  const value = raw.trim()
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    const cargoId = url.searchParams.get('cargo')
+    if (cargoId) return { kind: 'cargo-id', value: cargoId }
+    const requestId = url.searchParams.get('request')
+    if (requestId) return { kind: 'request-id', value: requestId }
+    const publicCargoMatch = url.pathname.match(/\/public\/cargo\/([^/]+)$/)
+    if (publicCargoMatch?.[1]) return { kind: 'tracking', value: decodeURIComponent(publicCargoMatch[1]) }
+  } catch {
+    // Not a URL, continue with raw parsing.
+  }
+  return { kind: 'tracking', value }
+}
+
+function buildAlerts(requests: CargoRequest[], cargo: CargoItem[]): AlertRow[] {
+  const requestAlerts = requests
+    .filter((request) => !request.is_ready_for_submission)
+    .map((request) => ({
+      kind: 'request' as const,
+      id: request.id,
+      reference: request.request_code,
+      label: request.title,
+      alert: request.missing_requirements.length > 0 ? 'Dossier incomplet' : 'Demande à vérifier',
+      status: request.status,
+      created_at: request.created_at,
+    }))
+
+  const cargoAlerts = cargo
+    .filter((item) => item.status === 'missing' || item.status === 'damaged' || ((item.status === 'registered' || item.status === 'ready') && (Date.now() - new Date(item.created_at).getTime()) > 72 * 3600 * 1000))
+    .map((item) => ({
+      kind: 'cargo' as const,
+      id: item.id,
+      reference: item.tracking_code,
+      label: item.designation || item.description,
+      alert:
+        item.status === 'missing'
+          ? 'Colis manquant'
+          : item.status === 'damaged'
+            ? 'Colis endommagé'
+            : 'Retard de traitement',
+      status: item.status,
+      created_at: item.created_at,
+    }))
+
+  return [...requestAlerts, ...cargoAlerts]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+}
+
+function RequestsTab() {
+  const { t, i18n } = useTranslation()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('')
+  const locale = i18n.language?.startsWith('fr') ? 'fr-FR' : 'en-US'
+  const requestStatusOptions = useDictionaryOptions('packlog_cargo_request_status')
+  const requestStatusLabels = useDictionaryLabels('packlog_cargo_request_status')
+  const debouncedSearch = useDebounce(search, 250)
+  const { data, isLoading } = usePackLogCargoRequests({ page, page_size: pageSize, search: debouncedSearch || undefined, status: status || undefined })
+  const items = data?.items ?? []
+  const stats = useMemo(() => ({
+    total: data?.total ?? 0,
+    ready: items.filter((item) => item.is_ready_for_submission).length,
+    blocked: items.filter((item) => !item.is_ready_for_submission).length,
+    submitted: items.filter((item) => item.status === 'submitted').length,
+  }), [data?.total, items])
+
+  const columns = useMemo<ColumnDef<CargoRequest, unknown>[]>(() => [
+    { accessorKey: 'request_code', header: t('packlog.requests.columns.reference'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.request_code}</span> },
+    { accessorKey: 'title', header: t('packlog.requests.columns.title'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.title}</span> },
+    { id: 'sender', header: t('packlog.requests.columns.sender'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.sender_name ?? '—'}</span> },
+    { id: 'destination', header: t('packlog.requests.columns.destination'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.destination_name ?? row.original.receiver_name ?? '—'}</span> },
+    { id: 'cargo_count', header: t('packlog.requests.columns.cargo_count'), cell: ({ row }) => <span className="text-xs text-foreground">{row.original.cargo_count}</span> },
+    { id: 'status', header: t('packlog.requests.columns.status'), cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{requestStatusLabels[row.original.status] ?? row.original.status}</span> },
+    { id: 'readiness', header: t('packlog.requests.columns.readiness'), cell: ({ row }) => <span className={row.original.is_ready_for_submission ? 'text-emerald-600 text-xs font-medium' : 'text-amber-600 text-xs font-medium'}>{row.original.is_ready_for_submission ? t('packlog.requests.readiness.ready') : t('packlog.requests.readiness.pending')}</span> },
+    { id: 'created_at', header: t('packlog.requests.columns.created_at'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at, locale)}</span> },
+  ], [locale, requestStatusLabels, t])
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-4">
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.total')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.total}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.ready')}</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.ready}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.blocked')}</p><p className="mt-1 text-lg font-semibold text-amber-600">{stats.blocked}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.submitted')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.submitted}</p></div>
+      </div>
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+        <div className="flex flex-wrap gap-1">
+          {[{ value: '', label: t('packlog.common.all') }, ...requestStatusOptions].map((option) => (
+            <button
+              key={option.value || 'all'}
+              className={status === option.value ? 'gl-button-sm gl-button-default' : 'gl-button-sm gl-button-default opacity-70 hover:opacity-100'}
+              onClick={() => { setStatus(option.value); setPage(1) }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <PanelContent>
+        <DataTable<CargoRequest>
+          columns={columns}
+          data={items}
+          isLoading={isLoading}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
+          onPaginationChange={setPage}
+          searchValue={search}
+          onSearchChange={(value) => { setSearch(value); setPage(1) }}
+          searchPlaceholder={t('packlog.requests.search_placeholder')}
+          onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'cargo-request' } })}
+          emptyIcon={FileText}
+          emptyTitle={t('packlog.requests.empty')}
+          storageKey="packlog-requests"
+        />
+      </PanelContent>
+    </div>
+  )
+}
+
+function CargoTab() {
+  const { t, i18n } = useTranslation()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('')
+  const locale = i18n.language?.startsWith('fr') ? 'fr-FR' : 'en-US'
+  const cargoStatusOptions = useDictionaryOptions('packlog_cargo_status')
+  const cargoStatusLabels = useDictionaryLabels('packlog_cargo_status')
+  const debouncedSearch = useDebounce(search, 250)
+  const { data, isLoading } = usePackLogCargo({ page, page_size: pageSize, search: debouncedSearch || undefined, status: status || undefined })
+  const items = data?.items ?? []
+  const stats = useMemo(() => ({
+    total: data?.total ?? 0,
+    inTransit: items.filter((item) => item.status === 'in_transit').length,
+    delivered: items.filter((item) => item.status === 'delivered_final').length,
+    incidents: items.filter((item) => item.status === 'damaged' || item.status === 'missing').length,
+  }), [data?.total, items])
+
+  const columns = useMemo<ColumnDef<CargoItem, unknown>[]>(() => [
+    { accessorKey: 'tracking_code', header: t('packlog.cargo.columns.tracking'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.tracking_code}</span> },
+    { id: 'designation', header: t('packlog.cargo.columns.label'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.designation || row.original.description}</span> },
+    { id: 'request', header: t('packlog.cargo.columns.request'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.request_code ?? '—'}</span> },
+    { id: 'destination', header: t('packlog.cargo.columns.destination'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.destination_name ?? row.original.receiver_name ?? '—'}</span> },
+    { id: 'weight', header: t('packlog.cargo.columns.weight'), cell: ({ row }) => <span className="text-xs text-foreground">{row.original.weight_kg.toLocaleString(locale)} kg</span> },
+    { id: 'status', header: t('packlog.cargo.columns.status'), cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[row.original.status] ?? row.original.status}</span> },
+    { id: 'created_at', header: t('packlog.cargo.columns.created_at'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at, locale)}</span> },
+  ], [cargoStatusLabels, locale, t])
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-4">
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.total')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.total}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.in_transit')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.inTransit}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.delivered')}</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.delivered}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.incidents')}</p><p className="mt-1 text-lg font-semibold text-destructive">{stats.incidents}</p></div>
+      </div>
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+        <div className="flex flex-wrap gap-1">
+          {[{ value: '', label: t('packlog.common.all') }, ...cargoStatusOptions].map((option) => (
+            <button
+              key={option.value || 'all'}
+              className={status === option.value ? 'gl-button-sm gl-button-default' : 'gl-button-sm gl-button-default opacity-70 hover:opacity-100'}
+              onClick={() => { setStatus(option.value); setPage(1) }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <PanelContent>
+        <DataTable<CargoItem>
+          columns={columns}
+          data={items}
+          isLoading={isLoading}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
+          onPaginationChange={setPage}
+          searchValue={search}
+          onSearchChange={(value) => { setSearch(value); setPage(1) }}
+          searchPlaceholder={t('packlog.cargo.search_placeholder')}
+          onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'cargo' } })}
+          emptyIcon={Package}
+          emptyTitle={t('packlog.cargo.empty')}
+          storageKey="packlog-cargo"
+        />
+      </PanelContent>
+    </div>
+  )
+}
+
+function CatalogTab() {
+  const { t } = useTranslation()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { toast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
+  const [search, setSearch] = useState('')
+  const [sapQuery, setSapQuery] = useState('')
+  const debouncedSearch = useDebounce(search, 250)
+  const { data, isLoading } = usePackLogArticles({ page, page_size: pageSize, search: debouncedSearch || undefined })
+  const sapMatch = usePackLogSapMatch()
+  const importCsv = useImportPackLogArticlesCsv()
+  const items = data?.items ?? []
+
+  const columns = useMemo<ColumnDef<TravelArticle, unknown>[]>(() => [
+    { accessorKey: 'sap_code', header: t('packlog.catalog.columns.sap_code'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.sap_code}</span> },
+    { accessorKey: 'description', header: t('packlog.catalog.columns.description'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.description}</span> },
+    { id: 'management_type', header: t('packlog.catalog.columns.management_type'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.management_type ?? '—'}</span> },
+    { id: 'packaging', header: t('packlog.catalog.columns.packaging'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.packaging ?? '—'}</span> },
+    { id: 'hazmat', header: 'HAZMAT', cell: ({ row }) => <span className={row.original.is_hazmat ? 'text-destructive text-xs font-medium' : 'text-muted-foreground text-xs'}>{row.original.is_hazmat ? (row.original.hazmat_class ?? 'Oui') : 'Non'}</span> },
+  ], [])
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <ToolbarButton icon={Plus} label="Nouvel article" onClick={() => openDynamicPanel({ type: 'create', module: 'packlog', meta: { subtype: 'article' } })} />
+            <ToolbarButton icon={FileDown} label={importCsv.isPending ? 'Import en cours…' : 'Importer CSV'} onClick={() => fileInputRef.current?.click()} disabled={importCsv.isPending} />
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={async (event) => {
+              const file = event.target.files?.[0]
+              if (!file) return
+              try {
+                const result = await importCsv.mutateAsync(file)
+                toast({ title: `Import terminé: ${result.imported} créés, ${result.updated} mis à jour`, variant: result.errors.length ? 'warning' : 'success' })
+              } catch {
+                toast({ title: 'Erreur lors de l’import CSV du catalogue SAP', variant: 'error' })
+              } finally {
+                event.target.value = ''
+              }
+            }}
+          />
+        </div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Recherche intelligente SAP</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={sapQuery}
+              onChange={(event) => setSapQuery(event.target.value)}
+              className="gl-form-input"
+              placeholder="Décrire un colis ou un article..."
+            />
+            <button className="gl-button-sm gl-button-default" onClick={() => sapQuery.trim() && sapMatch.mutate(sapQuery.trim())} disabled={sapMatch.isPending}>
+              {sapMatch.isPending ? '...' : <Search size={12} />}
+            </button>
+          </div>
+          {sapMatch.data && (
+            <div className="mt-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs">
+              {sapMatch.data.matched
+                ? <span className="text-foreground"><span className="font-mono">{sapMatch.data.sap_code}</span> — {sapMatch.data.description} ({Math.round(sapMatch.data.confidence * 100)}%)</span>
+                : <span className="text-muted-foreground">Aucun match satisfaisant.</span>}
+            </div>
+          )}
+        </div>
+      </div>
+      <PanelContent>
+        <DataTable<TravelArticle>
+          columns={columns}
+          data={items}
+          isLoading={isLoading}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
+          onPaginationChange={setPage}
+          searchValue={search}
+          onSearchChange={(value) => { setSearch(value); setPage(1) }}
+          searchPlaceholder="Rechercher par code SAP ou description..."
+          onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'article' } })}
+          emptyIcon={Boxes}
+          emptyTitle="Aucun article SAP"
+          storageKey="packlog-catalog"
+        />
+      </PanelContent>
+    </div>
+  )
+}
+
+function TrackingTab() {
+  const { t, i18n } = useTranslation()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { toast } = useToast()
+  const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
+  const [search, setSearch] = useState('')
+  const [scanInput, setScanInput] = useState('')
+  const [scanTracking, setScanTracking] = useState('')
+  const [scannedCargoId, setScannedCargoId] = useState<string | null>(null)
+  const debouncedSearch = useDebounce(search, 250)
+  const debouncedScan = useDebounce(scanTracking, 150)
+  const { data, isLoading } = usePackLogCargo({ page, page_size: pageSize, search: debouncedSearch || undefined })
+  const { data: manifestsData } = useAllManifests({ page: 1, page_size: 100 })
+  const { data: scannedCargo } = usePackLogCargoItem(scannedCargoId ?? undefined)
+  const { data: scanMatches, isLoading: isScanLoading } = usePackLogCargo({
+    page: 1,
+    page_size: 8,
+    search: debouncedScan || undefined,
+  })
+  const locale = i18n.language?.startsWith('fr') ? 'fr-FR' : 'en-US'
+  const cargoStatusLabels = useDictionaryLabels('packlog_cargo_status')
+  const receiveCargo = useReceivePackLogCargo()
+  const updateCargoStatus = useUpdatePackLogCargoStatus()
+  const items = data?.items ?? []
+  const stats = useMemo(() => ({
+    tracked: items.length,
+    assigned: items.filter((item) => Boolean(item.voyage_code)).length,
+    received: items.filter((item) => isCargoReceivedLike(item)).length,
+    pendingReceipt: items.filter((item) => item.status === 'in_transit' || item.status === 'delivered_intermediate').length,
+  }), [items])
+  const manifestGroups = useMemo(() => {
+    const manifests = (manifestsData?.items ?? []).filter((manifest) => manifest.manifest_type === 'cargo')
+    const manifestMap = new Map<string, Manifest>(manifests.map((manifest) => [manifest.id, manifest]))
+    const grouped = items
+      .filter((item) => item.manifest_id)
+      .reduce<Map<string, CargoItem[]>>((acc, item) => {
+        const key = item.manifest_id!
+        const current = acc.get(key) ?? []
+        current.push(item)
+        acc.set(key, current)
+        return acc
+      }, new Map())
+    return Array.from(grouped.entries())
+      .map(([manifestId, manifestCargo]) => ({
+        manifest: manifestMap.get(manifestId) ?? null,
+        manifestId,
+        items: manifestCargo.sort((a, b) => a.tracking_code.localeCompare(b.tracking_code)),
+        actionableItems: manifestCargo
+          .filter((item) => !isCargoReceivedLike(item))
+          .sort((a, b) => a.tracking_code.localeCompare(b.tracking_code)),
+      }))
+      .filter((group) => group.items.length > 0)
+      .sort((a, b) => {
+        const actionableDelta = b.actionableItems.length - a.actionableItems.length
+        if (actionableDelta !== 0) return actionableDelta
+        const aDate = a.manifest?.created_at ? new Date(a.manifest.created_at).getTime() : 0
+        const bDate = b.manifest?.created_at ? new Date(b.manifest.created_at).getTime() : 0
+        return bDate - aDate
+      })
+  }, [items, manifestsData?.items])
+  const scanCandidates = scanMatches?.items ?? []
+  const exactScanCandidate = useMemo(() => {
+    const query = scanTracking.trim().toLowerCase()
+    if (!query) return null
+    return scanCandidates.find((item) => {
+      const tracking = item.tracking_code.trim().toLowerCase()
+      return tracking === query
+    }) ?? null
+  }, [scanCandidates, scanTracking])
+  const quickTarget = scannedCargo ?? exactScanCandidate ?? scanCandidates[0] ?? null
+
+  async function handleManifestQuickStatus(item: CargoItem, status: 'received' | 'damaged' | 'missing') {
+    try {
+      if (status === 'received') {
+        await receiveCargo.mutateAsync({ id: item.id, payload: { notes: 'Réception manifeste PackLog' } })
+      } else {
+        await updateCargoStatus.mutateAsync({ id: item.id, status })
+      }
+      toast({
+        title:
+          status === 'received'
+            ? t('packlog.tracking.toasts.received', { tracking: item.tracking_code })
+            : status === 'damaged'
+              ? t('packlog.tracking.toasts.damaged', { tracking: item.tracking_code })
+              : t('packlog.tracking.toasts.missing', { tracking: item.tracking_code }),
+        variant: status === 'received' ? 'success' : 'warning',
+      })
+    } catch {
+      toast({ title: t('packlog.tracking.toasts.update_error'), variant: 'error' })
+    }
+  }
+
+  async function handleQuickStatus(status: 'received' | 'damaged' | 'missing') {
+    if (!quickTarget) return
+    try {
+      if (status === 'received') {
+        await receiveCargo.mutateAsync({ id: quickTarget.id, payload: { notes: 'Réception terrain via scan PackLog' } })
+      } else {
+        await updateCargoStatus.mutateAsync({ id: quickTarget.id, status })
+      }
+      toast({
+        title:
+          status === 'received'
+            ? t('packlog.tracking.toasts.received', { tracking: quickTarget.tracking_code })
+            : status === 'damaged'
+              ? t('packlog.tracking.toasts.damaged', { tracking: quickTarget.tracking_code })
+              : t('packlog.tracking.toasts.missing', { tracking: quickTarget.tracking_code }),
+        variant: status === 'received' ? 'success' : 'warning',
+      })
+    } catch {
+      toast({ title: t('packlog.tracking.toasts.scan_update_error'), variant: 'error' })
+    }
+  }
+
+  function handleScanSubmit() {
+    const parsed = parsePackLogScanValue(scanInput)
+    if (!parsed) return
+    if (parsed.kind === 'cargo-id') {
+      setScannedCargoId(parsed.value)
+      setScanTracking('')
+      setScanInput('')
+      openDynamicPanel({ type: 'detail', module: 'packlog', id: parsed.value, meta: { subtype: 'cargo' } })
+      return
+    }
+    if (parsed.kind === 'request-id') {
+      setScannedCargoId(null)
+      setScanTracking('')
+      setScanInput('')
+      openDynamicPanel({ type: 'detail', module: 'packlog', id: parsed.value, meta: { subtype: 'cargo-request' } })
+      return
+    }
+    setScannedCargoId(null)
+    setScanTracking(parsed.value)
+    setScanInput(parsed.value)
+  }
+
+  const columns = useMemo<ColumnDef<CargoItem, unknown>[]>(() => [
+    { accessorKey: 'tracking_code', header: t('packlog.tracking.columns.tracking'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.tracking_code}</span> },
+    { id: 'description', header: t('packlog.tracking.columns.cargo'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.designation || row.original.description}</span> },
+    { id: 'status', header: t('packlog.tracking.columns.status'), cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[row.original.status] ?? row.original.status}</span> },
+    { id: 'voyage', header: t('packlog.tracking.columns.voyage'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.voyage_code ?? '—'}</span> },
+    { id: 'received_at', header: t('packlog.tracking.columns.last_event'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateTimeShort(row.original.received_at ?? row.original.created_at, locale)}</span> },
+  ], [cargoStatusLabels, locale, t])
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-4">
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.tracked')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.tracked}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.assigned')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.assigned}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.received')}</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.received}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.pending_receipt')}</p><p className="mt-1 text-lg font-semibold text-amber-600">{stats.pendingReceipt}</p></div>
+      </div>
+      <div className="border-b border-border px-4 py-3">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+          <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.scan.title')}</p>
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={scanInput}
+                onChange={(event) => setScanInput(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Enter') handleScanSubmit() }}
+                className="gl-form-input"
+                placeholder={t('packlog.tracking.scan.placeholder')}
+              />
+              <button className="gl-button-sm gl-button-default" onClick={handleScanSubmit}>
+                {t('packlog.tracking.scan.action')}
+              </button>
+            </div>
+            {quickTarget && (
+              <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-xs text-foreground">{quickTarget.tracking_code}</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">{quickTarget.designation || quickTarget.description}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {quickTarget.request_code ?? t('packlog.tracking.scan.no_request')} · {quickTarget.destination_name ?? quickTarget.receiver_name ?? t('packlog.tracking.scan.no_destination')}
+                    </p>
+                  </div>
+                  <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[quickTarget.status] ?? quickTarget.status}</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('received')} disabled={receiveCargo.isPending || isCargoReceivedLike(quickTarget)}>
+                    {t('packlog.tracking.actions.receive')}
+                  </button>
+                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('damaged')} disabled={updateCargoStatus.isPending || isCargoReceivedLike(quickTarget)}>
+                    {t('packlog.tracking.actions.damaged')}
+                  </button>
+                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('missing')} disabled={updateCargoStatus.isPending || isCargoReceivedLike(quickTarget)}>
+                    {t('packlog.tracking.actions.missing')}
+                  </button>
+                  <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: quickTarget.id, meta: { subtype: 'cargo' } })}>
+                    {t('packlog.tracking.actions.open')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.scan_results.title')}</p>
+            <div className="mt-2 space-y-2">
+              {isScanLoading && debouncedScan ? (
+                <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.loading')}</p>
+              ) : scanCandidates.length > 0 ? (
+                scanCandidates.map((item) => (
+                  <button
+                    key={item.id}
+                    className="flex w-full items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-left hover:bg-muted/20"
+                    onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}
+                  >
+                    <div>
+                      <p className="font-mono text-xs text-foreground">{item.tracking_code}</p>
+                      <p className="mt-1 text-sm font-medium text-foreground">{item.designation || item.description}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.request_code ?? '—'} · {item.voyage_code ?? t('packlog.tracking.scan_results.no_voyage')}</p>
+                    </div>
+                    <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[item.status] ?? item.status}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.empty')}</p>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 rounded-lg border border-border/60 bg-card px-3 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.manifests.title')}</p>
+            <span className="text-xs text-muted-foreground">{t('packlog.tracking.manifests.count', { count: manifestGroups.filter((group) => group.actionableItems.length > 0).length })}</span>
+          </div>
+          <div className="mt-3 space-y-3">
+            {manifestGroups.some((group) => group.actionableItems.length > 0) ? (
+              manifestGroups.map((group) => {
+                if (group.actionableItems.length === 0) return null
+                const receivedCount = group.items.filter((item) => isCargoReceivedLike(item)).length
+                return (
+                  <div key={group.manifestId} className="rounded-lg border border-border/60 px-3 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-foreground">{group.manifest?.reference || group.manifestId}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t('packlog.tracking.manifests.summary', { voyage: group.items[0]?.voyage_code ?? '—', received: receivedCount, total: group.items.length, pending: group.actionableItems.length })}
+                        </p>
+                      </div>
+                      <span className="gl-badge gl-badge-neutral">{group.manifest?.status ?? 'draft'}</span>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {group.actionableItems.slice(0, 8).map((item) => (
+                        <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 px-2 py-2">
+                          <div className="min-w-0">
+                            <p className="font-mono text-xs text-foreground">{item.tracking_code}</p>
+                            <p className="truncate text-sm text-foreground">{item.designation || item.description}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[item.status] ?? item.status}</span>
+                            <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'received')} disabled={receiveCargo.isPending}>
+                              {t('packlog.tracking.actions.receive')}
+                            </button>
+                            <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'damaged')} disabled={updateCargoStatus.isPending}>
+                              {t('packlog.tracking.actions.damaged')}
+                            </button>
+                            <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'missing')} disabled={updateCargoStatus.isPending}>
+                              {t('packlog.tracking.actions.missing')}
+                            </button>
+                            <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}>
+                              {t('packlog.tracking.actions.open')}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {group.actionableItems.length > 8 && (
+                        <p className="text-xs text-muted-foreground">{t('packlog.tracking.manifests.more_pending', { count: group.actionableItems.length - 8 })}</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <p className="text-xs text-muted-foreground">{t('packlog.tracking.manifests.empty')}</p>
+            )}
+          </div>
+        </div>
+      </div>
+      <PanelContent>
+        <DataTable<CargoItem>
+          columns={columns}
+          data={items}
+          isLoading={isLoading}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
+          onPaginationChange={setPage}
+          searchValue={search}
+          onSearchChange={(value) => { setSearch(value); setPage(1) }}
+          searchPlaceholder={t('packlog.tracking.search_placeholder')}
+          onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'cargo' } })}
+          emptyIcon={Truck}
+          emptyTitle={t('packlog.tracking.empty')}
+          storageKey="packlog-tracking"
+        />
+      </PanelContent>
+    </div>
+  )
+}
+
+function AlertsTab() {
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { data: requestsData } = usePackLogCargoRequests({ page: 1, page_size: 100 })
+  const { data: cargoData } = usePackLogCargo({ page: 1, page_size: 200 })
+  const alerts = useMemo(() => buildAlerts(requestsData?.items ?? [], cargoData?.items ?? []), [cargoData?.items, requestsData?.items])
+
+  const columns = useMemo<ColumnDef<AlertRow, unknown>[]>(() => [
+    { accessorKey: 'reference', header: 'Référence', cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.reference}</span> },
+    { accessorKey: 'label', header: 'Objet', cell: ({ row }) => <span className="font-medium text-foreground">{row.original.label}</span> },
+    { accessorKey: 'alert', header: 'Alerte', cell: ({ row }) => <span className="text-xs font-medium text-destructive">{row.original.alert}</span> },
+    { accessorKey: 'status', header: 'Statut', cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.status}</span> },
+    { accessorKey: 'created_at', header: 'Détectée le', cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at)}</span> },
+  ], [])
+
+  return (
+    <PanelContent>
+      <DataTable<AlertRow>
+        columns={columns}
+        data={alerts}
+        isLoading={false}
+        onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: row.kind === 'request' ? 'cargo-request' : 'cargo' } })}
+        emptyIcon={AlertTriangle}
+        emptyTitle="Aucune alerte"
+        storageKey="packlog-alerts"
+      />
+    </PanelContent>
+  )
+}
+
+export function PackLogPage() {
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const panelMode = useUIStore((s) => s.dynamicPanelMode)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { hasPermission } = usePermission()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<PackLogTab>('dashboard')
+  const { data: requestsSummary } = usePackLogCargoRequests({ page: 1, page_size: 1 })
+  const { data: cargoSummary } = usePackLogCargo({ page: 1, page_size: 1 })
+  const { data: articlesSummary } = usePackLogArticles({ page: 1, page_size: 1 })
+  const { data: requestAlertsSummary } = usePackLogCargoRequests({ page: 1, page_size: 100 })
+  const { data: cargoAlertsSummary } = usePackLogCargo({ page: 1, page_size: 200 })
+
+  const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'packlog'
+  const canCreateRequest = hasPermission('packlog.cargo.create')
+  const requestId = searchParams.get('request')
+  const cargoId = searchParams.get('cargo')
+
+  useEffect(() => {
+    if (requestId && dynamicPanel?.module !== 'packlog') {
+      setActiveTab('requests')
+      openDynamicPanel({ type: 'detail', module: 'packlog', id: requestId, meta: { subtype: 'cargo-request' } })
+      const next = new URLSearchParams(searchParams)
+      next.delete('request')
+      setSearchParams(next, { replace: true })
+      return
+    }
+    if (cargoId && dynamicPanel?.module !== 'packlog') {
+      setActiveTab('cargo')
+      openDynamicPanel({ type: 'detail', module: 'packlog', id: cargoId, meta: { subtype: 'cargo' } })
+      const next = new URLSearchParams(searchParams)
+      next.delete('cargo')
+      setSearchParams(next, { replace: true })
+    }
+  }, [cargoId, dynamicPanel?.module, openDynamicPanel, requestId, searchParams, setSearchParams])
+
+  const tabItems = useMemo(() => TABS.map((tab) => ({
+    ...tab,
+    badge:
+      tab.id === 'requests' ? requestsSummary?.total
+        : tab.id === 'cargo' ? cargoSummary?.total
+          : tab.id === 'catalog' ? articlesSummary?.total
+            : tab.id === 'alerts' ? buildAlerts(requestAlertsSummary?.items ?? [], cargoAlertsSummary?.items ?? []).length
+            : undefined,
+  })), [articlesSummary?.total, cargoAlertsSummary?.items, cargoSummary?.total, requestAlertsSummary?.items, requestsSummary?.total])
+
+  return (
+    <CargoWorkspaceProvider module="packlog" label="PackLog">
+      <div className="flex h-full">
+        {!isFullPanel && (
+          <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
+            <PanelHeader icon={Package} title="PackLog" subtitle="Demandes d’expédition, colis, catalogue SAP et tracking">
+              {canCreateRequest && activeTab === 'requests' && (
+                <ToolbarButton
+                  icon={FileText}
+                  label="Nouvelle demande"
+                  onClick={() => openDynamicPanel({ type: 'create', module: 'packlog', meta: { subtype: 'cargo-request' } })}
+                />
+              )}
+              {canCreateRequest && activeTab === 'cargo' && (
+                <ToolbarButton
+                  icon={Plus}
+                  label="Nouveau colis"
+                  onClick={() => openDynamicPanel({ type: 'create', module: 'packlog', meta: { subtype: 'cargo' } })}
+                />
+              )}
+            </PanelHeader>
+
+            <div className="shrink-0 border-b border-border px-3 py-2">
+              <TabBar items={tabItems} activeId={activeTab} onTabChange={setActiveTab} />
+            </div>
+
+            {activeTab === 'dashboard' && <ModuleDashboard module="packlog" />}
+            {activeTab === 'requests' && <RequestsTab />}
+            {activeTab === 'cargo' && <CargoTab />}
+            {activeTab === 'catalog' && <CatalogTab />}
+            {activeTab === 'tracking' && <TrackingTab />}
+            {activeTab === 'alerts' && <AlertsTab />}
+          </div>
+        )}
+
+        {dynamicPanel?.module === 'packlog' && renderRegisteredPanel(dynamicPanel)}
+      </div>
+    </CargoWorkspaceProvider>
+  )
+}

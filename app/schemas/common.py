@@ -1,6 +1,7 @@
 """Common Pydantic schemas — request/response models."""
 
-from datetime import date, datetime
+from datetime import date as _date_t, datetime
+from datetime import date  # backwards compat for non-shadowing usages
 from typing import Any, Generic, TypeVar
 from uuid import UUID
 
@@ -1839,7 +1840,7 @@ class ProjectTaskLossRead(OpsFluxSchema):
     project_id: UUID
     task_id: UUID | None = None
     member_id: UUID | None = None
-    date: date
+    date: _date_t
     category: str
     hours_lost: float | None = None
     cost_amount: float | None = None
@@ -1856,7 +1857,7 @@ class ProjectTaskLossRead(OpsFluxSchema):
 class ProjectTaskLossCreate(BaseModel):
     task_id: UUID | None = None
     member_id: UUID | None = None
-    date: date
+    date: _date_t
     category: str = Field(..., min_length=1, max_length=30)  # weather, material, equipment, manpower, contractual, accident, other
     hours_lost: float | None = Field(default=None, ge=0)
     cost_amount: float | None = Field(default=None, ge=0)
@@ -1867,7 +1868,7 @@ class ProjectTaskLossCreate(BaseModel):
 class ProjectTaskLossUpdate(BaseModel):
     task_id: UUID | None = None
     member_id: UUID | None = None
-    date: date | None = None
+    date: _date_t | None = None
     category: str | None = None
     hours_lost: float | None = Field(default=None, ge=0)
     cost_amount: float | None = Field(default=None, ge=0)
@@ -1921,7 +1922,7 @@ class ProjectTimeEntryRead(OpsFluxSchema):
     project_id: UUID
     member_id: UUID
     task_id: UUID | None = None
-    date: date
+    date: _date_t
     hours: float
     description: str | None = None
     status: str
@@ -1941,14 +1942,14 @@ class ProjectTimeEntryRead(OpsFluxSchema):
 class ProjectTimeEntryCreate(BaseModel):
     member_id: UUID
     task_id: UUID | None = None
-    date: date
+    date: _date_t
     hours: float = Field(..., gt=0, le=24)
     description: str | None = None
 
 
 class ProjectTimeEntryUpdate(BaseModel):
     task_id: UUID | None = None
-    date: date | None = None
+    date: _date_t | None = None
     hours: float | None = Field(default=None, gt=0, le=24)
     description: str | None = None
 

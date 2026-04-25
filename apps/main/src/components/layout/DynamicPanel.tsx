@@ -557,7 +557,7 @@ export function SectionColumns({
   className?: string
 }) {
   return (
-    <div className={cn('space-y-6', className)}>
+    <div className={cn('space-y-3', className)}>
       {children}
     </div>
   )
@@ -625,15 +625,13 @@ export function PanelContentLayout({
   return (
     <div
       className={cn(
-        // Mobile: tight padding, sections stacked with comfortable gap.
-        'p-4 space-y-6',
-        // Tablet+: more breathing room.
-        '@[640px]:px-6 @[640px]:py-5',
-        // Desktop: bigger padding + center the content. Cap to ~85% of
-        // viewport via max-w with auto margins so very wide panels stay
-        // readable (boxed mode). The fixed-px values are sized so the
-        // content occupies ~80-90% on a 1440-1920px monitor.
-        '@[1024px]:px-10 @[1024px]:py-6',
+        // Tight gap between sections — they're already self-contained
+        // cards with their own border. space-y-3 gives clear separation
+        // without wasting vertical space (collapsed cards stack densely).
+        'p-3 space-y-3',
+        '@[640px]:px-5 @[640px]:py-4',
+        // Boxed mode: capped max-width centered on wide viewports.
+        '@[1024px]:px-8 @[1024px]:py-4',
         '@[1280px]:max-w-[1280px] @[1280px]:mx-auto',
         '@[1600px]:max-w-[1440px]',
         '@[1920px]:max-w-[1600px]',
@@ -707,10 +705,14 @@ export function FormSection({
   return (
     <fieldset
       className={cn(
-        // Each section is a self-contained card with subtle border + light
-        // background, taking the full available width. Sections always
-        // stack vertically (one per row) per April 2026 design.
-        'border border-border/40 rounded-lg bg-card/30 p-5 space-y-4',
+        // Card-style section, full width. Tight padding when collapsed
+        // (header-only) by default — gets a touch more bottom padding
+        // only when expanded so the body has air without bloating
+        // collapsed cards. April 2026 design.
+        'border border-border/40 rounded-lg bg-card/30 px-3 py-2',
+        // Slightly more breathing room when expanded with content.
+        collapsible && expanded && 'pb-3 space-y-2',
+        !collapsible && 'pb-3 space-y-2',
         className,
       )}
     >
@@ -720,10 +722,10 @@ export function FormSection({
             <button
               type="button"
               onClick={toggle}
-              className="flex items-center gap-1.5 flex-1 min-w-0 text-left group cursor-pointer select-none rounded-md hover:bg-muted/40 py-0.5"
+              className="flex items-center gap-1.5 flex-1 min-w-0 text-left group cursor-pointer select-none rounded-md hover:bg-muted/40"
             >
               <ChevronRight
-                size={14}
+                size={13}
                 className={cn(
                   'shrink-0 text-muted-foreground transition-transform duration-200',
                   expanded && 'rotate-90',
@@ -736,7 +738,7 @@ export function FormSection({
             {headerExtra && <span className="ml-auto shrink-0">{headerExtra}</span>}
           </div>
         ) : (
-          <div className="flex items-center gap-2 pb-2 border-b border-border/30">
+          <div className="flex items-center gap-2 pb-1.5 border-b border-border/30">
             <legend className="text-sm font-display font-semibold text-foreground flex-1 tracking-tight">
               {title}
             </legend>
@@ -979,8 +981,8 @@ export function InlineEditableRow({
 
   if (editing) {
     return (
-      <div className="flex items-start gap-3 py-2.5 border-b border-border/30">
-        <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1.5 font-medium uppercase tracking-wide">
+      <div className="flex items-start gap-3 py-1.5 border-b border-border/30">
+        <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1 font-medium uppercase tracking-wide">
           {label}
         </span>
         <div className="flex-1 flex items-center gap-1.5">
@@ -1013,12 +1015,12 @@ export function InlineEditableRow({
   return (
     <div
       className={cn(
-        "group flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0 transition-colors",
+        "group flex items-start gap-3 py-1.5 border-b border-border/30 last:border-0 transition-colors",
       )}
       onDoubleClick={startEdit}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1.5 font-medium uppercase tracking-wide">
+      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1 font-medium uppercase tracking-wide">
         {label}
       </span>
       <span
@@ -1099,12 +1101,12 @@ export function InlineEditableSelect({
   return (
     <div
       className={cn(
-        'group flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0 transition-colors',
+        'group flex items-start gap-3 py-1.5 border-b border-border/30 last:border-0 transition-colors',
       )}
       onDoubleClick={startEdit}
       title={disabled ? undefined : 'Double-cliquer pour modifier'}
     >
-      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1.5 font-medium uppercase tracking-wide">{label}</span>
+      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1 font-medium uppercase tracking-wide">{label}</span>
       <span
         className={cn(
           'flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5 break-words flex items-center gap-2',
@@ -1332,12 +1334,12 @@ export function InlineEditableTags({
   return (
     <div
       className={cn(
-        "group flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0 transition-colors",
+        "group flex items-start gap-3 py-1.5 border-b border-border/30 last:border-0 transition-colors",
       )}
       onDoubleClick={() => !disabled && setEditing(true)}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1.5 font-medium uppercase tracking-wide">{label}</span>
+      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1 font-medium uppercase tracking-wide">{label}</span>
       <span
         className={cn(
           "flex-1 min-w-0 bg-muted/30 rounded-md px-2.5 py-1.5 flex items-center gap-2",
@@ -1364,8 +1366,8 @@ export function InlineEditableTags({
 
 export function ReadOnlyRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0">
-      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1.5 font-medium uppercase tracking-wide">
+    <div className="flex items-start gap-3 py-1.5 border-b border-border/30 last:border-0">
+      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1 font-medium uppercase tracking-wide">
         {label}
       </span>
       <span className="flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5 break-words">

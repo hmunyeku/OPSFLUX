@@ -19,6 +19,18 @@ import type { AssetTreeNode } from '@/types/api'
 const RECENT_KEY = 'opsflux:asset-picker:recent'
 const MAX_RECENT = 8
 
+// ── Asset type humanizer ─────────────────────────────────────
+// Backend returns SCREAMING_SNAKE_CASE codes (FIXED_PLATFORM,
+// LIVING_QUARTERS, CPF, ...). Render them as "Fixed platform" /
+// "Living quarters" instead. cf E2E bug #16.
+function humanizeAssetType(t: string | null | undefined): string {
+  if (!t) return ''
+  // Keep short uppercase codes intact (CPF, FPSO, GOR, etc.).
+  if (t.length <= 4 && t === t.toUpperCase() && !t.includes('_')) return t
+  const lower = t.toLowerCase().replace(/_/g, ' ')
+  return lower.charAt(0).toUpperCase() + lower.slice(1)
+}
+
 interface RecentAsset {
   id: string
   code: string
@@ -128,7 +140,7 @@ function TreeNode({
         <MapPin size={12} className="shrink-0 text-muted-foreground" />
         <span className="truncate flex-1">{node.name}</span>
         <span className="text-[10px] text-muted-foreground shrink-0 ml-1">{node.code}</span>
-        <span className="text-[9px] bg-muted rounded px-1 py-0.5 text-muted-foreground shrink-0 ml-1 uppercase">{node.type}</span>
+        <span className="text-[9px] bg-muted rounded px-1 py-0.5 text-muted-foreground shrink-0 ml-1">{humanizeAssetType(node.type)}</span>
       </button>
       {isExpanded && hasChildren && node.children.map(child => (
         <TreeNode
@@ -330,7 +342,7 @@ export function AssetPicker({
                         <Star size={10} className="shrink-0 text-amber-400" />
                         <span className="truncate flex-1">{r.name}</span>
                         <span className="text-[10px] text-muted-foreground shrink-0">{r.code}</span>
-                        <span className="text-[9px] bg-muted rounded px-1 py-0.5 text-muted-foreground shrink-0 uppercase">{r.type}</span>
+                        <span className="text-[9px] bg-muted rounded px-1 py-0.5 text-muted-foreground shrink-0">{humanizeAssetType(r.type)}</span>
                       </button>
                     ))}
                   </div>

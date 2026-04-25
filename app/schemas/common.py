@@ -463,8 +463,10 @@ class TierCreate(BaseModel):
     state: str | None = None
     zip_code: str | None = None
     country: str | None = None
-    timezone: str = "Africa/Douala"
-    language: str = "fr"
+    # Timezone & language: optional on create — backend defaults to the
+    # entity's tz/lang. Each tier can override its own.
+    timezone: str | None = None
+    language: str | None = None
     social_networks: dict[str, Any] | None = None
     opening_hours: dict[str, Any] | None = None
     notes: str | None = None

@@ -62,12 +62,17 @@ async def generate_document_number(
         db=db,
     )
 
-    # Build token replacements
+    # Build token replacements. ENTITY/DOCTYPE are aliases of TENANT/TYPE
+    # — older presets use the long form (cf E2E bug #23 where doc numbers
+    # rendered as "{ENTITY}-{DOCTYPE}-0002" because these aliases were
+    # missing from the replacement map and stayed as raw placeholders).
     replacements: dict[str, str] = {
         "TENANT": tenant_slug.upper(),
+        "ENTITY": tenant_slug.upper(),
         "PROJ": (project_code or "").upper(),
         "DISC": (discipline or "").upper(),
         "TYPE": doc_type_code.upper(),
+        "DOCTYPE": doc_type_code.upper(),
         "YEAR": str(now.year),
         "MONTH": f"{now.month:02d}",
         "BU": (bu_code or "").upper(),
@@ -191,7 +196,8 @@ def validate_nomenclature_pattern(pattern: str) -> list[str]:
     """Validate a nomenclature pattern and return any errors."""
     errors: list[str] = []
     known_tokens = {
-        "TENANT", "PROJ", "DISC", "TYPE", "YEAR", "MONTH", "BU", "PHASE", "FREE",
+        "TENANT", "ENTITY", "PROJ", "DISC", "TYPE", "DOCTYPE",
+        "YEAR", "MONTH", "BU", "PHASE", "FREE",
     }
 
     # Find all tokens

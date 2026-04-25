@@ -24,7 +24,7 @@ const ICON_OPTIONS = [
   { value: 'assets', label: 'Assets' },
   { value: 'projets', label: 'Projets' },
   { value: 'travelwiz', label: 'TravelWiz' },
-  { value: 'conformite', label: 'Conformite' },
+  { value: 'conformite', label: 'Conformité' },
   { value: 'planner', label: 'Planner' },
   { value: 'documents', label: 'Documents' },
   { value: 'settings', label: 'Settings' },

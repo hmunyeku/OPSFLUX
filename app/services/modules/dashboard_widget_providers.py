@@ -1748,7 +1748,17 @@ async def provider_planner_by_type(
         WHERE entity_id = :eid AND active = TRUE
         GROUP BY type ORDER BY value DESC
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    # Translate enum codes to FR labels for the chart legend (cf E2E bug #22).
+    # Untranslated codes fall through unchanged.
+    type_labels = {
+        "project": "Projet", "workover": "Workover", "drilling": "Forage",
+        "integrity": "Intégrité", "maintenance": "Maintenance",
+        "inspection": "Inspection", "event": "Événement",
+    }
+    return {"data": [
+        {**dict(row), "name": type_labels.get(row["name"], row["name"])}
+        for row in r.mappings().all()
+    ]}
 
 
 async def provider_planner_by_status(

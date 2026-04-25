@@ -273,63 +273,53 @@ export function DynamicPanelShell({
   if (mode === 'full') {
     return (
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
-        {/* Navigation bar */}
-        <div className="flex items-center gap-2 h-9 border-b border-border px-4 shrink-0 bg-background-subtle">
+        {/* Combined nav + header bar (April 2026 design v2) — fuses the
+            previous two horizontal bars (h-9 nav + h-10 header = 76px)
+            into a single h-11 row so the chrome eats less vertical
+            real-estate. Layout from left to right:
+              [Back btn] | [icon] [title/subtitle] | [pager] [tools] */}
+        <div className="flex items-center gap-3 h-11 border-b border-border px-4 shrink-0 bg-background-subtle/50">
           <button
             onClick={() => {
-              // On mobile (< md), close panel entirely; on desktop, go back to docked mode
               if (window.innerWidth < 768) closeDynamicPanel()
               else setMode('docked')
             }}
-            className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary font-medium transition-colors shrink-0"
+            title="Retour à la liste"
           >
-            <ArrowLeft size={12} />
-            Retour à la liste
+            <ArrowLeft size={14} />
+            <span className="hidden md:inline">Retour</span>
           </button>
 
+          <div className="w-px h-5 bg-border/60 shrink-0" />
+
+          {icon && <span className="shrink-0">{icon}</span>}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-semibold text-foreground truncate leading-tight">{title}</h2>
+            {subtitle && <p className="text-[11px] text-muted-foreground truncate leading-tight">{subtitle}</p>}
+          </div>
+
           {canNavigate && (
-            <div className="flex items-center gap-0.5 ml-auto">
-              <span className="text-xs text-muted-foreground mr-2 tabular-nums">
+            <div className="flex items-center gap-0.5 shrink-0">
+              <span className="text-xs text-muted-foreground mr-1 tabular-nums hidden sm:inline">
                 {currentIndex + 1} / {navItems.length}
               </span>
-              <button
-                disabled={!hasPrev}
-                onClick={() => navigateToItem(navItems[0])}
-                className={navBtn}
-                title="Premier"
-              >
+              <button disabled={!hasPrev} onClick={() => navigateToItem(navItems[0])} className={navBtn} title="Premier">
                 <ChevronsLeft size={14} />
               </button>
-              <button
-                disabled={!hasPrev}
-                onClick={() => navigateToItem(navItems[currentIndex - 1])}
-                className={navBtn}
-                title={t('common.previous')}
-              >
+              <button disabled={!hasPrev} onClick={() => navigateToItem(navItems[currentIndex - 1])} className={navBtn} title={t('common.previous')}>
                 <ChevronLeft size={14} />
               </button>
-              <button
-                disabled={!hasNext}
-                onClick={() => navigateToItem(navItems[currentIndex + 1])}
-                className={navBtn}
-                title="Suivant"
-              >
+              <button disabled={!hasNext} onClick={() => navigateToItem(navItems[currentIndex + 1])} className={navBtn} title="Suivant">
                 <ChevronRight size={14} />
               </button>
-              <button
-                disabled={!hasNext}
-                onClick={() => navigateToItem(navItems[navItems.length - 1])}
-                className={navBtn}
-                title="Dernier"
-              >
+              <button disabled={!hasNext} onClick={() => navigateToItem(navItems[navItems.length - 1])} className={navBtn} title="Dernier">
                 <ChevronsRight size={14} />
               </button>
             </div>
           )}
 
-          {!canNavigate && <div className="ml-auto" />}
-
-          <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-border/60">
+          <div className="flex items-center gap-0.5 pl-2 border-l border-border/60 shrink-0">
             <button onClick={toggleMode} className={hdrBtn} title={t('layout.reduire_en_panneau_lateral')}>
               <Minimize2 size={12} />
             </button>
@@ -339,15 +329,6 @@ export function DynamicPanelShell({
             <button onClick={closeDynamicPanel} className={hdrBtn} aria-label="Fermer">
               <X size={14} />
             </button>
-          </div>
-        </div>
-
-        {/* Header */}
-        <div className="flex h-10 items-center gap-2 border-b border-border px-4 shrink-0">
-          {icon && <span className="shrink-0">{icon}</span>}
-          <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-semibold text-foreground truncate leading-tight">{title}</h2>
-            {subtitle && <p className="text-xs text-muted-foreground truncate leading-tight">{subtitle}</p>}
           </div>
         </div>
 
@@ -630,11 +611,15 @@ export function PanelContentLayout({
         // without wasting vertical space (collapsed cards stack densely).
         'p-3 space-y-3',
         '@[640px]:px-5 @[640px]:py-4',
-        // Boxed mode: capped max-width centered on wide viewports.
+        // Boxed mode on wide viewports: capped max-width + auto horizontal
+        // margin so content occupies ~80-90% with breathing room on sides.
+        // The max-w values intentionally stay below the breakpoint so the
+        // browser auto-margin always shows real whitespace on each side.
         '@[1024px]:px-8 @[1024px]:py-4',
-        '@[1280px]:max-w-[1280px] @[1280px]:mx-auto',
-        '@[1600px]:max-w-[1440px]',
-        '@[1920px]:max-w-[1600px]',
+        '@[1280px]:max-w-[1100px] @[1280px]:mx-auto',
+        '@[1440px]:max-w-[1240px]',
+        '@[1600px]:max-w-[1380px]',
+        '@[1920px]:max-w-[1640px]',
         className,
       )}
     >
@@ -705,14 +690,13 @@ export function FormSection({
   return (
     <fieldset
       className={cn(
-        // Card-style section, full width. Tight padding when collapsed
-        // (header-only) by default — gets a touch more bottom padding
-        // only when expanded so the body has air without bloating
-        // collapsed cards. April 2026 design.
-        'border border-border/40 rounded-lg bg-card/30 px-3 py-2',
-        // Slightly more breathing room when expanded with content.
-        collapsible && expanded && 'pb-3 space-y-2',
-        !collapsible && 'pb-3 space-y-2',
+        // Very discreet card — border so light it almost reads as a hairline
+        // separator. Hover-on-section shows a slightly stronger border to
+        // signal interactivity (collapse/expand). April 2026 design v2.
+        'border border-border/20 hover:border-border/40 rounded-lg bg-card/20 transition-colors px-3 py-2',
+        // Slightly more bottom padding when content is shown.
+        collapsible && expanded && 'pb-3 space-y-1.5',
+        !collapsible && 'pb-3 space-y-1.5',
         className,
       )}
     >
@@ -722,7 +706,7 @@ export function FormSection({
             <button
               type="button"
               onClick={toggle}
-              className="flex items-center gap-1.5 flex-1 min-w-0 text-left group cursor-pointer select-none rounded-md hover:bg-muted/40"
+              className="flex items-center gap-1.5 flex-1 min-w-0 text-left group cursor-pointer select-none rounded-md py-0.5"
             >
               <ChevronRight
                 size={13}
@@ -731,14 +715,14 @@ export function FormSection({
                   expanded && 'rotate-90',
                 )}
               />
-              <legend className="text-sm font-display font-semibold text-foreground tracking-tight truncate">
+              <legend className="text-sm font-display font-semibold text-foreground tracking-tight truncate group-hover:text-primary transition-colors">
                 {title}
               </legend>
             </button>
             {headerExtra && <span className="ml-auto shrink-0">{headerExtra}</span>}
           </div>
         ) : (
-          <div className="flex items-center gap-2 pb-1.5 border-b border-border/30">
+          <div className="flex items-center gap-2 pb-1">
             <legend className="text-sm font-display font-semibold text-foreground flex-1 tracking-tight">
               {title}
             </legend>
@@ -981,11 +965,14 @@ export function InlineEditableRow({
 
   if (editing) {
     return (
-      <div className="flex items-start gap-3 py-1.5 border-b border-border/30">
-        <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1 font-medium uppercase tracking-wide">
+      <div className="flex flex-col gap-1 py-1.5 border-b border-border/20 sm:flex-row sm:items-start sm:gap-3">
+        <span
+          className="text-[10px] text-muted-foreground shrink-0 font-semibold uppercase tracking-wider sm:text-xs sm:font-medium sm:tracking-wide sm:pt-1"
+          style={{ width: 'var(--opsflux-label-w, 8rem)' } as React.CSSProperties}
+        >
           {label}
         </span>
-        <div className="flex-1 flex items-center gap-1.5">
+        <div className="flex-1 flex items-center gap-1.5 min-w-0">
           <input
             type={type}
             value={draft}
@@ -993,7 +980,7 @@ export function InlineEditableRow({
             onKeyDown={onKeyDown}
             onBlur={commit}
             autoFocus
-            className="gl-form-input h-8 text-sm flex-1"
+            className="gl-form-input h-8 text-sm flex-1 min-w-0"
           />
           <button
             onClick={commit}
@@ -1012,31 +999,37 @@ export function InlineEditableRow({
     )
   }
 
+  const titleAttr = disabled
+    ? (typeof (displayValue ?? value) === 'string' ? (displayValue || value) : undefined)
+    : 'Double-cliquer pour modifier'
+
   return (
     <div
-      className={cn(
-        "group flex items-start gap-3 py-1.5 border-b border-border/30 last:border-0 transition-colors",
-      )}
+      className="group flex flex-col gap-1 py-1.5 border-b border-border/20 last:border-0 sm:flex-row sm:items-start sm:gap-3"
       onDoubleClick={startEdit}
-      title={disabled ? undefined : "Double-cliquer pour modifier"}
+      title={titleAttr}
     >
-      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1 font-medium uppercase tracking-wide">
+      <span
+        className="text-[10px] text-muted-foreground shrink-0 font-semibold uppercase tracking-wider sm:text-xs sm:font-medium sm:tracking-wide sm:pt-1"
+        style={{ width: 'var(--opsflux-label-w, 8rem)' } as React.CSSProperties}
+      >
         {label}
       </span>
       <span
         className={cn(
-          "flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5 break-words flex items-center gap-2",
-          !disabled && "hover:bg-muted/50 cursor-pointer",
+          'flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5 flex items-center gap-2 transition-colors',
+          !disabled && 'hover:bg-muted/60 hover:ring-1 hover:ring-primary/20 cursor-pointer',
+          isLikelyLink(value) ? 'break-all' : 'break-words [overflow-wrap:anywhere]',
         )}
       >
-        <span className="flex-1 min-w-0 break-words">
+        <span className="flex-1 min-w-0">
           {displayValue || value || <span className="text-muted-foreground/60">—</span>}
           {suffix && value ? <span className="text-muted-foreground"> {suffix}</span> : null}
         </span>
         {!disabled && (
           <Pencil
             size={11}
-            className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors"
+            className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/70 transition-colors"
           />
         )}
       </span>
@@ -1100,23 +1093,26 @@ export function InlineEditableSelect({
 
   return (
     <div
-      className={cn(
-        'group flex items-start gap-3 py-1.5 border-b border-border/30 last:border-0 transition-colors',
-      )}
+      className="group flex flex-col gap-1 py-1.5 border-b border-border/20 last:border-0 sm:flex-row sm:items-start sm:gap-3"
       onDoubleClick={startEdit}
       title={disabled ? undefined : 'Double-cliquer pour modifier'}
     >
-      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1 font-medium uppercase tracking-wide">{label}</span>
+      <span
+        className="text-[10px] text-muted-foreground shrink-0 font-semibold uppercase tracking-wider sm:text-xs sm:font-medium sm:tracking-wide sm:pt-1"
+        style={{ width: 'var(--opsflux-label-w, 8rem)' } as React.CSSProperties}
+      >
+        {label}
+      </span>
       <span
         className={cn(
-          'flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5 break-words flex items-center gap-2',
-          !disabled && 'hover:bg-muted/50 cursor-pointer',
+          'flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5 flex items-center gap-2 transition-colors',
+          !disabled && 'hover:bg-muted/60 hover:ring-1 hover:ring-primary/20 cursor-pointer',
         )}
       >
-        <span className="flex-1 min-w-0 break-words">
+        <span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere]">
           {displayValue || value || <span className="text-muted-foreground/60">—</span>}
         </span>
-        {!disabled && <Pencil size={11} className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors" />}
+        {!disabled && <Pencil size={11} className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/70 transition-colors" />}
       </span>
     </div>
   )
@@ -1333,23 +1329,26 @@ export function InlineEditableTags({
 
   return (
     <div
-      className={cn(
-        "group flex items-start gap-3 py-1.5 border-b border-border/30 last:border-0 transition-colors",
-      )}
+      className="group flex flex-col gap-1 py-1.5 border-b border-border/20 last:border-0 sm:flex-row sm:items-start sm:gap-3"
       onDoubleClick={() => !disabled && setEditing(true)}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1 font-medium uppercase tracking-wide">{label}</span>
+      <span
+        className="text-[10px] text-muted-foreground shrink-0 font-semibold uppercase tracking-wider sm:text-xs sm:font-medium sm:tracking-wide sm:pt-1"
+        style={{ width: 'var(--opsflux-label-w, 8rem)' } as React.CSSProperties}
+      >
+        {label}
+      </span>
       <span
         className={cn(
-          "flex-1 min-w-0 bg-muted/30 rounded-md px-2.5 py-1.5 flex items-center gap-2",
-          !disabled && "hover:bg-muted/50 cursor-pointer",
+          "flex-1 min-w-0 bg-muted/30 rounded-md px-2.5 py-1.5 flex items-center gap-2 transition-colors",
+          !disabled && "hover:bg-muted/60 hover:ring-1 hover:ring-primary/20 cursor-pointer",
         )}
       >
         <span className="flex-1 min-w-0">
           <span className="gl-badge gl-badge-neutral">{displayLabel}</span>
         </span>
-        {!disabled && <Pencil size={11} className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors" />}
+        {!disabled && <Pencil size={11} className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/70 transition-colors" />}
       </span>
     </div>
   )
@@ -1357,20 +1356,36 @@ export function InlineEditableTags({
 
 /* ─── Read-Only Row ───────────────────────────────────────────── */
 //
-// Layout per April 2026 design system:
-//  - Label in muted foreground on the left, fixed-width column.
-//  - Value chip with subtle bg-muted/30 background to make it stand out
-//    discreetly without dominating the page.
-//  - Aligned vertically in the parent grid (DetailFieldGrid 2-col) so
-//    every row in a section lines up.
+// Layout per April 2026 design system v2:
+//  - Mobile (< 640px): label STACKS above value (vertical) so the value
+//    chip uses full width.
+//  - Tablet+ (≥ 640px): label and value side-by-side, label width
+//    controlled by CSS var --opsflux-label-w (default 8rem) so all
+//    sections in a panel align consistently.
+//  - Subtle bg-muted/30 chip on the value, hover:bg-muted/50.
+//  - Long values: overflow-wrap-anywhere + word-break gracefully wraps
+//    URLs / emails. Title attribute gives full content on hover.
+
+const isLikelyLink = (v: unknown) =>
+  typeof v === 'string' && /^(https?:\/\/|mailto:|[\w.+-]+@[\w-]+\.\w+)/.test(v)
 
 export function ReadOnlyRow({ label, value }: { label: string; value: React.ReactNode }) {
+  const titleAttr = typeof value === 'string' ? value : undefined
   return (
-    <div className="flex items-start gap-3 py-1.5 border-b border-border/30 last:border-0">
-      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-1 font-medium uppercase tracking-wide">
+    <div className="flex flex-col gap-1 py-1.5 border-b border-border/20 last:border-0 sm:flex-row sm:items-start sm:gap-3">
+      <span
+        className="text-[10px] text-muted-foreground shrink-0 font-semibold uppercase tracking-wider sm:text-xs sm:font-medium sm:tracking-wide sm:pt-1"
+        style={{ width: 'var(--opsflux-label-w, 8rem)' } as React.CSSProperties}
+      >
         {label}
       </span>
-      <span className="flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5 break-words">
+      <span
+        className={cn(
+          'flex-1 min-w-0 text-sm text-foreground bg-muted/30 rounded-md px-2.5 py-1.5',
+          isLikelyLink(value) ? 'break-all' : 'break-words [overflow-wrap:anywhere]',
+        )}
+        title={titleAttr}
+      >
         {value || <span className="text-muted-foreground/60">—</span>}
       </span>
     </div>

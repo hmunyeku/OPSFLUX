@@ -60,3 +60,35 @@ alembic/versions/__pycache__/
 /doklogin*
 /commit_msg.txt
 /*.scratch.*
+
+# ─── Claude / agent session artefacts ─────────────────────────
+# Temp snapshots, screenshots, audit transcripts, overnight handoffs
+.tmp-*
+.tmp-snapshot.txt
+.tmp-audit-*.md
+*.tmp-*.png
+OVERNIGHT_HANDOFF*.md
+AUDIT_COMPLET_*.md
+TEST_SUP-*.md
+bug_audit_*.md
+
+# i18n migration artefacts (fr_strings_report, migration_result, batch lists)
+fr_strings_report*.json
+migration_result.json
+scripts/all_targets.txt
+scripts/batch*.txt
+scripts/p.txt
+scripts/pilot_targets.txt
+scripts/targets.txt
+scripts/debug*.mjs
+scripts/extract_fr.mjs
+scripts/fix_missing_t.mjs
+scripts/migrate_fr.mjs
+scripts/*.json.bak
+scripts/SupportPage.tsx.bak
+
+# E2E test scaffolding (per-session)
+test-e2e/
+
+# Local dev config overrides (never tracked)
+config.json

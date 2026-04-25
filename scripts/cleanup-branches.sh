@@ -27,22 +27,25 @@ echo "════════════════════════�
 echo
 
 # ── 1. Remove worktrees ──────────────────────────────────────────────
-echo "─── 1/5 Pruning git worktrees ───"
+echo "─── 1/6 Pruning git worktrees ───"
 git worktree list
 echo
-for wt in agent-a3389ac3 agent-af6ae3d2 agent-a8c3e1ad cranky-wilbur nice-meitner-b88549; do
-  path=".claude/worktrees/$wt"
-  if [ -d "$path" ]; then
-    echo "  Removing worktree: $path"
-    git worktree remove --force "$path" 2>&1 || echo "    (skipped — likely already removed)"
-  fi
-done
+# Loop over EVERY worktree in .claude/worktrees/ (not just hardcoded names)
+# so future Claude session worktrees are also cleaned up automatically.
+if [ -d .claude/worktrees ]; then
+  for wt in .claude/worktrees/*/; do
+    [ -d "$wt" ] || continue
+    echo "  Removing worktree: $wt"
+    git worktree remove --force "$wt" 2>&1 || echo "    (skipped — likely already removed)"
+  done
+  rmdir .claude/worktrees 2>/dev/null || true
+fi
 git worktree prune
 echo "  ✓ Worktrees cleaned"
 echo
 
 # ── 2. Delete local branches except main + mobile-standalone ─────────
-echo "─── 2/5 Deleting local branches ───"
+echo "─── 2/6 Deleting local branches ───"
 KEEP="^(main|mobile-standalone)$"
 for b in $(git branch --format='%(refname:short)' | grep -vE "$KEEP"); do
   echo "  Deleting local branch: $b"
@@ -52,7 +55,7 @@ echo "  ✓ Local branches cleaned"
 echo
 
 # ── 3. Delete remote branches except main + mobile-standalone ────────
-echo "─── 3/5 Deleting remote branches ───"
+echo "─── 3/6 Deleting remote branches ───"
 git fetch origin --prune
 for b in $(git branch -r --format='%(refname:short)' | grep -v 'HEAD' | sed 's|^origin/||' | grep -vE "$KEEP"); do
   echo "  Deleting remote branch: origin/$b"
@@ -61,14 +64,44 @@ done
 echo "  ✓ Remote branches cleaned"
 echo
 
-# ── 4. Garbage collect ──────────────────────────────────────────────
-echo "─── 4/5 Running git gc ───"
+# ── 4. Remove leftover untracked cruft files at root ────────────────
+echo "─── 4/6 Removing leftover untracked cruft ───"
+# These are session artefacts that .gitignore now blocks but legacy
+# untracked copies may still sit on disk.
+for pattern in \
+  ".tmp-*" \
+  "OVERNIGHT_HANDOFF*.md" \
+  "AUDIT_COMPLET_*.md" \
+  "TEST_SUP-*.md" \
+  "bug_audit_*.md" \
+  "fr_strings_report*.json" \
+  "migration_result.json" \
+  "config.json" \
+  "scripts/all_targets.txt" \
+  "scripts/batch*.txt" \
+  "scripts/p.txt" \
+  "scripts/pilot_targets.txt" \
+  "scripts/targets.txt" \
+  "scripts/debug*.mjs" \
+  "scripts/extract_fr.mjs" \
+  "scripts/fix_missing_t.mjs" \
+  "scripts/migrate_fr.mjs" \
+  "scripts/*.json.bak" \
+  "scripts/SupportPage.tsx.bak"; do
+  rm -f $pattern 2>/dev/null
+done
+rm -rf test-e2e/ 2>/dev/null
+echo "  ✓ Untracked cruft removed"
+echo
+
+# ── 5. Garbage collect ──────────────────────────────────────────────
+echo "─── 5/6 Running git gc ───"
 git gc --prune=now --aggressive 2>&1 | tail -3 || true
 echo "  ✓ GC done"
 echo
 
 # ── 5. Final state ──────────────────────────────────────────────────
-echo "─── 5/5 Final state ───"
+echo "─── 6/6 Final state ───"
 echo "Local branches:"
 git branch -v
 echo

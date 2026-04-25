@@ -33,6 +33,7 @@ import {
   PanelContentLayout,
   SectionColumns,
   DetailFieldGrid,
+  TagSelector,
 } from '@/components/layout/DynamicPanel'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -1714,22 +1715,27 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 >
                   Méthode
                 </span>
-                <div className="flex-1 min-w-0 space-y-1">
-                  <select
-                    value={project.progress_weight_method || ''}
-                    onChange={(e) => handleSave('progress_weight_method', e.target.value || null)}
-                    className={`${panelInputClass} w-full text-sm`}
-                    disabled={!isProjectFieldEditable(project, 'progress_weight_method', capabilities)}
-                  >
-                    <option value="">{standardLabel}</option>
-                    {PROGRESS_WEIGHT_METHOD_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                <div className="flex-1 min-w-0 space-y-2">
+                  {isProjectFieldEditable(project, 'progress_weight_method', capabilities) ? (
+                    <TagSelector
+                      value={project.progress_weight_method || ''}
+                      onChange={(v) => handleSave('progress_weight_method', v || null)}
+                      options={[
+                        { value: '', label: 'Hériter' },
+                        ...PROGRESS_WEIGHT_METHOD_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+                      ]}
+                    />
+                  ) : (
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-muted text-muted-foreground">
+                      {project.progress_weight_method
+                        ? PROGRESS_WEIGHT_METHOD_OPTIONS.find((o) => o.value === project.progress_weight_method)?.label
+                        : 'Hériter'}
+                    </span>
+                  )}
                   <p className="text-[11px] text-muted-foreground/80 italic">
                     {project.progress_weight_method
                       ? PROGRESS_WEIGHT_METHOD_OPTIONS.find((o) => o.value === project.progress_weight_method)?.description
-                      : <>Hérite de <strong>Paramètres → Projets</strong>.</>}
+                      : <>Hérite de <strong>Paramètres → Projets</strong> (mode {standardLabel}).</>}
                   </p>
                 </div>
               </div>

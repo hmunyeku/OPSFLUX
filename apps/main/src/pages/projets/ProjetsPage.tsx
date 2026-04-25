@@ -2323,10 +2323,10 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
     >
       {/* Kanban counters — like Gouti kanban columns header */}
       <div className="flex items-center gap-2 text-[10px] mb-2 flex-wrap">
-        <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{todoCount} a faire</span>
+        <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{todoCount} à faire</span>
         <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">{inProgressCount} en cours</span>
-        {reviewCount > 0 && <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600">{reviewCount} revue</span>}
-        <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">{doneCount} terminees</span>
+        {reviewCount > 0 && <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600">{reviewCount} en revue</span>}
+        <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">{doneCount} terminées</span>
       </div>
 
       {/* Task treegrid (hierarchy preserved via parent_id) */}

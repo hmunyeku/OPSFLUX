@@ -1755,6 +1755,43 @@ async def get_project_report(
     total_lost_hours = sum(l["hours_lost"] for l in losses_by_cat)
     total_lost_cost = sum(l["cost_amount"] for l in losses_by_cat)
 
+    # ── Workload breakdown (Gouti parity: charge totale / consommée /
+    # dont feuilles temps validées / reste à faire). All values in hours
+    # plus a person-day equivalent (8h = 1 j/h) so ops can read either. ──
+    HOURS_PER_DAY = 8.0
+    total_estimated = sum(
+        float(t["estimated_hours"]) for t in task_rows if t.get("estimated_hours")
+    )
+    pte_validated_hours = pte_summary.get("validated", 0.0)
+    pte_submitted_hours = pte_summary.get("submitted", 0.0)
+    # "Charge consommée" = validated time entries (the authoritative figure).
+    consumed = pte_validated_hours
+    # Fallback: if no time entries validated yet, use planned-task progress
+    # as a soft proxy (planned * progress%).
+    if consumed == 0 and total_planned > 0:
+        consumed = total_actual
+    remaining = max(0.0, (total_estimated or total_planned) - consumed)
+    total_workload = max(total_estimated, total_planned, consumed + remaining)
+
+    def _to_jh(h: float) -> float:
+        return round(h / HOURS_PER_DAY, 1) if h else 0.0
+
+    workload = {
+        "total_hours": round(total_workload, 1),
+        "total_jh": _to_jh(total_workload),
+        "consumed_hours": round(consumed, 1),
+        "consumed_jh": _to_jh(consumed),
+        "timesheet_validated_hours": round(pte_validated_hours, 1),
+        "timesheet_validated_jh": _to_jh(pte_validated_hours),
+        "timesheet_pending_hours": round(pte_submitted_hours, 1),
+        "timesheet_pending_jh": _to_jh(pte_submitted_hours),
+        "remaining_hours": round(remaining, 1),
+        "remaining_jh": _to_jh(remaining),
+        "estimated_hours": round(total_estimated, 1),
+        "estimated_jh": _to_jh(total_estimated),
+        "consumed_pct": round(consumed / total_workload * 100, 1) if total_workload > 0 else 0,
+    }
+
     return {
         "project": {
             "id": str(project.id),
@@ -1778,6 +1815,7 @@ async def get_project_report(
             "total_lost_cost": total_lost_cost,
             "completion_pct": (total_actual / total_planned * 100) if total_planned > 0 else 0,
         },
+        "workload": workload,
         "tasks": task_rows,
         "members": member_rows,
         "time_entries_by_status": pte_summary,

@@ -377,6 +377,63 @@ export function ProjectReportSection({ projectId }: { projectId: string }) {
         </div>
       </div>
 
+      {/* Charge — h + j/h breakdown (Gouti-style "Statut général de la charge") */}
+      {report.workload && (
+        <div className="mb-3 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="text-[11px] font-display font-semibold tracking-tight">Charge</div>
+            <div className="ml-auto flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all',
+                  report.workload.consumed_pct < 50 ? 'bg-green-500' :
+                  report.workload.consumed_pct < 80 ? 'bg-amber-500' :
+                  report.workload.consumed_pct < 100 ? 'bg-orange-500' : 'bg-red-500',
+                )}
+                style={{ width: `${Math.min(100, report.workload.consumed_pct)}%` }}
+              />
+            </div>
+            <span className="text-[10px] tabular-nums font-medium text-muted-foreground">
+              {fmt(report.workload.consumed_pct, 0)}%
+            </span>
+          </div>
+          <div className="grid grid-cols-2 @md:grid-cols-4 gap-2 text-[11px]">
+            <div>
+              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Charge totale</div>
+              <div className="font-medium tabular-nums">{fmt(report.workload.total_hours, 0)} h</div>
+              <div className="text-[10px] text-muted-foreground tabular-nums">{fmt(report.workload.total_jh, 1)} j/h</div>
+            </div>
+            <div>
+              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Consommée</div>
+              <div className="font-medium tabular-nums">{fmt(report.workload.consumed_hours, 0)} h</div>
+              <div className="text-[10px] text-muted-foreground tabular-nums">{fmt(report.workload.consumed_jh, 1)} j/h</div>
+            </div>
+            <div>
+              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Dont feuilles temps</div>
+              <div className="font-medium tabular-nums text-green-600">
+                {fmt(report.workload.timesheet_validated_hours, 0)} h
+              </div>
+              <div className="text-[10px] text-muted-foreground tabular-nums">
+                {fmt(report.workload.timesheet_validated_jh, 1)} j/h
+                {report.workload.timesheet_pending_hours > 0 && (
+                  <span className="text-blue-600 ml-1">+{fmt(report.workload.timesheet_pending_hours, 0)}h en attente</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Reste à faire</div>
+              <div className={cn(
+                'font-medium tabular-nums',
+                report.workload.remaining_hours === 0 ? 'text-green-600' : 'text-foreground',
+              )}>
+                {fmt(report.workload.remaining_hours, 0)} h
+              </div>
+              <div className="text-[10px] text-muted-foreground tabular-nums">{fmt(report.workload.remaining_jh, 1)} j/h</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {report.tasks.length > 0 && (
         <div className="mb-3">
           <div className="text-[11px] font-medium mb-1">Tâches</div>

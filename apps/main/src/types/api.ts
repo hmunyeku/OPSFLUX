@@ -3482,6 +3482,21 @@ export interface ProjectReport {
     total_lost_cost: number
     completion_pct: number
   }
+  workload?: {
+    total_hours: number
+    total_jh: number
+    consumed_hours: number
+    consumed_jh: number
+    timesheet_validated_hours: number
+    timesheet_validated_jh: number
+    timesheet_pending_hours: number
+    timesheet_pending_jh: number
+    remaining_hours: number
+    remaining_jh: number
+    estimated_hours: number
+    estimated_jh: number
+    consumed_pct: number
+  }
   tasks: Array<{
     task_id: string
     title: string

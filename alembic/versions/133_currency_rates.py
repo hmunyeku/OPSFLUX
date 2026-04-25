@@ -18,7 +18,10 @@ from sqlalchemy.dialects.postgresql import UUID
 
 
 revision = "133_currency_rates"
-down_revision = "132_planner_scenario_reference"
+# Chained after 156 (newer agent_run_attachments_manifest) to keep a single
+# linear migration head. Originally branched from 132 in the cranky-wilbur
+# branch, but 132 had since been superseded by 133→...→156 on main.
+down_revision = "156_agent_run_attachments_manifest"
 branch_labels = None
 depends_on = None
 

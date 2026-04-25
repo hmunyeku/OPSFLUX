@@ -141,14 +141,17 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
           import('@/lib/routePrefetch').then(m => m.prefetchRoute(item.path)).catch(() => {})
         }}
         className={cn(
-          'group relative flex w-full items-center gap-2.5 rounded-lg h-8 text-sm transition-all duration-200',
+          'group relative flex w-full items-center gap-2.5 rounded-lg text-sm transition-all duration-200',
           // Active: gradient primary → highlight tint, subtle glow.
           // Hover: soft chrome bg, icon scales slightly, tint strip
           // slides in from the left.
           isActive
             ? 'bg-gradient-to-r from-primary/[0.18] to-highlight/[0.10] text-foreground font-medium shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.12)]'
             : 'text-muted-foreground hover:bg-chrome-hover hover:text-foreground',
-          collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2',
+          // Collapsed mode: square button with bigger icon (+50% glyph,
+          // larger hit-target). Expanded mode: comfortable horizontal
+          // pill with regular icon.
+          collapsed ? 'justify-center px-0 w-10 h-10 mx-auto' : 'px-2 h-8',
         )}
         title={collapsed ? t(item.labelKey) : undefined}
       >
@@ -163,7 +166,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
           <span className="absolute left-0 top-1 bottom-1 w-[2px] rounded-r-full bg-primary/0 group-hover:bg-primary/40 transition-colors duration-200" />
         )}
         <Icon
-          size={16}
+          size={collapsed ? 22 : 16}
           className={cn(
             'shrink-0 transition-transform duration-200',
             isActive ? 'text-primary' : 'group-hover:scale-110',
@@ -189,7 +192,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
       className={cn(
         'flex h-full flex-col border-r border-border bg-chrome',
         'transition-[width] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]',
-        collapsed ? 'w-12' : 'w-[180px]',
+        collapsed ? 'w-14' : 'w-[180px]',
       )}
     >
       {/* Top spacing */}
@@ -227,12 +230,14 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         <button
           onClick={onToggle}
           className={cn(
-            'flex w-full items-center gap-2.5 rounded-lg h-8 text-sm text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors duration-150',
-            collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2',
+            'flex w-full items-center gap-2.5 rounded-lg text-sm text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors duration-150',
+            collapsed ? 'justify-center px-0 w-10 h-10 mx-auto' : 'px-2 h-8',
           )}
           title={collapsed ? t('nav.expand') : t('nav.collapse')}
         >
-          {collapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
+          {collapsed
+            ? <PanelLeft size={20} />
+            : <PanelLeftClose size={16} />}
           {!collapsed && <span className="truncate">{t('nav.collapse')}</span>}
         </button>
       </div>

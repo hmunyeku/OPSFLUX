@@ -64,6 +64,7 @@ import { useCurrentEntity } from '@/hooks/useEntities'
 import { isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
 import { useUsers } from '@/hooks/useUsers'
+import { UserPicker } from '@/components/shared/UserPicker'
 import type {
   ProjectTask,
   ProjectMilestone as ProjectMilestoneType,
@@ -871,40 +872,32 @@ function MemberRow({ member, projectId }: { member: ProjectMemberType; projectId
 // -- Member Quick Add --------------------------------------------------------
 
 function MemberQuickAdd({ projectId }: { projectId: string }) {
-  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const [selectedUserId, setSelectedUserId] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [selectedUserLabel, setSelectedUserLabel] = useState<string>('')
   const [role, setRole] = useState('member')
-  const [showDropdown, setShowDropdown] = useState(false)
-  const debouncedSearch = useDebounce(search, 300)
-  const { data: usersData } = useUsers({ search: debouncedSearch || undefined, page_size: 10, active: true })
   const addMember = useAddProjectMember()
   const memberRoleLabels = useDictionaryLabels('project_member_role', PROJECT_MEMBER_ROLE_LABELS_FALLBACK)
   const memberRoleOptions = useMemo(() => buildDictionaryOptions(memberRoleLabels, PROJECT_MEMBER_ROLE_VALUES), [memberRoleLabels])
-  const dropdownRef = useRef<HTMLDivElement>(null)
 
-  const users = usersData?.items ?? []
-
-  const handleSelect = (userId: string, displayName: string) => {
-    setSelectedUserId(userId)
-    setSearch(displayName)
-    setShowDropdown(false)
+  const reset = () => {
+    setSelectedUserId(null)
+    setSelectedUserLabel('')
+    setRole('member')
+    setOpen(false)
   }
 
   const handleSubmit = async () => {
     if (!selectedUserId) return
     await addMember.mutateAsync({ projectId, payload: { user_id: selectedUserId, role } })
-    setSelectedUserId('')
-    setSearch('')
-    setRole('member')
+    reset()
   }
 
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1"
+        className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1 mt-1"
       >
         <UserPlus size={12} /> Ajouter un membre
       </button>
@@ -912,45 +905,43 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="flex items-center gap-1.5">
-      <div className="relative flex-1" ref={dropdownRef}>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setSelectedUserId(''); setShowDropdown(true) }}
-          onFocus={() => setShowDropdown(true)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') { setOpen(false); setSearch(''); setSelectedUserId('') }
+    <div className="flex flex-wrap items-center gap-1.5 mt-1 p-2 rounded-md border border-border/40 bg-card/40">
+      <div className="flex-1 min-w-[200px]">
+        <UserPicker
+          value={selectedUserId}
+          onChange={(id, item) => {
+            setSelectedUserId(id)
+            if (item) {
+              setSelectedUserLabel(`${item.first_name} ${item.last_name}`.trim() || item.email)
+            } else {
+              setSelectedUserLabel('')
+            }
           }}
-          className={`${panelInputClass} w-full text-xs`}
-          placeholder={t('projets.placeholders.search_user')}
-          autoFocus
+          placeholder="Sélectionner un utilisateur…"
         />
-        {showDropdown && search.length > 0 && users.length > 0 && (
-          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-md max-h-[200px] overflow-y-auto">
-            {users.map(u => (
-              <button
-                key={u.id}
-                type="button"
-                className="gl-button gl-button-sm gl-button-default w-full text-left flex flex-col"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelect(u.id, `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email)}
-              >
-                <span className="font-medium text-foreground">{u.first_name ?? ''} {u.last_name ?? ''}</span>
-                <span className="text-muted-foreground">{u.email}</span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
-      <select value={role} onChange={(e) => setRole(e.target.value)} className={`${panelInputClass} w-[100px] text-xs`}>
-        {memberRoleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+      <select
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+        className={`${panelInputClass} w-[110px] text-xs`}
+      >
+        {memberRoleOptions.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
       </select>
-      <button onClick={handleSubmit} disabled={addMember.isPending || !selectedUserId} className="gl-button gl-button-confirm text-primary">
+      <button
+        onClick={handleSubmit}
+        disabled={addMember.isPending || !selectedUserId}
+        className="inline-flex items-center gap-1 px-3 h-8 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
+        title={selectedUserId ? `Ajouter ${selectedUserLabel}` : 'Sélectionnez d\'abord un utilisateur'}
+      >
         {addMember.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+        Ajouter
       </button>
-      <button onClick={() => { setOpen(false); setSearch(''); setSelectedUserId('') }} className="p-1 rounded hover:bg-muted text-muted-foreground">
-        <X size={12} />
+      <button
+        onClick={reset}
+        className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground"
+        title="Annuler"
+      >
+        <X size={14} />
       </button>
     </div>
   )

@@ -602,18 +602,45 @@ function TaskRow({
 
   const statusOpt = taskStatusOptions.find(s => s.value === task.status)
   const priorityOpt = projectPriorityOptions.find(p => p.value === task.priority)
-  const hasChildren = allTasks.some(t => t.parent_id === task.id)
+  const childTasks = allTasks.filter(t => t.parent_id === task.id)
+  const hasChildren = childTasks.length > 0
+
+  // Aggregate stats for parent tasks: how many subtasks done + average
+  // progress across direct children. Useful at a glance on a WBS node
+  // without having to expand it.
+  const subAgg = useMemo(() => {
+    if (!hasChildren) return null
+    const total = childTasks.length
+    const done = childTasks.filter(c => c.status === 'done').length
+    const avgProgress = Math.round(
+      childTasks.reduce((s, c) => s + (c.progress ?? 0), 0) / Math.max(1, total),
+    )
+    return { total, done, avgProgress }
+  }, [childTasks, hasChildren])
+
+  // Overdue detection: due date in the past AND task not completed/cancelled.
+  const overdue = useMemo(() => {
+    if (!task.due_date) return false
+    if (task.status === 'done' || task.status === 'cancelled') return false
+    const d = new Date(task.due_date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return d < today
+  }, [task.due_date, task.status])
+
+  // Effective progress for the bar: parents show aggregate, leaves show their own.
+  const displayProgress = subAgg ? subAgg.avgProgress : (task.progress ?? 0)
 
   return (
     <div
       role="treeitem"
       aria-level={depth + 1}
       aria-expanded={hasChildren ? expanded : undefined}
-      className="border-b border-border/60 last:border-0"
+      className="border-b border-border/30 last:border-0"
     >
       {/* Summary row */}
       <div
-        className="group flex items-center gap-2 py-2 text-xs hover:bg-muted/40 transition-colors cursor-pointer"
+        className="group flex items-center gap-2 py-1.5 text-xs hover:bg-muted/40 transition-colors cursor-pointer relative"
         style={{ paddingLeft: `${10 + depth * 16}px`, paddingRight: '10px' }}
         onClick={() => setExpanded(!expanded)}
       >
@@ -628,17 +655,59 @@ function TaskRow({
         <button onClick={(e) => { e.stopPropagation(); handleStatusChange(nextTaskStatus(task.status)) }} className="shrink-0 hover:scale-110 transition-transform" title={statusOpt?.label}>
           <TaskStatusIcon status={task.status} />
         </button>
-        <span className={cn('flex-1 truncate font-medium', task.status === 'done' && 'line-through text-muted-foreground')}>{task.title}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className={cn('truncate font-medium', task.status === 'done' && 'line-through text-muted-foreground')}>{task.title}</span>
+            {hasChildren && subAgg && (
+              <span className="shrink-0 text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground tabular-nums">
+                {subAgg.done}/{subAgg.total}
+              </span>
+            )}
+          </div>
+          {/* Mini progress bar — visible only when there's progress to show */}
+          {(displayProgress > 0 || task.status === 'in_progress' || task.status === 'review') && (
+            <div className="mt-1 h-[3px] rounded-full bg-muted overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all',
+                  task.status === 'done' ? 'bg-green-500' :
+                  task.status === 'cancelled' ? 'bg-zinc-400' :
+                  overdue ? 'bg-red-500' :
+                  task.status === 'review' ? 'bg-yellow-500' :
+                  'bg-primary',
+                )}
+                style={{ width: `${Math.min(100, Math.max(0, displayProgress))}%` }}
+              />
+            </div>
+          )}
+        </div>
         {(task.priority === 'high' || task.priority === 'critical') && (
-          <span className={cn('text-[9px] px-1 rounded', task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500')}>
+          <span className={cn('text-[9px] px-1 rounded shrink-0', task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500')}>
             {priorityOpt?.label}
           </span>
         )}
         {task.due_date && (
-          <span className="text-muted-foreground text-[10px] tabular-nums">{new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
+          <span
+            className={cn(
+              'text-[10px] tabular-nums shrink-0',
+              overdue ? 'text-red-500 font-semibold' : 'text-muted-foreground',
+            )}
+            title={overdue ? 'Échéance dépassée' : undefined}
+          >
+            {new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+          </span>
         )}
-        {task.progress > 0 && <span className="text-[10px] text-muted-foreground tabular-nums">{task.progress}%</span>}
-        {task.assignee_name && <span className="text-muted-foreground text-[10px] max-w-[70px] truncate">{task.assignee_name}</span>}
+        {!subAgg && task.progress > 0 && (
+          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{task.progress}%</span>
+        )}
+        {task.assignee_name && (
+          <span
+            className="text-muted-foreground text-[10px] max-w-[80px] truncate shrink-0"
+            title={task.assignee_name}
+          >
+            {task.assignee_name}
+          </span>
+        )}
         {confirmDelete ? (
           <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
             <button onClick={handleDelete} className="gl-button gl-button-danger text-red-500"><Check size={10} /></button>

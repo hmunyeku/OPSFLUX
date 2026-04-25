@@ -20,7 +20,7 @@
  * Rendering (read-only): use `<RichTextDisplay value={html} />` below.
  * It sanitises the HTML via DOMPurify before rendering.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   EditorContent,
@@ -876,11 +876,104 @@ const PURIFY_CONFIG = {
     /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|file|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
 }
 
+/**
+ * Detect if a stored value looks like HTML (has at least one tag) or
+ * raw text / Markdown (no tags). Imported / pasted descriptions often
+ * arrive as Markdown (e.g. from Gouti) and would otherwise render as
+ * a single line of raw "### heading" / "- bullet" tokens.
+ */
+function looksLikeHtml(s: string): boolean {
+  return /<\w+[\s/>]/.test(s)
+}
+
+/**
+ * Lightweight Markdown → HTML converter. Handles the common subset that
+ * shows up in pasted descriptions: paragraphs (double newline), single
+ * line breaks, ATX headings (`# H1`, `## H2`, `### H3`), bullet lists
+ * (`- ` / `* `), bold (`**x**`), italic (`*x*`), inline code (`` `x` ``),
+ * links (`[txt](url)`). Not a full Markdown parser — DOMPurify still
+ * cleans the result anyway. Order of operations matters: bold before
+ * italic so `**` isn't eaten by `*`.
+ */
+function mdToHtml(src: string): string {
+  // Escape HTML so user text doesn't inject markup.
+  const esc = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+  const lines = src.replace(/\r\n?/g, '\n').split('\n')
+  const out: string[] = []
+  let para: string[] = []
+  let listBuf: string[] = []
+  let inList = false
+
+  const flushPara = () => {
+    if (para.length) {
+      out.push('<p>' + para.join(' ').trim() + '</p>')
+      para = []
+    }
+  }
+  const flushList = () => {
+    if (inList) {
+      out.push('<ul>' + listBuf.map((li) => '<li>' + li + '</li>').join('') + '</ul>')
+      listBuf = []
+      inList = false
+    }
+  }
+
+  for (const raw of lines) {
+    const line = raw.trim()
+    if (!line) {
+      flushPara()
+      flushList()
+      continue
+    }
+    // Headings
+    const h = /^(#{1,3})\s+(.+)$/.exec(line)
+    if (h) {
+      flushPara()
+      flushList()
+      const lvl = h[1].length
+      out.push(`<h${lvl}>${esc(h[2])}</h${lvl}>`)
+      continue
+    }
+    // Bullets
+    const b = /^[-*]\s+(.+)$/.exec(line)
+    if (b) {
+      flushPara()
+      inList = true
+      listBuf.push(applyInline(esc(b[1])))
+      continue
+    }
+    // Default: append to current paragraph
+    flushList()
+    para.push(applyInline(esc(line)))
+  }
+  flushPara()
+  flushList()
+  return out.join('\n')
+}
+
+function applyInline(s: string): string {
+  // **bold** before *italic* before `code` before [text](url)
+  return s
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+}
+
 export function RichTextDisplay({ value, className, empty = '—' }: RichTextDisplayProps) {
+  // If the stored value is plain text / Markdown (no HTML tags), convert
+  // it to HTML on the fly so paragraphs, headings and bullets render
+  // properly. Existing HTML values pass through unchanged.
+  const html = useMemo(() => {
+    if (!value) return ''
+    return looksLikeHtml(value) ? value : mdToHtml(value)
+  }, [value])
   // Hydrate attachment URLs to authenticated blob URLs before display,
   // otherwise `<img src="/api/v1/attachments/.../download">` 401s in the
   // browser (auth header lives in localStorage, not cookies).
-  const hydrated = useHydratedAttachmentHtml(value)
+  const hydrated = useHydratedAttachmentHtml(html)
   if (!value || !value.trim()) {
     return <span className="text-muted-foreground">{empty}</span>
   }

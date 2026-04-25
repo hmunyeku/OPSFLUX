@@ -84,6 +84,7 @@ import {
 } from '../shared'
 import { formatDate } from '@/lib/i18n'
 import { WbsSection, CpmSection, PlanningRevisionsSection, SubProjectsSection } from './ProjectDetailAdvanced'
+import { RichTextField, RichTextDisplay } from '@/components/shared/RichTextField'
 import {
   TimeTrackingSection,
   AllocationMatrixSection,
@@ -1402,6 +1403,59 @@ function ActivityFeedSection({ projectId }: { projectId: string }) {
   )
 }
 
+// -- Project Description Editor (rich text wrapper with save-on-blur) --------
+//
+// Wraps RichTextField with local-draft semantics: keeps a local copy of the
+// HTML and only flushes back to the server when the editor loses focus, AND
+// only if the value actually changed. This avoids a server round-trip on
+// every keystroke (which the controlled RichTextField would otherwise
+// trigger via onChange).
+
+function ProjectDescriptionEditor({
+  initialValue,
+  onSave,
+  projectId,
+}: {
+  initialValue: string
+  onSave: (html: string) => void
+  projectId: string
+}) {
+  const [draft, setDraft] = useState(initialValue)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const flush = useCallback(() => {
+    const next = draft.trim()
+    const prev = (initialValue || '').trim()
+    // Treat an "empty" editor state (e.g. <p></p>) as empty so we don't
+    // store dummy markup.
+    const stripped = next.replace(/<p[^>]*>\s*<\/p>/g, '').trim()
+    const prevStripped = prev.replace(/<p[^>]*>\s*<\/p>/g, '').trim()
+    if (stripped !== prevStripped) onSave(stripped)
+  }, [draft, initialValue, onSave])
+
+  // Save when the user focuses out of the entire editor (any toolbar /
+  // menu click is still considered "inside"), not on every keystroke.
+  return (
+    <div
+      ref={containerRef}
+      onBlur={(e) => {
+        if (!containerRef.current?.contains(e.relatedTarget as Node | null)) {
+          flush()
+        }
+      }}
+    >
+      <RichTextField
+        value={draft}
+        onChange={setDraft}
+        placeholder="Description du projet…"
+        rows={6}
+        imageOwnerType="project"
+        imageOwnerId={projectId}
+      />
+    </div>
+  )
+}
+
 // -- Project Detail Panel -----------------------------------------------------
 
 export function ProjectDetailPanel({ id }: { id: string }) {
@@ -1541,28 +1595,18 @@ export function ProjectDetailPanel({ id }: { id: string }) {
             purpose/summary is the first thing the reader sees. */}
         {(project.description || isProjectFieldEditable(project, 'description', capabilities)) && (
           <FormSection title={t('common.description')} collapsible defaultExpanded storageKey="project-detail-desc">
-            {/* Full-width rendering — the FormSection already labels
-                this block, so wrapping in a label/value row with a
-                160px left column just cramps long markdown into a
-                narrow stripe. Textual multiline content gets its own
-                layout instead. */}
+            {/* Rich text editor (TipTap) — supports headings, bold, italic,
+                lists, blockquote, link, image (uploaded as Attachment on
+                project), tables, slash commands. Stored as sanitized HTML. */}
             {isProjectFieldEditable(project, 'description', capabilities) ? (
-              <textarea
-                defaultValue={project.description || ''}
-                onBlur={(e) => {
-                  const next = e.target.value.trim()
-                  if (next !== (project.description || '').trim()) {
-                    handleSave('description', next || null)
-                  }
-                }}
-                rows={8}
-                className={cn(panelInputClass, 'w-full min-h-[160px] text-sm leading-relaxed whitespace-pre-wrap')}
-                placeholder="Description du projet…"
+              <ProjectDescriptionEditor
+                key={project.id}
+                initialValue={project.description || ''}
+                onSave={(html) => handleSave('description', html || null)}
+                projectId={project.id}
               />
             ) : (
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                {project.description || '—'}
-              </p>
+              <RichTextDisplay value={project.description || ''} />
             )}
           </FormSection>
         )}

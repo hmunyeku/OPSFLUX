@@ -1694,6 +1694,70 @@ class ProjectMember(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     time_entries: Mapped[list["ProjectTimeEntry"]] = relationship(back_populates="member", cascade="all, delete-orphan")
 
 
+class ProjectTaskLoss(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Pertes sur une tâche projet — temps perdu, surcoût matériel, retards.
+
+    Sert à tracer les écarts: heures perdues (intempéries, attente
+    matériel, panne), surcoût matériau (rebut, casse), pénalité
+    retard contractuel. Sert ensuite au rapport de fin de projet.
+    """
+    __tablename__ = "project_task_losses"
+    __table_args__ = (
+        Index("idx_ptl_task", "task_id"),
+        Index("idx_ptl_project", "project_id"),
+        Index("idx_ptl_category", "category"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    task_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="CASCADE"))
+    member_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("project_members.id", ondelete="SET NULL"))
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    # Catégorie : weather, material, equipment, manpower, contractual, accident, other
+    category: Mapped[str] = mapped_column(String(30), nullable=False)
+    # Quantification : au moins l'un des deux est non-NULL
+    hours_lost: Mapped[float | None] = mapped_column(Float)
+    cost_amount: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str | None] = mapped_column(String(10))
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    reported_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+
+
+class ProjectTaskAllocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Affectation d'un membre projet sur une tâche avec heures planifiées.
+
+    Permet de planifier la charge : combien d'heures un membre doit
+    consacrer à une tâche donnée, sur quelle période, à quel %
+    d'allocation. Le pointage réel (ProjectTimeEntry) référence
+    directement la tâche et le membre, et l'écart planifié/réalisé
+    se calcule par agrégation.
+
+    Contrainte : un membre ne peut avoir qu'une seule allocation active
+    par tâche à la fois (UNIQUE sur task_id + member_id).
+    """
+    __tablename__ = "project_task_allocations"
+    __table_args__ = (
+        Index("idx_pta_task", "task_id"),
+        Index("idx_pta_member", "member_id"),
+        Index("uq_pta_task_member", "task_id", "member_id", unique=True),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    task_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="CASCADE"), nullable=False)
+    member_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("project_members.id", ondelete="CASCADE"), nullable=False)
+    # Charge planifiée
+    planned_hours: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    allocation_pct: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    # Période d'affectation (NULL = toute la durée de la tâche)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    member: Mapped["ProjectMember"] = relationship(foreign_keys=[member_id])
+    task: Mapped["ProjectTask"] = relationship(foreign_keys=[task_id])
+
+
 class ProjectTimeEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Pointage d'un membre projet sur une journée (et optionnellement une tâche).
 

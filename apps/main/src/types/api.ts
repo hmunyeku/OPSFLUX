@@ -1432,6 +1432,173 @@ export interface ProjectMemberUpdate {
   active?: boolean
 }
 
+// ── Task allocations (affectation membre × tâche) ──
+
+export interface ProjectTaskAllocation {
+  id: string
+  entity_id: string
+  project_id: string
+  task_id: string
+  member_id: string
+  planned_hours: number
+  allocation_pct: number
+  start_date: string | null
+  end_date: string | null
+  notes: string | null
+  created_at: string
+  member_name?: string | null
+  task_title?: string | null
+  actual_hours?: number | null
+}
+
+export interface ProjectTaskAllocationCreate {
+  task_id: string
+  member_id: string
+  planned_hours?: number
+  allocation_pct?: number
+  start_date?: string | null
+  end_date?: string | null
+  notes?: string | null
+}
+
+export interface ProjectTaskAllocationUpdate {
+  planned_hours?: number
+  allocation_pct?: number
+  start_date?: string | null
+  end_date?: string | null
+  notes?: string | null
+}
+
+export interface AllocationMatrixCell {
+  member_id: string
+  allocation_id: string | null
+  planned_hours: number
+  allocation_pct: number
+  actual_hours: number
+  variance_hours: number
+}
+
+export interface AllocationMatrixRow {
+  task_id: string
+  task_title: string
+  task_status: string
+  estimated_hours: number | null
+  actual_hours_total: number
+  planned_hours_total: number
+  cells: AllocationMatrixCell[]
+}
+
+export interface AllocationMatrixMember {
+  member_id: string
+  member_name: string
+  specialty: string | null
+  allocation_pct: number
+}
+
+export interface AllocationMatrix {
+  members: AllocationMatrixMember[]
+  tasks: AllocationMatrixRow[]
+}
+
+// ── Task losses (pertes) ──
+
+export type LossCategory = 'weather' | 'material' | 'equipment' | 'manpower' | 'contractual' | 'accident' | 'other'
+
+export interface ProjectTaskLoss {
+  id: string
+  entity_id: string
+  project_id: string
+  task_id: string | null
+  member_id: string | null
+  date: string
+  category: LossCategory | string
+  hours_lost: number | null
+  cost_amount: number | null
+  currency: string | null
+  description: string
+  reported_by: string | null
+  created_at: string
+  task_title?: string | null
+  member_name?: string | null
+  reporter_name?: string | null
+}
+
+export interface ProjectTaskLossCreate {
+  task_id?: string | null
+  member_id?: string | null
+  date: string
+  category: string
+  hours_lost?: number | null
+  cost_amount?: number | null
+  currency?: string | null
+  description: string
+}
+
+export interface ProjectTaskLossUpdate {
+  task_id?: string | null
+  member_id?: string | null
+  date?: string
+  category?: string
+  hours_lost?: number | null
+  cost_amount?: number | null
+  currency?: string | null
+  description?: string
+}
+
+// ── Project report ──
+
+export interface ProjectReport {
+  project: {
+    id: string
+    code: string
+    name: string
+    status: string
+    progress: number
+    currency: string | null
+    budget: number | null
+    start_date: string | null
+    end_date: string | null
+  }
+  kpis: {
+    tasks_count: number
+    members_count: number
+    total_planned_hours: number
+    total_actual_hours: number
+    variance_hours: number
+    total_cost: number
+    total_lost_hours: number
+    total_lost_cost: number
+    completion_pct: number
+  }
+  tasks: Array<{
+    task_id: string
+    title: string
+    status: string
+    estimated_hours: number | null
+    planned_hours: number
+    actual_hours: number
+    variance_hours: number
+    completion_pct: number
+  }>
+  members: Array<{
+    member_id: string
+    member_name: string | null
+    specialty: string | null
+    allocation_pct: number
+    planned_hours: number
+    actual_hours: number
+    cost: number
+    currency: string | null
+  }>
+  time_entries_by_status: Record<string, number>
+  losses_by_category: Array<{
+    category: string
+    hours_lost: number
+    cost_amount: number
+    count: number
+  }>
+}
+
 // ── Time entries (pointage) ──
 
 export type ProjectTimeEntryStatus = 'draft' | 'submitted' | 'validated' | 'rejected'

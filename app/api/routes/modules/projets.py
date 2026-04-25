@@ -21,7 +21,7 @@ from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.common import (
     AuditLog,
     Project, ProjectMember, ProjectTask, ProjectMilestone,
-    ProjectTimeEntry,
+    ProjectTaskAllocation, ProjectTaskLoss, ProjectTimeEntry,
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
     ProjectTaskDependency, ProjectWBSNode, CostCenter,
     ProjectTaskAssignee, ProjectComment, ProjectStatusHistory,
@@ -32,6 +32,8 @@ from app.schemas.common import (
     PaginatedResponse,
     ProjectCreate, ProjectRead, ProjectUpdate,
     ProjectMemberCreate, ProjectMemberRead, ProjectMemberUpdate,
+    ProjectTaskAllocationCreate, ProjectTaskAllocationRead, ProjectTaskAllocationUpdate,
+    ProjectTaskLossCreate, ProjectTaskLossRead, ProjectTaskLossUpdate,
     ProjectTimeEntryCreate, ProjectTimeEntryRead, ProjectTimeEntryUpdate, ProjectTimeEntryReject,
     ProjectTaskCreate, ProjectTaskRead, ProjectTaskUpdate, ProjectTaskEnriched,
     ProjectMilestoneCreate, ProjectMilestoneRead, ProjectMilestoneUpdate,
@@ -967,6 +969,230 @@ async def remove_project_member(
     return {"detail": "Member removed"}
 
 
+# ── Project Task Allocations (affectation membre × tâche) ─────────────
+#
+# Plan = ProjectTaskAllocation (planned_hours par couple membre/tâche).
+# Réel = ProjectTimeEntry agrégé. La matrice d'allocations est la grille
+# tâches × membres avec planifié, réalisé, écart.
+
+async def _enrich_allocation(db: AsyncSession, alloc: "ProjectTaskAllocation") -> dict:
+    d = {c.key: getattr(alloc, c.key) for c in alloc.__table__.columns}
+    member = await db.get(ProjectMember, alloc.member_id)
+    d["member_name"] = await _get_member_name(db, member) if member else None
+    task = await db.get(ProjectTask, alloc.task_id)
+    d["task_title"] = task.title if task else None
+    # Actual hours = sum of validated time entries for (task, member)
+    actual_q = await db.execute(
+        select(sqla_func.coalesce(sqla_func.sum(ProjectTimeEntry.hours), 0.0)).where(
+            ProjectTimeEntry.task_id == alloc.task_id,
+            ProjectTimeEntry.member_id == alloc.member_id,
+            ProjectTimeEntry.status == "validated",
+        )
+    )
+    d["actual_hours"] = float(actual_q.scalar() or 0)
+    return d
+
+
+@router.get("/{project_id}/allocations", response_model=list[ProjectTaskAllocationRead])
+async def list_project_allocations(
+    project_id: UUID,
+    task_id: UUID | None = None,
+    member_id: UUID | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    query = select(ProjectTaskAllocation).where(ProjectTaskAllocation.project_id == project_id)
+    if task_id:
+        query = query.where(ProjectTaskAllocation.task_id == task_id)
+    if member_id:
+        query = query.where(ProjectTaskAllocation.member_id == member_id)
+    result = await db.execute(query.order_by(ProjectTaskAllocation.created_at))
+    allocs = result.scalars().all()
+    return [await _enrich_allocation(db, a) for a in allocs]
+
+
+@router.post("/{project_id}/allocations", response_model=ProjectTaskAllocationRead, status_code=201)
+async def create_project_allocation(
+    project_id: UUID,
+    body: ProjectTaskAllocationCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    # Verify task belongs to project
+    task = await db.scalar(
+        select(ProjectTask).where(ProjectTask.id == body.task_id, ProjectTask.project_id == project_id)
+    )
+    if not task:
+        raise HTTPException(404, "Task not found in this project")
+    # Verify member belongs to project
+    member = await db.scalar(
+        select(ProjectMember).where(
+            ProjectMember.id == body.member_id, ProjectMember.project_id == project_id
+        )
+    )
+    if not member:
+        raise HTTPException(404, "Member not found in this project")
+    # Reject duplicate (task, member) pair — UNIQUE constraint enforces this
+    existing = await db.scalar(
+        select(ProjectTaskAllocation).where(
+            ProjectTaskAllocation.task_id == body.task_id,
+            ProjectTaskAllocation.member_id == body.member_id,
+        )
+    )
+    if existing:
+        raise HTTPException(409, "This member is already allocated to this task")
+    alloc = ProjectTaskAllocation(entity_id=entity_id, project_id=project_id, **body.model_dump())
+    db.add(alloc)
+    await db.commit()
+    await db.refresh(alloc)
+    return await _enrich_allocation(db, alloc)
+
+
+@router.patch("/{project_id}/allocations/{alloc_id}", response_model=ProjectTaskAllocationRead)
+async def update_project_allocation(
+    project_id: UUID,
+    alloc_id: UUID,
+    body: ProjectTaskAllocationUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    alloc = await db.scalar(
+        select(ProjectTaskAllocation).where(
+            ProjectTaskAllocation.id == alloc_id,
+            ProjectTaskAllocation.project_id == project_id,
+        )
+    )
+    if not alloc:
+        raise HTTPException(404, "Allocation not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(alloc, key, value)
+    await db.commit()
+    await db.refresh(alloc)
+    return await _enrich_allocation(db, alloc)
+
+
+@router.delete("/{project_id}/allocations/{alloc_id}", status_code=204)
+async def delete_project_allocation(
+    project_id: UUID,
+    alloc_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    alloc = await db.scalar(
+        select(ProjectTaskAllocation).where(
+            ProjectTaskAllocation.id == alloc_id,
+            ProjectTaskAllocation.project_id == project_id,
+        )
+    )
+    if not alloc:
+        raise HTTPException(404, "Allocation not found")
+    await db.delete(alloc)
+    await db.commit()
+    return None
+
+
+@router.get("/{project_id}/allocation-matrix")
+async def get_project_allocation_matrix(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Matrice d'affectation: tâches en lignes, membres en colonnes.
+
+    Pour chaque cellule, retourne planned_hours, actual_hours, allocation_pct.
+    Permet l'affichage façon MS Project « Vue Utilisation des tâches ».
+    """
+    await _get_project_or_404(db, project_id, entity_id)
+    # Fetch members + tasks
+    members_q = await db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id, ProjectMember.active == True  # noqa: E712
+        )
+    )
+    members = members_q.scalars().all()
+    tasks_q = await db.execute(
+        select(ProjectTask).where(
+            ProjectTask.project_id == project_id, ProjectTask.active == True  # noqa: E712
+        ).order_by(ProjectTask.order, ProjectTask.created_at)
+    )
+    tasks = tasks_q.scalars().all()
+    # Fetch all allocations + actual hours (validated time entries) in 2 queries
+    allocs_q = await db.execute(
+        select(ProjectTaskAllocation).where(ProjectTaskAllocation.project_id == project_id)
+    )
+    allocs = allocs_q.scalars().all()
+    actual_q = await db.execute(
+        select(
+            ProjectTimeEntry.task_id,
+            ProjectTimeEntry.member_id,
+            sqla_func.sum(ProjectTimeEntry.hours).label("hours"),
+        )
+        .where(
+            ProjectTimeEntry.project_id == project_id,
+            ProjectTimeEntry.status == "validated",
+        )
+        .group_by(ProjectTimeEntry.task_id, ProjectTimeEntry.member_id)
+    )
+    actuals: dict[tuple[str, str], float] = {
+        (str(r.task_id), str(r.member_id)): float(r.hours or 0)
+        for r in actual_q.all()
+    }
+    alloc_map: dict[tuple[str, str], ProjectTaskAllocation] = {
+        (str(a.task_id), str(a.member_id)): a for a in allocs
+    }
+    # Build cells
+    rows = []
+    for t in tasks:
+        row_cells = []
+        row_planned = 0.0
+        row_actual = 0.0
+        for m in members:
+            key = (str(t.id), str(m.id))
+            alloc = alloc_map.get(key)
+            actual = actuals.get(key, 0.0)
+            cell = {
+                "member_id": str(m.id),
+                "allocation_id": str(alloc.id) if alloc else None,
+                "planned_hours": float(alloc.planned_hours) if alloc else 0.0,
+                "allocation_pct": alloc.allocation_pct if alloc else 0,
+                "actual_hours": actual,
+                "variance_hours": (float(alloc.planned_hours) if alloc else 0.0) - actual,
+            }
+            row_planned += cell["planned_hours"]
+            row_actual += actual
+            row_cells.append(cell)
+        rows.append({
+            "task_id": str(t.id),
+            "task_title": t.title,
+            "task_status": t.status,
+            "estimated_hours": float(t.estimated_hours) if t.estimated_hours else None,
+            "actual_hours_total": row_actual,
+            "planned_hours_total": row_planned,
+            "cells": row_cells,
+        })
+    return {
+        "members": [
+            {
+                "member_id": str(m.id),
+                "member_name": (await _get_member_name(db, m)) or "(inconnu)",
+                "specialty": m.specialty,
+                "allocation_pct": m.allocation_pct,
+            }
+            for m in members
+        ],
+        "tasks": rows,
+    }
+
+
 # ── Project Time Entries (pointage) ───────────────────────────────────
 #
 # Workflow: draft → submitted → validated | rejected
@@ -1275,6 +1501,287 @@ async def get_project_time_summary(
             "hours": sum(m["total_hours"] for m in by_member.values()),
             "cost": sum(m["total_cost"] for m in by_member.values()),
         },
+    }
+
+
+# ── Project Task Losses (pertes) ──────────────────────────────────────
+
+async def _enrich_loss(db: AsyncSession, loss: "ProjectTaskLoss") -> dict:
+    d = {c.key: getattr(loss, c.key) for c in loss.__table__.columns}
+    d["task_title"] = None
+    d["member_name"] = None
+    d["reporter_name"] = None
+    if loss.task_id:
+        task = await db.get(ProjectTask, loss.task_id)
+        d["task_title"] = task.title if task else None
+    if loss.member_id:
+        member = await db.get(ProjectMember, loss.member_id)
+        d["member_name"] = await _get_member_name(db, member) if member else None
+    if loss.reported_by:
+        u = await db.get(User, loss.reported_by)
+        d["reporter_name"] = f"{u.first_name} {u.last_name}" if u else None
+    return d
+
+
+@router.get("/{project_id}/losses", response_model=list[ProjectTaskLossRead])
+async def list_project_losses(
+    project_id: UUID,
+    task_id: UUID | None = None,
+    category: str | None = None,
+    date_from: date_type | None = None,
+    date_to: date_type | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    query = select(ProjectTaskLoss).where(ProjectTaskLoss.project_id == project_id)
+    if task_id:
+        query = query.where(ProjectTaskLoss.task_id == task_id)
+    if category:
+        query = query.where(ProjectTaskLoss.category == category)
+    if date_from:
+        query = query.where(ProjectTaskLoss.date >= date_from)
+    if date_to:
+        query = query.where(ProjectTaskLoss.date <= date_to)
+    result = await db.execute(query.order_by(ProjectTaskLoss.date.desc()))
+    losses = result.scalars().all()
+    return [await _enrich_loss(db, l) for l in losses]
+
+
+@router.post("/{project_id}/losses", response_model=ProjectTaskLossRead, status_code=201)
+async def create_project_loss(
+    project_id: UUID,
+    body: ProjectTaskLossCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await _get_project_or_404(db, project_id, entity_id)
+    if body.hours_lost is None and body.cost_amount is None:
+        raise HTTPException(422, "Provide at least hours_lost or cost_amount")
+    payload = body.model_dump()
+    if not payload.get("currency"):
+        payload["currency"] = project.currency
+    loss = ProjectTaskLoss(
+        entity_id=entity_id,
+        project_id=project_id,
+        reported_by=current_user.id,
+        **payload,
+    )
+    db.add(loss)
+    await db.commit()
+    await db.refresh(loss)
+    return await _enrich_loss(db, loss)
+
+
+@router.patch("/{project_id}/losses/{loss_id}", response_model=ProjectTaskLossRead)
+async def update_project_loss(
+    project_id: UUID,
+    loss_id: UUID,
+    body: ProjectTaskLossUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    loss = await db.scalar(
+        select(ProjectTaskLoss).where(
+            ProjectTaskLoss.id == loss_id, ProjectTaskLoss.project_id == project_id
+        )
+    )
+    if not loss:
+        raise HTTPException(404, "Loss not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(loss, key, value)
+    await db.commit()
+    await db.refresh(loss)
+    return await _enrich_loss(db, loss)
+
+
+@router.delete("/{project_id}/losses/{loss_id}", status_code=204)
+async def delete_project_loss(
+    project_id: UUID,
+    loss_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    loss = await db.scalar(
+        select(ProjectTaskLoss).where(
+            ProjectTaskLoss.id == loss_id, ProjectTaskLoss.project_id == project_id
+        )
+    )
+    if not loss:
+        raise HTTPException(404, "Loss not found")
+    await db.delete(loss)
+    await db.commit()
+    return None
+
+
+# ── Project Report (synthèse façon MS Project) ─────────────────────────
+
+@router.get("/{project_id}/report")
+async def get_project_report(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Synthèse projet façon MS Project « Rapport de fin de phase ».
+
+    Bloc 1 : projet + macro indicateurs
+    Bloc 2 : avancement tâches (planifié vs réalisé en heures)
+    Bloc 3 : ressources (allocation, charge, coût)
+    Bloc 4 : pointage (validé, en attente)
+    Bloc 5 : pertes par catégorie
+    """
+    project = await _get_project_or_404(db, project_id, entity_id)
+
+    # Bloc 2 : tâches avec planifié/réalisé
+    tasks_q = await db.execute(
+        select(ProjectTask).where(
+            ProjectTask.project_id == project_id, ProjectTask.active == True  # noqa: E712
+        ).order_by(ProjectTask.order, ProjectTask.created_at)
+    )
+    tasks = tasks_q.scalars().all()
+    planned_per_task: dict[str, float] = {}
+    actual_per_task: dict[str, float] = {}
+    plan_q = await db.execute(
+        select(ProjectTaskAllocation.task_id, sqla_func.sum(ProjectTaskAllocation.planned_hours))
+        .where(ProjectTaskAllocation.project_id == project_id)
+        .group_by(ProjectTaskAllocation.task_id)
+    )
+    for row in plan_q.all():
+        planned_per_task[str(row[0])] = float(row[1] or 0)
+    act_q = await db.execute(
+        select(ProjectTimeEntry.task_id, sqla_func.sum(ProjectTimeEntry.hours))
+        .where(
+            ProjectTimeEntry.project_id == project_id,
+            ProjectTimeEntry.status == "validated",
+            ProjectTimeEntry.task_id.is_not(None),
+        )
+        .group_by(ProjectTimeEntry.task_id)
+    )
+    for row in act_q.all():
+        actual_per_task[str(row[0])] = float(row[1] or 0)
+    task_rows = []
+    for t in tasks:
+        tid = str(t.id)
+        planned = planned_per_task.get(tid, 0.0)
+        actual = actual_per_task.get(tid, 0.0)
+        task_rows.append({
+            "task_id": tid,
+            "title": t.title,
+            "status": t.status,
+            "estimated_hours": float(t.estimated_hours) if t.estimated_hours else None,
+            "planned_hours": planned,
+            "actual_hours": actual,
+            "variance_hours": planned - actual,
+            "completion_pct": (actual / planned * 100) if planned > 0 else 0,
+        })
+
+    # Bloc 3 : ressources
+    members_q = await db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id, ProjectMember.active == True  # noqa: E712
+        )
+    )
+    members = members_q.scalars().all()
+    member_rows = []
+    for m in members:
+        # Hours per member
+        h_planned = await db.scalar(
+            select(sqla_func.coalesce(sqla_func.sum(ProjectTaskAllocation.planned_hours), 0.0))
+            .where(ProjectTaskAllocation.member_id == m.id)
+        )
+        h_actual = await db.scalar(
+            select(sqla_func.coalesce(sqla_func.sum(ProjectTimeEntry.hours), 0.0))
+            .where(
+                ProjectTimeEntry.member_id == m.id,
+                ProjectTimeEntry.status == "validated",
+            )
+        )
+        # Cost
+        cost = await db.scalar(
+            select(sqla_func.coalesce(
+                sqla_func.sum(ProjectTimeEntry.hours * ProjectTimeEntry.rate_snapshot), 0.0
+            )).where(
+                ProjectTimeEntry.member_id == m.id,
+                ProjectTimeEntry.status == "validated",
+                ProjectTimeEntry.rate_snapshot.is_not(None),
+            )
+        )
+        member_rows.append({
+            "member_id": str(m.id),
+            "member_name": await _get_member_name(db, m),
+            "specialty": m.specialty,
+            "allocation_pct": m.allocation_pct,
+            "planned_hours": float(h_planned or 0),
+            "actual_hours": float(h_actual or 0),
+            "cost": float(cost or 0),
+            "currency": m.currency or project.currency,
+        })
+
+    # Bloc 4 : pointage
+    pte_q = await db.execute(
+        select(ProjectTimeEntry.status, sqla_func.sum(ProjectTimeEntry.hours))
+        .where(ProjectTimeEntry.project_id == project_id)
+        .group_by(ProjectTimeEntry.status)
+    )
+    pte_summary = {row[0]: float(row[1] or 0) for row in pte_q.all()}
+
+    # Bloc 5 : pertes
+    losses_q = await db.execute(
+        select(
+            ProjectTaskLoss.category,
+            sqla_func.coalesce(sqla_func.sum(ProjectTaskLoss.hours_lost), 0.0).label("hours"),
+            sqla_func.coalesce(sqla_func.sum(ProjectTaskLoss.cost_amount), 0.0).label("cost"),
+            sqla_func.count().label("count"),
+        )
+        .where(ProjectTaskLoss.project_id == project_id)
+        .group_by(ProjectTaskLoss.category)
+    )
+    losses_by_cat = [
+        {"category": r.category, "hours_lost": float(r.hours), "cost_amount": float(r.cost), "count": r.count}
+        for r in losses_q.all()
+    ]
+
+    total_planned = sum(t["planned_hours"] for t in task_rows)
+    total_actual = sum(t["actual_hours"] for t in task_rows)
+    total_cost = sum(m["cost"] for m in member_rows)
+    total_lost_hours = sum(l["hours_lost"] for l in losses_by_cat)
+    total_lost_cost = sum(l["cost_amount"] for l in losses_by_cat)
+
+    return {
+        "project": {
+            "id": str(project.id),
+            "code": project.code,
+            "name": project.name,
+            "status": project.status,
+            "progress": project.progress,
+            "currency": project.currency,
+            "budget": project.budget,
+            "start_date": project.start_date.isoformat() if project.start_date else None,
+            "end_date": project.end_date.isoformat() if project.end_date else None,
+        },
+        "kpis": {
+            "tasks_count": len(task_rows),
+            "members_count": len(member_rows),
+            "total_planned_hours": total_planned,
+            "total_actual_hours": total_actual,
+            "variance_hours": total_planned - total_actual,
+            "total_cost": total_cost,
+            "total_lost_hours": total_lost_hours,
+            "total_lost_cost": total_lost_cost,
+            "completion_pct": (total_actual / total_planned * 100) if total_planned > 0 else 0,
+        },
+        "tasks": task_rows,
+        "members": member_rows,
+        "time_entries_by_status": pte_summary,
+        "losses_by_category": losses_by_cat,
     }
 
 

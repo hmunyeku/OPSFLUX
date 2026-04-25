@@ -7,6 +7,8 @@ import type {
   ProjectCreate, ProjectUpdate,
   ProjectMemberCreate, ProjectMemberUpdate,
   ProjectTimeEntryCreate, ProjectTimeEntryUpdate,
+  ProjectTaskAllocationCreate, ProjectTaskAllocationUpdate,
+  ProjectTaskLossCreate, ProjectTaskLossUpdate,
   ProjectTaskCreate, ProjectTaskUpdate,
   ProjectMilestoneCreate, ProjectMilestoneUpdate,
   PlanningRevisionCreate, PlanningRevisionUpdate,
@@ -221,6 +223,120 @@ export function useProjectTimeSummary(
   return useQuery({
     queryKey: ['project-time-summary', projectId, params],
     queryFn: () => projetsService.getTimeSummary(projectId!, params),
+    enabled: !!projectId,
+  })
+}
+
+// ── Task allocations ──
+
+export function useProjectAllocations(
+  projectId: string | undefined,
+  params: { task_id?: string; member_id?: string } = {},
+) {
+  return useQuery({
+    queryKey: ['project-allocations', projectId, params],
+    queryFn: () => projetsService.listAllocations(projectId!, params),
+    enabled: !!projectId,
+  })
+}
+
+export function useCreateProjectAllocation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, payload }: { projectId: string; payload: ProjectTaskAllocationCreate }) =>
+      projetsService.createAllocation(projectId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-allocations', projectId] })
+      qc.invalidateQueries({ queryKey: ['project-allocation-matrix', projectId] })
+    },
+  })
+}
+
+export function useUpdateProjectAllocation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, allocId, payload }: { projectId: string; allocId: string; payload: ProjectTaskAllocationUpdate }) =>
+      projetsService.updateAllocation(projectId, allocId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-allocations', projectId] })
+      qc.invalidateQueries({ queryKey: ['project-allocation-matrix', projectId] })
+    },
+  })
+}
+
+export function useDeleteProjectAllocation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, allocId }: { projectId: string; allocId: string }) =>
+      projetsService.deleteAllocation(projectId, allocId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-allocations', projectId] })
+      qc.invalidateQueries({ queryKey: ['project-allocation-matrix', projectId] })
+    },
+  })
+}
+
+export function useProjectAllocationMatrix(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['project-allocation-matrix', projectId],
+    queryFn: () => projetsService.getAllocationMatrix(projectId!),
+    enabled: !!projectId,
+  })
+}
+
+// ── Task losses (pertes) ──
+
+export function useProjectLosses(
+  projectId: string | undefined,
+  params: { task_id?: string; category?: string; date_from?: string; date_to?: string } = {},
+) {
+  return useQuery({
+    queryKey: ['project-losses', projectId, params],
+    queryFn: () => projetsService.listLosses(projectId!, params),
+    enabled: !!projectId,
+  })
+}
+
+export function useCreateProjectLoss() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, payload }: { projectId: string; payload: ProjectTaskLossCreate }) =>
+      projetsService.createLoss(projectId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-losses', projectId] })
+      qc.invalidateQueries({ queryKey: ['project-report', projectId] })
+    },
+  })
+}
+
+export function useUpdateProjectLoss() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, lossId, payload }: { projectId: string; lossId: string; payload: ProjectTaskLossUpdate }) =>
+      projetsService.updateLoss(projectId, lossId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-losses', projectId] })
+    },
+  })
+}
+
+export function useDeleteProjectLoss() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, lossId }: { projectId: string; lossId: string }) =>
+      projetsService.deleteLoss(projectId, lossId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-losses', projectId] })
+    },
+  })
+}
+
+// ── Project report ──
+
+export function useProjectReport(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['project-report', projectId],
+    queryFn: () => projetsService.getReport(projectId!),
     enabled: !!projectId,
   })
 }

@@ -1778,6 +1778,88 @@ class ProjectMemberUpdate(BaseModel):
     active: bool | None = None
 
 
+# ── Project task losses (pertes / waste) ───────────────────────────────
+
+class ProjectTaskLossRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    project_id: UUID
+    task_id: UUID | None = None
+    member_id: UUID | None = None
+    date: date
+    category: str
+    hours_lost: float | None = None
+    cost_amount: float | None = None
+    currency: str | None = None
+    description: str
+    reported_by: UUID | None = None
+    created_at: datetime
+    # Enriched
+    task_title: str | None = None
+    member_name: str | None = None
+    reporter_name: str | None = None
+
+
+class ProjectTaskLossCreate(BaseModel):
+    task_id: UUID | None = None
+    member_id: UUID | None = None
+    date: date
+    category: str = Field(..., min_length=1, max_length=30)  # weather, material, equipment, manpower, contractual, accident, other
+    hours_lost: float | None = Field(default=None, ge=0)
+    cost_amount: float | None = Field(default=None, ge=0)
+    currency: str | None = None
+    description: str = Field(..., min_length=1)
+
+
+class ProjectTaskLossUpdate(BaseModel):
+    task_id: UUID | None = None
+    member_id: UUID | None = None
+    date: date | None = None
+    category: str | None = None
+    hours_lost: float | None = Field(default=None, ge=0)
+    cost_amount: float | None = Field(default=None, ge=0)
+    currency: str | None = None
+    description: str | None = None
+
+
+# ── Project task allocations (affectation membre × tâche) ──────────────
+
+class ProjectTaskAllocationRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    project_id: UUID
+    task_id: UUID
+    member_id: UUID
+    planned_hours: float
+    allocation_pct: int
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+    created_at: datetime
+    # Enriched
+    member_name: str | None = None
+    task_title: str | None = None
+    actual_hours: float | None = None  # validated time entries on this (task, member)
+
+
+class ProjectTaskAllocationCreate(BaseModel):
+    task_id: UUID
+    member_id: UUID
+    planned_hours: float = Field(default=0, ge=0)
+    allocation_pct: int = Field(default=100, ge=0, le=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+
+
+class ProjectTaskAllocationUpdate(BaseModel):
+    planned_hours: float | None = Field(default=None, ge=0)
+    allocation_pct: int | None = Field(default=None, ge=0, le=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+
+
 # ── Project time entries (pointage) ─────────────────────────────────────
 
 class ProjectTimeEntryRead(OpsFluxSchema):

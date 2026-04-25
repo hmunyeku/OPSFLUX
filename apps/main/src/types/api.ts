@@ -1395,6 +1395,14 @@ export interface ProjectMember {
   user_id: string | null
   contact_id: string | null
   role: string
+  allocation_pct: number
+  start_date: string | null
+  end_date: string | null
+  hourly_rate: number | null
+  daily_rate: number | null
+  currency: string | null
+  specialty: string | null
+  notes: string | null
   active: boolean
   created_at: string
   member_name?: string | null

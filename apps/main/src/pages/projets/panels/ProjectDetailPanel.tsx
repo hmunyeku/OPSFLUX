@@ -84,6 +84,12 @@ import {
 } from '../shared'
 import { formatDate } from '@/lib/i18n'
 import { WbsSection, CpmSection, PlanningRevisionsSection, SubProjectsSection } from './ProjectDetailAdvanced'
+import {
+  TimeTrackingSection,
+  AllocationMatrixSection,
+  LossesSection,
+  ProjectReportSection,
+} from './ProjectResourcesSections'
 
 function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const { t } = useTranslation()
@@ -1705,6 +1711,18 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               )}
               <MemberQuickAdd projectId={id} />
             </FormSection>
+
+            {/* Pointage / Time tracking (workflow draft → submitted → validated) */}
+            <TimeTrackingSection projectId={id} members={members ?? []} />
+
+            {/* Matrice d'affectation tâches × membres (planifié vs réalisé) */}
+            <AllocationMatrixSection projectId={id} />
+
+            {/* Pertes par catégorie (intempéries, matériau, etc.) */}
+            <LossesSection projectId={id} />
+
+            {/* Rapport projet (synthèse façon MS Project) */}
+            <ProjectReportSection projectId={id} />
           </div>
         </SectionColumns>
         </>}

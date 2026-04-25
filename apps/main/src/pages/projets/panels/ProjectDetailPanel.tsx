@@ -1591,6 +1591,49 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
         {isGouti && <GoutiProjectBanner />}
 
+        {/* KPI strip — always visible at the top regardless of tab. Same
+            stats as before (météo, %, tâches, personnes, jalons) but
+            more prominent: colored values, bigger icons, card-style row. */}
+        <div className="flex flex-wrap items-stretch gap-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
+            <WeatherIcon weather={project.weather} size={18} />
+            <div className="flex flex-col leading-tight">
+              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Météo</span>
+              <span className="text-sm font-display font-semibold text-foreground">
+                {projectWeatherLabels[project.weather] ?? project.weather}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5">
+            <Target size={16} className="text-primary" />
+            <div className="flex flex-col leading-tight">
+              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Avancement</span>
+              <span className="text-sm font-display font-semibold text-primary tabular-nums">{project.progress}%</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
+            <ListTodo size={16} className="text-muted-foreground" />
+            <div className="flex flex-col leading-tight">
+              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Tâches</span>
+              <span className="text-sm font-display font-semibold text-foreground tabular-nums">{tasks?.length ?? 0}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
+            <Users size={16} className="text-muted-foreground" />
+            <div className="flex flex-col leading-tight">
+              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Personnes</span>
+              <span className="text-sm font-display font-semibold text-foreground tabular-nums">{members?.length ?? 0}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
+            <Milestone size={16} className="text-muted-foreground" />
+            <div className="flex flex-col leading-tight">
+              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Jalons</span>
+              <span className="text-sm font-display font-semibold text-foreground tabular-nums">{milestones?.length ?? 0}</span>
+            </div>
+          </div>
+        </div>
+
         {detailTab === 'fiche' && <>
         {/* Description — shown above the Fiche section so the project's
             purpose/summary is the first thing the reader sees. */}
@@ -1611,15 +1654,6 @@ export function ProjectDetailPanel({ id }: { id: string }) {
             )}
           </FormSection>
         )}
-
-        {/* Quick stats — inspired by Gouti "Donnees quantitatives et acces rapide" */}
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1"><WeatherIcon weather={project.weather} size={14} /> {projectWeatherLabels[project.weather] ?? project.weather}</div>
-          <div className="flex items-center gap-1"><Target size={11} /> {project.progress}%</div>
-          <div className="flex items-center gap-1"><ListTodo size={11} /> {tasks?.length ?? 0} tâches</div>
-          <div className="flex items-center gap-1"><Users size={11} /> {members?.length ?? 0} personnes</div>
-          <div className="flex items-center gap-1"><Milestone size={11} /> {milestones?.length ?? 0} jalons</div>
-        </div>
 
         <SectionColumns>
           <div className="@container space-y-5">

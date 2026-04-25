@@ -575,9 +575,10 @@ export function SectionColumns({
  * Per April 2026 design rules:
  *  - 1 column on mobile / narrow containers (< 600px)
  *  - 2 columns max on wider containers — NEVER 3+
- *  - Subtle vertical separator between the two columns to make the
- *    alignment visible without being noisy
- *  - Generous horizontal gap so label/value pairs breathe
+ *  - The 40px gap between columns is enough to show alignment without
+ *    needing an explicit divider (a divider on grid children would clip
+ *    every-other label because `divide-x` adds left borders by document
+ *    order, not by visual column).
  */
 export function DetailFieldGrid({
   children,
@@ -593,12 +594,6 @@ export function DetailFieldGrid({
         // 2 cols once the section has enough width. Each column hosts a
         // {label, value} pair so the pair takes ~50% of the section width.
         '@[600px]:grid-cols-2',
-        // Subtle column separator between the 2 columns: visible only when
-        // the 2-col layout kicks in (gap-x-10 = 40px between cols).
-        '@[600px]:divide-x @[600px]:divide-border/30',
-        // Add small left padding in the second column so the divider has
-        // visual room and doesn't hug the content.
-        '[&>*:nth-child(2n)]:@[600px]:pl-5',
         className,
       )}
     >

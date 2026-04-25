@@ -230,58 +230,54 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
       )}
 
       {showForm && (
-        <div className="border border-border/60 rounded-lg bg-card p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <select
-              className="gl-form-select text-xs flex-shrink-0"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-            >
-              {types.map((t) => (
-                <option key={t.code} value={t.code}>
-                  {t.label}{isRequired(types, t.code) ? ' *' : ''}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              className={`${panelInputClass} flex-1`}
-              placeholder="Valeur (ex: RC/DLA/2024/B/1234)"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
-              autoFocus
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              className={`${panelInputClass} flex-1`}
-              placeholder="Pays (optionnel)"
-              value={identCountry}
-              onChange={(e) => setIdentCountry(e.target.value)}
-            />
-            <input
-              type="text"
-              className={`${panelInputClass} flex-1`}
-              placeholder={t('shared.date_emission_yyyy_mm_dd')}
-              value={issuedAt}
-              onChange={(e) => setIssuedAt(e.target.value)}
-            />
-            <input
-              type="text"
-              className={`${panelInputClass} flex-1`}
-              placeholder="Date d'expiration (YYYY-MM-DD)"
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            <button onClick={() => { setShowForm(false); resetForm() }} className="gl-button-sm gl-button-default">Annuler</button>
-            <button onClick={handleCreate} disabled={!value.trim() || createIdent.isPending} className="gl-button-sm gl-button-confirm">
-              {createIdent.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
-            </button>
-          </div>
+        <div className="border border-border/60 rounded-lg bg-card p-2 flex items-center gap-2 flex-wrap">
+          <select
+            className="gl-form-select text-xs w-[110px]"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+          >
+            {types.map((t) => (
+              <option key={t.code} value={t.code}>
+                {t.label}{isRequired(types, t.code) ? ' *' : ''}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            className={`${panelInputClass} flex-1 min-w-[160px]`}
+            placeholder="Valeur (ex: RC/DLA/2024/B/1234)"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+            autoFocus
+          />
+          <input
+            type="text"
+            className={`${panelInputClass} w-[110px]`}
+            placeholder="Pays"
+            value={identCountry}
+            onChange={(e) => setIdentCountry(e.target.value)}
+          />
+          <input
+            type="text"
+            className={`${panelInputClass} w-[140px]`}
+            placeholder="Émission"
+            title={t('shared.date_emission_yyyy_mm_dd')}
+            value={issuedAt}
+            onChange={(e) => setIssuedAt(e.target.value)}
+          />
+          <input
+            type="text"
+            className={`${panelInputClass} w-[140px]`}
+            placeholder="Expiration"
+            title="Date d'expiration (YYYY-MM-DD)"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+          />
+          <button onClick={() => { setShowForm(false); resetForm() }} className="gl-button-sm gl-button-default">Annuler</button>
+          <button onClick={handleCreate} disabled={!value.trim() || createIdent.isPending} className="gl-button-sm gl-button-confirm">
+            {createIdent.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
+          </button>
         </div>
       )}
     </div>

@@ -721,11 +721,11 @@ export function FormSection({
     >
       {(title || headerExtra) && (
         collapsible ? (
-          <div className="flex items-center gap-2 w-full -mx-1">
+          <div className="flex items-center gap-2 w-full">
             <button
               type="button"
               onClick={toggle}
-              className="flex items-center gap-1.5 flex-1 text-left group cursor-pointer select-none px-1 py-0.5 rounded-md hover:bg-muted/40"
+              className="flex items-center gap-1.5 flex-1 min-w-0 text-left group cursor-pointer select-none rounded-md hover:bg-muted/40 py-0.5"
             >
               <ChevronRight
                 size={14}
@@ -734,11 +734,11 @@ export function FormSection({
                   expanded && 'rotate-90',
                 )}
               />
-              <legend className="text-sm font-display font-semibold text-foreground tracking-tight">
+              <legend className="text-sm font-display font-semibold text-foreground tracking-tight truncate">
                 {title}
               </legend>
             </button>
-            {headerExtra && <span className="ml-auto px-1">{headerExtra}</span>}
+            {headerExtra && <span className="ml-auto shrink-0">{headerExtra}</span>}
           </div>
         ) : (
           <div className="flex items-center gap-2 pb-2 border-b border-border/30">

@@ -483,31 +483,24 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
       )}
 
       {showForm && (
-        <div className="border border-border/60 rounded-lg bg-card p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <PhoneCountryCombobox
-              value={countryCode}
-              onChange={setCountryCode}
-            />
-            <input
-              type="tel"
-              className={`${panelInputClass} flex-1`}
-              placeholder="6 12 34 56 78"
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
-              autoFocus
-            />
-          </div>
-          <select className="gl-form-select text-xs" value={label} onChange={(e) => setLabel(e.target.value)}>
+        <div className="border border-border/60 rounded-lg bg-card p-2 flex items-center gap-2 flex-wrap">
+          <PhoneCountryCombobox value={countryCode} onChange={setCountryCode} />
+          <input
+            type="tel"
+            className={`${panelInputClass} flex-1 min-w-[140px]`}
+            placeholder="6 12 34 56 78"
+            value={number}
+            onChange={(e) => setNumber(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+            autoFocus
+          />
+          <select className="gl-form-select text-xs w-[110px]" value={label} onChange={(e) => setLabel(e.target.value)}>
             {PHONE_LABELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
           </select>
-          <div className="flex items-center justify-end gap-2">
-            <button onClick={() => { setShowForm(false); setNumber('') }} className="gl-button-sm gl-button-default">Annuler</button>
-            <button onClick={handleCreate} disabled={!number.trim() || createPhone.isPending} className="gl-button-sm gl-button-confirm">
-              {createPhone.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
-            </button>
-          </div>
+          <button onClick={() => { setShowForm(false); setNumber('') }} className="gl-button-sm gl-button-default">Annuler</button>
+          <button onClick={handleCreate} disabled={!number.trim() || createPhone.isPending} className="gl-button-sm gl-button-confirm">
+            {createPhone.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
+          </button>
         </div>
       )}
     </div>

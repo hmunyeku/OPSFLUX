@@ -122,6 +122,11 @@ async def create_tier(
     # ── Auto-generate code server-side (client never provides it) ──
     payload = body.model_dump()
     payload["code"] = await generate_reference("TIR", db, entity_id=entity_id)
+    # Default the tier's currency to the entity's currency (not the literal
+    # "XAF" baked into the schema). Each tier can override its own.
+    if not payload.get("currency"):
+        from app.services.core.currency_service import get_entity_currency
+        payload["currency"] = await get_entity_currency(db, entity_id)
 
     tier = Tier(entity_id=entity_id, **payload)
     db.add(tier)

@@ -480,3 +480,112 @@ async def delete_imputation_assignment(
     await db.delete(obj)
     await db.commit()
     return None
+
+
+# ─── Currency Rates (historical exchange rates) ─────────────────────────────
+
+from datetime import date as _date
+from pydantic import BaseModel, Field
+from app.models.common import CurrencyRate
+from app.services.core.currency_service import convert as _convert_currency, RateNotFoundError
+
+
+class CurrencyRateCreate(BaseModel):
+    from_currency: str = Field(..., min_length=3, max_length=10)
+    to_currency: str = Field(..., min_length=3, max_length=10)
+    rate: float = Field(..., gt=0)
+    effective_date: _date
+    source: str | None = None
+    notes: str | None = None
+
+
+class CurrencyRateRead(BaseModel):
+    id: UUID
+    entity_id: UUID
+    from_currency: str
+    to_currency: str
+    rate: float
+    effective_date: _date
+    source: str | None
+    notes: str | None
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/currency-rates", response_model=list[CurrencyRateRead])
+async def list_currency_rates(
+    from_currency: str | None = None,
+    to_currency: str | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("imputation.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(CurrencyRate).where(CurrencyRate.entity_id == entity_id)
+    if from_currency:
+        query = query.where(CurrencyRate.from_currency == from_currency)
+    if to_currency:
+        query = query.where(CurrencyRate.to_currency == to_currency)
+    query = query.order_by(CurrencyRate.effective_date.desc())
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+
+@router.post("/currency-rates", response_model=CurrencyRateRead, status_code=201)
+async def create_currency_rate(
+    body: CurrencyRateCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("imputation.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    obj = CurrencyRate(entity_id=entity_id, **body.model_dump())
+    db.add(obj)
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=f"Rate already exists for that date: {e}")
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/currency-rates/{rate_id}", status_code=204)
+async def delete_currency_rate(
+    rate_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("imputation.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    obj = await db.scalar(
+        select(CurrencyRate).where(
+            CurrencyRate.id == rate_id, CurrencyRate.entity_id == entity_id
+        )
+    )
+    if obj is None:
+        raise HTTPException(status_code=404, detail="Currency rate not found")
+    await db.delete(obj)
+    await db.commit()
+    return None
+
+
+@router.get("/currency-rates/convert")
+async def convert_currency(
+    amount: float,
+    from_currency: str,
+    to_currency: str,
+    on_date: _date,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("imputation.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Convert amount using the historical rate at on_date."""
+    try:
+        converted = await _convert_currency(db, entity_id, amount, from_currency, to_currency, on_date)
+    except RateNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {
+        "amount": amount,
+        "from_currency": from_currency,
+        "to_currency": to_currency,
+        "on_date": on_date.isoformat(),
+        "converted": converted,
+    }

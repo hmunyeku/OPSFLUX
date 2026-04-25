@@ -210,6 +210,34 @@ class ImputationAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     imputation_reference: Mapped["ImputationReference"] = relationship(foreign_keys=[imputation_reference_id])
 
 
+# ─── Currency Rates (historical) ─────────────────────────────────────────────
+#
+# Per-entity historical exchange rates. Stored on the imputations module by
+# design: financial conversions need to be reproducible at a given date
+# (cost rebill, accruals, intercompany invoices, etc.) so we keep every
+# rate ever applied and look up by `effective_date <= operation_date`.
+#
+# Rates are stored as `1 unit of from_currency = rate * to_currency`.
+# Conversion lookup picks the most recent rate with effective_date ≤ on_date.
+
+class CurrencyRate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "currency_rates"
+    __table_args__ = (
+        Index("idx_currency_rate_lookup", "entity_id", "from_currency", "to_currency", "effective_date"),
+        Index("uq_currency_rate_unique", "entity_id", "from_currency", "to_currency", "effective_date", unique=True),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    from_currency: Mapped[str] = mapped_column(String(10), nullable=False)
+    to_currency: Mapped[str] = mapped_column(String(10), nullable=False)
+    rate: Mapped[float] = mapped_column(Float, nullable=False)
+    effective_date: Mapped[date] = mapped_column(Date, nullable=False)
+    source: Mapped[str | None] = mapped_column(String(50))  # e.g. "ECB", "manual", "BCEAO"
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
 # ─── Users ───────────────────────────────────────────────────────────────────
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):

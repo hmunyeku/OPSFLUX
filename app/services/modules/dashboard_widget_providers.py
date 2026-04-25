@@ -1040,10 +1040,13 @@ async def provider_conformite_kpis(
     user: Any, db: AsyncSession,
 ) -> dict:
     """Conformité KPIs: total, valid, expired, pending, rate."""
+    # NOTE: column is `status` (string: valid/expired/pending/rejected), not
+    # `is_compliant` (which doesn't exist). Earlier version made the whole
+    # query throw and the widget silently returned 0 (cf E2E bug #10).
     r = await db.execute(text("""
         SELECT
             COUNT(*) AS total,
-            COUNT(*) FILTER (WHERE is_compliant = TRUE AND (expires_at IS NULL OR expires_at > NOW())) AS valid,
+            COUNT(*) FILTER (WHERE status = 'valid' AND (expires_at IS NULL OR expires_at > NOW())) AS valid,
             COUNT(*) FILTER (WHERE expires_at < NOW()) AS expired,
             COUNT(*) FILTER (WHERE status = 'pending') AS pending,
             COUNT(*) FILTER (WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '30 days') AS expiring_soon
@@ -1095,13 +1098,16 @@ async def provider_tiers_overview(
     user: Any, db: AsyncSession,
 ) -> dict:
     """Tiers KPIs: total companies, by type, contacts count."""
+    # NOTE: column is `active` (boolean), not `status`. Earlier version
+    # filtered on a non-existent `status` column which made the whole
+    # query throw and the widget silently returned 0 (cf E2E bug #3).
     r = await db.execute(text("""
         SELECT
             COUNT(*) AS total,
             COUNT(*) FILTER (WHERE type = 'client') AS clients,
             COUNT(*) FILTER (WHERE type = 'supplier') AS suppliers,
             COUNT(*) FILTER (WHERE type = 'subcontractor') AS subcontractors,
-            COUNT(*) FILTER (WHERE status = 'active') AS active
+            COUNT(*) FILTER (WHERE active = TRUE) AS active
         FROM tiers WHERE entity_id = :eid AND archived = FALSE
     """), {"eid": str(entity_id)})
     row = r.mappings().first() or {}
@@ -1137,8 +1143,13 @@ async def provider_tiers_recent(
     user: Any, db: AsyncSession,
 ) -> dict:
     """Recently created/modified tiers."""
+    # NOTE: column is `active` (boolean), not `status`. Same root cause as
+    # provider_tiers_overview — bad column name made the whole query throw
+    # and the widget silently returned an empty list (cf E2E bug #4).
     r = await db.execute(text("""
-        SELECT code, name, type, status, created_at
+        SELECT code, name, type,
+               CASE WHEN active THEN 'Actif' ELSE 'Inactif' END AS status,
+               created_at
         FROM tiers WHERE entity_id = :eid AND archived = FALSE
         ORDER BY updated_at DESC NULLS LAST LIMIT 10
     """), {"eid": str(entity_id)})
@@ -2109,10 +2120,13 @@ async def provider_workflow_by_definition(
     user: Any, db: AsyncSession,
 ) -> dict:
     """Chart: workflow instances by definition name."""
+    # NOTE: FK column is `workflow_definition_id`, not `definition_id`.
+    # Earlier version made the JOIN throw and the widget silently
+    # returned empty (cf E2E bug #24).
     r = await db.execute(text("""
         SELECT wd.name AS name, COUNT(*) AS value
         FROM workflow_instances wi
-        JOIN workflow_definitions wd ON wd.id = wi.definition_id
+        JOIN workflow_definitions wd ON wd.id = wi.workflow_definition_id
         WHERE wi.entity_id = :eid
         GROUP BY wd.name ORDER BY value DESC
     """), {"eid": str(entity_id)})
@@ -2124,11 +2138,15 @@ async def provider_workflow_pending(
     user: Any, db: AsyncSession,
 ) -> dict:
     """Table: pending workflow instances awaiting action."""
+    # NOTE: FK column is `workflow_definition_id`, not `definition_id`.
+    # Also, the actual reference column in workflow_instances is
+    # `entity_id_ref` (the linked record id) — `wi.entity_id` is the
+    # tenant scope, not the ref. (cf E2E bug #24.)
     r = await db.execute(text("""
         SELECT wd.name AS definition, wi.current_state AS state,
-               wi.created_at, wi.entity_type, wi.entity_id AS ref_id
+               wi.created_at, wi.entity_type, wi.entity_id_ref AS ref_id
         FROM workflow_instances wi
-        JOIN workflow_definitions wd ON wd.id = wi.definition_id
+        JOIN workflow_definitions wd ON wd.id = wi.workflow_definition_id
         WHERE wi.entity_id = :eid
             AND wi.current_state NOT IN ('completed', 'cancelled', 'rejected')
         ORDER BY wi.created_at DESC LIMIT 15

@@ -402,7 +402,9 @@ class TierRead(OpsFluxSchema):
     tax_id: str | None = None
     vat_number: str | None = None
     capital: float | None = None
-    currency: str = "XAF"
+    # Currency: optional — backend defaults to entity.currency on create.
+    # Each tier can override its own currency.
+    currency: str | None = None
     fiscal_year_start: int = 1
     industry: str | None = None
     founded_date: date | None = None
@@ -446,7 +448,8 @@ class TierCreate(BaseModel):
     tax_id: str | None = None
     vat_number: str | None = None
     capital: float | None = None
-    currency: str = "XAF"
+    # Currency: optional — backend defaults to entity.currency on create.
+    currency: str | None = None
     fiscal_year_start: int = 1
     industry: str | None = None
     founded_date: date | None = None
@@ -1679,7 +1682,9 @@ class ProjectCreate(BaseModel):
     start_date: datetime | None = None
     end_date: datetime | None = None
     budget: float | None = None
-    currency: str = "XAF"
+    # Currency: optional on create — backend defaults to entity.currency
+    # if not provided. Each project can override its own currency.
+    currency: str | None = None
     manager_id: UUID | None = None
     parent_id: UUID | None = None
     tier_id: UUID | None = None

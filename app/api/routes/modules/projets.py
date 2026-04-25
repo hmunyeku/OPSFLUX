@@ -526,6 +526,11 @@ async def create_project(
     payload = body.model_dump()
     if not payload.get("code"):
         payload["code"] = await generate_reference("PRJ", db, entity_id=entity_id)
+    # Default the project's currency to the entity's currency (not the literal
+    # "XAF" baked into the schema). The user can still override it per-project.
+    if not payload.get("currency"):
+        from app.services.core.currency_service import get_entity_currency
+        payload["currency"] = await get_entity_currency(db, entity_id)
     project = Project(entity_id=entity_id, **payload)
     db.add(project)
     await db.commit()

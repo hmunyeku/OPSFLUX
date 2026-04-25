@@ -6,6 +6,7 @@
  * Mobile-first design with large touch-friendly buttons.
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Ship, Users, Package, Loader2, LogIn, MapPin,
   Clock, CheckSquare, Send, CloudSun, ArrowRight,
@@ -56,6 +57,7 @@ function formatDateTime(d: string | null | undefined) {
 // ── Login Screen ─────────────────────────────────────────────
 
 function CaptainLogin({ onLogin }: { onLogin: (voyageId: string, captainName: string) => void }) {
+  const { t } = useTranslation()
   const [code, setCode] = useState('')
   const auth = useAuthenticateCaptain()
   const [error, setError] = useState('')
@@ -80,7 +82,7 @@ function CaptainLogin({ onLogin }: { onLogin: (voyageId: string, captainName: st
             <Ship size={32} className="text-primary" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Portail Capitaine</h1>
-          <p className="text-sm text-muted-foreground">Entrez votre code d'accès à 6 chiffres</p>
+          <p className="text-sm text-muted-foreground">{t('travelwiz.entrez_votre_code_d_acces_a_6_chiffres')}</p>
         </div>
 
         {/* Code input */}
@@ -124,6 +126,7 @@ function CaptainLogin({ onLogin }: { onLogin: (voyageId: string, captainName: st
 // ── Main Portal ──────────────────────────────────────────────
 
 function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captainName: string }) {
+  const { t } = useTranslation()
   const { data: manifest, isLoading } = useCaptainManifest(voyageId)
   const recordEvent = useCaptainRecordEvent()
   const reportWeather = useCaptainReportWeather()
@@ -264,7 +267,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
         {activeSection === 'pax' && (
           <div className="bg-card border border-border rounded-xl p-3 space-y-1">
             {passengers.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Aucun passager</p>
+              <p className="text-xs text-muted-foreground text-center py-4">{t('paxlog.no_passenger')}</p>
             ) : (
               passengers.map((pax) => (
                 <label key={pax.id} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-muted/50 cursor-pointer">
@@ -290,7 +293,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
         {activeSection === 'cargo' && (
           <div className="bg-card border border-border rounded-xl p-3 space-y-1">
             {cargoItems.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Aucun colis</p>
+              <p className="text-xs text-muted-foreground text-center py-4">{t('paxlog.no_cargo')}</p>
             ) : (
               cargoItems.map((item) => (
                 <label key={item.id} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-muted/50 cursor-pointer">
@@ -317,7 +320,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
           </div>
         )}
 
-        <SectionButton id="event" label="Journal de bord" icon={Send} />
+        <SectionButton id="event" label={t('travelwiz.journal_de_bord')} icon={Send} />
         {activeSection === 'event' && (
           <div className="bg-card border border-border rounded-xl p-4 space-y-3">
             <select
@@ -345,12 +348,12 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
               Enregistrer l'événement
             </button>
             {recordEvent.isSuccess && (
-              <p className="text-xs text-green-600 text-center">Événement enregistré</p>
+              <p className="text-xs text-green-600 text-center">{t('travelwiz.evenement_enregistre')}</p>
             )}
           </div>
         )}
 
-        <SectionButton id="weather" label="Rapport météo" icon={CloudSun} />
+        <SectionButton id="weather" label={t('travelwiz.rapport_meteo')} icon={CloudSun} />
         {activeSection === 'weather' && (
           <div className="bg-card border border-border rounded-xl p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -377,7 +380,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground block mb-1">État de mer</label>
+                <label className="text-xs text-muted-foreground block mb-1">{t('travelwiz.etat_de_mer')}</label>
                 <select
                   value={weatherForm.sea_state ?? ''}
                   onChange={(e) => setWeatherForm({ ...weatherForm, sea_state: e.target.value || null })}
@@ -418,7 +421,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
               Envoyer rapport météo
             </button>
             {reportWeather.isSuccess && (
-              <p className="text-xs text-green-600 text-center">Rapport envoyé</p>
+              <p className="text-xs text-green-600 text-center">{t('travelwiz.rapport_envoye')}</p>
             )}
           </div>
         )}

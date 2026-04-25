@@ -4,7 +4,11 @@
 import api from '@/lib/api'
 import type {
   Project, ProjectCreate, ProjectUpdate,
-  ProjectMember, ProjectMemberCreate,
+  ProjectMember, ProjectMemberCreate, ProjectMemberUpdate,
+  ProjectTimeEntry, ProjectTimeEntryCreate, ProjectTimeEntryUpdate, ProjectTimeSummary,
+  ProjectTaskAllocation, ProjectTaskAllocationCreate, ProjectTaskAllocationUpdate, AllocationMatrix,
+  ProjectTaskLoss, ProjectTaskLossCreate, ProjectTaskLossUpdate,
+  ProjectReport,
   ProjectTask, ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskEnriched,
   ProjectMilestone, ProjectMilestoneCreate, ProjectMilestoneUpdate,
   PlanningRevision, PlanningRevisionCreate, PlanningRevisionUpdate,
@@ -196,8 +200,109 @@ export const projetsService = {
     return data
   },
 
+  updateMember: async (projectId: string, memberId: string, payload: ProjectMemberUpdate): Promise<ProjectMember> => {
+    const { data } = await api.patch(`/api/v1/projects/${projectId}/members/${memberId}`, payload)
+    return data
+  },
+
   removeMember: async (projectId: string, memberId: string): Promise<void> => {
     await api.delete(`/api/v1/projects/${projectId}/members/${memberId}`)
+  },
+
+  // ── Time entries (pointage) ──
+  listTimeEntries: async (
+    projectId: string,
+    params: { member_id?: string; task_id?: string; status?: string; date_from?: string; date_to?: string } = {},
+  ): Promise<ProjectTimeEntry[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/time-entries`, { params })
+    return data
+  },
+
+  createTimeEntry: async (projectId: string, payload: ProjectTimeEntryCreate): Promise<ProjectTimeEntry> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/time-entries`, payload)
+    return data
+  },
+
+  updateTimeEntry: async (projectId: string, entryId: string, payload: ProjectTimeEntryUpdate): Promise<ProjectTimeEntry> => {
+    const { data } = await api.patch(`/api/v1/projects/${projectId}/time-entries/${entryId}`, payload)
+    return data
+  },
+
+  submitTimeEntry: async (projectId: string, entryId: string): Promise<ProjectTimeEntry> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/time-entries/${entryId}/submit`)
+    return data
+  },
+
+  approveTimeEntry: async (projectId: string, entryId: string): Promise<ProjectTimeEntry> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/time-entries/${entryId}/approve`)
+    return data
+  },
+
+  rejectTimeEntry: async (projectId: string, entryId: string, reason: string): Promise<ProjectTimeEntry> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/time-entries/${entryId}/reject`, { reason })
+    return data
+  },
+
+  deleteTimeEntry: async (projectId: string, entryId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/time-entries/${entryId}`)
+  },
+
+  getTimeSummary: async (
+    projectId: string,
+    params: { date_from?: string; date_to?: string } = {},
+  ): Promise<ProjectTimeSummary> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/time-summary`, { params })
+    return data
+  },
+
+  // ── Task allocations ──
+  listAllocations: async (
+    projectId: string,
+    params: { task_id?: string; member_id?: string } = {},
+  ): Promise<ProjectTaskAllocation[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/allocations`, { params })
+    return data
+  },
+  createAllocation: async (projectId: string, payload: ProjectTaskAllocationCreate): Promise<ProjectTaskAllocation> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/allocations`, payload)
+    return data
+  },
+  updateAllocation: async (projectId: string, allocId: string, payload: ProjectTaskAllocationUpdate): Promise<ProjectTaskAllocation> => {
+    const { data } = await api.patch(`/api/v1/projects/${projectId}/allocations/${allocId}`, payload)
+    return data
+  },
+  deleteAllocation: async (projectId: string, allocId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/allocations/${allocId}`)
+  },
+  getAllocationMatrix: async (projectId: string): Promise<AllocationMatrix> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/allocation-matrix`)
+    return data
+  },
+
+  // ── Task losses (pertes) ──
+  listLosses: async (
+    projectId: string,
+    params: { task_id?: string; category?: string; date_from?: string; date_to?: string } = {},
+  ): Promise<ProjectTaskLoss[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/losses`, { params })
+    return data
+  },
+  createLoss: async (projectId: string, payload: ProjectTaskLossCreate): Promise<ProjectTaskLoss> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/losses`, payload)
+    return data
+  },
+  updateLoss: async (projectId: string, lossId: string, payload: ProjectTaskLossUpdate): Promise<ProjectTaskLoss> => {
+    const { data } = await api.patch(`/api/v1/projects/${projectId}/losses/${lossId}`, payload)
+    return data
+  },
+  deleteLoss: async (projectId: string, lossId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/losses/${lossId}`)
+  },
+
+  // ── Report ──
+  getReport: async (projectId: string): Promise<ProjectReport> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/report`)
+    return data
   },
 
   // ── Tasks ──

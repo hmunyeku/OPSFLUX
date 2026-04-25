@@ -51,31 +51,22 @@ export function PreferencesTab() {
 
   return (
     <>
-      {/* Ordre: les préférences les plus consultées en premier. */}
-      <CollapsibleSection id="language-pref" title="Langue" description="Définissez la langue de l'interface utilisateur." storageKey="settings.preferences.collapse">
-        <div className="mt-2">
-          <label className="gl-label">Langue préférée</label>
-          <div className="flex items-center gap-2 mt-2">
-            {[
-              { value: 'fr', label: 'Français' },
-              { value: 'en', label: 'English' },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => handleLanguageChange(opt.value)}
-                disabled={updateProfile.isPending}
-                className={i18n.language === opt.value ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
-              >
-                {opt.label}
-              </button>
-            ))}
-            {updateProfile.isPending && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            L'interface sera affichée dans cette langue.
-          </p>
-        </div>
+      <CollapsibleSection
+        id="ui-scale"
+        title={t('settings.ui_scale')}
+        description={t('settings.ui_scale_description')}
+        storageKey="settings.preferences.collapse"
+      >
+        <UIScaleSection />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        id="datatable"
+        title={t('settings.tableaux_de_donnees')}
+        description={t('settings.nombre_de_lignes_par_page_dans_les_table')}
+        storageKey="settings.preferences.collapse"
+      >
+        <PageSizeSection />
       </CollapsibleSection>
 
       <CollapsibleSection id="theme" title="Mode" description="Choisissez un mode d'affichage." storageKey="settings.preferences.collapse">
@@ -116,12 +107,42 @@ export function PreferencesTab() {
 
       <CollapsibleSection
         id="messaging-channel"
-        title="Canal de messagerie"
-        description="Choisissez comment recevoir les notifications, codes de vérification et alertes."
+        title={t('settings.canal_de_messagerie')}
+        description={t('settings.choisissez_comment_recevoir_les_notifica')}
         storageKey="settings.preferences.collapse"
         showSeparator={false}
       >
         <MessagingChannelSection />
+      </CollapsibleSection>
+
+      <CollapsibleSection id="language-pref" title="Langue" description="Définissez la langue de l'interface utilisateur." storageKey="settings.preferences.collapse" showSeparator={false}>
+        <div className="mt-2">
+          <label className="gl-label">{t('settings.langue_preferee')}</label>
+          <div className="flex items-center gap-2 mt-2">
+            {[
+              { value: 'fr', label: 'Français' },
+              { value: 'en', label: 'English' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => handleLanguageChange(opt.value)}
+                disabled={updateProfile.isPending}
+                className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                  i18n.language === opt.value
+                    ? 'bg-primary/10 border-primary/40 text-primary shadow-sm'
+                    : 'bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            {updateProfile.isPending && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            L'interface sera affichée dans cette langue.
+          </p>
+        </div>
       </CollapsibleSection>
     </>
   )
@@ -199,7 +220,7 @@ function PageSizeSection() {
             <button
               type="button"
               onClick={() => setShowCustom(true)}
-              className="gl-button-sm gl-button-default"
+              className="gl-button gl-button-default border-dashed"
             >
               Autre...
             </button>
@@ -299,7 +320,7 @@ function UIScaleSection() {
         <button
           type="button"
           onClick={handleReset}
-          className="gl-button-sm gl-button-default"
+          className="gl-button gl-button-default"
         >
           {t('settings.ui_scale_reset')} ({DEFAULT_SCALE}%)
         </button>

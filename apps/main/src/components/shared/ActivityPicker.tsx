@@ -7,7 +7,6 @@
  * - Shows title, type badge, status badge, asset name, dates
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { safeLocal } from '@/lib/safeStorage'
 import { useTranslation } from 'react-i18next'
 import { Search, Loader2, X, Clock, Star, ChevronDown, ListTodo, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'

@@ -127,7 +127,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                 key={ce.id}
                 className="flex items-center gap-2 text-sm group"
                 onDoubleClick={() => setEditingId(ce.id)}
-                title={t('common.double_click_to_edit', 'Double-cliquez pour modifier') as string}
+                title={t('projets.double_cliquez_pour_modifier')}
               >
                 <Mail size={12} className="text-muted-foreground shrink-0" />
                 <span className="text-[10px] font-medium text-muted-foreground uppercase w-16 shrink-0">
@@ -147,11 +147,11 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                   <button
                     onClick={(e) => { e.stopPropagation(); sendVerification.mutate(ce.id, { onSuccess: () => toast({ title: 'Email de vérification envoyé', variant: 'success' }), onError: () => toast({ title: 'Erreur d\'envoi', variant: 'error' }) }) }}
                     className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 shrink-0"
-                    title="Envoyer un email de vérification"
+                    title={t('shared.envoyer_un_email_de_verification')}
                     disabled={sendVerification.isPending}
                   >
                     {sendVerification.isPending ? <Loader2 size={9} className="animate-spin" /> : <Send size={9} />}
-                    <span>{t('common.verify')}</span>
+                    <span>{t('auth.mfa_verify')}</span>
                   </button>
                 )}
                 <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -159,7 +159,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                     <button
                       onClick={() => handleSetDefault(ce.id)}
                       className="p-0.5 rounded hover:bg-accent text-muted-foreground"
-                      title={t('common.set_default', 'Définir par défaut') as string}
+                      title={t('shared.definir_par_defaut')}
                     >
                       <Star size={10} />
                     </button>
@@ -186,7 +186,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
       )}
 
       {!isLoading && !showForm && emails.length === 0 && !compact && (
-        <EmptyState icon={Mail} title="Aucun email" description="Aucun email de contact." size="compact" />
+        <EmptyState icon={Mail} title={t('shared.emails.empty')} description={t('shared.emails.empty_description')} size="compact" />
       )}
 
       {!showForm && (

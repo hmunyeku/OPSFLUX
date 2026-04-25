@@ -86,7 +86,7 @@ export function CreateArticlePanel() {
                   placeholder="Description de l'article"
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Type de gestion">
+              <DynamicPanelField label={t('packlog.type_de_gestion')}>
                 <input
                   type="text"
                   value={form.management_type ?? ''}
@@ -184,7 +184,7 @@ export function PackLogArticleDetailPanel({ id }: { id: string }) {
               <p className="mt-1 text-sm text-foreground">{article.packaging ?? '—'}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.unit')}</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('planner.unite')}</p>
               <p className="mt-1 text-sm text-foreground">{article.unit ?? '—'}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">

@@ -1,7 +1,7 @@
 """Projets (project management) module routes — projects, tasks, members, milestones,
 planning revisions, deliverables, actions, change logs."""
 
-from datetime import datetime, timezone
+from datetime import date as date_type, datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,6 +21,7 @@ from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.common import (
     AuditLog,
     Project, ProjectMember, ProjectTask, ProjectMilestone,
+    ProjectTaskAllocation, ProjectTaskLoss, ProjectTimeEntry,
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
     ProjectTaskDependency, ProjectWBSNode, CostCenter,
     ProjectTaskAssignee, ProjectComment, ProjectStatusHistory,
@@ -30,7 +31,10 @@ from app.models.asset_registry import Installation
 from app.schemas.common import (
     PaginatedResponse,
     ProjectCreate, ProjectRead, ProjectUpdate,
-    ProjectMemberCreate, ProjectMemberRead,
+    ProjectMemberCreate, ProjectMemberRead, ProjectMemberUpdate,
+    ProjectTaskAllocationCreate, ProjectTaskAllocationRead, ProjectTaskAllocationUpdate,
+    ProjectTaskLossCreate, ProjectTaskLossRead, ProjectTaskLossUpdate,
+    ProjectTimeEntryCreate, ProjectTimeEntryRead, ProjectTimeEntryUpdate, ProjectTimeEntryReject,
     ProjectTaskCreate, ProjectTaskRead, ProjectTaskUpdate, ProjectTaskEnriched,
     ProjectMilestoneCreate, ProjectMilestoneRead, ProjectMilestoneUpdate,
     PlanningRevisionCreate, PlanningRevisionRead, PlanningRevisionUpdate,
@@ -45,7 +49,6 @@ from app.schemas.common import (
     ProjectStatusHistoryRead,
 )
 from app.services.cpm_service import compute_cpm
-from app.core.errors import StructuredHTTPException
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"], dependencies=[require_module_enabled("projets")])
 PROJECT_WORKFLOW_SLUG = "project"
@@ -234,21 +237,6 @@ async def _update_project_progress(db: AsyncSession, project_id: UUID) -> None:
     elif any(s in ("in_progress", "review") for s in statuses) and project.status in ("draft", "planned"):
         project.status = "active"
 
-    # ── Mirror project progress/status onto the linked MOC (if any) ──
-    # When the project was spawned from a MOC via promote-to-project, the
-    # MOC's execution phase mirrors the project: progress = project.progress,
-    # and the MOC auto-advances executed_docs_pending → closed when the
-    # project reaches `completed`. Kept fire-and-forget: MOC sync failures
-    # must not rollback the project progress computation.
-    try:
-        from app.services.modules.moc_sync import sync_moc_from_project
-        await sync_moc_from_project(db, project)
-    except Exception:  # noqa: BLE001 — defensive, failures only logged
-        import logging as _log
-        _log.getLogger(__name__).exception(
-            "MOC sync failed for project %s", project.id,
-        )
-
 
 async def _rollup_parent_dates(db: AsyncSession, task: ProjectTask) -> None:
     """Recursively update parent task dates from children's min(start)/max(end).
@@ -336,11 +324,7 @@ async def _get_project_or_404(db: AsyncSession, project_id: UUID, entity_id: UUI
     )
     project = result.scalars().first()
     if not project:
-        raise StructuredHTTPException(
-            404,
-            code="PROJECT_NOT_FOUND",
-            message="Project not found",
-        )
+        raise HTTPException(404, "Project not found")
     return project
 
 
@@ -540,88 +524,26 @@ async def list_projects(
 async def create_project(
     body: ProjectCreate,
     entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.create"),
     db: AsyncSession = Depends(get_db),
 ):
     payload = body.model_dump()
-    # staging_ref is not a column on the Project model — pop it out before
-    # constructing the ORM row, then use it to commit staged children.
-    staging_ref = payload.pop("staging_ref", None)
-    initial_tasks = payload.pop("initial_tasks", []) or []
     if not payload.get("code"):
         payload["code"] = await generate_reference("PRJ", db, entity_id=entity_id)
+    # Default the project's currency to the entity's currency (not the literal
+    # "XAF" baked into the schema). The user can still override it per-project.
+    if not payload.get("currency"):
+        from app.services.core.currency_service import get_entity_currency
+        payload["currency"] = await get_entity_currency(db, entity_id)
     project = Project(entity_id=entity_id, **payload)
     db.add(project)
-    await db.flush()
-
-    # Seed initial tasks (FK-linked). We preserve the order the user
-    # supplied via the ProjectTask.order column so the detail view shows
-    # them in the same sequence. We also keep a list of the created task
-    # rows (in submission order) so the next loop can wire up the
-    # predecessor_index dependencies by position.
-    seeded_tasks: list[ProjectTask] = []
-    for idx, task in enumerate(initial_tasks):
-        due_date = task.get("due_date")
-        is_milestone = bool(task.get("is_milestone"))
-        # Milestones are zero-duration: force start_date = due_date.
-        # Otherwise honour the start_date the user typed (may be None).
-        start_date = due_date if is_milestone else task.get("start_date")
-        row = ProjectTask(
-            project_id=project.id,
-            title=task["title"],
-            priority=task.get("priority") or "medium",
-            due_date=due_date,
-            start_date=start_date,
-            estimated_hours=task.get("estimated_hours"),
-            status="todo",
-            order=idx,
-        )
-        db.add(row)
-        seeded_tasks.append(row)
-
-    # Flush so the ORM assigns IDs before we build ProjectTaskDependency
-    # rows that reference them.
-    if seeded_tasks:
-        await db.flush()
-
-    # Wire predecessor dependencies — each task can point at a previous
-    # one by its 0-based index in the same initial_tasks array. We
-    # skip self-references and forward refs (pred must be < idx).
-    for idx, task in enumerate(initial_tasks):
-        pred_idx = task.get("predecessor_index")
-        if pred_idx is None:
-            continue
-        if not isinstance(pred_idx, int) or pred_idx < 0 or pred_idx >= idx:
-            continue  # silent skip: invalid user input
-        db.add(ProjectTaskDependency(
-            from_task_id=seeded_tasks[pred_idx].id,
-            to_task_id=seeded_tasks[idx].id,
-            dependency_type=task.get("dependency_type") or "finish_to_start",
-            lag_days=int(task.get("lag_days") or 0),
-        ))
-
-    # Re-target any polymorphic children (attachments, notes, tags, ...)
-    # uploaded during the Create panel session to this new project.
-    if staging_ref:
-        from app.services.core.staging_service import commit_staging_children
-        await commit_staging_children(
-            db,
-            staging_owner_type="project_staging",
-            final_owner_type="project",
-            staging_ref=staging_ref,
-            final_owner_id=project.id,
-            uploader_id=current_user.id,
-            entity_id=entity_id,
-        )
-
     await db.commit()
     await db.refresh(project)
     d = {c.key: getattr(project, c.key) for c in project.__table__.columns}
     d["manager_name"] = None
     d["tier_name"] = None
     d["parent_name"] = None
-    d["task_count"] = len(initial_tasks)
+    d["task_count"] = 0
     d["member_count"] = 0
     d["children_count"] = 0
     return d
@@ -759,11 +681,7 @@ async def update_project(
 
     # Guard: project code is immutable after creation (CDC §2.3)
     if "code" in update_data and update_data["code"] != project.code:
-        raise StructuredHTTPException(
-            400,
-            code="LE_CODE_DU_PROJET_EST_IMMUTABLE",
-            message="Le code du projet est immutable après création.",
-        )
+        raise HTTPException(400, "Le code du projet est immutable après création.")
 
     # ── §9 CDC: Status transition validation by project role ──────────
     # Each status transition requires a specific project-level role.
@@ -802,15 +720,10 @@ async def update_project(
         is_authorized = await _check_project_member_role(db, project_id, current_user.id, required)
         if not is_authorized:
             role_labels = ", ".join(required)
-            raise StructuredHTTPException(
+            raise HTTPException(
                 403,
-                code="TRANSITION_REQUIERT_LE_R_LE_PROJET",
-                message="Transition {old_status} → {new_status} requiert le rôle projet : {role_labels}. Contactez le chef de projet.",
-                params={
-                    "old_status": old_status,
-                    "new_status": new_status,
-                    "role_labels": role_labels,
-                },
+                f"Transition {old_status} → {new_status} requiert le rôle projet : {role_labels}. "
+                f"Contactez le chef de projet.",
             )
 
         try:
@@ -985,13 +898,53 @@ async def add_project_member(
     _: None = require_permission("project.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_project_or_404(db, project_id, entity_id)
-    member = ProjectMember(project_id=project_id, **body.model_dump())
+    project = await _get_project_or_404(db, project_id, entity_id)
+    if not body.user_id and not body.contact_id:
+        raise HTTPException(status_code=422, detail="Either user_id or contact_id is required")
+    if body.user_id and body.contact_id:
+        raise HTTPException(status_code=422, detail="Provide user_id OR contact_id, not both")
+    payload = body.model_dump()
+    # Default member's currency to the project's currency if not provided.
+    if not payload.get("currency"):
+        payload["currency"] = project.currency
+    member = ProjectMember(project_id=project_id, **payload)
     db.add(member)
     await db.commit()
     await db.refresh(member)
     d = {c.key: getattr(member, c.key) for c in member.__table__.columns}
     d["member_name"] = None
+    if member.user_id:
+        u = await db.get(User, member.user_id)
+        if u:
+            d["member_name"] = f"{u.first_name} {u.last_name}"
+    return d
+
+
+@router.patch("/{project_id}/members/{member_id}", response_model=ProjectMemberRead)
+async def update_project_member(
+    project_id: UUID,
+    member_id: UUID,
+    body: ProjectMemberUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    member = await db.scalar(
+        select(ProjectMember).where(ProjectMember.id == member_id, ProjectMember.project_id == project_id)
+    )
+    if not member:
+        raise HTTPException(404, "Member not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(member, key, value)
+    await db.commit()
+    await db.refresh(member)
+    d = {c.key: getattr(member, c.key) for c in member.__table__.columns}
+    d["member_name"] = None
+    if member.user_id:
+        u = await db.get(User, member.user_id)
+        if u:
+            d["member_name"] = f"{u.first_name} {u.last_name}"
     return d
 
 
@@ -1010,14 +963,826 @@ async def remove_project_member(
     )
     member = result.scalars().first()
     if not member:
-        raise StructuredHTTPException(
-            404,
-            code="MEMBER_NOT_FOUND",
-            message="Member not found",
-        )
+        raise HTTPException(404, "Member not found")
     await delete_entity(member, db, "project_member", entity_id=member.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Member removed"}
+
+
+# ── Project Task Allocations (affectation membre × tâche) ─────────────
+#
+# Plan = ProjectTaskAllocation (planned_hours par couple membre/tâche).
+# Réel = ProjectTimeEntry agrégé. La matrice d'allocations est la grille
+# tâches × membres avec planifié, réalisé, écart.
+
+async def _enrich_allocation(db: AsyncSession, alloc: "ProjectTaskAllocation") -> dict:
+    d = {c.key: getattr(alloc, c.key) for c in alloc.__table__.columns}
+    member = await db.get(ProjectMember, alloc.member_id)
+    d["member_name"] = await _get_member_name(db, member) if member else None
+    task = await db.get(ProjectTask, alloc.task_id)
+    d["task_title"] = task.title if task else None
+    # Actual hours = sum of validated time entries for (task, member)
+    actual_q = await db.execute(
+        select(sqla_func.coalesce(sqla_func.sum(ProjectTimeEntry.hours), 0.0)).where(
+            ProjectTimeEntry.task_id == alloc.task_id,
+            ProjectTimeEntry.member_id == alloc.member_id,
+            ProjectTimeEntry.status == "validated",
+        )
+    )
+    d["actual_hours"] = float(actual_q.scalar() or 0)
+    return d
+
+
+@router.get("/{project_id}/allocations", response_model=list[ProjectTaskAllocationRead])
+async def list_project_allocations(
+    project_id: UUID,
+    task_id: UUID | None = None,
+    member_id: UUID | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    query = select(ProjectTaskAllocation).where(ProjectTaskAllocation.project_id == project_id)
+    if task_id:
+        query = query.where(ProjectTaskAllocation.task_id == task_id)
+    if member_id:
+        query = query.where(ProjectTaskAllocation.member_id == member_id)
+    result = await db.execute(query.order_by(ProjectTaskAllocation.created_at))
+    allocs = result.scalars().all()
+    return [await _enrich_allocation(db, a) for a in allocs]
+
+
+@router.post("/{project_id}/allocations", response_model=ProjectTaskAllocationRead, status_code=201)
+async def create_project_allocation(
+    project_id: UUID,
+    body: ProjectTaskAllocationCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    # Verify task belongs to project
+    task = await db.scalar(
+        select(ProjectTask).where(ProjectTask.id == body.task_id, ProjectTask.project_id == project_id)
+    )
+    if not task:
+        raise HTTPException(404, "Task not found in this project")
+    # Verify member belongs to project
+    member = await db.scalar(
+        select(ProjectMember).where(
+            ProjectMember.id == body.member_id, ProjectMember.project_id == project_id
+        )
+    )
+    if not member:
+        raise HTTPException(404, "Member not found in this project")
+    # Reject duplicate (task, member) pair — UNIQUE constraint enforces this
+    existing = await db.scalar(
+        select(ProjectTaskAllocation).where(
+            ProjectTaskAllocation.task_id == body.task_id,
+            ProjectTaskAllocation.member_id == body.member_id,
+        )
+    )
+    if existing:
+        raise HTTPException(409, "This member is already allocated to this task")
+    alloc = ProjectTaskAllocation(entity_id=entity_id, project_id=project_id, **body.model_dump())
+    db.add(alloc)
+    await db.commit()
+    await db.refresh(alloc)
+    return await _enrich_allocation(db, alloc)
+
+
+@router.patch("/{project_id}/allocations/{alloc_id}", response_model=ProjectTaskAllocationRead)
+async def update_project_allocation(
+    project_id: UUID,
+    alloc_id: UUID,
+    body: ProjectTaskAllocationUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    alloc = await db.scalar(
+        select(ProjectTaskAllocation).where(
+            ProjectTaskAllocation.id == alloc_id,
+            ProjectTaskAllocation.project_id == project_id,
+        )
+    )
+    if not alloc:
+        raise HTTPException(404, "Allocation not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(alloc, key, value)
+    await db.commit()
+    await db.refresh(alloc)
+    return await _enrich_allocation(db, alloc)
+
+
+@router.delete("/{project_id}/allocations/{alloc_id}", status_code=204)
+async def delete_project_allocation(
+    project_id: UUID,
+    alloc_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    alloc = await db.scalar(
+        select(ProjectTaskAllocation).where(
+            ProjectTaskAllocation.id == alloc_id,
+            ProjectTaskAllocation.project_id == project_id,
+        )
+    )
+    if not alloc:
+        raise HTTPException(404, "Allocation not found")
+    await db.delete(alloc)
+    await db.commit()
+    return None
+
+
+@router.get("/{project_id}/allocation-matrix")
+async def get_project_allocation_matrix(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Matrice d'affectation: tâches en lignes, membres en colonnes.
+
+    Pour chaque cellule, retourne planned_hours, actual_hours, allocation_pct.
+    Permet l'affichage façon MS Project « Vue Utilisation des tâches ».
+    """
+    await _get_project_or_404(db, project_id, entity_id)
+    # Fetch members + tasks
+    members_q = await db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id, ProjectMember.active == True  # noqa: E712
+        )
+    )
+    members = members_q.scalars().all()
+    tasks_q = await db.execute(
+        select(ProjectTask).where(
+            ProjectTask.project_id == project_id, ProjectTask.active == True  # noqa: E712
+        ).order_by(ProjectTask.order, ProjectTask.created_at)
+    )
+    tasks = tasks_q.scalars().all()
+    # Fetch all allocations + actual hours (validated time entries) in 2 queries
+    allocs_q = await db.execute(
+        select(ProjectTaskAllocation).where(ProjectTaskAllocation.project_id == project_id)
+    )
+    allocs = allocs_q.scalars().all()
+    actual_q = await db.execute(
+        select(
+            ProjectTimeEntry.task_id,
+            ProjectTimeEntry.member_id,
+            sqla_func.sum(ProjectTimeEntry.hours).label("hours"),
+        )
+        .where(
+            ProjectTimeEntry.project_id == project_id,
+            ProjectTimeEntry.status == "validated",
+        )
+        .group_by(ProjectTimeEntry.task_id, ProjectTimeEntry.member_id)
+    )
+    actuals: dict[tuple[str, str], float] = {
+        (str(r.task_id), str(r.member_id)): float(r.hours or 0)
+        for r in actual_q.all()
+    }
+    alloc_map: dict[tuple[str, str], ProjectTaskAllocation] = {
+        (str(a.task_id), str(a.member_id)): a for a in allocs
+    }
+    # Build cells
+    rows = []
+    for t in tasks:
+        row_cells = []
+        row_planned = 0.0
+        row_actual = 0.0
+        for m in members:
+            key = (str(t.id), str(m.id))
+            alloc = alloc_map.get(key)
+            actual = actuals.get(key, 0.0)
+            cell = {
+                "member_id": str(m.id),
+                "allocation_id": str(alloc.id) if alloc else None,
+                "planned_hours": float(alloc.planned_hours) if alloc else 0.0,
+                "allocation_pct": alloc.allocation_pct if alloc else 0,
+                "actual_hours": actual,
+                "variance_hours": (float(alloc.planned_hours) if alloc else 0.0) - actual,
+            }
+            row_planned += cell["planned_hours"]
+            row_actual += actual
+            row_cells.append(cell)
+        rows.append({
+            "task_id": str(t.id),
+            "task_title": t.title,
+            "task_status": t.status,
+            "estimated_hours": float(t.estimated_hours) if t.estimated_hours else None,
+            "actual_hours_total": row_actual,
+            "planned_hours_total": row_planned,
+            "cells": row_cells,
+        })
+    return {
+        "members": [
+            {
+                "member_id": str(m.id),
+                "member_name": (await _get_member_name(db, m)) or "(inconnu)",
+                "specialty": m.specialty,
+                "allocation_pct": m.allocation_pct,
+            }
+            for m in members
+        ],
+        "tasks": rows,
+    }
+
+
+# ── Project Time Entries (pointage) ───────────────────────────────────
+#
+# Workflow: draft → submitted → validated | rejected
+# Once validated, the rate is snapshotted from the member's hourly_rate
+# (or daily_rate / 8) so historical cost stays correct even if the
+# member's rate is updated later.
+
+def _enrich_time_entry(te: "ProjectTimeEntry", member_name: str | None, task_title: str | None) -> dict:
+    d = {c.key: getattr(te, c.key) for c in te.__table__.columns}
+    d["member_name"] = member_name
+    d["task_title"] = task_title
+    d["cost"] = te.hours * te.rate_snapshot if te.rate_snapshot else None
+    return d
+
+
+async def _get_member_name(db: AsyncSession, member: ProjectMember) -> str | None:
+    if member.user_id:
+        u = await db.get(User, member.user_id)
+        return f"{u.first_name} {u.last_name}" if u else None
+    return None
+
+
+@router.get("/{project_id}/time-entries", response_model=list[ProjectTimeEntryRead])
+async def list_project_time_entries(
+    project_id: UUID,
+    member_id: UUID | None = None,
+    task_id: UUID | None = None,
+    status: str | None = None,
+    date_from: date_type | None = None,
+    date_to: date_type | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    query = select(ProjectTimeEntry).where(ProjectTimeEntry.project_id == project_id)
+    if member_id:
+        query = query.where(ProjectTimeEntry.member_id == member_id)
+    if task_id:
+        query = query.where(ProjectTimeEntry.task_id == task_id)
+    if status:
+        query = query.where(ProjectTimeEntry.status == status)
+    if date_from:
+        query = query.where(ProjectTimeEntry.date >= date_from)
+    if date_to:
+        query = query.where(ProjectTimeEntry.date <= date_to)
+    query = query.order_by(ProjectTimeEntry.date.desc(), ProjectTimeEntry.created_at.desc())
+    result = await db.execute(query)
+    entries = result.scalars().all()
+    enriched = []
+    for te in entries:
+        member = await db.get(ProjectMember, te.member_id)
+        member_name = await _get_member_name(db, member) if member else None
+        task_title = None
+        if te.task_id:
+            task = await db.get(ProjectTask, te.task_id)
+            task_title = task.title if task else None
+        enriched.append(_enrich_time_entry(te, member_name, task_title))
+    return enriched
+
+
+@router.post("/{project_id}/time-entries", response_model=ProjectTimeEntryRead, status_code=201)
+async def create_project_time_entry(
+    project_id: UUID,
+    body: ProjectTimeEntryCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    # Verify the member belongs to this project
+    member = await db.scalar(
+        select(ProjectMember).where(
+            ProjectMember.id == body.member_id,
+            ProjectMember.project_id == project_id,
+            ProjectMember.active == True,  # noqa: E712
+        )
+    )
+    if not member:
+        raise HTTPException(404, "Member not found in this project")
+    te = ProjectTimeEntry(
+        entity_id=entity_id,
+        project_id=project_id,
+        **body.model_dump(),
+    )
+    db.add(te)
+    await db.commit()
+    await db.refresh(te)
+    member_name = await _get_member_name(db, member)
+    task_title = None
+    if te.task_id:
+        task = await db.get(ProjectTask, te.task_id)
+        task_title = task.title if task else None
+    return _enrich_time_entry(te, member_name, task_title)
+
+
+@router.patch("/{project_id}/time-entries/{entry_id}", response_model=ProjectTimeEntryRead)
+async def update_project_time_entry(
+    project_id: UUID,
+    entry_id: UUID,
+    body: ProjectTimeEntryUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    te = await db.scalar(
+        select(ProjectTimeEntry).where(
+            ProjectTimeEntry.id == entry_id,
+            ProjectTimeEntry.project_id == project_id,
+        )
+    )
+    if not te:
+        raise HTTPException(404, "Time entry not found")
+    if te.status not in ("draft", "rejected"):
+        raise HTTPException(409, "Only draft or rejected entries can be edited")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(te, key, value)
+    # Editing a rejected entry resets it to draft so it can be resubmitted.
+    if te.status == "rejected":
+        te.status = "draft"
+        te.rejected_reason = None
+    await db.commit()
+    await db.refresh(te)
+    member = await db.get(ProjectMember, te.member_id)
+    member_name = await _get_member_name(db, member) if member else None
+    task_title = None
+    if te.task_id:
+        task = await db.get(ProjectTask, te.task_id)
+        task_title = task.title if task else None
+    return _enrich_time_entry(te, member_name, task_title)
+
+
+@router.post("/{project_id}/time-entries/{entry_id}/submit", response_model=ProjectTimeEntryRead)
+async def submit_project_time_entry(
+    project_id: UUID,
+    entry_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Move a draft entry to submitted (awaiting validation)."""
+    from datetime import datetime as _dt, timezone as _tz
+    await _get_project_or_404(db, project_id, entity_id)
+    te = await db.scalar(
+        select(ProjectTimeEntry).where(
+            ProjectTimeEntry.id == entry_id,
+            ProjectTimeEntry.project_id == project_id,
+        )
+    )
+    if not te:
+        raise HTTPException(404, "Time entry not found")
+    if te.status != "draft":
+        raise HTTPException(409, f"Cannot submit entry in status '{te.status}'")
+    te.status = "submitted"
+    te.submitted_at = _dt.now(_tz.utc)
+    await db.commit()
+    await db.refresh(te)
+    member = await db.get(ProjectMember, te.member_id)
+    member_name = await _get_member_name(db, member) if member else None
+    return _enrich_time_entry(te, member_name, None)
+
+
+@router.post("/{project_id}/time-entries/{entry_id}/approve", response_model=ProjectTimeEntryRead)
+async def approve_project_time_entry(
+    project_id: UUID,
+    entry_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Validate a submitted entry. Snapshots the member's rate at this moment."""
+    from datetime import datetime as _dt, timezone as _tz
+    project = await _get_project_or_404(db, project_id, entity_id)
+    te = await db.scalar(
+        select(ProjectTimeEntry).where(
+            ProjectTimeEntry.id == entry_id,
+            ProjectTimeEntry.project_id == project_id,
+        )
+    )
+    if not te:
+        raise HTTPException(404, "Time entry not found")
+    if te.status != "submitted":
+        raise HTTPException(409, f"Cannot approve entry in status '{te.status}'")
+    member = await db.get(ProjectMember, te.member_id)
+    if member:
+        # Snapshot the rate. Prefer hourly_rate, else daily_rate / 8.
+        if member.hourly_rate is not None:
+            te.rate_snapshot = float(member.hourly_rate)
+        elif member.daily_rate is not None:
+            te.rate_snapshot = float(member.daily_rate) / 8.0
+        te.currency_snapshot = member.currency or project.currency
+    te.status = "validated"
+    te.approved_by = current_user.id
+    te.approved_at = _dt.now(_tz.utc)
+    await db.commit()
+    await db.refresh(te)
+    member_name = await _get_member_name(db, member) if member else None
+    return _enrich_time_entry(te, member_name, None)
+
+
+@router.post("/{project_id}/time-entries/{entry_id}/reject", response_model=ProjectTimeEntryRead)
+async def reject_project_time_entry(
+    project_id: UUID,
+    entry_id: UUID,
+    body: ProjectTimeEntryReject,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reject a submitted entry with a reason. The member can edit and resubmit."""
+    await _get_project_or_404(db, project_id, entity_id)
+    te = await db.scalar(
+        select(ProjectTimeEntry).where(
+            ProjectTimeEntry.id == entry_id,
+            ProjectTimeEntry.project_id == project_id,
+        )
+    )
+    if not te:
+        raise HTTPException(404, "Time entry not found")
+    if te.status != "submitted":
+        raise HTTPException(409, f"Cannot reject entry in status '{te.status}'")
+    te.status = "rejected"
+    te.rejected_reason = body.reason
+    await db.commit()
+    await db.refresh(te)
+    member = await db.get(ProjectMember, te.member_id)
+    member_name = await _get_member_name(db, member) if member else None
+    return _enrich_time_entry(te, member_name, None)
+
+
+@router.delete("/{project_id}/time-entries/{entry_id}", status_code=204)
+async def delete_project_time_entry(
+    project_id: UUID,
+    entry_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Only draft entries can be deleted."""
+    await _get_project_or_404(db, project_id, entity_id)
+    te = await db.scalar(
+        select(ProjectTimeEntry).where(
+            ProjectTimeEntry.id == entry_id,
+            ProjectTimeEntry.project_id == project_id,
+        )
+    )
+    if not te:
+        raise HTTPException(404, "Time entry not found")
+    if te.status != "draft":
+        raise HTTPException(409, "Only draft entries can be deleted")
+    await db.delete(te)
+    await db.commit()
+    return None
+
+
+@router.get("/{project_id}/time-summary")
+async def get_project_time_summary(
+    project_id: UUID,
+    date_from: date_type | None = None,
+    date_to: date_type | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregated time + cost per member, with status breakdown."""
+    await _get_project_or_404(db, project_id, entity_id)
+    query = select(
+        ProjectTimeEntry.member_id,
+        ProjectTimeEntry.status,
+        sqla_func.sum(ProjectTimeEntry.hours).label("total_hours"),
+        sqla_func.sum(
+            ProjectTimeEntry.hours * sqla_func.coalesce(ProjectTimeEntry.rate_snapshot, 0)
+        ).label("total_cost"),
+    ).where(ProjectTimeEntry.project_id == project_id)
+    if date_from:
+        query = query.where(ProjectTimeEntry.date >= date_from)
+    if date_to:
+        query = query.where(ProjectTimeEntry.date <= date_to)
+    query = query.group_by(ProjectTimeEntry.member_id, ProjectTimeEntry.status)
+    result = await db.execute(query)
+    rows = result.all()
+    by_member: dict[str, dict] = {}
+    for row in rows:
+        mid = str(row.member_id)
+        if mid not in by_member:
+            member = await db.get(ProjectMember, row.member_id)
+            by_member[mid] = {
+                "member_id": mid,
+                "member_name": (await _get_member_name(db, member)) if member else None,
+                "specialty": member.specialty if member else None,
+                "by_status": {},
+                "total_hours": 0.0,
+                "total_cost": 0.0,
+            }
+        by_member[mid]["by_status"][row.status] = {
+            "hours": float(row.total_hours or 0),
+            "cost": float(row.total_cost or 0),
+        }
+        by_member[mid]["total_hours"] += float(row.total_hours or 0)
+        by_member[mid]["total_cost"] += float(row.total_cost or 0)
+    return {
+        "members": list(by_member.values()),
+        "totals": {
+            "hours": sum(m["total_hours"] for m in by_member.values()),
+            "cost": sum(m["total_cost"] for m in by_member.values()),
+        },
+    }
+
+
+# ── Project Task Losses (pertes) ──────────────────────────────────────
+
+async def _enrich_loss(db: AsyncSession, loss: "ProjectTaskLoss") -> dict:
+    d = {c.key: getattr(loss, c.key) for c in loss.__table__.columns}
+    d["task_title"] = None
+    d["member_name"] = None
+    d["reporter_name"] = None
+    if loss.task_id:
+        task = await db.get(ProjectTask, loss.task_id)
+        d["task_title"] = task.title if task else None
+    if loss.member_id:
+        member = await db.get(ProjectMember, loss.member_id)
+        d["member_name"] = await _get_member_name(db, member) if member else None
+    if loss.reported_by:
+        u = await db.get(User, loss.reported_by)
+        d["reporter_name"] = f"{u.first_name} {u.last_name}" if u else None
+    return d
+
+
+@router.get("/{project_id}/losses", response_model=list[ProjectTaskLossRead])
+async def list_project_losses(
+    project_id: UUID,
+    task_id: UUID | None = None,
+    category: str | None = None,
+    date_from: date_type | None = None,
+    date_to: date_type | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    query = select(ProjectTaskLoss).where(ProjectTaskLoss.project_id == project_id)
+    if task_id:
+        query = query.where(ProjectTaskLoss.task_id == task_id)
+    if category:
+        query = query.where(ProjectTaskLoss.category == category)
+    if date_from:
+        query = query.where(ProjectTaskLoss.date >= date_from)
+    if date_to:
+        query = query.where(ProjectTaskLoss.date <= date_to)
+    result = await db.execute(query.order_by(ProjectTaskLoss.date.desc()))
+    losses = result.scalars().all()
+    return [await _enrich_loss(db, l) for l in losses]
+
+
+@router.post("/{project_id}/losses", response_model=ProjectTaskLossRead, status_code=201)
+async def create_project_loss(
+    project_id: UUID,
+    body: ProjectTaskLossCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await _get_project_or_404(db, project_id, entity_id)
+    if body.hours_lost is None and body.cost_amount is None:
+        raise HTTPException(422, "Provide at least hours_lost or cost_amount")
+    payload = body.model_dump()
+    if not payload.get("currency"):
+        payload["currency"] = project.currency
+    loss = ProjectTaskLoss(
+        entity_id=entity_id,
+        project_id=project_id,
+        reported_by=current_user.id,
+        **payload,
+    )
+    db.add(loss)
+    await db.commit()
+    await db.refresh(loss)
+    return await _enrich_loss(db, loss)
+
+
+@router.patch("/{project_id}/losses/{loss_id}", response_model=ProjectTaskLossRead)
+async def update_project_loss(
+    project_id: UUID,
+    loss_id: UUID,
+    body: ProjectTaskLossUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    loss = await db.scalar(
+        select(ProjectTaskLoss).where(
+            ProjectTaskLoss.id == loss_id, ProjectTaskLoss.project_id == project_id
+        )
+    )
+    if not loss:
+        raise HTTPException(404, "Loss not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(loss, key, value)
+    await db.commit()
+    await db.refresh(loss)
+    return await _enrich_loss(db, loss)
+
+
+@router.delete("/{project_id}/losses/{loss_id}", status_code=204)
+async def delete_project_loss(
+    project_id: UUID,
+    loss_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.member.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    loss = await db.scalar(
+        select(ProjectTaskLoss).where(
+            ProjectTaskLoss.id == loss_id, ProjectTaskLoss.project_id == project_id
+        )
+    )
+    if not loss:
+        raise HTTPException(404, "Loss not found")
+    await db.delete(loss)
+    await db.commit()
+    return None
+
+
+# ── Project Report (synthèse façon MS Project) ─────────────────────────
+
+@router.get("/{project_id}/report")
+async def get_project_report(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Synthèse projet façon MS Project « Rapport de fin de phase ».
+
+    Bloc 1 : projet + macro indicateurs
+    Bloc 2 : avancement tâches (planifié vs réalisé en heures)
+    Bloc 3 : ressources (allocation, charge, coût)
+    Bloc 4 : pointage (validé, en attente)
+    Bloc 5 : pertes par catégorie
+    """
+    project = await _get_project_or_404(db, project_id, entity_id)
+
+    # Bloc 2 : tâches avec planifié/réalisé
+    tasks_q = await db.execute(
+        select(ProjectTask).where(
+            ProjectTask.project_id == project_id, ProjectTask.active == True  # noqa: E712
+        ).order_by(ProjectTask.order, ProjectTask.created_at)
+    )
+    tasks = tasks_q.scalars().all()
+    planned_per_task: dict[str, float] = {}
+    actual_per_task: dict[str, float] = {}
+    plan_q = await db.execute(
+        select(ProjectTaskAllocation.task_id, sqla_func.sum(ProjectTaskAllocation.planned_hours))
+        .where(ProjectTaskAllocation.project_id == project_id)
+        .group_by(ProjectTaskAllocation.task_id)
+    )
+    for row in plan_q.all():
+        planned_per_task[str(row[0])] = float(row[1] or 0)
+    act_q = await db.execute(
+        select(ProjectTimeEntry.task_id, sqla_func.sum(ProjectTimeEntry.hours))
+        .where(
+            ProjectTimeEntry.project_id == project_id,
+            ProjectTimeEntry.status == "validated",
+            ProjectTimeEntry.task_id.is_not(None),
+        )
+        .group_by(ProjectTimeEntry.task_id)
+    )
+    for row in act_q.all():
+        actual_per_task[str(row[0])] = float(row[1] or 0)
+    task_rows = []
+    for t in tasks:
+        tid = str(t.id)
+        planned = planned_per_task.get(tid, 0.0)
+        actual = actual_per_task.get(tid, 0.0)
+        task_rows.append({
+            "task_id": tid,
+            "title": t.title,
+            "status": t.status,
+            "estimated_hours": float(t.estimated_hours) if t.estimated_hours else None,
+            "planned_hours": planned,
+            "actual_hours": actual,
+            "variance_hours": planned - actual,
+            "completion_pct": (actual / planned * 100) if planned > 0 else 0,
+        })
+
+    # Bloc 3 : ressources
+    members_q = await db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id, ProjectMember.active == True  # noqa: E712
+        )
+    )
+    members = members_q.scalars().all()
+    member_rows = []
+    for m in members:
+        # Hours per member
+        h_planned = await db.scalar(
+            select(sqla_func.coalesce(sqla_func.sum(ProjectTaskAllocation.planned_hours), 0.0))
+            .where(ProjectTaskAllocation.member_id == m.id)
+        )
+        h_actual = await db.scalar(
+            select(sqla_func.coalesce(sqla_func.sum(ProjectTimeEntry.hours), 0.0))
+            .where(
+                ProjectTimeEntry.member_id == m.id,
+                ProjectTimeEntry.status == "validated",
+            )
+        )
+        # Cost
+        cost = await db.scalar(
+            select(sqla_func.coalesce(
+                sqla_func.sum(ProjectTimeEntry.hours * ProjectTimeEntry.rate_snapshot), 0.0
+            )).where(
+                ProjectTimeEntry.member_id == m.id,
+                ProjectTimeEntry.status == "validated",
+                ProjectTimeEntry.rate_snapshot.is_not(None),
+            )
+        )
+        member_rows.append({
+            "member_id": str(m.id),
+            "member_name": await _get_member_name(db, m),
+            "specialty": m.specialty,
+            "allocation_pct": m.allocation_pct,
+            "planned_hours": float(h_planned or 0),
+            "actual_hours": float(h_actual or 0),
+            "cost": float(cost or 0),
+            "currency": m.currency or project.currency,
+        })
+
+    # Bloc 4 : pointage
+    pte_q = await db.execute(
+        select(ProjectTimeEntry.status, sqla_func.sum(ProjectTimeEntry.hours))
+        .where(ProjectTimeEntry.project_id == project_id)
+        .group_by(ProjectTimeEntry.status)
+    )
+    pte_summary = {row[0]: float(row[1] or 0) for row in pte_q.all()}
+
+    # Bloc 5 : pertes
+    losses_q = await db.execute(
+        select(
+            ProjectTaskLoss.category,
+            sqla_func.coalesce(sqla_func.sum(ProjectTaskLoss.hours_lost), 0.0).label("hours"),
+            sqla_func.coalesce(sqla_func.sum(ProjectTaskLoss.cost_amount), 0.0).label("cost"),
+            sqla_func.count().label("count"),
+        )
+        .where(ProjectTaskLoss.project_id == project_id)
+        .group_by(ProjectTaskLoss.category)
+    )
+    losses_by_cat = [
+        {"category": r.category, "hours_lost": float(r.hours), "cost_amount": float(r.cost), "count": r.count}
+        for r in losses_q.all()
+    ]
+
+    total_planned = sum(t["planned_hours"] for t in task_rows)
+    total_actual = sum(t["actual_hours"] for t in task_rows)
+    total_cost = sum(m["cost"] for m in member_rows)
+    total_lost_hours = sum(l["hours_lost"] for l in losses_by_cat)
+    total_lost_cost = sum(l["cost_amount"] for l in losses_by_cat)
+
+    return {
+        "project": {
+            "id": str(project.id),
+            "code": project.code,
+            "name": project.name,
+            "status": project.status,
+            "progress": project.progress,
+            "currency": project.currency,
+            "budget": project.budget,
+            "start_date": project.start_date.isoformat() if project.start_date else None,
+            "end_date": project.end_date.isoformat() if project.end_date else None,
+        },
+        "kpis": {
+            "tasks_count": len(task_rows),
+            "members_count": len(member_rows),
+            "total_planned_hours": total_planned,
+            "total_actual_hours": total_actual,
+            "variance_hours": total_planned - total_actual,
+            "total_cost": total_cost,
+            "total_lost_hours": total_lost_hours,
+            "total_lost_cost": total_lost_cost,
+            "completion_pct": (total_actual / total_planned * 100) if total_planned > 0 else 0,
+        },
+        "tasks": task_rows,
+        "members": member_rows,
+        "time_entries_by_status": pte_summary,
+        "losses_by_category": losses_by_cat,
+    }
 
 
 # ── Project Tasks ─────────────────────────────────────────────────────────
@@ -1072,33 +1837,12 @@ async def create_project_task(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    # Milestone invariants: a milestone is a point-in-time task. Force
-    # start_date == due_date and forbid child-of-milestone.
-    payload = body.model_dump()
-    if payload.get("is_milestone"):
-        if payload.get("due_date") and not payload.get("start_date"):
-            payload["start_date"] = payload["due_date"]
-        elif payload.get("start_date") and not payload.get("due_date"):
-            payload["due_date"] = payload["start_date"]
-        elif payload.get("start_date") and payload.get("due_date"):
-            payload["due_date"] = payload["start_date"]
-    if payload.get("parent_id"):
-        parent_res = await db.execute(
-            select(ProjectTask.is_milestone).where(ProjectTask.id == payload["parent_id"])
-        )
-        parent_is_ms = parent_res.scalar_one_or_none()
-        if parent_is_ms:
-            raise StructuredHTTPException(
-                400,
-                code="MILESTONE_CANNOT_HAVE_CHILDREN",
-                message="Un jalon ne peut pas avoir de sous-tâche.",
-            )
     # Auto-assign order
     max_order = await db.execute(
         select(sqla_func.coalesce(sqla_func.max(ProjectTask.order), 0))
         .where(ProjectTask.project_id == project_id)
     )
-    task = ProjectTask(project_id=project_id, order=(max_order.scalar() or 0) + 1, **payload)
+    task = ProjectTask(project_id=project_id, order=(max_order.scalar() or 0) + 1, **body.model_dump())
     db.add(task)
     await db.commit()
     await db.refresh(task)
@@ -1131,11 +1875,7 @@ async def update_project_task(
     )
     task = result.scalars().first()
     if not task:
-        raise StructuredHTTPException(
-            404,
-            code="TASK_NOT_FOUND",
-            message="Task not found",
-        )
+        raise HTTPException(404, "Task not found")
 
     # Track changes for historisation
     TRACKED_FIELDS = {"status", "priority", "start_date", "due_date", "assignee_id", "title", "description", "progress", "estimated_hours", "actual_hours", "pob_quota"}
@@ -1146,19 +1886,7 @@ async def update_project_task(
         "progress": "progress_change", "estimated_hours": "scope_change", "actual_hours": "scope_change",
         "pob_quota": "pob_change",
     }
-    update_payload = body.model_dump(exclude_unset=True)
-    # Milestone invariants on update — if the task is (or becomes) a
-    # milestone, force start_date == due_date. If the caller only sent
-    # one date, mirror it to the other.
-    will_be_milestone = update_payload.get("is_milestone") if "is_milestone" in update_payload else task.is_milestone
-    if will_be_milestone:
-        s = update_payload.get("start_date", task.start_date)
-        d = update_payload.get("due_date", task.due_date)
-        if s and not d:
-            update_payload["due_date"] = s
-        elif d and (not s or s != d):
-            update_payload["start_date"] = d
-    for field, value in update_payload.items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         old_value = getattr(task, field)
         if field in TRACKED_FIELDS and str(old_value) != str(value):
             db.add(TaskChangeLog(
@@ -1220,11 +1948,7 @@ async def delete_project_task(
     )
     task = result.scalars().first()
     if not task:
-        raise StructuredHTTPException(
-            404,
-            code="TASK_NOT_FOUND",
-            message="Task not found",
-        )
+        raise HTTPException(404, "Task not found")
 
     # Hard-delete owned child rows first (FKs have no ON DELETE CASCADE):
     # deliverables, actions, changelog entries. ProjectTaskDependency already
@@ -1314,11 +2038,7 @@ async def update_project_milestone(
     )
     ms = result.scalars().first()
     if not ms:
-        raise StructuredHTTPException(
-            404,
-            code="MILESTONE_NOT_FOUND",
-            message="Milestone not found",
-        )
+        raise HTTPException(404, "Milestone not found")
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(ms, field, value)
     await db.commit()
@@ -1341,11 +2061,7 @@ async def delete_project_milestone(
     )
     ms = result.scalars().first()
     if not ms:
-        raise StructuredHTTPException(
-            404,
-            code="MILESTONE_NOT_FOUND",
-            message="Milestone not found",
-        )
+        raise HTTPException(404, "Milestone not found")
     await delete_entity(ms, db, "project_milestone", entity_id=ms.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Milestone deleted"}
@@ -1489,11 +2205,7 @@ async def update_revision(
     )
     rev = result.scalars().first()
     if not rev:
-        raise StructuredHTTPException(
-            404,
-            code="REVISION_NOT_FOUND",
-            message="Revision not found",
-        )
+        raise HTTPException(404, "Revision not found")
 
     # If setting as active, deactivate others
     if body.is_active is True:
@@ -1529,17 +2241,9 @@ async def apply_revision(
     )
     rev = result.scalars().first()
     if not rev:
-        raise StructuredHTTPException(
-            404,
-            code="REVISION_NOT_FOUND",
-            message="Revision not found",
-        )
+        raise HTTPException(404, "Revision not found")
     if not rev.snapshot_data:
-        raise StructuredHTTPException(
-            400,
-            code="REVISION_HAS_NO_SNAPSHOT_DATA",
-            message="Revision has no snapshot data",
-        )
+        raise HTTPException(400, "Revision has no snapshot data")
 
     # Mark as no longer simulation, set as active
     rev.is_simulation = False
@@ -1571,11 +2275,7 @@ async def delete_revision(
     )
     rev = result.scalars().first()
     if not rev:
-        raise StructuredHTTPException(
-            404,
-            code="REVISION_NOT_FOUND",
-            message="Revision not found",
-        )
+        raise HTTPException(404, "Revision not found")
     await delete_entity(rev, db, "planning_revision", entity_id=rev.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Revision deleted"}
@@ -1635,11 +2335,7 @@ async def update_deliverable(
     )
     deliv = result.scalars().first()
     if not deliv:
-        raise StructuredHTTPException(
-            404,
-            code="DELIVERABLE_NOT_FOUND",
-            message="Deliverable not found",
-        )
+        raise HTTPException(404, "Deliverable not found")
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(deliv, field, value)
     await db.commit()
@@ -1663,11 +2359,7 @@ async def delete_deliverable(
     )
     deliv = result.scalars().first()
     if not deliv:
-        raise StructuredHTTPException(
-            404,
-            code="DELIVERABLE_NOT_FOUND",
-            message="Deliverable not found",
-        )
+        raise HTTPException(404, "Deliverable not found")
     await delete_entity(deliv, db, "task_deliverable", entity_id=deliv.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Deliverable deleted"}
@@ -1741,11 +2433,7 @@ async def update_action(
     )
     action = result.scalars().first()
     if not action:
-        raise StructuredHTTPException(
-            404,
-            code="ACTION_NOT_FOUND",
-            message="Action not found",
-        )
+        raise HTTPException(404, "Action not found")
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(action, field, value)
     if body.completed is True and not action.completed_at:
@@ -1775,11 +2463,7 @@ async def delete_action(
     )
     action = result.scalars().first()
     if not action:
-        raise StructuredHTTPException(
-            404,
-            code="ACTION_NOT_FOUND",
-            message="Action not found",
-        )
+        raise HTTPException(404, "Action not found")
     await delete_entity(action, db, "task_action", entity_id=action.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Action deleted"}
@@ -1859,21 +2543,10 @@ async def create_task_dependency(
             select(ProjectTask).where(ProjectTask.id == tid, ProjectTask.project_id == project_id)
         )
         if not task_result.scalar_one_or_none():
-            raise StructuredHTTPException(
-                404,
-                code="TASK_NOT_FOUND_PROJECT",
-                message="Task {tid} not found in project",
-                params={
-                    "tid": tid,
-                },
-            )
+            raise HTTPException(status_code=404, detail=f"Task {tid} not found in project")
 
     if body.from_task_id == body.to_task_id:
-        raise StructuredHTTPException(
-            400,
-            code="TASK_CANNOT_DEPEND_ITSELF",
-            message="A task cannot depend on itself",
-        )
+        raise HTTPException(status_code=400, detail="A task cannot depend on itself")
 
     # Check for circular dependency
     visited = set()
@@ -1881,11 +2554,7 @@ async def create_task_dependency(
     while queue:
         current = queue.pop(0)
         if current == body.from_task_id:
-            raise StructuredHTTPException(
-                400,
-                code="CIRCULAR_DEPENDENCY_DETECTED",
-                message="Circular dependency detected",
-            )
+            raise HTTPException(status_code=400, detail="Circular dependency detected")
         if current in visited:
             continue
         visited.add(current)
@@ -1904,11 +2573,7 @@ async def create_task_dependency(
         )
     )
     if existing.scalar_one_or_none():
-        raise StructuredHTTPException(
-            409,
-            code="DEPENDENCY_ALREADY_EXISTS",
-            message="Dependency already exists",
-        )
+        raise HTTPException(status_code=409, detail="Dependency already exists")
 
     dep = ProjectTaskDependency(**body.model_dump())
     db.add(dep)
@@ -1933,11 +2598,7 @@ async def delete_task_dependency(
     )
     dep = result.scalar_one_or_none()
     if not dep:
-        raise StructuredHTTPException(
-            404,
-            code="DEPENDENCY_NOT_FOUND",
-            message="Dependency not found",
-        )
+        raise HTTPException(status_code=404, detail="Dependency not found")
     await delete_entity(dep, db, "project_task_dependency", entity_id=dep.id, user_id=current_user.id)
     await db.commit()
 
@@ -2022,11 +2683,7 @@ async def create_wbs_node(
             )
         )).scalar_one_or_none()
         if parent is None:
-            raise StructuredHTTPException(
-                400,
-                code="PARENT_ID_MUST_BELONG_SAME_PROJECT",
-                message="parent_id must belong to the same project",
-            )
+            raise HTTPException(400, "parent_id must belong to the same project")
     node = ProjectWBSNode(project_id=project_id, **body.model_dump())
     db.add(node)
     await db.commit()
@@ -2051,19 +2708,11 @@ async def update_wbs_node(
     )
     node = result.scalar_one_or_none()
     if not node:
-        raise StructuredHTTPException(
-            404,
-            code="WBS_NODE_NOT_FOUND",
-            message="WBS node not found",
-        )
+        raise HTTPException(404, "WBS node not found")
     # Prevent setting its own parent to itself or a descendant (simple check: no self)
     payload = body.model_dump(exclude_unset=True)
     if payload.get("parent_id") == node.id:
-        raise StructuredHTTPException(
-            400,
-            code="WBS_NODE_CANNOT_OWN_PARENT",
-            message="A WBS node cannot be its own parent",
-        )
+        raise HTTPException(400, "A WBS node cannot be its own parent")
     for k, v in payload.items():
         setattr(node, k, v)
     await db.commit()
@@ -2088,11 +2737,7 @@ async def delete_wbs_node(
     )
     node = result.scalar_one_or_none()
     if not node:
-        raise StructuredHTTPException(
-            404,
-            code="WBS_NODE_NOT_FOUND",
-            message="WBS node not found",
-        )
+        raise HTTPException(404, "WBS node not found")
     # Soft-archive: set active=False so cascades don't wipe linked tasks
     node.active = False
     await db.commit()
@@ -2144,11 +2789,7 @@ async def add_task_assignee(
     await _get_project_or_404(db, project_id, entity_id)
     existing = (await db.execute(select(ProjectTaskAssignee).where(ProjectTaskAssignee.task_id == task_id, ProjectTaskAssignee.user_id == body.user_id))).scalar_one_or_none()
     if existing:
-        raise StructuredHTTPException(
-            409,
-            code="USER_ALREADY_ASSIGNED",
-            message="User already assigned",
-        )
+        raise HTTPException(409, "User already assigned")
     a = ProjectTaskAssignee(task_id=task_id, user_id=body.user_id, role=body.role)
     db.add(a); await db.commit(); await db.refresh(a)
     u = await db.get(User, body.user_id)
@@ -2202,11 +2843,7 @@ async def remove_task_assignee(
 ):
     await _get_project_or_404(db, project_id, entity_id)
     a = (await db.execute(select(ProjectTaskAssignee).where(ProjectTaskAssignee.id == assignee_id))).scalar_one_or_none()
-    if not a: raise StructuredHTTPException(
-        404,
-        code="ASSIGNEE_NOT_FOUND",
-        message="Assignee not found",
-    )
+    if not a: raise HTTPException(404, "Assignee not found")
     await db.delete(a); await db.commit()
 
 
@@ -2280,11 +2917,7 @@ async def delete_comment(
 ):
     await _get_project_or_404(db, project_id, entity_id)
     comment = (await db.execute(select(ProjectComment).where(ProjectComment.id == comment_id))).scalar_one_or_none()
-    if not comment: raise StructuredHTTPException(
-        404,
-        code="COMMENT_NOT_FOUND",
-        message="Comment not found",
-    )
+    if not comment: raise HTTPException(404, "Comment not found")
     comment.active = False; await db.commit()
 
 
@@ -2551,11 +3184,7 @@ async def send_tasks_to_planner(
     project = await _get_project_or_404(db, project_id, entity_id)
     asset_id = body.asset_id or project.asset_id
     if not asset_id:
-        raise StructuredHTTPException(
-            400,
-            code="LE_PROJET_DOIT_AVOIR_UN_SITE",
-            message="Le projet doit avoir un site (asset) pour envoyer au Planner.",
-        )
+        raise HTTPException(400, "Le projet doit avoir un site (asset) pour envoyer au Planner.")
 
     from app.models.planner import PlannerActivity
 
@@ -2662,11 +3291,7 @@ async def create_from_template(
     """Clone a project from a template."""
     from app.models.common import ProjectTemplate, ProjectWBSNode
     tpl = (await db.execute(select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.entity_id == entity_id))).scalar_one_or_none()
-    if not tpl: raise StructuredHTTPException(
-        404,
-        code="TEMPLATE_NOT_FOUND",
-        message="Template not found",
-    )
+    if not tpl: raise HTTPException(404, "Template not found")
     snap = tpl.snapshot
     code = await generate_reference("PRJ", db, entity_id=entity_id)
     project = Project(entity_id=entity_id, code=code, name=name, project_type=snap.get("project", {}).get("project_type", "project"), priority=snap.get("project", {}).get("priority", "medium"), weather=snap.get("project", {}).get("weather", "sunny"), description=snap.get("project", {}).get("description"), status="draft")
@@ -2691,11 +3316,7 @@ async def create_from_template(
 async def delete_template(template_id: UUID, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.delete"), db: AsyncSession = Depends(get_db)):
     from app.models.common import ProjectTemplate
     tpl = (await db.execute(select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.entity_id == entity_id))).scalar_one_or_none()
-    if not tpl: raise StructuredHTTPException(
-        404,
-        code="TEMPLATE_NOT_FOUND",
-        message="Template not found",
-    )
+    if not tpl: raise HTTPException(404, "Template not found")
     tpl.active = False; await db.commit()
 
 
@@ -2745,11 +3366,7 @@ async def export_project_pdf(project_id: UUID, entity_id: UUID = Depends(get_cur
     }
     pdf_bytes = await render_pdf(db, slug="project.report", entity_id=entity_id, variables=variables, language="fr")
     if not pdf_bytes:
-        raise StructuredHTTPException(
-            404,
-            code="TEMPLATE_PDF_PROJECT_REPORT_INTROUVABLE_CR",
-            message="Template PDF 'project.report' introuvable. Créez-le dans Paramètres > Modèles PDF.",
-        )
+        raise HTTPException(404, "Template PDF 'project.report' introuvable. Creez-le dans Parametres > Modeles PDF.")
     return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename={project.code}_report.pdf'})
 
 
@@ -2866,20 +3483,12 @@ async def export_projects_gantt_pdf(
             },
         )
     except Exception as e:
-        raise StructuredHTTPException(
-            500,
-            code="PDF_GENERATION_FAILED",
-            message="PDF generation failed: {e}",
-            params={
-                "e": e,
-            },
-        )
+        raise HTTPException(500, f"PDF generation failed: {e}")
 
     if pdf_bytes is None:
-        raise StructuredHTTPException(
+        raise HTTPException(
             404,
-            code="PDF_TEMPLATE_PLANNER_GANTT_EXPORT_NOT",
-            message="PDF template 'planner.gantt_export' not found. Run the seed_pdf_templates job.",
+            "PDF template 'planner.gantt_export' not found. Run the seed_pdf_templates job.",
         )
 
     filename = f"projets-gantt-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.pdf"

@@ -232,7 +232,7 @@ function CreateEntityPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title={t('common.region')}>
+        <FormSection title={t('assets.region')}>
           <DynamicPanelField label={t('entities.country')}>
             <TagSelector
               options={COUNTRY_OPTIONS}
@@ -405,7 +405,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                 <input
                   type="text"
                   className={cn(panelInputClass, 'w-full')}
-                  placeholder="Rechercher un utilisateur..."
+                  placeholder={t('paxlog.search_user')}
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                   autoFocus
@@ -413,7 +413,7 @@ function EntityDetailPanel({ id }: { id: string }) {
               </div>
               <div className="max-h-[200px] overflow-y-auto">
                 {availableUsers.length === 0 ? (
-                  <p className="p-3 text-xs text-muted-foreground text-center">Aucun utilisateur disponible</p>
+                  <p className="p-3 text-xs text-muted-foreground text-center">{t('entities.aucun_utilisateur_disponible')}</p>
                 ) : (
                   availableUsers.map((user) => (
                     <button
@@ -486,7 +486,7 @@ function EntityDetailPanel({ id }: { id: string }) {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground py-2">Aucun utilisateur dans cette entité</p>
+            <p className="text-xs text-muted-foreground py-2">{t('settings.aucun_utilisateur_dans_cette_entite')}</p>
           )}
         </FormSection>
 
@@ -503,7 +503,7 @@ function EntityDetailPanel({ id }: { id: string }) {
             }
           />
           <ReadOnlyRow
-            label="Créé le"
+            label={t('common.created_at')}
             value={
               <span className="flex items-center gap-1.5 text-sm">
                 <Clock size={12} className="text-muted-foreground" />

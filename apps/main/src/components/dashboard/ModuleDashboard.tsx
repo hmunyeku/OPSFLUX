@@ -31,9 +31,6 @@ import {
 import { DashboardGrid } from './DashboardGrid'
 import { DashboardEditorLayout } from './DashboardEditorLayout'
 import type { DashboardEditorHandle } from './DashboardEditorLayout'
-import { ModuleQuickActions } from './ModuleQuickActions'
-import { DashboardFilterProvider } from './DashboardFilterContext'
-import { DashboardFilterBar } from './DashboardFilterBar'
 import type { DashboardWidget } from '@/services/dashboardService'
 
 interface ModuleDashboardProps {
@@ -107,11 +104,11 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
       {editMode && (
         <>
           <button onClick={() => editorRef.current?.undo()} disabled={!editorRef.current?.canUndo}
-            className="h-7 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" title={t('common.undo')}>
+            className="h-7 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" title="Annuler">
             <Undo2 className="h-3.5 w-3.5" />
           </button>
           <button onClick={() => editorRef.current?.redo()} disabled={!editorRef.current?.canRedo}
-            className="h-7 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" title={t('common.redo')}>
+            className="h-7 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" title="Refaire">
             <Redo2 className="h-3.5 w-3.5" />
           </button>
           <div className="w-px h-4 bg-border mx-1" />
@@ -147,7 +144,7 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
       <div className={cn('rounded-lg border border-dashed border-border p-6 text-center', className)}>
         <p className="text-sm text-muted-foreground mb-3">{t('dashboard.no_module_dashboard')}</p>
         <button onClick={handleCreateModuleTab} disabled={createTab.isPending}
-          className="gl-button gl-button-sm gl-button-confirm">
+          className="gl-button-sm gl-button-confirm">
           <Plus className="h-3.5 w-3.5" />
           {t('dashboard.create_module_dashboard', { module: title || module })}
         </button>
@@ -184,17 +181,9 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
           onExitEdit={() => setEditMode(false)}
         />
       ) : (
-        <DashboardFilterProvider>
-          <DashboardFilterBar />
-          <div className="px-5 py-4 @container">
-            {/* Contextual shortcuts strip — 4 to 6 cards per module
-                (Nouvelle AdS, Conflits POB, Vue Gantt, etc.). Renders
-                above the widget grid so the user can launch the
-                common task of the module without hunting tabs. */}
-            <ModuleQuickActions module={module} />
-            <DashboardGrid widgets={widgets} mode="view" />
-          </div>
-        </DashboardFilterProvider>
+        <div className="p-4 pt-2">
+          <DashboardGrid widgets={widgets} mode="view" />
+        </div>
       )}
     </div>
   )
@@ -209,15 +198,9 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
     )
   }
 
-  // Default: no separate toolbar bar — it floats inside content.
-  //
-  // `flex-1 min-h-0 overflow-y-auto` is required here so the
-  // dashboard scrolls inside pages that place it inside a
-  // `overflow-hidden` parent (e.g. SupportPage, UsersPage). Without
-  // those, tall dashboards were clipped at the viewport with no way
-  // to reach the widgets below.
+  // Default: no separate toolbar bar — it floats inside content
   return (
-    <div className={cn('flex flex-1 min-h-0 flex-col overflow-y-auto', className)}>
+    <div className={cn('flex flex-col', className)}>
       {content}
     </div>
   )

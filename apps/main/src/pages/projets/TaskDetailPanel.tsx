@@ -59,6 +59,7 @@ function InlineEditableTextarea({
   onSave: (newValue: string) => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -89,8 +90,8 @@ function InlineEditableTextarea({
           className="w-full text-sm bg-transparent resize-y focus:outline-none min-h-[5rem]"
         />
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
-          <span className="text-[10px] text-muted-foreground mr-auto">{'⌘'}+Entrée pour valider · Esc pour annuler</span>
-          <button onClick={cancel} className="gl-button-sm gl-button-ghost">
+          <span className="text-[10px] text-muted-foreground mr-auto">{t('projets.entree_pour_valider_esc_pour_annuler')}</span>
+          <button onClick={cancel} className="h-7 px-2 rounded text-xs text-muted-foreground hover:bg-accent inline-flex items-center gap-1">
             <X size={12} /> Annuler
           </button>
           <button onClick={commit} className="gl-button-sm gl-button-confirm">
@@ -366,7 +367,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
   if (!task) {
     return (
-      <DynamicPanelShell title="Tâche" subtitle={t('common.loading_ellipsis')} icon={<CheckCircle2 size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('projets.columns.task')} subtitle="Chargement..." icon={<CheckCircle2 size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )
@@ -424,8 +425,49 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           })}
         </div>
 
-        {/* Status + priority badges + progress bar */}
-        <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground mt-2">
+        {/* ── Spec §2.8: breakdown-pending banner ───────────── */}
+        {/* Displayed when THIS task was flagged as needing update     */}
+        {/* after a parent-task Planner revision was accepted.          */}
+        {thisTaskBreakdownPending && (
+          <div className="rounded-lg border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex items-start gap-2.5">
+            <Flag size={14} className="mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                Mise à jour requise suite à la révision du parent
+              </p>
+              <p className="mt-0.5 text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                {thisTaskBreakdownPending.parent_task_title
+                  ? `La tâche parente « ${thisTaskBreakdownPending.parent_task_title} » a accepté une révision Planner. `
+                  : 'Une révision Planner a été acceptée sur la tâche parente. '}
+                Merci de mettre à jour les dates ou le périmètre de cette sous-tâche en conséquence.
+              </p>
+              {(thisTaskBreakdownPending.proposed_start_date || thisTaskBreakdownPending.proposed_end_date) && (
+                <p className="mt-1 text-[10px] text-amber-700/70 dark:text-amber-400/70 tabular-nums">
+                  Proposition parent : {thisTaskBreakdownPending.proposed_start_date ? new Date(thisTaskBreakdownPending.proposed_start_date).toLocaleDateString('fr-FR') : '—'}
+                  {' → '}
+                  {thisTaskBreakdownPending.proposed_end_date ? new Date(thisTaskBreakdownPending.proposed_end_date).toLocaleDateString('fr-FR') : '—'}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => resolveBreakdown.mutate(
+                { projectId, taskId },
+                {
+                  onSuccess: () => toast({ title: t('projets.toast.breakdown_resolved'), variant: 'success' }),
+                  onError: () => toast({ title: t('projets.toast.error'), variant: 'error' }),
+                },
+              )}
+              disabled={resolveBreakdown.isPending}
+              className="gl-button gl-button-default shrink-0 border-amber-400/60 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200 dark:hover:bg-amber-900/40"
+            >
+              {resolveBreakdown.isPending ? 'Enregistrement…' : 'J\'ai mis à jour'}
+            </button>
+          </div>
+        )}
+
+        {/* ── Quick stats row ──────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground">
           {statusBadge(task.status)}
           {priorityBadge(task.priority)}
           <div className="flex items-center gap-1.5 ml-auto">
@@ -479,14 +521,27 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
         ]}
       />
 
-      {/* ── Tab content ──────────────────────────────────────── */}
-      <PanelContentLayout>
+          <div className="mt-3">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5 flex items-center gap-1">
+              <FileText size={10} /> Description
+            </p>
+            <InlineEditableTextarea
+              value={task.description || ''}
+              placeholder={t('projets.aucune_description_cliquer_ou_double_cli')}
+              onSave={(v) => handleSave('description', v || null)}
+            />
+          </div>
 
-        {/* ══ DETAILS TAB ═══════════════════════════════════════ */}
-        {activeTab === 'details' && (
-          <>
-            {/* ── Identification (full width) ────────────────── */}
-            <FormSection title={t('common.identification')} collapsible defaultExpanded storageKey="task-detail-identity">
+          <div className="mt-3">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5">Tags</p>
+            <TagManager ownerType="project_task" ownerId={taskId} compact />
+          </div>
+        </FormSection>
+
+        {/* ── 2-column layout: État/Assignation | Planning/POB ── */}
+        <SectionColumns>
+          <div className="@container space-y-5">
+            <FormSection title={t('projets.etat_priorite')} collapsible defaultExpanded storageKey="task-detail-state">
               <DetailFieldGrid>
                 <InlineEditableRow
                   label="Titre"
@@ -494,21 +549,57 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   onSave={(v) => handleSave('title', v)}
                   type="text"
                 />
-                <ReadOnlyRow
-                  label="Code"
-                  value={<span className="text-sm font-mono font-medium text-foreground">{task.code || '—'}</span>}
+                <InlineEditableSelect
+                  label={t('common.priority')}
+                  value={task.priority || 'medium'}
+                  displayValue={PRIORITY_MAP[task.priority || 'medium']?.label || task.priority}
+                  options={PRIORITY_OPTIONS.map((p) => ({ value: p.value, label: p.label }))}
+                  onSave={(v) => handleSave('priority', v)}
                 />
               </DetailFieldGrid>
 
               <div className="mt-3">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5 flex items-center gap-1">
-                  <FileText size={10} /> Description
-                </p>
-                <InlineEditableTextarea
-                  value={task.description || ''}
-                  placeholder="Aucune description — cliquer ou double-cliquer pour ajouter"
-                  onSave={(v) => handleSave('description', v || null)}
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium flex items-center gap-1">
+                    <TrendingUp size={10} /> Avancement
+                    {isParentTask && (
+                      <span
+                        className="ml-1 text-[9px] font-normal text-muted-foreground/70 normal-case"
+                        title={t('projets.cette_tache_est_un_parent_son_avancement')}
+                      >
+                        (calculé)
+                      </span>
+                    )}
+                  </p>
+                  <span className="text-sm font-semibold tabular-nums" style={{ color: statusInfo.color }}>
+                    {task.progress ?? 0}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range" min={0} max={100} step={5}
+                    value={task.progress ?? 0}
+                    onChange={(e) => !isParentTask && handleSave('progress', Number(e.target.value))}
+                    disabled={isParentTask}
+                    title={isParentTask ? "Calculé depuis les sous-tâches — non modifiable manuellement" : undefined}
+                    className={cn(
+                      'flex-1 h-1.5 accent-primary',
+                      isParentTask && 'opacity-50 cursor-not-allowed',
+                    )}
+                  />
+                </div>
+                <div className="mt-1.5 h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${task.progress ?? 0}%`, backgroundColor: statusInfo.color }}
+                  />
+                </div>
+                {isParentTask && (
+                  <p className="mt-1.5 text-[10px] text-muted-foreground/80 italic">
+                    <AlertCircle size={10} className="inline mr-0.5" />
+                    Avancement agrégé automatiquement depuis les {childTasks.length} sous-tâche{childTasks.length > 1 ? 's' : ''} selon la méthode du projet.
+                  </p>
+                )}
               </div>
 
               <div className="mt-3">
@@ -686,36 +777,371 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                     <AlertCircle size={10} className="inline mr-1" />
                     Modifier le POB d&apos;une tâche liée au Planner déclenche une notification à l&apos;arbitre.
                   </p>
-                </FormSection>
+                </div>
+              )}
+            </FormSection>
+
+            <FormSection title="Assignation" collapsible defaultExpanded storageKey="task-detail-assign">
+              <DetailFieldGrid>
+                <InlineEditableSelect
+                  label={t('projets.assigne')}
+                  value={task.assignee_id || ''}
+                  displayValue={
+                    task.assignee_id
+                      ? (usersData?.items ?? []).find((u) => u.id === task.assignee_id)
+                          ? `${(usersData!.items.find((u) => u.id === task.assignee_id)!).first_name} ${(usersData!.items.find((u) => u.id === task.assignee_id)!).last_name}`
+                          : task.assignee_name || '—'
+                      : 'Non assigné'
+                  }
+                  options={[
+                    { value: '', label: 'Non assigné' },
+                    ...((usersData?.items ?? []).map((u) => ({
+                      value: u.id,
+                      label: `${u.first_name} ${u.last_name}`,
+                    }))),
+                  ]}
+                  onSave={(v) => handleSave('assignee_id', v || null)}
+                />
+              </DetailFieldGrid>
+            </FormSection>
+          </div>
+
+          <div className="@container space-y-5">
+            <FormSection title="Planning" collapsible defaultExpanded storageKey="task-detail-planning">
+              <DetailFieldGrid>
+                <InlineEditableRow
+                  label={t('conformite.columns.start_date')}
+                  value={task.start_date ? task.start_date.split('T')[0] : ''}
+                  displayValue={task.start_date ? new Date(task.start_date).toLocaleDateString('fr-FR') : '—'}
+                  onSave={(v) => handleSave('start_date', v || null)}
+                  type="date"
+                />
+                <InlineEditableRow
+                  label={t('projets.columns.deadline')}
+                  value={task.due_date ? task.due_date.split('T')[0] : ''}
+                  displayValue={task.due_date ? new Date(task.due_date).toLocaleDateString('fr-FR') : '—'}
+                  onSave={(v) => handleSave('due_date', v || null)}
+                  type="date"
+                />
+              </DetailFieldGrid>
+              <DetailFieldGrid>
+                <ReadOnlyRow
+                  label={t('common.duration')}
+                  value={
+                    durationDays != null
+                      ? <span className="text-sm tabular-nums">{durationDays} jour{durationDays !== 1 ? 's' : ''}</span>
+                      : '—'
+                  }
+                />
+                {task.completed_at && (
+                  <ReadOnlyRow
+                    label={t('projets.columns.completed_at')}
+                    value={new Date(task.completed_at).toLocaleDateString('fr-FR')}
+                  />
+                )}
+              </DetailFieldGrid>
+            </FormSection>
+
+            <FormSection title="POB & Charge" collapsible defaultExpanded storageKey="task-detail-pob">
+              <DetailFieldGrid>
+                <InlineEditableRow
+                  label={t('projets.pob_demande')}
+                  value={String(task.pob_quota ?? 0)}
+                  displayValue={`${task.pob_quota ?? 0} pers.`}
+                  onSave={(v) => handleSave('pob_quota', Math.max(0, Number(v) || 0))}
+                  type="number"
+                />
+                <ReadOnlyRow label={t('projets.tasks.estimated_hours')} value={task.estimated_hours ? `${task.estimated_hours} h` : '—'} />
+              </DetailFieldGrid>
+              <DetailFieldGrid>
+                <ReadOnlyRow label={t('projets.heures_reelles')} value={task.actual_hours ? `${task.actual_hours} h` : '—'} />
+                <div />
+              </DetailFieldGrid>
+              <p className="mt-2 text-[10px] text-muted-foreground/80 italic">
+                <AlertCircle size={10} className="inline mr-1" />
+                Modifier le POB d'une tâche liée au Planner déclenche une notification à l'arbitre.
+              </p>
+            </FormSection>
+          </div>
+        </SectionColumns>
+
+        {/* ── Sous-tâches ─────────────────────────────────── */}
+        {childTasks.length > 0 && (
+          <FormSection title={`Sous-tâches (${childTasks.length})`} collapsible defaultExpanded storageKey="task-detail-children">
+            <div className="space-y-1.5">
+              {childTasks.map(child => {
+                const childPending = breakdownPendingByTask.get(child.id)
+                const childColor = STATUS_MAP[child.status]?.color || '#9ca3af'
+                return (
+                  <div
+                    key={child.id}
+                    className={cn(
+                      'group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all border',
+                      childPending
+                        ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-400/60 hover:border-amber-500'
+                        : 'border-border/40 hover:border-primary/30 hover:bg-accent/30',
+                    )}
+                    onClick={() => openDynamicPanel({ type: 'task-detail', module: 'projets', id: child.id, meta: { projectId } })}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: childColor }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{child.title}</p>
+                      {child.code && (
+                        <p className="text-[10px] text-muted-foreground font-mono">{child.code}</p>
+                      )}
+                    </div>
+                    {childPending && (
+                      <span className="gl-badge gl-badge-warning text-[10px] shrink-0">
+                        à réviser
+                      </span>
+                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${child.progress ?? 0}%`, backgroundColor: childColor }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold tabular-nums text-muted-foreground w-9 text-right">
+                        {child.progress ?? 0}%
+                      </span>
+                    </div>
+                    <ChevronRight size={14} className="text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
+                  </div>
+                )
+              })}
+            </div>
+          </FormSection>
+        )}
+
+        {/* ── Revision Requests (Planner ↔ Projets) ───────── */}
+        <FormSection title={t('planner.revision_requests.projects_section_title')} collapsible defaultExpanded={incomingRevisionRequests.length > 0} storageKey="task-detail-planner-revisions">
+          {incomingRevisionRequests.length === 0 && outgoingRevisionRequests.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">{t('planner.revision_requests.projects_section_empty')}</p>
+          ) : (
+            <div className="space-y-3">
+              {incomingRevisionRequests.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{t('planner.revision_requests.incoming_title')}</p>
+                  {incomingRevisionRequests.map((request) => (
+                    <div key={request.id} className="rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+                      <p className="text-xs font-medium text-foreground">
+                        {request.requester_user_name || t('planner.revision_signals.actor_fallback')}
+                        {request.due_at ? ` · ${t('planner.revision_requests.due_at')} ${new Date(request.due_at).toLocaleDateString('fr-FR')}` : ''}
+                      </p>
+                      {(request.proposed_start_date || request.proposed_end_date || request.proposed_pax_quota != null || request.proposed_status) && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t('planner.revision_requests.proposed_summary', {
+                            start: request.proposed_start_date ? new Date(request.proposed_start_date).toLocaleDateString('fr-FR') : '—',
+                            end: request.proposed_end_date ? new Date(request.proposed_end_date).toLocaleDateString('fr-FR') : '—',
+                            pax: request.proposed_pax_quota ?? '—',
+                            status: request.proposed_status || '—',
+                          })}
+                        </p>
+                      )}
+                      {request.note && <p className="mt-1 text-xs text-muted-foreground">{request.note}</p>}
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="gl-button-sm gl-button-confirm text-xs"
+                          onClick={() => handleRespondRevision(request, 'accepted')}
+                          disabled={respondRevisionDecisionRequest.isPending}
+                        >
+                          {t('planner.revision_requests.accept')}
+                        </button>
+                        <button
+                          type="button"
+                          className="gl-button-sm gl-button-default text-xs"
+                          onClick={() => handleRespondRevision(request, 'counter_proposed')}
+                          disabled={respondRevisionDecisionRequest.isPending}
+                        >
+                          {t('planner.revision_requests.counter_propose')}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {outgoingRevisionRequests.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{t('planner.revision_requests.outgoing_title')}</p>
+                  {outgoingRevisionRequests.map((request) => (
+                    <div key={request.id} className="rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-foreground">{request.target_user_name || t('planner.revision_signals.actor_fallback')}</p>
+                        <span className="text-[10px] text-muted-foreground">{t(`planner.revision_requests.status_${request.status}`)}</span>
+                      </div>
+                      {(request.response_note || request.forced_reason || request.note) && (
+                        <p className="mt-1 text-xs text-muted-foreground">{request.response_note || request.forced_reason || request.note}</p>
+                      )}
+                      {request.application_result && (
+                        <div className="mt-1 space-y-1">
+                          <p className="text-xs text-muted-foreground">
+                            {request.application_result.task_requires_manual_breakdown
+                              ? t('planner.revision_requests.application_manual_breakdown')
+                              : t('planner.revision_requests.application_summary', {
+                                task: request.application_result.applied_to_task ? t('common.yes') : t('common.no'),
+                                activities: request.application_result.applied_activity_count ?? 0,
+                              })}
+                          </p>
+                          {request.application_result.task_requires_manual_breakdown && childTasks.length > 0 && (
+                            <div className="rounded border border-border/60 bg-background/70 px-2 py-1.5">
+                              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                {t('planner.revision_requests.child_tasks_to_review', { count: childTasks.length })}
+                              </p>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {childTasks.map((child) => (
+                                  <button
+                                    key={child.id}
+                                    type="button"
+                                    className="gl-button gl-button-default"
+                                    onClick={() => openDynamicPanel({ type: 'task-detail', module: 'projets', id: child.id, meta: { projectId } })}
+                                  >
+                                    {child.code || child.title}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {(request.counter_start_date || request.counter_end_date || request.counter_status) && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t('planner.revision_requests.counter_summary', {
+                            start: request.counter_start_date ? new Date(request.counter_start_date).toLocaleDateString('fr-FR') : '—',
+                            end: request.counter_end_date ? new Date(request.counter_end_date).toLocaleDateString('fr-FR') : '—',
+                            pax: request.counter_pax_quota ?? '—',
+                            status: request.counter_status || '—',
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </FormSection>
+
+        {/* ── Dependencies (predecessors + successors) ────── */}
+        <FormSection
+          title={`Dépendances (${incomingDeps.length + outgoingDeps.length})`}
+          collapsible
+          defaultExpanded={incomingDeps.length + outgoingDeps.length > 0}
+          storageKey="task-detail-deps"
+        >
+          {incomingDeps.length === 0 && outgoingDeps.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">{t('planner.no_dependency')}</p>
+          ) : (
+            <SectionColumns>
+              {/* Predecessors */}
+              <div className="@container">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5 flex items-center gap-1.5">
+                  <ArrowLeft size={11} />
+                  Antécédents ({incomingDeps.length})
+                </p>
+                {incomingDeps.length === 0 ? (
+                  <p className="text-xs text-muted-foreground/70 italic px-2 py-1.5">Aucun</p>
+                ) : (
+                  <div className="space-y-1">
+                    {incomingDeps.map((dep) => {
+                      const predTask = tasks.find((t) => t.id === dep.from_task_id)
+                      return (
+                        <button
+                          key={dep.id}
+                          type="button"
+                          className="gl-button gl-button-default group w-full text-left"
+                          onClick={() => predTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: predTask.id, meta: { projectId } })}
+                        >
+                          <Link2 size={12} className="text-muted-foreground shrink-0" />
+                          <span className="text-sm font-medium text-foreground truncate flex-1">
+                            {predTask?.title || dep.from_task_id.slice(0, 8)}
+                          </span>
+                          <span className="gl-badge gl-badge-info text-[9px] shrink-0 font-mono">
+                            {dep.dependency_type}
+                            {typeof dep.lag_days === 'number' && dep.lag_days !== 0 && (
+                              <span className="ml-0.5">{dep.lag_days >= 0 ? '+' : ''}{dep.lag_days}j</span>
+                            )}
+                          </span>
+                          <ChevronRight size={12} className="text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Successors */}
+              <div className="@container">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5 flex items-center gap-1.5">
+                  <ArrowRight size={11} />
+                  Successeurs ({outgoingDeps.length})
+                </p>
+                {outgoingDeps.length === 0 ? (
+                  <p className="text-xs text-muted-foreground/70 italic px-2 py-1.5">Aucun</p>
+                ) : (
+                  <div className="space-y-1">
+                    {outgoingDeps.map((dep) => {
+                      const succTask = tasks.find((t) => t.id === dep.to_task_id)
+                      return (
+                        <button
+                          key={dep.id}
+                          type="button"
+                          className="gl-button gl-button-default group w-full text-left"
+                          onClick={() => succTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: succTask.id, meta: { projectId } })}
+                        >
+                          <Link2 size={12} className="text-muted-foreground shrink-0" />
+                          <span className="text-sm font-medium text-foreground truncate flex-1">
+                            {succTask?.title || dep.to_task_id.slice(0, 8)}
+                          </span>
+                          <span className="gl-badge gl-badge-info text-[9px] shrink-0 font-mono">
+                            {dep.dependency_type}
+                            {typeof dep.lag_days === 'number' && dep.lag_days !== 0 && (
+                              <span className="ml-0.5">{dep.lag_days >= 0 ? '+' : ''}{dep.lag_days}j</span>
+                            )}
+                          </span>
+                          <ChevronRight size={12} className="text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </SectionColumns>
           </>
         )}
 
-        {/* ══ SUBTASKS TAB ══════════════════════════════════════ */}
-        {activeTab === 'subtasks' && (
-          <>
-            {/* Spec §2.8: breakdown-pending banner */}
-            {thisTaskBreakdownPending && (
-              <div className="rounded-lg border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex items-start gap-2.5">
-                <Flag size={14} className="mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
-                    Mise à jour requise suite à la révision du parent
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-amber-800/80 dark:text-amber-300/80">
-                    {thisTaskBreakdownPending.parent_task_title
-                      ? `La tâche parente « ${thisTaskBreakdownPending.parent_task_title} » a accepté une révision Planner. `
-                      : 'Une révision Planner a été acceptée sur la tâche parente. '}
-                    Merci de mettre à jour les dates ou le périmètre de cette sous-tâche en conséquence.
-                  </p>
-                  {(thisTaskBreakdownPending.proposed_start_date || thisTaskBreakdownPending.proposed_end_date) && (
-                    <p className="mt-1 text-[10px] text-amber-700/70 dark:text-amber-400/70 tabular-nums">
-                      Proposition parent : {thisTaskBreakdownPending.proposed_start_date ? formatDate(thisTaskBreakdownPending.proposed_start_date) : '—'}
-                      {' → '}
-                      {thisTaskBreakdownPending.proposed_end_date ? formatDate(thisTaskBreakdownPending.proposed_end_date) : '—'}
-                    </p>
-                  )}
+        {/* ── Pièces jointes ──────────────────────────────── */}
+        <FormSection
+          title={t('common.attachments')}
+          collapsible
+          defaultExpanded={false}
+          storageKey="task-detail-attachments"
+        >
+          <AttachmentManager ownerType="project_task" ownerId={taskId} compact />
+        </FormSection>
+
+        {/* ── Commentaires ─────────────────────────────────── */}
+        <FormSection
+          title={`Commentaires (${(comments as unknown[])?.length || 0})`}
+          collapsible
+          defaultExpanded
+          storageKey="task-detail-comments"
+        >
+          <div className="space-y-2.5">
+            {((comments || []) as unknown as { id: string; content?: string; body?: string; author_name?: string; created_at: string }[]).map(c => (
+              <div key={c.id} className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-1">
+                  <MessageSquare size={10} />
+                  <span className="font-semibold text-foreground/80">{c.author_name || 'Utilisateur'}</span>
+                  <span>·</span>
+                  <span className="tabular-nums">
+                    {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -732,76 +1158,25 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   {resolveBreakdown.isPending ? 'Enregistrement…' : "J'ai mis à jour"}
                 </button>
               </div>
+            ))}
+            {(comments as unknown[])?.length === 0 && (
+              <p className="text-xs text-muted-foreground italic px-2 py-1.5">{t('projets.aucun_commentaire_pour_le_moment')}</p>
             )}
 
-            {childTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Layers size={32} className="mb-3 opacity-30" />
-                <p className="text-sm font-medium">Aucune sous-tâche</p>
-                <p className="text-xs mt-1 text-muted-foreground/70">Cette tâche n&apos;a pas de sous-tâches.</p>
-              </div>
-            ) : (
-              <FormSection title={`Sous-tâches (${childTasks.length})`} collapsible defaultExpanded storageKey="task-detail-children">
-                <div className="space-y-1.5">
-                  {childTasks.map(child => {
-                    const childPending = breakdownPendingByTask.get(child.id)
-                    const childColor = STATUS_MAP[child.status]?.color || '#9ca3af'
-                    return (
-                      <div
-                        key={child.id}
-                        className={cn(
-                          'group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all border',
-                          childPending
-                            ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-400/60 hover:border-amber-500'
-                            : 'border-border/40 hover:border-primary/30 hover:bg-accent/30',
-                        )}
-                        onClick={() => openDynamicPanel({ type: 'task-detail', module: 'projets', id: child.id, meta: { projectId } })}
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: childColor }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{child.title}</p>
-                          {child.code && (
-                            <p className="text-[10px] text-muted-foreground font-mono">{child.code}</p>
-                          )}
-                        </div>
-                        {childPending && (
-                          <span className="gl-badge gl-badge-warning text-[10px] shrink-0">
-                            à réviser
-                          </span>
-                        )}
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{ width: `${child.progress ?? 0}%`, backgroundColor: childColor }}
-                            />
-                          </div>
-                          <span className="text-xs font-semibold tabular-nums text-muted-foreground w-9 text-right">
-                            {child.progress ?? 0}%
-                          </span>
-                        </div>
-                        <ChevronRight size={14} className="text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
-                      </div>
-                    )
-                  })}
-                </div>
-              </FormSection>
-            )}
-          </>
-        )}
-
-        {/* ══ DEPENDENCIES TAB ══════════════════════════════════ */}
-        {activeTab === 'dependencies' && (
-          <>
-            {/* Dependencies (predecessors + successors) */}
-            <FormSection
-              title={`Dépendances (${depsCount})`}
-              collapsible
-              defaultExpanded={depsCount > 0}
-              storageKey="task-detail-deps"
+          {/* Add comment */}
+          <div className="flex gap-2 mt-3 pt-3 border-t border-border/30">
+            <input
+              type="text"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+              placeholder={t('support.ajouter_un_commentaire')}
+              className="gl-form-input flex-1 h-8 px-2 text-sm"
+            />
+            <button
+              onClick={handleAddComment}
+              disabled={!commentText.trim() || createComment.isPending}
+              className="px-3 h-8 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 font-medium inline-flex items-center gap-1"
             >
               {incomingDeps.length === 0 && outgoingDeps.length === 0 ? (
                 <p className="text-xs text-muted-foreground italic">Aucune dépendance</p>

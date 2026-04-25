@@ -15,17 +15,16 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  FileText, Loader2, Search, Upload, Plus,
+  FileText, Loader2, Search, Upload, Plus, Trash2,
   LayoutDashboard, Layers, GitBranch, Tag, BookOpen,
   Lock, FilePlus2, ShieldCheck,
-  FileDown, Cpu, History, PenTool, X,
-  Info, Paperclip, Settings,
+  FileDown, Cpu, History, PenTool, MoreHorizontal,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
-import { PageNavBar, TabBar } from '@/components/ui/Tabs'
+import { TabBar } from '@/components/ui/Tabs'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { usePageSize } from '@/hooks/usePageSize'
@@ -35,10 +34,12 @@ import {
   FormSection,
   ReadOnlyRow,
   InlineEditableRow,
+  InlineEditableTags,
+  PanelActionButton,
   PanelContentLayout,
   DetailFieldGrid,
+  DangerConfirmButton,
   SectionColumns,
-  type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { TagManager } from '@/components/shared/TagManager'
@@ -52,6 +53,7 @@ import {
   usePIDDocuments,
   usePIDDocument,
   useEquipment,
+  useEquipmentDetail,
   useProcessLines,
   useDCSTags,
   useImportTagsCsv,
@@ -60,6 +62,12 @@ import {
   useValidateAfc,
   useAcquireLock,
   useCreatePIDRevision,
+  useCreatePIDDocument,
+  useCreateEquipment,
+  useUpdateEquipment,
+  useDeleteEquipment,
+  useCreateProcessLine,
+  useCreateDCSTag,
   useSaveXml,
   useUpdatePIDDocument,
 } from '@/hooks/usePidPfd'
@@ -71,8 +79,6 @@ import type {
   DCSTag,
 } from '@/services/pidPfdService'
 import { pidPfdService } from '@/services/pidPfdService'
-import { formatDate } from '@/lib/i18n'
-import { CreatePIDPanel, CreateEquipmentPanel, CreateProcessLinePanel, CreateDCSTagPanel, EquipmentDetailPanel } from './CreatePIDPanel'
 
 // -- Constants ----------------------------------------------------------------
 
@@ -99,18 +105,18 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Brouillon',
   in_review: 'En revue',
-  approved: 'Approuvé',
-  issued: 'Émis',
-  superseded: 'Remplacé',
+  approved: 'Approuve',
+  issued: 'Emis',
+  superseded: 'Remplace',
   cancelled: 'Annulé',
 }
 
 const STATUS_OPTIONS = [
   { value: 'draft', label: 'Brouillon' },
   { value: 'in_review', label: 'En revue' },
-  { value: 'approved', label: 'Approuvé' },
-  { value: 'issued', label: 'Émis' },
-  { value: 'superseded', label: 'Remplacé' },
+  { value: 'approved', label: 'Approuve' },
+  { value: 'issued', label: 'Emis' },
+  { value: 'superseded', label: 'Remplace' },
   { value: 'cancelled', label: 'Annulé' },
 ]
 
@@ -126,38 +132,56 @@ const PID_TYPE_OPTIONS = [
 ]
 
 const EQUIPMENT_TYPE_OPTIONS = [
-  { value: 'vessel', label: 'Capacité' },
-  { value: 'heat_exchanger', label: 'Échangeur' },
+  { value: 'vessel', label: 'Capacite' },
+  { value: 'heat_exchanger', label: 'Echangeur' },
   { value: 'pump', label: 'Pompe' },
   { value: 'compressor', label: 'Compresseur' },
   { value: 'turbine', label: 'Turbine' },
   { value: 'column', label: 'Colonne' },
-  { value: 'reactor', label: 'Réacteur' },
+  { value: 'reactor', label: 'Reacteur' },
   { value: 'tank', label: 'Bac' },
   { value: 'filter', label: 'Filtre' },
   { value: 'valve', label: 'Vanne' },
   { value: 'instrument', label: 'Instrument' },
-  { value: 'mixer', label: 'Mélangeur' },
-  { value: 'dryer', label: 'Sécheur' },
-  { value: 'boiler', label: 'Chaudière' },
+  { value: 'mixer', label: 'Melangeur' },
+  { value: 'dryer', label: 'Secheur' },
+  { value: 'boiler', label: 'Chaudiere' },
   { value: 'furnace', label: 'Four' },
   { value: 'conveyor', label: 'Convoyeur' },
   { value: 'centrifuge', label: 'Centrifugeuse' },
-  { value: 'ejector', label: 'Éjecteur' },
+  { value: 'ejector', label: 'Ejecteur' },
   { value: 'flare', label: 'Torche' },
-  { value: 'separator', label: 'Séparateur' },
+  { value: 'separator', label: 'Separateur' },
   { value: 'pig_launcher', label: 'Lanceur racleur' },
   { value: 'pig_receiver', label: 'Receveur racleur' },
   { value: 'manifold', label: 'Collecteur' },
-  { value: 'wellhead', label: 'Tête de puits' },
-  { value: 'christmas_tree', label: 'Arbre de Noël' },
+  { value: 'wellhead', label: 'Tete de puits' },
+  { value: 'christmas_tree', label: 'Arbre de Noel' },
   { value: 'choke', label: 'Duse' },
-  { value: 'safety_valve', label: 'Soupape sécurité' },
-  { value: 'control_valve', label: 'Vanne de contrôle' },
+  { value: 'safety_valve', label: 'Soupape securite' },
+  { value: 'control_valve', label: 'Vanne de controle' },
   { value: 'other', label: 'Autre' },
 ]
 
+const FLUID_PHASE_OPTIONS = [
+  { value: 'liquid', label: 'Liquide' },
+  { value: 'gas', label: 'Gaz' },
+  { value: 'two_phase', label: 'Diphasique' },
+  { value: 'multiphase', label: 'Multiphasique' },
+  { value: 'solid', label: 'Solide' },
+  { value: 'slurry', label: 'Boue' },
+  { value: 'steam', label: 'Vapeur' },
+  { value: 'vapour', label: 'Vapeur (org.)' },
+]
 
+const INSULATION_TYPE_OPTIONS = [
+  { value: 'none', label: 'Aucune' },
+  { value: 'hot', label: 'Chaud' },
+  { value: 'cold', label: 'Froid' },
+  { value: 'acoustic', label: 'Acoustique' },
+  { value: 'personnel_protection', label: 'Protection personnel' },
+  { value: 'anti_condensation', label: 'Anti-condensation' },
+]
 
 const TAG_TYPE_OPTIONS = [
   // Indicators
@@ -170,17 +194,17 @@ const TAG_TYPE_OPTIONS = [
   // Transmitters
   { value: 'TT', label: 'TT - Transmetteur temp.' },
   { value: 'PT', label: 'PT - Transmetteur pression' },
-  { value: 'FT', label: 'FT - Transmetteur débit' },
+  { value: 'FT', label: 'FT - Transmetteur debit' },
   { value: 'LT', label: 'LT - Transmetteur niveau' },
   // Controllers
-  { value: 'PIC', label: 'PIC - Contrôleur pression' },
-  { value: 'TIC', label: 'TIC - Contrôleur temp.' },
-  { value: 'FIC', label: 'FIC - Contrôleur débit' },
-  { value: 'LIC', label: 'LIC - Contrôleur niveau' },
+  { value: 'PIC', label: 'PIC - Controleur pression' },
+  { value: 'TIC', label: 'TIC - Controleur temp.' },
+  { value: 'FIC', label: 'FIC - Controleur debit' },
+  { value: 'LIC', label: 'LIC - Controleur niveau' },
   // Control valves
-  { value: 'PCV', label: 'PCV - Vanne rég. pression' },
-  { value: 'TCV', label: 'TCV - Vanne rég. temp.' },
-  { value: 'FCV', label: 'FCV - Vanne rég. débit' },
+  { value: 'PCV', label: 'PCV - Vanne reg. pression' },
+  { value: 'TCV', label: 'TCV - Vanne reg. temp.' },
+  { value: 'FCV', label: 'FCV - Vanne reg. debit' },
   { value: 'LCV', label: 'LCV - Vanne reg. niveau' },
   // Alarms
   { value: 'PAH', label: 'PAH - Alarme haute pression' },
@@ -207,7 +231,7 @@ const TAG_TYPE_OPTIONS = [
   // Actuated valves
   { value: 'XV', label: 'XV - Vanne TOR' },
   { value: 'HV', label: 'HV - Vanne manuelle' },
-  { value: 'MOV', label: 'MOV - Vanne motorisée' },
+  { value: 'MOV', label: 'MOV - Vanne motorisee' },
   { value: 'SOV', label: 'SOV - Electrovanne' },
   // Position / Logic
   { value: 'ZSO', label: 'ZSO - Fin de course ouvert' },
@@ -228,11 +252,7 @@ const TAG_TYPE_OPTIONS = [
 type PidPfdTab = 'dashboard' | 'documents' | 'equipements' | 'lignes' | 'tags' | 'bibliotheque'
 
 const TABS: { id: PidPfdTab; label: string; icon: typeof FileText }[] = [
-  // First tab translates via common.tab_dashboard for parity with
-  // the other modules (MOC, PackLog, PaxLog, Planner, Projets,
-  // TravelWiz all use "Tableau de bord"). Raw 'Dashboard' string here
-  // bypassed i18n entirely.
-  { id: 'dashboard', label: 'common.tab_dashboard', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'documents', label: 'Documents PID', icon: FileText },
   { id: 'equipements', label: 'Equipements', icon: Cpu },
   { id: 'lignes', label: 'Lignes process', icon: GitBranch },
@@ -257,13 +277,12 @@ function KpiCard({ label, value, icon: Icon, color }: {
   color: string
 }) {
   return (
-    <div className="group relative flex items-center gap-3 rounded-xl border border-border/70 bg-gradient-to-br from-background to-background/60 p-4 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-border">
-      <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-primary/80 to-highlight/40" />
-      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-transform group-hover:scale-110', color)}>
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
+      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', color)}>
         <Icon size={18} className="text-white" />
       </div>
       <div>
-        <p className="text-2xl font-bold text-foreground tabular-nums font-display tracking-tight">{value}</p>
+        <p className="text-2xl font-semibold text-foreground tabular-nums">{value}</p>
         <p className="text-xs text-muted-foreground">{label}</p>
       </div>
     </div>
@@ -321,7 +340,9 @@ function PIDDetailPanel({ id }: { id: string }) {
 
   // Draw.io editor state
   const [showEditor, setShowEditor] = useState(false)
-  const [detailTab, setDetailTab] = useState<'fiche' | 'equipements' | 'documents'>('fiche')
+
+  // More actions dropdown
+  const [showMoreActions, setShowMoreActions] = useState(false)
 
   const handleSaveXml = useCallback(async (xml: string) => {
     try {
@@ -391,81 +412,75 @@ function PIDDetailPanel({ id }: { id: string }) {
     )
   }
 
-  const pidActionItems: ActionItem[] = [
-    ...(canEditPid ? [{
-      id: 'editor',
-      label: 'Editeur',
-      icon: PenTool,
-      variant: 'primary' as const,
-      priority: 100,
-      onClick: () => setShowEditor(true),
-    }] : []),
-    ...(canEditPid ? [{
-      id: 'revision',
-      label: 'Revision',
-      icon: FilePlus2,
-      priority: 80,
-      loading: createRevision.isPending,
-      disabled: createRevision.isPending,
-      onClick: handleCreateRevision,
-    }] : []),
-    {
-      id: 'afc',
-      label: 'AFC',
-      icon: ShieldCheck,
-      priority: 60,
-      loading: validateAfc.isPending,
-      disabled: validateAfc.isPending,
-      onClick: handleValidateAfc,
-    },
-    {
-      id: 'export-svg',
-      label: 'Exporter SVG',
-      icon: FileDown,
-      priority: 55,
-      onClick: handleExportSvg,
-    },
-    {
-      id: 'export-pdf',
-      label: 'Exporter PDF',
-      icon: FileDown,
-      priority: 50,
-      onClick: handleExportPdf,
-    },
-    {
-      id: 'close',
-      label: t('common.close'),
-      icon: X,
-      priority: 40,
-      onClick: closeDynamicPanel,
-    },
-  ]
-
   return (
     <DynamicPanelShell
       title={doc.number}
       subtitle={doc.title}
       icon={<FileText size={14} className="text-primary" />}
-      actionItems={pidActionItems}
+      actions={
+        <>
+          {canEditPid && (
+            <PanelActionButton
+              variant="primary"
+              icon={<PenTool size={12} />}
+              onClick={() => setShowEditor(true)}
+            >
+              Editeur
+            </PanelActionButton>
+          )}
+          {canEditPid && (
+            <PanelActionButton
+              icon={createRevision.isPending ? <Loader2 size={12} className="animate-spin" /> : <FilePlus2 size={12} />}
+              onClick={handleCreateRevision}
+              disabled={createRevision.isPending}
+            >
+              Revision
+            </PanelActionButton>
+          )}
+          <PanelActionButton
+            icon={validateAfc.isPending ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+            onClick={handleValidateAfc}
+            disabled={validateAfc.isPending}
+          >
+            AFC
+          </PanelActionButton>
+          {/* More actions dropdown */}
+          <div className="relative">
+            <PanelActionButton
+              icon={<MoreHorizontal size={12} />}
+              onClick={() => setShowMoreActions(!showMoreActions)}
+            >
+              {''}
+            </PanelActionButton>
+            {showMoreActions && (
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-md border border-border bg-popover shadow-md py-1">
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                  onClick={() => { handleExportSvg(); setShowMoreActions(false) }}
+                >
+                  <FileDown size={12} className="text-muted-foreground" />
+                  Exporter SVG
+                </button>
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                  onClick={() => { handleExportPdf(); setShowMoreActions(false) }}
+                >
+                  <FileDown size={12} className="text-muted-foreground" />
+                  Exporter PDF
+                </button>
+              </div>
+            )}
+          </div>
+          <PanelActionButton onClick={closeDynamicPanel}>{t('common.close')}</PanelActionButton>
+        </>
+      }
     >
-      <TabBar
-        items={[
-          { id: 'fiche', label: 'Informations', icon: Info },
-          { id: 'equipements', label: 'Equipements', icon: Settings },
-          { id: 'documents', label: 'Documents', icon: Paperclip },
-        ]}
-        activeId={detailTab}
-        onTabChange={(id) => setDetailTab(id as 'fiche' | 'equipements' | 'documents')}
-        variant="muted"
-        className="px-3 pt-2"
-      />
-      {detailTab === 'fiche' && (
       <PanelContentLayout>
         <SectionColumns>
           {/* ── Left Column ── */}
           <div className="space-y-5">
             {/* Identification */}
-            <FormSection title={t('common.identification')} collapsible defaultExpanded>
+            <FormSection title="Identification" collapsible defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Numero" value={doc.number} />
                 <InlineEditableRow label="Titre" value={doc.title} onSave={handleFieldSave('title')} />
@@ -477,17 +492,17 @@ function PIDDetailPanel({ id }: { id: string }) {
                     </span>
                   }
                 />
-                <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={doc.status} />} />
+                <ReadOnlyRow label="Statut" value={<StatusBadge status={doc.status} />} />
                 <ReadOnlyRow label="Revision" value={<span className="font-mono text-xs">{doc.revision}</span>} />
               </DetailFieldGrid>
             </FormSection>
 
             {/* Specifications */}
-            <FormSection title={t('common.specifications')} collapsible defaultExpanded>
+            <FormSection title="Specifications" collapsible defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Format" value={<SheetFormatCard format={doc.sheet_format} />} />
                 <InlineEditableRow label="Echelle" value={doc.scale || ''} onSave={handleFieldSave('scale')} />
-                <InlineEditableRow label="N dessin" value={doc.drawing_number || ''} onSave={handleFieldSave('drawing_number')} />
+                <InlineEditableRow label="N° dessin" value={doc.drawing_number || ''} onSave={handleFieldSave('drawing_number')} />
               </DetailFieldGrid>
             </FormSection>
           </div>
@@ -495,24 +510,24 @@ function PIDDetailPanel({ id }: { id: string }) {
           {/* ── Right Column ── */}
           <div className="space-y-5">
             {/* Associations */}
-            <FormSection title={t('common.associations')} collapsible defaultExpanded>
+            <FormSection title="Associations" collapsible defaultExpanded>
               <DetailFieldGrid>
-                <ReadOnlyRow label={t('common.project')} value={doc.project_name || '--'} />
+                <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
                 <ReadOnlyRow label="Equipements" value={<span className="tabular-nums">{doc.equipment_count}</span>} />
                 <ReadOnlyRow label="Cree par" value={doc.creator_name || '--'} />
                 <ReadOnlyRow
-                  label="Cree le"
-                  value={formatDate(doc.created_at)}
+                  label={t('papyrus.cree_le')}
+                  value={new Date(doc.created_at).toLocaleDateString('fr-FR')}
                 />
               </DetailFieldGrid>
             </FormSection>
 
             {/* Lock Status */}
-            <FormSection title={t('common.lock')} collapsible defaultExpanded={false}>
+            <FormSection title="Verrou" collapsible defaultExpanded={false}>
               <div className="flex items-center gap-2 text-sm">
                 <Lock size={14} className="text-muted-foreground" />
                 <span className="text-muted-foreground">Statut:</span>
-                <span className="text-foreground">Non verrouille</span>
+                <span className="text-foreground">{t('pid_pfd.non_verrouille')}</span>
               </div>
               <button
                 onClick={handleAcquireLock}
@@ -524,7 +539,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 ) : (
                   <Lock size={12} />
                 )}
-                <span>Acquerir le verrou</span>
+                <span>{t('pid_pfd.acquerir_le_verrou')}</span>
               </button>
             </FormSection>
 
@@ -541,7 +556,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 </div>
               </FormSection>
             ) : doc.xml_content ? (
-              <FormSection title="Apercu du diagramme" collapsible defaultExpanded>
+              <FormSection title={t('pid_pfd.apercu_du_diagramme')} collapsible defaultExpanded>
                 <div
                   className="w-full max-h-[200px] overflow-hidden rounded border border-border bg-muted/10 flex items-center justify-center cursor-pointer hover:bg-muted/20 transition-colors"
                   onClick={() => setShowEditor(true)}
@@ -549,7 +564,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 >
                   <div className="text-xs text-muted-foreground flex items-center gap-1.5 py-8">
                     <PenTool size={14} />
-                    <span>Cliquer pour editer le diagramme</span>
+                    <span>{t('pid_pfd.cliquer_pour_editer_le_diagramme')}</span>
                   </div>
                 </div>
               </FormSection>
@@ -580,7 +595,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                       <p className="text-muted-foreground mt-0.5">{rev.change_description}</p>
                     )}
                     <p className="text-muted-foreground/60 mt-0.5">
-                      {rev.creator_name || 'Systeme'} — {formatDate(rev.created_at)}
+                      {rev.creator_name || 'Systeme'} — {new Date(rev.created_at).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
                 </div>
@@ -591,31 +606,15 @@ function PIDDetailPanel({ id }: { id: string }) {
           )}
         </FormSection>
 
-        {/* Tags & Notes */}
-        <FormSection title={t('common.tags_notes')} collapsible defaultExpanded={false}>
+        {/* Tags, Notes & Attachments */}
+        <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
           <div className="space-y-3">
             <TagManager ownerType="pid_document" ownerId={doc.id} compact />
+            <AttachmentManager ownerType="pid_document" ownerId={doc.id} compact />
             <NoteManager ownerType="pid_document" ownerId={doc.id} compact />
           </div>
         </FormSection>
       </PanelContentLayout>
-      )}
-      {detailTab === 'equipements' && (
-      <PanelContentLayout>
-        <FormSection title={t('common.equipment')} collapsible defaultExpanded>
-          <p className="text-xs text-muted-foreground">
-            Ce PID contient <span className="font-medium text-foreground">{doc.equipment_count}</span> equipement{doc.equipment_count !== 1 ? 's' : ''}. Consultez l'onglet Equipements de la page principale pour les details.
-          </p>
-        </FormSection>
-      </PanelContentLayout>
-      )}
-      {detailTab === 'documents' && (
-      <PanelContentLayout>
-        <FormSection title={t('common.attached_files')} collapsible defaultExpanded>
-          <AttachmentManager ownerType="pid_document" ownerId={doc.id} compact />
-        </FormSection>
-      </PanelContentLayout>
-      )}
     </DynamicPanelShell>
   )
 }
@@ -623,6 +622,7 @@ function PIDDetailPanel({ id }: { id: string }) {
 // -- Dashboard Tab ------------------------------------------------------------
 
 function DashboardTab() {
+  const { t } = useTranslation()
   // Fetch summary data from existing hooks
   const { data: docsData } = usePIDDocuments({ page: 1, page_size: 5 })
   const { data: equipData } = useEquipment({ page: 1, page_size: 1 })
@@ -651,7 +651,7 @@ function DashboardTab() {
       <CollapsibleSection id="pid-kpis" title="Indicateurs" defaultExpanded showSeparator={false}>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-2">
           <KpiCard label="Documents PID" value={totalPids} icon={FileText} color="bg-blue-600" />
-          <KpiCard label="Équipements" value={totalEquipment} icon={Cpu} color="bg-emerald-600" />
+          <KpiCard label="Equipements" value={totalEquipment} icon={Cpu} color="bg-emerald-600" />
           <KpiCard label="Tags DCS" value={totalTags} icon={Tag} color="bg-amber-600" />
           <KpiCard label="Lignes process" value={totalLines} icon={GitBranch} color="bg-purple-600" />
         </div>
@@ -695,13 +695,13 @@ function DashboardTab() {
                 </div>
                 <StatusBadge status={doc.status} />
                 <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                  {formatDate(doc.updated_at)}
+                  {new Date(doc.updated_at).toLocaleDateString('fr-FR')}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">Aucun document PID.</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t('pid_pfd.aucun_document_pid')}</p>
         )}
       </CollapsibleSection>
     </div>
@@ -711,6 +711,7 @@ function DashboardTab() {
 // -- Library Tab --------------------------------------------------------------
 
 function LibraryTab() {
+  const { t } = useTranslation()
   const [libSearch, setLibSearch] = useState('')
   const [libCategory, setLibCategory] = useState('')
   const debouncedLibSearch = useDebounce(libSearch, 300)
@@ -737,7 +738,7 @@ function LibraryTab() {
             value={libSearch}
             onChange={(e) => setLibSearch(e.target.value)}
             className="gl-form-input pl-8 w-full"
-            placeholder="Rechercher un composant..."
+            placeholder={t('pid_pfd.search_component')}
           />
         </div>
         <select
@@ -745,7 +746,7 @@ function LibraryTab() {
           onChange={(e) => setLibCategory(e.target.value)}
           className="gl-form-select"
         >
-          <option value="">Toutes catégories</option>
+          <option value="">{t('pid_pfd.toutes_categories')}</option>
           {categories.map((cat) => (
             <option key={cat} value={cat}>{cat}</option>
           ))}
@@ -758,7 +759,7 @@ function LibraryTab() {
           <Loader2 size={16} className="animate-spin text-muted-foreground" />
         </div>
       ) : libraryItems && libraryItems.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {libraryItems.map((item) => (
             <div
               key={item.id}
@@ -788,7 +789,7 @@ function LibraryTab() {
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <BookOpen size={32} className="mb-2 opacity-40" />
-          <p className="text-sm">Aucun élément dans la bibliothèque.</p>
+          <p className="text-sm">{t('pid_pfd.aucun_element_dans_la_bibliotheque')}</p>
         </div>
       )}
     </div>
@@ -953,7 +954,7 @@ export function PidPfdPage() {
       size: 100,
       cell: ({ row }) => (
         <span className="text-muted-foreground text-xs tabular-nums">
-          {formatDate(row.original.updated_at)}
+          {new Date(row.original.updated_at).toLocaleDateString('fr-FR')}
         </span>
       ),
     },
@@ -1141,7 +1142,7 @@ export function PidPfdPage() {
       return canCreate ? (
         <ToolbarButton
           icon={FilePlus2}
-          label="Nouveau PID"
+          label={t('pid_pfd.create_pid')}
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd' })}
         />
@@ -1151,7 +1152,7 @@ export function PidPfdPage() {
       return canCreate ? (
         <ToolbarButton
           icon={Plus}
-          label="Nouvel équipement"
+          label="Nouvel equipement"
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'equipment' } })}
         />
@@ -1161,7 +1162,7 @@ export function PidPfdPage() {
       return canCreate ? (
         <ToolbarButton
           icon={Plus}
-          label="Nouvelle ligne"
+          label={t('pid_pfd.nouvelle_ligne')}
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'line' } })}
         />
@@ -1173,7 +1174,7 @@ export function PidPfdPage() {
           {canCreate && (
             <ToolbarButton
               icon={Plus}
-              label="Nouveau tag"
+              label={t('pid_pfd.nouveau_tag')}
               variant="primary"
               onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'tag' } })}
             />
@@ -1220,7 +1221,7 @@ export function PidPfdPage() {
             }}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par numéro, titre..."
+            searchPlaceholder="Rechercher par numero, titre..."
             filters={docFilters}
             activeFilters={activeFilters}
             onFilterChange={handleFilterChange}
@@ -1232,10 +1233,10 @@ export function PidPfdPage() {
               advancedExport: true,
               filenamePrefix: 'pid-pfd',
               exportHeaders: {
-                number: 'Numéro',
+                number: 'Numero',
                 title: 'Titre',
                 pid_type: 'Type',
-                revision: 'Révision',
+                revision: 'Revision',
                 status: 'Statut',
                 sheet_format: 'Format',
                 equipment_count: 'Equipements',
@@ -1266,7 +1267,7 @@ export function PidPfdPage() {
             onFilterChange={handleFilterChange}
             onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'pid-pfd', id: row.id, meta: { subType: 'equipment' } })}
             emptyIcon={Cpu}
-            emptyTitle="Aucun équipement"
+            emptyTitle="Aucun equipement"
             columnResizing
             columnVisibility
             storageKey="pid-pfd-equipment"
@@ -1285,7 +1286,7 @@ export function PidPfdPage() {
             }}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par numéro de ligne..."
+            searchPlaceholder="Rechercher par numero de ligne..."
             emptyIcon={GitBranch}
             emptyTitle="Aucune ligne process"
             columnResizing
@@ -1330,18 +1331,13 @@ export function PidPfdPage() {
           <PanelHeader
             icon={FileText}
             title="PID / PFD"
-            subtitle="Diagrammes process, équipements, lignes, instrumentation"
+            subtitle="Diagrammes process, equipements, lignes, instrumentation"
           >
             {toolbarAction}
           </PanelHeader>
 
-          {/* Tab bar — translate labels so common.tab_dashboard + 5
-              module-specific labels render properly. */}
-          <PageNavBar
-            items={TABS.map((tab) => ({ ...tab, label: t(tab.label) }))}
-            activeId={activeTab}
-            onTabChange={handleTabChange}
-          />
+          {/* Tab bar */}
+          <TabBar items={TABS} activeId={activeTab} onTabChange={handleTabChange} />
 
           <PanelContent scroll={false}>
             {renderTabContent()}
@@ -1369,6 +1365,563 @@ export function PidPfdPage() {
         <CreateDCSTagPanel />
       )}
     </div>
+  )
+}
+
+// -- Create PID Panel ---------------------------------------------------------
+
+function CreatePIDPanel() {
+  const { closeDynamicPanel } = useUIStore()
+  const { t } = useTranslation()
+  const { toast } = useToast()
+  const createPID = useCreatePIDDocument()
+  const [form, setForm] = useState({ title: '', pid_type: 'pid', sheet_format: 'A1', scale: '1:50', drawing_number: '' })
+
+  const handleSubmit = useCallback(async () => {
+    if (!form.title.trim()) {
+      toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.title_required'), variant: 'error' })
+      return
+    }
+    try {
+      await createPID.mutateAsync(form)
+      toast({ title: t('pidpfd.toast.success'), description: t('pidpfd.toast.pid_created') })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.pid_create_error'), variant: 'error' })
+    }
+  }, [form, createPID, toast, closeDynamicPanel])
+
+  return (
+    <DynamicPanelShell title={t('pid_pfd.create_pid')} icon={<FilePlus2 size={14} />} onClose={closeDynamicPanel}>
+      <PanelContentLayout>
+        <FormSection title="Informations">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Titre *</label>
+              <input className="gl-form-input text-sm w-full" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder={t('pid_pfd.titre_du_document_pid')} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Type</label>
+              <select className="gl-form-select text-sm w-full" value={form.pid_type} onChange={(e) => setForm((f) => ({ ...f, pid_type: e.target.value }))}>
+                {Object.entries(PID_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Format feuille</label>
+              <select className="gl-form-select text-sm w-full" value={form.sheet_format} onChange={(e) => setForm((f) => ({ ...f, sheet_format: e.target.value }))}>
+                <option value="A0">A0</option>
+                <option value="A1">A1</option>
+                <option value="A2">A2</option>
+                <option value="A3">A3</option>
+                <option value="A4">A4</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.echelle')}</label>
+              <input className="gl-form-input text-sm w-full" value={form.scale} onChange={(e) => setForm((f) => ({ ...f, scale: e.target.value }))} placeholder="1:50" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.numero_de_dessin')}</label>
+              <input className="gl-form-input text-sm w-full" value={form.drawing_number} onChange={(e) => setForm((f) => ({ ...f, drawing_number: e.target.value }))} placeholder="DWG-001" />
+            </div>
+          </div>
+        </FormSection>
+        <div className="p-3 border-t border-border">
+          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createPID.isPending}>
+            {createPID.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <FilePlus2 size={12} className="mr-2" />}
+            Créer le PID
+          </button>
+        </div>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Equipment Create Panel ----------------------------------------------------
+
+function CreateEquipmentPanel() {
+  const { closeDynamicPanel } = useUIStore()
+  const { t } = useTranslation()
+  const { toast } = useToast()
+  const createEquipment = useCreateEquipment()
+  const { data: docsData } = usePIDDocuments({ page: 1, page_size: 200 })
+  const [form, setForm] = useState({
+    tag: '',
+    equipment_type: 'vessel',
+    description: '',
+    pid_document_id: '',
+    project_id: '',
+    design_pressure_barg: '',
+    design_temperature_c: '',
+    material_of_construction: '',
+    fluid: '',
+    fluid_phase: '',
+  })
+
+  const handleSubmit = useCallback(async () => {
+    if (!form.tag.trim()) {
+      toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.tag_required'), variant: 'error' })
+      return
+    }
+    const payload: Record<string, unknown> = {
+      tag: form.tag.trim(),
+      equipment_type: form.equipment_type,
+    }
+    if (form.description) payload.description = form.description
+    if (form.pid_document_id) payload.pid_document_id = form.pid_document_id
+    if (form.project_id) payload.project_id = form.project_id
+    if (form.design_pressure_barg) payload.design_pressure_barg = Number(form.design_pressure_barg)
+    if (form.design_temperature_c) payload.design_temperature_c = Number(form.design_temperature_c)
+    if (form.material_of_construction) payload.material_of_construction = form.material_of_construction
+    if (form.fluid) payload.fluid = form.fluid
+    if (form.fluid_phase) payload.fluid_phase = form.fluid_phase
+    try {
+      await createEquipment.mutateAsync(payload)
+      toast({ title: t('pidpfd.toast.equipment_created'), variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: t('pidpfd.toast.equipment_create_error'), variant: 'error' })
+    }
+  }, [form, createEquipment, toast, closeDynamicPanel, t])
+
+  const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
+
+  return (
+    <DynamicPanelShell title="Nouvel equipement" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
+      <PanelContentLayout>
+        <FormSection title="Identification">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Tag *</label>
+              <input className="gl-form-input text-sm w-full font-mono" value={form.tag} onChange={(e) => set('tag', e.target.value)} placeholder="V-1001" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Type d'equipement</label>
+              <select className="gl-form-select text-sm w-full" value={form.equipment_type} onChange={(e) => set('equipment_type', e.target.value)}>
+                {EQUIPMENT_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
+              <input className="gl-form-input text-sm w-full" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Description de l'equipement" />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Associations">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Document PID</label>
+              <select className="gl-form-select text-sm w-full" value={form.pid_document_id} onChange={(e) => set('pid_document_id', e.target.value)}>
+                <option value="">{t('projets.aucun')}</option>
+                {docsData?.items?.map((d) => <option key={d.id} value={d.id}>{d.number} — {d.title}</option>)}
+              </select>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Conception" collapsible defaultExpanded={false}>
+          <div className="space-y-3 p-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Pression design (barg)</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.design_pressure_barg} onChange={(e) => set('design_pressure_barg', e.target.value)} placeholder="0.0" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Temperature design (C)</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.design_temperature_c} onChange={(e) => set('design_temperature_c', e.target.value)} placeholder="0" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Materiau</label>
+              <input className="gl-form-input text-sm w-full" value={form.material_of_construction} onChange={(e) => set('material_of_construction', e.target.value)} placeholder="CS, SS316, etc." />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Fluide" collapsible defaultExpanded={false}>
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Fluide</label>
+              <input className="gl-form-input text-sm w-full" value={form.fluid} onChange={(e) => set('fluid', e.target.value)} placeholder="Petrole brut, gaz, etc." />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Phase</label>
+              <select className="gl-form-select text-sm w-full" value={form.fluid_phase} onChange={(e) => set('fluid_phase', e.target.value)}>
+                <option value="">{t('pid_pfd.non_specifie')}</option>
+                {FLUID_PHASE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+        </FormSection>
+
+        <div className="p-3 border-t border-border">
+          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createEquipment.isPending}>
+            {createEquipment.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
+            Creer l'equipement
+          </button>
+        </div>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Equipment Detail Panel ---------------------------------------------------
+
+function EquipmentDetailPanel({ id }: { id: string }) {
+  const { hasPermission } = usePermission()
+  const canDeleteEquip = hasPermission('pid.delete')
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { t } = useTranslation()
+  const { toast } = useToast()
+  const { data: equip, isLoading } = useEquipmentDetail(id)
+  const updateEquipment = useUpdateEquipment()
+  const deleteEquipment = useDeleteEquipment()
+
+  const handleInlineSave = useCallback((field: string, value: string) => {
+    updateEquipment.mutate({ id, payload: { [field]: value } })
+  }, [id, updateEquipment])
+
+  const handleDelete = useCallback(async () => {
+    try {
+      await deleteEquipment.mutateAsync(id)
+      toast({ title: t('pidpfd.toast.equipment_deleted'), variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: t('pidpfd.toast.equipment_delete_error'), variant: 'error' })
+    }
+  }, [id, deleteEquipment, toast, closeDynamicPanel])
+
+  if (isLoading || !equip) {
+    return (
+      <DynamicPanelShell title="Chargement..." icon={<Cpu size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+        </div>
+      </DynamicPanelShell>
+    )
+  }
+
+  return (
+    <DynamicPanelShell
+      title={equip.tag}
+      subtitle={equip.description || undefined}
+      icon={<Cpu size={14} className="text-primary" />}
+      actions={
+        canDeleteEquip ? (
+          <DangerConfirmButton
+            icon={<Trash2 size={12} />}
+            onConfirm={handleDelete}
+            confirmLabel="Supprimer ?"
+          >
+            Supprimer
+          </DangerConfirmButton>
+        ) : undefined
+      }
+    >
+      <PanelContentLayout>
+        {/* -- Identification -- */}
+        <FormSection title="Identification" collapsible defaultExpanded>
+          <DetailFieldGrid>
+            <ReadOnlyRow label="Tag" value={<span className="font-mono font-medium text-foreground">{equip.tag}</span>} />
+            <InlineEditableRow label="Description" value={equip.description || ''} onSave={(v) => handleInlineSave('description', v)} />
+            <InlineEditableTags
+              label="Type"
+              value={equip.equipment_type}
+              options={EQUIPMENT_TYPE_OPTIONS}
+              onSave={(v) => handleInlineSave('equipment_type', v)}
+            />
+            <InlineEditableRow label="Service" value={equip.service || ''} onSave={(v) => handleInlineSave('service', v)} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        {/* -- Design Conditions -- */}
+        <FormSection title={t('pid_pfd.conditions_de_conception')} collapsible defaultExpanded>
+          <DetailFieldGrid>
+            <ReadOnlyRow
+              label="Pression design"
+              value={equip.design_pressure_barg != null ? `${equip.design_pressure_barg} barg` : '--'}
+            />
+            <ReadOnlyRow
+              label="Temperature design"
+              value={equip.design_temperature_c != null ? `${equip.design_temperature_c} °C` : '--'}
+            />
+            <ReadOnlyRow
+              label="Pression service"
+              value={equip.operating_pressure_barg != null ? `${equip.operating_pressure_barg} barg` : '--'}
+            />
+            <ReadOnlyRow
+              label="Temperature service"
+              value={equip.operating_temperature_c != null ? `${equip.operating_temperature_c} °C` : '--'}
+            />
+            <InlineEditableRow label="Materiau" value={equip.material_of_construction || ''} onSave={(v) => handleInlineSave('material_of_construction', v)} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        {/* -- Fluid -- */}
+        <FormSection title="Fluide" collapsible defaultExpanded={false}>
+          <DetailFieldGrid>
+            <ReadOnlyRow label="Fluide" value={equip.fluid || '--'} />
+            <ReadOnlyRow
+              label="Phase"
+              value={
+                equip.fluid_phase
+                  ? <span className="gl-badge gl-badge-neutral">{FLUID_PHASE_OPTIONS.find((o) => o.value === equip.fluid_phase)?.label || equip.fluid_phase}</span>
+                  : '--'
+              }
+            />
+            {equip.capacity_value != null && (
+              <ReadOnlyRow label="Capacite" value={`${equip.capacity_value} ${equip.capacity_unit || ''}`} />
+            )}
+          </DetailFieldGrid>
+        </FormSection>
+
+        {/* -- Associations -- */}
+        <FormSection title="Associations" collapsible defaultExpanded>
+          <DetailFieldGrid>
+            <ReadOnlyRow label="PID" value={equip.pid_number ? <span className="font-mono text-xs">{equip.pid_number}</span> : '--'} />
+            <ReadOnlyRow label="Projet" value={equip.project_name || '--'} />
+            <ReadOnlyRow label="Asset" value={equip.asset_name || '--'} />
+            <ReadOnlyRow label="Tags DCS" value={<span className="tabular-nums">{equip.dcs_tag_count}</span>} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        {/* -- Tags, Notes & Attachments -- */}
+        <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
+          <div className="space-y-3">
+            <TagManager ownerType="equipment" ownerId={id} compact />
+            <AttachmentManager ownerType="equipment" ownerId={id} compact />
+            <NoteManager ownerType="equipment" ownerId={id} compact />
+          </div>
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Process Line Create Panel ------------------------------------------------
+
+function CreateProcessLinePanel() {
+  const { closeDynamicPanel } = useUIStore()
+  const { t } = useTranslation()
+  const { toast } = useToast()
+  const createLine = useCreateProcessLine()
+  const { data: docsData } = usePIDDocuments({ page: 1, page_size: 200 })
+  const [form, setForm] = useState({
+    line_number: '',
+    pid_document_id: '',
+    nominal_diameter_inch: '',
+    nominal_diameter_mm: '',
+    pipe_schedule: '',
+    spec_class: '',
+    fluid: '',
+    insulation_type: 'none',
+    material_of_construction: '',
+  })
+
+  const handleSubmit = useCallback(async () => {
+    if (!form.line_number.trim()) {
+      toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.line_number_required'), variant: 'error' })
+      return
+    }
+    const payload: Record<string, unknown> = {
+      line_number: form.line_number.trim(),
+    }
+    if (form.pid_document_id) payload.pid_document_id = form.pid_document_id
+    if (form.nominal_diameter_inch) payload.nominal_diameter_inch = Number(form.nominal_diameter_inch)
+    if (form.nominal_diameter_mm) payload.nominal_diameter_mm = Number(form.nominal_diameter_mm)
+    if (form.pipe_schedule) payload.pipe_schedule = form.pipe_schedule
+    if (form.spec_class) payload.spec_class = form.spec_class
+    if (form.fluid) payload.fluid = form.fluid
+    if (form.insulation_type !== 'none') payload.insulation_type = form.insulation_type
+    if (form.material_of_construction) payload.material_of_construction = form.material_of_construction
+    try {
+      await createLine.mutateAsync(payload)
+      toast({ title: t('pidpfd.toast.process_line_created'), variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: t('pidpfd.toast.process_line_create_error'), variant: 'error' })
+    }
+  }, [form, createLine, toast, closeDynamicPanel, t])
+
+  const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
+
+  return (
+    <DynamicPanelShell title={t('pid_pfd.create_process_line')} icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
+      <PanelContentLayout>
+        <FormSection title="Identification">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.numero_de_ligne')}</label>
+              <input className="gl-form-input text-sm w-full font-mono" value={form.line_number} onChange={(e) => set('line_number', e.target.value)} placeholder="6&quot;-HC-1001-A1A-HI" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Document PID</label>
+              <select className="gl-form-select text-sm w-full" value={form.pid_document_id} onChange={(e) => set('pid_document_id', e.target.value)}>
+                <option value="">{t('projets.aucun')}</option>
+                {docsData?.items?.map((d) => <option key={d.id} value={d.id}>{d.number} — {d.title}</option>)}
+              </select>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Dimensions">
+          <div className="space-y-3 p-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Diametre (pouces)</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.nominal_diameter_inch} onChange={(e) => set('nominal_diameter_inch', e.target.value)} placeholder='6"' />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Diametre (mm)</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.nominal_diameter_mm} onChange={(e) => set('nominal_diameter_mm', e.target.value)} placeholder="150" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Schedule</label>
+              <input className="gl-form-input text-sm w-full" value={form.pipe_schedule} onChange={(e) => set('pipe_schedule', e.target.value)} placeholder="40, 80, STD..." />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.classe_de_spec')}</label>
+              <input className="gl-form-input text-sm w-full" value={form.spec_class} onChange={(e) => set('spec_class', e.target.value)} placeholder="A1A, B2B..." />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Fluide & Isolation">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Fluide</label>
+              <input className="gl-form-input text-sm w-full" value={form.fluid} onChange={(e) => set('fluid', e.target.value)} placeholder="HC, CW, N2..." />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Type d'isolation</label>
+              <select className="gl-form-select text-sm w-full" value={form.insulation_type} onChange={(e) => set('insulation_type', e.target.value)}>
+                {INSULATION_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.materiau_de_construction')}</label>
+              <input className="gl-form-input text-sm w-full" value={form.material_of_construction} onChange={(e) => set('material_of_construction', e.target.value)} placeholder="CS, SS316L..." />
+            </div>
+          </div>
+        </FormSection>
+
+        <div className="p-3 border-t border-border">
+          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createLine.isPending}>
+            {createLine.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
+            Creer la ligne
+          </button>
+        </div>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- DCS Tag Create Panel -----------------------------------------------------
+
+function CreateDCSTagPanel() {
+  const { closeDynamicPanel } = useUIStore()
+  const { t } = useTranslation()
+  const { toast } = useToast()
+  const createTag = useCreateDCSTag()
+  const { data: equipData } = useEquipment({ page: 1, page_size: 500 })
+  const [form, setForm] = useState({
+    tag_name: '',
+    tag_type: 'PI',
+    description: '',
+    equipment_id: '',
+    engineering_unit: '',
+    range_min: '',
+    range_max: '',
+  })
+
+  const handleSubmit = useCallback(async () => {
+    if (!form.tag_name.trim()) {
+      toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.tag_name_required'), variant: 'error' })
+      return
+    }
+    const payload: Record<string, unknown> = {
+      tag_name: form.tag_name.trim(),
+      tag_type: form.tag_type,
+    }
+    if (form.description) payload.description = form.description
+    if (form.equipment_id) payload.equipment_id = form.equipment_id
+    if (form.engineering_unit) payload.engineering_unit = form.engineering_unit
+    if (form.range_min) payload.range_min = Number(form.range_min)
+    if (form.range_max) payload.range_max = Number(form.range_max)
+    try {
+      await createTag.mutateAsync(payload)
+      toast({ title: t('pidpfd.toast.dcs_tag_created'), variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: t('pidpfd.toast.dcs_tag_create_error'), variant: 'error' })
+    }
+  }, [form, createTag, toast, closeDynamicPanel, t])
+
+  const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
+
+  return (
+    <DynamicPanelShell title={t('pid_pfd.create_tag')} icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
+      <PanelContentLayout>
+        <FormSection title="Identification">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('pid_pfd.nom_du_tag')}</label>
+              <input className="gl-form-input text-sm w-full font-mono" value={form.tag_name} onChange={(e) => set('tag_name', e.target.value)} placeholder="PI-1001" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Type ISA</label>
+              <select className="gl-form-select text-sm w-full" value={form.tag_type} onChange={(e) => set('tag_type', e.target.value)}>
+                {TAG_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
+              <input className="gl-form-input text-sm w-full" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder={t('pid_pfd.description_du_tag')} />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Association equipement">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Equipement</label>
+              <select className="gl-form-select text-sm w-full" value={form.equipment_id} onChange={(e) => set('equipment_id', e.target.value)}>
+                <option value="">{t('projets.aucun')}</option>
+                {equipData?.items?.map((eq) => <option key={eq.id} value={eq.id}>{eq.tag} — {eq.description || eq.equipment_type}</option>)}
+              </select>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Mesure" collapsible defaultExpanded={false}>
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Unite d'ingenierie</label>
+              <input className="gl-form-input text-sm w-full" value={form.engineering_unit} onChange={(e) => set('engineering_unit', e.target.value)} placeholder="barg, °C, m3/h..." />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Range min</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.range_min} onChange={(e) => set('range_min', e.target.value)} placeholder="0" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Range max</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.range_max} onChange={(e) => set('range_max', e.target.value)} placeholder="100" />
+              </div>
+            </div>
+          </div>
+        </FormSection>
+
+        <div className="p-3 border-t border-border">
+          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createTag.isPending}>
+            {createTag.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
+            Creer le tag DCS
+          </button>
+        </div>
+      </PanelContentLayout>
+    </DynamicPanelShell>
   )
 }
 

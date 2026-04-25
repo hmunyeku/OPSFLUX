@@ -178,7 +178,7 @@ function CreateAppInner() {
           </DynamicPanelField>
         </SmartFormSection>
 
-        <SmartFormSection id="t_settings_confidentialite" title={t('settings.confidentialite')} level="essential" collapsible help={{ description: t('settings.confidentialite') }}>
+        <FormSection title={t('settings.confidentialite')} collapsible storageKey="panel.app.sections" id="app-confidentiality">
           <div className="space-y-2">
             <label className="flex items-start gap-2.5 cursor-pointer">
               <input

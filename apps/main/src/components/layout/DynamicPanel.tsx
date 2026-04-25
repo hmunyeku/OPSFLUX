@@ -30,7 +30,6 @@ import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import type { DetachedPanel } from '@/stores/uiStore'
 import { ResponsiveActionBar, type ActionItem } from '@/components/shared/ResponsiveActionBar'
-import { safeLocal } from '@/lib/safeStorage'
 
 // Re-export so consumers that already pull DynamicPanelShell from this file
 // can also pick up the typed action item shape without a second import.
@@ -53,7 +52,7 @@ const DEFAULT_WIDTH = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.floor(window.
 
 function getStoredWidth(): number {
   try {
-    const stored = safeLocal.getItem(STORAGE_KEY)
+    const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       const w = parseInt(stored, 10)
       if (!isNaN(w)) return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, w))
@@ -164,7 +163,7 @@ export function DynamicPanelShell({
           {onClose && (
             <button
               onClick={onClose}
-              className="gl-button-sm gl-button-default flex h-6 w-6 !p-0 shrink-0"
+              className="gl-button-sm gl-button-default h-6 w-6 !p-0 shrink-0"
               aria-label="Fermer"
             >
               <X size={14} />
@@ -247,7 +246,7 @@ export function DynamicPanelShell({
   }, [width, dockSide])
 
   useEffect(() => {
-    safeLocal.setItem(STORAGE_KEY, String(width))
+    localStorage.setItem(STORAGE_KEY, String(width))
   }, [width])
 
   // Shared button style for header controls
@@ -297,7 +296,7 @@ export function DynamicPanelShell({
                 disabled={!hasPrev}
                 onClick={() => navigateToItem(navItems[0])}
                 className={navBtn}
-                title={t('common.first')}
+                title="Premier"
               >
                 <ChevronsLeft size={14} />
               </button>
@@ -313,7 +312,7 @@ export function DynamicPanelShell({
                 disabled={!hasNext}
                 onClick={() => navigateToItem(navItems[currentIndex + 1])}
                 className={navBtn}
-                title={t('common.next_action')}
+                title="Suivant"
               >
                 <ChevronRight size={14} />
               </button>
@@ -321,7 +320,7 @@ export function DynamicPanelShell({
                 disabled={!hasNext}
                 onClick={() => navigateToItem(navItems[navItems.length - 1])}
                 className={navBtn}
-                title={t('common.last')}
+                title="Dernier"
               >
                 <ChevronsRight size={14} />
               </button>
@@ -331,13 +330,13 @@ export function DynamicPanelShell({
           {!canNavigate && <div className="ml-auto" />}
 
           <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-border/60">
-            <button onClick={toggleMode} className={hdrBtn} title={t('dynamic_panel.shrink_side', 'Réduire en panneau latéral') as string}>
+            <button onClick={toggleMode} className={hdrBtn} title={t('layout.reduire_en_panneau_lateral')}>
               <Minimize2 size={12} />
             </button>
-            <button onClick={detachDynamicPanel} className={hdrBtn} title={t('dynamic_panel.detach', 'Détacher en modal flottant') as string}>
+            <button onClick={detachDynamicPanel} className={hdrBtn} title={t('layout.detacher_en_modal_flottant')}>
               <ExternalLink size={12} />
             </button>
-            <button onClick={closeDynamicPanel} className={hdrBtn} aria-label={t('common.close', 'Fermer') as string}>
+            <button onClick={closeDynamicPanel} className={hdrBtn} aria-label="Fermer">
               <X size={14} />
             </button>
           </div>
@@ -410,7 +409,7 @@ export function DynamicPanelShell({
         <div
           className="w-1 flex-shrink-0 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors"
           onMouseDown={onMouseDown}
-          title={t('common.resize')}
+          title="Redimensionner"
         />
       )}
 
@@ -441,7 +440,7 @@ export function DynamicPanelShell({
                 disabled={!hasNext}
                 onClick={() => navigateToItem(navItems[currentIndex + 1])}
                 className={navBtn}
-                title={t('common.next_action')}
+                title="Suivant"
               >
                 <ChevronRight size={13} />
               </button>
@@ -471,17 +470,17 @@ export function DynamicPanelShell({
           </button>
 
           {/* Expand to full */}
-          <button onClick={toggleMode} className={hdrBtn} title={t('dynamic_panel.expand_full', 'Agrandir en pleine largeur') as string}>
+          <button onClick={toggleMode} className={hdrBtn} title="Agrandir en pleine largeur">
             <Maximize2 size={12} />
           </button>
 
           {/* Detach */}
-          <button onClick={detachDynamicPanel} className={hdrBtn} title={t('dynamic_panel.detach', 'Détacher en modal flottant') as string}>
+          <button onClick={detachDynamicPanel} className={hdrBtn} title={t('layout.detacher_en_modal_flottant')}>
             <ExternalLink size={12} />
           </button>
 
           {/* Close */}
-          <button onClick={closeDynamicPanel} className={hdrBtn} aria-label={t('dynamic_panel.close_panel', 'Fermer le panneau') as string}>
+          <button onClick={closeDynamicPanel} className={hdrBtn} aria-label={t('layout.fermer_le_panneau')}>
             <X size={14} />
           </button>
         </div>
@@ -497,7 +496,7 @@ export function DynamicPanelShell({
         <div
           className="w-1 flex-shrink-0 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors"
           onMouseDown={onMouseDown}
-          title={t('common.resize')}
+          title="Redimensionner"
         />
       )}
     </aside>
@@ -548,21 +547,12 @@ export function SectionColumns({
   return (
     <div
       className={cn(
-        // UX request: NEVER split sections into side-by-side columns.
-        // Each section should be a single column taking full panel width,
-        // with its internal DetailFieldGrid providing up to 2-col layout.
-        // This keeps max 2 data columns total (was 4 before: 2 side-sections
-        // × 2 fields each).
-        //
-        // gap-y-8 (was 5): sections need proper breathing room so each
-        // group of fields reads as its own thing rather than running
-        // into the next section.
-        //
-        // `[&>*:empty]:hidden` — when a column wrapper ends up empty
-        // (e.g. all its children return null in wizard mode), collapse
-        // the row entirely so the grid `gap-y-8` doesn't reserve space
-        // for a ghost row.
-        'grid gap-y-8 grid-cols-1 [&>*:empty]:hidden',
+        'grid gap-x-8 gap-y-5 grid-cols-1',
+        // Kick into 2 columns earlier (was @[700px]) so docked panels
+        // benefit too. Detail panels typically pass 2 children — wider
+        // breakpoints are not added here because that would leave an
+        // empty column.
+        '@[640px]:grid-cols-2',
         className,
       )}
     >
@@ -587,13 +577,16 @@ export function DetailFieldGrid({
   return (
     <div
       className={cn(
-        'grid gap-x-10 gap-y-0 grid-cols-1',
-        // 2 cols once the container is at least 700px wide. Each field
-        // row has a 160px label + ~150px min value + 40px gap, so two
-        // columns need ≥680px to sit side-by-side without cramping the
-        // label into ellipsis. Below that we stack single-column which
-        // is more readable on narrow detail panels.
-        '@[700px]:grid-cols-2',
+        'grid gap-x-8 gap-y-0 grid-cols-1',
+        // 2 cols once the container is at least 500px wide so each field has
+        // ~240px for its value — enough for typical dates / labels without
+        // breaking long strings character-by-character.
+        '@[500px]:grid-cols-2',
+        // 3 cols on very wide containers (e.g. full-mode panel column on a
+        // 1920px monitor where each SectionColumns half is ~870px). Lets
+        // dense field groups (Identité, Informations légales) lay out as
+        // 3-up instead of 2-up + lots of empty space.
+        '@[860px]:grid-cols-3',
         className,
       )}
     >
@@ -666,7 +659,7 @@ export function FormSection({
     if (!collapsible) return true
     if (storageKey && resolvedId) {
       try {
-        const stored = safeLocal.getItem(storageKey)
+        const stored = localStorage.getItem(storageKey)
         if (stored) {
           const map = JSON.parse(stored) as Record<string, boolean>
           if (resolvedId in map) return map[resolvedId]
@@ -683,10 +676,10 @@ export function FormSection({
       const next = !prev
       if (storageKey && resolvedId) {
         try {
-          const stored = safeLocal.getItem(storageKey)
+          const stored = localStorage.getItem(storageKey)
           const map = stored ? (JSON.parse(stored) as Record<string, boolean>) : {}
           map[resolvedId] = next
-          safeLocal.setItem(storageKey, JSON.stringify(map))
+          localStorage.setItem(storageKey, JSON.stringify(map))
         } catch { /* ignore */ }
       }
       return next
@@ -697,44 +690,31 @@ export function FormSection({
     <fieldset className={cn('space-y-4', className)}>
       {(title || headerExtra) && (
         collapsible ? (
-          <div className="group/section flex items-center gap-3 w-full">
+          <div className="flex items-center gap-1.5 w-full">
             <button
               type="button"
               onClick={toggle}
-              className="flex items-center gap-2.5 text-left cursor-pointer select-none"
+              className="flex items-center gap-1.5 flex-1 text-left group cursor-pointer select-none"
             >
-              {/* Gradient accent strip — matches the sidebar active
-                  indicator so sections feel anchored rather than
-                  floating. */}
-              <span
-                aria-hidden="true"
-                className="inline-block h-4 w-[3px] rounded-full bg-gradient-to-b from-primary to-highlight shrink-0"
-              />
               <ChevronRight
                 size={13}
                 className={cn(
-                  'shrink-0 text-muted-foreground/70 transition-transform duration-200',
+                  'shrink-0 text-muted-foreground transition-transform duration-200',
                   expanded && 'rotate-90',
                 )}
               />
-              <legend className="text-[13px] font-semibold font-display tracking-tight text-foreground">
+              <legend className="text-sm font-semibold text-foreground">
                 {title}
               </legend>
             </button>
-            <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border-strong/70 via-border to-transparent" />
-            {headerExtra && <span>{headerExtra}</span>}
+            {headerExtra && <span className="ml-auto">{headerExtra}</span>}
           </div>
         ) : (
-          <div className="flex items-center gap-3 pb-2">
-            <span
-              aria-hidden="true"
-              className="inline-block h-4 w-[3px] rounded-full bg-gradient-to-b from-primary to-highlight shrink-0"
-            />
-            <legend className="text-[13px] font-semibold font-display tracking-tight text-foreground">
+          <div className="flex items-center gap-2 pb-2">
+            <legend className="text-sm font-semibold text-foreground flex-1">
               {title}
             </legend>
-            <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border-strong/70 via-border to-transparent" />
-            {headerExtra && <span>{headerExtra}</span>}
+            {headerExtra && <span className="ml-auto">{headerExtra}</span>}
           </div>
         )
       )}
@@ -811,8 +791,8 @@ export const panelInputClass = 'gl-form-input'
 
 export function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-4 py-2 border-b border-border/50 last:border-0">
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
+    <div className="flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0">
+      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0">{value}</span>
     </div>
   )
@@ -820,18 +800,8 @@ export function DetailRow({ label, value }: { label: string; value: React.ReactN
 
 export function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex items-center gap-3 pt-3 pb-2 mt-2 first:mt-0">
-      {/* Left accent strip — same gradient vocabulary as the sidebar
-          active indicator, giving sections a clear anchor without
-          stealing visual weight. */}
-      <span
-        aria-hidden="true"
-        className="inline-block h-4 w-[3px] rounded-full bg-gradient-to-b from-primary to-highlight"
-      />
-      <span className="text-[13px] font-semibold font-display tracking-tight text-foreground">
-        {children}
-      </span>
-      <span aria-hidden="true" className="flex-1 h-px bg-gradient-to-r from-border-strong/70 via-border to-transparent" />
+    <div className="text-sm font-semibold text-foreground pt-2 pb-1">
+      {children}
     </div>
   )
 }
@@ -984,7 +954,7 @@ export function InlineEditableRow({
   if (editing) {
     return (
       <div className="flex items-center gap-3 py-1.5 border-b border-border/50">
-        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
+        <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
         <div className="flex-1 flex items-center gap-1.5">
           <input
             type={type}
@@ -997,7 +967,7 @@ export function InlineEditableRow({
           />
           <button
             onClick={commit}
-            className="gl-button gl-button-sm gl-button-confirm shrink-0 w-7 flex text-success dark:hover:bg-green-900/20"
+            className="shrink-0 h-7 w-7 flex items-center justify-center rounded-lg text-success hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
           >
             <Check size={14} />
           </button>
@@ -1015,13 +985,13 @@ export function InlineEditableRow({
   return (
     <div
       className={cn(
-        "group flex items-start gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
+        "group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
         !disabled && "hover:bg-accent/50 cursor-pointer",
       )}
       onDoubleClick={startEdit}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}{suffix && value ? ` ${suffix}` : ''}</span>
       {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
@@ -1064,7 +1034,7 @@ export function InlineEditableSelect({
   if (editing && !disabled) {
     return (
       <div className="flex items-center gap-3 py-1.5 border-b border-border/50">
-        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
+        <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
         <div className="flex-1">
           <select
             value={draft}
@@ -1085,13 +1055,13 @@ export function InlineEditableSelect({
   return (
     <div
       className={cn(
-        'group flex items-start gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors',
+        'group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors',
         !disabled && 'hover:bg-accent/50 cursor-pointer',
       )}
       onDoubleClick={startEdit}
       title={disabled ? undefined : 'Double-cliquer pour modifier'}
     >
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}</span>
       {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
@@ -1180,7 +1150,7 @@ export function InlineEditableCombobox({
   if (editing) {
     return (
       <div ref={containerRef} className="flex items-center gap-3 py-1.5 border-b border-border/50 relative">
-        <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
+        <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
         <div className="flex-1 relative">
           <div className="flex items-center gap-1">
             <input
@@ -1216,11 +1186,11 @@ export function InlineEditableCombobox({
 
   return (
     <div
-      className="group flex items-start gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg hover:bg-accent/50 -mx-2 px-2 cursor-pointer transition-colors"
+      className="group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg hover:bg-accent/50 -mx-2 px-2 cursor-pointer transition-colors"
       onDoubleClick={startEdit}
-      title="Double-cliquer pour modifier"
+      title={t('layout.double_cliquer_pour_modifier')}
     >
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayLabel || '—'}</span>
       <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />
     </div>
@@ -1278,7 +1248,7 @@ export function InlineEditableTags({
   if (editing && !disabled) {
     return (
       <div className="flex items-start gap-3 py-1.5 border-b border-border/50">
-        <span className="text-sm text-muted-foreground w-28 shrink-0 pt-1.5 truncate" title={label}>{label}</span>
+        <span className="text-sm text-muted-foreground w-28 shrink-0 pt-1.5">{label}</span>
         <div className="flex-1 flex flex-wrap gap-1.5">
           {options.map((opt) => (
             <button
@@ -1310,13 +1280,13 @@ export function InlineEditableTags({
   return (
     <div
       className={cn(
-        "group flex items-start gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
+        "group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
         !disabled && "hover:bg-accent/50 cursor-pointer",
       )}
       onDoubleClick={() => !disabled && setEditing(true)}
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
+      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0">
         <span className="gl-badge gl-badge-neutral">{displayLabel}</span>
       </span>
@@ -1329,8 +1299,8 @@ export function InlineEditableTags({
 
 export function ReadOnlyRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-4 py-2 border-b border-border/50 last:border-0">
-      <span className="text-sm text-muted-foreground font-medium w-40 shrink-0 leading-snug" title={label}>{label}</span>
+    <div className="flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0">
+      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0">{value}</span>
     </div>
   )
@@ -1591,7 +1561,7 @@ function FloatingPanel({ panel, children }: { panel: DetachedPanel; children: Re
 
         <span className="text-xs font-semibold text-foreground truncate flex-1">{label}</span>
         {panel.pinned && (
-          <span className="text-[10px] text-green-600 dark:text-green-400 font-medium shrink-0">Épinglé</span>
+          <span className="text-[10px] text-green-600 dark:text-green-400 font-medium shrink-0">{t('layout.epingle')}</span>
         )}
 
         {/* Window controls */}
@@ -1611,21 +1581,21 @@ function FloatingPanel({ panel, children }: { panel: DetachedPanel; children: Re
           <button
             onClick={() => reattachPanel(panel.id)}
             className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors"
-            title={t('dynamic_panel.reattach', 'Rattacher au panneau latéral') as string}
+            title={t('layout.rattacher_au_panneau_lateral')}
           >
             <ExternalLink size={12} className="rotate-180" />
           </button>
           <button
             onClick={toggleMaximize}
             className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors"
-            title={maximized ? t('dynamic_panel.restore', 'Restaurer') as string : t('dynamic_panel.maximize', 'Maximiser') as string}
+            title={maximized ? 'Restaurer' : 'Maximiser'}
           >
             {maximized ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
           </button>
           <button
             onClick={() => closeDetachedPanel(panel.id)}
             className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-            title={t('common.close', 'Fermer') as string}
+            title="Fermer"
           >
             <X size={13} />
           </button>

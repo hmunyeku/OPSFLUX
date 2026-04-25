@@ -178,7 +178,7 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
                 key={ident.id}
                 className="flex items-center gap-2 text-sm group"
                 onDoubleClick={() => setEditingId(ident.id)}
-                title={t('common.double_click_to_edit', 'Double-cliquez pour modifier') as string}
+                title={t('projets.double_cliquez_pour_modifier')}
               >
                 <FileText size={12} className="text-muted-foreground shrink-0" />
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase min-w-[60px] shrink-0">
@@ -217,7 +217,7 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
       )}
 
       {!isLoading && !showForm && identifiers.length === 0 && !compact && (
-        <EmptyState icon={FileText} title="Aucun identifiant légal" size="compact" />
+        <EmptyState icon={FileText} title={t('shared.identifiers.empty')} size="compact" />
       )}
 
       {!showForm && (
@@ -264,7 +264,7 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
             <input
               type="text"
               className={`${panelInputClass} flex-1`}
-              placeholder="Date émission (YYYY-MM-DD)"
+              placeholder={t('shared.date_emission_yyyy_mm_dd')}
               value={issuedAt}
               onChange={(e) => setIssuedAt(e.target.value)}
             />
@@ -355,7 +355,7 @@ function InlineIdentifierEditor({
           value={editIssued}
           onChange={(e) => setEditIssued(e.target.value)}
           className="flex-1 px-1 py-0.5 text-[10px] rounded border border-border/60 bg-card focus:outline-none"
-          placeholder="Émission"
+          placeholder={t('shared.emission')}
         />
         <input
           type="text"

@@ -365,7 +365,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                 key={phone.id}
                 className="flex flex-wrap sm:flex-nowrap items-center gap-2 py-2 px-3 rounded-lg border border-border/40 bg-card hover:border-border hover:shadow-sm group cursor-pointer transition-all"
                 onDoubleClick={() => setEditingId(phone.id)}
-                title={t('common.double_click_to_edit', 'Double-cliquez pour modifier') as string}
+                title={t('projets.double_cliquez_pour_modifier')}
               >
                 <div className="shrink-0 h-7 w-7 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
                   {flag ? (
@@ -431,11 +431,11 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                       })
                     }}
                     className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 shrink-0"
-                    title="Envoyer un code de vérification par SMS"
+                    title={t('shared.envoyer_un_code_de_verification_par_sms')}
                     disabled={sendVerification.isPending}
                   >
                     {sendVerification.isPending ? <Loader2 size={9} className="animate-spin" /> : <Send size={9} />}
-                    <span>{t('common.verify')}</span>
+                    <span>{t('auth.mfa_verify')}</span>
                   </button>
                 )}
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -443,7 +443,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                     <button
                       onClick={() => handleSetDefault(phone.id)}
                       className="p-0.5 rounded hover:bg-accent text-muted-foreground"
-                      title={t('common.set_default', 'Définir par défaut') as string}
+                      title={t('shared.definir_par_defaut')}
                     >
                       <Star size={10} />
                     </button>
@@ -470,7 +470,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
       )}
 
       {!isLoading && !showForm && phones.length === 0 && !compact && (
-        <EmptyState icon={PhoneIcon} title="Aucun téléphone" size="compact" />
+        <EmptyState icon={PhoneIcon} title={t('shared.phones.empty')} size="compact" />
       )}
 
       {!hideAddButton && !showForm && (

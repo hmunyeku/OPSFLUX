@@ -175,6 +175,16 @@ export function GeneralConfigTab() {
         </div>
       </CollapsibleSection>
 
+      {/* ── Cartographie ── */}
+      <CollapsibleSection
+        id="cartographie"
+        title="Cartographie"
+        description={t('settings.position_par_defaut_de_la_carte_cliquez')}
+        storageKey="settings.general-config.collapse"
+      >
+        <CartographySection settings={s} save={save} />
+      </CollapsibleSection>
+
       {/* ── Notifications ── */}
       <CollapsibleSection
         id="notifications-config"

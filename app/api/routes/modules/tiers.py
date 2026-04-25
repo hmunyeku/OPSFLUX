@@ -125,6 +125,27 @@ async def create_tier(
     staging_ref = payload.pop("staging_ref", None)
     initial_contacts = payload.pop("contacts", []) or []
     payload["code"] = await generate_reference("TIR", db, entity_id=entity_id)
+    # Default the tier's currency / timezone / language to the entity's
+    # values (not the literals "XAF" / "Africa/Douala" / "fr" baked into
+    # the schema). Each tier can override its own. cf E2E bug #8.
+    needs_entity_defaults = (
+        not payload.get("currency")
+        or not payload.get("timezone")
+        or not payload.get("language")
+    )
+    if needs_entity_defaults:
+        entity_row = await db.execute(
+            select(Entity.currency, Entity.timezone, Entity.language).where(Entity.id == entity_id)
+        )
+        ent = entity_row.first()
+        if ent:
+            payload.setdefault("currency", ent.currency)
+            payload.setdefault("timezone", ent.timezone)
+            payload.setdefault("language", ent.language)
+        # Fallbacks if entity row is somehow missing these
+        payload.setdefault("currency", "EUR")
+        payload.setdefault("timezone", "UTC")
+        payload.setdefault("language", "fr")
 
     tier = Tier(entity_id=entity_id, **payload)
     db.add(tier)

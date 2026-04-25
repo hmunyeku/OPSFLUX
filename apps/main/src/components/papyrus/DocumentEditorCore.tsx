@@ -289,7 +289,7 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
             </button>
             <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('separator')}>
               <SeparatorHorizontal size={12} />
-              <span>{t('common.separator')}</span>
+              <span>{t('assets.type_separator')}</span>
             </button>
             <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('formula')}>
               <Sigma size={12} />
@@ -339,7 +339,7 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
       ) : (
         <div className="p-3 space-y-3">
           {doc.blocks.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-8 text-center">Aucun bloc. Ajoutez un paragraphe ou passez en mode JSON.</div>
+            <div className="text-sm text-muted-foreground py-8 text-center">{t('papyrus.aucun_bloc_ajoute_un_paragraphe_ou_passe')}</div>
           ) : null}
           {doc.blocks.map((block, index) => {
             const type = String(block.type ?? 'paragraph')
@@ -370,7 +370,7 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
                           readOnly={readOnly}
                           onChange={(event) => updateBlock(index, (current) => ({ ...current, label: event.target.value }))}
                           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                          placeholder="Libellé de formule"
+                          placeholder={t('papyrus.libelle_de_formule')}
                         />
                         <textarea
                           value={typeof block.expression === 'string' ? block.expression : ''}
@@ -388,14 +388,14 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
                           readOnly={readOnly}
                           onChange={(event) => updateBlock(index, (current) => ({ ...current, label: event.target.value }))}
                           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                          placeholder={t('common.label_long')}
+                          placeholder={t('common.label')}
                         />
                         <input
                           value={typeof block.ref === 'string' ? block.ref : ''}
                           readOnly={readOnly}
                           onChange={(event) => updateBlock(index, (current) => ({ ...current, ref: event.target.value }))}
                           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
-                          placeholder="URI de référence"
+                          placeholder={t('papyrus.uri_de_reference')}
                         />
                       </>
                     ) : null}

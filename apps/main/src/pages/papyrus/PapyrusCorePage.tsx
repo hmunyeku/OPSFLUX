@@ -10,19 +10,18 @@
  * Detail panel: metadata, revision info, workflow actions, export, share, revision history
  */
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
   FileText, Plus, Loader2, Trash2, LayoutDashboard, Files, FileCode2, FolderCog,
   Send, CheckCircle2, XCircle, Globe, Download, Link2, Clock,
   Archive, PenTool, GitCompare, ChevronDown, ChevronRight, Folder, PanelLeftClose, PanelLeft, Upload,
-  Info, Paperclip, Eye,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
-import { InlinePdfViewer } from '@/components/shared/InlinePdfViewer'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
-import { PageNavBar, TabBar } from '@/components/ui/Tabs'
+import { TabBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFilterPersistence } from '@/hooks/useFilterPersistence'
@@ -30,12 +29,16 @@ import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
+  DynamicPanelField,
   FormSection,
+  FormGrid,
   ReadOnlyRow,
+  DangerConfirmButton,
+  PanelActionButton,
   PanelContentLayout,
+  SectionColumns,
   DetailFieldGrid,
   panelInputClass,
-  type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
@@ -56,7 +59,9 @@ import {
   useDocumentWorkflowState,
   useDocumentTransition,
   useDocTypes,
+  useUpdateDocType,
   useTemplates,
+  useUpdateTemplate,
   useCreateShareLink,
   useRevisions,
   useRevision,
@@ -78,6 +83,7 @@ import {
   useExportPapyrusEpiCollect,
   useCreateRevision,
   useSaveDraft,
+  useCreateDocument,
   useRevisionDiff,
   useArborescenceNodes,
   useImportMDR,
@@ -87,8 +93,6 @@ import { DocumentEditor } from '@/components/papyrus/DocumentEditor'
 import { PapyrusFormBuilder } from '@/components/papyrus/PapyrusFormBuilder'
 import { PapyrusFormRunner } from '@/components/papyrus/PapyrusFormRunner'
 import { useProjects } from '@/hooks/useProjets'
-import { formatDate } from '@/lib/i18n'
-import { CreateDocumentPanel, CreateDocTypePanel, CreateTemplatePanel, DocTypeDetailPanel, TemplateDetailPanel } from './PapyrusPanels'
 import type {
   Document as REDocument,
   DocType,
@@ -99,18 +103,14 @@ import type {
   PapyrusDocument,
   PapyrusForm,
   PapyrusSchedule,
-  PapyrusVersionSummary,
 } from '@/services/papyrusService'
 
 // -- Constants ----------------------------------------------------------------
 
 type ReportEditorTab = 'dashboard' | 'documents' | 'templates' | 'doc-types'
 
-// Labels are i18n keys; the renderer below runs them through t() so
-// EN users see the translated text. Dashboard uses the shared
-// common.tab_dashboard for cross-module parity.
 const TABS: { id: ReportEditorTab; label: string; icon: typeof FileText }[] = [
-  { id: 'dashboard', label: 'common.tab_dashboard', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { id: 'documents', label: 'Documents', icon: Files },
   { id: 'templates', label: 'Templates', icon: FileCode2 },
   { id: 'doc-types', label: 'Types de document', icon: FolderCog },
@@ -119,10 +119,10 @@ const TABS: { id: ReportEditorTab; label: string; icon: typeof FileText }[] = [
 const STATUS_OPTIONS = [
   { value: 'draft', label: 'Brouillon' },
   { value: 'in_review', label: 'En revue' },
-  { value: 'approved', label: 'Approuvé' },
-  { value: 'published', label: 'Publié' },
-  { value: 'obsolete', label: 'Obsolète' },
-  { value: 'archived', label: 'Archivé' },
+  { value: 'approved', label: 'Approuve' },
+  { value: 'published', label: 'Publie' },
+  { value: 'obsolete', label: 'Obsolete' },
+  { value: 'archived', label: 'Archive' },
 ]
 
 const CLASSIFICATION_OPTIONS = [
@@ -201,17 +201,15 @@ function ArborescenceTreeNode({
 function StatusBadge({ status }: { status: string }) {
   const colorMap: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-    in_review: 'gl-badge-warning',
-    approved: 'gl-badge-success',
-    published: 'gl-badge-info',
-    obsolete: 'gl-badge-danger',
+    in_review: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    approved: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    published: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    obsolete: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
     archived: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
   }
   const label = STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status
-  const variant = colorMap[status] || 'bg-gray-100 text-gray-700'
-  const isGlBadge = variant.startsWith('gl-badge-')
   return (
-    <span className={isGlBadge ? cn('gl-badge', variant) : cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', variant)}>
+    <span className={cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', colorMap[status] || 'bg-gray-100 text-gray-700')}>
       {label}
     </span>
   )
@@ -221,16 +219,19 @@ function ClassificationBadge({ classification }: { classification: string }) {
   const colorMap: Record<string, string> = {
     INT: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
     CONF: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-    REST: 'gl-badge-danger',
-    PUB: 'gl-badge-success',
+    REST: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    PUB: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
   }
-  const variant = colorMap[classification] || 'bg-gray-100 text-gray-600'
-  const isGlBadge = variant.startsWith('gl-badge-')
   return (
-    <span className={isGlBadge ? cn('gl-badge', variant) : cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', variant)}>
+    <span className={cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', colorMap[classification] || 'bg-gray-100 text-gray-600')}>
       {classification}
     </span>
   )
+}
+
+function formatDate(d: string | null | undefined) {
+  if (!d) return '--'
+  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 // -- Dynamic Workflow Actions (FSM-driven) ------------------------------------
@@ -286,7 +287,7 @@ function WorkflowActions({ docId }: { docId: string }) {
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder={t('papyrus.placeholders.reject_reason_required')}
+            placeholder="Motif (obligatoire)..."
             className="w-full min-h-[60px] rounded-md border border-border bg-background px-2 py-1.5 text-sm resize-y focus:outline-none focus:ring-1 focus:ring-primary"
             rows={3}
           />
@@ -309,13 +310,13 @@ function WorkflowActions({ docId }: { docId: string }) {
               className="gl-button-sm gl-button-confirm"
             >
               {transition.isPending ? <Loader2 size={12} className="animate-spin" /> : null}
-              <span>{t('common.confirm')}</span>
+              <span>Confirmer</span>
             </button>
             <button
               onClick={() => { setCommentFor(null); setComment('') }}
               className="gl-button-sm gl-button-default"
             >
-              <span>{t('common.cancel')}</span>
+              <span>Annuler</span>
             </button>
           </div>
         </div>
@@ -327,12 +328,12 @@ function WorkflowActions({ docId }: { docId: string }) {
           <div className="space-y-1">
             {wfState.history.map((h, i) => (
               <div key={i} className="text-xs text-muted-foreground">
-                <span className="font-medium">{h.actor_name || 'Système'}</span>
+                <span className="font-medium">{h.actor_name || 'Systeme'}</span>
                 {' '}{h.from_state} &rarr; {h.to_state}
                 {h.comment && <span className="italic ml-1">&laquo;{h.comment}&raquo;</span>}
                 {h.created_at && (
                   <span className="ml-1 tabular-nums">
-                    {formatDate(h.created_at)}
+                    {new Date(h.created_at).toLocaleDateString('fr-FR')}
                   </span>
                 )}
               </div>
@@ -359,11 +360,12 @@ function RevisionDiffViewer({
   revAId: string
   revBId: string
 }) {
+  const { t } = useTranslation()
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-6 border border-border rounded-md bg-muted/10">
         <Loader2 size={14} className="animate-spin text-muted-foreground" />
-        <span className="ml-2 text-xs text-muted-foreground">Chargement du diff...</span>
+        <span className="ml-2 text-xs text-muted-foreground">{t('papyrus.chargement_du_diff')}</span>
       </div>
     )
   }
@@ -410,7 +412,7 @@ function RevisionDiffViewer({
       {/* Diff content */}
       <div className="p-3 space-y-1 max-h-[300px] overflow-y-auto text-xs">
         {addCount === 0 && delCount === 0 && modCount === 0 && (
-          <p className="text-muted-foreground py-2 text-center">Aucune différence détectée.</p>
+          <p className="text-muted-foreground py-2 text-center">Aucune difference detectee.</p>
         )}
         {diff.additions?.map((item, i) => (
           <div key={`add-${i}`} className="flex gap-2 px-2 py-1 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-500">
@@ -445,11 +447,6 @@ function DocumentDetailPanel({ id }: { id: string }) {
   const canApproveDoc = hasPermission('document.approve')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
-  // Inline PDF preview — toggled by the "Aperçu" button next to the
-  // existing Télécharger PDF. Uses the new ?inline=true flag on the
-  // export endpoint so the blob comes back with Content-Disposition:
-  // inline and the iframe viewer can render it directly.
-  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false)
 
   const { data: doc, isLoading: docLoading } = useDocument(id)
   const { data: revisions, isLoading: revisionsLoading } = useRevisions(id)
@@ -802,24 +799,6 @@ function DocumentDetailPanel({ id }: { id: string }) {
     }
   }, [id, runPapyrusDispatchNow, toast])
 
-  const docDetailActions = useMemo<ActionItem[]>(() => [
-    ...(canDeleteDoc ? [{
-      id: 'delete',
-      label: t('common.delete'),
-      icon: Trash2,
-      variant: 'danger' as const,
-      confirm: {
-        title: t('common.delete'),
-        message: 'Supprimer ce document ?',
-        confirmLabel: 'Supprimer',
-        variant: 'danger' as const,
-      },
-      onClick: handleDelete,
-    }] : []),
-  ], [canDeleteDoc, handleDelete, t])
-
-  const [detailTab, setDetailTab] = useState<'informations' | 'documents'>('informations')
-
   if (docLoading || !doc) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<FileText size={14} className="text-primary" />}>
@@ -844,40 +823,35 @@ function DocumentDetailPanel({ id }: { id: string }) {
       title={doc.number}
       subtitle={doc.title}
       icon={<FileText size={14} className="text-primary" />}
-      actionItems={docDetailActions}
+      actions={
+        canDeleteDoc ? (
+          <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
+            {t('common.delete')}
+          </DangerConfirmButton>
+        ) : undefined
+      }
     >
-      <TabBar
-        items={[
-          { id: 'informations', label: 'Informations', icon: Info },
-          { id: 'documents', label: 'Fichiers', icon: Paperclip },
-        ]}
-        activeId={detailTab}
-        onTabChange={(id) => setDetailTab(id as 'informations' | 'documents')}
-        variant="muted"
-        className="px-3 pt-2"
-      />
-      {detailTab === 'informations' && (
       <PanelContentLayout>
         {/* Metadata */}
-        <FormSection title={t('common.information')} collapsible defaultExpanded>
+        <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
-            <ReadOnlyRow label="Numéro" value={<span className="font-mono text-xs">{doc.number}</span>} />
-            <ReadOnlyRow label={t('common.title_field')} value={doc.title} />
-            <ReadOnlyRow label={t('common.type_field')} value={doc.doc_type_name || '--'} />
-            <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={doc.status} />} />
+            <ReadOnlyRow label="Numero" value={<span className="font-mono text-xs">{doc.number}</span>} />
+            <ReadOnlyRow label="Titre" value={doc.title} />
+            <ReadOnlyRow label="Type" value={doc.doc_type_name || '--'} />
+            <ReadOnlyRow label="Statut" value={<StatusBadge status={doc.status} />} />
             <ReadOnlyRow label="Classification" value={<ClassificationBadge classification={doc.classification} />} />
-            <ReadOnlyRow label="Révision courante" value={doc.current_rev_code || '--'} />
-            <ReadOnlyRow label="Nb révisions" value={String(doc.revision_count)} />
-            <ReadOnlyRow label={t('common.project')} value={doc.project_name || '--'} />
+            <ReadOnlyRow label="Revision courante" value={doc.current_rev_code || '--'} />
+            <ReadOnlyRow label="Nb revisions" value={String(doc.revision_count)} />
+            <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
             <ReadOnlyRow label="Langue" value={doc.language} />
-            <ReadOnlyRow label="Créateur" value={doc.creator_name || '--'} />
-            <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(doc.created_at)} />
-            <ReadOnlyRow label="Mis à jour" value={formatDate(doc.updated_at)} />
+            <ReadOnlyRow label="Createur" value={doc.creator_name || '--'} />
+            <ReadOnlyRow label={t('papyrus.cree_le')} value={formatDate(doc.created_at)} />
+            <ReadOnlyRow label="Mis a jour" value={formatDate(doc.updated_at)} />
           </DetailFieldGrid>
         </FormSection>
 
         {/* Document Editor */}
-        <FormSection title="Éditeur de contenu" collapsible defaultExpanded={showEditor}>
+        <FormSection title={t('papyrus.editeur_de_contenu')} collapsible defaultExpanded={showEditor}>
           {showEditor ? (
             <div className="space-y-2">
               <DocumentEditor
@@ -892,13 +866,13 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   disabled={createRevision.isPending}
                 >
                   {createRevision.isPending ? <Loader2 size={12} className="animate-spin" /> : <PenTool size={12} />}
-                  <span>Créer révision</span>
+                  <span>Creer revision</span>
                 </button>
                 <button
                   className="gl-button-sm gl-button-default"
                   onClick={() => setShowEditor(false)}
                 >
-                  <span>Fermer l&apos;editeur</span>
+                  <span>{t('papyrus.fermer_l_apos_editeur')}</span>
                 </button>
               </div>
             </div>
@@ -908,44 +882,56 @@ function DocumentDetailPanel({ id }: { id: string }) {
               onClick={() => setShowEditor(true)}
             >
               <PenTool size={12} />
-              <span>Ouvrir l&apos;editeur</span>
+              <span>{t('papyrus.ouvrir_l_apos_editeur')}</span>
             </button>
           )}
         </FormSection>
 
         <FormSection title="Historique Papyrus" collapsible>
           {!papyrusVersions || papyrusVersions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune version technique Papyrus enregistrée.</p>
+            <p className="text-sm text-muted-foreground">Aucune version technique Papyrus enregistree.</p>
           ) : (
             <div className="border border-border rounded-lg overflow-hidden">
-              <DataTable<PapyrusVersionSummary>
-                data={papyrusVersions}
-                columns={[
-                  { accessorKey: 'version', header: t('common.version'), cell: ({ row }) => <span className="font-mono text-xs">{row.original.version}</span> },
-                  { accessorKey: 'patch_type', header: t('common.type_field') },
-                  { accessorKey: 'workflow_tag', header: 'Tag workflow', cell: ({ row }) => <>{row.original.workflow_tag || '--'}</> },
-                  { accessorKey: 'message', header: t('common.message'), cell: ({ row }) => <span className="text-muted-foreground">{row.original.message || '--'}</span> },
-                  { accessorKey: 'created_at', header: t('common.date'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDate(row.original.created_at)}</span> },
-                ]}
-              />
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Version</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Type</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Tag workflow</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Message</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {papyrusVersions.map((version) => (
+                    <tr key={version.id} className="border-b border-border last:border-0">
+                      <td className="px-3 py-2 font-mono text-xs">{version.version}</td>
+                      <td className="px-3 py-2">{version.patch_type}</td>
+                      <td className="px-3 py-2">{version.workflow_tag || '--'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{version.message || '--'}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{formatDate(version.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </FormSection>
 
-        <FormSection title="Aperçu rendu Papyrus" collapsible>
+        <FormSection title="Apercu rendu Papyrus" collapsible>
           {!renderedPapyrusDocument ? (
             <p className="text-sm text-muted-foreground">Rendu Papyrus indisponible.</p>
           ) : (
             <div className="space-y-3">
               <DetailFieldGrid>
-                <ReadOnlyRow label={t('common.version')} value={String(renderedPapyrusDocument.version)} />
-                <ReadOnlyRow label="Rendu le" value={renderedPapyrusDocument.rendered_at ? formatDate(renderedPapyrusDocument.rendered_at) : '--'} />
+                <ReadOnlyRow label="Version" value={String(renderedPapyrusDocument.version)} />
+                <ReadOnlyRow label={t('papyrus.rendu_le')} value={renderedPapyrusDocument.rendered_at ? formatDate(renderedPapyrusDocument.rendered_at) : '--'} />
                 <ReadOnlyRow label="Refs resolues" value={String(Object.keys(renderedPapyrusDocument.resolved_refs ?? {}).length)} />
                 <ReadOnlyRow label="Blocs" value={String(renderedPapyrusDocument.blocks?.length ?? 0)} />
               </DetailFieldGrid>
 
               <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">Références résolues</div>
+                <div className="text-xs font-medium text-muted-foreground">References resolues</div>
                 <pre className="rounded-md border border-border bg-muted/20 p-3 text-[11px] overflow-x-auto">
 {JSON.stringify(renderedPapyrusDocument.resolved_refs ?? {}, null, 2)}
                 </pre>
@@ -972,19 +958,19 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   value={papyrusFormName}
                   onChange={(e) => setPapyrusFormName(e.target.value)}
                   className={panelInputClass}
-                  placeholder={t('papyrus.placeholders.form_name')}
+                  placeholder={t('papyrus.nom_du_formulaire')}
                 />
                 <textarea
                   value={papyrusFormDescription}
                   onChange={(e) => setPapyrusFormDescription(e.target.value)}
                   className={cn(panelInputClass, 'min-h-[90px]')}
-                  placeholder={t('papyrus.placeholders.form_description_optional')}
+                  placeholder="Description optionnelle"
                 />
                 <textarea
                   value={epicollectImportJson}
                   onChange={(e) => setEpicollectImportJson(e.target.value)}
                   className={cn(panelInputClass, 'min-h-[140px] font-mono text-xs')}
-                  placeholder={t('papyrus.placeholders.epicollect_json')}
+                  placeholder={t('papyrus.coller_ici_un_json_epicollect5_pour_impo')}
                 />
               </div>
               <div className="flex flex-wrap gap-2">
@@ -995,7 +981,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   disabled={createPapyrusForm.isPending}
                 >
                   {createPapyrusForm.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                  <span>Créer le formulaire</span>
+                  <span>{t('papyrus.creer_le_formulaire')}</span>
                 </button>
                 <button
                   type="button"
@@ -1011,9 +997,9 @@ function DocumentDetailPanel({ id }: { id: string }) {
           ) : (
             <div className="space-y-3">
               <DetailFieldGrid>
-                <ReadOnlyRow label={t('common.name_field')} value={linkedPapyrusForm.name} />
-                <ReadOnlyRow label={t('common.active')} value={linkedPapyrusForm.is_active ? 'Oui' : 'Non'} />
-                <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(linkedPapyrusForm.created_at)} />
+                <ReadOnlyRow label="Nom" value={linkedPapyrusForm.name} />
+                <ReadOnlyRow label="Actif" value={linkedPapyrusForm.is_active ? 'Oui' : 'Non'} />
+                <ReadOnlyRow label={t('papyrus.cree_le')} value={formatDate(linkedPapyrusForm.created_at)} />
                 <ReadOnlyRow
                   label={t('papyrus.scope')}
                   value={
@@ -1038,10 +1024,10 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 />
               </div>
               <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">Builder de formulaire</div>
+                <div className="text-xs font-medium text-muted-foreground">{t('papyrus.builder_de_formulaire')}</div>
                 <PapyrusFormBuilder
                   schema={linkedPapyrusForm.schema_json}
-                  disabled={!hasPermission('document.edit')}
+                  disabled={!hasPermission('document.update')}
                   isSaving={updatePapyrusForm.isPending}
                   onSave={handleSavePapyrusFormSchema}
                 />
@@ -1054,7 +1040,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   disabled={createPapyrusExternalLink.isPending}
                 >
                   {createPapyrusExternalLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
-                  <span>Générer un lien externe</span>
+                  <span>{t('papyrus.generer_un_lien_externe')}</span>
                 </button>
                 <button
                   type="button"
@@ -1068,7 +1054,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
               </div>
               {latestExternalUrl ? (
                 <div className="rounded-md border border-border bg-muted/20 p-3 space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Dernier lien généré</div>
+                  <div className="text-xs font-medium text-muted-foreground">Dernier lien genere</div>
                   <div className="text-xs break-all">{latestExternalUrl}</div>
                 </div>
               ) : null}
@@ -1077,7 +1063,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   Soumissions externes{papyrusSubmissions ? ` (${papyrusSubmissions.length})` : ''}
                 </div>
                 {!papyrusSubmissions || papyrusSubmissions.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Aucune soumission recue pour le moment.</p>
+                  <p className="text-xs text-muted-foreground">{t('papyrus.aucune_soumission_recue_pour_le_moment')}</p>
                 ) : (
                   <div className="space-y-2">
                     {papyrusSubmissions.slice(0, 10).map((submission) => (
@@ -1098,7 +1084,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
           )}
         </FormSection>
 
-        <FormSection title="Rapport automatisé" collapsible defaultExpanded={false}>
+        <FormSection title="Rapport automatise" collapsible defaultExpanded={false}>
           <div className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
               <label className="flex items-center gap-2 text-sm">
@@ -1107,7 +1093,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   checked={scheduleForm.enabled}
                   onChange={(e) => setScheduleForm((current) => ({ ...current, enabled: e.target.checked }))}
                 />
-                <span>Activer la planification</span>
+                <span>{t('papyrus.activer_la_planification')}</span>
               </label>
               <select
                 value={scheduleForm.channel.type}
@@ -1124,13 +1110,13 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 value={scheduleForm.cron ?? ''}
                 onChange={(e) => setScheduleForm((current) => ({ ...current, cron: e.target.value }))}
                 className={panelInputClass}
-                placeholder={t('papyrus.placeholders.cron_example')}
+                placeholder="0 6 * * 1-5"
               />
               <input
                 value={scheduleForm.timezone ?? ''}
                 onChange={(e) => setScheduleForm((current) => ({ ...current, timezone: e.target.value }))}
                 className={panelInputClass}
-                placeholder={t('papyrus.placeholders.tz_example')}
+                placeholder="Africa/Kinshasa"
               />
               <input
                 type="number"
@@ -1139,7 +1125,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 value={scheduleForm.grace_minutes}
                 onChange={(e) => setScheduleForm((current) => ({ ...current, grace_minutes: Number(e.target.value || 15) }))}
                 className={panelInputClass}
-                placeholder={t('papyrus.placeholders.delay_minutes')}
+                placeholder="Grace minutes"
               />
               <input
                 value={scheduleForm.channel.subject ?? ''}
@@ -1148,7 +1134,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   channel: { ...current.channel, subject: e.target.value },
                 }))}
                 className={panelInputClass}
-                placeholder={t('papyrus.placeholders.email_subject_example')}
+                placeholder="Sujet ex: Rapport {{ document.title }} - {{ date }}"
               />
             </div>
 
@@ -1187,7 +1173,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 disabled={updatePapyrusSchedule.isPending}
               >
                 {updatePapyrusSchedule.isPending ? <Loader2 size={12} className="animate-spin" /> : <Clock size={12} />}
-                <span>Enregistrer le schedule</span>
+                <span>{t('papyrus.enregistrer_le_schedule')}</span>
               </button>
               <button
                 type="button"
@@ -1205,7 +1191,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 Historique des dispatchs{papyrusDispatchRuns ? ` (${papyrusDispatchRuns.length})` : ''}
               </div>
               {!papyrusDispatchRuns || papyrusDispatchRuns.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Aucun dispatch Papyrus enregistré.</p>
+                <p className="text-xs text-muted-foreground">{t('papyrus.aucun_dispatch_papyrus_enregistre')}</p>
               ) : (
                 <div className="space-y-2">
                   {papyrusDispatchRuns.slice(0, 10).map((run) => (
@@ -1229,7 +1215,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* Workflow Actions */}
-        <FormSection title={t('common.actions')} collapsible defaultExpanded>
+        <FormSection title="Actions" collapsible defaultExpanded>
           <div className="space-y-2">
             {/* Dynamic workflow buttons (FSM-driven) — fallback to legacy when no workflow configured */}
             {hasWorkflow && wfState.available_transitions.length > 0 ? (
@@ -1245,7 +1231,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       className="gl-button-sm gl-button-confirm"
                     >
                       {submitDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                      <span>{t('common.submit')}</span>
+                      <span>Soumettre</span>
                     </button>
                   )}
                   {workflowActions.canApprove && canApproveDoc && (
@@ -1255,7 +1241,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       className="gl-button-sm gl-button-confirm"
                     >
                       {approveDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                      <span>{t('common.approve')}</span>
+                      <span>Approuver</span>
                     </button>
                   )}
                   {workflowActions.canReject && canApproveDoc && !showRejectInput && (
@@ -1264,7 +1250,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       className="gl-button-sm gl-button-danger"
                     >
                       <XCircle size={12} />
-                      <span>{t('common.reject')}</span>
+                      <span>Rejeter</span>
                     </button>
                   )}
                   {workflowActions.canPublish && canPublishDoc && (
@@ -1274,7 +1260,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       className="gl-button-sm gl-button-confirm"
                     >
                       {publishDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
-                      <span>{t('common.publish')}</span>
+                      <span>Publier</span>
                     </button>
                   )}
                   {workflowActions.canArchive && (
@@ -1284,7 +1270,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       className="gl-button-sm gl-button-default"
                     >
                       {archiveDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
-                      <span>{t('common.archive')}</span>
+                      <span>Archiver</span>
                     </button>
                   )}
                 </div>
@@ -1292,12 +1278,12 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 {/* Legacy reject input */}
                 {showRejectInput && (
                   <div className="flex flex-col gap-2 p-2 border border-border rounded-md bg-muted/20">
-                    <label className="text-xs font-medium text-muted-foreground">Motif du rejet</label>
+                    <label className="text-xs font-medium text-muted-foreground">{t('conformite.verifications.reject_reason')}</label>
                     <textarea
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       className="w-full min-h-[60px] rounded-md border border-border bg-background px-2 py-1.5 text-sm resize-y focus:outline-none focus:ring-1 focus:ring-primary"
-                      placeholder={t('papyrus.placeholders.reject_reason')}
+                      placeholder={t('papyrus.indiquez_le_motif_du_rejet')}
                       rows={2}
                     />
                     <div className="flex gap-2">
@@ -1307,10 +1293,10 @@ function DocumentDetailPanel({ id }: { id: string }) {
                         className="gl-button-sm gl-button-danger"
                       >
                         {rejectDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
-                        <span>Confirmer le rejet</span>
+                        <span>{t('paxlog.confirm_reject')}</span>
                       </button>
                       <button onClick={() => { setShowRejectInput(false); setRejectReason('') }} className="gl-button-sm gl-button-default">
-                        <span>{t('common.cancel')}</span>
+                        <span>Annuler</span>
                       </button>
                     </div>
                   </div>
@@ -1320,10 +1306,6 @@ function DocumentDetailPanel({ id }: { id: string }) {
 
             {/* Export & Share */}
             <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-              <button onClick={() => setPdfPreviewOpen(true)} className="gl-button-sm gl-button-default">
-                <Eye size={12} />
-                <span>Aperçu</span>
-              </button>
               <button onClick={handleExportPdf} className="gl-button-sm gl-button-default">
                 <Download size={12} />
                 <span>PDF</span>
@@ -1338,7 +1320,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 className="gl-button-sm gl-button-default"
               >
                 {createShareLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
-                <span>Lien de partage</span>
+                <span>{t('papyrus.lien_de_partage')}</span>
               </button>
             </div>
           </div>
@@ -1351,7 +1333,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
               <Loader2 size={14} className="animate-spin text-muted-foreground" />
             </div>
           ) : !revisions || revisions.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">Aucune révision enregistrée.</p>
+            <p className="text-xs text-muted-foreground py-2">Aucune revision enregistree.</p>
           ) : (
             <div className="space-y-2">
               {/* Compare button */}
@@ -1399,7 +1381,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                         className="h-3 w-3 rounded border-border text-primary accent-primary cursor-pointer shrink-0"
                         checked={selectedRevisions.includes(rev.id)}
                         onChange={() => handleToggleRevisionSelect(rev.id)}
-                        title="Sélectionner pour comparer"
+                        title={t('papyrus.selectionner_pour_comparer')}
                       />
                     )}
                     <div className="flex items-center gap-1.5 min-w-[50px]">
@@ -1407,7 +1389,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       <span className="font-mono font-medium">{rev.rev_code}</span>
                     </div>
                     <span className="text-muted-foreground flex-1 truncate">
-                      {rev.creator_name || 'Système'} — {rev.word_count} mots
+                      {rev.creator_name || 'Systeme'} — {rev.word_count} mots
                     </span>
                     <span className="text-muted-foreground tabular-nums shrink-0">{formatDate(rev.created_at)}</span>
                     {rev.is_locked && (
@@ -1439,31 +1421,14 @@ function DocumentDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* Tags, Notes & Attachments */}
-        <FormSection title={t('common.tags_notes_files')} collapsible defaultExpanded={false}>
+        <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
           <div className="space-y-3">
             <TagManager ownerType="document" ownerId={doc.id} compact />
+            <AttachmentManager ownerType="document" ownerId={doc.id} compact />
             <NoteManager ownerType="document" ownerId={doc.id} compact />
           </div>
         </FormSection>
       </PanelContentLayout>
-      )}
-      {detailTab === 'documents' && (
-      <PanelContentLayout>
-        <FormSection title={t('common.attached_files')} collapsible defaultExpanded>
-          <AttachmentManager ownerType="document" ownerId={doc.id} compact />
-        </FormSection>
-      </PanelContentLayout>
-      )}
-
-      {/* Inline PDF preview modal — lazy-loaded on demand */}
-      {pdfPreviewOpen && doc && (
-        <InlinePdfViewer
-          url={`/api/v1/papyrus/documents/${doc.id}/export/pdf?inline=true`}
-          title={`${doc.number || ''} — ${doc.title}`}
-          downloadName={`${doc.number || 'document'}.pdf`}
-          onClose={() => setPdfPreviewOpen(false)}
-        />
-      )}
     </DynamicPanelShell>
   )
 }
@@ -1694,7 +1659,7 @@ export function ReportEditorPage() {
       return canCreate ? (
         <ToolbarButton
           icon={Plus}
-          label="Nouveau document"
+          label={t('report_editor.create_document')}
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'papyrus' })}
         />
@@ -1704,7 +1669,7 @@ export function ReportEditorPage() {
       return canCreate ? (
         <ToolbarButton
           icon={Plus}
-          label="Nouveau template"
+          label={t('papyrus.nouveau_template')}
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'papyrus', meta: { subtype: 'template' } })}
         />
@@ -1722,7 +1687,7 @@ export function ReportEditorPage() {
           {canCreate && (
             <ToolbarButton
               icon={Plus}
-              label="Nouveau type"
+              label={t('conformite.types.create')}
               variant="primary"
               onClick={() => openDynamicPanel({ type: 'create', module: 'papyrus', meta: { subtype: 'doc-type' } })}
             />
@@ -1760,13 +1725,13 @@ export function ReportEditorPage() {
                       </div>
                       {preset.key === 'field_supervision_report' ? (
                         <div className="space-y-1">
-                          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('common.project')}</div>
+                          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Projet</div>
                           <select
                             value={presetProjectIds[preset.key] ?? ''}
                             onChange={(event) => setPresetProjectIds((current) => ({ ...current, [preset.key]: event.target.value }))}
                             className={panelInputClass}
                           >
-                            <option value="">Sélectionner un projet...</option>
+                            <option value="">{t('travelwiz.selectionner_un_projet')}</option>
                             {(projectsData?.items ?? []).map((project: { id: string; name: string }) => (
                               <option key={project.id} value={project.id}>{project.name}</option>
                             ))}
@@ -1834,7 +1799,7 @@ export function ReportEditorPage() {
                     }}
                     className="w-full text-xs rounded border border-border bg-background px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="">Sélectionner un projet...</option>
+                    <option value="">{t('papyrus.selectionner_un_projet')}</option>
                     {projectsData?.items?.map((p: { id: string; name: string }) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -1853,7 +1818,7 @@ export function ReportEditorPage() {
                     )}
                   >
                     <Files size={12} className={cn('shrink-0', !selectedNodeId ? 'text-primary' : 'text-muted-foreground')} />
-                    <span>Tous les documents</span>
+                    <span>{t('papyrus.tous_les_documents')}</span>
                   </button>
 
                   {treeProjectId && rootNodes.length > 0 && (
@@ -1897,7 +1862,7 @@ export function ReportEditorPage() {
                     title="Afficher l'arborescence"
                   >
                     <PanelLeft size={14} />
-                    <span>{t('common.tree_view')}</span>
+                    <span>Arborescence</span>
                   </button>
                 </div>
               )}
@@ -1911,7 +1876,7 @@ export function ReportEditorPage() {
                 }}
                 searchValue={search}
                 onSearchChange={setSearch}
-                searchPlaceholder="Rechercher par numéro ou titre..."
+                searchPlaceholder="Rechercher par numero ou titre..."
                 filters={documentFilters}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
@@ -1923,7 +1888,7 @@ export function ReportEditorPage() {
                   advancedExport: true,
                   filenamePrefix: 'documents',
                   exportHeaders: {
-                    number: 'Numéro',
+                    number: 'Numero',
                     title: 'Titre',
                     doc_type_name: 'Type',
                     status: 'Statut',
@@ -1951,29 +1916,45 @@ export function ReportEditorPage() {
             ) : !templates || templates.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <FileCode2 size={32} className="mb-2 opacity-40" />
-                <p className="text-sm">Aucun template</p>
-                <p className="text-xs mt-1">Creez votre premier template pour commencer.</p>
+                <p className="text-sm">{t('papyrus.aucun_template')}</p>
+                <p className="text-xs mt-1">{t('papyrus.creez_votre_premier_template_pour_commen')}</p>
               </div>
             ) : (
               <div className="border border-border rounded-lg overflow-hidden">
-                <DataTable<Template>
-                  data={templates}
-                  onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'papyrus', id: row.id, meta: { subtype: 'template' } })}
-                  columns={[
-                    { accessorKey: 'name', header: 'Nom', cell: ({ row }) => <span className="font-medium text-foreground">{row.original.name}</span> },
-                    { accessorKey: 'doc_type_name', header: 'Type de document', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.doc_type_name || '--'}</span> },
-                    { accessorKey: 'version', header: t('common.version'), cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">v{row.original.version}</span> },
-                    { accessorKey: 'field_count', header: t('common.fields_count'), cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{row.original.field_count}</span> },
-                    {
-                      accessorKey: 'is_active',
-                      header: t('common.active'),
-                      cell: ({ row }) => row.original.is_active
-                        ? <span className="gl-badge gl-badge-success">{t('common.active')}</span>
-                        : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>,
-                    },
-                    { accessorKey: 'created_at', header: 'Créé le', cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{formatDate(row.original.created_at)}</span> },
-                  ]}
-                />
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Nom</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">{t('report_editor.doc_type')}</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Version</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Champs</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Actif</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">{t('papyrus.cree_le')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {templates.map((tpl: Template) => (
+                      <tr
+                        key={tpl.id}
+                        className="border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer"
+                        onClick={() => openDynamicPanel({ type: 'detail', module: 'papyrus', id: tpl.id, meta: { subtype: 'template' } })}
+                      >
+                        <td className="px-3 py-2 font-medium text-foreground">{tpl.name}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs">{tpl.doc_type_name || '--'}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs tabular-nums">v{tpl.version}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs tabular-nums">{tpl.field_count}</td>
+                        <td className="px-3 py-2">
+                          {tpl.is_active ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Actif</span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs tabular-nums">{formatDate(tpl.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -1989,38 +1970,49 @@ export function ReportEditorPage() {
             ) : !docTypes || docTypes.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <FolderCog size={32} className="mb-2 opacity-40" />
-                <p className="text-sm">Aucun type de document</p>
-                <p className="text-xs mt-1">Definissez vos types pour organiser la nomenclature documentaire.</p>
+                <p className="text-sm">{t('papyrus.aucun_type_de_document')}</p>
+                <p className="text-xs mt-1">{t('papyrus.definissez_vos_types_pour_organiser_la_n')}</p>
               </div>
             ) : (
               <div className="border border-border rounded-lg overflow-hidden">
-                <DataTable<DocType>
-                  data={docTypes}
-                  onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'papyrus', id: row.id, meta: { subtype: 'doc-type' } })}
-                  columns={[
-                    { accessorKey: 'code', header: t('common.code_field'), cell: ({ row }) => <span className="font-mono font-medium text-foreground text-xs">{row.original.code}</span> },
-                    {
-                      id: 'name',
-                      header: 'Nom',
-                      accessorFn: (dt) => dt.name.fr || dt.name.en || Object.values(dt.name)[0] || dt.code,
-                      cell: ({ row }) => {
-                        const dt = row.original
-                        const displayName = dt.name.fr || dt.name.en || Object.values(dt.name)[0] || dt.code
-                        return <span className="text-foreground">{displayName}</span>
-                      },
-                    },
-                    { accessorKey: 'discipline', header: t('common.discipline'), cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.discipline || '--'}</span> },
-                    { accessorKey: 'revision_scheme', header: 'Schéma de révision', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.revision_scheme}</span> },
-                    { accessorKey: 'nomenclature_pattern', header: t('common.nomenclature'), cell: ({ row }) => <span className="text-muted-foreground text-xs font-mono">{row.original.nomenclature_pattern}</span> },
-                    {
-                      accessorKey: 'is_active',
-                      header: t('common.active'),
-                      cell: ({ row }) => row.original.is_active
-                        ? <span className="gl-badge gl-badge-success">{t('common.active')}</span>
-                        : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>,
-                    },
-                  ]}
-                />
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Code</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Nom</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Discipline</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">{t('papyrus.schema_de_revision')}</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Nomenclature</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Actif</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {docTypes.map((dt: DocType) => {
+                      // Render the name from the i18n Record — use 'fr' or first key
+                      const displayName = dt.name.fr || dt.name.en || Object.values(dt.name)[0] || dt.code
+                      return (
+                        <tr
+                          key={dt.id}
+                          className="border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer"
+                          onClick={() => openDynamicPanel({ type: 'detail', module: 'papyrus', id: dt.id, meta: { subtype: 'doc-type' } })}
+                        >
+                          <td className="px-3 py-2 font-mono font-medium text-foreground text-xs">{dt.code}</td>
+                          <td className="px-3 py-2 text-foreground">{displayName}</td>
+                          <td className="px-3 py-2 text-muted-foreground text-xs">{dt.discipline || '--'}</td>
+                          <td className="px-3 py-2 text-muted-foreground text-xs">{dt.revision_scheme}</td>
+                          <td className="px-3 py-2 text-muted-foreground text-xs font-mono">{dt.nomenclature_pattern}</td>
+                          <td className="px-3 py-2">
+                            {dt.is_active ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Actif</span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -2047,14 +2039,14 @@ export function ReportEditorPage() {
             {toolbarAction}
           </PanelHeader>
 
-          <PageNavBar
-            items={TABS.map((tab) => ({ ...tab, label: t(tab.label) }))}
+          <TabBar
+            items={TABS}
             activeId={activeTab}
             onTabChange={handleTabChange}
             rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-papyrus" /> : null}
           />
 
-          <PanelContent scroll={activeTab === 'dashboard'}>
+          <PanelContent scroll={false}>
             {renderTabContent()}
           </PanelContent>
         </div>
@@ -2084,6 +2076,549 @@ export function ReportEditorPage() {
 }
 
 export const PapyrusPage = ReportEditorPage
+
+// -- Create Document Panel ---------------------------------------------------
+
+function CreateDocumentPanel() {
+  const { closeDynamicPanel } = useUIStore()
+  const { toast } = useToast()
+  const { t } = useTranslation()
+  const createDoc = useCreateDocument()
+  const { data: docTypes } = useDocTypes()
+  const [form, setForm] = useState({ title: '', doc_type_id: '', classification: 'INT', language: 'fr' })
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.title.trim() || !form.doc_type_id) {
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.title_and_type_required'), variant: 'error' })
+      return
+    }
+    try {
+      await createDoc.mutateAsync(form)
+      toast({ title: t('papyrus.toast.document_created') })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.creation_failed'), variant: 'error' })
+    }
+  }, [form, createDoc, toast, closeDynamicPanel, t])
+
+  return (
+    <DynamicPanelShell
+      title={t('report_editor.create_document')}
+      subtitle="Papyrus"
+      icon={<FileText size={14} className="text-primary" />}
+      actions={
+        <>
+          <PanelActionButton onClick={closeDynamicPanel}>
+            Annuler
+          </PanelActionButton>
+          <PanelActionButton
+            variant="primary"
+            disabled={createDoc.isPending}
+            onClick={() => (document.getElementById('create-document-form') as HTMLFormElement)?.requestSubmit()}
+          >
+            {createDoc.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Creer'}
+          </PanelActionButton>
+        </>
+      }
+    >
+      <form id="create-document-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
+          <SectionColumns>
+            {/* Column 1: Identification */}
+            <div className="@container space-y-5">
+              <FormSection title="Identification">
+                <FormGrid>
+                  <DynamicPanelField label="Titre" required span="full">
+                    <input
+                      type="text"
+                      required
+                      value={form.title}
+                      onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                      className={panelInputClass}
+                      placeholder={t('papyrus.titre_du_document')}
+                    />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('report_editor.doc_type')} required>
+                    <select
+                      required
+                      value={form.doc_type_id}
+                      onChange={(e) => setForm((f) => ({ ...f, doc_type_id: e.target.value }))}
+                      className={panelInputClass}
+                    >
+                      <option value="">Selectionner...</option>
+                      {docTypes?.map((dt: DocType) => (
+                        <option key={dt.id} value={dt.id}>
+                          {dt.code} — {dt.name.fr || dt.name.en || dt.code}
+                        </option>
+                      ))}
+                    </select>
+                  </DynamicPanelField>
+                </FormGrid>
+              </FormSection>
+            </div>
+
+            {/* Column 2: Parametres */}
+            <div className="@container space-y-5">
+              <FormSection title="Parametres">
+                <FormGrid>
+                  <DynamicPanelField label="Classification">
+                    <select
+                      value={form.classification}
+                      onChange={(e) => setForm((f) => ({ ...f, classification: e.target.value }))}
+                      className={panelInputClass}
+                    >
+                      <option value="INT">Interne</option>
+                      <option value="CONF">Confidentiel</option>
+                      <option value="REST">Restreint</option>
+                      <option value="PUB">Public</option>
+                    </select>
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Langue">
+                    <select
+                      value={form.language}
+                      onChange={(e) => setForm((f) => ({ ...f, language: e.target.value }))}
+                      className={panelInputClass}
+                    >
+                      <option value="fr">Francais</option>
+                      <option value="en">English</option>
+                    </select>
+                  </DynamicPanelField>
+                </FormGrid>
+              </FormSection>
+              <p className="text-[10px] text-muted-foreground px-1">
+                Tags, notes et fichiers joints seront geres dans la fiche apres creation.
+              </p>
+            </div>
+          </SectionColumns>
+        </PanelContentLayout>
+      </form>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Create DocType Panel -----------------------------------------------------
+
+function CreateDocTypePanel() {
+  const { closeDynamicPanel } = useUIStore()
+  const { toast } = useToast()
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [form, setForm] = useState({
+    code: '',
+    name_fr: '',
+    name_en: '',
+    nomenclature_pattern: '{ENTITY}-{DOCTYPE}-{SEQ:4}',
+    discipline: '',
+    revision_scheme: 'alpha' as 'alpha' | 'numeric' | 'semver',
+    default_language: 'fr',
+  })
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.name_fr.trim() || !form.nomenclature_pattern.trim()) {
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.name_and_nomenclature_required'), variant: 'error' })
+      return
+    }
+    try {
+      await papyrusService.createDocType({
+        code: form.code || '',  // Let backend auto-generate if empty
+        name: { fr: form.name_fr, en: form.name_en || form.name_fr },
+        nomenclature_pattern: form.nomenclature_pattern,
+        discipline: form.discipline || undefined,
+        revision_scheme: form.revision_scheme,
+        default_language: form.default_language,
+      })
+      queryClient.invalidateQueries({ queryKey: ['papyrus', 'doc-types'] })
+      toast({ title: t('papyrus.toast.doc_type_created') })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.creation_failed'), variant: 'error' })
+    }
+  }, [form, toast, closeDynamicPanel, queryClient, t])
+
+  return (
+    <DynamicPanelShell
+      title={t('papyrus.nouveau_type_de_document')}
+      subtitle="Papyrus"
+      icon={<FolderCog size={14} className="text-primary" />}
+      actions={
+        <>
+          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
+          <PanelActionButton
+            variant="primary"
+            onClick={() => (document.getElementById('create-doctype-form') as HTMLFormElement)?.requestSubmit()}
+          >
+            Creer
+          </PanelActionButton>
+        </>
+      }
+    >
+      <form id="create-doctype-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
+          <SectionColumns>
+            <div className="@container space-y-5">
+              <FormSection title="Identification">
+                <FormGrid>
+                  <DynamicPanelField label="Code">
+                    <input type="text" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={cn(panelInputClass, 'font-mono')} placeholder="Auto-genere" />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('papyrus.nom_fr')} required>
+                    <input type="text" required value={form.name_fr} onChange={(e) => setForm(f => ({ ...f, name_fr: e.target.value }))} className={panelInputClass} placeholder="Note technique" />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('papyrus.nom_en')}>
+                    <input type="text" value={form.name_en} onChange={(e) => setForm(f => ({ ...f, name_en: e.target.value }))} className={panelInputClass} placeholder="Technical Note" />
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Discipline">
+                    <input type="text" value={form.discipline} onChange={(e) => setForm(f => ({ ...f, discipline: e.target.value }))} className={panelInputClass} placeholder="MECA, ELEC, PROC..." />
+                  </DynamicPanelField>
+                </FormGrid>
+              </FormSection>
+            </div>
+            <div className="@container space-y-5">
+              <FormSection title="Nomenclature">
+                <FormGrid>
+                  <DynamicPanelField label={t('papyrus.pattern_de_nomenclature')} required span="full">
+                    <input type="text" required value={form.nomenclature_pattern} onChange={(e) => setForm(f => ({ ...f, nomenclature_pattern: e.target.value }))} className={panelInputClass} placeholder="{ENTITY}-{DOCTYPE}-{SEQ:4}" />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('papyrus.schema_de_revision')}>
+                    <select value={form.revision_scheme} onChange={(e) => setForm(f => ({ ...f, revision_scheme: e.target.value as 'alpha' | 'numeric' | 'semver' }))} className={panelInputClass}>
+                      <option value="alpha">Alphabetique (A, B, C...)</option>
+                      <option value="numeric">Numerique (1, 2, 3...)</option>
+                      <option value="semver">Semantique (1.0, 1.1...)</option>
+                    </select>
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Langue par defaut">
+                    <select value={form.default_language} onChange={(e) => setForm(f => ({ ...f, default_language: e.target.value }))} className={panelInputClass}>
+                      <option value="fr">Francais</option>
+                      <option value="en">English</option>
+                    </select>
+                  </DynamicPanelField>
+                </FormGrid>
+              </FormSection>
+              <p className="text-[10px] text-muted-foreground px-1">
+                Tokens : {'{ENTITY}'}, {'{DOCTYPE}'}, {'{DISCIPLINE}'}, {'{PHASE}'}, {'{SEQ:N}'}, {'{YYYY}'}
+              </p>
+            </div>
+          </SectionColumns>
+        </PanelContentLayout>
+      </form>
+    </DynamicPanelShell>
+  )
+}
+
+
+// -- Create Template Panel ----------------------------------------------------
+
+function CreateTemplatePanel() {
+  const { closeDynamicPanel } = useUIStore()
+  const { toast } = useToast()
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const { data: docTypes } = useDocTypes()
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    doc_type_id: '',
+  })
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.name.trim()) {
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.template_name_required'), variant: 'error' })
+      return
+    }
+    try {
+      await papyrusService.createTemplate({
+        name: form.name,
+        description: form.description || undefined,
+        doc_type_id: form.doc_type_id || undefined,
+        structure: {},
+        styles: {},
+      })
+      queryClient.invalidateQueries({ queryKey: ['papyrus', 'templates'] })
+      toast({ title: t('papyrus.toast.template_created') })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.creation_failed'), variant: 'error' })
+    }
+  }, [form, toast, closeDynamicPanel, queryClient, t])
+
+  return (
+    <DynamicPanelShell
+      title={t('papyrus.nouveau_template')}
+      subtitle="Papyrus"
+      icon={<FileCode2 size={14} className="text-primary" />}
+      actions={
+        <>
+          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
+          <PanelActionButton
+            variant="primary"
+            onClick={() => (document.getElementById('create-template-form') as HTMLFormElement)?.requestSubmit()}
+          >
+            Creer
+          </PanelActionButton>
+        </>
+      }
+    >
+      <form id="create-template-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
+          <FormSection title="Informations">
+            <FormGrid>
+              <DynamicPanelField label="Nom" required span="full">
+                <input type="text" required value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} className={panelInputClass} placeholder={t('projets.nom_du_template')} />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('report_editor.doc_type')}>
+                <select value={form.doc_type_id} onChange={(e) => setForm(f => ({ ...f, doc_type_id: e.target.value }))} className={panelInputClass}>
+                  <option value="">{t('planner.filters.all_types')}</option>
+                  {docTypes?.map((dt: DocType) => (
+                    <option key={dt.id} value={dt.id}>{dt.code} — {dt.name.fr || dt.name.en || dt.code}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Description" span="full">
+                <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} className={panelInputClass + ' min-h-[60px]'} placeholder={t('papyrus.description_du_template')} rows={3} />
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+          <p className="text-[10px] text-muted-foreground px-3 pb-3">
+            La structure et les styles seront edites dans le detail du template apres creation.
+          </p>
+        </PanelContentLayout>
+      </form>
+    </DynamicPanelShell>
+  )
+}
+
+// -- DocType Detail Panel ------------------------------------------------------
+
+function DocTypeDetailPanel({ id }: { id: string }) {
+  const { toast } = useToast()
+  const { t } = useTranslation()
+  const { data: docTypes, isLoading } = useDocTypes()
+  const updateDocType = useUpdateDocType()
+
+  const docType = useMemo(() => docTypes?.find((dt) => dt.id === id), [docTypes, id])
+
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({ name_fr: '', name_en: '', discipline: '', nomenclature_pattern: '' })
+
+  useEffect(() => {
+    if (docType) {
+      setForm({
+        name_fr: docType.name?.fr || '',
+        name_en: docType.name?.en || '',
+        discipline: docType.discipline || '',
+        nomenclature_pattern: docType.nomenclature_pattern || '',
+      })
+    }
+  }, [docType])
+
+  const handleSave = useCallback(async () => {
+    if (!docType) return
+    try {
+      await updateDocType.mutateAsync({
+        id: docType.id,
+        payload: {
+          name: { fr: form.name_fr, en: form.name_en || form.name_fr },
+          discipline: form.discipline || undefined,
+          nomenclature_pattern: form.nomenclature_pattern,
+        },
+      })
+      toast({ title: t('papyrus.toast.doc_type_updated'), variant: 'success' })
+      setEditing(false)
+    } catch {
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.update_failed'), variant: 'error' })
+    }
+  }, [docType, form, updateDocType, toast, t])
+
+  if (isLoading) {
+    return (
+      <DynamicPanelShell title={t('report_editor.doc_type')} subtitle="Chargement..." icon={<FolderCog size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  if (!docType) {
+    return (
+      <DynamicPanelShell title={t('report_editor.doc_type')} subtitle="Non trouve" icon={<FolderCog size={14} className="text-primary" />}>
+        <div className="p-4 text-sm text-muted-foreground">{t('papyrus.type_de_document_introuvable')}</div>
+      </DynamicPanelShell>
+    )
+  }
+
+  return (
+    <DynamicPanelShell
+      title={docType.code}
+      subtitle="Type de document"
+      icon={<FolderCog size={14} className="text-primary" />}
+      actions={
+        editing ? (
+          <>
+            <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
+            <PanelActionButton variant="primary" disabled={updateDocType.isPending} onClick={handleSave}>
+              {updateDocType.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
+            </PanelActionButton>
+          </>
+        ) : (
+          <PanelActionButton onClick={() => setEditing(true)}>Modifier</PanelActionButton>
+        )
+      }
+    >
+      <PanelContentLayout>
+        <FormSection title="Identification">
+          <FormGrid>
+            <ReadOnlyRow label="Code" value={docType.code} />
+            {editing ? (
+              <>
+                <DynamicPanelField label={t('papyrus.nom_fr')}>
+                  <input type="text" value={form.name_fr} onChange={(e) => setForm(f => ({ ...f, name_fr: e.target.value }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('papyrus.nom_en')}>
+                  <input type="text" value={form.name_en} onChange={(e) => setForm(f => ({ ...f, name_en: e.target.value }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label="Discipline">
+                  <input type="text" value={form.discipline} onChange={(e) => setForm(f => ({ ...f, discipline: e.target.value }))} className={panelInputClass} />
+                </DynamicPanelField>
+              </>
+            ) : (
+              <>
+                <ReadOnlyRow label={t('papyrus.nom_fr')} value={docType.name?.fr || '--'} />
+                <ReadOnlyRow label={t('papyrus.nom_en')} value={docType.name?.en || '--'} />
+                <ReadOnlyRow label="Discipline" value={docType.discipline || '--'} />
+              </>
+            )}
+          </FormGrid>
+        </FormSection>
+        <FormSection title="Nomenclature">
+          <FormGrid>
+            {editing ? (
+              <DynamicPanelField label="Pattern" span="full">
+                <input type="text" value={form.nomenclature_pattern} onChange={(e) => setForm(f => ({ ...f, nomenclature_pattern: e.target.value }))} className={panelInputClass} />
+              </DynamicPanelField>
+            ) : (
+              <ReadOnlyRow label="Pattern" value={docType.nomenclature_pattern} />
+            )}
+            <ReadOnlyRow label={t('papyrus.schema_de_revision')} value={docType.revision_scheme} />
+            <ReadOnlyRow label="Langue par defaut" value={docType.default_language} />
+            <ReadOnlyRow label="Actif" value={docType.is_active ? 'Oui' : 'Non'} />
+          </FormGrid>
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+
+// -- Template Detail Panel ----------------------------------------------------
+
+function TemplateDetailPanel({ id }: { id: string }) {
+  const { toast } = useToast()
+  const { t } = useTranslation()
+  const { data: templates, isLoading } = useTemplates()
+  const { data: docTypes } = useDocTypes()
+  const updateTemplate = useUpdateTemplate()
+
+  const template = useMemo(() => templates?.find((tmpl) => tmpl.id === id), [templates, id])
+  const docTypeName = useMemo(() => {
+    if (!template?.doc_type_id || !docTypes) return '--'
+    const dt = docTypes.find((d) => d.id === template.doc_type_id)
+    return dt ? `${dt.code} — ${dt.name?.fr || dt.code}` : '--'
+  }, [template, docTypes])
+
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({ name: '', description: '' })
+
+  useEffect(() => {
+    if (template) {
+      setForm({
+        name: template.name || '',
+        description: template.description || '',
+      })
+    }
+  }, [template])
+
+  const handleSave = useCallback(async () => {
+    if (!template) return
+    try {
+      await updateTemplate.mutateAsync({
+        id: template.id,
+        payload: {
+          name: form.name,
+          description: form.description || undefined,
+        },
+      })
+      toast({ title: t('papyrus.toast.template_updated'), variant: 'success' })
+      setEditing(false)
+    } catch {
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.update_failed'), variant: 'error' })
+    }
+  }, [template, form, updateTemplate, toast, t])
+
+  if (isLoading) {
+    return (
+      <DynamicPanelShell title="Template" subtitle="Chargement..." icon={<FileCode2 size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  if (!template) {
+    return (
+      <DynamicPanelShell title="Template" subtitle="Non trouve" icon={<FileCode2 size={14} className="text-primary" />}>
+        <div className="p-4 text-sm text-muted-foreground">Template introuvable.</div>
+      </DynamicPanelShell>
+    )
+  }
+
+  return (
+    <DynamicPanelShell
+      title={template.name}
+      subtitle="Template"
+      icon={<FileCode2 size={14} className="text-primary" />}
+      actions={
+        editing ? (
+          <>
+            <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
+            <PanelActionButton variant="primary" disabled={updateTemplate.isPending} onClick={handleSave}>
+              {updateTemplate.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
+            </PanelActionButton>
+          </>
+        ) : (
+          <PanelActionButton onClick={() => setEditing(true)}>Modifier</PanelActionButton>
+        )
+      }
+    >
+      <PanelContentLayout>
+        <FormSection title="Informations">
+          <FormGrid>
+            {editing ? (
+              <>
+                <DynamicPanelField label="Nom" span="full">
+                  <input type="text" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label="Description" span="full">
+                  <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} className={panelInputClass + ' min-h-[60px]'} rows={3} />
+                </DynamicPanelField>
+              </>
+            ) : (
+              <>
+                <ReadOnlyRow label="Nom" value={template.name} />
+                <ReadOnlyRow label="Description" value={template.description || '--'} />
+              </>
+            )}
+            <ReadOnlyRow label={t('report_editor.doc_type')} value={docTypeName} />
+            <ReadOnlyRow label="Version" value={String(template.version)} />
+            <ReadOnlyRow label={t('papyrus.nombre_de_champs')} value={String(template.field_count)} />
+            <ReadOnlyRow label="Actif" value={template.is_active ? 'Oui' : 'Non'} />
+          </FormGrid>
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
 
 // -- Panel Renderer Registration ----------------------------------------------
 

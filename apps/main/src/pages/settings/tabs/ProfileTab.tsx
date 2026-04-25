@@ -431,12 +431,12 @@ export function ProfileTab() {
       {/* Compliance status — full block under avatar */}
       {!complianceLoading && complianceCheck && (
         <div className="mb-4 rounded-lg border border-border bg-muted/20 p-3">
-          <h4 className="text-xs font-semibold text-muted-foreground mb-2">Statut de conformité</h4>
+          <h4 className="text-xs font-semibold text-muted-foreground mb-2">{t('settings.statut_de_conformite')}</h4>
           <div className="space-y-2">
             {complianceCheck.account_verified === false && (
               <div className="flex items-center gap-2 text-xs py-1.5 px-2.5 rounded bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 text-red-700 dark:text-red-400">
                 <span className="font-bold shrink-0">{'\u26A0'}</span>
-                <span>Compte non vérifié — veuillez vérifier votre email ou téléphone pour être déclaré conforme.</span>
+                <span>{t('settings.compte_non_verifie_veuillez_verifier_vot')}</span>
               </div>
             )}
             {(complianceCheck.total_unverified ?? 0) > 0 && (
@@ -482,7 +482,7 @@ export function ProfileTab() {
               </div>
             )}
             {complianceCheck.total_required === 0 && (
-              <p className="text-xs text-muted-foreground">Aucune exigence de conformité applicable.</p>
+              <p className="text-xs text-muted-foreground">{t('conformite.no_requirements')}</p>
             )}
           </div>
         </div>
@@ -491,7 +491,7 @@ export function ProfileTab() {
       {/* Section: HR Identity — right after avatar */}
       <CollapsibleSection
         id="hr-identity"
-        title="Identité"
+        title={t('assets.identity')}
         description="Informations d'identité utilisées pour les documents de voyage et administratifs."
         storageKey="settings.profile.collapse"
         showSeparator={false}
@@ -499,13 +499,13 @@ export function ProfileTab() {
         <div className="mt-2 space-y-4 max-w-[640px]">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="gl-label">Nom passeport</label>
+              <label className="gl-label">{t('users.columns.passport_name')}</label>
               <input type="text" className="gl-form-input" value={form.passport_name || ''} onChange={(e) => updateField('passport_name', e.target.value)} placeholder="NOM Prénom (tel qu'inscrit sur le passeport)" />
             </div>
             <div>
               <label className="gl-label">Genre</label>
               <select className="gl-form-input" value={form.gender || ''} onChange={(e) => autoSaveField('gender', e.target.value)}>
-                <option value="">— Sélectionner —</option>
+                <option value="">{t('paxlog.create_ads.select_option')}</option>
                 {genderOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
@@ -514,27 +514,27 @@ export function ProfileTab() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="gl-label">Nationalité</label>
+              <label className="gl-label">{t('users.columns.nationality')}</label>
               {dictNationality.length > 0 ? (
-                <DictCombobox value={form.nationality as string || ''} options={dictNationality} onChange={(v) => autoSaveField('nationality', v)} placeholder="Rechercher une nationalité..." />
+                <DictCombobox value={form.nationality as string || ''} options={dictNationality} onChange={(v) => autoSaveField('nationality', v)} placeholder={t('users.rechercher_une_nationalite')} />
               ) : (
                 <input type="text" className="gl-form-input" value={form.nationality || ''} onChange={(e) => updateField('nationality', e.target.value)} placeholder="ex: FR, GB, US" />
               )}
             </div>
             <div>
-              <label className="gl-label">Date de naissance</label>
+              <label className="gl-label">{t('users.columns.birth_date')}</label>
               <input type="date" className="gl-form-input" value={form.birth_date || ''} onChange={(e) => updateField('birth_date', e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="gl-label">Ville de naissance</label>
+              <label className="gl-label">{t('users.columns.birth_city')}</label>
               <input type="text" className="gl-form-input" value={form.birth_city || ''} onChange={(e) => updateField('birth_city', e.target.value)} />
             </div>
             <div>
-              <label className="gl-label">Pays de naissance</label>
+              <label className="gl-label">{t('users.columns.birth_country')}</label>
               {dictCountry.length > 0 ? (
-                <DictCombobox value={form.birth_country as string || ''} options={dictCountry} onChange={(v) => autoSaveField('birth_country', v)} placeholder="Rechercher un pays..." />
+                <DictCombobox value={form.birth_country as string || ''} options={dictCountry} onChange={(v) => autoSaveField('birth_country', v)} placeholder={t('users.rechercher_un_pays')} />
               ) : (
                 <input type="text" className="gl-form-input" value={form.birth_country || ''} onChange={(e) => updateField('birth_country', e.target.value)} placeholder="ex: FR, GB, US" />
               )}
@@ -543,9 +543,9 @@ export function ProfileTab() {
           <div>
             <label className="gl-label">Poste / Fonction</label>
             {jobPositionOptions.length > 0 ? (
-              <DictCombobox value={form.job_position_id as string || ''} options={jobPositionOptions} onChange={(v) => autoSaveField('job_position_id', v)} placeholder="Sélectionner un poste..." />
+              <DictCombobox value={form.job_position_id as string || ''} options={jobPositionOptions} onChange={(v) => autoSaveField('job_position_id', v)} placeholder={t('users.selectionner_un_poste')} />
             ) : (
-              <p className="text-xs text-muted-foreground py-2">Aucun poste défini (Conformité &gt; Fiches de poste)</p>
+              <p className="text-xs text-muted-foreground py-2">{t('settings.aucun_poste_defini_conformite_gt_fiches')}</p>
             )}
           </div>
         </div>
@@ -556,8 +556,8 @@ export function ProfileTab() {
 
       <CollapsibleSection
         id="user-phones"
-        title="Téléphones"
-        description="Vos numéros de téléphone : mobile, bureau, domicile."
+        title={t('shared.phones.title')}
+        description={t('settings.vos_numeros_de_telephone_mobile_bureau_d')}
         storageKey="settings.phones.collapse"
         defaultExpanded={false}
         headerAction={
@@ -596,7 +596,7 @@ export function ProfileTab() {
       <CollapsibleSection
         id="legal-docs"
         title="Documents administratifs"
-        description="Passeports, visas, sécurité sociale — gérés via sous-modèles."
+        description={t('settings.passeports_visas_securite_sociale_geres')}
         storageKey="settings.profile.collapse"
         showSeparator={false}
       >
@@ -605,8 +605,8 @@ export function ProfileTab() {
             <>
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">{t('common.passports')}</h4>
-                  <button onClick={() => addPassportRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un passeport">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Passeports</h4>
+                  <button onClick={() => addPassportRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title={t('settings.ajouter_un_passeport')}>
                     <Plus size={12} />
                   </button>
                 </div>
@@ -614,8 +614,8 @@ export function ProfileTab() {
               </div>
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">{t('common.visas')}</h4>
-                  <button onClick={() => addVisaRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un visa">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Visas</h4>
+                  <button onClick={() => addVisaRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title={t('settings.ajouter_un_visa')}>
                     <Plus size={12} />
                   </button>
                 </div>
@@ -647,24 +647,24 @@ export function ProfileTab() {
       <CollapsibleSection
         id="travel"
         title="Voyage & Transport"
-        description="Préférences de voyage pour la planification des missions."
+        description={t('settings.preferences_de_voyage_pour_la_planificat')}
         storageKey="settings.profile.collapse"
         showSeparator={false}
       >
         <div className="mt-2 space-y-4 max-w-[640px]">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="gl-label">Aéroport contractuel</label>
+              <label className="gl-label">{t('users.columns.contractual_airport')}</label>
               {dictAirport.length > 0 ? (
-                <DictCombobox value={form.contractual_airport as string || ''} options={dictAirport} onChange={(v) => updateField('contractual_airport', v)} placeholder="Rechercher un aéroport..." />
+                <DictCombobox value={form.contractual_airport as string || ''} options={dictAirport} onChange={(v) => updateField('contractual_airport', v)} placeholder={t('users.rechercher_un_aeroport')} />
               ) : (
                 <input type="text" className="gl-form-input" value={form.contractual_airport || ''} onChange={(e) => updateField('contractual_airport', e.target.value)} placeholder="ex: CDG, LHR" />
               )}
             </div>
             <div>
-              <label className="gl-label">Aéroport le plus proche</label>
+              <label className="gl-label">{t('assets.nearest_airport')}</label>
               {dictAirport.length > 0 ? (
-                <DictCombobox value={form.nearest_airport as string || ''} options={dictAirport} onChange={(v) => updateField('nearest_airport', v)} placeholder="Rechercher un aéroport..." />
+                <DictCombobox value={form.nearest_airport as string || ''} options={dictAirport} onChange={(v) => updateField('nearest_airport', v)} placeholder={t('users.rechercher_un_aeroport')} />
               ) : (
                 <input type="text" className="gl-form-input" value={form.nearest_airport || ''} onChange={(e) => updateField('nearest_airport', e.target.value)} placeholder="ex: ORY, LTN" />
               )}
@@ -672,11 +672,11 @@ export function ProfileTab() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="gl-label">Gare la plus proche</label>
+              <label className="gl-label">{t('users.columns.nearest_station')}</label>
               <input type="text" className="gl-form-input" value={form.nearest_station || ''} onChange={(e) => updateField('nearest_station', e.target.value)} />
             </div>
             <div>
-              <label className="gl-label">Programme de fidélité</label>
+              <label className="gl-label">{t('settings.programme_de_fidelite')}</label>
               <input type="text" className="gl-form-input" value={form.loyalty_program || ''} onChange={(e) => updateField('loyalty_program', e.target.value)} placeholder="ex: Flying Blue 12345678" />
             </div>
           </div>
@@ -686,8 +686,8 @@ export function ProfileTab() {
       {/* Section: Health & Medical */}
       <CollapsibleSection
         id="health"
-        title="Santé & Médical"
-        description="Visites médicales, vaccins et conditions de santé."
+        title={t('settings.sante_medical')}
+        description={t('settings.visites_medicales_vaccins_et_conditions')}
         storageKey="settings.profile.collapse"
         showSeparator={false}
       >
@@ -696,8 +696,8 @@ export function ProfileTab() {
             <>
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">Visites médicales</h4>
-                  <button onClick={() => addMedicalRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter une visite">
+                  <h4 className="text-xs font-semibold text-muted-foreground">{t('users.visites_medicales')}</h4>
+                  <button onClick={() => addMedicalRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title={t('settings.ajouter_une_visite')}>
                     <Plus size={12} />
                   </button>
                 </div>
@@ -705,15 +705,15 @@ export function ProfileTab() {
               </div>
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">{t('common.vaccines')}</h4>
-                  <button onClick={() => addVaccineRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un vaccin">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Vaccins</h4>
+                  <button onClick={() => addVaccineRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title={t('settings.ajouter_un_vaccin')}>
                     <Plus size={12} />
                   </button>
                 </div>
                 <VaccineManager userId={user.id} hideAddButton onAddRef={(fn) => { addVaccineRef.current = fn }} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Conditions de santé</h4>
+                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">{t('users.conditions_de_sante')}</h4>
                 <HealthConditionsChecklist userId={user.id} />
               </div>
             </>
@@ -743,7 +743,7 @@ export function ProfileTab() {
               <label className="gl-label">Pointure</label>
               {dictShoeSize.length > 0 ? (
                 <select className="gl-form-input" value={form.ppe_shoe_size || ''} onChange={(e) => updateField('ppe_shoe_size', e.target.value)}>
-                  <option value="">— Sélectionner —</option>
+                  <option value="">{t('paxlog.create_ads.select_option')}</option>
                   {dictShoeSize.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               ) : (
@@ -753,10 +753,10 @@ export function ProfileTab() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="gl-label">Taille vêtement (haut)</label>
+              <label className="gl-label">{t('settings.taille_vetement_haut')}</label>
               {dictClothingSize.length > 0 ? (
                 <select className="gl-form-input" value={form.ppe_clothing_size || ''} onChange={(e) => updateField('ppe_clothing_size', e.target.value)}>
-                  <option value="">— Sélectionner —</option>
+                  <option value="">{t('paxlog.create_ads.select_option')}</option>
                   {dictClothingSize.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               ) : (
@@ -764,10 +764,10 @@ export function ProfileTab() {
               )}
             </div>
             <div>
-              <label className="gl-label">Taille vêtement (bas)</label>
+              <label className="gl-label">{t('settings.taille_vetement_bas')}</label>
               {dictClothingSize.length > 0 ? (
                 <select className="gl-form-input" value={form.ppe_clothing_size_bottom || ''} onChange={(e) => updateField('ppe_clothing_size_bottom', e.target.value)}>
-                  <option value="">— Sélectionner —</option>
+                  <option value="">{t('paxlog.create_ads.select_option')}</option>
                   {dictClothingSize.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               ) : (
@@ -781,8 +781,8 @@ export function ProfileTab() {
       {/* Section: Compétences */}
       <CollapsibleSection
         id="skills"
-        title="Compétences"
-        description="Langues parlées et permis de conduire."
+        title={t('users.competences')}
+        description={t('settings.langues_parlees_et_permis_de_conduire')}
         storageKey="settings.profile.collapse"
         showSeparator={false}
       >
@@ -791,8 +791,8 @@ export function ProfileTab() {
             <>
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">{t('common.languages')}</h4>
-                  <button onClick={() => addLanguageRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter une langue">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Langues</h4>
+                  <button onClick={() => addLanguageRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title={t('settings.ajouter_une_langue')}>
                     <Plus size={12} />
                   </button>
                 </div>
@@ -800,8 +800,8 @@ export function ProfileTab() {
               </div>
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">Permis de conduire</h4>
-                  <button onClick={() => addLicenseRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un permis">
+                  <h4 className="text-xs font-semibold text-muted-foreground">{t('users.permis_de_conduire')}</h4>
+                  <button onClick={() => addLicenseRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title={t('settings.ajouter_un_permis')}>
                     <Plus size={12} />
                   </button>
                 </div>
@@ -815,8 +815,8 @@ export function ProfileTab() {
       {/* Section: Référentiels & Conformité */}
       <CollapsibleSection
         id="referentiels"
-        title="Référentiels & Conformité"
-        description="Formations, certifications, habilitations, audits — suivi de conformité."
+        title={t('users.referentiels_conformite')}
+        description={t('settings.formations_certifications_habilitations')}
         storageKey="settings.profile.collapse"
         showSeparator={false}
       >
@@ -829,8 +829,8 @@ export function ProfileTab() {
       {/* Section: Comptes liés (SSO) */}
       <CollapsibleSection
         id="sso-accounts"
-        title="Comptes liés"
-        description="Associez vos comptes Google, Microsoft ou autre pour vous connecter facilement."
+        title={t('settings.comptes_lies')}
+        description={t('settings.associez_vos_comptes_google_microsoft_ou')}
         storageKey="settings.profile.collapse"
         showSeparator={false}
       >
@@ -842,8 +842,8 @@ export function ProfileTab() {
       {/* RGPD — Mes données personnelles */}
       <CollapsibleSection
         id="gdpr-personal"
-        title="Mes données personnelles (RGPD)"
-        description="Exercez vos droits sur vos données personnelles conformément au RGPD."
+        title={t('settings.mes_donnees_personnelles_rgpd')}
+        description={t('settings.exercez_vos_droits_sur_vos_donnees_perso')}
         storageKey="settings.profile.collapse"
         showSeparator={false}
       >
@@ -851,8 +851,8 @@ export function ProfileTab() {
           <div className="flex items-start gap-4 p-3 rounded-lg border border-border bg-muted/20">
             <Download size={16} className="text-primary mt-0.5 shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Exporter mes données</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Demander un export de vos données personnelles (Art. 15 & 20). Vous recevrez une notification et un email quand l'export sera prêt.</p>
+              <p className="text-sm font-medium text-foreground">{t('settings.exporter_mes_donnees')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('settings.demander_un_export_de_vos_donnees_person')}</p>
             </div>
             <button
               className="gl-button-sm gl-button-default shrink-0"
@@ -869,15 +869,15 @@ export function ProfileTab() {
           </div>
 
           <div className="rounded-lg border border-border bg-background p-3">
-            <p className="text-sm font-medium text-foreground">Exports prêts</p>
+            <p className="text-sm font-medium text-foreground">{t('settings.exports_prets')}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Quand un export est terminé, il apparaît ici avec son bouton de téléchargement.
             </p>
             <div className="mt-3 space-y-2">
               {gdprExportsLoading ? (
-                <div className="text-xs text-muted-foreground">Chargement des exports…</div>
+                <div className="text-xs text-muted-foreground">{t('settings.chargement_des_exports')}</div>
               ) : gdprExports.length === 0 ? (
-                <div className="text-xs text-muted-foreground">Aucun export prêt pour le moment.</div>
+                <div className="text-xs text-muted-foreground">{t('settings.aucun_export_pret_pour_le_moment')}</div>
               ) : (
                 gdprExports.map((item) => (
                   <div key={item.filename} className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
@@ -899,7 +899,7 @@ export function ProfileTab() {
                         type="button"
                         onClick={() => handleDeleteGdprExport(item.filename)}
                         className="gl-button-sm gl-button-default text-red-600 hover:text-red-700"
-                        title="Supprimer cet export"
+                        title={t('settings.supprimer_cet_export')}
                       >
                         <Trash2 size={12} />
                       </button>
@@ -913,8 +913,8 @@ export function ProfileTab() {
           <div className="flex items-start gap-4 p-3 rounded-lg border border-red-500/30 bg-red-500/5">
             <Trash2 size={16} className="text-red-500 mt-0.5 shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Supprimer mon compte</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Anonymiser définitivement votre compte et supprimer vos données personnelles (Art. 17). Cette action est irréversible.</p>
+              <p className="text-sm font-medium text-foreground">{t('settings.supprimer_mon_compte')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('settings.anonymiser_definitivement_votre_compte_e')}</p>
             </div>
             <button
               className="gl-button-sm bg-red-600 text-white hover:bg-red-700 shrink-0"
@@ -936,14 +936,9 @@ export function ProfileTab() {
 
       {/* Floating save bar — only visible when there are unsaved changes */}
       {isDirty && (
-        <div
-          className="sticky bottom-0 z-30 -mx-6 px-6 py-3 bg-card/95 backdrop-blur border-t border-border shadow-lg flex items-center gap-3"
-          // Reserve space for the iOS home-indicator so the buttons
-          // don't sit under it on iPhone X+.
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-        >
-          <div className="flex-1 text-xs text-muted-foreground">Modifications non enregistrées</div>
-          <button className="gl-button-sm gl-button-default" onClick={handleCancel}>{t('common.cancel')}</button>
+        <div className="sticky bottom-0 z-30 -mx-6 px-6 py-3 bg-card/95 backdrop-blur border-t border-border shadow-lg flex items-center gap-3">
+          <div className="flex-1 text-xs text-muted-foreground">{t('settings.modifications_non_enregistrees')}</div>
+          <button className="gl-button-sm gl-button-default" onClick={handleCancel}>Annuler</button>
           <button className="gl-button-sm gl-button-confirm" onClick={handleSubmit} disabled={updateProfile.isPending}>
             {updateProfile.isPending && <Loader2 size={12} className="animate-spin mr-1" />}
             Enregistrer
@@ -991,7 +986,7 @@ function InlineNameEditor({ firstName, lastName, onFirstNameChange, onLastNameCh
           className="gl-form-input h-8 text-sm w-32"
           value={firstName}
           onChange={(e) => onFirstNameChange(e.target.value)}
-          placeholder={t('common.first_name')}
+          placeholder={t('tiers.ui.first_name')}
           autoFocus
         />
         <input
@@ -1084,7 +1079,7 @@ function LinkedSSOAccounts() {
   }
 
   if (loading) return <div className="flex items-center justify-center py-4"><Loader2 size={14} className="animate-spin text-muted-foreground" /></div>
-  if (available.length === 0) return <p className="text-xs text-muted-foreground">Aucun fournisseur SSO configuré par l'administrateur.</p>
+  if (available.length === 0) return <p className="text-xs text-muted-foreground">{t('settings.aucun_fournisseur_sso_configure_par_l_ad')}</p>
 
   const linkedProviderIds = new Set(linked.map((l) => l.provider))
 
@@ -1106,7 +1101,7 @@ function LinkedSSOAccounts() {
                 </div>
                 {unlinkingId === l.id ? (
                   <div className="flex items-center gap-1 shrink-0 text-xs">
-                    <button onClick={() => handleUnlink(l.id)} className="px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400">Oui</button>
+                    <button onClick={() => handleUnlink(l.id)} className="gl-button gl-button-danger bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Oui</button>
                     <button onClick={() => setUnlinkingId(null)} className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400">Non</button>
                   </div>
                 ) : (
@@ -1132,7 +1127,7 @@ function LinkedSSOAccounts() {
               <button
                 key={a.id}
                 onClick={() => handleLink(a.id)}
-                className="gl-button-sm gl-button-default"
+                className="gl-button gl-button-default"
               >
                 <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">{meta.icon}</span>
                 Lier {meta.name}

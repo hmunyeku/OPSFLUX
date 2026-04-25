@@ -156,6 +156,7 @@ function exportAuditCSV(items: AuditLogEntry[]) {
 // ── Detail Modal ─────────────────────────────────────────────
 
 function AuditDetailModal({ entry, onClose }: { entry: AuditLogEntry; onClose: () => void }) {
+  const { t } = useTranslation()
   const formatDate = (d: string) => new Date(d).toLocaleString('fr-FR', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
   })
@@ -173,7 +174,7 @@ function AuditDetailModal({ entry, onClose }: { entry: AuditLogEntry; onClose: (
         <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
             <ScrollText size={16} className="text-primary" />
-            <h3 className="text-sm font-semibold">Détail de l&apos;entrée d&apos;audit</h3>
+            <h3 className="text-sm font-semibold">{t('settings.detail_de_l_apos_entree_d_apos_audit')}</h3>
           </div>
           <button onClick={onClose} className="gl-button gl-button-default"><X size={14} /></button>
         </div>
@@ -229,7 +230,7 @@ function AuditDetailModal({ entry, onClose }: { entry: AuditLogEntry; onClose: (
           {/* Details JSON */}
           {entry.details && Object.keys(entry.details).length > 0 && (
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase font-medium mb-1.5">Détails</p>
+              <p className="text-[10px] text-muted-foreground uppercase font-medium mb-1.5">{t('common.details')}</p>
               <div className="bg-muted/30 border border-border rounded-lg p-3 overflow-x-auto">
                 <pre className="text-xs font-mono whitespace-pre-wrap break-all text-foreground">
                   {JSON.stringify(entry.details, null, 2)}
@@ -339,7 +340,7 @@ export function AuditTab() {
 
         {/* Export CSV */}
         <button
-          className="gl-button-sm gl-button-confirm flex items-center gap-1.5"
+          className="gl-button-sm gl-button-confirm items-center gap-1.5"
           onClick={handleExport}
           disabled={!data?.items?.length}
         >

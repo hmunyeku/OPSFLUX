@@ -7,6 +7,7 @@
  * On submit, batch-creates PlannerActivities via POST /send-to-planner.
  */
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import {
@@ -213,14 +214,14 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
           )}
           {linked && (
             <>
-              <span className="text-green-600 text-[10px]">Déjà planifié</span>
+              <span className="text-green-600 text-[10px]">{t('shared.deja_planifie')}</span>
               {linkedEntry?.activity_id && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     openDynamicPanel({ type: 'detail', module: 'planner', id: linkedEntry.activity_id })
                   }}
-                  className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
+                  className="gl-button gl-button-default"
                 >
                   <Eye size={10} />
                   Ouvrir
@@ -236,7 +237,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                     toast({ title: 'Impossible de retirer cette activité du Planner', variant: 'error' })
                   }
                 }}
-                className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
+                className="gl-button gl-button-default"
                 disabled={unlinkTaskFromPlanner.isPending}
               >
                 <Unlink size={10} />
@@ -261,7 +262,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
             <div>
-              <Dialog.Title className="text-sm font-semibold">Envoyer au Planner</Dialog.Title>
+              <Dialog.Title className="text-sm font-semibold">{t('shared.envoyer_au_planner')}</Dialog.Title>
               <p className="text-xs text-muted-foreground mt-0.5">Projet {projectCode} — sélectionnez les tâches à planifier individuellement</p>
             </div>
             <Dialog.Close asChild>
@@ -274,7 +275,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une tâche..."
+                <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('shared.rechercher_une_tache')}
                   className="w-full h-7 pl-7 pr-2 text-xs border border-border rounded bg-background" />
               </div>
               <span className="text-xs text-muted-foreground">{selectableCount} planifiable{selectableCount > 1 ? 's' : ''}</span>
@@ -318,17 +319,17 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                   min="0"
                   max="999"
                   value={paxQuotaOverride ?? ''}
-                  placeholder={t('common.task')}
+                  placeholder={t('projets.columns.task')}
                   onChange={e => {
                     const v = e.target.value
                     setPaxQuotaOverride(v === '' ? null : Math.max(0, Number(v) || 0))
                   }}
                   className="w-16 h-6 px-1.5 text-xs border border-border rounded bg-background tabular-nums"
-                  title="Vide = utilise le POB de chaque tâche. Sinon, force la valeur saisie pour toutes."
+                  title={t('shared.vide_utilise_le_pob_de_chaque_tache_sino')}
                 />
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">Priorité:</span>
+                <span className="text-xs text-muted-foreground">{t('settings.imputations.assignment_priority')}</span>
                 <select value={priority} onChange={e => setPriority(e.target.value)}
                   className="h-6 px-1.5 text-xs border border-border rounded bg-background">
                   <option value="low">{t('common.low_priority')}</option>
@@ -340,9 +341,9 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}</span>
-              <button onClick={onClose} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
+              <button onClick={onClose} className="gl-button-sm gl-button-default">Annuler</button>
               <button onClick={handleSend} disabled={selectedIds.size === 0 || sendToPlanner.isPending}
-                className="gl-button gl-button-sm gl-button-confirm flex">
+                className="gl-button-sm gl-button-confirm">
                 {sendToPlanner.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
                 Envoyer au Planner ({selectedIds.size})
               </button>

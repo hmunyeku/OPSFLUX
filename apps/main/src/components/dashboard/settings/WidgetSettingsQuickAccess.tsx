@@ -160,7 +160,7 @@ export function WidgetSettingsQuickAccess({ config, onChange }: WidgetSettingsQu
         ))}
         <button
           onClick={addItem}
-          className="gl-button-sm gl-button-outline flex items-center gap-1 w-full justify-center text-[10px]"
+          className="gl-button-sm gl-button-outline items-center gap-1 w-full justify-center text-[10px]"
         >
           <Plus size={10} />
           Ajouter un raccourci

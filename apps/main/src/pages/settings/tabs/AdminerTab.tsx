@@ -182,8 +182,8 @@ export function AdminerTab() {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
         <AlertTriangle size={24} className="text-amber-500" />
-        <p className="text-sm font-medium">Accès refusé</p>
-        <p className="text-xs">Vous n'avez pas les droits d'accès à la base de données.</p>
+        <p className="text-sm font-medium">{t('settings.acces_refuse')}</p>
+        <p className="text-xs">{t('settings.vous_n_avez_pas_les_droits_d_acces_a_la')}</p>
       </div>
     )
   }
@@ -205,14 +205,14 @@ export function AdminerTab() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Database size={16} className="text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Base de données</h3>
-          <span className="gl-badge gl-badge-warning text-[8px]">{t('common.superadmin')}</span>
+          <h3 className="text-sm font-semibold text-foreground">{t('settings.system_health.database_label')}</h3>
+          <span className="gl-badge gl-badge-warning text-[8px]">Superadmin</span>
         </div>
         <a
           href="https://db.opsflux.io"
           target="_blank"
           rel="noopener noreferrer"
-          className="gl-button-sm gl-button-confirm flex items-center gap-1.5"
+          className="gl-button-sm gl-button-confirm items-center gap-1.5"
         >
           <Database size={11} />
           Ouvrir pgAdmin
@@ -238,7 +238,7 @@ export function AdminerTab() {
             <button
               onClick={runQuery}
               disabled={isRunning || !query.trim()}
-              className="gl-button-sm gl-button-primary"
+              className="gl-button-sm gl-button-confirm disabled:cursor-not-allowed"
             >
               {isRunning ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -268,7 +268,7 @@ export function AdminerTab() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowMaxRowsDropdown(!showMaxRowsDropdown)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                className="gl-button-sm gl-button-default"
               >
                 <Table2 size={11} />
                 {maxRows} lignes max
@@ -349,7 +349,7 @@ export function AdminerTab() {
                     ].join('\n')
                     copyToClipboard(tsv, 'results')
                   }}
-                  className="inline-flex items-center gap-1 px-2 py-1 text-[10px] rounded border border-border hover:bg-muted text-muted-foreground transition-colors"
+                  className="gl-button gl-button-default"
                 >
                   {copied === 'results' ? (
                     <Check size={10} className="text-green-500" />
@@ -434,7 +434,7 @@ export function AdminerTab() {
 
       {/* Quick queries */}
       <div className="border border-border rounded-lg p-4">
-        <h4 className="text-xs font-semibold text-foreground mb-3">Requêtes rapides</h4>
+        <h4 className="text-xs font-semibold text-foreground mb-3">{t('settings.requetes_rapides')}</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {QUICK_QUERIES.map(({ label, sql }) => (
             <button
@@ -444,7 +444,7 @@ export function AdminerTab() {
                 setResult(null)
                 textareaRef.current?.focus()
               }}
-              className="flex items-center gap-2 px-3 py-2 text-xs text-left rounded-md border border-border bg-background hover:bg-muted hover:border-primary/30 transition-colors group"
+              className="gl-button-sm gl-button-default text-left group"
             >
               <Database size={11} className="text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
               <span className="text-foreground truncate">{label}</span>

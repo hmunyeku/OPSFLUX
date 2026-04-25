@@ -534,6 +534,7 @@ function ConnectorCard({
   testingConnectorId: string | null
   sendingConnectorId: string | null
 }) {
+  const { t } = useTranslation()
   // Auto-expand only if not yet configured
   const isConfigured = !!(settings[connector.enabledKey] as string)
   const [expanded, setExpanded] = useState(!isConfigured)
@@ -658,7 +659,7 @@ function ConnectorCard({
                 <p className="text-xs text-red-600 dark:text-red-400 flex-1">{lastTestError}</p>
               )}
               {lastTestStatus === 'ok' && (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400">Connexion réussie</p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">{t('settings.toast.integrations.connection_success')}</p>
               )}
             </div>
           )}
@@ -710,7 +711,7 @@ function ConnectorCard({
           <div className="flex items-center justify-end pt-2 border-t border-border/30">
             {confirmRemove ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Supprimer ce connecteur ?</span>
+                <span className="text-xs text-muted-foreground">{t('settings.supprimer_ce_connecteur')}</span>
                 <button className="gl-button-sm gl-button-danger" onClick={onRemove}>Oui</button>
                 <button className="gl-button-sm gl-button-default" onClick={() => setConfirmRemove(false)}>Non</button>
               </div>
@@ -741,6 +742,7 @@ function AddConnectorDialog({
   onClose: () => void
   activeConnectorIds: string[]
 }) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
@@ -765,7 +767,7 @@ function AddConnectorDialog({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
             <Plus size={16} className="text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Ajouter un service</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('settings.ajouter_un_service')}</h3>
           </div>
           <button onClick={onClose} className="gl-button gl-button-default">
             <X size={16} />
@@ -777,7 +779,7 @@ function AddConnectorDialog({
           <input
             type="text"
             className="gl-form-input text-sm w-full"
-            placeholder="Rechercher un service..."
+            placeholder={t('settings.rechercher_un_service')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             autoFocus
@@ -821,7 +823,7 @@ function AddConnectorDialog({
                   key={c.id}
                   type="button"
                   onClick={() => { onAdd(c.id); onClose() }}
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border/50 hover:border-primary/40 hover:bg-accent/50 transition-colors text-center group"
+                  className="gl-button gl-button-default flex-col text-center group"
                 >
                   <span className="text-2xl">{c.icon}</span>
                   <span className="text-xs font-semibold text-foreground">{c.name}</span>
@@ -996,7 +998,7 @@ export function IntegrationsTab() {
         {/* Provider selector (always visible) */}
         <div className="px-4 py-3 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Fournisseur de carte</label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">{t('settings.fournisseur_de_carte')}</label>
             <TagSelector
               options={[
                 { value: 'openstreetmap', label: 'OpenStreetMap (gratuit)' },
@@ -1054,7 +1056,7 @@ export function IntegrationsTab() {
 
           {/* Style */}
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Style de carte</label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">{t('settings.style_de_carte')}</label>
             <TagSelector
               options={
                 mapProvider === 'mapbox'
@@ -1078,7 +1080,7 @@ export function IntegrationsTab() {
 
           {/* Geocoding */}
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Service de géocodage</label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">{t('settings.service_de_geocodage')}</label>
             <TagSelector
               options={[
                 { value: 'nominatim', label: 'Nominatim (gratuit)' },
@@ -1099,8 +1101,8 @@ export function IntegrationsTab() {
       {/* ── Services connectés (dynamic catalog) ── */}
       <CollapsibleSection
         id="services-connectes"
-        title="Services connectés"
-        description="Ajoutez et configurez les services externes utilisés par OpsFlux. OAuth2, stockage, email, SMS, webhooks — tout se gère ici. Les accès configurés sont réutilisables par tous les modules."
+        title={t('settings.services_connectes')}
+        description={t('settings.ajoutez_et_configurez_les_services_exter')}
         storageKey="settings.integrations.collapse"
         showSeparator={false}
       >
@@ -1108,7 +1110,7 @@ export function IntegrationsTab() {
       {activeConnectors.length === 0 ? (
         <div className="mt-4 border border-border/60 border-dashed rounded-lg bg-card px-6 py-8 text-center">
           <Shield size={28} className="mx-auto text-muted-foreground/40 mb-2" />
-          <p className="text-sm font-medium text-foreground mb-1">Aucun service configuré</p>
+          <p className="text-sm font-medium text-foreground mb-1">{t('settings.aucun_service_configure')}</p>
           <p className="text-xs text-muted-foreground mb-3">
             Ajoutez des services externes pour activer l'authentification SSO, l'envoi d'emails, le stockage cloud, etc.
           </p>
@@ -1178,7 +1180,7 @@ export function IntegrationsTab() {
               </>
             )
           })() : (
-            <span className="text-xs text-muted-foreground">Aucun service configuré</span>
+            <span className="text-xs text-muted-foreground">{t('settings.aucun_service_configure')}</span>
           )}
         </div>
         <button

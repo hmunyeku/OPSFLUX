@@ -1622,7 +1622,7 @@ export function GanttView({
       </div>
 
       <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground px-1">
-        <span className="font-semibold uppercase tracking-wide text-[10px]">Activités</span>
+        <span className="font-semibold uppercase tracking-wide text-[10px]">{t('planner.tabs.activities')}</span>
         {Object.entries(TYPE_LABELS_FR).map(([key, label]) => {
           const typeFilter = viewPrefs.activity_type_filter ?? []
           const hasFilter = typeFilter.length > 0
@@ -1661,7 +1661,7 @@ export function GanttView({
             type="button"
             onClick={() => onViewPrefsChange?.({ ...viewPrefs, activity_type_filter: [] })}
             className="text-[10px] text-primary hover:underline"
-            title="Réinitialiser le filtre de type"
+            title={t('planner.reinitialiser_le_filtre_de_type')}
           >
             Réinitialiser
           </button>
@@ -1707,7 +1707,7 @@ export function GanttView({
               type="button"
               onClick={() => onViewPrefsChange?.({ ...viewPrefs, activity_validity_filter: [] })}
               className="text-[10px] text-primary hover:underline ml-1"
-              title="Réinitialiser le filtre de validité"
+              title={t('planner.reinitialiser_le_filtre_de_validite')}
             >
               Réinitialiser
             </button>
@@ -1758,7 +1758,7 @@ export function GanttView({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 pt-4 pb-2 border-b border-border">
-              <h3 className="text-sm font-semibold text-foreground">Modifier la dépendance</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t('planner.modifier_la_dependance')}</h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 <span className="font-medium text-foreground">{activityTitleById.get(editingDep.predecessor_id) ?? '—'}</span>
                 {' → '}

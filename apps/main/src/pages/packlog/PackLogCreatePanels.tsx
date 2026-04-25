@@ -105,7 +105,7 @@ function CreateCargoRequestInner() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle demande d’expédition"
+      title={t('packlog.nouvelle_demande_d_expedition')}
       subtitle={moduleLabel}
       icon={<FileText size={14} className="text-primary" />}
       actions={
@@ -136,11 +136,11 @@ function CreateCargoRequestInner() {
               </div>
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.reference')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Générée automatiquement à l’enregistrement</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.reference')}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t('packlog.generee_automatiquement_a_l_enregistreme')}</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.completeness')}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.completeness')}</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">{readinessScore}%</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
@@ -164,13 +164,13 @@ function CreateCargoRequestInner() {
               </div>
             </div>
 
-            <SmartFormSection id="section" title={'Section'} level="essential" help={{ description: 'Section' }}>
+            <FormSection title={t('packlog.demande_d_expedition')}>
               <FormGrid>
-                <DynamicPanelField label={t('common.label_field')} required>
-                  <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder={t('packlog.placeholders.request_title_example')} />
+                <DynamicPanelField label={t('conformite.columns.title')} required>
+                  <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder={t('packlog.demande_d_expedition_equipements_forage')} />
                 </DynamicPanelField>
-                <DynamicPanelField label={t('common.project')}>
-                  <ProjectPicker value={form.project_id ?? null} onChange={(projectId) => setForm({ ...form, project_id: projectId ?? null })} clearable placeholder={t('packlog.placeholders.select_project')} />
+                <DynamicPanelField label="Projet">
+                  <ProjectPicker value={form.project_id ?? null} onChange={(projectId) => setForm({ ...form, project_id: projectId ?? null })} clearable placeholder={t('travelwiz.selectionner_un_projet')} />
                 </DynamicPanelField>
                 <DynamicPanelField label={t('common.description')} span="full">
                   <RichTextField
@@ -186,23 +186,23 @@ function CreateCargoRequestInner() {
 
             <SmartFormSection id="t_common_logistics_context" title={t('common.logistics_context')} level="essential" help={{ description: t('common.logistics_context') }}>
               <FormGrid>
-                <DynamicPanelField label={t('common.imputation')}>
-                  <ImputationPicker value={form.imputation_reference_id ?? null} onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })} placeholder={t('packlog.placeholders.select_imputation')} />
+                <DynamicPanelField label="Imputation">
+                  <ImputationPicker value={form.imputation_reference_id ?? null} onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })} placeholder={t('travelwiz.selectionner_une_imputation')} />
                 </DynamicPanelField>
-                <DynamicPanelField label={t('common.sender_company')}>
-                  <CompanyPicker value={form.sender_tier_id ?? null} onChange={(id) => setForm({ ...form, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })} placeholder={t('packlog.placeholders.select_company')} />
+                <DynamicPanelField label={t('travelwiz.entreprise_expeditrice')}>
+                  <CompanyPicker value={form.sender_tier_id ?? null} onChange={(id) => setForm({ ...form, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })} placeholder={t('travelwiz.selectionner_une_entreprise')} />
                 </DynamicPanelField>
-                <DynamicPanelField label={t('common.company_contact')}>
-                  <ContactPicker value={form.sender_contact_tier_contact_id ?? null} onChange={(id) => setForm({ ...form, sender_contact_tier_contact_id: id ?? null })} placeholder={t('packlog.placeholders.select_contact')} tierId={form.sender_tier_id ?? null} />
+                <DynamicPanelField label="Contact entreprise">
+                  <ContactPicker value={form.sender_contact_tier_contact_id ?? null} onChange={(id) => setForm({ ...form, sender_contact_tier_contact_id: id ?? null })} placeholder={t('travelwiz.selectionner_un_contact')} tierId={form.sender_tier_id ?? null} />
                 </DynamicPanelField>
                 <DynamicPanelField label={t('common.recipient')}>
                   <input type="text" value={form.receiver_name ?? ''} onChange={(e) => setForm({ ...form, receiver_name: e.target.value || null })} className={panelInputClass} />
                 </DynamicPanelField>
-                <DynamicPanelField label={t('common.destination_installation')} span="full">
-                  <AssetPicker value={form.destination_asset_id ?? null} onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })} clearable placeholder={t('packlog.placeholders.select_destination_asset')} />
+                <DynamicPanelField label={t('travelwiz.installation_de_destination')} span="full">
+                  <AssetPicker value={form.destination_asset_id ?? null} onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })} clearable placeholder="Sélectionner l'installation de destination..." />
                 </DynamicPanelField>
-                <DynamicPanelField label={t('common.requester')}>
-                  <UserPicker value={form.requester_user_id ?? null} onChange={(id) => setForm({ ...form, requester_user_id: id ?? null })} placeholder={t('packlog.placeholders.select_user')} />
+                <DynamicPanelField label="Demandeur">
+                  <UserPicker value={form.requester_user_id ?? null} onChange={(id) => setForm({ ...form, requester_user_id: id ?? null })} placeholder={t('travelwiz.selectionner_un_utilisateur')} />
                 </DynamicPanelField>
                 <DynamicPanelField label={t('common.free_requester')}>
                   <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.requester_fallback')} />
@@ -337,7 +337,7 @@ function CreateCargoInner() {
 
   return (
     <DynamicPanelShell
-      title="Nouveau colis"
+      title={t('packlog.actions.new_cargo')}
       subtitle={moduleLabel}
       icon={<Package size={14} className="text-primary" />}
       actions={
@@ -358,7 +358,7 @@ function CreateCargoInner() {
             <div className="@container space-y-5">
               <SmartFormSection id="t_common_identification" title={t('common.identification')} level="essential" help={{ description: t('common.identification') }}>
                 <FormGrid>
-                  <DynamicPanelField label="Demande d’expédition">
+                  <DynamicPanelField label={t('packlog.demande_d_expedition')}>
                     <select value={form.request_id ?? ''} onChange={(e) => setForm({ ...form, request_id: e.target.value || null })} className={panelInputClass} disabled={!!preselectedRequestId}>
                       <option value="">{preselectedRequestId ? 'Demande parente imposée' : 'Aucune demande parente'}</option>
                       {cargoRequests.map((request) => (
@@ -367,39 +367,32 @@ function CreateCargoInner() {
                     </select>
                     {selectedRequest && <p className="mt-1 text-[11px] text-muted-foreground">Ce colis sera créé dans la demande ` {selectedRequest.request_code} `.</p>}
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.reference')}>
+                  <DynamicPanelField label={t('paxlog.reference')}>
                     <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                       Générée automatiquement par la numérotation TravelWiz à l’enregistrement du colis.
                     </div>
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.package_type')} required>
+                  <DynamicPanelField label={t('conformite.rules.packlog.conditions.cargo_type')} required>
                     <select value={form.cargo_type} onChange={(e) => setForm({ ...form, cargo_type: e.target.value })} className={panelInputClass}>
                       {cargoTypeOptions.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.designation')}>
-                    <input type="text" value={form.designation ?? ''} onChange={(e) => setForm({ ...form, designation: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.cargo_designation')} />
+                  <DynamicPanelField label={t('conformite.rules.packlog.fields.designation')}>
+                    <input type="text" value={form.designation ?? ''} onChange={(e) => setForm({ ...form, designation: e.target.value || null })} className={panelInputClass} placeholder={t('travelwiz.designation_courte_du_colis')} />
                   </DynamicPanelField>
                   <DynamicPanelField label={t('common.sap_article')}>
                     <input type="text" value={form.sap_article_code ?? ''} onChange={(e) => setForm({ ...form, sap_article_code: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.sap_code_example')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.description')} required span="full">
-                    <RichTextField
-                      value={form.description}
-                      onChange={(html) => setForm({ ...form, description: html })}
-                      rows={4}
-                      placeholder={t('packlog.placeholders.cargo_description') as string}
-                      imageOwnerType={stagingOwnerType}
-                      imageOwnerId={stagingRef}
-                    />
+                  <DynamicPanelField label="Description" required span="full">
+                    <textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${panelInputClass} min-h-[60px] resize-y`} placeholder={t('packlog.description_operationnelle_du_colis_de_l')} rows={3} />
                   </DynamicPanelField>
                 </FormGrid>
                 {selectedRequest && (
                   <div className="mt-3 rounded-xl border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="gl-badge gl-badge-info">Hérité de la demande</span>
+                      <span className="gl-badge gl-badge-info">{t('travelwiz.herite_de_la_demande')}</span>
                       <span className="text-xs font-medium text-foreground">{selectedRequest.request_code} — {selectedRequest.title}</span>
                     </div>
                     <div className="mt-3 grid gap-3 md:grid-cols-4">
@@ -422,21 +415,21 @@ function CreateCargoInner() {
                     </div>
                   </div>
                 )}
-              </SmartFormSection>
-              <SmartFormSection id="t_common_logistics_preparation" title={t('common.logistics_preparation')} level="essential" collapsible help={{ description: t('common.logistics_preparation') }}>
+              </FormSection>
+              <FormSection title={t('travelwiz.preparation_logistique')} collapsible defaultExpanded>
                 <FormGrid>
-                  <DynamicPanelField label={t('common.material_ownership')}>
+                  <DynamicPanelField label={t('travelwiz.propriete_du_materiel')}>
                     <select value={form.ownership_type ?? ''} onChange={(e) => setForm({ ...form, ownership_type: e.target.value || null })} className={panelInputClass}>
-                      <option value="">{t('common.select')}</option>
+                      <option value="">{t('common.select_option')}</option>
                       {ownershipOptions.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.document_prepared_on')}>
+                  <DynamicPanelField label={t('travelwiz.document_prepare_le')}>
                     <input type="datetime-local" value={form.document_prepared_at ?? ''} onChange={(e) => setForm({ ...form, document_prepared_at: e.target.value || null })} className={panelInputClass} />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.availability')}>
+                  <DynamicPanelField label={t('travelwiz.mise_a_disposition')}>
                     <input type="datetime-local" value={form.available_from ?? ''} onChange={(e) => setForm({ ...form, available_from: e.target.value || null })} className={panelInputClass} />
                   </DynamicPanelField>
                 </FormGrid>
@@ -460,7 +453,7 @@ function CreateCargoInner() {
                   <DynamicPanelField label={t('common.total_area_m2')}>
                     <input type="number" min={0} step="any" value={form.surface_m2 ?? ''} onChange={(e) => setForm({ ...form, surface_m2: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.package_count')}>
+                  <DynamicPanelField label={t('travelwiz.nombre_de_colis')}>
                     <input type="number" min={1} step={1} value={form.package_count ?? 1} onChange={(e) => setForm({ ...form, package_count: e.target.value ? Number(e.target.value) : 1 })} className={panelInputClass} />
                   </DynamicPanelField>
                   <DynamicPanelField label={t('common.stackable')}>
@@ -473,8 +466,8 @@ function CreateCargoInner() {
                 <p className="text-xs text-muted-foreground">
                   Les dimensions physiques sont utilisées pour raisonner la place occupée et préparer le placement pont, pas seulement un volume libre saisi à la main.
                 </p>
-              </SmartFormSection>
-              <SmartFormSection id="t_common_cargo_compliance" title={t('common.cargo_compliance')} level="essential" collapsible help={{ description: t('common.cargo_compliance') }}>
+              </FormSection>
+              <FormSection title={t('travelwiz.conformite_colis')} collapsible defaultExpanded>
                 <FormGrid>
                   <DynamicPanelField label={t('common.hazmat_validation')}>
                     <label className="inline-flex items-center gap-2 text-xs">
@@ -482,23 +475,23 @@ function CreateCargoInner() {
                       Conforme / validé pour traitement HAZMAT
                     </label>
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.reusable_package')}>
+                  <DynamicPanelField label={t('packlog.colis_reutilisable')}>
                     <label className="inline-flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={form.is_reusable ?? false} onChange={(e) => setForm({ ...form, is_reusable: e.target.checked })} />
                       Emballage / conteneur retournable (basket, skid, coffre DNV…)
                     </label>
                   </DynamicPanelField>
                   {form.is_reusable && (
-                    <DynamicPanelField label={t('common.expected_return_date')}>
+                    <DynamicPanelField label={t('packlog.date_retour_prevue')}>
                       <input type="date" value={form.expected_return_date ?? ''} onChange={(e) => setForm({ ...form, expected_return_date: e.target.value || null })} className={panelInputClass} />
                     </DynamicPanelField>
                   )}
                 </FormGrid>
-              </SmartFormSection>
-              <SmartFormSection id="t_common_pickup_evidence" title={t('common.pickup_evidence')} level="essential" collapsible help={{ description: t('common.pickup_evidence') }}>
+              </FormSection>
+              <FormSection title={t('travelwiz.enlevement_et_preuves')} collapsible defaultExpanded>
                 <FormGrid>
-                  <DynamicPanelField label="Lieu d’enlèvement" span="full">
-                    <input type="text" value={form.pickup_location_label ?? ''} onChange={(e) => setForm({ ...form, pickup_location_label: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.pickup_location_example')} />
+                  <DynamicPanelField label={t('packlog.lieu_d_enlevement')} span="full">
+                    <input type="text" value={form.pickup_location_label ?? ''} onChange={(e) => setForm({ ...form, pickup_location_label: e.target.value || null })} className={panelInputClass} placeholder="Base, quai, magasin, yard..." />
                   </DynamicPanelField>
                   <DynamicPanelField label={t('common.latitude')}>
                     <input type="number" step="any" value={form.pickup_latitude ?? ''} onChange={(e) => setForm({ ...form, pickup_latitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
@@ -506,7 +499,7 @@ function CreateCargoInner() {
                   <DynamicPanelField label={t('common.longitude')}>
                     <input type="number" step="any" value={form.pickup_longitude ?? ''} onChange={(e) => setForm({ ...form, pickup_longitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.map_preview')} span="full">
+                  <DynamicPanelField label={t('travelwiz.apercu_cartographique')} span="full">
                     {pickupMapEmbedUrl ? (
                       <div className="space-y-2">
                         <div className="overflow-hidden rounded-lg border border-border">
@@ -520,37 +513,37 @@ function CreateCargoInner() {
                         )}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground">Renseigne latitude et longitude pour visualiser le point de pickup sur la carte.</p>
+                      <p className="text-xs text-muted-foreground">{t('travelwiz.renseigne_latitude_et_longitude_pour_vis')}</p>
                     )}
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.user_contact')}>
-                    <UserPicker value={form.pickup_contact_user_id ?? null} onChange={(id) => setForm({ ...form, pickup_contact_user_id: id ?? null })} placeholder={t('packlog.placeholders.select_user')} />
+                  <DynamicPanelField label={t('travelwiz.contact_utilisateur')}>
+                    <UserPicker value={form.pickup_contact_user_id ?? null} onChange={(id) => setForm({ ...form, pickup_contact_user_id: id ?? null })} placeholder={t('travelwiz.selectionner_un_utilisateur')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.company_contact')}>
-                    <ContactPicker value={form.pickup_contact_tier_contact_id ?? null} onChange={(id) => setForm({ ...form, pickup_contact_tier_contact_id: id ?? null })} placeholder={t('packlog.placeholders.select_contact')} tierId={form.sender_tier_id ?? null} />
+                  <DynamicPanelField label="Contact entreprise">
+                    <ContactPicker value={form.pickup_contact_tier_contact_id ?? null} onChange={(id) => setForm({ ...form, pickup_contact_tier_contact_id: id ?? null })} placeholder={t('travelwiz.selectionner_un_contact')} tierId={form.sender_tier_id ?? null} />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.free_contact_name')}>
-                    <input type="text" value={form.pickup_contact_name ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_name: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.pickup_contact_fallback')} />
+                  <DynamicPanelField label={t('travelwiz.nom_libre_du_contact')}>
+                    <input type="text" value={form.pickup_contact_name ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_name: e.target.value || null })} className={panelInputClass} placeholder={t('travelwiz.fallback_si_hors_referentiel')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.contact_phone')}>
-                    <input type="text" value={form.pickup_contact_phone ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_phone: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.phone_example')} />
+                  <DynamicPanelField label={t('travelwiz.telephone_contact')}>
+                    <input type="text" value={form.pickup_contact_phone ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_phone: e.target.value || null })} className={panelInputClass} placeholder="+237..." />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.lifting_provided_by')}>
-                    <input type="text" value={form.lifting_provider ?? ''} onChange={(e) => setForm({ ...form, lifting_provider: e.target.value || null })} className={panelInputClass} placeholder={t('packlog.placeholders.lifting_provider_example')} />
+                  <DynamicPanelField label={t('travelwiz.moyen_de_levage_fourni_par')}>
+                    <input type="text" value={form.lifting_provider ?? ''} onChange={(e) => setForm({ ...form, lifting_provider: e.target.value || null })} className={panelInputClass} placeholder="Entreprise, site, prestataire..." />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.lifting_points_certified')}>
+                  <DynamicPanelField label={t('travelwiz.oreilles_de_levage_certifiees')}>
                     <label className="inline-flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={form.lifting_points_certified ?? false} onChange={(e) => setForm({ ...form, lifting_points_certified: e.target.checked })} />
                       Certification fournie
                     </label>
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.weight_ticket')}>
+                  <DynamicPanelField label={t('travelwiz.preuve_de_pesee')}>
                     <label className="inline-flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={form.weight_ticket_provided ?? false} onChange={(e) => setForm({ ...form, weight_ticket_provided: e.target.checked })} />
                       Ticket de pesée disponible
                     </label>
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('common.photos_documents')} span="full">
+                  <DynamicPanelField label={t('travelwiz.photos_et_documents')} span="full">
                     <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                       Les fichiers joints, photos terrain et preuves documentaires se gèrent après création du colis via l’onglet fichiers du détail colis.
                     </div>

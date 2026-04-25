@@ -106,6 +106,12 @@ export default function App() {
                   <Route path="/tiers/*" element={<RequireModuleEnabled module="tiers"><RequirePermission permission="tier.read"><TiersPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/conformite/*" element={<RequireModuleEnabled module="conformite"><RequirePermission permission="conformite.record.read"><ConformitePage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/projets/*" element={<RequireModuleEnabled module="projets"><RequirePermission permission="project.read"><ProjetsPage /></RequirePermission></RequireModuleEnabled>} />
+                  {/* English-language alias redirects so /projects, /companies, /compliance,
+                      /workflows do not 404 (cf E2E bug #2). */}
+                  <Route path="/projects/*" element={<Navigate to="/projets" replace />} />
+                  <Route path="/companies/*" element={<Navigate to="/tiers" replace />} />
+                  <Route path="/compliance/*" element={<Navigate to="/conformite" replace />} />
+                  <Route path="/workflows/*" element={<Navigate to="/workflow" replace />} />
                   <Route path="/workflow/*" element={<RequirePermission permission="workflow.definition.read"><WorkflowPage /></RequirePermission>} />
                   <Route path="/paxlog/ads-boarding/:token" element={<RequireModuleEnabled module="paxlog"><RequirePermission permission="travelwiz.boarding.manage"><AdsBoardingScanPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/paxlog/*" element={<RequireModuleEnabled module="paxlog"><RequireAnyPermission permissions={['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.approve', 'paxlog.avm.read', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete', 'paxlog.profile.read', 'paxlog.compliance.read']}><PaxLogPage /></RequireAnyPermission></RequireModuleEnabled>} />

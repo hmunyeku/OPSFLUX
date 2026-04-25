@@ -46,7 +46,7 @@ export function ApplicationsTab() {
     <CollapsibleSection
       id="oauth-apps"
       title="Applications"
-      description="Gérez les applications qui peuvent utiliser OpsFlux comme fournisseur OAuth, et les applications que vous avez autorisées à accéder à votre compte."
+      description={t('settings.gerez_les_applications_qui_peuvent_utili')}
       storageKey="settings.applications.collapse"
       showSeparator={false}
     >
@@ -59,7 +59,7 @@ export function ApplicationsTab() {
           {/* Your applications — header */}
           <div className="mt-6 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-foreground">Vos applications</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t('settings.vos_applications')}</h3>
               <span className="inline-flex items-center justify-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{apps?.length || 0}</span>
             </div>
             <button
@@ -121,7 +121,7 @@ export function ApplicationsTab() {
 
           {/* Authorized applications — header */}
           <div className="mt-8 flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-foreground">Applications autorisées</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('settings.applications_autorisees')}</h3>
             <span className="inline-flex items-center justify-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{authorizations?.length || 0}</span>
           </div>
 

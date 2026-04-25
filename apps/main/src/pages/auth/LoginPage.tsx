@@ -375,7 +375,7 @@ export function LoginPage() {
                       type="button"
                       onClick={() => handleSsoLogin(provider.id)}
                       disabled={ssoLoading === provider.id}
-                      className="group relative w-full h-10 rounded-xl border border-border/70 bg-card/60 backdrop-blur-sm flex items-center justify-center gap-2 text-sm text-foreground transition-all hover:border-border hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
+                      className="gl-button gl-button-default w-full h-9 items-center justify-center gap-2"
                     >
                       {/* Shine sweep on hover — same effect as gl-button-premium */}
                       <span

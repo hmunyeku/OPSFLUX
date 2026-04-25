@@ -156,9 +156,9 @@ export function AccessTokensTab() {
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatsCard label="Jetons actifs" count={activeCount} />
-        <StatsCard label="Expirent bientôt" count={expiringSoonCount} />
-        <StatsCard label="Révoqués" count={revokedCount} />
-        <StatsCard label="Expirés" count={expiredCount} />
+        <StatsCard label={t('paxlog.dashboard.kpis.expiring_soon')} count={expiringSoonCount} />
+        <StatsCard label={t('settings.revoques')} count={revokedCount} />
+        <StatsCard label={t('settings.expires')} count={expiredCount} />
       </div>
 
       <div className="mt-6">

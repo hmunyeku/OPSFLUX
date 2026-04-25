@@ -33,10 +33,7 @@ import { NameDialog } from './components/NameDialog'
 export default function FileManagerPage() {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  // 'admin.fs' was never registered in the permission catalogue — the
-  // OR clause was always false in practice. Keep core.settings.manage
-  // which is the actual perm used by /files endpoints.
-  const canManage = hasPermission('core.settings.manage')
+  const canManage = hasPermission('admin.fs') || hasPermission('core.settings.manage')
 
   const fm = useFileManager()
   const selection = useFileSelection(fm.items)
@@ -228,7 +225,7 @@ export default function FileManagerPage() {
       {/* Name dialog */}
       {fm.nameDialog && (
         <NameDialog
-          title={fm.nameDialog.mode === 'create' ? t('files.nouveau_dossier') : t('files.renommer', { name: fm.nameDialog.item?.name ?? '' })}
+          title={fm.nameDialog.mode === 'create' ? 'Nouveau dossier' : `Renommer "${fm.nameDialog.item?.name}"`}
           defaultValue={fm.nameDialog.mode === 'rename' ? fm.nameDialog.item?.name : ''}
           onCancel={() => fm.setNameDialog(null)}
           onConfirm={(name) => {

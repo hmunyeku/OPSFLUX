@@ -19,6 +19,7 @@ import React, {
   useLayoutEffect,
   useMemo,
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -374,7 +375,7 @@ function TourSpotlight({
                 Précédent
               </button>
             )}
-            <button onClick={onNext} className="gl-button-sm gl-button-confirm text-[10px] flex items-center gap-1">
+            <button onClick={onNext} className="gl-button-sm gl-button-confirm text-[10px] items-center gap-1">
               {isLast ? <><CheckCircle2 size={10} /> Terminer</> : <><ArrowRight size={10} /> Suivant</>}
             </button>
           </div>
@@ -576,6 +577,7 @@ export function AssistantPanel() {
 // ═══════════════════════════════════════════════════════════════
 
 function ChatTab({ currentModule }: { currentModule: string }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
@@ -763,7 +765,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
         {messages.length === 0 && !streaming && (
           <div className="text-center py-8">
             <Bot size={32} className="mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-sm text-muted-foreground">Posez une question sur OpsFlux</p>
+            <p className="text-sm text-muted-foreground">{t('layout.posez_une_question_sur_opsflux')}</p>
             <p className="text-xs text-muted-foreground/60 mt-1">
               L'assistant connait le module {HELP_CONTENT[currentModule]?.title || currentModule}
             </p>
@@ -866,7 +868,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Votre question..."
+            placeholder={t('layout.votre_question')}
             className="gl-form-input text-sm flex-1 min-h-[36px] max-h-[100px] resize-y"
             rows={1}
             disabled={streaming}
@@ -874,7 +876,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
           <button
             onClick={sendMessage}
             disabled={!input.trim() || streaming}
-            className="gl-button-sm gl-button-confirm h-9 w-9 flex items-center justify-center shrink-0"
+            className="gl-button-sm gl-button-confirm h-9 w-9 items-center justify-center shrink-0"
           >
             {streaming ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           </button>
@@ -895,7 +897,7 @@ function HelpTab({ currentModule }: { currentModule: string }) {
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
       {!help ? (
-        <div className="text-sm text-muted-foreground">{t('assistant.help.none')}</div>
+        <div className="text-sm text-muted-foreground">{t('help_system.empty')}</div>
       ) : (
         <>
           {/* Header */}
@@ -1114,13 +1116,13 @@ function ToursTab({ currentModule }: { currentModule: string }) {
                   <p className="text-[10px] text-muted-foreground/60 mt-1">{tour.steps.length} étapes</p>
                 </div>
                 {isActive ? (
-                  <button onClick={closeTour} className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1 text-red-500">
+                  <button onClick={closeTour} className="gl-button-sm gl-button-default shrink-0 items-center gap-1 text-red-500">
                     <StopCircle size={10} /> Arreter
                   </button>
                 ) : (
                   <button
                     onClick={() => startTour(tour)}
-                    className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1"
+                    className="gl-button-sm gl-button-default shrink-0 items-center gap-1"
                   >
                     <Play size={10} /> {isCompleted ? 'Revoir' : 'Démarrer'}
                   </button>
@@ -1347,7 +1349,7 @@ function TicketTab() {
       {/* Title */}
       <input
         className={cn('gl-form-input text-sm w-full', form.title.trim().length > 0 && form.title.trim().length < 10 && 'border-orange-400')}
-        placeholder={t('assistant.ticket.title_placeholder')}
+        placeholder={t('layout.titre_clair_et_precis_min_10_car')}
         value={form.title}
         onChange={e => setForm({ ...form, title: e.target.value })}
       />

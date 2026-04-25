@@ -47,21 +47,31 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
       <button
         onClick={() => setOpen(true)}
         className="p-1.5 rounded-md hover:bg-muted text-muted-foreground transition-colors"
-        title="Paramètres du Gantt"
+        title={t('shared.parametres_du_gantt')}
       >
         <Settings2 className="h-4 w-4" />
       </button>
     )
   }
 
-  const actionItems: ActionItem[] = [
-    {
-      id: 'reset',
-      label: 'Réinitialiser',
-      icon: RotateCcw,
-      onClick: () => onChange({ ...DEFAULT_SETTINGS, scale: settings.scale }),
-    },
-  ]
+  return (
+    <div className="fixed top-16 right-8 z-[9999] w-[360px] max-h-[80vh] overflow-y-auto rounded-lg border bg-card shadow-xl">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b sticky top-0 bg-card z-10">
+        <span className="text-xs font-semibold">{t('shared.parametres_gantt')}</span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onChange({ ...DEFAULT_SETTINGS, scale: settings.scale })}
+            className="p-1 rounded hover:bg-muted text-muted-foreground"
+            title={t('common.reset')}
+          >
+            <RotateCcw className="h-3 w-3" />
+          </button>
+          <button onClick={() => setOpen(false)} className="p-1 rounded hover:bg-muted text-muted-foreground">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
 
   return (
     <DynamicPanelShell
@@ -184,7 +194,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
             {/* Priority filter */}
             {priorities.length > 0 && (
               <div className="mb-2">
-                <span className="text-[10px] text-muted-foreground">Priorités visibles</span>
+                <span className="text-[10px] text-muted-foreground">{t('shared.priorites_visibles')}</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {priorities.map(p => {
                     const hidden = settings.hiddenPriorities.includes(p.value)
@@ -215,12 +225,12 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
 
             {/* Assignee filter */}
             <div>
-              <span className="text-[10px] text-muted-foreground">Assigné (recherche)</span>
+              <span className="text-[10px] text-muted-foreground">{t('shared.assigne_recherche')}</span>
               <input
                 type="text"
                 value={settings.filterAssignee || ''}
                 onChange={e => onChange({ filterAssignee: e.target.value || null })}
-                placeholder="Filtrer par nom..."
+                placeholder={t('shared.filtrer_par_nom')}
                 className="w-full mt-1 h-7 px-2 text-xs border rounded bg-background"
               />
             </div>
@@ -264,7 +274,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
         {/* ── Presets ─────────────────────────────────────── */}
         {onSavePreset && (
           <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t('common.presets')}</h4>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t('shared.prereglages')}</h4>
             <div className="space-y-1 mb-2">
               {presets.map(p => (
                 <div key={p.name} className="flex items-center gap-1">
@@ -283,7 +293,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
                 </div>
               ))}
               {presets.length === 0 && (
-                <p className="text-[10px] text-muted-foreground italic">{t('common.no_preset')}</p>
+                <p className="text-[10px] text-muted-foreground italic">{t('shared.aucun_prereglage')}</p>
               )}
             </div>
             <button
@@ -291,7 +301,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
                 const name = prompt('Nom du préréglage :')
                 if (name?.trim()) onSavePreset(name.trim())
               }}
-              className="w-full text-[10px] px-2 py-1 rounded border border-border hover:bg-muted text-center"
+              className="gl-button gl-button-default w-full text-center"
             >
               + Sauvegarder la vue actuelle
             </button>

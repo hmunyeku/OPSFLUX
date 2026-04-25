@@ -15,47 +15,22 @@ import { cn } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────
 
-interface TopTable {
-  name: string
-  size?: string | null
-  rows?: number | null
-}
-
-interface DatabaseStatus {
+interface ServiceStatus {
   status: 'ok' | 'error'
   latency_ms?: number | null
   active_connections?: number | null
-  size?: string | null
-  table_count?: number | null
-  top_tables?: TopTable[]
-}
-
-interface RedisStatus {
-  status: 'ok' | 'error'
-  latency_ms?: number | null
-  active_connections?: number | null
-  memory?: string | null
-  keys?: number | null
-}
-
-interface UsersStats {
-  total?: number | null
-  active?: number | null
 }
 
 interface SystemHealthData {
   status: 'healthy' | 'degraded'
-  database: DatabaseStatus
-  redis: RedisStatus
+  database: ServiceStatus
+  redis: ServiceStatus
   uptime_seconds: number
   memory_mb: number | null
   cpu_percent: number | null
   disk_usage_percent: number | null
   environment: string
   version: string
-  python_version?: string | null
-  os?: string | null
-  users?: UsersStats
 }
 
 // ── API layer ─────────────────────────────────────────────────
@@ -70,8 +45,6 @@ function useSystemHealth() {
     queryKey: ['admin', 'health'],
     queryFn: fetchSystemHealth,
     refetchInterval: 30_000,
-    // Don't hammer the admin health endpoint when the tab is hidden.
-    refetchIntervalInBackground: false,
     staleTime: 10_000,
   })
 }
@@ -187,7 +160,7 @@ export function SystemHealthTab() {
           )}
         </div>
         <button
-          className="gl-button-sm gl-button-default flex items-center gap-1.5"
+          className="gl-button-sm gl-button-default items-center gap-1.5"
           onClick={handleRefresh}
         >
           <RefreshCw size={13} />
@@ -218,8 +191,8 @@ export function SystemHealthTab() {
           >
             <MetricRow label={t('settings.system_health.latency')} value={data.database.latency_ms != null ? `${data.database.latency_ms} ms` : null} />
             <MetricRow label={t('settings.system_health.connections')} value={data.database.active_connections} />
-            <MetricRow label="Taille" value={data.database.size} />
-            <MetricRow label="Tables" value={data.database.table_count} />
+            <MetricRow label="Taille" value={(data.database as any).size} />
+            <MetricRow label="Tables" value={(data.database as any).table_count} />
           </StatusCard>
 
           {/* Redis */}
@@ -230,8 +203,8 @@ export function SystemHealthTab() {
             statusLabel={data.redis.status === 'ok' ? 'OK' : 'Error'}
           >
             <MetricRow label={t('settings.system_health.latency')} value={data.redis.latency_ms != null ? `${data.redis.latency_ms} ms` : null} />
-            <MetricRow label="Mémoire" value={data.redis.memory} />
-            <MetricRow label="Clés" value={data.redis.keys} />
+            <MetricRow label={t('settings.system_health.memory')} value={(data.redis as any).memory} />
+            <MetricRow label={t('settings.cles')} value={(data.redis as any).keys} />
           </StatusCard>
 
           {/* Uptime */}
@@ -267,18 +240,18 @@ export function SystemHealthTab() {
       )}
 
       {/* Top tables */}
-      {data?.database?.top_tables && data.database.top_tables.length > 0 && (
+      {data?.database && (data.database as any).top_tables?.length > 0 && (
         <div className="mt-4">
-          <h4 className="text-xs font-semibold text-muted-foreground mb-2">Tables les plus volumineuses</h4>
+          <h4 className="text-xs font-semibold text-muted-foreground mb-2">{t('settings.tables_les_plus_volumineuses')}</h4>
           <div className="border border-border rounded-lg overflow-hidden">
             <div className="grid grid-cols-3 gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-semibold text-muted-foreground uppercase border-b border-border">
               <span>Table</span><span>Taille</span><span>Lignes</span>
             </div>
-            {data.database.top_tables.map((tbl) => (
-              <div key={tbl.name} className="grid grid-cols-3 gap-2 px-3 py-1.5 text-xs border-b border-border/30 last:border-0">
-                <span className="font-mono text-foreground">{tbl.name}</span>
-                <span className="text-muted-foreground">{tbl.size}</span>
-                <span className="text-muted-foreground tabular-nums">{tbl.rows?.toLocaleString()}</span>
+            {((data.database as any).top_tables as any[]).map((t: any) => (
+              <div key={t.name} className="grid grid-cols-3 gap-2 px-3 py-1.5 text-xs border-b border-border/30 last:border-0">
+                <span className="font-mono text-foreground">{t.name}</span>
+                <span className="text-muted-foreground">{t.size}</span>
+                <span className="text-muted-foreground tabular-nums">{t.rows?.toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -290,15 +263,15 @@ export function SystemHealthTab() {
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="border border-border/60 rounded-lg p-3">
             <p className="text-[10px] text-muted-foreground uppercase">Python</p>
-            <p className="text-sm font-bold">{data.python_version || '—'}</p>
+            <p className="text-sm font-bold">{(data as any).python_version || '—'}</p>
           </div>
           <div className="border border-border/60 rounded-lg p-3">
             <p className="text-[10px] text-muted-foreground uppercase">OS</p>
-            <p className="text-sm font-bold">{data.os || '—'}</p>
+            <p className="text-sm font-bold">{(data as any).os || '—'}</p>
           </div>
           <div className="border border-border/60 rounded-lg p-3">
             <p className="text-[10px] text-muted-foreground uppercase">Utilisateurs</p>
-            <p className="text-sm font-bold">{data.users?.active ?? '—'} / {data.users?.total ?? '—'}</p>
+            <p className="text-sm font-bold">{(data as any).users?.active ?? '—'} / {(data as any).users?.total ?? '—'}</p>
           </div>
           <div className="border border-border/60 rounded-lg p-3">
             <p className="text-[10px] text-muted-foreground uppercase">Environnement</p>

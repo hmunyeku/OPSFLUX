@@ -20,7 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin, VerifiableMixin
@@ -208,6 +208,34 @@ class ImputationAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
     imputation_reference: Mapped["ImputationReference"] = relationship(foreign_keys=[imputation_reference_id])
+
+
+# ─── Currency Rates (historical) ─────────────────────────────────────────────
+#
+# Per-entity historical exchange rates. Stored on the imputations module by
+# design: financial conversions need to be reproducible at a given date
+# (cost rebill, accruals, intercompany invoices, etc.) so we keep every
+# rate ever applied and look up by `effective_date <= operation_date`.
+#
+# Rates are stored as `1 unit of from_currency = rate * to_currency`.
+# Conversion lookup picks the most recent rate with effective_date ≤ on_date.
+
+class CurrencyRate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "currency_rates"
+    __table_args__ = (
+        Index("idx_currency_rate_lookup", "entity_id", "from_currency", "to_currency", "effective_date"),
+        Index("uq_currency_rate_unique", "entity_id", "from_currency", "to_currency", "effective_date", unique=True),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    from_currency: Mapped[str] = mapped_column(String(10), nullable=False)
+    to_currency: Mapped[str] = mapped_column(String(10), nullable=False)
+    rate: Mapped[float] = mapped_column(Float, nullable=False)
+    effective_date: Mapped[date] = mapped_column(Date, nullable=False)
+    source: Mapped[str | None] = mapped_column(String(50))  # e.g. "ECB", "manual", "BCEAO"
+    notes: Mapped[str | None] = mapped_column(Text)
 
 
 # ─── Users ───────────────────────────────────────────────────────────────────
@@ -534,44 +562,10 @@ class EventStore(Base):
     error: Mapped[str | None] = mapped_column(Text)
 
 
-# ─── Password history ───────────────────────────────────────────────────────
-#
-# AUP §5.2 — "Doit être très différent de vos mots de passe précédents".
-# We keep the last N bcrypt hashes per user so change-password /
-# reset-password can reject any reuse within the retention window.
-# Rotation is handled at write time (keep newest N, delete older).
-
-class PasswordHistory(UUIDPrimaryKeyMixin, Base):
-    __tablename__ = "password_history"
-
-    user_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
-    )
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False,
-    )
-
-
 # ─── Audit Log ───────────────────────────────────────────────────────────────
 
 class AuditLog(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "audit_log"
-    __table_args__ = (
-        # Settings → Audit tab: paginated list scoped to the acting
-        # entity, ordered by created_at desc. Without this index the
-        # query grows linearly with total audit log size (every RBAC
-        # delete, login, sensitive action writes a row — hundreds
-        # per active tenant per day).
-        Index("idx_audit_log_entity_created", "entity_id", "created_at"),
-        # "What happened to resource X?" — the resource detail panels
-        # query by (resource_type, resource_id) when the audit trail
-        # drawer is opened. Compound index so the second predicate
-        # applies a proper range scan instead of a filter.
-        Index("idx_audit_log_resource", "resource_type", "resource_id"),
-        # "What did user X do?" — user activity view.
-        Index("idx_audit_log_user_created", "user_id", "created_at"),
-    )
 
     entity_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
     user_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
@@ -590,17 +584,6 @@ class AuditLog(UUIDPrimaryKeyMixin, Base):
 
 class Notification(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "notifications"
-    __table_args__ = (
-        # The bell polls `COUNT(*) WHERE user_id AND entity_id AND read=false`
-        # every minute per connected user. Without a composite index the
-        # query degenerates to a full scan of the notifications table as
-        # it grows — linear backend load per online user.
-        Index("idx_notifications_user_entity_read", "user_id", "entity_id", "read"),
-        # Journal page + dropdown order by created_at desc with the same
-        # filters. Include created_at at the tail so ORDER BY becomes an
-        # index scan (no separate sort step).
-        Index("idx_notifications_user_entity_created", "user_id", "entity_id", "created_at"),
-    )
 
     entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     user_id: Mapped[PyUUID] = mapped_column(
@@ -1225,12 +1208,6 @@ class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     size_bytes: Mapped[int] = mapped_column(nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Optional per-owner-type category (e.g. 'pid_initial' / 'pid_modified'
-    # / 'photo' / 'study' for MOC — 'pid' / 'esd' for other modules). The
-    # allowed values are driven by a dictionary category per module
-    # (e.g. `moc_attachment_type`), so admins can customise the list
-    # without a schema change. NULL = uncategorised.
-    category: Mapped[str | None] = mapped_column(String(40), nullable=True)
     uploaded_by: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
@@ -1679,19 +1656,142 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 class ProjectMember(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Membre d'une equipe projet."""
+    """Membre d'une équipe projet — interne (User) ou externe (TierContact).
+
+    Capacité & coût : allocation_pct (0-100, ex: 50 = mi-temps),
+    period (start_date / end_date), hourly/daily rate dans la devise
+    du membre (override de la devise projet). Spécialité libre pour
+    qualifier le rôle métier (« Plombier », « Architecte », etc.).
+    """
     __tablename__ = "project_members"
-    __table_args__ = (Index("idx_project_members_project", "project_id"),)
+    __table_args__ = (
+        Index("idx_project_members_project", "project_id"),
+        Index("idx_project_members_user", "user_id"),
+        Index("idx_project_members_contact", "contact_id"),
+    )
 
     project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
     user_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     contact_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tier_contacts.id"))
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="member")  # manager, member, reviewer, stakeholder
+    # Capacité allouée sur le projet (0-100). 100 = temps plein dédié.
+    allocation_pct: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    # Période d'affectation (NULL = sans contrainte).
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    # Coûts. Currency optionnel : si NULL, hérite de la devise du projet.
+    hourly_rate: Mapped[float | None] = mapped_column(Float)
+    daily_rate: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str | None] = mapped_column(String(10))
+    # Spécialité métier libre (ex: « Plombier », « Architecte », « DevOps »).
+    specialty: Mapped[str | None] = mapped_column(String(150))
+    notes: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     project: Mapped["Project"] = relationship(back_populates="members")
     user: Mapped["User | None"] = relationship(foreign_keys=[user_id])
     contact: Mapped["TierContact | None"] = relationship(foreign_keys=[contact_id])
+    time_entries: Mapped[list["ProjectTimeEntry"]] = relationship(back_populates="member", cascade="all, delete-orphan")
+
+
+class ProjectTaskLoss(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Pertes sur une tâche projet — temps perdu, surcoût matériel, retards.
+
+    Sert à tracer les écarts: heures perdues (intempéries, attente
+    matériel, panne), surcoût matériau (rebut, casse), pénalité
+    retard contractuel. Sert ensuite au rapport de fin de projet.
+    """
+    __tablename__ = "project_task_losses"
+    __table_args__ = (
+        Index("idx_ptl_task", "task_id"),
+        Index("idx_ptl_project", "project_id"),
+        Index("idx_ptl_category", "category"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    task_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="CASCADE"))
+    member_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("project_members.id", ondelete="SET NULL"))
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    # Catégorie : weather, material, equipment, manpower, contractual, accident, other
+    category: Mapped[str] = mapped_column(String(30), nullable=False)
+    # Quantification : au moins l'un des deux est non-NULL
+    hours_lost: Mapped[float | None] = mapped_column(Float)
+    cost_amount: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str | None] = mapped_column(String(10))
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    reported_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+
+
+class ProjectTaskAllocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Affectation d'un membre projet sur une tâche avec heures planifiées.
+
+    Permet de planifier la charge : combien d'heures un membre doit
+    consacrer à une tâche donnée, sur quelle période, à quel %
+    d'allocation. Le pointage réel (ProjectTimeEntry) référence
+    directement la tâche et le membre, et l'écart planifié/réalisé
+    se calcule par agrégation.
+
+    Contrainte : un membre ne peut avoir qu'une seule allocation active
+    par tâche à la fois (UNIQUE sur task_id + member_id).
+    """
+    __tablename__ = "project_task_allocations"
+    __table_args__ = (
+        Index("idx_pta_task", "task_id"),
+        Index("idx_pta_member", "member_id"),
+        Index("uq_pta_task_member", "task_id", "member_id", unique=True),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    task_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="CASCADE"), nullable=False)
+    member_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("project_members.id", ondelete="CASCADE"), nullable=False)
+    # Charge planifiée
+    planned_hours: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    allocation_pct: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    # Période d'affectation (NULL = toute la durée de la tâche)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    member: Mapped["ProjectMember"] = relationship(foreign_keys=[member_id])
+    task: Mapped["ProjectTask"] = relationship(foreign_keys=[task_id])
+
+
+class ProjectTimeEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Pointage d'un membre projet sur une journée (et optionnellement une tâche).
+
+    Workflow : draft → submitted → validated | rejected.
+    Snapshot taux+devise au moment de la soumission pour figer le coût
+    historique (le taux du membre peut changer plus tard sans
+    affecter les pointages déjà validés).
+    """
+    __tablename__ = "project_time_entries"
+    __table_args__ = (
+        Index("idx_pte_project_date", "project_id", "date"),
+        Index("idx_pte_member_date", "member_id", "date"),
+        Index("idx_pte_status", "status"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    member_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("project_members.id", ondelete="CASCADE"), nullable=False)
+    task_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="SET NULL"))
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    hours: Mapped[float] = mapped_column(Float, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")  # draft, submitted, validated, rejected
+    # Snapshot de coût au moment de la validation
+    rate_snapshot: Mapped[float | None] = mapped_column(Float)
+    currency_snapshot: Mapped[str | None] = mapped_column(String(10))
+    # Workflow trace
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejected_reason: Mapped[str | None] = mapped_column(Text)
+
+    member: Mapped["ProjectMember"] = relationship(back_populates="time_entries")
+    approver: Mapped["User | None"] = relationship(foreign_keys=[approved_by])
 
 
 class ProjectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -1734,14 +1834,6 @@ class ProjectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     pob_quota: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    # A milestone is a task with is_milestone=true. Conceptually the same
-    # model (progress tracking, dependencies, assignee, weight, etc.) but:
-    #   - start_date == due_date (single point in time)
-    #   - cannot have child tasks (enforced at service layer)
-    #   - rendered as a diamond on the Gantt, gets a ♦ indicator in lists
-    # The legacy ProjectMilestone table is kept for backward compat but
-    # new creations route through this flag.
-    is_milestone: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
 
     project: Mapped["Project"] = relationship(back_populates="tasks")
     parent: Mapped["ProjectTask | None"] = relationship(remote_side="ProjectTask.id", foreign_keys=[parent_id])
@@ -2521,75 +2613,6 @@ class I18nMessage(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Track who last edited the message (for audit)
     updated_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-
-
-class IntegrationConnection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Heavy external connector for GitHub, Dokploy and agent runners.
-
-    Stores one row per named instance (e.g. "Dokploy Staging", "Dokploy
-    Prod"). Light integrations — OAuth2 social login, map API keys, etc.
-    — keep using the `Setting` key/value pattern; this table is dedicated
-    to connectors that need a lifecycle (test status, suspend, etc.) and
-    structured credentials.
-
-    The `credentials_encrypted` column is a pgcrypto `pgp_sym_encrypt`
-    blob of a JSON object. The service layer handles encryption and
-    decryption via the existing `ENCRYPTION_KEY` env var — no service-
-    level crypto introduced, so rotation and key management follow the
-    same rules as GDPR PII.
-    """
-    __tablename__ = "integration_connections"
-    __table_args__ = (
-        CheckConstraint(
-            "connection_type IN ('github', 'dokploy', 'agent_runner')",
-            name="ck_integration_connection_type",
-        ),
-        CheckConstraint(
-            "status IN ('active', 'suspended', 'error', 'disabled')",
-            name="ck_integration_connection_status",
-        ),
-        Index(
-            "uq_integration_connection_entity_name",
-            "entity_id",
-            "name",
-            unique=True,
-        ),
-        Index("idx_integration_connection_type", "connection_type"),
-        Index(
-            "idx_integration_connection_entity_type",
-            "entity_id",
-            "connection_type",
-        ),
-    )
-
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("entities.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    connection_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    config: Mapped[dict] = mapped_column(
-        JSONB, nullable=False, server_default="'{}'"
-    )
-    # pgcrypto output (bytea). Encrypted/decrypted by the service layer
-    # using ENCRYPTION_KEY — never loaded into memory as raw bytes by the
-    # router layer.
-    credentials_encrypted: Mapped[bytes | None] = mapped_column(
-        BYTEA, nullable=True
-    )
-    status: Mapped[str] = mapped_column(
-        String(16), nullable=False, server_default="active"
-    )
-    last_tested_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    last_test_result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-    )
 
 
 class I18nCatalogMeta(TimestampMixin, Base):

@@ -286,7 +286,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             <div key={i} className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded bg-blue-500/5 border border-blue-500/20 text-left">
               <ShieldCheck size={10} className="text-blue-500 shrink-0" />
               <span className="flex-1 truncate">{String(detail.type_name || '?')}</span>
-              <span className="gl-badge gl-badge-info text-[9px]">Exempté</span>
+              <span className="gl-badge gl-badge-info text-[9px]">{t('shared.exempte')}</span>
             </div>
           ))}
         </div>
@@ -320,7 +320,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                         </span>
                         <span className="flex-1 truncate font-medium">{rec.type_name || rec.compliance_type_id}</span>
                         {rec.issued_at && (
-                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title="Date émission">
+                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title={t('shared.date_emission')}>
                             {formatDate(rec.issued_at)}
                           </span>
                         )}
@@ -333,7 +333,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                         <button
                           onClick={(e) => { e.stopPropagation(); setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id) }}
                           className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0"
-                          title="Pièces jointes"
+                          title={t('common.attachments')}
                         >
                           <Paperclip size={10} />
                         </button>
@@ -359,7 +359,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           })}
         </div>
       ) : !missingTypes.length ? (
-        <EmptyState icon={GraduationCap} title="Aucun référentiel enregistré" variant="search" size="compact" />
+        <EmptyState icon={GraduationCap} title={t('shared.aucun_referentiel_enregistre')} variant="search" size="compact" />
       ) : null}
 
       {/* Create / Edit form */}
@@ -381,7 +381,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
               onChange={(e) => setForm({ ...form, compliance_type_id: e.target.value })}
               className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
             >
-              <option value="">Sélectionner un type...</option>
+              <option value="">{t('shared.selectionner_un_type')}</option>
               {typeOptions.map(t => (
                 <option key={t.id} value={t.id}>
                   [{CATEGORY_LABELS[t.category] || t.category}] {t.code} — {t.name}
@@ -394,14 +394,14 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             <div>
               <label className="text-[9px] text-muted-foreground block mb-0.5">Statut</label>
               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background">
-                <option value="valid">{t('common.valid')}</option>
-                <option value="pending">{t('common.pending_status')}</option>
-                <option value="expired">{t('common.expired')}</option>
+                <option value="valid">Valide</option>
+                <option value="pending">En attente</option>
+                <option value="expired">{t('conformite.records.expired')}</option>
               </select>
             </div>
             <div>
-              <label className="text-[9px] text-muted-foreground block mb-0.5">Émetteur</label>
-              <input type="text" value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder={t('common.organism_ellipsis')} />
+              <label className="text-[9px] text-muted-foreground block mb-0.5">{t('conformite.columns.issuer')}</label>
+              <input type="text" value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="Organisme..." />
             </div>
           </div>
 
@@ -416,7 +416,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[9px] text-muted-foreground block mb-0.5">N° référence</label>
+              <label className="text-[9px] text-muted-foreground block mb-0.5">{t('conformite.records.reference_number')}</label>
               <input type="text" value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="REF-2024-001..." />
             </div>
             <div>
@@ -426,13 +426,13 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           </div>
 
           <div className="flex justify-end gap-1.5">
-            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted text-muted-foreground">
+            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="gl-button gl-button-default">
               Annuler
             </button>
             <button
               onClick={handleSubmit}
               disabled={(!editingId && !form.compliance_type_id) || createRecord.isPending || updateRecord.isPending}
-              className="gl-button gl-button-confirm text-[10px]"
+              className="gl-button gl-button-confirm"
             >
               {(createRecord.isPending || updateRecord.isPending) ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
               {editingId ? 'Enregistrer' : 'Créer'}

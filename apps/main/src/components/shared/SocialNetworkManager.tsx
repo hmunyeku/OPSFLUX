@@ -125,7 +125,7 @@ export function SocialNetworkManager({ ownerType, ownerId, compact }: SocialNetw
                 key={sn.id}
                 className="flex items-center gap-2 text-sm group"
                 onDoubleClick={() => setEditingId(sn.id)}
-                title={t('common.double_click_to_edit', 'Double-cliquez pour modifier') as string}
+                title={t('projets.double_cliquez_pour_modifier')}
               >
                 <Icon size={12} className="text-muted-foreground shrink-0" />
                 <span className="text-[10px] font-medium text-muted-foreground uppercase w-16 shrink-0">
@@ -164,7 +164,7 @@ export function SocialNetworkManager({ ownerType, ownerId, compact }: SocialNetw
       )}
 
       {!isLoading && !showForm && items.length === 0 && !compact && (
-        <EmptyState icon={Globe} title="Aucun réseau social" size="compact" />
+        <EmptyState icon={Globe} title={t('shared.aucun_reseau_social')} size="compact" />
       )}
 
       {!showForm && (

@@ -406,7 +406,9 @@ class TierRead(OpsFluxSchema):
     tax_id: str | None = None
     vat_number: str | None = None
     capital: float | None = None
-    currency: str = "XAF"
+    # Currency: optional — backend defaults to entity.currency on create.
+    # Each tier can override its own currency.
+    currency: str | None = None
     fiscal_year_start: int = 1
     industry: str | None = None
     founded_date: date | None = None
@@ -466,7 +468,8 @@ class TierCreate(BaseModel):
     tax_id: str | None = None
     vat_number: str | None = None
     capital: float | None = None
-    currency: str = "XAF"
+    # Currency: optional — backend defaults to entity.currency on create.
+    currency: str | None = None
     fiscal_year_start: int = 1
     industry: str | None = None
     founded_date: date | None = None
@@ -480,8 +483,10 @@ class TierCreate(BaseModel):
     state: str | None = None
     zip_code: str | None = None
     country: str | None = None
-    timezone: str = "Africa/Douala"
-    language: str = "fr"
+    # Timezone & language: optional on create — backend defaults to the
+    # entity's tz/lang. Each tier can override its own.
+    timezone: str | None = None
+    language: str | None = None
     social_networks: dict[str, Any] | None = None
     opening_hours: dict[str, Any] | None = None
     notes: str | None = None
@@ -1723,7 +1728,9 @@ class ProjectCreate(BaseModel):
     start_date: datetime | None = None
     end_date: datetime | None = None
     budget: float | None = None
-    currency: str = "XAF"
+    # Currency: optional on create — backend defaults to entity.currency
+    # if not provided. Each project can override its own currency.
+    currency: str | None = None
     manager_id: UUID | None = None
     parent_id: UUID | None = None
     tier_id: UUID | None = None
@@ -1783,6 +1790,14 @@ class ProjectMemberRead(OpsFluxSchema):
     user_id: UUID | None = None
     contact_id: UUID | None = None
     role: str
+    allocation_pct: int = 100
+    start_date: date | None = None
+    end_date: date | None = None
+    hourly_rate: float | None = None
+    daily_rate: float | None = None
+    currency: str | None = None
+    specialty: str | None = None
+    notes: str | None = None
     active: bool
     created_at: datetime
     # Enriched
@@ -1793,6 +1808,153 @@ class ProjectMemberCreate(BaseModel):
     user_id: UUID | None = None
     contact_id: UUID | None = None
     role: str = "member"
+    allocation_pct: int = Field(default=100, ge=0, le=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    hourly_rate: float | None = Field(default=None, ge=0)
+    daily_rate: float | None = Field(default=None, ge=0)
+    currency: str | None = None
+    specialty: str | None = None
+    notes: str | None = None
+
+
+class ProjectMemberUpdate(BaseModel):
+    role: str | None = None
+    allocation_pct: int | None = Field(default=None, ge=0, le=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    hourly_rate: float | None = Field(default=None, ge=0)
+    daily_rate: float | None = Field(default=None, ge=0)
+    currency: str | None = None
+    specialty: str | None = None
+    notes: str | None = None
+    active: bool | None = None
+
+
+# ── Project task losses (pertes / waste) ───────────────────────────────
+
+class ProjectTaskLossRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    project_id: UUID
+    task_id: UUID | None = None
+    member_id: UUID | None = None
+    date: date
+    category: str
+    hours_lost: float | None = None
+    cost_amount: float | None = None
+    currency: str | None = None
+    description: str
+    reported_by: UUID | None = None
+    created_at: datetime
+    # Enriched
+    task_title: str | None = None
+    member_name: str | None = None
+    reporter_name: str | None = None
+
+
+class ProjectTaskLossCreate(BaseModel):
+    task_id: UUID | None = None
+    member_id: UUID | None = None
+    date: date
+    category: str = Field(..., min_length=1, max_length=30)  # weather, material, equipment, manpower, contractual, accident, other
+    hours_lost: float | None = Field(default=None, ge=0)
+    cost_amount: float | None = Field(default=None, ge=0)
+    currency: str | None = None
+    description: str = Field(..., min_length=1)
+
+
+class ProjectTaskLossUpdate(BaseModel):
+    task_id: UUID | None = None
+    member_id: UUID | None = None
+    date: date | None = None
+    category: str | None = None
+    hours_lost: float | None = Field(default=None, ge=0)
+    cost_amount: float | None = Field(default=None, ge=0)
+    currency: str | None = None
+    description: str | None = None
+
+
+# ── Project task allocations (affectation membre × tâche) ──────────────
+
+class ProjectTaskAllocationRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    project_id: UUID
+    task_id: UUID
+    member_id: UUID
+    planned_hours: float
+    allocation_pct: int
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+    created_at: datetime
+    # Enriched
+    member_name: str | None = None
+    task_title: str | None = None
+    actual_hours: float | None = None  # validated time entries on this (task, member)
+
+
+class ProjectTaskAllocationCreate(BaseModel):
+    task_id: UUID
+    member_id: UUID
+    planned_hours: float = Field(default=0, ge=0)
+    allocation_pct: int = Field(default=100, ge=0, le=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+
+
+class ProjectTaskAllocationUpdate(BaseModel):
+    planned_hours: float | None = Field(default=None, ge=0)
+    allocation_pct: int | None = Field(default=None, ge=0, le=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+
+
+# ── Project time entries (pointage) ─────────────────────────────────────
+
+class ProjectTimeEntryRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    project_id: UUID
+    member_id: UUID
+    task_id: UUID | None = None
+    date: date
+    hours: float
+    description: str | None = None
+    status: str
+    rate_snapshot: float | None = None
+    currency_snapshot: str | None = None
+    submitted_at: datetime | None = None
+    approved_by: UUID | None = None
+    approved_at: datetime | None = None
+    rejected_reason: str | None = None
+    created_at: datetime
+    # Enriched
+    member_name: str | None = None
+    task_title: str | None = None
+    cost: float | None = None  # hours * rate_snapshot if available
+
+
+class ProjectTimeEntryCreate(BaseModel):
+    member_id: UUID
+    task_id: UUID | None = None
+    date: date
+    hours: float = Field(..., gt=0, le=24)
+    description: str | None = None
+
+
+class ProjectTimeEntryUpdate(BaseModel):
+    task_id: UUID | None = None
+    date: date | None = None
+    hours: float | None = Field(default=None, gt=0, le=24)
+    description: str | None = None
+
+
+class ProjectTimeEntryReject(BaseModel):
+    reason: str = Field(..., min_length=1)
 
 
 class ProjectTaskRead(OpsFluxSchema):

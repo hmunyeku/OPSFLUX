@@ -67,7 +67,19 @@ export function useDictionaryLabels(category: string, fallback: Record<string, s
   const { data } = useDictionary(category)
   if (!data || data.length === 0) return fallback
   const map: Record<string, string> = { ...fallback }
-  for (const e of data) map[e.code] = resolveLabel(e, lang)
+  for (const e of data) {
+    // Prefer the dictionary's translation for the current language. If the
+    // admin hasn't translated this entry (no `translations[lang]`), keep the
+    // built-in fallback rather than falling back to `entry.label` — many
+    // dictionaries are seeded in English (e.g. "Draft") which would override
+    // the curated FR fallback ("Brouillon"). cf E2E bug #17/#18.
+    const translated = e.translations?.[lang]
+    if (translated) {
+      map[e.code] = translated
+    } else if (!(e.code in map)) {
+      map[e.code] = e.label
+    }
+  }
   return map
 }
 

@@ -9,6 +9,7 @@
  * UTC YYYY-MM-DD to stay aligned with the rest of the planner.
  */
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Minus, Trash2, Copy, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -69,6 +70,7 @@ export function VariablePobEditor({
   defaultValue = 0,
   compact = false,
 }: VariablePobEditorProps) {
+  const { t } = useTranslation()
   const days = useMemo(() => buildDayList(startDate, endDate), [startDate, endDate])
   const valueMap = value || {}
 
@@ -256,7 +258,7 @@ export function VariablePobEditor({
           type="button"
           onClick={() => nudge(1)}
           className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
-          title="Augmenter de 1 (raccourci : +)"
+          title={t('planner.augmenter_de_1_raccourci')}
           disabled={selectedKeys.length === 0}
         >
           <Plus size={13} /> 1
@@ -265,7 +267,7 @@ export function VariablePobEditor({
           type="button"
           onClick={() => nudge(-1)}
           className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
-          title="Diminuer de 1 (raccourci : -)"
+          title={t('planner.diminuer_de_1_raccourci')}
           disabled={selectedKeys.length === 0}
         >
           <Minus size={13} /> 1
@@ -273,8 +275,8 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={() => setBulkFillOpen(true)}
-          className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
-          title="Remplir la sélection avec une valeur"
+          className="gl-button gl-button-default"
+          title={t('planner.remplir_la_selection_avec_une_valeur')}
           disabled={selectedKeys.length === 0}
         >
           <Wand2 size={13} /> Remplir
@@ -282,8 +284,8 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={copyValueToSelection}
-          className="gl-button gl-button-default text-[10px]"
-          title="Copier la première cellule sur toute la sélection"
+          className="gl-button gl-button-default"
+          title={t('planner.copier_la_premiere_cellule_sur_toute_la')}
           disabled={selectedKeys.length === 0}
         >
           <Copy size={13} /> Copier
@@ -291,8 +293,8 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={clearSelection}
-          className="gl-button gl-button-default text-[10px]"
-          title="Vider la sélection (Suppr)"
+          className="gl-button gl-button-default"
+          title={t('planner.vider_la_selection_suppr')}
           disabled={selectedKeys.length === 0}
         >
           <Trash2 size={13} /> Vider
@@ -306,8 +308,8 @@ export function VariablePobEditor({
             const v = Number(prompt('Valeur PAX pour tous les jours :', String(defaultValue || 1)))
             if (Number.isFinite(v)) fillAllWith(v)
           }}
-          className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
-          title="Remplir tous les jours"
+          className="gl-button gl-button-default"
+          title={t('planner.remplir_tous_les_jours')}
         >
           Tout
         </button>
@@ -317,7 +319,7 @@ export function VariablePobEditor({
             const v = Number(prompt('Valeur PAX en semaine (Lun-Ven) :', String(defaultValue || 1)))
             if (Number.isFinite(v)) fillWeekdaysOnly(v)
           }}
-          className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
+          className="gl-button gl-button-default"
           title="Lun-Ven uniquement"
         >
           Semaine
@@ -328,7 +330,7 @@ export function VariablePobEditor({
             const v = Number(prompt('Valeur PAX le week-end (Sam-Dim) :', '0'))
             if (Number.isFinite(v)) fillWeekendsOnly(v)
           }}
-          className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted"
+          className="gl-button gl-button-default"
           title="Sam-Dim uniquement"
         >
           Week-end
@@ -342,7 +344,7 @@ export function VariablePobEditor({
       {/* ── Bulk fill inline prompt ── */}
       {bulkFillOpen && (
         <div className="flex items-center gap-2 px-2 py-1.5 bg-primary/5 border-b border-border">
-          <span className="text-[10px] text-muted-foreground">Remplir avec :</span>
+          <span className="text-[10px] text-muted-foreground">{t('planner.remplir_avec')}</span>
           <input
             type="number"
             min={0}
@@ -358,14 +360,14 @@ export function VariablePobEditor({
           <button
             type="button"
             onClick={applyBulkFill}
-            className="gl-button-sm gl-button-confirm"
+            className="gl-button gl-button-confirm"
           >
             OK
           </button>
           <button
             type="button"
             onClick={() => { setBulkFillOpen(false); setBulkFillValue('') }}
-            className="px-2 py-0.5 text-[10px] rounded border border-border"
+            className="gl-button gl-button-default"
           >
             Annuler
           </button>

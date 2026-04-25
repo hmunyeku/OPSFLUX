@@ -5,6 +5,7 @@
  * from entity settings when available, with a sensible fallback.
  */
 import { Shield, Mail } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
 import { useScopedSettingsMap } from '@/hooks/useSettings'
@@ -37,6 +38,7 @@ function BulletList({ items }: { items: string[] }) {
 // ── Main component ──────────────────────────────────────────────
 
 export default function PrivacyPage() {
+  const { t } = useTranslation()
   const { data: settingsMap } = useScopedSettingsMap('entity')
 
   const s = settingsMap ?? {}
@@ -46,7 +48,7 @@ export default function PrivacyPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <PanelHeader icon={Shield} title="Politique de confidentialité" subtitle="Protection des données personnelles" />
+      <PanelHeader icon={Shield} title={t('legal.politique_de_confidentialite')} subtitle="Protection des donnees personnelles" />
 
       <PanelContent className="bg-background">
         <div className="mx-auto max-w-3xl space-y-8 px-6 py-8">
@@ -83,7 +85,7 @@ export default function PrivacyPage() {
                 ]} />
               </div>
               <div>
-                <h3 className="text-sm font-medium text-foreground">Données RH et contractuelles</h3>
+                <h3 className="text-sm font-medium text-foreground">{t('legal.donnees_rh_et_contractuelles')}</h3>
                 <BulletList items={[
                   'Poste, département, site d\'affectation, matricule',
                   'Dates de contrat, type de contrat, employeur (direct ou sous-traitant)',
@@ -91,7 +93,7 @@ export default function PrivacyPage() {
                 ]} />
               </div>
               <div>
-                <h3 className="text-sm font-medium text-foreground">Données de déplacement (PaxLog / TravelWiz)</h3>
+                <h3 className="text-sm font-medium text-foreground">{t('legal.donnees_de_deplacement_paxlog_travelwiz')}</h3>
                 <BulletList items={[
                   'Manifestes passagers (hélicoptère, bateau, véhicule)',
                   'Réservations de vol, itinéraires, dates de rotation',
@@ -99,7 +101,7 @@ export default function PrivacyPage() {
                 ]} />
               </div>
               <div>
-                <h3 className="text-sm font-medium text-foreground">Données de santé et sécurité</h3>
+                <h3 className="text-sm font-medium text-foreground">{t('legal.donnees_de_sante_et_securite')}</h3>
                 <BulletList items={[
                   'Aptitude médicale (date de validité, sans détail médical)',
                   'Certificats de formation sécurité (BOSIET, H2S, etc.)',
@@ -107,7 +109,7 @@ export default function PrivacyPage() {
                 ]} />
               </div>
               <div>
-                <h3 className="text-sm font-medium text-foreground">Données professionnelles et d'activité</h3>
+                <h3 className="text-sm font-medium text-foreground">{t('legal.donnees_professionnelles_et_d_activite')}</h3>
                 <BulletList items={[
                   'Imputations de temps, feuilles de pointage',
                   'Affectation aux projets, tâches et jalons',
@@ -118,9 +120,9 @@ export default function PrivacyPage() {
             </div>
           </Section>
 
-          {/* ── 3. Finalités du traitement ───────────────────────── */}
-          <Section id="finalites" title="3. Finalités du traitement">
-            <Paragraph>Les données personnelles sont traitées aux fins suivantes :</Paragraph>
+          {/* ── 3. Finalites du traitement ───────────────────────── */}
+          <Section id="finalites" title={t('legal.3_finalites_du_traitement')}>
+            <Paragraph>{t('legal.les_donnees_personnelles_sont_traitees_a')}</Paragraph>
             <BulletList items={[
               'Gestion des opérations : planification des rotations, suivi logistique, gestion de projet, imputations',
               'Conformité réglementaire : vérification des habilitations, aptitudes médicales, permis de travail et certifications obligatoires',
@@ -131,9 +133,9 @@ export default function PrivacyPage() {
             ]} />
           </Section>
 
-          {/* ── 4. Base légale ───────────────────────────────────── */}
-          <Section id="base-legale" title="4. Base légale du traitement">
-            <Paragraph>Le traitement des données repose sur les bases légales suivantes :</Paragraph>
+          {/* ── 4. Base legale ───────────────────────────────────── */}
+          <Section id="base-legale" title={t('legal.4_base_legale_du_traitement')}>
+            <Paragraph>{t('legal.le_traitement_des_donnees_repose_sur_les')}</Paragraph>
             <BulletList items={[
               'Exécution du contrat de travail : les données sont nécessaires à la gestion de la relation de travail entre le salarié et l\'employeur',
               'Intérêt légitime de l\'entreprise : sécurité des personnes et des installations pétrolières, continuité des opérations, conformité aux exigences du secteur extractif',
@@ -142,8 +144,8 @@ export default function PrivacyPage() {
             ]} />
           </Section>
 
-          {/* ── 5. Durée de conservation ─────────────────────────── */}
-          <Section id="conservation" title="5. Durée de conservation">
+          {/* ── 5. Duree de conservation ─────────────────────────── */}
+          <Section id="conservation" title={t('legal.5_duree_de_conservation')}>
             <Paragraph>
               Les données personnelles sont conservées pendant la durée strictement nécessaire aux
               finalités pour lesquelles elles ont été collectées :
@@ -162,7 +164,7 @@ export default function PrivacyPage() {
           </Section>
 
           {/* ── 6. Droits des personnes ──────────────────────────── */}
-          <Section id="droits" title="6. Droits des personnes">
+          <Section id="droits" title={t('legal.6_droits_des_personnes')}>
             <Paragraph>
               Conformément à la réglementation applicable, toute personne dont les données sont
               traitées dispose des droits suivants :
@@ -182,8 +184,8 @@ export default function PrivacyPage() {
             </Paragraph>
           </Section>
 
-          {/* ── 7. Sécurité des données ──────────────────────────── */}
-          <Section id="securite" title="7. Sécurité des données">
+          {/* ── 7. Securite des donnees ──────────────────────────── */}
+          <Section id="securite" title={t('legal.7_securite_des_donnees')}>
             <Paragraph>
               OpsFlux met en œuvre des mesures techniques et organisationnelles appropriées pour
               garantir la sécurité et la confidentialité des données personnelles :
@@ -201,7 +203,7 @@ export default function PrivacyPage() {
           </Section>
 
           {/* ── 8. Contact DPO ───────────────────────────────────── */}
-          <Section id="contact-dpo" title="8. Contact du Délégué à la Protection des Données">
+          <Section id="contact-dpo" title={t('legal.8_contact_du_delegue_a_la_protection_des')}>
             <Paragraph>
               Pour toute question relative à la présente politique ou pour exercer vos droits,
               vous pouvez contacter :
@@ -221,8 +223,8 @@ export default function PrivacyPage() {
             </Paragraph>
           </Section>
 
-          {/* ── 9. Mise à jour de la politique ───────────────────── */}
-          <Section id="mise-a-jour" title="9. Mise à jour de la politique">
+          {/* ── 9. Mise a jour de la politique ───────────────────── */}
+          <Section id="mise-a-jour" title={t('legal.9_mise_a_jour_de_la_politique')}>
             <Paragraph>
               La présente politique de confidentialité peut être modifiée à tout moment pour refléter
               les évolutions législatives, réglementaires ou les changements dans les pratiques de

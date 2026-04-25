@@ -239,8 +239,8 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
         {expanded && (
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
-              <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder="Ligne 2 (bâtiment...)" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
-              <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder="État / Province" value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} />
+              <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder={t('shared.ligne_2_batiment')} value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
+              <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder={t('settings.etat_province')} value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} />
             </div>
             <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder="Code postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
 
@@ -254,7 +254,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
                 <button type="button" onClick={handleGeolocate} disabled={geoLoading} className="gl-button gl-button-confirm text-[10px] text-primary">
                   {geoLoading ? <Loader2 size={10} className="animate-spin" /> : <LocateFixed size={10} />} GPS
                 </button>
-                <button type="button" onClick={handleGeocode} disabled={geocodeLoading} className="gl-button gl-button-default text-[10px] text-emerald-700 dark:text-emerald-300 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 dark:border-emerald-700">
+                <button type="button" onClick={handleGeocode} disabled={geocodeLoading} className="gl-button gl-button-confirm text-emerald-700 bg-emerald-50 border-emerald-300 dark:text-emerald-300 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 dark:border-emerald-700">
                   {geocodeLoading ? <Loader2 size={10} className="animate-spin" /> : <Search size={10} />} Géocoder
                 </button>
                 <button type="button" onClick={() => setShowMapPicker(true)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:border-amber-700 transition-all">
@@ -479,7 +479,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
 
       {/* Empty state */}
       {!isLoading && !showForm && addresses.length === 0 && (
-        <EmptyState icon={MapPin} title="Aucune adresse" description="Aucune adresse enregistrée." size="compact" />
+        <EmptyState icon={MapPin} title="Aucune adresse" description={t('shared.addresses.empty_description')} size="compact" />
       )}
     </div>
   )

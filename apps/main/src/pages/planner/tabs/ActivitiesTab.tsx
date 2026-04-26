@@ -7,6 +7,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   CalendarRange, ListTodo, Clock, Users, CheckCircle2, XCircle, Send, Ban, ChevronDown, ChevronUp, BarChart3,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -138,7 +139,48 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
     const inProgress = items.filter((a) => a.status === 'in_progress').length
     const validated = items.filter((a) => a.status === 'validated').length
     const totalPax = items.reduce((sum, a) => sum + (a.pax_quota ?? 0), 0)
-    return { submitted, inProgress, validated, totalPax }
+    // En retard: end_date past + status not completed/cancelled.
+    const today = Date.now()
+    const overdue = items.filter((a) => {
+      if (!a.end_date) return false
+      if (a.status === 'completed' || a.status === 'cancelled') return false
+      return new Date(a.end_date).getTime() < today
+    }).length
+    return { submitted, inProgress, validated, totalPax, overdue }
+  }, [items])
+
+  // ── Sparklines ──
+  // Per-stat: 8-week trailing distribution computed from the loaded
+  // items' start_date. Gives a cheap "activity load over time"
+  // visual without needing a backend stats history endpoint (which
+  // would be the proper V2 source).
+  const sparklines = useMemo(() => {
+    const buckets = 8
+    const weekMs = 7 * 86_400_000
+    const now = Date.now()
+    const bucketStart = now - buckets * weekMs
+    const init = () => Array.from({ length: buckets }, () => 0)
+    const total = init()
+    const submitted = init()
+    const inProgress = init()
+    const validated = init()
+    const overdue = init()
+    const pax = init()
+    for (const a of items) {
+      const t = a.start_date ? new Date(a.start_date).getTime() : null
+      if (!t || t < bucketStart || t > now) continue
+      const idx = Math.min(buckets - 1, Math.max(0, Math.floor((t - bucketStart) / weekMs)))
+      total[idx]++
+      if (a.status === 'submitted') submitted[idx]++
+      if (a.status === 'in_progress') inProgress[idx]++
+      if (a.status === 'validated') validated[idx]++
+      if (a.end_date) {
+        const e = new Date(a.end_date).getTime()
+        if (e < now && a.status !== 'completed' && a.status !== 'cancelled') overdue[idx]++
+      }
+      pax[idx] += a.pax_quota ?? 0
+    }
+    return { total, submitted, inProgress, validated, overdue, pax }
   }, [items])
 
   const handleAction = useCallback((e: React.MouseEvent, action: () => void) => {
@@ -336,15 +378,61 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           {showStats ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
 
-        {/* Stats grid — hidden by default on mobile, always shown on desktop */}
+        {/* Stats grid — clickable cards that drive the status filter.
+            Active card highlights when its filter is set; click again
+            to clear (TOTAL = clear all status filter). */}
         <div className={cn(
-          "grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3",
+          "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 px-4 py-3",
           showStats ? "block" : "hidden md:grid"
         )}>
-          <StatCard label={t('planner.stats.total')} value={total} icon={ListTodo} />
-          <StatCard label={t('planner.stats.pending_validation')} value={stats.submitted} icon={Clock} accent="text-blue-600 dark:text-blue-400" />
-          <StatCard label={t('planner.stats.in_progress')} value={stats.inProgress} icon={CalendarRange} accent="text-amber-600 dark:text-amber-400" />
-          <StatCard label={t('planner.stats.pax_planned')} value={stats.totalPax} icon={Users} />
+          <StatCard
+            label={t('planner.stats.total')}
+            value={total}
+            icon={ListTodo}
+            sparkline={sparklines.total}
+            onClick={() => updateFilter('statusFilter', '')}
+            active={!filters.statusFilter}
+          />
+          <StatCard
+            label="En retard"
+            value={stats.overdue}
+            icon={AlertTriangle}
+            accent="text-red-600 dark:text-red-400"
+            sparkline={sparklines.overdue}
+          />
+          <StatCard
+            label={t('planner.stats.pending_validation')}
+            value={stats.submitted}
+            icon={Clock}
+            accent="text-blue-600 dark:text-blue-400"
+            sparkline={sparklines.submitted}
+            onClick={() => updateFilter('statusFilter', filters.statusFilter === 'submitted' ? '' : 'submitted')}
+            active={filters.statusFilter === 'submitted'}
+          />
+          <StatCard
+            label="Validées"
+            value={stats.validated}
+            icon={CheckCircle2}
+            accent="text-emerald-600 dark:text-emerald-400"
+            sparkline={sparklines.validated}
+            onClick={() => updateFilter('statusFilter', filters.statusFilter === 'validated' ? '' : 'validated')}
+            active={filters.statusFilter === 'validated'}
+          />
+          <StatCard
+            label={t('planner.stats.in_progress')}
+            value={stats.inProgress}
+            icon={CalendarRange}
+            accent="text-amber-600 dark:text-amber-400"
+            sparkline={sparklines.inProgress}
+            onClick={() => updateFilter('statusFilter', filters.statusFilter === 'in_progress' ? '' : 'in_progress')}
+            active={filters.statusFilter === 'in_progress'}
+          />
+          <StatCard
+            label={t('planner.stats.pax_planned')}
+            value={stats.totalPax}
+            icon={Users}
+            sparkline={sparklines.pax}
+          />
         </div>
       </div>
 

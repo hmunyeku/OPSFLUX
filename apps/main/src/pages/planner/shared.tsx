@@ -253,18 +253,34 @@ export function StatusBadge({ status, labels, badges }: { status: string; labels
   )
 }
 
-export function StatCard({ label, value, icon: Icon, accent }: {
+export function StatCard({ label, value, icon: Icon, accent, sparkline, onClick, active }: {
   label: string
   value: string | number
   icon: typeof CalendarRange
   accent?: string
+  /** Optional sparkline values (≥2 numbers) plotted as a tiny inline
+   *  area chart between the label and the value. Skipped when not
+   *  provided or when all values are zero. */
+  sparkline?: number[]
+  /** Click handler — when provided the card becomes a button that
+   *  activates the associated filter on the table. */
+  onClick?: () => void
+  /** Highlight the card when the associated filter is currently
+   *  active (set by the parent based on filter state). */
+  active?: boolean
 }) {
-  // Single-line layout: [icon] LABEL ……… VALUE.
-  // Saves ~40px of vertical space vs the previous 2-line card and
-  // lets the page show 4 stats in the same vertical room as 2 used
-  // to take.
+  // Single-line layout: [icon] LABEL ── sparkline ── VALUE.
+  const Tag = onClick ? 'button' : 'div'
   return (
-    <div className="group relative flex items-center gap-2 rounded-lg border border-border/70 bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all hover:border-border">
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={cn(
+        'group relative flex items-center gap-2 rounded-lg border bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all w-full text-left',
+        onClick && 'cursor-pointer hover:border-primary/50 hover:shadow-sm',
+        active ? 'border-primary/60 ring-1 ring-primary/30 bg-primary/5' : 'border-border/70 hover:border-border',
+      )}
+    >
       <div className={cn(
         'absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b',
         accent?.includes('red') || accent?.includes('destructive') ? 'from-red-500/80 to-red-400/40'
@@ -275,12 +291,43 @@ export function StatCard({ label, value, icon: Icon, accent }: {
       )} />
       <Icon size={13} className="text-muted-foreground shrink-0 ml-0.5" />
       <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{label}</span>
+      {/* Spacer pushes sparkline + value to the right edge */}
+      <span className="flex-1" />
+      {sparkline && sparkline.length >= 2 && sparkline.some(v => v > 0) && (
+        <Sparkline values={sparkline} accent={accent} />
+      )}
       <span className={cn(
-        'ml-auto text-lg font-bold tabular-nums font-display tracking-tight leading-none',
+        'text-lg font-bold tabular-nums font-display tracking-tight leading-none',
         accent || 'text-foreground',
       )}>
         {typeof value === 'number' ? <AnimatedCounter value={value} /> : value}
       </span>
-    </div>
+    </Tag>
+  )
+}
+
+// Tiny inline sparkline — renders an area chart in ~60×18 px. Stroke
+// inherits the StatCard accent (defaults to primary) so the spark
+// reads as the "trend of this metric".
+function Sparkline({ values, accent }: { values: number[]; accent?: string }) {
+  const W = 64, H = 18
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = Math.max(1, max - min)
+  const step = W / Math.max(1, values.length - 1)
+  const pts = values.map((v, i) => [i * step, H - 2 - ((v - min) / range) * (H - 4)] as const)
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
+  const area = `${line} L${W},${H} L0,${H} Z`
+  const tone = accent?.includes('red') || accent?.includes('destructive') ? '#ef4444'
+    : accent?.includes('amber') || accent?.includes('yellow') ? '#f59e0b'
+    : accent?.includes('emerald') || accent?.includes('green') ? '#10b981'
+    : accent?.includes('blue') ? '#3b82f6'
+    : accent?.includes('violet') || accent?.includes('purple') ? '#8b5cf6'
+    : 'hsl(var(--primary))'
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0 ml-auto">
+      <path d={area} fill={tone} fillOpacity={0.15} />
+      <path d={line} fill="none" stroke={tone} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }

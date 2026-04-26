@@ -128,8 +128,34 @@ function resolveTokens(
 
     // Structured value: { operator, value } or { operator, values }
     if (typeof raw === 'object' && raw !== null && !Array.isArray(raw) && 'operator' in raw) {
-      const structured = raw as { operator: FilterOperator; value?: unknown; values?: unknown[] }
+      const structured = raw as { operator: FilterOperator; value?: unknown; values?: unknown[]; from?: string; to?: string }
       const op = structured.operator
+
+      // Date-range: chip shows the date(s) literally (no options lookup).
+      if (filter.type === 'date-range') {
+        const fmt = (s: string) => {
+          if (!s) return ''
+          const [y, m, d] = s.split('-')
+          return d && m && y ? `${d}/${m}/${y.slice(2)}` : s
+        }
+        let labels: string[] = []
+        if (op === 'between') {
+          const f = fmt(structured.from ?? '')
+          const t = fmt(structured.to ?? '')
+          if (f && t) labels = [`${f} → ${t}`]
+          else if (f) labels = [`≥ ${f}`]
+          else if (t) labels = [`≤ ${t}`]
+        } else if (op === 'gt' && structured.value) {
+          labels = [fmt(String(structured.value))]
+        } else if (op === 'lt' && structured.value) {
+          labels = [fmt(String(structured.value))]
+        }
+        if (labels.length > 0) {
+          tokens.push({ filterId: filter.id, label: filter.label, operator: op, valueLabels: labels, rawValue: raw })
+        }
+        continue
+      }
+
       const vals = structured.values ?? (structured.value !== undefined ? [structured.value] : [])
       const labels = vals.map((v) => filter.options?.find((o) => o.value === v)?.label ?? String(v))
       if (labels.length > 0) {
@@ -225,7 +251,12 @@ export function DataTableToolbar({
 
   const handleSelectCategory = useCallback((filterId: string) => {
     const filter = filters?.find((f) => f.id === filterId)
-    const ops = filter?.operators ?? ['is']
+    // Default operator set: date-range gets a between/gt/lt set,
+    // everything else defaults to ['is'] so the values step shows up.
+    const defaultOps: FilterOperator[] = filter?.type === 'date-range'
+      ? ['between', 'gt', 'lt']
+      : ['is']
+    const ops = filter?.operators ?? defaultOps
     // Skip operator step if only one operator
     if (ops.length <= 1) {
       setDropdown({ type: 'values', filterId, operator: ops[0] ?? 'is' })
@@ -359,7 +390,10 @@ export function DataTableToolbar({
     !filterSearch || o.label.toLowerCase().includes(filterSearch.toLowerCase())
   ) ?? []
 
-  const filteredOperators = (currentFilter?.operators ?? ['is', 'is_not']).filter((op) =>
+  const defaultOpsForFilter: FilterOperator[] = currentFilter?.type === 'date-range'
+    ? ['between', 'gt', 'lt']
+    : ['is', 'is_not']
+  const filteredOperators = (currentFilter?.operators ?? defaultOpsForFilter).filter((op) =>
     !filterSearch || FILTER_OPERATOR_LABELS[op].toLowerCase().includes(filterSearch.toLowerCase())
   )
 
@@ -534,7 +568,26 @@ export function DataTableToolbar({
           )}
 
           {/* ── Dropdown: filter values ── */}
-          {dropdown.type === 'values' && currentFilter && currentOperator && (
+          {dropdown.type === 'values' && currentFilter && currentOperator && currentFilter.type === 'date-range' && (
+            <DateRangeValuePicker
+              filter={currentFilter}
+              operator={currentOperator}
+              currentValue={activeFilters?.[currentFilter.id]}
+              onApply={(value) => {
+                onFilterChange?.(currentFilter.id, value)
+                setDropdown({ type: 'closed' })
+                setFilterSearch('')
+                inputRef.current?.focus()
+              }}
+              onClear={() => {
+                onFilterChange?.(currentFilter.id, undefined)
+                setDropdown({ type: 'closed' })
+                setFilterSearch('')
+                inputRef.current?.focus()
+              }}
+            />
+          )}
+          {dropdown.type === 'values' && currentFilter && currentOperator && currentFilter.type !== 'date-range' && (
             <div className="absolute left-0 top-full mt-1 z-50 min-w-[220px] max-w-[280px] rounded-md border bg-popover shadow-lg py-1">
               <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                 {currentFilter.label} {FILTER_OPERATOR_LABELS[currentOperator]}
@@ -827,6 +880,135 @@ export function DataTableToolbar({
         )}
 
         {toolbarRight}
+      </div>
+    </div>
+  )
+}
+
+// ── Date range value picker ─────────────────────────────────
+// Shown in the values dropdown when the filter type is 'date-range'.
+// Supports 'between' (two dates), 'gt' (after), and 'lt' (before).
+interface DateRangeValuePickerProps {
+  filter: DataTableFilterDef
+  operator: FilterOperator
+  currentValue: unknown
+  onApply: (value: unknown) => void
+  onClear: () => void
+}
+function DateRangeValuePicker({ filter, operator, currentValue, onApply, onClear }: DateRangeValuePickerProps) {
+  // Pull existing dates out of the current filter value, regardless of shape.
+  const initial = (() => {
+    if (currentValue && typeof currentValue === 'object' && currentValue !== null) {
+      const v = currentValue as { value?: unknown; values?: unknown[]; from?: string; to?: string; start?: string; end?: string }
+      if (v.from || v.to) return { from: v.from ?? '', to: v.to ?? '' }
+      if (v.start || v.end) return { from: v.start ?? '', to: v.end ?? '' }
+      if (Array.isArray(v.values) && v.values.length === 2) return { from: String(v.values[0] ?? ''), to: String(v.values[1] ?? '') }
+      if (typeof v.value === 'string') return operator === 'lt' ? { from: '', to: v.value } : { from: v.value, to: '' }
+    }
+    return { from: '', to: '' }
+  })()
+  const [from, setFrom] = useState(initial.from)
+  const [to, setTo] = useState(initial.to)
+
+  const isBetween = operator === 'between'
+  const apply = () => {
+    if (isBetween) {
+      if (!from && !to) return onClear()
+      onApply({ operator: 'between', from, to })
+    } else if (operator === 'gt') {
+      if (!from) return onClear()
+      onApply({ operator: 'gt', value: from })
+    } else if (operator === 'lt') {
+      if (!to) return onClear()
+      onApply({ operator: 'lt', value: to })
+    }
+  }
+
+  // Quick presets — applied immediately so the user gets a one-click flow.
+  const setPreset = (preset: 'today' | 'last_7' | 'last_30' | 'this_month' | 'this_year') => {
+    const now = new Date()
+    const iso = (d: Date) => d.toISOString().slice(0, 10)
+    let f = '', t = ''
+    if (preset === 'today') { f = t = iso(now) }
+    else if (preset === 'last_7') { const d = new Date(now); d.setDate(d.getDate() - 6); f = iso(d); t = iso(now) }
+    else if (preset === 'last_30') { const d = new Date(now); d.setDate(d.getDate() - 29); f = iso(d); t = iso(now) }
+    else if (preset === 'this_month') { f = iso(new Date(now.getFullYear(), now.getMonth(), 1)); t = iso(new Date(now.getFullYear(), now.getMonth() + 1, 0)) }
+    else if (preset === 'this_year') { f = iso(new Date(now.getFullYear(), 0, 1)); t = iso(new Date(now.getFullYear(), 11, 31)) }
+    setFrom(f); setTo(t)
+    onApply({ operator: 'between', from: f, to: t })
+  }
+
+  return (
+    <div className="absolute left-0 top-full mt-1 z-50 w-[280px] rounded-md border bg-popover shadow-lg p-2">
+      <p className="px-1 pb-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+        {filter.label} {FILTER_OPERATOR_LABELS[operator]}
+      </p>
+      {isBetween ? (
+        <div className="flex items-center gap-1.5">
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="flex-1 h-7 px-1.5 text-xs border border-border rounded bg-background"
+          />
+          <span className="text-muted-foreground text-xs">→</span>
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="flex-1 h-7 px-1.5 text-xs border border-border rounded bg-background"
+          />
+        </div>
+      ) : operator === 'gt' ? (
+        <input
+          type="date"
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          className="w-full h-7 px-1.5 text-xs border border-border rounded bg-background"
+        />
+      ) : (
+        <input
+          type="date"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          className="w-full h-7 px-1.5 text-xs border border-border rounded bg-background"
+        />
+      )}
+      {isBetween && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {[
+            { id: 'today', label: "Aujourd'hui" },
+            { id: 'last_7', label: '7 derniers j.' },
+            { id: 'last_30', label: '30 derniers j.' },
+            { id: 'this_month', label: 'Ce mois' },
+            { id: 'this_year', label: 'Cette année' },
+          ].map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPreset(p.id as 'today' | 'last_7' | 'last_30' | 'this_month' | 'this_year')}
+              className="text-[10px] px-1.5 py-0.5 rounded border border-border hover:bg-accent text-muted-foreground hover:text-foreground"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-[11px] text-muted-foreground hover:text-destructive px-1"
+        >
+          Effacer
+        </button>
+        <button
+          type="button"
+          onClick={apply}
+          className="gl-button-sm bg-primary text-primary-foreground hover:bg-primary/90 h-6 px-2 text-[11px]"
+        >
+          Appliquer
+        </button>
       </div>
     </div>
   )

@@ -1711,19 +1711,34 @@ async def _get_planner_activity(args: dict) -> dict:
 async def _list_planner_conflicts(args: dict) -> dict:
     """List active planner conflicts."""
     limit = min(max(int(args.get("limit", 20) or 20), 1), 100)
+    status_filter = args.get("status") or "open"
+    asset_id_filter = args.get("asset_id")
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        query = select(PlannerConflict).where(
+        # Model uses `status` (open/resolved/deferred), `created_at`
+        # (not detected_at), and has no severity/message columns. Earlier
+        # version of this tool referenced ghost attributes and crashed
+        # at query build time.
+        conds = [
             PlannerConflict.entity_id == entity_id,
-            PlannerConflict.resolved == False,  # noqa: E712
-        ).order_by(PlannerConflict.detected_at.desc()).limit(limit)
+            PlannerConflict.active == True,  # noqa: E712
+        ]
+        if status_filter and status_filter != "all":
+            conds.append(PlannerConflict.status == status_filter)
+        if asset_id_filter:
+            conds.append(PlannerConflict.asset_id == asset_id_filter)
+        query = select(PlannerConflict).where(*conds).order_by(
+            PlannerConflict.created_at.desc()
+        ).limit(limit)
         rows = (await session.execute(query)).scalars().all()
     return _ok({"count": len(rows), "items": [
-        {"id": str(c.id), "conflict_type": c.conflict_type, "severity": c.severity,
+        {"id": str(c.id), "conflict_type": c.conflict_type,
+         "status": c.status,
+         "overflow_amount": c.overflow_amount,
+         "resolution": c.resolution,
          "asset_id": str(c.asset_id) if c.asset_id else None,
          "conflict_date": c.conflict_date.isoformat() if c.conflict_date else None,
-         "message": (c.message or "")[:200],
-         "detected_at": c.detected_at.isoformat() if c.detected_at else None}
+         "created_at": c.created_at.isoformat() if c.created_at else None}
         for c in rows
     ]})
 

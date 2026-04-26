@@ -725,11 +725,42 @@ async def update_installation(
     obj = await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
     updates = body.model_dump(exclude_unset=True)
     old_data = _snapshot_fields(obj, list(updates.keys()))
+    pob_capacity_changed = (
+        "pob_capacity" in updates
+        and old_data.get("pob_capacity") != updates["pob_capacity"]
+    )
     for key, value in updates.items():
         setattr(obj, key, value)
     await _log_ar_changes(db, "ar_installation", installation_id, obj.code, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
+
+    # ── Re-run Planner conflict detection for the whole asset ──
+    # Lowering pob_capacity (or raising it back up) directly changes
+    # which days are in overflow. Without re-running the detector here,
+    # admins see stale conflicts (or miss new ones) until each activity
+    # is touched individually. Imported lazily to avoid an import cycle
+    # between asset_registry and planner.
+    if pob_capacity_changed:
+        try:
+            from app.api.routes.modules.planner import _detect_and_create_conflicts
+            from app.models.planner import PlannerActivity
+            today = date.today()
+            result = await db.execute(
+                select(PlannerActivity).where(
+                    PlannerActivity.entity_id == entity_id,
+                    PlannerActivity.asset_id == installation_id,
+                    PlannerActivity.active == True,
+                    PlannerActivity.status.in_(["submitted", "validated", "in_progress"]),
+                    PlannerActivity.end_date >= today,
+                )
+            )
+            for activity in result.scalars().all():
+                await _detect_and_create_conflicts(db, activity, entity_id)
+            await db.commit()
+        except Exception:  # pragma: no cover — non-critical hook
+            logger.exception("Failed to re-run conflict detection after pob_capacity change")
+
     return obj
 
 

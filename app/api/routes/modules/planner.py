@@ -688,6 +688,16 @@ async def update_activity(
                 # Reassign so SQLAlchemy detects the JSONB change.
                 activity.pax_quota_daily = cleaned
 
+    # ── Re-detect capacity conflicts when window/quota/asset changes ──
+    # Without this, raising pax_quota or moving the activity onto a
+    # smaller-capacity asset wouldn't surface the new pax_overflow until
+    # the activity was re-submitted from scratch.
+    capacity_relevant_changed = any(
+        k in changes for k in ("start_date", "end_date", "pax_quota", "asset_id")
+    )
+    if capacity_relevant_changed and activity.status in ("submitted", "validated", "in_progress"):
+        await _detect_and_create_conflicts(db, activity, entity_id)
+
     # ── Planner → PaxLog cascade: count linked AdS for handler-driven review ──
     ads_updated_count = 0
     if was_approved and changes:
@@ -956,6 +966,14 @@ async def validate_activity(
     activity.status = "validated"
     activity.validated_by = current_user.id
     activity.validated_at = datetime.now(timezone.utc)
+
+    # Re-run capacity detection at validate time too. The submit-time
+    # check can miss real conflicts when the asset's pob_capacity was
+    # later raised/lowered, or when overlapping activities were
+    # validated in different orders. Cheap to do — same helper that
+    # submit already uses.
+    await _detect_and_create_conflicts(db, activity, entity_id)
+
     await db.commit()
     await db.refresh(activity)
 

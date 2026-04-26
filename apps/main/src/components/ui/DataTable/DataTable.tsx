@@ -1012,26 +1012,34 @@ export function DataTable<TData>({
             // card. Wide cells (progress bars, sliders, etc.) keep the
             // same label slot — only the value cell stretches.
             const renderedMiddle: React.ReactNode[] = []
-            for (const cell of middleCells) {
+            middleCells.forEach((cell, ri) => {
               const colId = cell.column.id
               const wide = isWideId(colId)
+              const rowBorder = ri > 0 ? 'border-t border-border/60' : ''
               renderedMiddle.push(
-                <span key={`${cell.id}-l`} className="text-[11px] text-muted-foreground text-right truncate self-center">
+                <div
+                  key={`${cell.id}-l`}
+                  className={cn(
+                    'text-[11px] text-muted-foreground text-right truncate self-center px-3 py-1.5 bg-muted/30 border-r border-border/60',
+                    rowBorder,
+                  )}
+                >
                   {headerLabelOf(cell.column)}
-                </span>
+                </div>
               )
               renderedMiddle.push(
-                <span
+                <div
                   key={`${cell.id}-v`}
                   className={cn(
-                    'text-xs text-foreground min-w-0 flex items-center gap-1',
+                    'text-xs text-foreground min-w-0 flex items-center gap-1 px-3 py-1.5',
                     wide ? 'w-full' : 'break-words',
+                    rowBorder,
                   )}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </span>
+                </div>
               )
-            }
+            })
 
             return (
               <div
@@ -1055,31 +1063,32 @@ export function DataTable<TData>({
                   isSelected && 'border-primary ring-1 ring-primary/30',
                 )}
               >
-                {/* Title row */}
+                {/* Title row — actions docked top-right, next to title. */}
                 {titleCell && (
-                  <div className="px-3 pt-2.5 pb-1.5">
-                    <div className="text-sm font-semibold text-foreground break-words leading-tight">
+                  <div className="px-3 pt-2.5 pb-2 flex items-start gap-2">
+                    <div className="text-sm font-semibold text-foreground break-words leading-tight flex-1 min-w-0">
                       {flexRender(titleCell.column.columnDef.cell, titleCell.getContext())}
                     </div>
+                    {actionsCell && (
+                      <div
+                        className="flex items-center gap-1 shrink-0 -mt-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Body — single 2-col grid: labels right-aligned in col 1,
-                    values left-aligned in col 2. row-gap keeps lines apart
-                    while column-gap (3) keeps label↔value tight. */}
+                {/* Body — single 2-col table-like grid with row separators.
+                    Labels right-aligned in col 1, values left-aligned in
+                    col 2. Each row gets a top border so the card reads as
+                    a small table rather than a loose list. */}
                 {renderedMiddle.length > 0 && (
-                  <div className="px-3 pb-2.5 pt-2 border-t border-border/40 grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-1.5">
-                    {renderedMiddle}
-                  </div>
-                )}
-
-                {/* Actions footer */}
-                {actionsCell && (
-                  <div
-                    className="px-2 py-1.5 border-t border-border/60 bg-muted/30 flex items-center justify-end gap-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
+                  <div className="border-t border-border">
+                    <div className="grid grid-cols-[6.5rem_1fr]">
+                      {renderedMiddle}
+                    </div>
                   </div>
                 )}
               </div>

@@ -1016,7 +1016,7 @@ export function GanttCore(props: GanttCoreProps) {
     >
       {/* ── Toolbar ──────────────────────────────────────────── */}
       {showToolbar && (
-        <div data-gantt-toolbar className="flex flex-wrap items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 border-b bg-muted/30 shrink-0">
+        <div data-gantt-toolbar className="flex flex-wrap items-center gap-x-0.5 gap-y-1 sm:gap-2 px-1.5 sm:px-3 py-1 sm:py-1.5 border-b bg-muted/30 shrink-0">
           {/* Host-provided leading slot (e.g. project summary chips) */}
           {leadingToolbar && (
             <div className="flex items-center gap-2 pr-2 mr-1 border-r border-border/40 shrink-0">
@@ -1128,7 +1128,7 @@ export function GanttCore(props: GanttCoreProps) {
             <button
               type="button"
               onClick={() => setRangeMenuOpen((v) => !v)}
-              className="gl-button gl-button-default text-foreground/80 tabular-nums border-transparent"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] text-foreground/80 tabular-nums hover:bg-muted"
               title={t('shared.changer_la_periode')}
             >
               <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -1222,7 +1222,7 @@ export function GanttCore(props: GanttCoreProps) {
           </div>
 
           {/* Fit all */}
-          <button onClick={fitAll} className="gl-button gl-button-default" title="Ajuster à l'écran">
+          <button onClick={fitAll} className="p-1 rounded hover:bg-muted" title="Ajuster à l'écran">
             <Maximize className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
 

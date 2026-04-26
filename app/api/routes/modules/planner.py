@@ -4065,3 +4065,90 @@ async def restore_scenario(
         "cancelled_created_activities": cancelled_count,
         "errors": errors,
     }
+
+
+# ── POB par installation pour aujourd'hui ─────────────────────────────
+# Renvoie pour chaque installation passée en argument (ou pour toutes
+# les installations qui ont au moins une activité touchant aujourd'hui)
+# le POB prévu (somme des pax_quota des activités en cours) et le POB
+# réel (count des `ads_pax.current_onboard = TRUE` rattachés à un Ads
+# qui touche l'asset aujourd'hui).
+#
+# Powers the per-row "POB prévu / réel" sub-line in the Activités
+# table (Planner module).
+
+
+@router.get("/asset-pob-today")
+async def get_asset_pob_today(
+    asset_ids: str | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("planner.activity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return per-asset POB (planned + real) for today.
+
+    Query param `asset_ids` is an optional comma-separated list of UUIDs
+    to scope the lookup; when omitted we return stats for every asset
+    that has at least one activity touching today.
+    """
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).date()
+
+    # Filter by the requested set of assets, if any.
+    asset_id_list: list[UUID] = []
+    if asset_ids:
+        for raw in asset_ids.split(','):
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                asset_id_list.append(UUID(raw))
+            except ValueError:
+                continue
+
+    # POB prévu — sum of pax_quota of live activities at the asset.
+    planned_q = (
+        select(PlannerActivity.asset_id, sqla_func.coalesce(sqla_func.sum(PlannerActivity.pax_quota), 0))
+        .where(
+            PlannerActivity.entity_id == entity_id,
+            PlannerActivity.active == True,
+            PlannerActivity.start_date <= today,
+            PlannerActivity.end_date >= today,
+            PlannerActivity.status.in_(['validated', 'in_progress', 'submitted']),
+        )
+        .group_by(PlannerActivity.asset_id)
+    )
+    if asset_id_list:
+        planned_q = planned_q.where(PlannerActivity.asset_id.in_(asset_id_list))
+    planned_rows = (await db.execute(planned_q)).all()
+    planned_map: dict[UUID, int] = {row[0]: int(row[1] or 0) for row in planned_rows}
+
+    # POB réel — count of currently onboard pax tied to ADS rows that
+    # touch the asset today. We use raw SQL because ADS lives in paxlog
+    # and we want to keep the query single-shot.
+    real_sql = """
+        SELECT a.site_entry_asset_id AS asset_id, COUNT(ap.id) AS pob
+        FROM ads a
+        JOIN ads_pax ap ON ap.ads_id = a.id
+        WHERE a.entity_id = :entity_id
+          AND ap.current_onboard = TRUE
+          AND a.start_date <= :today
+          AND a.end_date >= :today
+    """
+    params: dict[str, object] = {"entity_id": entity_id, "today": today}
+    if asset_id_list:
+        real_sql += " AND a.site_entry_asset_id = ANY(:asset_ids)"
+        params["asset_ids"] = asset_id_list
+    real_sql += " GROUP BY a.site_entry_asset_id"
+    real_rows = (await db.execute(text(real_sql), params)).all()
+    real_map: dict[UUID, int] = {row[0]: int(row[1] or 0) for row in real_rows}
+
+    # Combine into a single response, keyed by asset id (string).
+    keys: set[UUID] = set(planned_map.keys()) | set(real_map.keys())
+    return {
+        str(aid): {
+            "planned": planned_map.get(aid, 0),
+            "real": real_map.get(aid, 0),
+        }
+        for aid in keys
+    }

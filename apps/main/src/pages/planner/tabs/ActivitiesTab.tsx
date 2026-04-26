@@ -26,6 +26,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
 import {
   useActivities,
+  useAssetPobToday,
   useDeleteActivity,
   useSubmitActivity,
   useValidateActivity,
@@ -135,6 +136,15 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
   const items: PlannerActivity[] = data?.items ?? []
   const total = data?.total ?? 0
 
+  // POB prévu / réel par asset pour aujourd'hui — affiché en sous-ligne
+  // de la cellule Installation. Cumulé sur tous les assets visibles.
+  const visibleAssetIds = useMemo(() => {
+    const seen = new Set<string>()
+    for (const a of items) if (a.asset_id) seen.add(a.asset_id)
+    return Array.from(seen)
+  }, [items])
+  const { data: assetPob } = useAssetPobToday(visibleAssetIds)
+
   const stats = useMemo(() => {
     const submitted = items.filter((a) => a.status === 'submitted').length
     const inProgress = items.filter((a) => a.status === 'in_progress').length
@@ -200,13 +210,42 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
     {
       accessorKey: 'asset_name',
       header: t('planner.columns.asset', 'Installation'),
-      size: 160,
+      size: 180,
       cell: ({ row }) => {
         if (!row.original.asset_name) return <span className="text-muted-foreground text-xs">—</span>
-        if (row.original.asset_id) {
-          return <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name} showIcon={false} className="text-xs truncate block max-w-[150px]" />
-        }
-        return <span className="text-xs text-muted-foreground truncate block max-w-[150px]" title={row.original.asset_name}>{row.original.asset_name}</span>
+        const pob = row.original.asset_id ? assetPob?.[row.original.asset_id] : undefined
+        return (
+          <div className="flex flex-col gap-0.5 min-w-0">
+            {row.original.asset_id ? (
+              <CrossModuleLink
+                module="assets"
+                id={row.original.asset_id}
+                label={row.original.asset_name}
+                showIcon={false}
+                className="text-xs truncate block max-w-[170px]"
+              />
+            ) : (
+              <span className="text-xs text-muted-foreground truncate block max-w-[170px]" title={row.original.asset_name}>{row.original.asset_name}</span>
+            )}
+            {pob && (pob.planned > 0 || pob.real > 0) && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground"
+                title={`POB aujourd'hui — Prévu : ${pob.planned} (Planner) · Réel : ${pob.real} (mobilisations confirmées)`}
+              >
+                <span className="text-primary font-medium">{pob.planned}</span>
+                <span className="opacity-50">prévu</span>
+                <span className="opacity-30">·</span>
+                <span className={cn(
+                  'font-medium',
+                  pob.real > pob.planned ? 'text-red-600 dark:text-red-400'
+                  : pob.real === pob.planned ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-amber-600 dark:text-amber-400',
+                )}>{pob.real}</span>
+                <span className="opacity-50">réel</span>
+              </span>
+            )}
+          </div>
+        )
       },
     },
     {

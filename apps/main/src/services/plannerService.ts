@@ -120,6 +120,12 @@ export const plannerService = {
     return data
   },
 
+  // POB per asset for today: { [asset_id]: { planned, real } }.
+  getAssetPobToday: async (assetIds: string): Promise<Record<string, { planned: number; real: number }>> => {
+    const { data } = await api.get(`${BASE}/asset-pob-today`, { params: { asset_ids: assetIds || undefined } })
+    return data
+  },
+
   getActivity: async (id: string): Promise<PlannerActivity> => {
     const { data } = await api.get(`${BASE}/activities/${id}`)
     return data

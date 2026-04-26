@@ -37,6 +37,21 @@ export function useActivities(params: PaginationParams & {
   })
 }
 
+// ── POB (Persons On Board) per asset for today ──
+// Used by the Activités table to display "POB prévu / POB réel"
+// inline next to the Installation. Refetched every 60s so the
+// real POB stays in sync with confirmed mobilisations.
+export function useAssetPobToday(assetIds: string[]) {
+  const ids = assetIds.filter(Boolean).sort().join(',')
+  return useQuery({
+    queryKey: ['planner', 'asset-pob-today', ids],
+    queryFn: () => plannerService.getAssetPobToday(ids),
+    enabled: assetIds.length > 0,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  })
+}
+
 export function useActivity(id: string | undefined) {
   return useQuery({
     queryKey: ['planner', 'activities', id],

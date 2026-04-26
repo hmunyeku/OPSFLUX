@@ -108,7 +108,11 @@ export function ResolveConflictModal({
   const [winEnd, setWinEnd] = useState<string>('')
   const [newQuota, setNewQuota] = useState<string>('')
 
-  // Reset when cluster changes
+  // Reset every form field when the modal switches to a new cluster.
+  // We deliberately key on cluster.key only — auto-prefilling values
+  // from activitiesById in a separate effect was causing render storms
+  // during slow query mounts. The user fills numbers manually; the
+  // current values are still shown next to the inputs as a hint.
   useEffect(() => {
     if (!cluster) return
     setResolution('')
@@ -119,26 +123,28 @@ export function ResolveConflictModal({
     setWinEnd('')
     setNewQuota('')
     setPickedActivityId(cluster.activity_ids[0] ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cluster?.key])
 
   const action = resolution ? ACTION_FOR[resolution] : null
   const supportsApply = action !== null
 
-  // Pre-fill the action params with the picked activity's current values.
-  useEffect(() => {
-    if (!cluster || !pickedActivityId) return
-    const a = activitiesById.get(pickedActivityId)
-    if (!a) return
-    if (resolution === 'reschedule' && shiftMode === 'set_window') {
-      if (!winStart && a.start_date) setWinStart(a.start_date.slice(0, 10))
-      if (!winEnd && a.end_date) setWinEnd(a.end_date.slice(0, 10))
-    }
-    if (resolution === 'reduce_pax' && !newQuota) {
-      setNewQuota(String(a.pax_quota ?? ''))
-    }
-  }, [pickedActivityId, resolution, shiftMode, cluster?.key])
-
   const selectedActivity = pickedActivityId ? activitiesById.get(pickedActivityId) : undefined
+
+  // When the user switches into "set_window" mode, prefill once from
+  // the picked activity if the inputs are empty. Same for set_quota.
+  // Only runs when the user actively changes mode/resolution → no loop.
+  useEffect(() => {
+    if (!selectedActivity) return
+    if (resolution === 'reschedule' && shiftMode === 'set_window') {
+      setWinStart((cur) => cur || (selectedActivity.start_date ?? '').slice(0, 10))
+      setWinEnd((cur) => cur || (selectedActivity.end_date ?? '').slice(0, 10))
+    }
+    if (resolution === 'reduce_pax') {
+      setNewQuota((cur) => cur || String(selectedActivity.pax_quota ?? ''))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolution, shiftMode, pickedActivityId])
 
   const canConfirm = useMemo(() => {
     if (!cluster || !resolution) return false

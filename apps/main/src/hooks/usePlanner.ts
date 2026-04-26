@@ -54,22 +54,47 @@ export function useAssetPobToday(assetIds: string[]) {
 
 /** Fetch a small batch of activities by id in parallel. Used by the
  *  Conflict resolution modal to display the involved activities'
- *  current dates / quotas inside the action panel. */
+ *  current dates / quotas inside the action panel.
+ *
+ *  IMPORTANT: callers must pass a STABLE `ids` array (memoize it
+ *  upstream). useQueries treats its config array structurally and a
+ *  fresh `ids.map(...)` each render keeps re-mounting subscriptions
+ *  which is wasteful at best and can produce subtle render storms in
+ *  some TanStack versions. */
+import { useMemo as _useMemo } from 'react'
 export function useActivitiesByIds(ids: string[]) {
-  const results = useQueries({
-    queries: ids.map((id) => ({
-      queryKey: ['planner', 'activities', id],
+  const stableIds = _useMemo(() => ids, [ids.join(',')])
+  const queries = _useMemo(
+    () => stableIds.map((id) => ({
+      queryKey: ['planner', 'activities', id] as const,
       queryFn: () => plannerService.getActivity(id),
       enabled: !!id,
       staleTime: 30_000,
+      retry: (failureCount: number, error: unknown) => {
+        if (error && typeof error === 'object' && 'response' in error) {
+          const status = (error as { response?: { status?: number } }).response?.status
+          if (status === 404 || status === 403) return false
+        }
+        return failureCount < 1
+      },
     })),
-  })
-  const map = new Map<string, NonNullable<typeof results[number]['data']>>()
-  results.forEach((r, i) => {
-    if (r.data) map.set(ids[i], r.data)
-  })
+    [stableIds],
+  )
+  const results = useQueries({ queries })
+  // Build a fingerprint of "what's loaded" — concatenate the ids whose
+  // data is present. Stable string → useMemo doesn't churn unless data
+  // actually arrived.
+  const dataFp = stableIds.map((id, i) => results[i]?.data ? id : '').join('|')
+  const byId = _useMemo(() => {
+    const m = new Map<string, NonNullable<typeof results[number]['data']>>()
+    results.forEach((r, i) => {
+      if (r.data) m.set(stableIds[i], r.data)
+    })
+    return m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataFp])
   const isLoading = results.some((r) => r.isLoading)
-  return { byId: map, isLoading }
+  return { byId, isLoading }
 }
 
 export function useActivity(id: string | undefined) {

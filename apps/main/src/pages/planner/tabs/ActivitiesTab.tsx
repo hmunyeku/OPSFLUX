@@ -531,20 +531,56 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                   />
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="md:hidden h-7 px-2 text-[10px] border border-border rounded inline-flex items-center gap-1 hover:bg-muted/50"
-                title="Asset / Projet"
-              >
-                {(filters.assetId || filters.projectId) && (
-                  <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
-                    {[filters.assetId, filters.projectId].filter(Boolean).length}
-                  </span>
+              {/* Mobile-only "Filtres" trigger — opens a popover anchored
+                  directly below the button so the Asset/Projet pickers are
+                  visible without depending on the parent layout's height
+                  (the DataTable below was eating all the space and pushing
+                  the panel off-screen). */}
+              <div className="md:hidden relative">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="h-7 px-2 text-[10px] border border-border rounded inline-flex items-center gap-1 hover:bg-muted/50"
+                  title="Asset / Projet"
+                >
+                  {(filters.assetId || filters.projectId) && (
+                    <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
+                      {[filters.assetId, filters.projectId].filter(Boolean).length}
+                    </span>
+                  )}
+                  Filtres
+                  {showAdvancedFilters ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                </button>
+                {showAdvancedFilters && (
+                  <>
+                    {/* Backdrop closes the popover on outside tap */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowAdvancedFilters(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-1 z-50 w-[min(20rem,calc(100vw-1rem))] rounded-md border bg-popover shadow-lg p-2 space-y-2">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Asset</div>
+                        <AssetPicker
+                          value={filters.assetId}
+                          onChange={(id) => updateFilter('assetId', id)}
+                          placeholder="Asset"
+                          clearable
+                        />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Projet</div>
+                        <ProjectPicker
+                          value={filters.projectId}
+                          onChange={(id) => updateFilter('projectId', id)}
+                          placeholder="Projet"
+                          clearable
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
-                Filtres
-                {showAdvancedFilters ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-              </button>
+              </div>
               {hasAdvancedFilters && (
                 <button
                   type="button"
@@ -636,29 +672,10 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           } : undefined}
           storageKey="planner-activities"
         />
-        {/* Mobile collapsible — only Asset + Projet pickers since
-            type/priorité/période are now filter tokens inside the
-            visual search bar (which works on mobile too). */}
-        {showAdvancedFilters && (
-          <div className="md:hidden flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border bg-background-subtle">
-            <div className="flex-1 min-w-[150px]">
-              <AssetPicker
-                value={filters.assetId}
-                onChange={(id) => updateFilter('assetId', id)}
-                placeholder="Asset"
-                clearable
-              />
-            </div>
-            <div className="flex-1 min-w-[150px]">
-              <ProjectPicker
-                value={filters.projectId}
-                onChange={(id) => updateFilter('projectId', id)}
-                placeholder="Projet"
-                clearable
-              />
-            </div>
-          </div>
-        )}
+        {/* Mobile pickers now live in a popover anchored to the
+            "Filtres" button itself (see toolbarLeft above). Keeping
+            them out of the layout flow avoids the parent-height issue
+            where the DataTable was hiding the collapsible offscreen. */}
       </PanelContent>
     </>
   )

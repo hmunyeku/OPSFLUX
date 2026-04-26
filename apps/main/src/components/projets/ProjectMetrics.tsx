@@ -20,10 +20,11 @@
  */
 import { useMemo, useState } from 'react'
 import {
-  Save, History, Target, ListTodo, Users, Milestone as MilestoneIcon,
+  Save, History, Target, ListTodo, Users,
   Sun, Cloud, CloudRain, CloudLightning, CloudSun,
   TrendingUp, TrendingDown, Minus,
   Loader2, CalendarClock, Scale,
+  Wallet, Coins, Banknote, CalendarCheck, Check, AlertTriangle, X as XIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProjectInsightsBar } from './ProjectInsightsBar'
@@ -124,6 +125,106 @@ interface MetricsProps {
   milestones: ProjectMilestone[]
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Hero KPI card — Mastt-style colored block with HUGE value.
+// Used to surface the project's bottom-line numbers at a glance:
+// Budget, Engagé, Reste à dépenser, Fin prévue, etc.
+// ──────────────────────────────────────────────────────────────────────
+
+type HeroTone = 'orange' | 'navy' | 'sky' | 'emerald' | 'amber' | 'primary' | 'rose'
+
+interface HeroKpiProps {
+  label: string
+  value: string
+  /** Optional small subtitle below the value (e.g. unit, secondary value). */
+  sub?: string
+  icon?: typeof Wallet
+  tone: HeroTone
+  /** Big number is bumped up (used for 1-2 cards in the row). */
+  size?: 'md' | 'lg'
+}
+
+function HeroKpi({ label, value, sub, icon: Icon, tone, size = 'md' }: HeroKpiProps) {
+  const palette: Record<HeroTone, { bg: string; text: string; sub: string; iconBg: string }> = {
+    orange:  { bg: 'bg-orange-500',          text: 'text-white',     sub: 'text-orange-50/80',     iconBg: 'bg-white/15' },
+    navy:    { bg: 'bg-slate-900',           text: 'text-white',     sub: 'text-slate-300',        iconBg: 'bg-white/10' },
+    sky:     { bg: 'bg-sky-500',             text: 'text-white',     sub: 'text-sky-50/80',        iconBg: 'bg-white/15' },
+    emerald: { bg: 'bg-emerald-500',         text: 'text-white',     sub: 'text-emerald-50/80',    iconBg: 'bg-white/15' },
+    amber:   { bg: 'bg-amber-400',           text: 'text-slate-900', sub: 'text-slate-700',        iconBg: 'bg-slate-900/10' },
+    primary: { bg: 'bg-primary',             text: 'text-primary-foreground', sub: 'text-primary-foreground/75', iconBg: 'bg-white/15' },
+    rose:    { bg: 'bg-rose-500',            text: 'text-white',     sub: 'text-rose-50/80',       iconBg: 'bg-white/15' },
+  }
+  const p = palette[tone]
+  return (
+    <div className={cn(
+      p.bg, p.text,
+      'rounded-xl shadow-sm px-4 flex flex-col justify-between',
+      size === 'lg' ? 'py-4 min-h-[110px]' : 'py-3 min-h-[96px]',
+    )}>
+      <div className="flex items-center gap-2">
+        {Icon && (
+          <span className={cn(p.iconBg, 'w-6 h-6 rounded inline-flex items-center justify-center shrink-0')}>
+            <Icon size={13} />
+          </span>
+        )}
+        <span className={cn('text-[10px] uppercase tracking-wider font-semibold', p.sub)}>{label}</span>
+      </div>
+      <div className="flex items-baseline gap-1.5">
+        <span className={cn(
+          'font-display font-bold tabular-nums leading-none',
+          size === 'lg' ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl',
+        )}>{value}</span>
+        {sub && <span className={cn('text-xs font-medium', p.sub)}>{sub}</span>}
+      </div>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Health ring — colored circle (red/amber/green) with center icon.
+// Inspired by the Mastt PMO dashboard: 4 simple rings (Périmètre,
+// Calendrier, Coût, Qualité) communicate the project's health status
+// at a glance.
+// ──────────────────────────────────────────────────────────────────────
+
+type HealthLevel = 'good' | 'warn' | 'bad' | 'unknown'
+
+function HealthRing({ label, level, size = 64 }: { label: string; level: HealthLevel; size?: number }) {
+  const tone = level === 'good' ? '#10b981' : level === 'warn' ? '#f59e0b' : level === 'bad' ? '#ef4444' : '#94a3b8'
+  const stroke = 5
+  const r = (size - stroke) / 2
+  const Icon = level === 'good' ? Check : level === 'warn' ? AlertTriangle : level === 'bad' ? XIcon : Minus
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+                  stroke={tone} strokeWidth={stroke} strokeOpacity={0.18} />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+                  stroke={tone} strokeWidth={stroke} strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * r * 0.85} ${2 * Math.PI * r}`}
+                  transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Icon size={20} style={{ color: tone }} strokeWidth={2.5} />
+        </div>
+      </div>
+      <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Compact money formatter (1.5 k€, 1.2 M€)
+// ──────────────────────────────────────────────────────────────────────
+function fmtCompactMoney(n: number | null | undefined, currency = '€'): string {
+  if (n == null || n === 0) return `0 ${currency}`
+  const abs = Math.abs(n)
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)} M${currency}`
+  if (abs >= 1_000) return `${(n / 1_000).toFixed(abs >= 10_000 ? 0 : 1)} k${currency}`
+  return `${Math.round(n)} ${currency}`
+}
+
 export function ProjectMetrics({ project, tasks, members, milestones }: MetricsProps) {
   const { data: situations = [], isLoading } = useProjectSituations(project.id)
   const createSituation = useCreateProjectSituation()
@@ -149,8 +250,9 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
   const tasksTotal = tasks.length
   const tasksDone = tasks.filter(t => t.status === 'done').length
   const tasksInProgress = tasks.filter(t => t.status === 'in_progress').length
-  const milestonesTotal = milestones.length
-  const membersTotal = members.length
+  // milestones / members counts are surfaced inline by the Tâches +
+  // Quantitative blocks below — kept available for follow-up rows.
+  void milestones; void members;
 
   const lastTaskEnd = useMemo(() => {
     let max: string | null = null
@@ -172,6 +274,41 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
     [tasks],
   )
   const hoursRemaining = Math.max(0, hoursEstimated - hoursConsumed)
+
+  // ── Budget figures (proxy until explicit committed/forecast columns) ──
+  const budget = project.budget ?? 0
+  const committed = budget * (project.progress / 100)   // proxy
+  const remaining = Math.max(0, budget - committed)
+
+  // ── Health levels ──
+  // Schedule (Calendrier): physical progress vs calendar elapsed.
+  //   bad   = today > end_date and progress < 100
+  //   warn  = progress is >10% behind expected by today
+  //   good  = otherwise
+  const scheduleLevel: HealthLevel = (() => {
+    if (!project.start_date || !project.end_date) return 'unknown'
+    const start = new Date(project.start_date).getTime()
+    const end = new Date(project.end_date).getTime()
+    const today = Date.now()
+    if (today > end && project.progress < 100) return 'bad'
+    if (today < start) return 'good'
+    const expected = ((today - start) / (end - start)) * 100
+    const delta = (project.progress ?? 0) - expected
+    if (delta < -25) return 'bad'
+    if (delta < -10) return 'warn'
+    return 'good'
+  })()
+  // Cost (Coût): committed vs progress proportion. We don't have real
+  // committed yet, so this is a proxy; will sharpen with real data.
+  const costLevel: HealthLevel = (() => {
+    if (budget <= 0) return 'unknown'
+    if (committed > budget * 1.05) return 'bad'
+    if (committed > budget) return 'warn'
+    return 'good'
+  })()
+  // Scope/Quality: manual signals — default green until exposed on Project.
+  const scopeLevel: HealthLevel = 'good'
+  const qualityLevel: HealthLevel = 'good'
 
   const handleSave = () => {
     createSituation.mutate(
@@ -215,67 +352,73 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
   }
 
   return (
-    <div className="space-y-3">
-      {/* ─── ROW 1 ── HERO: gauge (left) + bullet planning chart (right) ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-3">
-        {/* Gauge card */}
-        <FormSection title="Avancement" defaultExpanded>
-          <div className="flex flex-col items-center gap-2 pt-2">
-            <ProgressGauge value={project.progress} />
-            <div className="grid grid-cols-2 gap-2 w-full mt-1">
+    <div className="space-y-4">
+      {/* ─── ROW 1 ── HERO KPIS — Mastt-style colored cards.
+          Surfaces the bottom-line numbers PMs scan first when opening
+          a project: budget, engagé, reste, avancement, fin prévue. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <HeroKpi
+          label="Budget"
+          value={fmtCompactMoney(budget)}
+          tone="orange"
+          icon={Wallet}
+          size="lg"
+        />
+        <HeroKpi
+          label="Engagé"
+          value={fmtCompactMoney(committed)}
+          sub={budget > 0 ? `${Math.round((committed / budget) * 100)}% du budget` : undefined}
+          tone="sky"
+          icon={Coins}
+          size="lg"
+        />
+        <HeroKpi
+          label="Reste à dépenser"
+          value={fmtCompactMoney(remaining)}
+          tone="navy"
+          icon={Banknote}
+          size="lg"
+        />
+        <HeroKpi
+          label="Avancement"
+          value={`${project.progress}%`}
+          sub={deltaWeek != null ? `Δ 7j: ${deltaWeek > 0 ? '+' : ''}${deltaWeek}%` : undefined}
+          tone="primary"
+          icon={Target}
+          size="lg"
+        />
+        <HeroKpi
+          label="Fin prévue"
+          value={project.end_date ? new Date(project.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+          sub={ecartLivraison != null ? `Écart livraison ${ecartLivraison >= 0 ? '+' : ''}${ecartLivraison}j` : undefined}
+          tone="amber"
+          icon={CalendarCheck}
+          size="lg"
+        />
+      </div>
+
+      {/* ─── ROW 2 ── HEALTH RINGS — at-a-glance project health
+          across 4 axes (Mastt grammar). */}
+      <FormSection title="Santé du projet" defaultExpanded>
+        <div className="flex items-center justify-around flex-wrap gap-4 py-2">
+          <HealthRing label="Périmètre" level={scopeLevel} />
+          <HealthRing label="Calendrier" level={scheduleLevel} />
+          <HealthRing label="Coût" level={costLevel} />
+          <HealthRing label="Qualité" level={qualityLevel} />
+          <div className="flex flex-col items-center justify-center px-3 border-l border-border/40 ml-2">
+            <ProgressGauge value={project.progress} size={120} />
+            <div className="grid grid-cols-2 gap-2 mt-1 text-[10px] w-full">
               {renderDelta(deltaWeek, 'Δ 7j')}
               {renderDelta(deltaMonth, 'Δ 28j')}
             </div>
           </div>
-        </FormSection>
+        </div>
+      </FormSection>
 
-        {/* Planning bullet chart card */}
-        <FormSection title="Planning" defaultExpanded>
-          <ProjectInsightsBar project={project} />
-        </FormSection>
-      </div>
-
-      {/* ─── ROW 2 ── KPI tiles: stats durées + charge + tâches done + jalons ─── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        <KpiTile
-          icon={CalendarClock}
-          label="Fin prévue"
-          value={fmtDate(project.end_date)}
-          tone="foreground"
-        />
-        <KpiTile
-          icon={CalendarClock}
-          label="Écart livraison"
-          value={ecartLivraison == null ? '—' : `${ecartLivraison >= 0 ? '+' : ''}${ecartLivraison}j`}
-          tone={ecartLivraison == null ? 'muted' : ecartLivraison >= 0 ? 'good' : 'bad'}
-        />
-        <KpiTile
-          icon={Scale}
-          label="Charge totale"
-          value={`${hoursEstimated.toFixed(0)}h`}
-          subValue={`${hoursToJH(hoursEstimated)} j/h`}
-          tone="foreground"
-        />
-        <KpiTile
-          icon={Scale}
-          label="Reste à faire"
-          value={`${hoursRemaining.toFixed(0)}h`}
-          subValue={`${hoursToJH(hoursRemaining)} j/h`}
-          tone="primary"
-        />
-        <KpiTile
-          icon={Users}
-          label="Équipe"
-          value={String(membersTotal)}
-          tone={membersTotal > 0 ? 'foreground' : 'muted'}
-        />
-        <KpiTile
-          icon={MilestoneIcon}
-          label="Jalons"
-          value={String(milestonesTotal)}
-          tone={milestonesTotal > 0 ? 'foreground' : 'muted'}
-        />
-      </div>
+      {/* ─── ROW 3 ── PLANNING + BUDGET CHART (full width) ─── */}
+      <FormSection title="Planning & Budget" defaultExpanded>
+        <ProjectInsightsBar project={project} />
+      </FormSection>
 
       {/* ─── ROW 3 ── Détail durées + charge (lignes) ─── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -449,41 +592,6 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           </div>
         </div>
       </FormSection>
-    </div>
-  )
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// KPI tile — denser variant of QuantTile used in the hero KPI row.
-// Two-line layout (value + tiny sub-label) so date/duration values
-// also fit cleanly.
-// ──────────────────────────────────────────────────────────────────────
-function KpiTile({
-  icon: Icon, label, value, subValue, tone,
-}: {
-  icon: typeof Users
-  label: string
-  value: string
-  subValue?: string
-  tone: 'foreground' | 'muted' | 'good' | 'bad' | 'primary'
-}) {
-  const valueCls = tone === 'good' ? 'text-green-600 dark:text-green-400'
-    : tone === 'bad' ? 'text-red-600 dark:text-red-400'
-    : tone === 'primary' ? 'text-primary'
-    : tone === 'muted' ? 'text-muted-foreground/40'
-    : 'text-foreground'
-  const iconCls = tone === 'good' ? 'text-green-500'
-    : tone === 'bad' ? 'text-red-500'
-    : tone === 'primary' ? 'text-primary'
-    : 'text-muted-foreground'
-  return (
-    <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-border/50 bg-card/40">
-      <Icon size={16} className={cn(iconCls, 'mt-0.5 shrink-0')} />
-      <div className="flex flex-col leading-tight min-w-0 flex-1">
-        <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium truncate">{label}</span>
-        <span className={cn('text-base font-display font-bold tabular-nums truncate leading-tight', valueCls)}>{value}</span>
-        {subValue && <span className="text-[10px] text-muted-foreground tabular-nums truncate">{subValue}</span>}
-      </div>
     </div>
   )
 }

@@ -16,6 +16,7 @@ import {
   Settings2,
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
   Sun, Cloud, CloudRain, CloudLightning, CalendarClock,
+  Minimize2,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Info, Paperclip, LayoutList, BarChart3, Search } from 'lucide-react'
@@ -65,6 +66,7 @@ import {
 import { useCurrentEntity } from '@/hooks/useEntities'
 import { isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
+import { TaskTable } from '@/components/projets/TaskTable'
 import { useUsers } from '@/hooks/useUsers'
 import { UserPicker } from '@/components/shared/UserPicker'
 import type {
@@ -1145,11 +1147,149 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
 
 // -- Task Section (list + create) — like Gouti "Progression et controle" -----
 
+/**
+ * TaskFullscreenOverlay — full-viewport split view for the task list.
+ *
+ * Layout: <TaskTable /> on the left, ProjectGanttWrapper on the right
+ * with a draggable splitter. Mounted as a fixed-positioned portal so
+ * it covers the panel and the rest of the chrome.
+ *
+ * V1 splitter is a simple drag handle on the column boundary; we
+ * persist the ratio in localStorage between visits.
+ */
+function TaskFullscreenOverlay({
+  projectId, tasks, hierarchical, onClose, onOpenAdvanced,
+}: {
+  projectId: string
+  tasks: ProjectTask[]
+  hierarchical: boolean
+  onClose: () => void
+  onOpenAdvanced: (task: ProjectTask) => void
+}) {
+  // Lock body scroll while open.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+
+  // Splitter state (left column width %).
+  const [splitPct, setSplitPct] = useState<number>(() => {
+    try { return Number(localStorage.getItem('task-fullscreen-split') || '50') } catch { return 50 }
+  })
+  const dragging = useRef(false)
+
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      if (!dragging.current) return
+      const pct = Math.max(20, Math.min(80, (e.clientX / window.innerWidth) * 100))
+      setSplitPct(pct)
+    }
+    const up = () => {
+      if (dragging.current) {
+        dragging.current = false
+        document.body.style.cursor = ''
+        try { localStorage.setItem('task-fullscreen-split', String(splitPct)) } catch { /* ignore */ }
+      }
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  }, [splitPct])
+
+  // Escape closes.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-background flex flex-col">
+      {/* Header bar */}
+      <div className="h-12 shrink-0 border-b border-border flex items-center justify-between px-4 bg-card">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <ListTodo size={14} className="text-primary" />
+          <span>Tâches du projet</span>
+          <span className="text-muted-foreground text-xs">({tasks.length})</span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+          title="Fermer (Échap)"
+        >
+          <Minimize2 size={12} /> Quitter le plein écran
+        </button>
+      </div>
+
+      {/* Split body */}
+      <div className="flex-1 min-h-0 flex">
+        {/* Left: TaskTable */}
+        <div
+          className="overflow-auto p-3"
+          style={{ width: `${splitPct}%` }}
+        >
+          <TaskTable
+            tasks={tasks}
+            projectId={projectId}
+            hierarchical={hierarchical}
+            maxHeight="100%"
+            onOpenAdvanced={onOpenAdvanced}
+          />
+        </div>
+
+        {/* Splitter */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          className="w-1 bg-border hover:bg-primary/40 cursor-col-resize transition-colors shrink-0"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            dragging.current = true
+            document.body.style.cursor = 'col-resize'
+          }}
+          title="Glisser pour redimensionner"
+        />
+
+        {/* Right: Gantt placeholder — V2 will embed the existing
+            ProjectGanttWrapper here. For now we surface a clear
+            placeholder with the reason so the user knows it's planned. */}
+        <div
+          className="overflow-auto p-3 bg-muted/10"
+          style={{ width: `${100 - splitPct}%` }}
+        >
+          <div className="h-full border border-dashed border-border/60 rounded-md flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
+            <BarChart3 size={36} className="mb-3 opacity-40" />
+            <div className="text-sm font-medium text-foreground/80 mb-1">Gantt à droite</div>
+            <p className="text-xs max-w-xs">
+              Le Gantt synchronisé arrive dans la prochaine itération.
+              En attendant tu peux ouvrir la vue Gantt complète depuis l'onglet
+              Planification du panneau projet.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTask[] }) {
   const [showCreate, setShowCreate] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'order' | 'due_date' | 'priority' | 'progress'>('order')
+  // 'list' = legacy hierarchical row layout
+  // 'table' = new editable TaskTable (sticky header, inline edit)
+  const [viewMode, setViewMode] = useState<'list' | 'table'>(() => {
+    try { return (localStorage.getItem('projet-tasks-view') as 'list' | 'table') || 'table' } catch { return 'table' }
+  })
+  const setViewModePersist = (v: 'list' | 'table') => {
+    setViewMode(v)
+    try { localStorage.setItem('projet-tasks-view', v) } catch { /* ignore */ }
+  }
+  const [fullscreen, setFullscreen] = useState(false)
+  const openTaskAdvanced = useUIStore((s) => s.openDynamicPanel)
 
   const counts = useMemo(() => ({
     todo: tasks.filter(t => t.status === 'todo').length,
@@ -1282,47 +1422,95 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
         )}
       </div>
 
-      {/* Search + Sort */}
-      {tasks.length > 4 && (
-        <div className="flex items-center gap-1.5 mb-2">
-          <div className="relative flex-1">
-            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher une tâche…"
-              className={`${panelInputClass} text-xs pl-7 w-full h-7`}
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+      {/* Toolbar: search · sort · view toggle · fullscreen */}
+      {tasks.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+          {tasks.length > 4 && (
+            <>
+              <div className="relative flex-1 min-w-[180px]">
+                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher une tâche…"
+                  className={`${panelInputClass} text-xs pl-7 pr-6 w-full h-7`}
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X size={11} />
+                  </button>
+                )}
+              </div>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className={`${panelInputClass} text-xs h-7 w-[110px]`}
+                title="Trier par"
               >
-                <X size={11} />
-              </button>
-            )}
+                <option value="order">Ordre WBS</option>
+                <option value="due_date">Date</option>
+                <option value="priority">Priorité</option>
+                <option value="progress">Avancement</option>
+              </select>
+            </>
+          )}
+          {/* View toggle */}
+          <div className="inline-flex rounded border border-border overflow-hidden ml-auto h-7">
+            <button
+              type="button"
+              onClick={() => setViewModePersist('table')}
+              className={cn(
+                'px-2 text-[10px] transition-colors',
+                viewMode === 'table' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50',
+              )}
+              title="Vue tableau (édition inline)"
+            >
+              Tableau
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewModePersist('list')}
+              className={cn(
+                'px-2 text-[10px] border-l border-border transition-colors',
+                viewMode === 'list' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50',
+              )}
+              title="Vue liste (hiérarchique)"
+            >
+              Liste
+            </button>
           </div>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className={`${panelInputClass} text-xs h-7 w-[110px]`}
-            title="Trier par"
+          {/* Fullscreen */}
+          <button
+            type="button"
+            onClick={() => setFullscreen(true)}
+            className="h-7 px-2 text-[10px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1"
+            title="Ouvrir en plein écran (Tableau + Gantt)"
           >
-            <option value="order">Ordre WBS</option>
-            <option value="due_date">Date</option>
-            <option value="priority">Priorité</option>
-            <option value="progress">Avancement</option>
-          </select>
+            ⛶ Plein écran
+          </button>
         </div>
       )}
 
-      {/* Task treegrid (hierarchy preserved when no filter; flat when filtered) */}
+      {/* Body */}
       {tasks.length > 0 ? (
         filtered.length === 0 ? (
           <div className="text-[11px] text-muted-foreground text-center py-4 border border-dashed border-border/40 rounded">
             Aucune tâche ne correspond aux filtres
           </div>
+        ) : viewMode === 'table' ? (
+          <TaskTable
+            tasks={isFiltered ? sorted : tasks}
+            projectId={projectId}
+            hierarchical={!isFiltered}
+            maxHeight="500px"
+            onOpenAdvanced={(task) =>
+              openTaskAdvanced({ type: 'task-detail', module: 'projets', id: task.id, meta: { projectId } })
+            }
+          />
         ) : (
           <div role="tree" aria-label="Hiérarchie des tâches" className="border border-border/40 rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
             {renderRows()}
@@ -1330,6 +1518,19 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
         )
       ) : (
         <EmptyState icon={ListTodo} title="Aucune tâche" variant="search" size="compact" />
+      )}
+
+      {/* Fullscreen overlay — table on the left, ProjectGantt on the right */}
+      {fullscreen && (
+        <TaskFullscreenOverlay
+          projectId={projectId}
+          tasks={isFiltered ? sorted : tasks}
+          hierarchical={!isFiltered}
+          onClose={() => setFullscreen(false)}
+          onOpenAdvanced={(task) =>
+            openTaskAdvanced({ type: 'task-detail', module: 'projets', id: task.id, meta: { projectId } })
+          }
+        />
       )}
 
       {/* Create form or button */}

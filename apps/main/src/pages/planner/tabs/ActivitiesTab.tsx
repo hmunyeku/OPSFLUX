@@ -25,6 +25,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
 import {
   useActivities,
+  useCreateActivity,
   useDeleteActivity,
   useSubmitActivity,
   useValidateActivity,
@@ -86,6 +87,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
   const confirmDialog = useConfirm()
   const promptInput = usePromptInput()
   const { toast } = useToast()
+  const createActivity = useCreateActivity()
   const deleteActivity = useDeleteActivity()
   const submitActivity = useSubmitActivity()
   const validateActivity = useValidateActivity()
@@ -267,6 +269,12 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
       ),
     },
     {
+      id: 'duration_bar',
+      header: 'Avancement',
+      size: 130,
+      cell: ({ row }) => <ActivityDurationBar activity={row.original} />,
+    },
+    {
       accessorKey: 'status',
       header: t('planner.columns.status'),
       size: 110,
@@ -279,7 +287,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
       cell: ({ row }) => {
         const s = row.original.status
         return (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1">
             {s === 'draft' && (
               <button
                 className="gl-button gl-button-confirm"
@@ -570,6 +578,49 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
               end_date: 'Fin',
               status: 'Statut',
             },
+            // Basic CSV import — creates activities row by row from the
+            // mandatory fields. The full Import Wizard (with column
+            // mapping + duplicate strategy) requires backend support
+            // for `planner_activity` as an ImportTargetObject which
+            // doesn't exist yet (V2 work).
+            importCsv: true,
+            importTemplate: {
+              columns: [
+                { key: 'title',       label: 'Titre',       required: true,  example: 'Maintenance pompe P-101' },
+                { key: 'type',        label: 'Type',        required: true,  example: 'maintenance' },
+                { key: 'priority',    label: 'Priorité',                     example: 'medium' },
+                { key: 'pax_quota',   label: 'PAX',                          example: '6' },
+                { key: 'start_date',  label: 'Début',       required: true,  example: '2026-04-01' },
+                { key: 'end_date',    label: 'Fin',         required: true,  example: '2026-04-05' },
+                { key: 'description', label: 'Description',                  example: 'Inspection trimestrielle' },
+              ],
+              filename: 'modele-import-activites.xlsx',
+              includeExamples: true,
+            },
+            onImport: async (rows) => {
+              let ok = 0, ko = 0
+              for (const r of rows) {
+                try {
+                  const title = String(r.title ?? r.Titre ?? '').trim()
+                  if (!title) { ko++; continue }
+                  await createActivity.mutateAsync({
+                    title,
+                    type: String(r.type ?? r.Type ?? 'project').toLowerCase().trim(),
+                    priority: String(r.priority ?? r.Priorité ?? 'medium').toLowerCase().trim(),
+                    pax_quota: r.pax_quota != null ? Number(r.pax_quota) : 0,
+                    start_date: String(r.start_date ?? r['Début'] ?? '').trim(),
+                    end_date: String(r.end_date ?? r.Fin ?? '').trim(),
+                    description: r.description != null ? String(r.description) : null,
+                  } as never)
+                  ok++
+                } catch { ko++ }
+              }
+              toast({
+                title: `Import terminé`,
+                description: `${ok} activité(s) créée(s)${ko > 0 ? `, ${ko} ignorée(s)` : ''}`,
+                variant: ko > 0 && ok === 0 ? 'error' : 'success',
+              })
+            },
           } : undefined}
           storageKey="planner-activities"
         />
@@ -598,5 +649,46 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
         )}
       </PanelContent>
     </>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// ActivityDurationBar — per-row mini bar showing the activity span.
+// Width fills the column, length proportional to its duration; a
+// vertical "today" tick marks where we are if the activity is
+// currently running. Past activities show a fully-filled bar (done
+// time-wise), future activities show a hollow bar.
+// ──────────────────────────────────────────────────────────────────────
+function ActivityDurationBar({ activity }: { activity: PlannerActivity }) {
+  const start = activity.start_date ? new Date(activity.start_date).getTime() : null
+  const end = activity.end_date ? new Date(activity.end_date).getTime() : null
+  if (!start || !end || end <= start) {
+    return <span className="text-[10px] text-muted-foreground/60">—</span>
+  }
+  const now = Date.now()
+  const total = end - start
+  const elapsed = Math.max(0, Math.min(total, now - start))
+  const pct = (elapsed / total) * 100
+  const isPast = now > end
+  const isFuture = now < start
+  const isLive = !isPast && !isFuture
+  const tone = activity.status === "completed" ? "bg-emerald-500"
+    : activity.status === "cancelled" ? "bg-zinc-400"
+    : isPast ? "bg-red-500/80"
+    : isLive ? "bg-primary"
+    : "bg-primary/30"
+  const totalDays = Math.round(total / 86_400_000)
+  return (
+    <div className="flex items-center gap-1 min-w-0">
+      <div className="relative h-2 flex-1 min-w-[60px] rounded-sm bg-muted/40 overflow-hidden">
+        <div className={"absolute top-0 bottom-0 left-0 rounded-sm " + tone}
+             style={{ width: isPast ? "100%" : isFuture ? "0%" : pct + "%" }} />
+        {isLive && (
+          <div className="absolute top-[-2px] bottom-[-2px] w-[2px] bg-foreground"
+               style={{ left: "calc(" + pct + "% - 1px)" }} />
+        )}
+      </div>
+      <span className="text-[9px] tabular-nums text-muted-foreground shrink-0">{totalDays}j</span>
+    </div>
   )
 }

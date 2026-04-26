@@ -214,34 +214,33 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
       cell: ({ row }) => {
         if (!row.original.asset_name) return <span className="text-muted-foreground text-xs">—</span>
         const pob = row.original.asset_id ? assetPob?.[row.original.asset_id] : undefined
+        const namePart = row.original.asset_id ? (
+          <CrossModuleLink
+            module="assets"
+            id={row.original.asset_id}
+            label={row.original.asset_name}
+            showIcon={false}
+            className="text-xs truncate"
+          />
+        ) : (
+          <span className="text-xs text-muted-foreground truncate" title={row.original.asset_name}>{row.original.asset_name}</span>
+        )
         return (
-          <div className="flex flex-col gap-0.5 min-w-0">
-            {row.original.asset_id ? (
-              <CrossModuleLink
-                module="assets"
-                id={row.original.asset_id}
-                label={row.original.asset_name}
-                showIcon={false}
-                className="text-xs truncate block max-w-[170px]"
-              />
-            ) : (
-              <span className="text-xs text-muted-foreground truncate block max-w-[170px]" title={row.original.asset_name}>{row.original.asset_name}</span>
-            )}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="truncate min-w-0">{namePart}</span>
             {pob && (pob.planned > 0 || pob.real > 0) && (
               <span
-                className="inline-flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground"
+                className="inline-flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground shrink-0"
                 title={`POB aujourd'hui — Prévu : ${pob.planned} (Planner) · Réel : ${pob.real} (mobilisations confirmées)`}
               >
                 <span className="text-primary font-medium">{pob.planned}</span>
-                <span className="opacity-50">prévu</span>
-                <span className="opacity-30">·</span>
+                <span className="opacity-30">/</span>
                 <span className={cn(
                   'font-medium',
                   pob.real > pob.planned ? 'text-red-600 dark:text-red-400'
                   : pob.real === pob.planned ? 'text-emerald-600 dark:text-emerald-400'
                   : 'text-amber-600 dark:text-amber-400',
                 )}>{pob.real}</span>
-                <span className="opacity-50">réel</span>
               </span>
             )}
           </div>

@@ -183,6 +183,22 @@ export function formatVariablePaxRange(daily: Record<string, number> | null | un
   return min === max ? String(min) : `${min}–${max}`
 }
 
+/** Long-form tooltip explaining the pax range. Used as the `title`
+ *  attribute next to formatVariablePaxRange so a hover reveals what
+ *  the abbreviated '5–22' actually means. */
+export function formatVariablePaxTooltip(daily: Record<string, number> | null | undefined, fallback: number): string {
+  if (!daily || Object.keys(daily).length === 0) return `${fallback} PAX (constant)`
+  const values = Object.values(daily).filter((v): v is number => typeof v === 'number')
+  if (values.length === 0) return `${fallback} PAX (constant)`
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const days = values.length
+  if (min === max) return `${min} PAX par jour sur ${days} jour${days > 1 ? 's' : ''}`
+  const sum = values.reduce((s, v) => s + v, 0)
+  const avg = Math.round((sum / days) * 10) / 10
+  return `${min} PAX min · ${max} PAX max · moyenne ${avg} PAX sur ${days} jour${days > 1 ? 's' : ''}`
+}
+
 export function toISODate(d: Date): string {
   return d.toISOString().split('T')[0]
 }

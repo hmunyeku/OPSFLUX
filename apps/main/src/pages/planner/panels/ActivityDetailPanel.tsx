@@ -70,6 +70,7 @@ import {
   buildDictionaryOptions,
   formatDateShort,
   formatVariablePaxRange,
+  formatVariablePaxTooltip,
   extractApiError,
 } from '../shared'
 
@@ -1042,7 +1043,10 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                     <ReadOnlyRow
                       label="Quota PAX"
                       value={
-                        <span className="inline-flex items-center gap-1">
+                        <span
+                          className="inline-flex items-center gap-1 cursor-help"
+                          title={formatVariablePaxTooltip(activity.pax_quota_daily, activity.pax_quota)}
+                        >
                           <Users size={12} className="text-muted-foreground" />
                           {formatVariablePaxRange(activity.pax_quota_daily, activity.pax_quota)}
                           <span className="text-[10px] text-muted-foreground ml-1">(min–max journalier)</span>

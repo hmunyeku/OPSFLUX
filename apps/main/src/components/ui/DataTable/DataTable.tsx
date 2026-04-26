@@ -1012,15 +1012,45 @@ export function DataTable<TData>({
             // card. Wide cells (progress bars, sliders, etc.) keep the
             // same label slot — only the value cell stretches.
             const renderedMiddle: React.ReactNode[] = []
+
+            // First body row: full title (wrapped) so long names are
+            // readable. The title in the header bar stays truncated so
+            // it doesn't push the action buttons. The whitespace/max-w
+            // overrides neutralise truncate classes that title columns
+            // sometimes hardcode for desktop.
+            if (titleCell) {
+              renderedMiddle.push(
+                <div
+                  key={`${titleCell.id}-l`}
+                  className="text-[11px] text-muted-foreground text-right truncate self-start px-2.5 py-0.5 bg-muted/30 border-r border-border/60"
+                >
+                  {headerLabelOf(titleCell.column)}
+                </div>
+              )
+              renderedMiddle.push(
+                <div
+                  key={`${titleCell.id}-v`}
+                  className={cn(
+                    'text-xs text-foreground min-w-0 px-2.5 py-0.5 break-words',
+                    '[&_*]:!whitespace-normal [&_*]:!max-w-none [&_*]:!overflow-visible',
+                  )}
+                >
+                  {flexRender(titleCell.column.columnDef.cell, titleCell.getContext())}
+                </div>
+              )
+            }
+
             middleCells.forEach((cell, ri) => {
               const colId = cell.column.id
               const wide = isWideId(colId)
-              const rowBorder = ri > 0 ? 'border-t border-border/60' : ''
+              // First middle cell still needs a top border since the
+              // synthetic title row sits above it in the same grid.
+              const rowBorder = (ri > 0 || titleCell) ? 'border-t border-border/60' : ''
               renderedMiddle.push(
                 <div
                   key={`${cell.id}-l`}
                   className={cn(
-                    'text-[11px] text-muted-foreground text-right truncate self-center px-3 py-1.5 bg-muted/30 border-r border-border/60',
+                    'text-[11px] text-muted-foreground text-right truncate self-center px-2.5 py-0.5 bg-muted/30 border-r border-border/60',
                     rowBorder,
                   )}
                 >
@@ -1031,7 +1061,7 @@ export function DataTable<TData>({
                 <div
                   key={`${cell.id}-v`}
                   className={cn(
-                    'text-xs text-foreground min-w-0 flex items-center gap-1 px-3 py-1.5',
+                    'text-xs text-foreground min-w-0 flex items-center gap-1 px-2.5 py-0.5',
                     wide ? 'w-full' : 'break-words',
                     rowBorder,
                   )}
@@ -1063,10 +1093,13 @@ export function DataTable<TData>({
                   isSelected && 'border-primary ring-1 ring-primary/30',
                 )}
               >
-                {/* Title row — actions docked top-right, next to title. */}
+                {/* Title row — actions docked top-right, next to title.
+                    Title stays truncated here so the actions don't get
+                    pushed around by long names. The full title is shown
+                    as the first body row below (wrapping). */}
                 {titleCell && (
-                  <div className="px-3 pt-2.5 pb-2 flex items-start gap-2">
-                    <div className="text-sm font-semibold text-foreground break-words leading-tight flex-1 min-w-0">
+                  <div className="px-3 pt-2 pb-1.5 flex items-start gap-2">
+                    <div className="text-sm font-semibold text-foreground leading-tight flex-1 min-w-0 truncate">
                       {flexRender(titleCell.column.columnDef.cell, titleCell.getContext())}
                     </div>
                     {actionsCell && (

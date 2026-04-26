@@ -31,6 +31,7 @@ import {
   usePlanningRevisions, useCreateRevision, useApplyRevision, useDeleteRevision,
   useWbsNodes, useCreateWbsNode, useDeleteWbsNode,
   useProjectCpm,
+  useProject, useProjectTasks,
 } from '@/hooks/useProjets'
 import type {
   ProjectWBSNode, CPMTaskInfo, PlanningRevision,
@@ -213,6 +214,24 @@ export function WbsSection({ projectId }: { projectId: string }) {
 
 export function CpmSection({ projectId }: { projectId: string }) {
   const { data: cpm, isLoading } = useProjectCpm(projectId)
+  // Project + tasks fetched in parallel — both should already be cached
+  // by the parent panel, so this is a no-op network-wise. We use them
+  // to translate ES/EF day-offsets into real calendar dates and to
+  // overlay progress on the CPM mini-Gantt bars.
+  const { data: project } = useProject(projectId)
+  const { data: tasks = [] } = useProjectTasks(projectId)
+  const tasksById = useMemo(() => {
+    const m = new Map<string, typeof tasks[number]>()
+    for (const t of tasks) m.set(t.id, t)
+    return m
+  }, [tasks])
+  const projectStart = project?.start_date ? new Date(project.start_date) : null
+
+  const fmtDate = (dayOffset: number): string => {
+    if (!projectStart) return `J${dayOffset}`
+    const d = new Date(projectStart); d.setDate(d.getDate() + dayOffset)
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+  }
   // View toggle: by default focus on the critical path. The "all" mode
   // exposes the full task list with a mini Gantt for context.
   const [view, setView] = useState<'critical' | 'all'>('critical')
@@ -369,66 +388,111 @@ export function CpmSection({ projectId }: { projectId: string }) {
             </div>
           </div>
 
-          {/* Task list — adds a mini Gantt column for visual scanning */}
-          <div className="border border-border rounded overflow-hidden">
-            <div className="grid grid-cols-[1fr_120px_36px_36px_36px_36px] gap-1 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground">
-              <span>Tâche</span>
-              <span>Timeline</span>
-              <span className="text-right">ES</span>
-              <span className="text-right">EF</span>
-              <span className="text-right">Slack</span>
-              <span className="text-right">Dur.</span>
-            </div>
-            <div className="max-h-[280px] overflow-y-auto">
-              {filtered.length === 0 && (
-                <div className="px-2 py-3 text-[10px] text-muted-foreground italic text-center">
-                  {search ? 'Aucun résultat.' : 'Aucune tâche dans cette vue.'}
+          {/* Task list — title is capped (most titles are short) so the
+              timeline column gets all the leftover horizontal space.
+              Real calendar dates sit either side of the bar; the bar
+              itself shows the task duration with a darker overlay
+              proportional to actual progress. */}
+          {(() => {
+            // Grid: title (cap), start date, timeline (flex), end date, slack, dur
+            const GRID = 'minmax(140px,220px) 80px 1fr 80px 44px 44px'
+            return (
+              <div className="border border-border rounded overflow-hidden">
+                <div
+                  className="grid gap-2 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground"
+                  style={{ gridTemplateColumns: GRID }}
+                >
+                  <span>Tâche</span>
+                  <span className="text-right">{projectStart ? 'Début' : 'ES'}</span>
+                  <span>Timeline</span>
+                  <span className="text-left">{projectStart ? 'Fin' : 'EF'}</span>
+                  <span className="text-right">Marge</span>
+                  <span className="text-right">Durée</span>
                 </div>
-              )}
-              {filtered.map((t: CPMTaskInfo) => {
-                const total = cpm.project_duration_days || 1
-                const left = (t.early_start / total) * 100
-                const width = Math.max(2, (t.duration_days / total) * 100)
-                return (
-                  <div
-                    key={t.id}
-                    className={cn(
-                      'grid grid-cols-[1fr_120px_36px_36px_36px_36px] gap-1 px-2 py-1 text-[10px] border-t border-border/30 items-center',
-                      t.is_critical && 'bg-red-500/5',
-                    )}
-                    title={`${t.title}\nES J${t.early_start} → EF J${t.early_finish} · ${t.duration_days}j · marge ${t.slack}j`}
-                  >
-                    <span className="truncate flex items-center gap-1">
-                      {t.is_critical && <Zap size={9} className="text-red-500 shrink-0" />}
-                      <span className={cn(t.is_critical && 'font-medium')}>{t.title}</span>
-                    </span>
-                    {/* Mini Gantt bar — position ∝ ES, width ∝ duration */}
-                    <div className="relative h-2 bg-muted/40 rounded-sm overflow-hidden">
-                      <div
-                        className={cn(
-                          'absolute top-0 bottom-0 rounded-sm',
-                          t.is_critical ? 'bg-red-500' : 'bg-primary/60',
-                        )}
-                        style={{ left: `${left}%`, width: `${width}%` }}
-                      />
+                <div className="max-h-[320px] overflow-y-auto">
+                  {filtered.length === 0 && (
+                    <div className="px-2 py-3 text-[10px] text-muted-foreground italic text-center">
+                      {search ? 'Aucun résultat.' : 'Aucune tâche dans cette vue.'}
                     </div>
-                    <span className="text-right tabular-nums text-muted-foreground">J{t.early_start}</span>
-                    <span className="text-right tabular-nums text-muted-foreground">J{t.early_finish}</span>
-                    <span className={cn(
-                      'text-right tabular-nums',
-                      t.slack === 0 ? 'text-red-500 font-semibold' :
-                        t.slack < 5 ? 'text-orange-600' : 'text-muted-foreground',
-                    )}>
-                      {t.slack}j
-                    </span>
-                    <span className="text-right tabular-nums text-muted-foreground">{t.duration_days}j</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+                  )}
+                  {filtered.map((t: CPMTaskInfo) => {
+                    const total = cpm.project_duration_days || 1
+                    const left = (t.early_start / total) * 100
+                    const width = Math.max(2, (t.duration_days / total) * 100)
+                    const taskRow = tasksById.get(t.id)
+                    const progress = Math.max(0, Math.min(100, taskRow?.progress ?? 0))
+                    return (
+                      <div
+                        key={t.id}
+                        className={cn(
+                          'grid gap-2 px-2 py-1.5 text-[10px] border-t border-border/30 items-center',
+                          t.is_critical && 'bg-red-500/5',
+                        )}
+                        style={{ gridTemplateColumns: GRID }}
+                        title={`${t.title}\n${fmtDate(t.early_start)} → ${fmtDate(t.early_finish)} · ${t.duration_days}j · marge ${t.slack}j · ${progress}%`}
+                      >
+                        {/* Title */}
+                        <span className="truncate flex items-center gap-1 min-w-0">
+                          {t.is_critical && <Zap size={9} className="text-red-500 shrink-0" />}
+                          <span className={cn('truncate', t.is_critical && 'font-medium')}>{t.title}</span>
+                        </span>
+                        {/* Start date (real or J-offset) */}
+                        <span className="text-right tabular-nums text-muted-foreground text-[10px]">
+                          {fmtDate(t.early_start)}
+                        </span>
+                        {/* Mini Gantt — position ∝ ES, width ∝ duration.
+                            Inner darker bar reflects actual progress %. */}
+                        <div className="relative h-3 bg-muted/40 rounded-sm overflow-hidden">
+                          <div
+                            className={cn(
+                              'absolute top-0 bottom-0 rounded-sm overflow-hidden',
+                              t.is_critical ? 'bg-red-500/30' : 'bg-primary/25',
+                            )}
+                            style={{ left: `${left}%`, width: `${width}%` }}
+                          >
+                            {/* Progress overlay — darker fill proportional to % done */}
+                            <div
+                              className={cn(
+                                'absolute top-0 bottom-0 left-0 rounded-l-sm',
+                                t.is_critical ? 'bg-red-500' : 'bg-primary/80',
+                              )}
+                              style={{ width: `${progress}%` }}
+                              title={`${progress}% réalisé`}
+                            />
+                            {/* % label centered on the bar when there's room (>15% width) */}
+                            {width > 15 && (
+                              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold tabular-nums text-white mix-blend-difference pointer-events-none">
+                                {progress}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {/* End date */}
+                        <span className="text-left tabular-nums text-muted-foreground text-[10px]">
+                          {fmtDate(t.early_finish)}
+                        </span>
+                        {/* Slack */}
+                        <span className={cn(
+                          'text-right tabular-nums',
+                          t.slack === 0 ? 'text-red-500 font-semibold' :
+                            t.slack < 5 ? 'text-orange-600' : 'text-muted-foreground',
+                        )}>
+                          {t.slack}j
+                        </span>
+                        {/* Duration */}
+                        <span className="text-right tabular-nums text-muted-foreground">{t.duration_days}j</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
           <div className="text-[9px] text-muted-foreground italic">
-            ES = début au plus tôt · EF = fin au plus tôt · Slack = marge totale (0 = critique)
+            {projectStart
+              ? 'Dates calculées à partir du début du projet · Barre = durée · Remplissage = avancement · Marge 0 = tâche critique'
+              : 'ES = début au plus tôt · EF = fin au plus tôt · Marge 0 = tâche critique (configurez la date de début du projet pour afficher des dates réelles)'
+            }
           </div>
         </div>
       )}

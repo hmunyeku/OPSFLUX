@@ -14,6 +14,7 @@ import {
   Link2, Package, CheckSquare, History, ArrowRight,
   Settings2,
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
+  Sun, Cloud, CloudRain, CloudLightning,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Info, Paperclip, LayoutList, BarChart3, Search } from 'lucide-react'
@@ -655,6 +656,54 @@ function TaskRow({
   // Effective progress for the bar: parents show aggregate, leaves show their own.
   const displayProgress = subAgg ? subAgg.avgProgress : (task.progress ?? 0)
 
+  // Duration in days (inclusive). Returns null when either bound missing.
+  const durationDays = useMemo(() => {
+    if (!task.start_date || !task.due_date) return null
+    const s = new Date(task.start_date); const e = new Date(task.due_date)
+    const d = Math.round((e.getTime() - s.getTime()) / 86_400_000)
+    return d >= 0 ? d + 1 : null
+  }, [task.start_date, task.due_date])
+
+  // Weather indicator — derived heuristic comparing real progress vs.
+  // the linear "expected progress today" between start_date and due_date:
+  //   ☀ sunny  : on or ahead of schedule (or done)
+  //   ☁ cloudy : 10–25% behind expected
+  //   🌧 rainy  : >25% behind expected
+  //   ⛈ stormy : overdue and not finished
+  // Cancelled tasks return null (no météo).
+  const weather = useMemo<null | 'sunny' | 'cloudy' | 'rainy' | 'stormy'>(() => {
+    if (task.status === 'cancelled') return null
+    if (task.status === 'done') return 'sunny'
+    if (!task.due_date) return null
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const due = new Date(task.due_date); due.setHours(0, 0, 0, 0)
+    if (today > due && displayProgress < 100) return 'stormy'
+    const start = task.start_date ? new Date(task.start_date) : null
+    if (start) start.setHours(0, 0, 0, 0)
+    let expected = 0
+    if (start && due > start) {
+      if (today <= start) expected = 0
+      else if (today >= due) expected = 100
+      else expected = ((today.getTime() - start.getTime()) / (due.getTime() - start.getTime())) * 100
+    } else {
+      expected = today >= due ? 100 : 0
+    }
+    const delta = displayProgress - expected
+    if (delta < -25) return 'rainy'
+    if (delta < -10) return 'cloudy'
+    return 'sunny'
+  }, [task.status, task.start_date, task.due_date, displayProgress])
+
+  const WeatherIcon = weather === 'sunny' ? Sun : weather === 'cloudy' ? Cloud : weather === 'rainy' ? CloudRain : weather === 'stormy' ? CloudLightning : null
+  const weatherTone = weather === 'sunny' ? 'text-amber-500' : weather === 'cloudy' ? 'text-zinc-400' : weather === 'rainy' ? 'text-blue-500' : 'text-red-500'
+  const weatherLabel = weather === 'sunny' ? 'Dans les temps' : weather === 'cloudy' ? 'Léger retard' : weather === 'rainy' ? 'Retard important' : weather === 'stormy' ? 'En dépassement' : ''
+
+  const fmtShortDate = (iso: string | null) => {
+    if (!iso) return null
+    const d = new Date(iso)
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+  }
+
   return (
     <div
       ref={rowRef}
@@ -667,7 +716,9 @@ function TaskRow({
         highlight && 'bg-primary/15 ring-1 ring-primary/40 rounded-md',
       )}
     >
-      {/* Summary row */}
+      {/* Summary row — single line: chevron · status · title · meteo · dates · durée · % · actions.
+          The full-width progress bar that used to live below the title was removed:
+          progress is now expressed inline as a percentage and (visually) by the meteo. */}
       <div
         className="group flex items-center gap-2 py-1.5 text-xs hover:bg-muted/40 transition-colors cursor-pointer relative"
         style={{ paddingLeft: `${10 + depth * 16}px`, paddingRight: '10px' }}
@@ -684,59 +735,87 @@ function TaskRow({
         <button onClick={(e) => { e.stopPropagation(); handleStatusChange(nextTaskStatus(task.status)) }} className="shrink-0 hover:scale-110 transition-transform" title={statusOpt?.label}>
           <TaskStatusIcon status={task.status} />
         </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className={cn('truncate font-medium', task.status === 'done' && 'line-through text-muted-foreground')}>{task.title}</span>
-            {hasChildren && subAgg && (
-              <span className="shrink-0 text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground tabular-nums">
-                {subAgg.done}/{subAgg.total}
-              </span>
-            )}
-          </div>
-          {/* Mini progress bar — visible only when there's progress to show */}
-          {(displayProgress > 0 || task.status === 'in_progress' || task.status === 'review') && (
-            <div className="mt-1 h-[3px] rounded-full bg-muted overflow-hidden">
-              <div
-                className={cn(
-                  'h-full rounded-full transition-all',
-                  task.status === 'done' ? 'bg-green-500' :
-                  task.status === 'cancelled' ? 'bg-zinc-400' :
-                  overdue ? 'bg-red-500' :
-                  task.status === 'review' ? 'bg-yellow-500' :
-                  'bg-primary',
-                )}
-                style={{ width: `${Math.min(100, Math.max(0, displayProgress))}%` }}
-              />
-            </div>
+
+        {/* Title (flex-1, truncates) — keeps the strikethrough for done tasks */}
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <span className={cn('truncate font-medium', task.status === 'done' && 'line-through text-muted-foreground')}>{task.title}</span>
+          {hasChildren && subAgg && (
+            <span className="shrink-0 text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground tabular-nums">
+              {subAgg.done}/{subAgg.total}
+            </span>
+          )}
+          {(task.priority === 'high' || task.priority === 'critical') && (
+            <span className={cn('text-[9px] px-1 rounded shrink-0', task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500')}>
+              {priorityOpt?.label}
+            </span>
           )}
         </div>
-        {(task.priority === 'high' || task.priority === 'critical') && (
-          <span className={cn('text-[9px] px-1 rounded shrink-0', task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500')}>
-            {priorityOpt?.label}
+
+        {/* Météo — only when we can compute it (not cancelled, has due date) */}
+        {WeatherIcon && (
+          <span className={cn('shrink-0', weatherTone)} title={`Météo : ${weatherLabel}`}>
+            <WeatherIcon size={12} />
           </span>
         )}
-        {task.due_date && (
+
+        {/* Date range — start → end, compact. Only end if start is missing.
+            Hidden on very narrow widths via the `hidden sm:flex` switch. */}
+        {(task.start_date || task.due_date) && (
           <span
             className={cn(
-              'text-[10px] tabular-nums shrink-0',
+              'hidden sm:flex items-center gap-0.5 text-[10px] tabular-nums shrink-0 w-[110px] justify-end',
               overdue ? 'text-red-500 font-semibold' : 'text-muted-foreground',
             )}
-            title={overdue ? 'Échéance dépassée' : undefined}
+            title={
+              overdue ? 'Échéance dépassée' :
+              task.start_date && task.due_date ? `${fmtShortDate(task.start_date)} → ${fmtShortDate(task.due_date)}` :
+              task.due_date ? `Échéance ${fmtShortDate(task.due_date)}` :
+              `Début ${fmtShortDate(task.start_date)}`
+            }
           >
-            {new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+            {task.start_date && task.due_date ? (
+              <>
+                <span>{fmtShortDate(task.start_date)}</span>
+                <span className="text-muted-foreground/60">→</span>
+                <span>{fmtShortDate(task.due_date)}</span>
+              </>
+            ) : (
+              <span>{fmtShortDate(task.due_date) || fmtShortDate(task.start_date)}</span>
+            )}
           </span>
         )}
-        {!subAgg && task.progress > 0 && (
-          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{task.progress}%</span>
-        )}
+
+        {/* Durée — fixed width slot so columns align across rows */}
+        <span className="text-[10px] tabular-nums text-muted-foreground shrink-0 w-[42px] text-right" title={durationDays ? `Durée ${durationDays} j` : 'Durée non définie'}>
+          {durationDays ? `${durationDays}j` : '—'}
+        </span>
+
+        {/* Progress % — color-coded mini chip; always shown so the column is stable */}
+        <span
+          className={cn(
+            'shrink-0 w-[40px] text-right text-[10px] tabular-nums font-medium',
+            displayProgress >= 100 ? 'text-green-600' :
+            overdue ? 'text-red-500' :
+            displayProgress >= 50 ? 'text-primary' :
+            displayProgress > 0 ? 'text-foreground/80' :
+            'text-muted-foreground/60',
+          )}
+          title={subAgg ? `Moyenne ${displayProgress}% sur ${subAgg.total} sous-tâches` : `${displayProgress}%`}
+        >
+          {displayProgress}%
+        </span>
+
+        {/* Assignee — hidden on small to keep the row tight */}
         {task.assignee_name && (
           <span
-            className="text-muted-foreground text-[10px] max-w-[80px] truncate shrink-0"
+            className="hidden md:inline text-muted-foreground text-[10px] max-w-[80px] truncate shrink-0"
             title={task.assignee_name}
           >
             {task.assignee_name}
           </span>
         )}
+
+        {/* Actions */}
         {confirmDelete ? (
           <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
             <button onClick={handleDelete} className="gl-button gl-button-danger text-red-500"><Check size={10} /></button>

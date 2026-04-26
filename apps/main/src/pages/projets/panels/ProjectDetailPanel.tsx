@@ -67,6 +67,8 @@ import { useCurrentEntity } from '@/hooks/useEntities'
 import { isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
 import { TaskTable } from '@/components/projets/TaskTable'
+import { GanttCore } from '@/components/shared/gantt/GanttCore'
+import type { GanttRow, GanttBarData } from '@/components/shared/gantt/GanttCore'
 import { useUsers } from '@/hooks/useUsers'
 import { UserPicker } from '@/components/shared/UserPicker'
 import type {
@@ -1148,6 +1150,119 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
 // -- Task Section (list + create) — like Gouti "Progression et controle" -----
 
 /**
+ * ProjectMiniGantt — a compact GanttCore embed for the fullscreen
+ * Tâches view. Takes the project's tasks directly and renders rows +
+ * bars hierarchically. Click on a bar/row lifts selection to the
+ * parent so the table on the left highlights the same task; the
+ * '⋯' double-click on a bar opens the advanced editor.
+ */
+const TASK_BAR_COLORS: Record<string, string> = {
+  todo:        '#94a3b8',
+  in_progress: '#3b82f6',
+  review:      '#f59e0b',
+  done:        '#10b981',
+  cancelled:   '#9ca3af',
+}
+
+function ProjectMiniGantt({
+  tasks, selectedTaskId, onSelect, onOpenAdvanced,
+}: {
+  tasks: ProjectTask[]
+  selectedTaskId: string | null
+  onSelect: (id: string | null) => void
+  onOpenAdvanced: (task: ProjectTask) => void
+}) {
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set(tasks.map(t => t.id)))
+
+  const { rows, bars } = useMemo(() => {
+    const tree = new Map<string | null, ProjectTask[]>()
+    for (const t of tasks) {
+      const k = t.parent_id ?? null
+      if (!tree.has(k)) tree.set(k, [])
+      tree.get(k)!.push(t)
+    }
+    for (const arr of tree.values()) arr.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+
+    const rows: GanttRow[] = []
+    const bars: GanttBarData[] = []
+    const known = new Set(tasks.map(t => t.id))
+
+    const walk = (parentId: string | null, level: number) => {
+      const children = tree.get(parentId) || []
+      for (const t of children) {
+        const kids = tree.get(t.id) || []
+        const hasKids = kids.length > 0
+        const color = TASK_BAR_COLORS[t.status] ?? '#94a3b8'
+        rows.push({
+          id: t.id,
+          label: t.is_milestone ? `◆ ${t.title}` : t.title,
+          sublabel: t.assignee_name || undefined,
+          level,
+          hasChildren: hasKids,
+          color,
+        })
+        if (t.start_date && t.due_date) {
+          bars.push({
+            id: t.id,
+            rowId: t.id,
+            title: t.title,
+            startDate: t.start_date.split('T')[0],
+            endDate: t.due_date.split('T')[0],
+            progress: t.progress ?? 0,
+            color,
+            status: t.status,
+            isSummary: hasKids,
+            isMilestone: t.is_milestone,
+          })
+        }
+        if (hasKids && expandedRows.has(t.id)) walk(t.id, level + 1)
+      }
+    }
+    walk(null, 0)
+    // Orphans (parent_id pointing outside the loaded set)
+    for (const t of tasks) {
+      if (t.parent_id && !known.has(t.parent_id) && !rows.some(r => r.id === t.id)) {
+        rows.push({ id: t.id, label: t.title, level: 0, hasChildren: false, color: TASK_BAR_COLORS[t.status] ?? '#94a3b8' })
+      }
+    }
+    return { rows, bars }
+  }, [tasks, expandedRows])
+
+  const toggleRow = useCallback((rowId: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev)
+      if (next.has(rowId)) next.delete(rowId); else next.add(rowId)
+      return next
+    })
+  }, [])
+
+  return (
+    <GanttCore
+      rows={rows}
+      bars={bars}
+      initialScale="month"
+      showToolbar
+      showGrid
+      minHeight="100%"
+      expandedRows={expandedRows}
+      onToggleRow={toggleRow}
+      onRowClick={(rowId) => onSelect(rowId)}
+      onBarClick={(barId) => onSelect(barId)}
+      onBarDoubleClick={(barId) => {
+        const t = tasks.find(t => t.id === barId)
+        if (t) onOpenAdvanced(t)
+      }}
+      emptyMessage="Aucune tâche planifiée. Définissez des dates pour voir les barres apparaître."
+      // Selection-aware: GanttCore doesn't natively highlight a row on
+      // demand so we re-key the component when the selection changes —
+      // not ideal but cheap, and guarantees the visual stays in sync.
+      key={`mini-gantt-${selectedTaskId ?? 'none'}`}
+      className="h-full"
+    />
+  )
+}
+
+/**
  * TaskFullscreenOverlay — full-viewport split view for the task list.
  *
  * Layout: <TaskTable /> on the left, ProjectGanttWrapper on the right
@@ -1256,22 +1371,19 @@ function TaskFullscreenOverlay({
           title="Glisser pour redimensionner"
         />
 
-        {/* Right: Gantt placeholder — V2 will embed the existing
-            ProjectGanttWrapper here. For now we surface a clear
-            placeholder with the reason so the user knows it's planned. */}
+        {/* Right: Gantt — embedded GanttCore fed from the same task list.
+            Selecting a task in the table highlights the row in the Gantt;
+            clicking a bar lifts selection back to the table. */}
         <div
-          className="overflow-auto p-3 bg-muted/10"
+          className="bg-muted/10 min-h-0"
           style={{ width: `${100 - splitPct}%` }}
         >
-          <div className="h-full border border-dashed border-border/60 rounded-md flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
-            <BarChart3 size={36} className="mb-3 opacity-40" />
-            <div className="text-sm font-medium text-foreground/80 mb-1">Gantt à droite</div>
-            <p className="text-xs max-w-xs">
-              Le Gantt synchronisé arrive dans la prochaine itération.
-              En attendant tu peux ouvrir la vue Gantt complète depuis l'onglet
-              Planification du panneau projet.
-            </p>
-          </div>
+          <ProjectMiniGantt
+            tasks={tasks}
+            selectedTaskId={selectedTaskId}
+            onSelect={onSelect}
+            onOpenAdvanced={onOpenAdvanced}
+          />
         </div>
       </div>
     </div>

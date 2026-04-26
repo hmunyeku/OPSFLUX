@@ -6,9 +6,10 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  CalendarRange, ListTodo, Clock, Users, CheckCircle2, XCircle, Send, Ban, ChevronDown, ChevronUp, BarChart3,
-  AlertTriangle,
+  CalendarRange, ListTodo, Clock, Users, CheckCircle2, Send, Ban, ChevronDown, ChevronUp, BarChart3,
+  AlertTriangle, Check, X, Trash2,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -25,7 +26,6 @@ import { useToast } from '@/components/ui/Toast'
 import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
 import {
   useActivities,
-  useCreateActivity,
   useDeleteActivity,
   useSubmitActivity,
   useValidateActivity,
@@ -87,7 +87,6 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
   const confirmDialog = useConfirm()
   const promptInput = usePromptInput()
   const { toast } = useToast()
-  const createActivity = useCreateActivity()
   const deleteActivity = useDeleteActivity()
   const submitActivity = useSubmitActivity()
   const validateActivity = useValidateActivity()
@@ -283,14 +282,16 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
     {
       id: 'actions',
       header: '',
-      size: 120,
+      size: 130,
       cell: ({ row }) => {
         const s = row.original.status
         return (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 justify-end">
             {s === 'draft' && (
-              <button
-                className="gl-button gl-button-confirm"
+              <RowIconBtn
+                icon={Send}
+                tone="primary"
+                title="Soumettre pour validation"
                 onClick={(e) => handleAction(e, () => submitActivity.mutate(row.original.id, {
                   onSuccess: () => toast({ title: t('planner.toast.activity_submitted'), variant: 'success' }),
                   onError: (err) => toast({
@@ -299,15 +300,14 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                     variant: 'error',
                   }),
                 }))}
-                title="Soumettre"
-              >
-                <Send size={12} />
-              </button>
+              />
             )}
             {s === 'submitted' && (
               <>
-                <button
-                  className="p-1 rounded hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-600"
+                <RowIconBtn
+                  icon={Check}
+                  tone="emerald"
+                  title="Valider"
                   onClick={(e) => handleAction(e, () => validateActivity.mutate(row.original.id, {
                     onSuccess: () => toast({ title: t('planner.toast.activity_validated'), variant: 'success' }),
                     onError: (err) => toast({
@@ -316,12 +316,11 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                       variant: 'error',
                     }),
                   }))}
-                  title="Valider"
-                >
-                  <CheckCircle2 size={12} />
-                </button>
-                <button
-                  className="gl-button gl-button-danger"
+                />
+                <RowIconBtn
+                  icon={X}
+                  tone="rose"
+                  title={t('common.reject')}
                   onClick={(e) => handleAction(e, async () => {
                     const reason = await promptInput({ title: t('planner.toast.reject_activity_title'), placeholder: 'Motif du rejet...' })
                     if (reason !== null) rejectActivity.mutate({ id: row.original.id, reason }, {
@@ -333,35 +332,30 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                       }),
                     })
                   })}
-                  title={t('common.reject')}
-                >
-                  <XCircle size={12} />
-                </button>
+                />
               </>
             )}
             {!['completed', 'cancelled'].includes(s) && (
-              <button
-                className="gl-button gl-button-danger"
+              <RowIconBtn
+                icon={Ban}
+                tone="amber"
+                title={t('common.cancel')}
                 onClick={(e) => handleAction(e, async () => {
                   const ok = await confirmDialog({ title: 'Annuler ?', message: 'Annuler cette activité ?', confirmLabel: 'Annuler', variant: 'warning' })
                   if (ok) cancelActivity.mutate(row.original.id)
                 })}
-                title={t('common.cancel')}
-              >
-                <Ban size={12} />
-              </button>
+              />
             )}
             {canDelete && (
-              <button
-                className="gl-button gl-button-danger"
+              <RowIconBtn
+                icon={Trash2}
+                tone="rose"
+                title={t('common.delete')}
                 onClick={(e) => handleAction(e, async () => {
                   const ok = await confirmDialog({ title: 'Supprimer ?', message: 'Supprimer cette activité ?', confirmLabel: 'Supprimer', variant: 'danger' })
                   if (ok) deleteActivity.mutate(row.original.id)
                 })}
-                title={t('common.delete')}
-              >
-                <span className="text-xs">&times;</span>
-              </button>
+              />
             )}
           </div>
         )
@@ -578,49 +572,10 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
               end_date: 'Fin',
               status: 'Statut',
             },
-            // Basic CSV import — creates activities row by row from the
-            // mandatory fields. The full Import Wizard (with column
-            // mapping + duplicate strategy) requires backend support
-            // for `planner_activity` as an ImportTargetObject which
-            // doesn't exist yet (V2 work).
-            importCsv: true,
-            importTemplate: {
-              columns: [
-                { key: 'title',       label: 'Titre',       required: true,  example: 'Maintenance pompe P-101' },
-                { key: 'type',        label: 'Type',        required: true,  example: 'maintenance' },
-                { key: 'priority',    label: 'Priorité',                     example: 'medium' },
-                { key: 'pax_quota',   label: 'PAX',                          example: '6' },
-                { key: 'start_date',  label: 'Début',       required: true,  example: '2026-04-01' },
-                { key: 'end_date',    label: 'Fin',         required: true,  example: '2026-04-05' },
-                { key: 'description', label: 'Description',                  example: 'Inspection trimestrielle' },
-              ],
-              filename: 'modele-import-activites.xlsx',
-              includeExamples: true,
-            },
-            onImport: async (rows) => {
-              let ok = 0, ko = 0
-              for (const r of rows) {
-                try {
-                  const title = String(r.title ?? r.Titre ?? '').trim()
-                  if (!title) { ko++; continue }
-                  await createActivity.mutateAsync({
-                    title,
-                    type: String(r.type ?? r.Type ?? 'project').toLowerCase().trim(),
-                    priority: String(r.priority ?? r.Priorité ?? 'medium').toLowerCase().trim(),
-                    pax_quota: r.pax_quota != null ? Number(r.pax_quota) : 0,
-                    start_date: String(r.start_date ?? r['Début'] ?? '').trim(),
-                    end_date: String(r.end_date ?? r.Fin ?? '').trim(),
-                    description: r.description != null ? String(r.description) : null,
-                  } as never)
-                  ok++
-                } catch { ko++ }
-              }
-              toast({
-                title: `Import terminé`,
-                description: `${ok} activité(s) créée(s)${ko > 0 ? `, ${ko} ignorée(s)` : ''}`,
-                variant: ko > 0 && ok === 0 ? 'error' : 'success',
-              })
-            },
+            // Full Import Wizard wired to the backend
+            // PlannerActivityHandler — supports column mapping,
+            // transforms, validation preview, and duplicate strategy.
+            importWizardTarget: 'planner_activity',
           } : undefined}
           storageKey="planner-activities"
         />
@@ -653,11 +608,51 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// ActivityDurationBar — per-row mini bar showing the activity span.
-// Width fills the column, length proportional to its duration; a
-// vertical "today" tick marks where we are if the activity is
-// currently running. Past activities show a fully-filled bar (done
-// time-wise), future activities show a hollow bar.
+// RowIconBtn — uniform compact icon button used by the row actions.
+// All actions share the same 24×24 footprint, muted at rest, tinted
+// on hover according to their semantic tone.
+// ──────────────────────────────────────────────────────────────────────
+function RowIconBtn({
+  icon: Icon, tone, title, onClick,
+}: {
+  icon: LucideIcon
+  tone: 'primary' | 'emerald' | 'rose' | 'amber'
+  title: string
+  onClick: (e: React.MouseEvent) => void
+}) {
+  const toneClass =
+    tone === 'primary' ? 'hover:bg-primary/10 hover:text-primary'
+    : tone === 'emerald' ? 'hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400'
+    : tone === 'rose' ? 'hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400'
+    : 'hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className={cn(
+        'inline-flex items-center justify-center w-6 h-6 rounded text-muted-foreground transition-colors',
+        toneClass,
+      )}
+    >
+      <Icon size={13} strokeWidth={2.25} />
+    </button>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// ActivityDurationBar — per-row mini POB sparkline.
+//   - When the activity has `pax_quota_daily` (a daily POB map), we
+//     plot the actual curve over the activity's date range.
+//   - Otherwise we synthesise a flat curve at `pax_quota` so the user
+//     still sees the duration + today position.
+//   - Vertical 'today' line is drawn only when the activity is in
+//     progress (today between start_date and end_date). Past and
+//     future activities show only the curve, no today marker.
+//   - The curve is filled below for visual weight; tone tracks the
+//     activity status (emerald done, red overdue, primary live,
+//     muted future, zinc cancelled).
 // ──────────────────────────────────────────────────────────────────────
 function ActivityDurationBar({ activity }: { activity: PlannerActivity }) {
   const start = activity.start_date ? new Date(activity.start_date).getTime() : null
@@ -666,29 +661,79 @@ function ActivityDurationBar({ activity }: { activity: PlannerActivity }) {
     return <span className="text-[10px] text-muted-foreground/60">—</span>
   }
   const now = Date.now()
-  const total = end - start
-  const elapsed = Math.max(0, Math.min(total, now - start))
-  const pct = (elapsed / total) * 100
+  const totalMs = end - start
+  const totalDays = Math.max(1, Math.round(totalMs / 86_400_000))
   const isPast = now > end
   const isFuture = now < start
   const isLive = !isPast && !isFuture
-  const tone = activity.status === "completed" ? "bg-emerald-500"
-    : activity.status === "cancelled" ? "bg-zinc-400"
-    : isPast ? "bg-red-500/80"
-    : isLive ? "bg-primary"
-    : "bg-primary/30"
-  const totalDays = Math.round(total / 86_400_000)
+  const elapsedPct = isPast ? 100 : isFuture ? 0 : ((now - start) / totalMs) * 100
+
+  // Build POB curve. Sample ~24 points across the activity duration.
+  // If `pax_quota_daily` is provided we read it day by day; otherwise
+  // we plot a flat line at `pax_quota` (still useful — shows the
+  // duration + today position).
+  const sampleCount = Math.min(48, Math.max(8, totalDays))
+  const dayMs = 86_400_000
+  const daily = activity.pax_quota_daily
+  const baseQuota = activity.pax_quota ?? 0
+  const samples: number[] = []
+  for (let i = 0; i < sampleCount; i++) {
+    const t = start + (i / (sampleCount - 1)) * totalMs
+    if (daily) {
+      const key = new Date(Math.floor(t / dayMs) * dayMs).toISOString().slice(0, 10)
+      samples.push(daily[key] ?? baseQuota)
+    } else {
+      samples.push(baseQuota)
+    }
+  }
+  const max = Math.max(...samples, 1)
+  const min = 0
+
+  // Geometry — width fills, fixed compact height.
+  const W = 100, H = 22
+  const pts = samples.map((v, i) => {
+    const x = (i / (sampleCount - 1)) * W
+    const y = H - 2 - ((v - min) / (max - min || 1)) * (H - 4)
+    return [x, y] as const
+  })
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
+  const area = `${line} L${W},${H} L0,${H} Z`
+
+  const tone = activity.status === 'completed' ? '#10b981'
+    : activity.status === 'cancelled' ? '#a1a1aa'
+    : isPast ? '#ef4444'
+    : isLive ? 'hsl(var(--primary))'
+    : '#94a3b8'
+
+  // Display % — the schedule progress (calendar-elapsed % of duration).
+  const pctLabel = `${Math.round(elapsedPct)}%`
+
   return (
-    <div className="flex items-center gap-1 min-w-0">
-      <div className="relative h-2 flex-1 min-w-[60px] rounded-sm bg-muted/40 overflow-hidden">
-        <div className={"absolute top-0 bottom-0 left-0 rounded-sm " + tone}
-             style={{ width: isPast ? "100%" : isFuture ? "0%" : pct + "%" }} />
+    <div className="flex items-center gap-1.5 min-w-0">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        height={H}
+        preserveAspectRatio="none"
+        className="flex-1 min-w-[60px]"
+        aria-label={`POB ${activity.pax_quota} sur ${totalDays}j`}
+      >
+        {/* Filled area + line */}
+        <path d={area} fill={tone} fillOpacity={0.18} />
+        <path d={line} fill="none" stroke={tone} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        {/* Today vertical line — only for in-progress activities. */}
         {isLive && (
-          <div className="absolute top-[-2px] bottom-[-2px] w-[2px] bg-foreground"
-               style={{ left: "calc(" + pct + "% - 1px)" }} />
+          <line
+            x1={(elapsedPct / 100) * W} x2={(elapsedPct / 100) * W}
+            y1={1} y2={H - 1}
+            stroke="hsl(var(--foreground))"
+            strokeWidth={1.2}
+            strokeDasharray="2,2"
+            opacity={0.85}
+          />
         )}
-      </div>
-      <span className="text-[9px] tabular-nums text-muted-foreground shrink-0">{totalDays}j</span>
+      </svg>
+      <span className="text-[10px] tabular-nums text-muted-foreground shrink-0 min-w-[28px] text-right">{pctLabel}</span>
     </div>
   )
 }

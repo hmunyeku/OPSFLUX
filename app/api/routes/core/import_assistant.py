@@ -44,6 +44,7 @@ _PERMISSION_MAP: dict[str, str] = {
     "contact": "tier.create",
     "pax_profile": "paxlog.ads.create",
     "project": "project.create",
+    "planner_activity": "planner.activity.create",
     "compliance_record": "conformite.create",
     "imputation_reference": "imputation.create",
     "imputation_otp_template": "imputation.template.manage",

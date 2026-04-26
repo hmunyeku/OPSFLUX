@@ -1892,6 +1892,95 @@ class ImputationAssignmentHandler(TargetObjectHandler):
             obj.notes = _safe_str(row.get("notes"))
 
 
+# ── Planner Activity Handler ──────────────────────────────────────────────
+
+
+class PlannerActivityHandler(TargetObjectHandler):
+    key = "planner_activity"
+    label = "Activités Planner"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="title", label="Titre", type="string", required=True, example="Maintenance pompe P-101"),
+            TargetFieldDef(key="asset_code", label="Code installation", type="lookup", required=True, lookup_target="asset.code", example="ASP1"),
+            TargetFieldDef(key="project_code", label="Code projet", type="lookup", lookup_target="project.code"),
+            TargetFieldDef(key="type", label="Type", type="string", required=True, example="maintenance"),
+            TargetFieldDef(key="priority", label="Priorité", type="string", example="medium"),
+            TargetFieldDef(key="pax_quota", label="POB / PAX", type="integer", example="6"),
+            TargetFieldDef(key="start_date", label="Date début", type="datetime", required=True, example="2026-04-01"),
+            TargetFieldDef(key="end_date", label="Date fin", type="datetime", required=True, example="2026-04-05"),
+            TargetFieldDef(key="description", label="Description", type="string"),
+        ]
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        from app.models.planner import PlannerActivity  # noqa: F401 (kept for schema reference)
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+        if not row.get("title"):
+            errors.append(RowValidationError(row_index=idx, field="title", message="Titre requis"))
+        asset_code = row.get("asset_code")
+        if not asset_code:
+            errors.append(RowValidationError(row_index=idx, field="asset_code", message="Code installation requis"))
+        else:
+            res = await db.execute(select(Installation.id).where(
+                Installation.entity_id == entity_id,
+                Installation.code == str(asset_code).strip(),
+            ))
+            if not res.scalar_one_or_none():
+                errors.append(RowValidationError(row_index=idx, field="asset_code", message=f"Installation introuvable: {asset_code}"))
+        if not row.get("type"):
+            errors.append(RowValidationError(row_index=idx, field="type", message="Type requis"))
+        if not row.get("start_date"):
+            errors.append(RowValidationError(row_index=idx, field="start_date", message="Date début requise"))
+        if not row.get("end_date"):
+            errors.append(RowValidationError(row_index=idx, field="end_date", message="Date fin requise"))
+        prio = str(row.get("priority", "")).strip().lower() or "medium"
+        if prio not in ("low", "medium", "high", "critical"):
+            errors.append(RowValidationError(row_index=idx, field="priority", message=f"Priorité invalide: {prio}", severity="warning"))
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        # No natural duplicate key — title is not unique. Caller can
+        # use a code/external ref later if they want dedup.
+        return None
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        from app.models.planner import PlannerActivity
+        # Resolve asset
+        asset_code = str(row.get("asset_code", "")).strip()
+        ar = await db.execute(select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == asset_code))
+        asset_id = ar.scalar_one()
+        # Resolve optional project
+        project_id: UUID | None = None
+        project_code = row.get("project_code")
+        if project_code:
+            pr = await db.execute(select(Project.id).where(Project.entity_id == entity_id, Project.code == str(project_code).strip()))
+            project_id = pr.scalar_one_or_none()
+        obj = PlannerActivity(
+            entity_id=entity_id,
+            asset_id=asset_id,
+            project_id=project_id,
+            title=str(row.get("title", "")).strip(),
+            type=str(row.get("type", "project")).strip().lower() or "project",
+            priority=str(row.get("priority", "medium")).strip().lower() or "medium",
+            pax_quota=_safe_int(row.get("pax_quota")) or 0,
+            start_date=_safe_datetime(row.get("start_date")),
+            end_date=_safe_datetime(row.get("end_date")),
+            description=str(row.get("description", "")).strip() or None,
+            status="draft",
+            created_by=user_id,
+        )
+        db.add(obj)
+        await db.flush()
+        return obj.id
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        # Updates not supported via import for activities — duplicate
+        # detection returns None, so we never get here. Implemented as
+        # a no-op to satisfy the abstract interface.
+        return None
+
+
 # ── Handler registry ──────────────────────────────────────────────────────
 
 HANDLERS: dict[str, TargetObjectHandler] = {}
@@ -1904,6 +1993,7 @@ _register_handler(TierHandler())
 _register_handler(ContactHandler())
 _register_handler(PaxProfileHandler())
 _register_handler(ProjectHandler())
+_register_handler(PlannerActivityHandler())
 _register_handler(ComplianceRecordHandler())
 _register_handler(ImputationReferenceHandler())
 _register_handler(ImputationOtpTemplateHandler())

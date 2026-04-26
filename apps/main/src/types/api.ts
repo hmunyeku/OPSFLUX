@@ -3300,7 +3300,7 @@ export interface CaptainWeatherReport {
 
 // ── Import Assistant ─────────────────────────────────────────
 
-export type ImportTargetObject = 'asset' | 'tier' | 'contact' | 'pax_profile' | 'project' | 'compliance_record' | 'imputation_reference' | 'imputation_otp_template' | 'imputation_assignment' | 'user' | 'group' | 'ar_field' | 'ar_site' | 'ar_installation' | 'ar_equipment' | 'ar_pipeline'
+export type ImportTargetObject = 'asset' | 'tier' | 'contact' | 'pax_profile' | 'project' | 'planner_activity' | 'compliance_record' | 'imputation_reference' | 'imputation_otp_template' | 'imputation_assignment' | 'user' | 'group' | 'ar_field' | 'ar_site' | 'ar_installation' | 'ar_equipment' | 'ar_pipeline'
 export type DuplicateStrategy = 'skip' | 'update' | 'fail'
 
 /** Column transformation applied client-side before sending to backend */

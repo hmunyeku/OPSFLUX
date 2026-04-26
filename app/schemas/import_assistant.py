@@ -12,7 +12,7 @@ from app.schemas.common import OpsFluxSchema
 # ── Enums ──────────────────────────────────────────────────────────────────
 
 TargetObject = Literal[
-    "asset", "tier", "contact", "pax_profile", "project", "compliance_record", "imputation_reference", "imputation_otp_template", "imputation_assignment"
+    "asset", "tier", "contact", "pax_profile", "project", "planner_activity", "compliance_record", "imputation_reference", "imputation_otp_template", "imputation_assignment"
 ]
 
 DuplicateStrategy = Literal["skip", "update", "fail"]

@@ -1746,72 +1746,76 @@ function ActivityFeedSection({
     const clickable = !!taskId && !!onNavigateToTask
     const time = new Date(item.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
+    // One-line layout: [icon] [actor] · [task title] · [field old → new]      [time]
+    // Each row collapses everything onto a single horizontal line; the
+    // narrative still reads naturally because we keep the same "actor /
+    // subject / change" order, just separated by middots instead of
+    // breaks.
     return (
-      <div className="flex items-start gap-2 group">
-        {/* Timeline dot column */}
-        <div className="flex flex-col items-center pt-1 shrink-0">
-          <div className="rounded-full bg-card border border-border p-0.5">{iconForType(item.type)}</div>
-          <div className="flex-1 w-px bg-border/40 mt-1 min-h-[12px]" />
-        </div>
-        {/* Content card */}
-        <button
-          type="button"
-          onClick={clickable ? () => onNavigateToTask!(taskId!) : undefined}
-          disabled={!clickable}
-          className={cn(
-            'flex-1 min-w-0 text-left rounded-md px-2 py-1.5 transition-all',
-            clickable
-              ? 'hover:bg-muted/60 hover:ring-1 hover:ring-primary/30 cursor-pointer'
-              : 'cursor-default',
-          )}
-          title={clickable ? 'Aller à la tâche' : undefined}
-        >
-          {/* Header: actor + relative time */}
-          <div className="flex items-baseline justify-between gap-2 mb-0.5">
-            <span className="text-[11px] font-medium text-foreground truncate">
-              {item.user || 'Système'}
-            </span>
-            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{time}</span>
-          </div>
+      <button
+        type="button"
+        onClick={clickable ? () => onNavigateToTask!(taskId!) : undefined}
+        disabled={!clickable}
+        className={cn(
+          'group flex items-center gap-2 w-full text-left rounded-md px-2 py-1 text-[11px] transition-colors',
+          clickable
+            ? 'hover:bg-muted/60 hover:ring-1 hover:ring-primary/30 cursor-pointer'
+            : 'cursor-default',
+        )}
+        title={clickable ? 'Aller à la tâche' : undefined}
+      >
+        <span className="shrink-0">{iconForType(item.type)}</span>
 
-          {/* Body — typed rendering */}
-          {item.type === 'task_change' && (
-            <div className="text-[11px] leading-tight">
-              {item.task_title && (
-                <div className="font-medium text-foreground/90 truncate flex items-center gap-1">
-                  {item.task_title}
-                  {clickable && (
-                    <ChevronRight size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  )}
-                </div>
-              )}
-              <div className="text-muted-foreground flex items-center gap-1 flex-wrap mt-0.5">
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">{humaniseField(item.field)}</span>
-                <span className="px-1 py-0.5 rounded bg-red-500/10 text-red-700 dark:text-red-300 text-[10px] line-through">{fmtFieldValue(item.field, item.old)}</span>
-                <span className="text-muted-foreground/60">→</span>
-                <span className="px-1 py-0.5 rounded bg-green-500/10 text-green-700 dark:text-green-300 text-[10px] font-medium">{fmtFieldValue(item.field, item.new)}</span>
-              </div>
-            </div>
-          )}
+        {/* Actor */}
+        <span className="font-medium text-foreground shrink-0 truncate max-w-[140px]">
+          {item.user || 'Système'}
+        </span>
 
-          {item.type === 'status_change' && (
-            <div className="text-[11px] text-foreground">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">Statut projet</span>
-              {item.detail}
-              {item.reason && <span className="text-muted-foreground italic ml-1">— {item.reason}</span>}
-            </div>
-          )}
+        {/* Subject (task title for task_change/comment, "Statut projet" for status_change) */}
+        {item.type === 'task_change' && item.task_title && (
+          <>
+            <span className="text-muted-foreground/50 shrink-0">·</span>
+            <span className="text-foreground/90 truncate">{item.task_title}</span>
+          </>
+        )}
+        {item.type === 'status_change' && (
+          <>
+            <span className="text-muted-foreground/50 shrink-0">·</span>
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 shrink-0">Statut projet</span>
+            <span className="text-foreground/90 truncate">{item.detail}</span>
+            {item.reason && <span className="text-muted-foreground italic truncate">— {item.reason}</span>}
+          </>
+        )}
+        {item.type === 'comment' && (
+          <>
+            <span className="text-muted-foreground/50 shrink-0">·</span>
+            <span className="text-foreground/90 italic truncate">«&nbsp;{(item.body || '').slice(0, 100)}{(item.body?.length ?? 0) > 100 ? '…' : ''}&nbsp;»</span>
+          </>
+        )}
 
-          {item.type === 'comment' && (
-            <div className="text-[11px] text-foreground/90 italic">
-              «&nbsp;{(item.body || '').slice(0, 140)}{(item.body?.length ?? 0) > 140 ? '…' : ''}&nbsp;»
-              {item.owner_type === 'project_task' && clickable && (
-                <span className="text-[10px] text-primary not-italic ml-1">↗ tâche</span>
-              )}
-            </div>
-          )}
-        </button>
-      </div>
+        {/* Change detail (only for task_change) */}
+        {item.type === 'task_change' && (
+          <>
+            <span className="text-muted-foreground/50 shrink-0">·</span>
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 shrink-0">{humaniseField(item.field)}</span>
+            <span className="px-1 rounded bg-red-500/10 text-red-700 dark:text-red-300 text-[10px] line-through shrink-0 max-w-[100px] truncate">{fmtFieldValue(item.field, item.old)}</span>
+            <span className="text-muted-foreground/60 shrink-0">→</span>
+            <span className="px-1 rounded bg-green-500/10 text-green-700 dark:text-green-300 text-[10px] font-medium shrink-0 max-w-[100px] truncate">{fmtFieldValue(item.field, item.new)}</span>
+          </>
+        )}
+
+        {item.type === 'comment' && item.owner_type === 'project_task' && clickable && (
+          <span className="text-[10px] text-primary shrink-0">↗</span>
+        )}
+
+        {/* Spacer pushes time to the right */}
+        <span className="flex-1" />
+
+        {clickable && (
+          <ChevronRight size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+        )}
+        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{time}</span>
+      </button>
     )
   }
 

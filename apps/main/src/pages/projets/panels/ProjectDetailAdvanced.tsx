@@ -394,18 +394,23 @@ export function CpmSection({ projectId }: { projectId: string }) {
               itself shows the task duration with a darker overlay
               proportional to actual progress. */}
           {(() => {
-            // Grid: title (cap), start date, timeline (flex), end date, slack, dur
-            const GRID = 'minmax(140px,220px) 80px 1fr 80px 44px 44px'
+            // Column order asked by users: WBS · Tâche · Début · Fin ·
+            // Progression · Timeline · Marge · Durée. The timeline is
+            // capped (was 1fr — way too wide on big screens); the
+            // tâche column gets the leftover flex space.
+            const GRID = '64px minmax(180px,1fr) 78px 78px 56px minmax(180px,360px) 50px 50px'
             return (
               <div className="border border-border rounded overflow-hidden">
                 <div
                   className="grid gap-2 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground"
                   style={{ gridTemplateColumns: GRID }}
                 >
+                  <span>WBS</span>
                   <span>Tâche</span>
                   <span className="text-right">{projectStart ? 'Début' : 'ES'}</span>
+                  <span className="text-right">{projectStart ? 'Fin' : 'EF'}</span>
+                  <span className="text-right">%</span>
                   <span>Timeline</span>
-                  <span className="text-left">{projectStart ? 'Fin' : 'EF'}</span>
                   <span className="text-right">Marge</span>
                   <span className="text-right">Durée</span>
                 </div>
@@ -421,6 +426,7 @@ export function CpmSection({ projectId }: { projectId: string }) {
                     const width = Math.max(2, (t.duration_days / total) * 100)
                     const taskRow = tasksById.get(t.id)
                     const progress = Math.max(0, Math.min(100, taskRow?.progress ?? 0))
+                    const wbs = taskRow?.code || '—'
                     return (
                       <div
                         key={t.id}
@@ -431,14 +437,32 @@ export function CpmSection({ projectId }: { projectId: string }) {
                         style={{ gridTemplateColumns: GRID }}
                         title={`${t.title}\n${fmtDate(t.early_start)} → ${fmtDate(t.early_finish)} · ${t.duration_days}j · marge ${t.slack}j · ${progress}%`}
                       >
+                        {/* WBS code */}
+                        <span className="truncate text-[10px] tabular-nums text-muted-foreground" title={wbs}>
+                          {wbs}
+                        </span>
                         {/* Title */}
                         <span className="truncate flex items-center gap-1 min-w-0">
                           {t.is_critical && <Zap size={9} className="text-red-500 shrink-0" />}
                           <span className={cn('truncate', t.is_critical && 'font-medium')}>{t.title}</span>
                         </span>
-                        {/* Start date (real or J-offset) */}
+                        {/* Start date */}
                         <span className="text-right tabular-nums text-muted-foreground text-[10px]">
                           {fmtDate(t.early_start)}
+                        </span>
+                        {/* End date */}
+                        <span className="text-right tabular-nums text-muted-foreground text-[10px]">
+                          {fmtDate(t.early_finish)}
+                        </span>
+                        {/* Progression % (column) */}
+                        <span className={cn(
+                          'text-right tabular-nums',
+                          progress >= 100 ? 'text-green-600 dark:text-green-400' :
+                            progress >= 50 ? 'text-primary' :
+                            progress > 0 ? 'text-foreground/80' :
+                            'text-muted-foreground/60',
+                        )}>
+                          {progress}%
                         </span>
                         {/* Mini Gantt — position ∝ ES, width ∝ duration.
                             Inner darker bar reflects actual progress %.
@@ -465,34 +489,11 @@ export function CpmSection({ projectId }: { projectId: string }) {
                               style={{ width: `${progress}%` }}
                               title={`${progress}% réalisé`}
                             />
-                            {width > 15 && (
-                              <span
-                                className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold tabular-nums text-white pointer-events-none"
-                                style={{
-                                  // Crisp 1px black halo so the label is
-                                  // legible whether it lands on the
-                                  // saturated progress fill or the
-                                  // translucent outer bar.
-                                  textShadow: '0 0 2px rgba(0,0,0,0.85), 0 1px 1px rgba(0,0,0,0.6)',
-                                }}
-                              >
-                                {progress}%
-                              </span>
-                            )}
                           </div>
-                          {width <= 15 && (
-                            <span
-                              className="absolute top-1/2 -translate-y-1/2 text-[9px] tabular-nums text-muted-foreground pointer-events-none"
-                              style={{ left: `calc(${left + width}% + 4px)` }}
-                            >
-                              {progress}%
-                            </span>
-                          )}
+                          {/* Progress is also shown as its own column on
+                              the right of the row, so the bar itself
+                              stays clean and visually scannable. */}
                         </div>
-                        {/* End date */}
-                        <span className="text-left tabular-nums text-muted-foreground text-[10px]">
-                          {fmtDate(t.early_finish)}
-                        </span>
                         {/* Slack */}
                         <span className={cn(
                           'text-right tabular-nums',

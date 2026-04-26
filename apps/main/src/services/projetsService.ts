@@ -23,6 +23,7 @@ import type {
   ProjectComment, ProjectCommentCreate,
   ActivityFeedItem,
   ProjectPlannerActivityGroup,
+  ProjectSituation, ProjectSituationCreate,
   PaginatedResponse, PaginationParams,
 } from '@/types/api'
 
@@ -636,6 +637,16 @@ export const projetsService = {
   // ── Activity Feed ──
   getActivityFeed: async (projectId: string, limit = 50): Promise<ActivityFeedItem[]> => {
     const { data } = await api.get(`/api/v1/projects/${projectId}/activity-feed`, { params: { limit } })
+    return data
+  },
+
+  // ── Project Situations (Métriques tab snapshots) ──
+  listSituations: async (projectId: string, limit = 30): Promise<ProjectSituation[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/situations`, { params: { limit } })
+    return data
+  },
+  createSituation: async (projectId: string, payload: ProjectSituationCreate): Promise<ProjectSituation> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/situations`, payload)
     return data
   },
 

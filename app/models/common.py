@@ -2088,6 +2088,49 @@ class ProjectStatusHistory(UUIDPrimaryKeyMixin, Base):
     )
 
 
+# ─── Project Situation Snapshots ─────────────────────────────────────────────
+#
+# A point-in-time capture of how a project is doing. Used by the
+# Métriques tab to:
+#   - record the team's qualitative read (situation_text + weather +
+#     trend) at a given moment, for later audit;
+#   - compute deltas (progress evolution last week, last 4 weeks)
+#   - feed historical charts.
+#
+# Append-only — situations are never updated, only inserted. The
+# project's "current" weather/trend lives on the Project row itself
+# and is updated independently; situations capture the state at the
+# moment of saving.
+
+class ProjectSituation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "project_situations"
+    __table_args__ = (
+        Index("idx_project_situations_project_captured", "project_id", "captured_at"),
+    )
+
+    project_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False,
+    )
+    captured_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    captured_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
+    )
+    # Snapshot of the project's headline metrics at capture time.
+    progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    weather: Mapped[str | None] = mapped_column(String(20))
+    trend: Mapped[str | None] = mapped_column(String(10))
+    # Free-text qualitative situation report ("Phase 2 démarrée, 3
+    # blocages côté fournisseur, jalon J+5 confirmé").
+    situation_text: Mapped[str | None] = mapped_column(Text)
+    # Computed counts at capture time (kept as JSONB so we can extend
+    # the schema without migrations). Keys: tasks_total, tasks_done,
+    # tasks_in_progress, members, milestones, hours_estimated,
+    # hours_consumed, hours_remaining, etc.
+    metrics: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+
 # ─── Project Templates (save & clone projects as templates) ──────────────────
 
 class ProjectTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):

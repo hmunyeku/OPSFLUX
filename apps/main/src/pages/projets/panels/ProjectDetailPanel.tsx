@@ -67,6 +67,7 @@ import { useCurrentEntity } from '@/hooks/useEntities'
 import { isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
 import { TaskTable } from '@/components/projets/TaskTable'
+import { ProjectMetrics } from '@/components/projets/ProjectMetrics'
 import { GanttCore } from '@/components/shared/gantt/GanttCore'
 import type { GanttRow, GanttBarData } from '@/components/shared/gantt/GanttCore'
 import { useUsers } from '@/hooks/useUsers'
@@ -2677,7 +2678,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
   const { data: allUsersData } = useUsers({ page_size: 100, active: true })
   const goutiSyncOne = useGoutiSyncOne()
   const [showPlannerLink, setShowPlannerLink] = useState(false)
-  const [detailTab, setDetailTab] = useState<'fiche' | 'taches' | 'planification' | 'planner' | 'historique' | 'documents'>('fiche')
+  const [detailTab, setDetailTab] = useState<'fiche' | 'taches' | 'planification' | 'metriques' | 'planner' | 'historique' | 'documents'>('fiche')
   const exportPdf = useExportProjectPdf()
   const { data: goutiStatus } = useGoutiStatus()
   const { toast } = useToast()
@@ -2785,6 +2786,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           { id: 'fiche', label: 'Fiche', icon: Info },
           { id: 'taches', label: `Tâches (${tasks?.length ?? 0})`, icon: ListTodo },
           { id: 'planification', label: 'Planification', icon: BarChart3 },
+          { id: 'metriques', label: 'Métriques', icon: Target },
           { id: 'planner', label: 'Planner', icon: CalendarClock },
           // Renamed Activité -> Historique to lift the confusion with
           // the Planner module (this tab is the audit log / changelog).
@@ -3185,6 +3187,15 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           {/* Planning Revisions — baselines + what-if simulations */}
           <PlanningRevisionsSection projectId={id} />
         </>}
+
+        {detailTab === 'metriques' && (
+          <ProjectMetrics
+            project={project}
+            tasks={tasks ?? []}
+            members={members ?? []}
+            milestones={milestones ?? []}
+          />
+        )}
 
         {detailTab === 'planner' && (
           <PlannerLinksSection projectId={id} />

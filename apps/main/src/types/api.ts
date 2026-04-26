@@ -1379,6 +1379,8 @@ export interface ProjectUpdate {
   status?: string
   priority?: string
   weather?: string
+  trend?: string
+  color?: string | null
   progress?: number
   start_date?: string | null
   end_date?: string | null
@@ -1480,6 +1482,40 @@ export interface ProjectPlannerActivity {
   end_date: string | null
   site_name: string | null
   pax_quota: number | null
+}
+
+/** Snapshot of a project's headline metrics at a given moment.
+ *  Powers the Métriques tab + delta computations (week/4-week). */
+export interface ProjectSituation {
+  id: string
+  project_id: string
+  captured_at: string
+  captured_by: string | null
+  captured_by_name: string | null
+  progress: number
+  weather: string | null
+  trend: string | null
+  situation_text: string | null
+  metrics: {
+    tasks_total?: number
+    tasks_done?: number
+    tasks_in_progress?: number
+    tasks_review?: number
+    tasks_todo?: number
+    tasks_cancelled?: number
+    members?: number
+    milestones?: number
+    hours_estimated?: number
+    hours_consumed?: number
+    hours_remaining?: number
+    [key: string]: number | undefined
+  }
+}
+
+export interface ProjectSituationCreate {
+  situation_text?: string | null
+  weather?: string | null
+  trend?: string | null
 }
 
 /** Group of PlannerActivity rows linked to the same project task. */

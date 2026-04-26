@@ -25,6 +25,7 @@ from app.models.common import (
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
     ProjectTaskDependency, ProjectWBSNode, CostCenter,
     ProjectTaskAssignee, ProjectComment, ProjectStatusHistory,
+    ProjectSituation,
     User, Tier,
 )
 from app.models.asset_registry import Installation
@@ -47,6 +48,7 @@ from app.schemas.common import (
     TaskAssigneeCreate, TaskAssigneeRead,
     ProjectCommentCreate, ProjectCommentRead, ProjectCommentUpdate,
     ProjectStatusHistoryRead,
+    ProjectSituationCreate, ProjectSituationRead,
 )
 from app.services.cpm_service import compute_cpm
 
@@ -3638,3 +3640,145 @@ async def get_planner_activities(
             "pax_quota": pa.pax_quota,
         })
     return list(grouped.values())
+
+
+# ── Project Situations (Métriques tab) ────────────────────────────────
+# Append-only snapshots: each save records the project's headline
+# metrics at that moment. Powers the Métriques tab's "Enregistrer la
+# situation" button + history + delta computations.
+
+
+def _serialise_situation(s, captured_by_name: str | None) -> dict:
+    return {
+        "id": s.id,
+        "project_id": s.project_id,
+        "captured_at": s.captured_at,
+        "captured_by": s.captured_by,
+        "captured_by_name": captured_by_name,
+        "progress": s.progress,
+        "weather": s.weather,
+        "trend": s.trend,
+        "situation_text": s.situation_text,
+        "metrics": s.metrics or {},
+    }
+
+
+async def _capture_project_metrics(db: AsyncSession, project: "Project") -> dict:
+    """Compute the headline metrics that get stored in the snapshot.
+
+    Counts are kept compact — we don't store raw lists, just the
+    aggregates the Métriques tab needs to compute deltas and drive
+    the quantitative grid.
+    """
+    project_id = project.id
+    # Tasks aggregates
+    task_rows = (await db.execute(
+        select(ProjectTask.status, sqla_func.count(ProjectTask.id))
+        .where(ProjectTask.project_id == project_id, ProjectTask.active == True)
+        .group_by(ProjectTask.status)
+    )).all()
+    task_counts: dict[str, int] = {row[0]: int(row[1]) for row in task_rows}
+    tasks_total = sum(task_counts.values())
+
+    # Members
+    members_count = (await db.execute(
+        select(sqla_func.count(ProjectMember.id))
+        .where(ProjectMember.project_id == project_id, ProjectMember.active == True)
+    )).scalar_one()
+
+    # Milestones
+    milestones_count = (await db.execute(
+        select(sqla_func.count(ProjectMilestone.id))
+        .where(ProjectMilestone.project_id == project_id, ProjectMilestone.active == True)
+    )).scalar_one()
+
+    # Hours: estimated / consumed (validated time entries)
+    hours_estimated = (await db.execute(
+        select(sqla_func.coalesce(sqla_func.sum(ProjectTask.estimated_hours), 0.0))
+        .where(ProjectTask.project_id == project_id, ProjectTask.active == True)
+    )).scalar_one()
+    hours_consumed = (await db.execute(
+        select(sqla_func.coalesce(sqla_func.sum(ProjectTimeEntry.hours), 0.0))
+        .where(
+            ProjectTimeEntry.project_id == project_id,
+            ProjectTimeEntry.status == "validated",
+        )
+    )).scalar_one()
+
+    return {
+        "tasks_total": tasks_total,
+        "tasks_done": int(task_counts.get("done", 0)),
+        "tasks_in_progress": int(task_counts.get("in_progress", 0)),
+        "tasks_review": int(task_counts.get("review", 0)),
+        "tasks_todo": int(task_counts.get("todo", 0)),
+        "tasks_cancelled": int(task_counts.get("cancelled", 0)),
+        "members": int(members_count or 0),
+        "milestones": int(milestones_count or 0),
+        "hours_estimated": float(hours_estimated or 0.0),
+        "hours_consumed": float(hours_consumed or 0.0),
+        "hours_remaining": max(0.0, float(hours_estimated or 0.0) - float(hours_consumed or 0.0)),
+    }
+
+
+@router.post("/{project_id}/situations", response_model=ProjectSituationRead, status_code=201)
+async def create_project_situation(
+    project_id: UUID,
+    body: ProjectSituationCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record a snapshot of the project's current state.
+
+    If `weather` or `trend` are provided in the body, also writes them
+    onto the Project row so the KPI strip stays in sync — useful when
+    the user reviews the project and updates both at once.
+    """
+    project = await _get_project_or_404(db, project_id, entity_id)
+    metrics = await _capture_project_metrics(db, project)
+
+    # Persist optional weather/trend update on the project itself.
+    if body.weather and body.weather != project.weather:
+        project.weather = body.weather
+    if body.trend and body.trend != project.trend:
+        project.trend = body.trend
+
+    sit = ProjectSituation(
+        project_id=project_id,
+        captured_by=current_user.id,
+        progress=int(project.progress or 0),
+        weather=body.weather or project.weather,
+        trend=body.trend or project.trend,
+        situation_text=(body.situation_text or "").strip() or None,
+        metrics=metrics,
+    )
+    db.add(sit)
+    await db.commit()
+    await db.refresh(sit)
+    user_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
+    return _serialise_situation(sit, user_name)
+
+
+@router.get("/{project_id}/situations", response_model=list[ProjectSituationRead])
+async def list_project_situations(
+    project_id: UUID,
+    limit: int = 30,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the most recent N snapshots, newest first."""
+    await _get_project_or_404(db, project_id, entity_id)
+    rows = (await db.execute(
+        select(ProjectSituation, User.first_name, User.last_name)
+        .outerjoin(User, ProjectSituation.captured_by == User.id)
+        .where(ProjectSituation.project_id == project_id)
+        .order_by(ProjectSituation.captured_at.desc())
+        .limit(limit)
+    )).all()
+    out = []
+    for s, fn, ln in rows:
+        name = f"{fn} {ln}".strip() if fn else None
+        out.append(_serialise_situation(s, name))
+    return out

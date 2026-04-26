@@ -981,6 +981,28 @@ export function useActivityFeed(projectId: string, limit = 50) {
   })
 }
 
+// ── Project Situations (Métriques tab) ────────────────────
+
+export function useProjectSituations(projectId: string | undefined, limit = 30) {
+  return useQuery({
+    queryKey: ['project-situations', projectId, limit],
+    queryFn: () => projetsService.listSituations(projectId!, limit),
+    enabled: !!projectId,
+  })
+}
+
+export function useCreateProjectSituation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, payload }: { projectId: string; payload: import('@/types/api').ProjectSituationCreate }) =>
+      projetsService.createSituation(projectId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-situations', projectId] })
+      qc.invalidateQueries({ queryKey: ['project', projectId] })
+    },
+  })
+}
+
 // ── Planner Activities (grouped, for the Planner tab) ─────
 
 export function usePlannerActivities(projectId: string | undefined) {

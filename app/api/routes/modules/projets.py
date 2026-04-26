@@ -3582,15 +3582,17 @@ async def get_activity_feed(project_id: UUID, limit: int = 50, entity_id: UUID =
     return feed[:limit]
 
 
-# ── Planner Links ──────────────────────────────────────────────────────
+# ── Planner Activities (grouped) ──────────────────────────────────────
 # Surface the project's tasks alongside their linked PlannerActivity
 # rows. Powers the new "Planner" tab in the project detail panel —
 # users land here to see which of their tasks have been pushed to the
 # operational schedule and jump back to Planner from a single place.
+# Distinct from the older flat `/planner-links` endpoint which returns
+# `{task_id, activity_id, ...}` rows for the legacy modal.
 
 
-@router.get("/{project_id}/planner-links")
-async def get_planner_links(
+@router.get("/{project_id}/planner-activities")
+async def get_planner_activities(
     project_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("project.read"),

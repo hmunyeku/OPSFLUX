@@ -981,12 +981,12 @@ export function useActivityFeed(projectId: string, limit = 50) {
   })
 }
 
-// ── Planner Links ──────────────────────────────────────────
+// ── Planner Activities (grouped, for the Planner tab) ─────
 
-export function usePlannerLinks(projectId: string | undefined) {
+export function usePlannerActivities(projectId: string | undefined) {
   return useQuery({
-    queryKey: ['planner-links', projectId],
-    queryFn: () => projetsService.getPlannerLinks(projectId!),
+    queryKey: ['planner-activities', projectId],
+    queryFn: () => projetsService.getPlannerActivities(projectId!),
     enabled: !!projectId,
   })
 }

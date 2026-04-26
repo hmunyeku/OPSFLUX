@@ -1470,8 +1470,9 @@ export interface ProjectTask {
   linked_planner_count?: number
 }
 
-/** PlannerActivity entry as exposed by /projects/{id}/planner-links. */
-export interface ProjectPlannerLinkActivity {
+/** PlannerActivity entry as exposed by /projects/{id}/planner-activities.
+ *  Distinct from the flat link rows returned by /planner-links. */
+export interface ProjectPlannerActivity {
   id: string
   title: string
   status: string | null
@@ -1482,12 +1483,12 @@ export interface ProjectPlannerLinkActivity {
 }
 
 /** Group of PlannerActivity rows linked to the same project task. */
-export interface ProjectPlannerLinkGroup {
+export interface ProjectPlannerActivityGroup {
   task_id: string
   task_title: string
   task_status: string | null
   task_progress: number | null
-  activities: ProjectPlannerLinkActivity[]
+  activities: ProjectPlannerActivity[]
 }
 
 /** Task with project info — for cross-project spreadsheet view. */

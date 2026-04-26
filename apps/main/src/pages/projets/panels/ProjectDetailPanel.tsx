@@ -59,7 +59,7 @@ import {
   useCustomFields, useSetCustomFieldValue,
   useProjectComments, useCreateProjectComment, useDeleteComment,
   useActivityFeed,
-  usePlannerLinks,
+  usePlannerActivities,
   useExportProjectPdf,
 } from '@/hooks/useProjets'
 import { useCurrentEntity } from '@/hooks/useEntities'
@@ -1656,7 +1656,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
 
 function PlannerLinksSection({ projectId }: { projectId: string }) {
   const navigate = useNavigate()
-  const { data: groups = [], isLoading } = usePlannerLinks(projectId)
+  const { data: groups = [], isLoading } = usePlannerActivities(projectId)
   const [search, setSearch] = useState('')
 
   const filtered = useMemo(() => {

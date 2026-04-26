@@ -22,7 +22,7 @@ import type {
   CustomFieldDef, CustomFieldValuePayload,
   ProjectComment, ProjectCommentCreate,
   ActivityFeedItem,
-  ProjectPlannerLinkGroup,
+  ProjectPlannerActivityGroup,
   PaginatedResponse, PaginationParams,
 } from '@/types/api'
 
@@ -639,11 +639,13 @@ export const projetsService = {
     return data
   },
 
-  // ── Planner Links ──
+  // ── Planner Activities (grouped) ──
   // Returns project tasks that have at least one linked PlannerActivity,
   // grouped by task. Powers the "Planner" tab of the project panel.
-  getPlannerLinks: async (projectId: string): Promise<ProjectPlannerLinkGroup[]> => {
-    const { data } = await api.get(`/api/v1/projects/${projectId}/planner-links`)
+  // Distinct from listPlannerLinks() which returns a flat list for the
+  // legacy "Send to Planner" modal.
+  getPlannerActivities: async (projectId: string): Promise<ProjectPlannerActivityGroup[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/planner-activities`)
     return data
   },
 

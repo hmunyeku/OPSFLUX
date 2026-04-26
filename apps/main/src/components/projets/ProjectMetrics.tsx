@@ -97,11 +97,9 @@ interface HeroKpiProps {
   sub?: string
   icon?: typeof Wallet
   tone: HeroTone
-  /** Big number is bumped up (used for 1-2 cards in the row). */
-  size?: 'md' | 'lg'
 }
 
-function HeroKpi({ label, value, sub, icon: Icon, tone, size = 'md' }: HeroKpiProps) {
+function HeroKpi({ label, value, sub, icon: Icon, tone }: HeroKpiProps) {
   const palette: Record<HeroTone, { bg: string; text: string; sub: string; iconBg: string }> = {
     orange:  { bg: 'bg-orange-500',          text: 'text-white',     sub: 'text-orange-50/80',     iconBg: 'bg-white/15' },
     navy:    { bg: 'bg-slate-900',           text: 'text-white',     sub: 'text-slate-300',        iconBg: 'bg-white/10' },
@@ -112,26 +110,24 @@ function HeroKpi({ label, value, sub, icon: Icon, tone, size = 'md' }: HeroKpiPr
     rose:    { bg: 'bg-rose-500',            text: 'text-white',     sub: 'text-rose-50/80',       iconBg: 'bg-white/15' },
   }
   const p = palette[tone]
+  // Compact card — proportional to content. Label at the top, value
+  // immediately below (no flex-grow gap), optional sub-line right of
+  // the value baseline. Mastt-style executive density.
   return (
-    <div className={cn(
-      p.bg, p.text,
-      'rounded-xl shadow-sm px-4 flex flex-col justify-between',
-      size === 'lg' ? 'py-4 min-h-[110px]' : 'py-3 min-h-[96px]',
-    )}>
-      <div className="flex items-center gap-2">
+    <div className={cn(p.bg, p.text, 'rounded-lg px-3.5 py-2.5')}>
+      <div className="flex items-center gap-1.5 mb-1.5">
         {Icon && (
-          <span className={cn(p.iconBg, 'w-6 h-6 rounded inline-flex items-center justify-center shrink-0')}>
-            <Icon size={13} />
+          <span className={cn(p.iconBg, 'w-5 h-5 rounded inline-flex items-center justify-center shrink-0')}>
+            <Icon size={11} />
           </span>
         )}
         <span className={cn('text-[10px] uppercase tracking-wider font-semibold', p.sub)}>{label}</span>
       </div>
-      <div className="flex items-baseline gap-1.5">
-        <span className={cn(
-          'font-display font-bold tabular-nums leading-none',
-          size === 'lg' ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl',
-        )}>{value}</span>
-        {sub && <span className={cn('text-xs font-medium', p.sub)}>{sub}</span>}
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <span className="font-display font-bold tabular-nums leading-none text-3xl">
+          {value}
+        </span>
+        {sub && <span className={cn('text-[10px] font-medium', p.sub)}>{sub}</span>}
       </div>
     </div>
   )
@@ -310,7 +306,6 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           value={fmtCompactMoney(budget)}
           tone="orange"
           icon={Wallet}
-          size="lg"
         />
         <HeroKpi
           label="Engagé"
@@ -318,14 +313,12 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           sub={budget > 0 ? `${Math.round((committed / budget) * 100)}% du budget` : undefined}
           tone="sky"
           icon={Coins}
-          size="lg"
         />
         <HeroKpi
           label="Reste à dépenser"
           value={fmtCompactMoney(remaining)}
           tone="navy"
           icon={Banknote}
-          size="lg"
         />
         <HeroKpi
           label="Avancement"
@@ -333,7 +326,6 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           sub={deltaWeek != null ? `Δ 7j: ${deltaWeek > 0 ? '+' : ''}${deltaWeek}%` : undefined}
           tone="primary"
           icon={Target}
-          size="lg"
         />
         <HeroKpi
           label="Fin prévue"
@@ -341,7 +333,6 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           sub={ecartLivraison != null ? `Écart livraison ${ecartLivraison >= 0 ? '+' : ''}${ecartLivraison}j` : undefined}
           tone="amber"
           icon={CalendarCheck}
-          size="lg"
         />
       </div>
 

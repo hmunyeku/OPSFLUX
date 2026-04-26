@@ -3553,10 +3553,14 @@ async def get_activity_feed(project_id: UUID, limit: int = 50, entity_id: UUID =
     task_ids = (await db.execute(select(ProjectTask.id).where(ProjectTask.project_id == project_id))).scalars().all()
     if task_ids:
         for cl, fn, ln, title in (await db.execute(select(TaskChangeLog, User.first_name, User.last_name, ProjectTask.title).outerjoin(User, TaskChangeLog.changed_by == User.id).outerjoin(ProjectTask, TaskChangeLog.task_id == ProjectTask.id).where(TaskChangeLog.task_id.in_(task_ids)).order_by(TaskChangeLog.created_at.desc()).limit(limit))).all():
-            feed.append({"type": "task_change", "date": cl.created_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "task_title": title, "field": cl.field_name, "old": cl.old_value, "new": cl.new_value, "change_type": cl.change_type})
+            # task_id is exposed so the front-end can deep-link the
+            # activity row back to the task in the Tâches tab.
+            feed.append({"type": "task_change", "date": cl.created_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "task_id": str(cl.task_id), "task_title": title, "field": cl.field_name, "old": cl.old_value, "new": cl.new_value, "change_type": cl.change_type})
     # Comments
     owner_ids = [project_id] + list(task_ids)
     for cm, fn, ln in (await db.execute(select(ProjectComment, User.first_name, User.last_name).outerjoin(User, ProjectComment.author_id == User.id).where(ProjectComment.owner_type.in_(["project", "project_task"]), ProjectComment.owner_id.in_(owner_ids), ProjectComment.active == True).order_by(ProjectComment.created_at.desc()).limit(limit))).all():
-        feed.append({"type": "comment", "date": cm.created_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "body": cm.body[:200], "owner_type": cm.owner_type})
+        # owner_id lets the UI jump to the underlying task when the
+        # comment was posted on a task (vs. on the project itself).
+        feed.append({"type": "comment", "date": cm.created_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "comment_id": str(cm.id), "owner_id": str(cm.owner_id), "body": cm.body[:200], "owner_type": cm.owner_type})
     feed.sort(key=lambda x: x["date"], reverse=True)
     return feed[:limit]

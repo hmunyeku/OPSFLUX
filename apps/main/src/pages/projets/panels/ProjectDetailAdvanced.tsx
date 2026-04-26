@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Loader2, Plus, Zap, ChevronRight,
   GitBranch, X, Camera, FlaskConical, Layers, FolderKanban, Play, Star,
+  Search, AlertTriangle, ArrowUpDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -212,6 +213,45 @@ export function WbsSection({ projectId }: { projectId: string }) {
 
 export function CpmSection({ projectId }: { projectId: string }) {
   const { data: cpm, isLoading } = useProjectCpm(projectId)
+  // View toggle: by default focus on the critical path. The "all" mode
+  // exposes the full task list with a mini Gantt for context.
+  const [view, setView] = useState<'critical' | 'all'>('critical')
+  const [sortBy, setSortBy] = useState<'slack' | 'es' | 'duration'>('slack')
+  const [search, setSearch] = useState('')
+
+  const stats = useMemo(() => {
+    if (!cpm || cpm.tasks.length === 0) return null
+    const slacks = cpm.tasks.map(t => t.slack)
+    const avgSlack = Math.round(slacks.reduce((s, v) => s + v, 0) / slacks.length)
+    return { avgSlack }
+  }, [cpm])
+
+  const filtered = useMemo(() => {
+    if (!cpm) return [] as CPMTaskInfo[]
+    let list = cpm.tasks.slice()
+    if (view === 'critical') list = list.filter(t => t.is_critical)
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter(t => t.title.toLowerCase().includes(q))
+    }
+    list.sort((a, b) => {
+      // Critical always first within "all" view
+      if (view === 'all' && a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1
+      switch (sortBy) {
+        case 'es': return a.early_start - b.early_start
+        case 'duration': return b.duration_days - a.duration_days
+        case 'slack':
+        default: return a.slack - b.slack
+      }
+    })
+    return list
+  }, [cpm, view, search, sortBy])
+
+  // Heuristic: many tasks but only one "critical" usually means
+  // dependencies aren't wired up — the solver treats every task as
+  // independent so only the longest one ends up on the path.
+  const suspectMissingDeps =
+    cpm && cpm.tasks.length > 30 && cpm.critical_path_task_ids.length <= 1
 
   return (
     <FormSection
@@ -232,7 +272,8 @@ export function CpmSection({ projectId }: { projectId: string }) {
       )}
       {cpm && cpm.tasks.length > 0 && (
         <div className="space-y-2">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+          {/* Stats row — 4 KPIs: durée projet, tâches critiques, total, marge moyenne */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
             <div className="border border-primary/30 bg-primary/5 rounded p-2">
               <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Durée totale</div>
               <div className="text-lg font-semibold tabular-nums text-primary">{cpm.project_duration_days} j</div>
@@ -245,7 +286,18 @@ export function CpmSection({ projectId }: { projectId: string }) {
               <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Tâches totales</div>
               <div className="text-lg font-semibold tabular-nums">{cpm.tasks.length}</div>
             </div>
+            {stats && (
+              <div className="border border-border rounded p-2">
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Marge moyenne</div>
+                <div className={cn(
+                  'text-lg font-semibold tabular-nums',
+                  stats.avgSlack === 0 ? 'text-red-600' :
+                    stats.avgSlack < 5 ? 'text-orange-600' : 'text-foreground',
+                )}>{stats.avgSlack} j</div>
+              </div>
+            )}
           </div>
+
           {cpm.has_cycles && (
             <div className="flex items-start gap-1.5 text-[10px] p-1.5 rounded bg-red-500/10 border border-red-500/30 text-red-700">
               <Zap size={10} className="mt-0.5 shrink-0" />
@@ -257,41 +309,122 @@ export function CpmSection({ projectId }: { projectId: string }) {
               {cpm.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
             </div>
           )}
+          {suspectMissingDeps && !cpm.has_cycles && (
+            <div className="flex items-start gap-1.5 text-[10px] p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200">
+              <AlertTriangle size={11} className="mt-0.5 shrink-0" />
+              <span>
+                Une seule tâche critique pour {cpm.tasks.length} tâches — il manque probablement des dépendances entre tâches.
+                Sans liens (FS/SS/FF), le solveur considère chaque tâche indépendante et seule la plus longue ressort.
+              </span>
+            </div>
+          )}
+
+          {/* Toolbar: view toggle + search + sort */}
+          <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+            <div className="inline-flex rounded border border-border overflow-hidden">
+              <button
+                onClick={() => setView('critical')}
+                className={cn(
+                  'px-2 py-1 transition-colors',
+                  view === 'critical' ? 'bg-red-500/10 text-red-600 font-medium' : 'text-muted-foreground hover:bg-muted/50',
+                )}
+              >
+                <Zap size={9} className="inline mr-0.5" />
+                Critique ({cpm.critical_path_task_ids.length})
+              </button>
+              <button
+                onClick={() => setView('all')}
+                className={cn(
+                  'px-2 py-1 border-l border-border transition-colors',
+                  view === 'all' ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground hover:bg-muted/50',
+                )}
+              >
+                Toutes ({cpm.tasks.length})
+              </button>
+            </div>
+
+            {cpm.tasks.length > 6 && (
+              <div className="relative flex-1 min-w-[140px]">
+                <Search size={10} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Filtrer…"
+                  className={cn(panelInputClass, 'pl-5 h-6 text-[10px]')}
+                />
+              </div>
+            )}
+
+            <div className="inline-flex items-center gap-1 ml-auto">
+              <ArrowUpDown size={9} className="text-muted-foreground" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="bg-transparent border border-border rounded px-1 py-0.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-primary/40"
+              >
+                <option value="slack">Marge ↑</option>
+                <option value="es">Début ↑</option>
+                <option value="duration">Durée ↓</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Task list — adds a mini Gantt column for visual scanning */}
           <div className="border border-border rounded overflow-hidden">
-            <div className="grid grid-cols-[1fr_40px_40px_40px_40px] gap-1 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground">
+            <div className="grid grid-cols-[1fr_120px_36px_36px_36px_36px] gap-1 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground">
               <span>Tâche</span>
+              <span>Timeline</span>
               <span className="text-right">ES</span>
               <span className="text-right">EF</span>
               <span className="text-right">Slack</span>
               <span className="text-right">Dur.</span>
             </div>
-            <div className="max-h-[240px] overflow-y-auto">
-              {cpm.tasks
-                .slice()
-                .sort((a, b) => {
-                  if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1
-                  return a.early_start - b.early_start
-                })
-                .map((t: CPMTaskInfo) => (
+            <div className="max-h-[280px] overflow-y-auto">
+              {filtered.length === 0 && (
+                <div className="px-2 py-3 text-[10px] text-muted-foreground italic text-center">
+                  {search ? 'Aucun résultat.' : 'Aucune tâche dans cette vue.'}
+                </div>
+              )}
+              {filtered.map((t: CPMTaskInfo) => {
+                const total = cpm.project_duration_days || 1
+                const left = (t.early_start / total) * 100
+                const width = Math.max(2, (t.duration_days / total) * 100)
+                return (
                   <div
                     key={t.id}
                     className={cn(
-                      'grid grid-cols-[1fr_40px_40px_40px_40px] gap-1 px-2 py-1 text-[10px] border-t border-border/30',
+                      'grid grid-cols-[1fr_120px_36px_36px_36px_36px] gap-1 px-2 py-1 text-[10px] border-t border-border/30 items-center',
                       t.is_critical && 'bg-red-500/5',
                     )}
+                    title={`${t.title}\nES J${t.early_start} → EF J${t.early_finish} · ${t.duration_days}j · marge ${t.slack}j`}
                   >
                     <span className="truncate flex items-center gap-1">
                       {t.is_critical && <Zap size={9} className="text-red-500 shrink-0" />}
-                      {t.title}
+                      <span className={cn(t.is_critical && 'font-medium')}>{t.title}</span>
                     </span>
+                    {/* Mini Gantt bar — position ∝ ES, width ∝ duration */}
+                    <div className="relative h-2 bg-muted/40 rounded-sm overflow-hidden">
+                      <div
+                        className={cn(
+                          'absolute top-0 bottom-0 rounded-sm',
+                          t.is_critical ? 'bg-red-500' : 'bg-primary/60',
+                        )}
+                        style={{ left: `${left}%`, width: `${width}%` }}
+                      />
+                    </div>
                     <span className="text-right tabular-nums text-muted-foreground">J{t.early_start}</span>
                     <span className="text-right tabular-nums text-muted-foreground">J{t.early_finish}</span>
-                    <span className={cn('text-right tabular-nums', t.slack === 0 ? 'text-red-500 font-semibold' : 'text-muted-foreground')}>
+                    <span className={cn(
+                      'text-right tabular-nums',
+                      t.slack === 0 ? 'text-red-500 font-semibold' :
+                        t.slack < 5 ? 'text-orange-600' : 'text-muted-foreground',
+                    )}>
                       {t.slack}j
                     </span>
                     <span className="text-right tabular-nums text-muted-foreground">{t.duration_days}j</span>
                   </div>
-                ))}
+                )
+              })}
             </div>
           </div>
           <div className="text-[9px] text-muted-foreground italic">

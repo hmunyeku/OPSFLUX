@@ -1790,11 +1790,15 @@ export interface ActivityFeedItem {
   user: string | null
   detail?: string
   reason?: string | null
+  // Deep-link ids so the front-end can navigate back to the source
+  task_id?: string
   task_title?: string
   field?: string
   old?: unknown
   new?: unknown
   change_type?: string
+  comment_id?: string
+  owner_id?: string
   body?: string
   owner_type?: string
 }

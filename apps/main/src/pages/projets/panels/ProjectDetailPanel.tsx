@@ -4,7 +4,7 @@
  *
  * Extracted from ProjetsPage.tsx — pure restructure, no behavior changes.
  */
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   FolderKanban, Plus, Loader2, Trash2, Users, Target, X, Check,
@@ -582,6 +582,30 @@ function TaskRow({
   const deleteTask = useDeleteProjectTask()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  // Brief visual highlight when the row is the target of a deep-link
+  // (e.g. clicked from the Activité tab). Pulses for ~1.5s then fades.
+  const [highlight, setHighlight] = useState(false)
+  const rowRef = useRef<HTMLDivElement | null>(null)
+  // Cross-section navigation: listen for `opsflux:focus-task` events
+  // dispatched when the user clicks an entry in the activity feed.
+  // When the event matches this row, we expand it, scroll it into view,
+  // and flash a highlight so the user can spot it instantly.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ taskId: string }>
+      if (!ce.detail || ce.detail.taskId !== task.id) return
+      setExpanded(true)
+      // Defer so the expanded content is in the DOM when we scroll.
+      requestAnimationFrame(() => {
+        rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+      setHighlight(true)
+      const t = setTimeout(() => setHighlight(false), 1600)
+      return () => clearTimeout(t)
+    }
+    window.addEventListener('opsflux:focus-task', handler as EventListener)
+    return () => window.removeEventListener('opsflux:focus-task', handler as EventListener)
+  }, [task.id])
   const taskStatusLabels = useDictionaryLabels('project_task_status', PROJECT_TASK_STATUS_LABELS_FALLBACK)
   const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
   const taskStatusOptions = useMemo(() => buildDictionaryOptions(taskStatusLabels, PROJECT_TASK_STATUS_VALUES), [taskStatusLabels])
@@ -633,10 +657,15 @@ function TaskRow({
 
   return (
     <div
+      ref={rowRef}
+      data-task-id={task.id}
       role="treeitem"
       aria-level={depth + 1}
       aria-expanded={hasChildren ? expanded : undefined}
-      className="border-b border-border/30 last:border-0"
+      className={cn(
+        'border-b border-border/30 last:border-0 transition-colors duration-700',
+        highlight && 'bg-primary/15 ring-1 ring-primary/40 rounded-md',
+      )}
     >
       {/* Summary row */}
       <div
@@ -1526,55 +1555,253 @@ function CommentsSection({ projectId }: { projectId: string }) {
 
 // -- Activity Feed Section ----------------------------------------------------
 
-function ActivityFeedSection({ projectId }: { projectId: string }) {
+// Field labels — converts internal column names to friendly French
+// equivalents for the activity feed. Anything not in the map is
+// humanised on the fly (snake_case → "Snake case").
+const TASK_FIELD_LABELS: Record<string, string> = {
+  due_date: 'Date d’échéance',
+  start_date: 'Date de début',
+  end_date: 'Date de fin',
+  progress: 'Progression',
+  status: 'Statut',
+  priority: 'Priorité',
+  estimated_hours: 'Heures estimées',
+  actual_hours: 'Heures réelles',
+  title: 'Titre',
+  description: 'Description',
+  assignee_id: 'Assigné',
+  parent_id: 'Tâche parente',
+  duration_days: 'Durée (jours)',
+}
+
+function humaniseField(field: string | undefined): string {
+  if (!field) return ''
+  if (TASK_FIELD_LABELS[field]) return TASK_FIELD_LABELS[field]
+  return field.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+}
+
+function fmtFieldValue(field: string | undefined, v: unknown): string {
+  if (v == null || v === '') return '—'
+  const s = String(v)
+  // Date fields → format as readable date
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    try { return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) } catch { /* */ }
+  }
+  // Progress as percentage
+  if (field === 'progress') return `${s}%`
+  return s.length > 40 ? s.slice(0, 40) + '…' : s
+}
+
+function ActivityFeedSection({
+  projectId,
+  onNavigateToTask,
+}: {
+  projectId: string
+  onNavigateToTask?: (taskId: string) => void
+}) {
   const { data: feed = [], isLoading } = useActivityFeed(projectId)
+  const [filter, setFilter] = useState<'all' | 'task_change' | 'comment' | 'status_change'>('all')
+  const [search, setSearch] = useState('')
 
   const iconForType = (type: string) => {
     switch (type) {
-      case 'status_change': return <Circle size={10} className="text-blue-500" />
-      case 'task_change': return <Settings2 size={10} className="text-amber-500" />
-      case 'comment': return <MessageSquare size={10} className="text-green-500" />
-      default: return <Activity size={10} className="text-muted-foreground" />
+      case 'status_change': return <Circle size={11} className="text-blue-500" />
+      case 'task_change': return <Settings2 size={11} className="text-amber-500" />
+      case 'comment': return <MessageSquare size={11} className="text-green-500" />
+      default: return <Activity size={11} className="text-muted-foreground" />
     }
   }
 
-  const fmtVal = (v: unknown): string => {
-    if (v == null) return ''
-    const s = String(v)
-    // Detect ISO date strings and format as readable date
-    if (/^\d{4}-\d{2}-\d{2}[ T]/.test(s)) {
-      try { return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) } catch { /* */ }
+  // Apply filter + search before grouping
+  const filtered = useMemo(() => {
+    let list = feed.slice()
+    if (filter !== 'all') list = list.filter(it => it.type === filter)
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter(it =>
+        (it.task_title?.toLowerCase().includes(q)) ||
+        (it.body?.toLowerCase().includes(q)) ||
+        (it.user?.toLowerCase().includes(q)) ||
+        (it.field?.toLowerCase().includes(q)),
+      )
     }
-    return s.length > 40 ? s.slice(0, 40) + '...' : s
+    return list
+  }, [feed, filter, search])
+
+  // Group entries by day so the timeline reads chronologically (Aujourd'hui / Hier / dd MMM).
+  const groups = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
+    const dayLabel = (iso: string) => {
+      const d = new Date(iso); d.setHours(0, 0, 0, 0)
+      if (d.getTime() === today.getTime()) return "Aujourd'hui"
+      if (d.getTime() === yesterday.getTime()) return 'Hier'
+      return new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' })
+    }
+    const map = new Map<string, ActivityFeedItem[]>()
+    for (const it of filtered) {
+      const k = dayLabel(it.date)
+      if (!map.has(k)) map.set(k, [])
+      map.get(k)!.push(it)
+    }
+    return Array.from(map.entries())
+  }, [filtered])
+
+  const counts = useMemo(() => ({
+    all: feed.length,
+    task_change: feed.filter(f => f.type === 'task_change').length,
+    comment: feed.filter(f => f.type === 'comment').length,
+    status_change: feed.filter(f => f.type === 'status_change').length,
+  }), [feed])
+
+  // Resolve the target task id for a row — task_change has it directly,
+  // comments only when posted on a task (owner_type === 'project_task').
+  const targetTaskId = (item: ActivityFeedItem): string | null => {
+    if (item.type === 'task_change' && item.task_id) return item.task_id
+    if (item.type === 'comment' && item.owner_type === 'project_task' && item.owner_id) return item.owner_id
+    return null
   }
 
-  const labelForItem = (item: ActivityFeedItem) => {
-    switch (item.type) {
-      case 'status_change': return item.detail || 'Changement de statut'
-      case 'task_change': return `${item.task_title || 'Tâche'}: ${item.field} ${item.old ? `${fmtVal(item.old)} →` : '→'} ${fmtVal(item.new)}`
-      case 'comment': return `${item.user || 'Utilisateur'}: ${(item.body || '').slice(0, 80)}${(item.body?.length ?? 0) > 80 ? '...' : ''}`
-      default: return 'Activité'
-    }
+  const renderItem = (item: ActivityFeedItem) => {
+    const taskId = targetTaskId(item)
+    const clickable = !!taskId && !!onNavigateToTask
+    const time = new Date(item.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+
+    return (
+      <div className="flex items-start gap-2 group">
+        {/* Timeline dot column */}
+        <div className="flex flex-col items-center pt-1 shrink-0">
+          <div className="rounded-full bg-card border border-border p-0.5">{iconForType(item.type)}</div>
+          <div className="flex-1 w-px bg-border/40 mt-1 min-h-[12px]" />
+        </div>
+        {/* Content card */}
+        <button
+          type="button"
+          onClick={clickable ? () => onNavigateToTask!(taskId!) : undefined}
+          disabled={!clickable}
+          className={cn(
+            'flex-1 min-w-0 text-left rounded-md px-2 py-1.5 transition-all',
+            clickable
+              ? 'hover:bg-muted/60 hover:ring-1 hover:ring-primary/30 cursor-pointer'
+              : 'cursor-default',
+          )}
+          title={clickable ? 'Aller à la tâche' : undefined}
+        >
+          {/* Header: actor + relative time */}
+          <div className="flex items-baseline justify-between gap-2 mb-0.5">
+            <span className="text-[11px] font-medium text-foreground truncate">
+              {item.user || 'Système'}
+            </span>
+            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{time}</span>
+          </div>
+
+          {/* Body — typed rendering */}
+          {item.type === 'task_change' && (
+            <div className="text-[11px] leading-tight">
+              {item.task_title && (
+                <div className="font-medium text-foreground/90 truncate flex items-center gap-1">
+                  {item.task_title}
+                  {clickable && (
+                    <ChevronRight size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  )}
+                </div>
+              )}
+              <div className="text-muted-foreground flex items-center gap-1 flex-wrap mt-0.5">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">{humaniseField(item.field)}</span>
+                <span className="px-1 py-0.5 rounded bg-red-500/10 text-red-700 dark:text-red-300 text-[10px] line-through">{fmtFieldValue(item.field, item.old)}</span>
+                <span className="text-muted-foreground/60">→</span>
+                <span className="px-1 py-0.5 rounded bg-green-500/10 text-green-700 dark:text-green-300 text-[10px] font-medium">{fmtFieldValue(item.field, item.new)}</span>
+              </div>
+            </div>
+          )}
+
+          {item.type === 'status_change' && (
+            <div className="text-[11px] text-foreground">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">Statut projet</span>
+              {item.detail}
+              {item.reason && <span className="text-muted-foreground italic ml-1">— {item.reason}</span>}
+            </div>
+          )}
+
+          {item.type === 'comment' && (
+            <div className="text-[11px] text-foreground/90 italic">
+              «&nbsp;{(item.body || '').slice(0, 140)}{(item.body?.length ?? 0) > 140 ? '…' : ''}&nbsp;»
+              {item.owner_type === 'project_task' && clickable && (
+                <span className="text-[10px] text-primary not-italic ml-1">↗ tâche</span>
+              )}
+            </div>
+          )}
+        </button>
+      </div>
+    )
   }
 
   return (
-    <FormSection title={`Activité (${feed.length})`} collapsible defaultExpanded={false} storageKey="project-detail-activity">
-      {isLoading ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> : feed.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Aucune activité</p>
+    <FormSection
+      title={`Activité (${feed.length})`}
+      collapsible
+      defaultExpanded={false}
+      storageKey="project-detail-activity"
+    >
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground py-2">
+          <Loader2 size={12} className="animate-spin" /> Chargement…
+        </div>
+      ) : feed.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">Aucune activité enregistrée</p>
       ) : (
-        <div className="space-y-1 max-h-64 overflow-y-auto">
-          {feed.map((item, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs py-1">
-              <div className="mt-0.5 shrink-0">{iconForType(item.type)}</div>
-              <div className="flex-1 min-w-0">
-                <span className="text-foreground">{labelForItem(item)}</span>
-                {item.reason && <span className="text-muted-foreground ml-1">— {item.reason}</span>}
+        <div className="space-y-2">
+          {/* Filter pills + search */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {([
+              ['all', 'Tout', counts.all],
+              ['task_change', 'Tâches', counts.task_change],
+              ['comment', 'Commentaires', counts.comment],
+              ['status_change', 'Statut', counts.status_change],
+            ] as const).map(([key, label, n]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border transition-colors',
+                  filter === key
+                    ? 'bg-primary/10 border-primary/40 text-primary font-medium'
+                    : 'border-border text-muted-foreground hover:bg-muted/50',
+                )}
+              >
+                {label}
+                <span className="tabular-nums opacity-70">{n}</span>
+              </button>
+            ))}
+            {feed.length > 6 && (
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher…"
+                className={cn(panelInputClass, 'h-6 text-[10px] flex-1 min-w-[120px] ml-auto')}
+              />
+            )}
+          </div>
+
+          {/* Grouped timeline */}
+          <div className="max-h-96 overflow-y-auto pr-1 space-y-3">
+            {groups.length === 0 && (
+              <p className="text-[11px] text-muted-foreground italic text-center py-2">Aucun résultat</p>
+            )}
+            {groups.map(([day, items]) => (
+              <div key={day} className="space-y-0.5">
+                <div className="text-[9px] uppercase tracking-wider text-muted-foreground/70 font-semibold sticky top-0 bg-card/95 backdrop-blur py-1 z-10">
+                  {day} · <span className="opacity-60">{items.length}</span>
+                </div>
+                <div className="space-y-0.5">
+                  {items.map((item, i) => (
+                    <div key={i}>{renderItem(item)}</div>
+                  ))}
+                </div>
               </div>
-              <span className="text-muted-foreground shrink-0 text-[10px]">
-                {new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </FormSection>
@@ -2151,7 +2378,20 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           <CommentsSection projectId={id} />
 
           {/* Activity Feed */}
-          <ActivityFeedSection projectId={id} />
+          <ActivityFeedSection
+            projectId={id}
+            onNavigateToTask={(taskId) => {
+              // Switch to the Tâches tab, then dispatch a focus event
+              // on the next frame so the TaskRow listeners are mounted
+              // by the time the event is fired.
+              setDetailTab('taches')
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  window.dispatchEvent(new CustomEvent('opsflux:focus-task', { detail: { taskId } }))
+                })
+              })
+            }}
+          />
         </>}
 
         {detailTab === 'documents' && (

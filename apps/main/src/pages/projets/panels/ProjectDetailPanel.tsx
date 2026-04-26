@@ -2692,7 +2692,11 @@ export function ProjectDetailPanel({ id }: { id: string }) {
   const { data: allUsersData } = useUsers({ page_size: 100, active: true })
   const goutiSyncOne = useGoutiSyncOne()
   const [showPlannerLink, setShowPlannerLink] = useState(false)
-  const [detailTab, setDetailTab] = useState<'fiche' | 'taches' | 'planification' | 'metriques' | 'planner' | 'historique' | 'documents'>('fiche')
+  // Métriques is the default tab — most users land on a project to
+  // check its health (gauge + situation), not to read the descriptive
+  // fiche. Kept the rest of the order so muscle memory still works
+  // for power users.
+  const [detailTab, setDetailTab] = useState<'fiche' | 'taches' | 'planification' | 'metriques' | 'planner' | 'historique' | 'documents'>('metriques')
   const exportPdf = useExportProjectPdf()
   const { data: goutiStatus } = useGoutiStatus()
   const { toast } = useToast()
@@ -2797,10 +2801,10 @@ export function ProjectDetailPanel({ id }: { id: string }) {
     >
       <TabBar
         items={[
+          { id: 'metriques', label: 'Métriques', icon: Target },
           { id: 'fiche', label: 'Fiche', icon: Info },
           { id: 'taches', label: `Tâches (${tasks?.length ?? 0})`, icon: ListTodo },
           { id: 'planification', label: 'Planification', icon: BarChart3 },
-          { id: 'metriques', label: 'Métriques', icon: Target },
           { id: 'planner', label: 'Planner', icon: CalendarClock },
           // Renamed Activité -> Historique to lift the confusion with
           // the Planner module (this tab is the audit log / changelog).
@@ -2816,10 +2820,10 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         {isGouti && <GoutiProjectBanner />}
 
         {/* KPI strip — clickable cards that jump to the relevant tab.
-            Each card surfaces a primary metric and (when meaningful)
-            a richer sub-line: progress bar for Avancement, status
-            breakdown for Tâches, etc. */}
-        {(() => {
+            Hidden on the Métriques tab itself: the gauge + tiles in
+            <ProjectMetrics /> already cover the same data, much more
+            in-depth, so duplicating the strip there is just noise. */}
+        {detailTab !== 'metriques' && (() => {
           const trend = project.trend ?? 'flat'
           const trendArrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'
           const trendLabel = trend === 'up' ? 'En amélioration' : trend === 'down' ? 'En dégradation' : 'Stable'

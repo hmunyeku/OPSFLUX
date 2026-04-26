@@ -26,6 +26,7 @@ import {
   Loader2, CalendarClock, Scale,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ProjectInsightsBar } from './ProjectInsightsBar'
 import { FormSection, panelInputClass } from '@/components/layout/DynamicPanel'
 import { useToast } from '@/components/ui/Toast'
 import {
@@ -215,40 +216,140 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
 
   return (
     <div className="space-y-3">
-      {/* Top section — situation + gauge + qualitative selectors */}
-      <FormSection title="Situation projet" defaultExpanded>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_240px] gap-4 items-start">
-          {/* Left: text + selectors */}
-          <div className="space-y-3">
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">
-                Situation générale
-              </label>
-              <textarea
-                value={situationText}
-                onChange={(e) => setSituationText(e.target.value)}
-                placeholder={lastSituation?.situation_text || 'Décrivez en quelques mots l’état actuel du projet…'}
-                rows={3}
-                className={cn(panelInputClass, 'w-full text-xs resize-y')}
-              />
-              <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground">
-                <span>
-                  Dernière capture : <span className="text-foreground/80">{fmtDateTime(lastSituation?.captured_at)}</span>
-                  {lastSituation?.captured_by_name && <span className="ml-1 italic">par {lastSituation.captured_by_name}</span>}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={createSituation.isPending}
-                  className="inline-flex items-center gap-1 px-2 h-6 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                >
-                  {createSituation.isPending ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
-                  Enregistrer la situation
-                </button>
-              </div>
+      {/* ─── ROW 1 ── HERO: gauge (left) + bullet planning chart (right) ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-3">
+        {/* Gauge card */}
+        <FormSection title="Avancement" defaultExpanded>
+          <div className="flex flex-col items-center gap-2 pt-2">
+            <ProgressGauge value={project.progress} />
+            <div className="grid grid-cols-2 gap-2 w-full mt-1">
+              {renderDelta(deltaWeek, 'Δ 7j')}
+              {renderDelta(deltaMonth, 'Δ 28j')}
             </div>
+          </div>
+        </FormSection>
 
-            {/* Météo radios */}
+        {/* Planning bullet chart card */}
+        <FormSection title="Planning" defaultExpanded>
+          <ProjectInsightsBar project={project} />
+        </FormSection>
+      </div>
+
+      {/* ─── ROW 2 ── KPI tiles: stats durées + charge + tâches done + jalons ─── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        <KpiTile
+          icon={CalendarClock}
+          label="Fin prévue"
+          value={fmtDate(project.end_date)}
+          tone="foreground"
+        />
+        <KpiTile
+          icon={CalendarClock}
+          label="Écart livraison"
+          value={ecartLivraison == null ? '—' : `${ecartLivraison >= 0 ? '+' : ''}${ecartLivraison}j`}
+          tone={ecartLivraison == null ? 'muted' : ecartLivraison >= 0 ? 'good' : 'bad'}
+        />
+        <KpiTile
+          icon={Scale}
+          label="Charge totale"
+          value={`${hoursEstimated.toFixed(0)}h`}
+          subValue={`${hoursToJH(hoursEstimated)} j/h`}
+          tone="foreground"
+        />
+        <KpiTile
+          icon={Scale}
+          label="Reste à faire"
+          value={`${hoursRemaining.toFixed(0)}h`}
+          subValue={`${hoursToJH(hoursRemaining)} j/h`}
+          tone="primary"
+        />
+        <KpiTile
+          icon={Users}
+          label="Équipe"
+          value={String(membersTotal)}
+          tone={membersTotal > 0 ? 'foreground' : 'muted'}
+        />
+        <KpiTile
+          icon={MilestoneIcon}
+          label="Jalons"
+          value={String(milestonesTotal)}
+          tone={milestonesTotal > 0 ? 'foreground' : 'muted'}
+        />
+      </div>
+
+      {/* ─── ROW 3 ── Détail durées + charge (lignes) ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <FormSection title="Statut des durées" collapsible defaultExpanded={false} storageKey="project-detail-metrics-durations">
+          <div className="space-y-1.5 text-[11px]">
+            <StatRow icon={CalendarClock} label="Date de fin prévue" value={fmtDate(project.end_date)} />
+            <StatRow icon={CalendarClock} label="Fin dernière tâche" value={fmtDate(lastTaskEnd)} />
+            <StatRow
+              icon={CalendarClock}
+              label="Écart à la livraison"
+              value={ecartLivraison == null ? '—' : `${ecartLivraison >= 0 ? '+' : ''}${ecartLivraison} j`}
+              tone={ecartLivraison == null ? undefined : ecartLivraison >= 0 ? 'good' : 'bad'}
+            />
+            <StatRow
+              icon={CalendarClock}
+              label="Durée projet calculée"
+              value={dureeProjet == null ? '—' : `${dureeProjet} j`}
+            />
+          </div>
+        </FormSection>
+
+        <FormSection title="Statut de la charge" collapsible defaultExpanded={false} storageKey="project-detail-metrics-workload">
+          <div className="space-y-1.5 text-[11px]">
+            <StatRow icon={Scale} label="Charge totale" value={`${hoursEstimated.toFixed(0)} h`} suffix={`${hoursToJH(hoursEstimated)} j/h`} />
+            <StatRow icon={Scale} label="Charge consommée" value={`${hoursConsumed.toFixed(0)} h`} suffix={`${hoursToJH(hoursConsumed)} j/h`} />
+            <StatRow icon={Scale} label="Reste à faire" value={`${hoursRemaining.toFixed(0)} h`} suffix={`${hoursToJH(hoursRemaining)} j/h`} tone="primary" />
+          </div>
+        </FormSection>
+      </div>
+
+      {/* ─── ROW 4 ── Tâches: répartition par statut ─── */}
+      <FormSection title="Tâches" collapsible defaultExpanded={false} storageKey="project-detail-metrics-tasks">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <QuantTile icon={ListTodo} label="Total" value={tasksTotal} tone={tasksTotal > 0 ? 'foreground' : 'muted'} />
+          <QuantTile icon={Target} label="Terminées" value={tasksDone} tone="good" />
+          <QuantTile icon={Target} label="En cours" value={tasksInProgress} tone="primary" />
+          <QuantTile icon={Target} label="À faire" value={Math.max(0, tasksTotal - tasksDone - tasksInProgress)} tone="muted" />
+        </div>
+      </FormSection>
+
+      {/* ─── ROW 5 ── Situation projet (textarea + météo + tendance + save) ─── */}
+      <FormSection title="Situation projet" defaultExpanded>
+        <div className="space-y-3">
+          {/* Editor */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">
+              Situation générale
+            </label>
+            <textarea
+              value={situationText}
+              onChange={(e) => setSituationText(e.target.value)}
+              placeholder={lastSituation?.situation_text || 'Décrivez en quelques mots l’état actuel du projet…'}
+              rows={3}
+              className={cn(panelInputClass, 'w-full text-xs resize-y')}
+            />
+            <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground gap-3">
+              <span className="truncate">
+                Dernière capture : <span className="text-foreground/80">{fmtDateTime(lastSituation?.captured_at)}</span>
+                {lastSituation?.captured_by_name && <span className="ml-1 italic">par {lastSituation.captured_by_name}</span>}
+              </span>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={createSituation.isPending}
+                className="inline-flex items-center gap-1 px-2 h-7 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors text-[11px] font-medium shrink-0"
+              >
+                {createSituation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                Enregistrer la situation
+              </button>
+            </div>
+          </div>
+
+          {/* Qualitative selectors — météo + tendance side by side */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">Météo</span>
               <div className="flex gap-1.5 flex-wrap">
@@ -274,8 +375,6 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
                 })}
               </div>
             </div>
-
-            {/* Tendance radios */}
             <div>
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">Tendance</span>
               <div className="flex gap-1.5 flex-wrap">
@@ -303,124 +402,88 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
             </div>
           </div>
 
-          {/* Right: gauge + deltas */}
-          <div className="flex flex-col items-center gap-2">
-            <ProgressGauge value={project.progress} />
-            <div className="space-y-1 self-stretch px-2">
-              {renderDelta(deltaWeek, 'Δ semaine dernière')}
-              {renderDelta(deltaMonth, 'Δ 4 semaines')}
+          {/* History — table inside the same Situation section */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium">
+                Historique ({situations.length})
+              </span>
             </div>
-          </div>
-        </div>
-      </FormSection>
-
-      {/* Stats: durations + workload */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <FormSection title="Statut des durées" defaultExpanded>
-          <div className="space-y-1.5 text-[11px]">
-            <StatRow icon={CalendarClock} label="Date de fin prévue" value={fmtDate(project.end_date)} />
-            <StatRow icon={CalendarClock} label="Fin dernière tâche" value={fmtDate(lastTaskEnd)} />
-            <StatRow
-              icon={CalendarClock}
-              label="Écart à la livraison"
-              value={ecartLivraison == null ? '—' : `${ecartLivraison >= 0 ? '+' : ''}${ecartLivraison} j`}
-              tone={ecartLivraison == null ? undefined : ecartLivraison >= 0 ? 'good' : 'bad'}
-            />
-            <StatRow
-              icon={CalendarClock}
-              label="Durée projet"
-              value={dureeProjet == null ? '—' : `${dureeProjet} j`}
-            />
-          </div>
-        </FormSection>
-
-        <FormSection title="Statut de la charge" defaultExpanded>
-          <div className="space-y-1.5 text-[11px]">
-            <StatRow
-              icon={Scale}
-              label="Charge totale"
-              value={`${hoursEstimated.toFixed(0)} h`}
-              suffix={`${hoursToJH(hoursEstimated)} j/h`}
-            />
-            <StatRow
-              icon={Scale}
-              label="Charge consommée"
-              value={`${hoursConsumed.toFixed(0)} h`}
-              suffix={`${hoursToJH(hoursConsumed)} j/h`}
-            />
-            <StatRow
-              icon={Scale}
-              label="Reste à faire"
-              value={`${hoursRemaining.toFixed(0)} h`}
-              suffix={`${hoursToJH(hoursRemaining)} j/h`}
-              tone="primary"
-            />
-          </div>
-        </FormSection>
-      </div>
-
-      {/* Quantitative grid */}
-      <FormSection title="Données quantitatives" defaultExpanded>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-          <QuantTile icon={Users}         label="Personnes"     value={membersTotal} tone={membersTotal > 0 ? 'foreground' : 'muted'} />
-          <QuantTile icon={ListTodo}      label="Tâches"        value={tasksTotal}   tone={tasksTotal > 0 ? 'foreground' : 'muted'} />
-          <QuantTile icon={Target}        label="Tâches done"   value={tasksDone}    tone="good" />
-          <QuantTile icon={Target}        label="En cours"      value={tasksInProgress} tone="primary" />
-          <QuantTile icon={MilestoneIcon} label="Jalons"        value={milestonesTotal} tone={milestonesTotal > 0 ? 'foreground' : 'muted'} />
-        </div>
-      </FormSection>
-
-      {/* History */}
-      <FormSection
-        title={`Historique des situations (${situations.length})`}
-        collapsible
-        defaultExpanded={false}
-        storageKey="project-detail-situations-history"
-      >
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground py-2">
-            <Loader2 size={12} className="animate-spin" /> Chargement…
-          </div>
-        ) : situations.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground italic">
-            Aucune situation enregistrée pour le moment. Cliquez sur « Enregistrer la situation » pour créer le premier point de mesure.
-          </p>
-        ) : (
-          <div className="border border-border rounded-md overflow-hidden">
-            <div className="grid grid-cols-[120px_60px_60px_1fr_120px] gap-1 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground">
-              <span>Date</span>
-              <span className="text-right">%</span>
-              <span>Météo</span>
-              <span>Note</span>
-              <span>Auteur</span>
-            </div>
-            <div className="max-h-[280px] overflow-y-auto">
-              {situations.map(s => (
-                <div key={s.id} className="grid grid-cols-[120px_60px_60px_1fr_120px] gap-1 px-2 py-1 text-[11px] border-t border-border/30 items-center">
-                  <span className="text-muted-foreground tabular-nums">{fmtDateTime(s.captured_at)}</span>
-                  <span className="text-right font-medium tabular-nums">{s.progress}%</span>
-                  <span className="text-muted-foreground capitalize">
-                    {WEATHER_OPTIONS.find(w => w.value === s.weather)?.label ?? s.weather ?? '—'}
-                  </span>
-                  <span className="text-foreground/90 truncate" title={s.situation_text || undefined}>
-                    {s.situation_text || <span className="text-muted-foreground/60 italic">—</span>}
-                  </span>
-                  <span className="text-muted-foreground truncate">{s.captured_by_name || '—'}</span>
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground py-2">
+                <Loader2 size={12} className="animate-spin" /> Chargement…
+              </div>
+            ) : situations.length === 0 ? (
+              <div className="flex items-start gap-1.5 text-[10px] p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200">
+                <History size={11} className="mt-0.5 shrink-0" />
+                <span>
+                  Aucune situation enregistrée. Les Δ ne s’affichent qu’après plusieurs captures — enregistrez la situation chaque semaine pour voir l’évolution.
+                </span>
+              </div>
+            ) : (
+              <div className="border border-border rounded-md overflow-hidden">
+                <div className="grid grid-cols-[120px_50px_70px_1fr_110px] gap-1 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground">
+                  <span>Date</span>
+                  <span className="text-right">%</span>
+                  <span>Météo</span>
+                  <span>Note</span>
+                  <span>Auteur</span>
                 </div>
-              ))}
-            </div>
+                <div className="max-h-[240px] overflow-y-auto">
+                  {situations.map(s => (
+                    <div key={s.id} className="grid grid-cols-[120px_50px_70px_1fr_110px] gap-1 px-2 py-1 text-[11px] border-t border-border/30 items-center">
+                      <span className="text-muted-foreground tabular-nums">{fmtDateTime(s.captured_at)}</span>
+                      <span className="text-right font-medium tabular-nums">{s.progress}%</span>
+                      <span className="text-muted-foreground capitalize">
+                        {WEATHER_OPTIONS.find(w => w.value === s.weather)?.label ?? s.weather ?? '—'}
+                      </span>
+                      <span className="text-foreground/90 truncate" title={s.situation_text || undefined}>
+                        {s.situation_text || <span className="text-muted-foreground/60 italic">—</span>}
+                      </span>
+                      <span className="text-muted-foreground truncate">{s.captured_by_name || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </FormSection>
-
-      {situations.length === 0 && !isLoading && (
-        <div className="flex items-start gap-1.5 text-[10px] p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200">
-          <History size={11} className="mt-0.5 shrink-0" />
-          <span>
-            Les delta « Δ semaine dernière / Δ 4 semaines » ne s’affichent qu’après plusieurs captures. Enregistrez la situation chaque semaine pour voir l’évolution.
-          </span>
         </div>
-      )}
+      </FormSection>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// KPI tile — denser variant of QuantTile used in the hero KPI row.
+// Two-line layout (value + tiny sub-label) so date/duration values
+// also fit cleanly.
+// ──────────────────────────────────────────────────────────────────────
+function KpiTile({
+  icon: Icon, label, value, subValue, tone,
+}: {
+  icon: typeof Users
+  label: string
+  value: string
+  subValue?: string
+  tone: 'foreground' | 'muted' | 'good' | 'bad' | 'primary'
+}) {
+  const valueCls = tone === 'good' ? 'text-green-600 dark:text-green-400'
+    : tone === 'bad' ? 'text-red-600 dark:text-red-400'
+    : tone === 'primary' ? 'text-primary'
+    : tone === 'muted' ? 'text-muted-foreground/40'
+    : 'text-foreground'
+  const iconCls = tone === 'good' ? 'text-green-500'
+    : tone === 'bad' ? 'text-red-500'
+    : tone === 'primary' ? 'text-primary'
+    : 'text-muted-foreground'
+  return (
+    <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-border/50 bg-card/40">
+      <Icon size={16} className={cn(iconCls, 'mt-0.5 shrink-0')} />
+      <div className="flex flex-col leading-tight min-w-0 flex-1">
+        <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium truncate">{label}</span>
+        <span className={cn('text-base font-display font-bold tabular-nums truncate leading-tight', valueCls)}>{value}</span>
+        {subValue && <span className="text-[10px] text-muted-foreground tabular-nums truncate">{subValue}</span>}
+      </div>
     </div>
   )
 }

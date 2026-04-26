@@ -113,21 +113,24 @@ function HeroKpi({ label, value, sub, icon: Icon, tone }: HeroKpiProps) {
   // Compact card — proportional to content. Label at the top, value
   // immediately below (no flex-grow gap), optional sub-line right of
   // the value baseline. Mastt-style executive density.
+  // The value uses `whitespace-nowrap` + auto font-shrink so multi-word
+  // values like '01 mars 2027' stay on a single line; without that,
+  // CSS grid stretches every card to match the tallest one.
   return (
-    <div className={cn(p.bg, p.text, 'rounded-lg px-3.5 py-2.5')}>
-      <div className="flex items-center gap-1.5 mb-1.5">
+    <div className={cn(p.bg, p.text, 'rounded-lg px-3.5 py-2.5 self-start min-w-0 overflow-hidden')}>
+      <div className="flex items-center gap-1.5 mb-1.5 min-w-0">
         {Icon && (
           <span className={cn(p.iconBg, 'w-5 h-5 rounded inline-flex items-center justify-center shrink-0')}>
             <Icon size={11} />
           </span>
         )}
-        <span className={cn('text-[10px] uppercase tracking-wider font-semibold', p.sub)}>{label}</span>
+        <span className={cn('text-[10px] uppercase tracking-wider font-semibold truncate', p.sub)}>{label}</span>
       </div>
-      <div className="flex items-baseline gap-2 flex-wrap">
-        <span className="font-display font-bold tabular-nums leading-none text-3xl">
+      <div className="flex items-baseline gap-2 min-w-0">
+        <span className="font-display font-bold tabular-nums leading-none text-2xl sm:text-3xl whitespace-nowrap truncate">
           {value}
         </span>
-        {sub && <span className={cn('text-[10px] font-medium', p.sub)}>{sub}</span>}
+        {sub && <span className={cn('text-[10px] font-medium truncate', p.sub)}>{sub}</span>}
       </div>
     </div>
   )
@@ -329,7 +332,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
         />
         <HeroKpi
           label="Fin prévue"
-          value={project.end_date ? new Date(project.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+          value={project.end_date ? new Date(project.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }).replace('.', '') : '—'}
           sub={ecartLivraison != null ? `Écart livraison ${ecartLivraison >= 0 ? '+' : ''}${ecartLivraison}j` : undefined}
           tone="amber"
           icon={CalendarCheck}

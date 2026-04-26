@@ -555,10 +555,24 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                   <>
                     {/* Backdrop closes the popover on outside tap */}
                     <div
-                      className="fixed inset-0 z-40"
+                      className="fixed inset-0 z-40 bg-foreground/10"
                       onClick={() => setShowAdvancedFilters(false)}
                     />
-                    <div className="absolute right-0 top-full mt-1 z-50 w-[min(20rem,calc(100vw-1rem))] rounded-md border bg-popover shadow-lg p-2 space-y-2">
+                    {/* Sheet anchored to viewport edges so the width can
+                        never escape the screen. inset-x-2 keeps a small
+                        breathing room on both sides on phones. */}
+                    <div className="fixed inset-x-2 top-[5.5rem] z-50 max-w-md mx-auto rounded-md border bg-popover shadow-xl p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-foreground">Filtres avancés</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowAdvancedFilters(false)}
+                          className="text-muted-foreground hover:text-foreground p-0.5"
+                          aria-label="Fermer"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                       <div>
                         <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Asset</div>
                         <AssetPicker

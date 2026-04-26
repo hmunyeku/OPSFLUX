@@ -144,6 +144,141 @@ export function VariablePobEditor({
     fillSelectionWith(src)
   }, [anchor, days, valueMap, defaultValue, fillSelectionWith])
 
+  // ── Per-cell editable inputs (Excel-like behavior) ──
+  // Each cell carries its own ref so paste / drag-fill / arrow nav can
+  // hand keyboard focus to the right input without re-rendering.
+  const cellRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  // Update a single cell value (or clear if v is null/empty).
+  const setSingleCell = useCallback((idx: number, raw: string) => {
+    const key = days[idx]?.key
+    if (!key) return
+    const next = { ...valueMap }
+    if (raw === '' || raw == null) {
+      delete next[key]
+    } else {
+      const n = Number(raw.replace(',', '.').trim())
+      if (!Number.isFinite(n)) return
+      next[key] = Math.max(0, Math.round(n))
+    }
+    onChange(next)
+  }, [days, valueMap, onChange])
+
+  // Parse a clipboard string and write the values starting at `startIdx`,
+  // distributing across following cells. Supports:
+  //   - Tab-separated (Excel paste)
+  //   - Comma / semicolon separated
+  //   - Whitespace separated (space, newline)
+  //   - Decimal comma -> dot
+  // Empty tokens are skipped (the cell is left untouched).
+  const writePastedValues = useCallback((startIdx: number, text: string) => {
+    const tokens = text
+      .replace(/\r/g, '')
+      .split(/[\t,;\s]+/u)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+    if (tokens.length === 0) return
+    const next = { ...valueMap }
+    let cursor = startIdx
+    for (const tok of tokens) {
+      if (cursor >= days.length) break
+      const n = Number(tok.replace(',', '.'))
+      if (Number.isFinite(n)) next[days[cursor].key] = Math.max(0, Math.round(n))
+      cursor++
+    }
+    onChange(next)
+    // Move focus to the last written cell so the user can keep typing.
+    requestAnimationFrame(() => {
+      const last = Math.min(days.length - 1, cursor - 1)
+      cellRefs.current[last]?.focus()
+      cellRefs.current[last]?.select()
+      setAnchor(last); setLead(last)
+    })
+  }, [days, valueMap, onChange])
+
+  // Cell-level keyboard nav between inputs. Mirrors the parent's
+  // selection nav but operates on the focused input directly.
+  const handleCellKey = useCallback((e: React.KeyboardEvent<HTMLInputElement>, idx: number) => {
+    const max = days.length - 1
+    let target: number | null = null
+    if (e.key === 'ArrowRight' || (e.key === 'Tab' && !e.shiftKey)) {
+      target = Math.min(max, idx + 1)
+    } else if (e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey)) {
+      target = Math.max(0, idx - 1)
+    } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
+      target = Math.min(max, idx + 7)
+    } else if (e.key === 'ArrowUp') {
+      target = Math.max(0, idx - 7)
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      // Only intercept when the input is empty — otherwise let the
+      // user delete characters normally.
+      if ((e.target as HTMLInputElement).value === '') {
+        e.preventDefault()
+        setSingleCell(idx, '')
+      }
+      return
+    }
+    if (target != null) {
+      e.preventDefault()
+      cellRefs.current[target]?.focus()
+      cellRefs.current[target]?.select()
+      setAnchor(target); setLead(target)
+    }
+  }, [days.length, setSingleCell])
+
+  // ── Drag-to-fill (Excel autofill handle) ──
+  // When the user mousedowns on the small handle in the focused cell
+  // and drags over neighbouring cells, fill them with the source
+  // cell's value. Released → commits.
+  const dragFillRef = useRef<{ from: number; sourceVal: number } | null>(null)
+  const [dragFillTo, setDragFillTo] = useState<number | null>(null)
+
+  const startDragFill = useCallback((idx: number, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const sourceVal = valueMap[days[idx]?.key ?? ''] ?? defaultValue ?? 0
+    dragFillRef.current = { from: idx, sourceVal }
+    setDragFillTo(idx)
+  }, [days, valueMap, defaultValue])
+
+  useEffect(() => {
+    if (!dragFillRef.current) return
+    const onMove = (e: MouseEvent) => {
+      if (!dragFillRef.current) return
+      const target = (e.target as HTMLElement | null)?.closest('[data-pob-cell]') as HTMLElement | null
+      const idxAttr = target?.getAttribute('data-pob-cell')
+      if (idxAttr) setDragFillTo(Number(idxAttr))
+    }
+    const onUp = () => {
+      const ref = dragFillRef.current
+      if (ref && dragFillTo != null) {
+        const [lo, hi] = [Math.min(ref.from, dragFillTo), Math.max(ref.from, dragFillTo)]
+        const next = { ...valueMap }
+        for (let i = lo; i <= hi; i++) {
+          const k = days[i]?.key
+          if (k) next[k] = ref.sourceVal
+        }
+        onChange(next)
+      }
+      dragFillRef.current = null
+      setDragFillTo(null)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp, { once: true })
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+  }, [dragFillTo, days, valueMap, onChange])
+
+  // Range highlight while dragging the autofill handle
+  const isInDragFill = useCallback((idx: number) => {
+    const ref = dragFillRef.current
+    if (!ref || dragFillTo == null) return false
+    const [lo, hi] = [Math.min(ref.from, dragFillTo), Math.max(ref.from, dragFillTo)]
+    return idx >= lo && idx <= hi
+  }, [dragFillTo])
+
   // ── Bulk fill prompt ──
   const [bulkFillOpen, setBulkFillOpen] = useState(false)
   const [bulkFillValue, setBulkFillValue] = useState<string>('')
@@ -374,40 +509,80 @@ export function VariablePobEditor({
         </div>
       )}
 
-      {/* ── Grid ── */}
-      <div className="p-2 max-h-[280px] overflow-y-auto">
+      {/* ── Grid (Excel-like inline edit) ── */}
+      <div className="p-2 max-h-[320px] overflow-y-auto">
         <div className="flex flex-wrap gap-1">
           {days.map((d, idx) => {
             const v = valueMap[d.key]
             const sel = isSelected(idx)
             const isWeekend = d.weekday === 0 || d.weekday === 6
+            const inDragFill = isInDragFill(idx)
+            const isFocused = anchor === idx && lead === idx
             return (
               <div
                 key={d.key}
+                data-pob-cell={idx}
                 className={cn(
-                  'relative flex flex-col items-center justify-center rounded border cursor-pointer select-none',
+                  'relative flex flex-col items-center rounded border select-none transition-colors',
                   cellSize,
-                  sel
-                    ? 'border-primary bg-primary/15 ring-1 ring-primary'
-                    : isWeekend
-                      ? 'border-border/60 bg-muted/40 hover:bg-muted'
-                      : 'border-border hover:bg-muted/40',
+                  inDragFill
+                    ? 'border-primary bg-primary/20 ring-1 ring-primary'
+                    : sel
+                      ? 'border-primary bg-primary/10 ring-1 ring-primary/60'
+                      : isWeekend
+                        ? 'border-border/60 bg-muted/40 hover:bg-muted'
+                        : 'border-border hover:bg-muted/40',
                 )}
-                onMouseDown={(e) => onCellMouseDown(idx, e)}
+                onMouseDown={(e) => {
+                  // Mouse-select behavior: only takes over when the
+                  // user clicks OUTSIDE the input (ie. the date label
+                  // strip). Inside the input, focus + caret handling
+                  // is native.
+                  if ((e.target as HTMLElement).tagName !== 'INPUT') {
+                    onCellMouseDown(idx, e)
+                  }
+                }}
                 onMouseEnter={(e) => onCellMouseEnter(idx, e)}
                 title={`${WEEKDAY_FULL[d.weekday]} ${d.date.getUTCDate()}/${String(d.date.getUTCMonth() + 1).padStart(2, '0')}`}
               >
-                <span className="text-[8px] text-muted-foreground leading-none">
+                <span className="text-[8px] text-muted-foreground leading-none mt-0.5">
                   {WEEKDAY_LABELS[d.weekday]}{d.date.getUTCDate()}
                 </span>
-                <span
+                <input
+                  ref={(el) => { cellRefs.current[idx] = el }}
+                  type="text"
+                  inputMode="numeric"
+                  value={v ?? ''}
+                  placeholder="·"
+                  onFocus={(e) => {
+                    setAnchor(idx); setLead(idx)
+                    // Auto-select content so typing replaces.
+                    e.currentTarget.select()
+                  }}
+                  onChange={(e) => setSingleCell(idx, e.target.value)}
+                  onKeyDown={(e) => handleCellKey(e, idx)}
+                  onPaste={(e) => {
+                    const text = e.clipboardData.getData('text')
+                    if (!text) return
+                    e.preventDefault()
+                    writePastedValues(idx, text)
+                  }}
                   className={cn(
-                    'text-xs font-semibold tabular-nums leading-none mt-0.5',
+                    'w-full bg-transparent text-center font-semibold tabular-nums leading-none mt-0.5 outline-none border-0 p-0',
+                    compact ? 'text-[11px] h-5' : 'text-xs h-6',
                     v == null ? 'text-muted-foreground/50' : 'text-foreground',
                   )}
-                >
-                  {v ?? '·'}
-                </span>
+                />
+                {/* Autofill handle — small primary dot at bottom-right
+                    of the focused cell. Drag to spread the cell's
+                    value across following cells. */}
+                {isFocused && !inDragFill && (
+                  <span
+                    onMouseDown={(e) => startDragFill(idx, e)}
+                    className="absolute -right-[3px] -bottom-[3px] w-2 h-2 rounded-sm bg-primary cursor-crosshair shadow-sm"
+                    title="Glisser pour remplir"
+                  />
+                )}
               </div>
             )
           })}
@@ -416,7 +591,7 @@ export function VariablePobEditor({
 
       {/* ── Hint footer ── */}
       <div className="px-2 py-1 border-t border-border bg-muted/20 text-[9px] text-muted-foreground">
-        Clic pour sélectionner · Maj+clic ou glisser pour étendre · ←→ pour naviguer · 0-9 pour remplir · Suppr pour vider
+        Tape directement dans la case · Coller depuis Excel ou un texte (séparé par tab/virgule/espace) · Tab/← → / ↑ ↓ pour naviguer · Glisser le coin pour recopier · Suppr pour vider
       </div>
     </div>
   )

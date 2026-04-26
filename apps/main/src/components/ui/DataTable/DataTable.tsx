@@ -1046,11 +1046,14 @@ export function DataTable<TData>({
                 continue
               }
 
-              // Default: label/value row
+              // Default: label/value row — labels in a fixed column so
+              // values land right next to them (no dead space in the middle
+              // of the card), labels right-aligned for a clean rag along
+              // the value-edge.
               renderedMiddle.push(
-                <div key={cell.id} className="flex items-center justify-between gap-2 text-xs min-h-[20px]">
-                  <span className="text-[11px] text-muted-foreground shrink-0">{headerLabelOf(cell.column)}</span>
-                  <span className="text-foreground text-right break-words min-w-0 flex items-center justify-end gap-1">
+                <div key={cell.id} className="grid grid-cols-[6.5rem_1fr] items-center gap-x-3 text-xs min-h-[20px]">
+                  <span className="text-[11px] text-muted-foreground text-right truncate">{headerLabelOf(cell.column)}</span>
+                  <span className="text-foreground break-words min-w-0 flex items-center gap-1">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </span>
                 </div>

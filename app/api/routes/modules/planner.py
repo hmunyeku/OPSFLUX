@@ -603,6 +603,13 @@ async def create_activity(
 ):
     payload = body.model_dump()
     staging_ref = payload.pop("staging_ref", None)
+    # Strip pax_quota_daily entries outside the [start, end] window so
+    # the JSONB blob never carries orphan keys from a draft state.
+    daily = payload.get("pax_quota_daily")
+    if daily and payload.get("start_date") and payload.get("end_date"):
+        start_iso = payload["start_date"].date().isoformat() if hasattr(payload["start_date"], "date") else str(payload["start_date"])[:10]
+        end_iso = payload["end_date"].date().isoformat() if hasattr(payload["end_date"], "date") else str(payload["end_date"])[:10]
+        payload["pax_quota_daily"] = {k: v for k, v in daily.items() if start_iso <= k <= end_iso}
     activity = PlannerActivity(
         entity_id=entity_id,
         created_by=current_user.id,
@@ -663,6 +670,23 @@ async def update_activity(
 
     for field, value in changes.items():
         setattr(activity, field, value)
+
+    # ── Prune pax_quota_daily orphan keys ──
+    # When start_date / end_date / pax_quota_daily change, drop any
+    # entries whose ISO date key falls outside the new [start, end]
+    # window. Without this, shrinking the activity leaves stale 0s
+    # that pollute min/max/avg computations on the frontend.
+    if any(k in changes for k in ("start_date", "end_date", "pax_quota_daily")):
+        if activity.pax_quota_daily and activity.start_date and activity.end_date:
+            start_iso = activity.start_date.date().isoformat()
+            end_iso = activity.end_date.date().isoformat()
+            cleaned = {
+                k: v for k, v in activity.pax_quota_daily.items()
+                if start_iso <= k <= end_iso
+            }
+            if len(cleaned) != len(activity.pax_quota_daily):
+                # Reassign so SQLAlchemy detects the JSONB change.
+                activity.pax_quota_daily = cleaned
 
     # ── Planner → PaxLog cascade: count linked AdS for handler-driven review ──
     ads_updated_count = 0

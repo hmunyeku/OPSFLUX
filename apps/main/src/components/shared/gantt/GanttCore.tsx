@@ -24,7 +24,7 @@ import {
   Loader2, ZoomIn, ZoomOut, Maximize, Download,
   FileImage, FileText, Calendar,
   Plus, Diamond, IndentIncrease, IndentDecrease, Trash2,
-  Undo2, Redo2,
+  Undo2, Redo2, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -266,7 +266,7 @@ export function GanttCore(props: GanttCoreProps) {
 
   // ── Refs ────────────────────────────────────────────────────────
 
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bodyScrollRef = useRef<HTMLDivElement>(null)
   // Dedicated scroll container for the sticky "Plan de charge" footer
@@ -288,6 +288,38 @@ export function GanttCore(props: GanttCoreProps) {
   const minPanelWidth = columnsWidth + taskColWidth
   const [panelWidth, setPanelWidth] = useState(() => minPanelWidth)
   const resizingPanel = useRef(false)
+  // Mobile: panel takes too much room. Auto-collapse below ~720px;
+  // user can still toggle with the panel button in the toolbar.
+  // Persisted across sessions.
+  const [panelHidden, setPanelHidden] = useState<boolean>(() => {
+    try { return localStorage.getItem('gantt:panelHidden') === '1' } catch { return false }
+  })
+  const togglePanelHidden = useCallback(() => {
+    setPanelHidden((prev) => {
+      const next = !prev
+      try { localStorage.setItem('gantt:panelHidden', next ? '1' : '0') } catch { /* ignore */ }
+      return next
+    })
+  }, [])
+  // Auto-collapse on narrow containers — only on first observe so we
+  // don't override the user's manual toggle when they widen the window.
+  const autoCollapsedRef = useRef(false)
+  const rootResizeRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!rootResizeRef.current) return
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) {
+        const w = e.contentRect.width
+        if (w < 720 && !autoCollapsedRef.current && !panelHidden) {
+          autoCollapsedRef.current = true
+          setPanelHidden(true)
+        }
+      }
+    })
+    ro.observe(rootResizeRef.current)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // Keep panel in sync with column widths
   useEffect(() => {
     setPanelWidth(columnsWidth + taskColWidth)
@@ -966,7 +998,12 @@ export function GanttCore(props: GanttCoreProps) {
 
   return (
     <div
-      ref={containerRef}
+      ref={(el) => {
+        // Same element drives both refs (ResizeObserver target +
+        // containerRef used elsewhere for tooltip/scroll math).
+        containerRef.current = el
+        rootResizeRef.current = el
+      }}
       className={cn('relative flex flex-col border rounded-lg bg-background overflow-hidden select-none h-full', className)}
       style={{ minHeight }}
     >
@@ -979,6 +1016,22 @@ export function GanttCore(props: GanttCoreProps) {
               {leadingToolbar}
             </div>
           )}
+          {/* Panel toggle — hides the left task panel to free room
+              for the timeline (especially useful on mobile where the
+              250+px task column eats most of the screen). Auto-
+              collapsed on first render below 720px container width;
+              user choice persists in localStorage. */}
+          {showGrid && (
+            <button
+              onClick={togglePanelHidden}
+              className="p-1 rounded hover:bg-muted"
+              title={panelHidden ? 'Afficher le panneau Tâches' : 'Masquer le panneau Tâches'}
+              aria-label={panelHidden ? 'Afficher le panneau Tâches' : 'Masquer le panneau Tâches'}
+            >
+              {panelHidden ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
+          )}
+
           {/* Navigation */}
           <button onClick={() => shift(-1)} className="p-1 rounded hover:bg-muted" title={t('common.previous')}>
             <ChevronLeft className="h-4 w-4" />
@@ -1233,7 +1286,7 @@ export function GanttCore(props: GanttCoreProps) {
       <div data-gantt-panel-grid className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* ── Left panel ───────────────────────────────────── */}
-        {showGrid && (
+        {showGrid && !panelHidden && (
           <>
             <div className="flex flex-col shrink-0 border-r" style={{ width: panelWidth }}>
               {/* Panel header — with custom column headers */}

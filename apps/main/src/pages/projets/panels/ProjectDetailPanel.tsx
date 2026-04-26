@@ -2815,9 +2815,15 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         onTabChange={(id) => setDetailTab(id as typeof detailTab)}
       />
       <PanelContentLayout>
-        <TagManager ownerType="project" ownerId={project.id} compact />
-
-        {isGouti && <GoutiProjectBanner />}
+        {/* Tag manager + Gouti banner shouldn't pollute the executive
+            dashboard view. Both belong on the Fiche tab where the
+            user actually edits descriptive metadata. */}
+        {detailTab !== 'metriques' && (
+          <>
+            <TagManager ownerType="project" ownerId={project.id} compact />
+            {isGouti && <GoutiProjectBanner />}
+          </>
+        )}
 
         {/* KPI strip — clickable cards that jump to the relevant tab.
             Hidden on the Métriques tab itself: the gauge + tiles in

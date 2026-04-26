@@ -24,7 +24,7 @@ import {
   Sun, Cloud, CloudRain, CloudLightning, CloudSun,
   TrendingUp, TrendingDown, Minus,
   Loader2, CalendarClock, Scale,
-  Wallet, Coins, Banknote, CalendarCheck, Check, AlertTriangle, X as XIcon,
+  Wallet, Coins, Banknote, CalendarCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProjectInsightsBar } from './ProjectInsightsBar'
@@ -35,49 +35,6 @@ import {
   useUpdateProject,
 } from '@/hooks/useProjets'
 import type { Project, ProjectTask, ProjectMember, ProjectMilestone, ProjectSituation } from '@/types/api'
-
-// ──────────────────────────────────────────────────────────────────────
-// Donut gauge (pure SVG — no chart lib dep needed for one chart)
-// ──────────────────────────────────────────────────────────────────────
-
-function ProgressGauge({ value, size = 160 }: { value: number; size?: number }) {
-  const v = Math.max(0, Math.min(100, value))
-  const stroke = 14
-  const r = (size - stroke) / 2
-  const c = 2 * Math.PI * r
-  // Half-circle gauge (270° arc looks nicer + matches Gouti). Fill
-  // goes clockwise from 9 o'clock (-225° start) over 270° span.
-  const span = 270
-  const filled = (v / 100) * span
-  const tone = v >= 75 ? '#16a34a' : v >= 40 ? 'hsl(var(--primary))' : v > 0 ? '#d97706' : 'hsl(var(--muted-foreground))'
-
-  return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size * 0.72 }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-[225deg]">
-        {/* Track */}
-        <circle
-          cx={size / 2} cy={size / 2} r={r}
-          fill="none" stroke="hsl(var(--muted))" strokeWidth={stroke}
-          strokeDasharray={`${(span / 360) * c} ${c}`}
-          strokeLinecap="round"
-        />
-        {/* Fill */}
-        <circle
-          cx={size / 2} cy={size / 2} r={r}
-          fill="none" stroke={tone} strokeWidth={stroke}
-          strokeDasharray={`${(filled / 360) * c} ${c}`}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dasharray 350ms ease' }}
-        />
-      </svg>
-      {/* Center label */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
-        <span className="text-3xl font-display font-bold tabular-nums" style={{ color: tone }}>{v}%</span>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium mt-0.5">Avancement</span>
-      </div>
-    </div>
-  )
-}
 
 // ──────────────────────────────────────────────────────────────────────
 // Helpers
@@ -189,25 +146,31 @@ function HeroKpi({ label, value, sub, icon: Icon, tone, size = 'md' }: HeroKpiPr
 
 type HealthLevel = 'good' | 'warn' | 'bad' | 'unknown'
 
-function HealthRing({ label, level, size = 64 }: { label: string; level: HealthLevel; size?: number }) {
-  const tone = level === 'good' ? '#10b981' : level === 'warn' ? '#f59e0b' : level === 'bad' ? '#ef4444' : '#94a3b8'
-  const stroke = 5
+function HealthRing({ label, level, size = 72 }: { label: string; level: HealthLevel; size?: number }) {
+  const tone = level === 'good' ? '#10b981'
+    : level === 'warn' ? '#f59e0b'
+    : level === 'bad' ? '#ef4444'
+    : '#cbd5e1'  // softer slate for unknown — doesn't read as alarming
+  const isKnown = level !== 'unknown'
+  const stroke = 6
   const r = (size - stroke) / 2
-  const Icon = level === 'good' ? Check : level === 'warn' ? AlertTriangle : level === 'bad' ? XIcon : Minus
+  // For unknown we render a thin dashed ring (not a solid red/green)
+  // so the user can tell "no data yet" from "actually fine".
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-2">
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none"
-                  stroke={tone} strokeWidth={stroke} strokeOpacity={0.18} />
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none"
-                  stroke={tone} strokeWidth={stroke} strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * r * 0.85} ${2 * Math.PI * r}`}
-                  transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+          {isKnown ? (
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+                    stroke={tone} strokeWidth={stroke} strokeLinecap="round" />
+          ) : (
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+                    stroke={tone} strokeWidth={stroke - 2} strokeDasharray="4 4" />
+          )}
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Icon size={20} style={{ color: tone }} strokeWidth={2.5} />
-        </div>
+        {/* No center icon — matches Mastt's clean ring grammar.
+            The label below carries the meaning; the ring color
+            already communicates the level. */}
       </div>
       <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
     </div>
@@ -215,11 +178,14 @@ function HealthRing({ label, level, size = 64 }: { label: string; level: HealthL
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Compact money formatter (1.5 k€, 1.2 M€)
+// Compact money formatter (1.5 k€, 1.2 M€). Returns '—' when no value
+// to avoid the dashboard reading like "0 €" everywhere on projects
+// without a budget configured yet.
 // ──────────────────────────────────────────────────────────────────────
 function fmtCompactMoney(n: number | null | undefined, currency = '€'): string {
-  if (n == null || n === 0) return `0 ${currency}`
+  if (n == null) return '—'
   const abs = Math.abs(n)
+  if (abs < 0.5) return '—'
   if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)} M${currency}`
   if (abs >= 1_000) return `${(n / 1_000).toFixed(abs >= 10_000 ? 0 : 1)} k${currency}`
   return `${Math.round(n)} ${currency}`
@@ -242,9 +208,10 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
     return situations.find(s => new Date(s.captured_at).getTime() <= cutoff)
   }
   const week = findOlderThan(7)
-  const month = findOlderThan(28)
   const deltaWeek = week ? project.progress - week.progress : null
-  const deltaMonth = month ? project.progress - month.progress : null
+  // 28-day delta is computed but not yet shown — saved for the
+  // moment we add a sparkline / mini-trend on the hero.
+  void findOlderThan
 
   // ── Computed metrics ──
   const tasksTotal = tasks.length
@@ -332,25 +299,6 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
     updateProject.mutate({ id: project.id, payload: { trend } })
   }
 
-  const renderDelta = (delta: number | null, label: string) => {
-    if (delta == null) return (
-      <div className="flex items-center gap-1.5 text-[11px]">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground/70 tabular-nums">—</span>
-      </div>
-    )
-    const tone = delta > 0 ? 'bg-green-500/10 text-green-700 dark:text-green-400'
-      : delta < 0 ? 'bg-red-500/10 text-red-700 dark:text-red-400'
-      : 'bg-muted/60 text-muted-foreground'
-    const sign = delta > 0 ? '+' : delta < 0 ? '' : ''
-    return (
-      <div className="flex items-center gap-1.5 text-[11px]">
-        <span className="text-muted-foreground">{label}</span>
-        <span className={cn('px-1.5 py-0.5 rounded tabular-nums font-medium', tone)}>{sign}{delta}%</span>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
       {/* ─── ROW 1 ── HERO KPIS — Mastt-style colored cards.
@@ -398,20 +346,15 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
       </div>
 
       {/* ─── ROW 2 ── HEALTH RINGS — at-a-glance project health
-          across 4 axes (Mastt grammar). */}
+          across 4 axes (Mastt grammar). The avancement gauge that
+          used to live here was a duplicate of the hero KPI — removed
+          to keep this row symmetric and focused on the 4 health axes. */}
       <FormSection title="Santé du projet" defaultExpanded>
-        <div className="flex items-center justify-around flex-wrap gap-4 py-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 justify-items-center py-2">
           <HealthRing label="Périmètre" level={scopeLevel} />
           <HealthRing label="Calendrier" level={scheduleLevel} />
           <HealthRing label="Coût" level={costLevel} />
           <HealthRing label="Qualité" level={qualityLevel} />
-          <div className="flex flex-col items-center justify-center px-3 border-l border-border/40 ml-2">
-            <ProgressGauge value={project.progress} size={120} />
-            <div className="grid grid-cols-2 gap-2 mt-1 text-[10px] w-full">
-              {renderDelta(deltaWeek, 'Δ 7j')}
-              {renderDelta(deltaMonth, 'Δ 28j')}
-            </div>
-          </div>
         </div>
       </FormSection>
 

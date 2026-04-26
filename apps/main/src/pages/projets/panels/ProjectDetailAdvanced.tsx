@@ -441,7 +441,13 @@ export function CpmSection({ projectId }: { projectId: string }) {
                           {fmtDate(t.early_start)}
                         </span>
                         {/* Mini Gantt — position ∝ ES, width ∝ duration.
-                            Inner darker bar reflects actual progress %. */}
+                            Inner darker bar reflects actual progress %.
+                            The progress label always reads cleanly: when
+                            the bar is wide enough we render it inside
+                            with white + dark text-shadow (works on both
+                            the saturated fill and the translucent area);
+                            otherwise we drop it to the right of the bar
+                            in muted foreground so it never collides. */}
                         <div className="relative h-3 bg-muted/40 rounded-sm overflow-hidden">
                           <div
                             className={cn(
@@ -459,13 +465,29 @@ export function CpmSection({ projectId }: { projectId: string }) {
                               style={{ width: `${progress}%` }}
                               title={`${progress}% réalisé`}
                             />
-                            {/* % label centered on the bar when there's room (>15% width) */}
                             {width > 15 && (
-                              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold tabular-nums text-white mix-blend-difference pointer-events-none">
+                              <span
+                                className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold tabular-nums text-white pointer-events-none"
+                                style={{
+                                  // Crisp 1px black halo so the label is
+                                  // legible whether it lands on the
+                                  // saturated progress fill or the
+                                  // translucent outer bar.
+                                  textShadow: '0 0 2px rgba(0,0,0,0.85), 0 1px 1px rgba(0,0,0,0.6)',
+                                }}
+                              >
                                 {progress}%
                               </span>
                             )}
                           </div>
+                          {width <= 15 && (
+                            <span
+                              className="absolute top-1/2 -translate-y-1/2 text-[9px] tabular-nums text-muted-foreground pointer-events-none"
+                              style={{ left: `calc(${left + width}% + 4px)` }}
+                            >
+                              {progress}%
+                            </span>
+                          )}
                         </div>
                         {/* End date */}
                         <span className="text-left tabular-nums text-muted-foreground text-[10px]">

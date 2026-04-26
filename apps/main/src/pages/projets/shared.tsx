@@ -3,7 +3,7 @@
  *
  * Pure restructure of ProjetsPage.tsx — no behavior changes.
  */
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Sun, Cloud, CloudRain, CloudLightning, X, Download,
@@ -201,14 +201,45 @@ export function InlinePickerField({
   renderPicker,
 }: {
   label: string
+  /** Display string when not editing. Pass empty string / '--' / '—' to
+   *  show the muted em-dash placeholder instead of the literal text. */
   displayValue: string
   renderPicker: (onDone: () => void) => React.ReactNode
 }) {
   const [editing, setEditing] = useState(false)
+  const editorRef = useRef<HTMLDivElement | null>(null)
+
+  // Click anywhere outside the editor closes it. Without this, openers
+  // like AssetPicker/UserPicker (which render as a button + popover but
+  // don't auto-close on outside click of the wrapping field) trap the
+  // user in edit mode and visually clash with neighbouring rows.
+  useEffect(() => {
+    if (!editing) return
+    const onDoc = (e: MouseEvent) => {
+      const el = editorRef.current
+      if (el && !el.contains(e.target as Node)) setEditing(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setEditing(false) }
+    // Use mousedown so we close before the picker mounts a fresh
+    // popover on the next click.
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [editing])
+
+  // Treat common empty-marker strings as "no value" so the muted
+  // em-dash is shown consistently across the form.
+  const isBlank = !displayValue || /^[\s\-—–]*$/.test(displayValue)
 
   if (editing) {
     return (
-      <div className="flex flex-col gap-1 py-1.5 border-b border-border/20 sm:flex-row sm:items-start sm:gap-3">
+      <div
+        ref={editorRef}
+        className="flex flex-col gap-1 py-1.5 border-b border-border/20 sm:flex-row sm:items-start sm:gap-3"
+      >
         <span
           className="text-[10px] text-muted-foreground shrink-0 font-semibold uppercase tracking-wider sm:text-xs sm:font-medium sm:tracking-wide sm:pt-1"
           style={{ width: 'var(--opsflux-label-w, 8rem)' } as React.CSSProperties}
@@ -225,8 +256,7 @@ export function InlinePickerField({
   return (
     <div
       className="group flex flex-col gap-1 py-1.5 border-b border-border/20 last:border-0 sm:flex-row sm:items-start sm:gap-3"
-      onDoubleClick={() => setEditing(true)}
-      title="Double-cliquez pour modifier"
+      title="Cliquez pour modifier"
     >
       <span
         className="text-[10px] text-muted-foreground shrink-0 font-semibold uppercase tracking-wider sm:text-xs sm:font-medium sm:tracking-wide sm:pt-1"
@@ -234,9 +264,13 @@ export function InlinePickerField({
       >
         {label}
       </span>
-      <span className="flex-1 min-w-0 text-sm text-foreground bg-muted/30 hover:bg-muted/60 hover:ring-1 hover:ring-primary/20 cursor-pointer rounded-md px-2.5 py-1.5 transition-colors break-words [overflow-wrap:anywhere]">
-        {displayValue || <span className="text-muted-foreground/60">—</span>}
-      </span>
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="flex-1 min-w-0 text-left text-sm text-foreground bg-muted/30 hover:bg-muted/60 hover:ring-1 hover:ring-primary/20 cursor-pointer rounded-md px-2.5 py-1.5 transition-colors break-words [overflow-wrap:anywhere]"
+      >
+        {isBlank ? <span className="text-muted-foreground/60">—</span> : displayValue}
+      </button>
     </div>
   )
 }

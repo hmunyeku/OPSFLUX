@@ -2799,68 +2799,152 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
         {isGouti && <GoutiProjectBanner />}
 
-        {/* KPI strip — always visible at the top regardless of tab. Same
-            stats as before (météo, %, tâches, personnes, jalons) but
-            more prominent: colored values, bigger icons, card-style row. */}
-        <div className="flex flex-wrap items-stretch gap-2">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
-            <WeatherIcon weather={project.weather} size={18} />
-            <div className="flex flex-col leading-tight">
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Météo</span>
-              <span className="text-sm font-display font-semibold text-foreground">
-                {projectWeatherLabels[project.weather] ?? project.weather}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5">
-            <Target size={16} className="text-primary" />
-            <div className="flex flex-col leading-tight">
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Avancement</span>
-              <span className="text-sm font-display font-semibold text-primary tabular-nums">{project.progress}%</span>
-            </div>
-          </div>
-          {/* Tendance — qualitative indicator (up/flat/down) set manually */}
-          {(() => {
-            const trend = project.trend ?? 'flat'
-            const arrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'
-            const cls = trend === 'up'
-              ? 'border-green-500/30 bg-green-500/5 text-green-600'
-              : trend === 'down'
-              ? 'border-red-500/30 bg-red-500/5 text-red-600'
-              : 'border-border/40 bg-card/40 text-muted-foreground'
-            const label = trend === 'up' ? 'En amélioration' : trend === 'down' ? 'En dégradation' : 'Stable'
-            return (
-              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg border', cls)}>
-                <span className="text-xl leading-none font-bold">{arrow}</span>
-                <div className="flex flex-col leading-tight">
-                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Tendance</span>
-                  <span className="text-sm font-display font-semibold">{label}</span>
+        {/* KPI strip — clickable cards that jump to the relevant tab.
+            Each card surfaces a primary metric and (when meaningful)
+            a richer sub-line: progress bar for Avancement, status
+            breakdown for Tâches, etc. */}
+        {(() => {
+          const trend = project.trend ?? 'flat'
+          const trendArrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'
+          const trendLabel = trend === 'up' ? 'En amélioration' : trend === 'down' ? 'En dégradation' : 'Stable'
+          const trendCls = trend === 'up'
+            ? 'border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400'
+            : trend === 'down'
+            ? 'border-red-500/30 bg-red-500/5 text-red-700 dark:text-red-400'
+            : 'border-border/50 bg-card/40 text-muted-foreground'
+          const progress = project.progress ?? 0
+          const progressTone = progress >= 75 ? 'text-green-600 dark:text-green-400' :
+                               progress >= 40 ? 'text-primary' :
+                               progress > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'
+          const progressBar = progress >= 75 ? 'bg-green-500' :
+                              progress >= 40 ? 'bg-primary' :
+                              progress > 0 ? 'bg-amber-500' : 'bg-muted-foreground/30'
+          // Task breakdown for the sub-line
+          const tCounts = (tasks ?? []).reduce<Record<string, number>>((m, t) => {
+            m[t.status] = (m[t.status] ?? 0) + 1; return m
+          }, {})
+          const tDone = tCounts.done ?? 0
+          const tInProgress = tCounts.in_progress ?? 0
+
+          return (
+            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-6 gap-2">
+              {/* Météo */}
+              <button
+                type="button"
+                onClick={() => setDetailTab('fiche')}
+                className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-border/50 bg-card/40 hover:bg-card/70 hover:border-border transition-colors text-left"
+                title="Météo du projet — cliquer pour modifier"
+              >
+                <div className="flex items-center gap-1.5">
+                  <WeatherIcon weather={project.weather} size={14} />
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Météo</span>
                 </div>
-              </div>
-            )
-          })()}
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
-            <ListTodo size={16} className="text-muted-foreground" />
-            <div className="flex flex-col leading-tight">
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Tâches</span>
-              <span className="text-sm font-display font-semibold text-foreground tabular-nums">{tasks?.length ?? 0}</span>
+                <span className="text-base font-display font-semibold text-foreground leading-none">
+                  {projectWeatherLabels[project.weather] ?? project.weather ?? '—'}
+                </span>
+              </button>
+
+              {/* Avancement — KPI principal, plus large + barre de progression */}
+              <button
+                type="button"
+                onClick={() => setDetailTab('fiche')}
+                className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors text-left col-span-2 md:col-span-1"
+                title={`Avancement ${progress}%`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Target size={12} className="text-primary" />
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Avancement</span>
+                </div>
+                <div className="flex items-end gap-1.5 w-full">
+                  <span className={cn('text-xl font-display font-bold tabular-nums leading-none', progressTone)}>{progress}</span>
+                  <span className={cn('text-xs font-medium leading-none pb-0.5', progressTone)}>%</span>
+                </div>
+                {/* Mini progress bar */}
+                <div className="w-full h-1 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all', progressBar)}
+                    style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                  />
+                </div>
+              </button>
+
+              {/* Tendance */}
+              <button
+                type="button"
+                onClick={() => setDetailTab('fiche')}
+                className={cn('group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border hover:brightness-105 transition-all text-left', trendCls)}
+                title={`Tendance: ${trendLabel}`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base leading-none font-bold">{trendArrow}</span>
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Tendance</span>
+                </div>
+                <span className="text-sm font-display font-semibold leading-none">{trendLabel}</span>
+              </button>
+
+              {/* Tâches — total + sub-line breakdown */}
+              <button
+                type="button"
+                onClick={() => setDetailTab('taches')}
+                className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-border/50 bg-card/40 hover:bg-card/70 hover:border-primary/40 transition-colors text-left"
+                title="Voir les tâches"
+              >
+                <div className="flex items-center gap-1.5">
+                  <ListTodo size={12} className="text-muted-foreground" />
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Tâches</span>
+                </div>
+                <span className="text-xl font-display font-bold text-foreground tabular-nums leading-none">{tasks?.length ?? 0}</span>
+                {(tasks?.length ?? 0) > 0 && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                    {tDone > 0 && <span className="text-green-600 dark:text-green-400">{tDone}✓</span>}
+                    {tDone > 0 && tInProgress > 0 && <span className="opacity-50"> · </span>}
+                    {tInProgress > 0 && <span className="text-primary">{tInProgress} en cours</span>}
+                  </span>
+                )}
+              </button>
+
+              {/* Personnes */}
+              <button
+                type="button"
+                onClick={() => setDetailTab('fiche')}
+                className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-border/50 bg-card/40 hover:bg-card/70 hover:border-primary/40 transition-colors text-left"
+                title="Voir l'équipe"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Users size={12} className="text-muted-foreground" />
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Équipe</span>
+                </div>
+                <span className={cn(
+                  'text-xl font-display font-bold tabular-nums leading-none',
+                  (members?.length ?? 0) === 0 ? 'text-muted-foreground/40' : 'text-foreground',
+                )}>{members?.length ?? 0}</span>
+                {(members?.length ?? 0) === 0 && (
+                  <span className="text-[10px] text-muted-foreground/60 italic">Aucun membre</span>
+                )}
+              </button>
+
+              {/* Jalons */}
+              <button
+                type="button"
+                onClick={() => setDetailTab('fiche')}
+                className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-border/50 bg-card/40 hover:bg-card/70 hover:border-primary/40 transition-colors text-left"
+                title="Voir les jalons"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Milestone size={12} className="text-muted-foreground" />
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Jalons</span>
+                </div>
+                <span className={cn(
+                  'text-xl font-display font-bold tabular-nums leading-none',
+                  (milestones?.length ?? 0) === 0 ? 'text-muted-foreground/40' : 'text-foreground',
+                )}>{milestones?.length ?? 0}</span>
+                {(milestones?.length ?? 0) === 0 && (
+                  <span className="text-[10px] text-muted-foreground/60 italic">Aucun jalon</span>
+                )}
+              </button>
             </div>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
-            <Users size={16} className="text-muted-foreground" />
-            <div className="flex flex-col leading-tight">
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Personnes</span>
-              <span className="text-sm font-display font-semibold text-foreground tabular-nums">{members?.length ?? 0}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
-            <Milestone size={16} className="text-muted-foreground" />
-            <div className="flex flex-col leading-tight">
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Jalons</span>
-              <span className="text-sm font-display font-semibold text-foreground tabular-nums">{milestones?.length ?? 0}</span>
-            </div>
-          </div>
-        </div>
+          )
+        })()}
 
         {detailTab === 'fiche' && <>
         {/* Description — shown above the Fiche section so the project's

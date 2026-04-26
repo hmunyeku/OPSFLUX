@@ -69,9 +69,9 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
       onClose={() => setOpen(false)}
       title="Paramètres Gantt"
       icon={<Settings2 size={14} />}
-      inlineWidth={360}
+      inlineWidth="min(360px, calc(100vw - 1rem))"
       actionItems={actionItems}
-      className="fixed top-16 right-8 z-[9999] max-h-[80vh] rounded-lg border shadow-xl"
+      className="fixed top-16 inset-x-2 sm:inset-x-auto sm:right-8 z-[9999] max-h-[80vh] rounded-lg border shadow-xl"
     >
       <div className="p-3 space-y-4">
         {/* ── Display ──────────────────────────────────────── */}

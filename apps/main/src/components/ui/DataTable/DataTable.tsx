@@ -237,6 +237,21 @@ async function importFromCsv(file: File): Promise<Record<string, unknown>[]> {
   })
 }
 
+// True when every row has no renderable cells (after filtering out
+// internal selection columns) — used by the mobile card view to show
+// a "no columns" hint instead of an empty stack.
+function allCellsEmpty<T>(
+  rows: { getVisibleCells(): { column: { id: string } }[] }[],
+  skipIds: Set<string>,
+): boolean {
+  // Suppress unused-T lint by referencing it indirectly.
+  void (null as T | null)
+  for (const row of rows) {
+    if (row.getVisibleCells().some((c) => !skipIds.has(c.column.id))) return false
+  }
+  return rows.length > 0
+}
+
 // ── Main DataTable ─────────────────────────────────────────
 export function DataTable<TData>({
   columns,
@@ -956,19 +971,92 @@ export function DataTable<TData>({
   }
 
   // ── Render: mobile auto-cards ──
-  // Stacks each row as a card showing label/value pairs from the visible
-  // columns. Only kicks in below 640px container width when the user is
-  // in 'table' mode — keeps explicit grid/cards/performance modes intact.
+  // Stacks each row as a card with smart layout:
+  //  - First visible column → card title (large)
+  //  - Action column (id === 'actions') → pinned to a bottom strip
+  //  - Wide cells (progress bars, sliders → meta.cardFullWidth or id matches
+  //    'duration_bar' / 'progress') → full-width row
+  //  - Adjacent date pair (start_date + end_date) → grouped as one line
+  //  - Other label/value pairs → 2-column grid for compact visual scan
+  // Only kicks in below 640px container width when the user is in 'table'
+  // mode — keeps explicit grid/cards/performance modes intact.
   const renderMobileCards = () => {
     const rows = table.getRowModel().rows
-    // Pull visible leaf columns, skip selection/checkbox utility columns.
-    const visibleCols = table.getVisibleLeafColumns().filter((c) => c.id !== '__select__' && c.id !== 'select')
+    const skipIds = new Set(['__select__', 'select'])
+    const isWideId = (id: string) =>
+      id === 'duration_bar' || id === 'progress' || id === 'avancement' || id.endsWith('_bar')
+
+    const headerLabelOf = (column: import('@tanstack/react-table').Column<TData, unknown>): string => {
+      const header = column.columnDef.header
+      if (typeof header === 'string') return header
+      const meta = column.columnDef.meta as { label?: string } | undefined
+      return meta?.label ?? column.id
+    }
+
     return (
       <>
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-2">
           {rows.map((row, idx) => {
             const id = getRowId(row.original)
             const isSelected = !!rowSelection[id]
+
+            // Partition cells: title / actions / others
+            const allCells = row.getVisibleCells().filter((c) => !skipIds.has(c.column.id))
+            const titleCell = allCells[0]
+            const actionsCell = allCells.find((c) => c.column.id === 'actions')
+            const middleCells = allCells.slice(1).filter((c) => c.column.id !== 'actions')
+
+            // Render middle cells — group date pairs, isolate wide cells.
+            const renderedMiddle: React.ReactNode[] = []
+            for (let i = 0; i < middleCells.length; i++) {
+              const cell = middleCells[i]
+              const colId = cell.column.id
+              const next = middleCells[i + 1]
+
+              // Date pair grouping: consecutive *_date columns on one row
+              if (
+                next &&
+                colId.endsWith('_date') &&
+                next.column.id.endsWith('_date')
+              ) {
+                renderedMiddle.push(
+                  <div key={cell.id} className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">{headerLabelOf(cell.column)}</span>
+                      <span className="text-xs text-foreground tabular-nums">{flexRender(cell.column.columnDef.cell, cell.getContext())}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">{headerLabelOf(next.column)}</span>
+                      <span className="text-xs text-foreground tabular-nums">{flexRender(next.column.columnDef.cell, next.getContext())}</span>
+                    </div>
+                  </div>
+                )
+                i++ // skip the next, already consumed
+                continue
+              }
+
+              // Wide cell on its own row (progress bars, sliders, etc.)
+              if (isWideId(colId)) {
+                renderedMiddle.push(
+                  <div key={cell.id} className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">{headerLabelOf(cell.column)}</span>
+                    <div className="text-xs text-foreground">{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>
+                  </div>
+                )
+                continue
+              }
+
+              // Default: label/value row
+              renderedMiddle.push(
+                <div key={cell.id} className="flex items-center justify-between gap-2 text-xs min-h-[20px]">
+                  <span className="text-[11px] text-muted-foreground shrink-0">{headerLabelOf(cell.column)}</span>
+                  <span className="text-foreground text-right break-words min-w-0 flex items-center justify-end gap-1">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </span>
+                </div>
+              )
+            }
+
             return (
               <div
                 key={id}
@@ -986,41 +1074,40 @@ export function DataTable<TData>({
                   }
                 }}
                 className={cn(
-                  'rounded-lg border bg-card shadow-sm px-3 py-2 cursor-pointer transition-colors',
+                  'rounded-lg border bg-card shadow-sm overflow-hidden cursor-pointer transition-colors',
                   'hover:border-primary/40 active:bg-accent/40',
-                  isSelected && 'border-primary bg-primary/5',
+                  isSelected && 'border-primary ring-1 ring-primary/30',
                 )}
               >
-                {row.getVisibleCells()
-                  .filter((cell) => cell.column.id !== '__select__' && cell.column.id !== 'select')
-                  .map((cell, ci) => {
-                    const header = cell.column.columnDef.header
-                    const headerLabel = typeof header === 'string'
-                      ? header
-                      : (cell.column.columnDef.meta as { label?: string } | undefined)?.label ?? cell.column.id
-                    // First visible cell: emphasized as the card title.
-                    if (ci === 0) {
-                      return (
-                        <div key={cell.id} className="text-sm font-medium text-foreground mb-1.5 break-words">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </div>
-                      )
-                    }
-                    return (
-                      <div key={cell.id} className="flex items-start justify-between gap-2 py-0.5 text-xs">
-                        <span className="text-muted-foreground shrink-0 max-w-[40%] truncate">
-                          {headerLabel}
-                        </span>
-                        <span className="text-foreground text-right break-words min-w-0">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </span>
-                      </div>
-                    )
-                  })}
+                {/* Title row */}
+                {titleCell && (
+                  <div className="px-3 pt-2.5 pb-1.5">
+                    <div className="text-sm font-semibold text-foreground break-words leading-tight">
+                      {flexRender(titleCell.column.columnDef.cell, titleCell.getContext())}
+                    </div>
+                  </div>
+                )}
+
+                {/* Body */}
+                {renderedMiddle.length > 0 && (
+                  <div className="px-3 pb-2.5 space-y-1.5 border-t border-border/40 pt-2">
+                    {renderedMiddle}
+                  </div>
+                )}
+
+                {/* Actions footer */}
+                {actionsCell && (
+                  <div
+                    className="px-2 py-1.5 border-t border-border/60 bg-muted/30 flex items-center justify-end gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
+                  </div>
+                )}
               </div>
             )
           })}
-          {visibleCols.length === 0 && (
+          {allCellsEmpty(rows, skipIds) && (
             <div className="text-xs text-muted-foreground text-center py-6">
               Aucune colonne visible.
             </div>

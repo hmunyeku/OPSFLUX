@@ -289,7 +289,11 @@ export function StatCard({ label, value, icon: Icon, accent, sparkline, onClick,
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={cn(
-        '@container/kpi group relative flex items-center gap-2 rounded-lg border bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all w-full text-left',
+        // shrink-0 + min-w-[140px] + snap-start make the card behave
+        // as a snap target inside a horizontal scroll strip on narrow
+        // containers; the grid parent overrides w-full to occupy a
+        // full grid cell on wider layouts.
+        '@container/kpi group relative flex items-center gap-2 rounded-lg border bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all text-left shrink-0 snap-start w-[160px] @md/stats:w-full',
         onClick && 'cursor-pointer hover:border-primary/50 hover:shadow-sm',
         active ? 'border-primary/60 ring-1 ring-primary/30 bg-primary/5' : 'border-border/70 hover:border-border',
       )}

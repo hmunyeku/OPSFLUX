@@ -428,17 +428,23 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
         {/* Stats grid — clickable cards that drive the status filter.
             Active card highlights when its filter is set; click again
             to clear (TOTAL = clear all status filter). */}
-        {/* Container queries — the stats row reflows based on the
-            actual container width (which shrinks when the detail
-            panel opens to ~50% of the viewport), not the viewport.
-            Without this, opening the detail panel kept 6 cols and
-            each card became too narrow for its label. The
-            @container wrapper is needed because container queries
-            target the *containing* element, not self. */}
+        {/* Stats strip — three modes driven by container width:
+              <sm  : horizontal scrollable strip (mobile-first; takes
+                     a single row and the user swipes to see more,
+                     instead of a 2-col grid of 6 cards eating the
+                     whole screen).
+              md+  : 3-col grid (laptop / panel-docked view).
+              5xl+ : 6-col grid (full desktop).
+            The @container wrapper is needed because container
+            queries target the *containing* element, not self. */}
         <div className="@container/stats">
         <div className={cn(
-          "grid grid-cols-2 @md/stats:grid-cols-3 @5xl/stats:grid-cols-6 gap-3 px-4 py-3",
-          showStats ? "block" : "hidden md:grid"
+          // Narrow: horizontal scroll strip (default).
+          "flex gap-2 overflow-x-auto px-4 py-3 -mx-px snap-x snap-mandatory",
+          // Wide enough: switch to grid layout.
+          "@md/stats:grid @md/stats:grid-cols-3 @md/stats:gap-3 @md/stats:overflow-visible @md/stats:snap-none",
+          "@5xl/stats:grid-cols-6",
+          showStats ? "" : "hidden md:flex md:@md/stats:grid"
         )}>
           <StatCard
             label={t('planner.stats.total')}

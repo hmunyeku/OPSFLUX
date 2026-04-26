@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronCollapsed,
   Loader2, ZoomIn, ZoomOut, Maximize, Download,
-  FileImage, FileText, Calendar,
+  FileImage, FileText, Calendar, CalendarClock,
   Plus, Diamond, IndentIncrease, IndentDecrease, Trash2,
   Undo2, Redo2, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
@@ -292,7 +292,14 @@ export function GanttCore(props: GanttCoreProps) {
   // user can still toggle with the panel button in the toolbar.
   // Persisted across sessions.
   const [panelHidden, setPanelHidden] = useState<boolean>(() => {
-    try { return localStorage.getItem('gantt:panelHidden') === '1' } catch { return false }
+    try {
+      const stored = localStorage.getItem('gantt:panelHidden')
+      if (stored === '1') return true
+      if (stored === '0') return false
+      // No explicit user choice yet → default to hidden on narrow viewports
+      // so mobile users see the timeline immediately.
+      return typeof window !== 'undefined' && window.innerWidth < 720
+    } catch { return false }
   })
   const togglePanelHidden = useCallback(() => {
     setPanelHidden((prev) => {
@@ -1009,7 +1016,7 @@ export function GanttCore(props: GanttCoreProps) {
     >
       {/* ── Toolbar ──────────────────────────────────────────── */}
       {showToolbar && (
-        <div data-gantt-toolbar className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b bg-muted/30 shrink-0">
+        <div data-gantt-toolbar className="flex flex-wrap items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 border-b bg-muted/30 shrink-0">
           {/* Host-provided leading slot (e.g. project summary chips) */}
           {leadingToolbar && (
             <div className="flex items-center gap-2 pr-2 mr-1 border-r border-border/40 shrink-0">
@@ -1052,20 +1059,22 @@ export function GanttCore(props: GanttCoreProps) {
             </div>
           )}
 
-          {/* Scale selector */}
+          {/* Scale selector — labels condensed on narrow widths */}
           <div className="flex items-center gap-0.5 ml-1 bg-muted/60 rounded-md p-0.5">
             {SCALES.map(s => (
               <button
                 key={s}
                 onClick={() => changeScale(s)}
                 className={cn(
-                  'px-2 py-0.5 rounded text-[11px] font-medium transition-colors',
+                  'px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-medium transition-colors',
                   s === settings.scale
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
+                title={SCALE_META[s].label}
               >
-                {SCALE_META[s].label}
+                <span className="sm:hidden">{SCALE_META[s].label.charAt(0)}</span>
+                <span className="hidden sm:inline">{SCALE_META[s].label}</span>
               </button>
             ))}
           </div>
@@ -1106,7 +1115,7 @@ export function GanttCore(props: GanttCoreProps) {
             <button onClick={() => zoom(-1)} className="p-1 rounded hover:bg-muted" title="Zoom -">
               <ZoomOut className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
-            <span className="text-[10px] tabular-nums text-muted-foreground w-8 text-center">
+            <span className="hidden sm:inline text-[10px] tabular-nums text-muted-foreground w-8 text-center">
               {Math.round(settings.zoomFactor * 100)}%
             </span>
             <button onClick={() => zoom(1)} className="p-1 rounded hover:bg-muted" title="Zoom +">
@@ -1123,10 +1132,15 @@ export function GanttCore(props: GanttCoreProps) {
               title={t('shared.changer_la_periode')}
             >
               <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
-              <span className="whitespace-nowrap">
+              <span className="whitespace-nowrap hidden sm:inline">
                 {new Date(viewStart).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                 {' → '}
                 {new Date(viewEnd).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
+              </span>
+              <span className="whitespace-nowrap sm:hidden">
+                {new Date(viewStart).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                {'–'}
+                {new Date(viewEnd).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
               </span>
               <ChevronDown className="h-3 w-3 text-muted-foreground/60 shrink-0" />
             </button>
@@ -1258,16 +1272,19 @@ export function GanttCore(props: GanttCoreProps) {
             )}
           </div>
 
-          {/* Today button */}
+          {/* Today button — text on desktop, icon on mobile */}
           <button
             onClick={() => {
               const range = getDefaultDateRange(settings.scale)
               setViewStart(range.start)
               setViewEnd(range.end)
             }}
-            className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 font-medium"
+            className="text-[10px] px-1.5 sm:px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 font-medium flex items-center gap-1"
+            title="Aujourd'hui"
+            aria-label="Aujourd'hui"
           >
-            Aujourd'hui
+            <CalendarClock className="h-3 w-3 sm:hidden" />
+            <span className="hidden sm:inline">Aujourd'hui</span>
           </button>
 
           {/* Settings panel trigger */}

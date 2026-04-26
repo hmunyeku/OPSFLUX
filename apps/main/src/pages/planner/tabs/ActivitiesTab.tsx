@@ -348,106 +348,6 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
         </div>
       </div>
 
-      {/* Filter bar — status chip row moved into the DataTable toolbar
-          as a filter token; type/priority dropdowns + advanced row
-          stay here because they compose with the status filter rather
-          than duplicate it. */}
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <select
-          value={filters.typeFilter}
-          onChange={(e) => updateFilter('typeFilter', e.target.value)}
-          className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary ml-1"
-        >
-          <option value="">{t('planner.filters.all_types')}</option>
-          {activityTypeOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        <select
-          value={filters.priorityFilter}
-          onChange={(e) => updateFilter('priorityFilter', e.target.value)}
-          className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="">{t('planner.filters.all_priorities')}</option>
-          {priorityOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        {hasAdvancedFilters && (
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="gl-button gl-button-sm gl-button-default h-6 text-[10px]"
-            title="Réinitialiser tous les filtres"
-          >
-            Réinitialiser
-          </button>
-        )}
-        {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} activites</span>}
-      </div>
-
-      {/* Advanced filter row — collapsible on mobile */}
-      <div className="border-b border-border bg-background-subtle">
-        {/* Mobile toggle button */}
-        <button
-          type="button"
-          onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-          className="md:hidden w-full flex items-center justify-between px-3.5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <span className="flex items-center gap-1.5">
-            Filtres avancés
-            {hasAdvancedFilters && (
-              <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
-                {[filters.assetId, filters.projectId, filters.startDate, filters.endDate].filter(Boolean).length}
-              </span>
-            )}
-          </span>
-          {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
-
-        {/* Filter controls — hidden by default on mobile, always shown on desktop */}
-        <div className={cn(
-          "flex flex-wrap items-center gap-2 gap-y-1.5 px-3.5 py-1.5 min-h-10 shrink-0",
-          showAdvancedFilters ? "flex" : "hidden md:flex"
-        )}>
-          <div className="flex-1 min-w-[180px] max-w-[260px]">
-            <AssetPicker
-              value={filters.assetId}
-              onChange={(id) => updateFilter('assetId', id)}
-              placeholder="Tous assets"
-              clearable
-            />
-          </div>
-          <div className="flex-1 min-w-[180px] max-w-[260px]">
-            <ProjectPicker
-              value={filters.projectId}
-              onChange={(id) => updateFilter('projectId', id)}
-              placeholder="Tous projets"
-              clearable
-            />
-          </div>
-          <div className="flex items-center gap-1.5 sm:ml-auto shrink-0">
-            <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">Période</span>
-            <input
-              type="date"
-              className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
-              value={filters.startDate ?? ''}
-              onChange={(e) => updateFilter('startDate', e.target.value || null)}
-              title="Début"
-            />
-            <span className="text-muted-foreground text-xs">→</span>
-            <input
-              type="date"
-              className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
-              value={filters.endDate ?? ''}
-              onChange={(e) => updateFilter('endDate', e.target.value || null)}
-              min={filters.startDate ?? undefined}
-              title="Fin"
-            />
-          </div>
-        </div>
-      </div>
-
       <PanelContent scroll={false}>
         <DataTable<PlannerActivity>
           columns={columns}
@@ -457,7 +357,96 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           onPaginationChange={(p) => setPage(p)}
           searchValue={filters.search}
           onSearchChange={(v) => updateFilter('search', v)}
-          searchPlaceholder="Rechercher par titre..."
+          searchPlaceholder="Rechercher…"
+          toolbarLeft={
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <select
+                value={filters.typeFilter}
+                onChange={(e) => updateFilter('typeFilter', e.target.value)}
+                className="h-7 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary max-w-[120px]"
+                title={t('planner.filters.all_types')}
+              >
+                <option value="">{t('planner.filters.all_types')}</option>
+                {activityTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <select
+                value={filters.priorityFilter}
+                onChange={(e) => updateFilter('priorityFilter', e.target.value)}
+                className="h-7 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary max-w-[120px]"
+                title={t('planner.filters.all_priorities')}
+              >
+                <option value="">{t('planner.filters.all_priorities')}</option>
+                {priorityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              {/* Asset / project pickers + period — kept on a second
+                  visual row of the toolbar via flex-wrap. We hide
+                  them behind a popover on narrow widths so the
+                  search bar keeps room. */}
+              <div className="hidden md:flex items-center gap-1.5 min-w-0">
+                <div className="w-[160px] min-w-0">
+                  <AssetPicker
+                    value={filters.assetId}
+                    onChange={(id) => updateFilter('assetId', id)}
+                    placeholder="Asset"
+                    clearable
+                  />
+                </div>
+                <div className="w-[160px] min-w-0">
+                  <ProjectPicker
+                    value={filters.projectId}
+                    onChange={(id) => updateFilter('projectId', id)}
+                    placeholder="Projet"
+                    clearable
+                  />
+                </div>
+                <input
+                  type="date"
+                  className="gl-form-input text-xs h-7 w-[120px]"
+                  value={filters.startDate ?? ''}
+                  onChange={(e) => updateFilter('startDate', e.target.value || null)}
+                  title="Début de période"
+                />
+                <span className="text-muted-foreground text-xs">→</span>
+                <input
+                  type="date"
+                  className="gl-form-input text-xs h-7 w-[120px]"
+                  value={filters.endDate ?? ''}
+                  onChange={(e) => updateFilter('endDate', e.target.value || null)}
+                  min={filters.startDate ?? undefined}
+                  title="Fin de période"
+                />
+              </div>
+              {/* Mobile: collapsible advanced filter button. */}
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="md:hidden h-7 px-2 text-[10px] border border-border rounded inline-flex items-center gap-1 hover:bg-muted/50"
+                title="Filtres avancés"
+              >
+                {hasAdvancedFilters && (
+                  <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
+                    {[filters.assetId, filters.projectId, filters.startDate, filters.endDate].filter(Boolean).length}
+                  </span>
+                )}
+                Filtres
+                {showAdvancedFilters ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+              </button>
+              {hasAdvancedFilters && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="h-7 px-2 text-[10px] border border-border rounded hover:bg-muted/50"
+                  title="Réinitialiser tous les filtres"
+                >
+                  Réinitialiser
+                </button>
+              )}
+            </div>
+          }
           filters={[{
             id: 'status',
             label: t('common.status'),
@@ -491,6 +480,44 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           } : undefined}
           storageKey="planner-activities"
         />
+        {/* Mobile collapsible — surfaces the picker fields the
+            toolbar hides at <md. Sits below the DataTable's own
+            toolbar so it doesn't break the inline search row. */}
+        {showAdvancedFilters && (
+          <div className="md:hidden flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border bg-background-subtle">
+            <div className="flex-1 min-w-[150px]">
+              <AssetPicker
+                value={filters.assetId}
+                onChange={(id) => updateFilter('assetId', id)}
+                placeholder="Asset"
+                clearable
+              />
+            </div>
+            <div className="flex-1 min-w-[150px]">
+              <ProjectPicker
+                value={filters.projectId}
+                onChange={(id) => updateFilter('projectId', id)}
+                placeholder="Projet"
+                clearable
+              />
+            </div>
+            <input
+              type="date"
+              className="gl-form-input text-xs h-7 flex-1 min-w-[120px]"
+              value={filters.startDate ?? ''}
+              onChange={(e) => updateFilter('startDate', e.target.value || null)}
+              title="Début"
+            />
+            <input
+              type="date"
+              className="gl-form-input text-xs h-7 flex-1 min-w-[120px]"
+              value={filters.endDate ?? ''}
+              onChange={(e) => updateFilter('endDate', e.target.value || null)}
+              min={filters.startDate ?? undefined}
+              title="Fin"
+            />
+          </div>
+        )}
       </PanelContent>
     </>
   )

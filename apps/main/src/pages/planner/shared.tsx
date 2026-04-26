@@ -16,10 +16,13 @@ export type PlannerTab = 'dashboard' | 'gantt' | 'activities' | 'conflicts' | 'c
 
 // Tab definitions use i18n keys — the labels are resolved at render time
 // inside PlannerPage via useMemo + useTranslation.
+// Activités comes before Plan: most users land on the planner to
+// triage activities, not to scroll the Gantt — keep the most-used
+// view first. Dashboard stays leftmost as the project-wide overview.
 export const TAB_DEFS: { id: PlannerTab; labelKey: string; icon: typeof CalendarRange }[] = [
   { id: 'dashboard', labelKey: 'common.tab_dashboard', icon: LayoutDashboard },
-  { id: 'gantt', labelKey: 'planner.tabs.timeline', icon: GanttChart },
   { id: 'activities', labelKey: 'planner.tabs.activities', icon: ListTodo },
+  { id: 'gantt', labelKey: 'planner.tabs.timeline', icon: GanttChart },
   { id: 'conflicts', labelKey: 'planner.tabs.conflicts', icon: AlertTriangle },
   { id: 'capacity', labelKey: 'planner.tabs.capacity', icon: BarChart3 },
   { id: 'scenarios', labelKey: 'planner.tabs.scenarios', icon: FlaskConical },

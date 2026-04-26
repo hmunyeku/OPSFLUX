@@ -259,28 +259,28 @@ export function StatCard({ label, value, icon: Icon, accent }: {
   icon: typeof CalendarRange
   accent?: string
 }) {
+  // Single-line layout: [icon] LABEL ……… VALUE.
+  // Saves ~40px of vertical space vs the previous 2-line card and
+  // lets the page show 4 stats in the same vertical room as 2 used
+  // to take.
   return (
-    <div className="group relative rounded-xl border border-border/70 bg-gradient-to-br from-background to-background/60 p-3 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-border">
-      {/* Top accent bar — tinted to the stat's accent colour, fades on
-          hover to give the card a heartbeat. 2px tall so it reads as
-          a highlight strip, not a separator. */}
+    <div className="group relative flex items-center gap-2 rounded-lg border border-border/70 bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all hover:border-border">
       <div className={cn(
-        'absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r',
+        'absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b',
         accent?.includes('red') || accent?.includes('destructive') ? 'from-red-500/80 to-red-400/40'
         : accent?.includes('amber') || accent?.includes('yellow')  ? 'from-amber-500/80 to-amber-400/40'
         : accent?.includes('emerald') || accent?.includes('green') ? 'from-emerald-500/80 to-emerald-400/40'
         : accent?.includes('violet') || accent?.includes('purple') ? 'from-violet-500/80 to-violet-400/40'
         : 'from-primary/80 to-highlight/40',
       )} />
-      <div className="flex items-center gap-2 text-muted-foreground mb-1">
-        <Icon size={13} />
-        <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
-      </div>
-      <p className={cn('text-xl font-bold tabular-nums font-display tracking-tight', accent || 'text-foreground')}>
-        {typeof value === 'number'
-          ? <AnimatedCounter value={value} />
-          : value}
-      </p>
+      <Icon size={13} className="text-muted-foreground shrink-0 ml-0.5" />
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{label}</span>
+      <span className={cn(
+        'ml-auto text-lg font-bold tabular-nums font-display tracking-tight leading-none',
+        accent || 'text-foreground',
+      )}>
+        {typeof value === 'number' ? <AnimatedCounter value={value} /> : value}
+      </span>
     </div>
   )
 }

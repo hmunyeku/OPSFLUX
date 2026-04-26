@@ -359,33 +359,13 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           onSearchChange={(v) => updateFilter('search', v)}
           searchPlaceholder="Rechercher…"
           toolbarLeft={
-            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-              <select
-                value={filters.typeFilter}
-                onChange={(e) => updateFilter('typeFilter', e.target.value)}
-                className="h-7 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary max-w-[120px]"
-                title={t('planner.filters.all_types')}
-              >
-                <option value="">{t('planner.filters.all_types')}</option>
-                {activityTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-              <select
-                value={filters.priorityFilter}
-                onChange={(e) => updateFilter('priorityFilter', e.target.value)}
-                className="h-7 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary max-w-[120px]"
-                title={t('planner.filters.all_priorities')}
-              >
-                <option value="">{t('planner.filters.all_priorities')}</option>
-                {priorityOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-              {/* Asset / project pickers + period — kept on a second
-                  visual row of the toolbar via flex-wrap. We hide
-                  them behind a popover on narrow widths so the
-                  search bar keeps room. */}
+            // Asset + Projet remain as inline async pickers — they're
+            // entity pickers (200+ options each, async load + search)
+            // which the DataTable's static-options filter system
+            // can't host natively. Type / Priorité / Période moved
+            // INTO the visual search bar as filter tokens (see the
+            // `filters` prop below).
+            <div className="flex items-center gap-1.5 min-w-0">
               <div className="hidden md:flex items-center gap-1.5 min-w-0">
                 <div className="w-[160px] min-w-0">
                   <AssetPicker
@@ -403,33 +383,16 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                     clearable
                   />
                 </div>
-                <input
-                  type="date"
-                  className="gl-form-input text-xs h-7 w-[120px]"
-                  value={filters.startDate ?? ''}
-                  onChange={(e) => updateFilter('startDate', e.target.value || null)}
-                  title="Début de période"
-                />
-                <span className="text-muted-foreground text-xs">→</span>
-                <input
-                  type="date"
-                  className="gl-form-input text-xs h-7 w-[120px]"
-                  value={filters.endDate ?? ''}
-                  onChange={(e) => updateFilter('endDate', e.target.value || null)}
-                  min={filters.startDate ?? undefined}
-                  title="Fin de période"
-                />
               </div>
-              {/* Mobile: collapsible advanced filter button. */}
               <button
                 type="button"
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                 className="md:hidden h-7 px-2 text-[10px] border border-border rounded inline-flex items-center gap-1 hover:bg-muted/50"
-                title="Filtres avancés"
+                title="Asset / Projet"
               >
-                {hasAdvancedFilters && (
+                {(filters.assetId || filters.projectId) && (
                   <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
-                    {[filters.assetId, filters.projectId, filters.startDate, filters.endDate].filter(Boolean).length}
+                    {[filters.assetId, filters.projectId].filter(Boolean).length}
                   </span>
                 )}
                 Filtres
@@ -439,7 +402,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="h-7 px-2 text-[10px] border border-border rounded hover:bg-muted/50"
+                  className="h-7 px-2 text-[10px] border border-border rounded hover:bg-muted/50 shrink-0"
                   title="Réinitialiser tous les filtres"
                 >
                   Réinitialiser
@@ -447,18 +410,60 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
               )}
             </div>
           }
-          filters={[{
-            id: 'status',
-            label: t('common.status'),
-            type: 'multi-select',
-            operators: ['is', 'is_not'],
-            options: activityStatusOptions.filter((o) => o.value).map((o) => ({ value: o.value, label: o.label })),
-          }]}
-          activeFilters={filters.statusFilter ? { status: [filters.statusFilter] } : {}}
+          filters={[
+            {
+              id: 'status',
+              label: t('common.status'),
+              type: 'multi-select',
+              operators: ['is', 'is_not'],
+              options: activityStatusOptions.filter((o) => o.value).map((o) => ({ value: o.value, label: o.label })),
+            },
+            {
+              id: 'type',
+              label: t('planner.filters.all_types'),
+              type: 'select',
+              operators: ['is'],
+              options: activityTypeOptions.filter((o) => o.value).map((o) => ({ value: o.value, label: o.label })),
+            },
+            {
+              id: 'priority',
+              label: t('planner.filters.all_priorities'),
+              type: 'select',
+              operators: ['is'],
+              options: priorityOptions.filter((o) => o.value).map((o) => ({ value: o.value, label: o.label })),
+            },
+            {
+              id: 'period',
+              label: 'Période',
+              type: 'date-range',
+            },
+          ]}
+          activeFilters={{
+            ...(filters.statusFilter ? { status: [filters.statusFilter] } : {}),
+            ...(filters.typeFilter ? { type: filters.typeFilter } : {}),
+            ...(filters.priorityFilter ? { priority: filters.priorityFilter } : {}),
+            ...((filters.startDate || filters.endDate) ? { period: [filters.startDate, filters.endDate] } : {}),
+          }}
           onFilterChange={(id, v) => {
-            if (id !== 'status') return
-            const arr = Array.isArray(v) ? v : v != null ? [v] : []
-            updateFilter('statusFilter', arr.length > 0 ? String(arr[0]) : '')
+            if (id === 'status') {
+              const arr = Array.isArray(v) ? v : v != null ? [v] : []
+              updateFilter('statusFilter', arr.length > 0 ? String(arr[0]) : '')
+              return
+            }
+            if (id === 'type') {
+              updateFilter('typeFilter', v ? String(v) : '')
+              return
+            }
+            if (id === 'priority') {
+              updateFilter('priorityFilter', v ? String(v) : '')
+              return
+            }
+            if (id === 'period') {
+              const arr = Array.isArray(v) ? v : []
+              updateFilter('startDate', (arr[0] as string | null) || null)
+              updateFilter('endDate', (arr[1] as string | null) || null)
+              return
+            }
           }}
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'planner', id: row.id, meta: { subtype: 'activity' } })}
           emptyIcon={ListTodo}
@@ -480,9 +485,9 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
           } : undefined}
           storageKey="planner-activities"
         />
-        {/* Mobile collapsible — surfaces the picker fields the
-            toolbar hides at <md. Sits below the DataTable's own
-            toolbar so it doesn't break the inline search row. */}
+        {/* Mobile collapsible — only Asset + Projet pickers since
+            type/priorité/période are now filter tokens inside the
+            visual search bar (which works on mobile too). */}
         {showAdvancedFilters && (
           <div className="md:hidden flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border bg-background-subtle">
             <div className="flex-1 min-w-[150px]">
@@ -501,21 +506,6 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                 clearable
               />
             </div>
-            <input
-              type="date"
-              className="gl-form-input text-xs h-7 flex-1 min-w-[120px]"
-              value={filters.startDate ?? ''}
-              onChange={(e) => updateFilter('startDate', e.target.value || null)}
-              title="Début"
-            />
-            <input
-              type="date"
-              className="gl-form-input text-xs h-7 flex-1 min-w-[120px]"
-              value={filters.endDate ?? ''}
-              onChange={(e) => updateFilter('endDate', e.target.value || null)}
-              min={filters.startDate ?? undefined}
-              title="Fin"
-            />
           </div>
         )}
       </PanelContent>

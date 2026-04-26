@@ -1006,57 +1006,30 @@ export function DataTable<TData>({
             const actionsCell = allCells.find((c) => c.column.id === 'actions')
             const middleCells = allCells.slice(1).filter((c) => c.column.id !== 'actions')
 
-            // Render middle cells — group date pairs, isolate wide cells.
+            // Single coherent 2-col grid for the whole body.
+            // Every row contributes a (label, value) pair so labels align
+            // vertically and there's a single value-edge running down the
+            // card. Wide cells (progress bars, sliders, etc.) keep the
+            // same label slot — only the value cell stretches.
             const renderedMiddle: React.ReactNode[] = []
-            for (let i = 0; i < middleCells.length; i++) {
-              const cell = middleCells[i]
+            for (const cell of middleCells) {
               const colId = cell.column.id
-              const next = middleCells[i + 1]
-
-              // Date pair grouping: consecutive *_date columns on one row
-              if (
-                next &&
-                colId.endsWith('_date') &&
-                next.column.id.endsWith('_date')
-              ) {
-                renderedMiddle.push(
-                  <div key={cell.id} className="grid grid-cols-2 gap-2">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">{headerLabelOf(cell.column)}</span>
-                      <span className="text-xs text-foreground tabular-nums">{flexRender(cell.column.columnDef.cell, cell.getContext())}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">{headerLabelOf(next.column)}</span>
-                      <span className="text-xs text-foreground tabular-nums">{flexRender(next.column.columnDef.cell, next.getContext())}</span>
-                    </div>
-                  </div>
-                )
-                i++ // skip the next, already consumed
-                continue
-              }
-
-              // Wide cell on its own row (progress bars, sliders, etc.)
-              if (isWideId(colId)) {
-                renderedMiddle.push(
-                  <div key={cell.id} className="flex flex-col gap-1">
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">{headerLabelOf(cell.column)}</span>
-                    <div className="text-xs text-foreground">{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>
-                  </div>
-                )
-                continue
-              }
-
-              // Default: label/value row — labels in a fixed column so
-              // values land right next to them (no dead space in the middle
-              // of the card), labels right-aligned for a clean rag along
-              // the value-edge.
+              const wide = isWideId(colId)
               renderedMiddle.push(
-                <div key={cell.id} className="grid grid-cols-[6.5rem_1fr] items-center gap-x-3 text-xs min-h-[20px]">
-                  <span className="text-[11px] text-muted-foreground text-right truncate">{headerLabelOf(cell.column)}</span>
-                  <span className="text-foreground break-words min-w-0 flex items-center gap-1">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </span>
-                </div>
+                <span key={`${cell.id}-l`} className="text-[11px] text-muted-foreground text-right truncate self-center">
+                  {headerLabelOf(cell.column)}
+                </span>
+              )
+              renderedMiddle.push(
+                <span
+                  key={`${cell.id}-v`}
+                  className={cn(
+                    'text-xs text-foreground min-w-0 flex items-center gap-1',
+                    wide ? 'w-full' : 'break-words',
+                  )}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </span>
               )
             }
 
@@ -1091,9 +1064,11 @@ export function DataTable<TData>({
                   </div>
                 )}
 
-                {/* Body */}
+                {/* Body — single 2-col grid: labels right-aligned in col 1,
+                    values left-aligned in col 2. row-gap keeps lines apart
+                    while column-gap (3) keeps label↔value tight. */}
                 {renderedMiddle.length > 0 && (
-                  <div className="px-3 pb-2.5 space-y-1.5 border-t border-border/40 pt-2">
+                  <div className="px-3 pb-2.5 pt-2 border-t border-border/40 grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-1.5">
                     {renderedMiddle}
                   </div>
                 )}

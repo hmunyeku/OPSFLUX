@@ -40,7 +40,7 @@ import {
   ACTIVITY_TYPE_LABELS_FALLBACK,
   ACTIVITY_TYPE_META,
   PRIORITY_LABELS_FALLBACK,
-  PRIORITY_CLASS_MAP,
+  PRIORITY_BADGE_MAP,
   PLANNER_ACTIVITY_STATUS_VALUES,
   PLANNER_ACTIVITY_TYPE_VALUES,
   StatusBadge,
@@ -228,7 +228,14 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
       accessorKey: 'priority',
       header: t('planner.columns.priority'),
       size: 90,
-      cell: ({ row }) => <span className={cn('text-xs font-medium', PRIORITY_CLASS_MAP[row.original.priority] || 'text-muted-foreground')}>{priorityLabels[row.original.priority] || row.original.priority}</span>,
+      cell: ({ row }) => (
+        <span className={cn(
+          'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ring-1 ring-inset',
+          PRIORITY_BADGE_MAP[row.original.priority] || 'bg-muted text-muted-foreground ring-border',
+        )}>
+          {priorityLabels[row.original.priority] || row.original.priority}
+        </span>
+      ),
     },
     {
       accessorKey: 'pax_quota',

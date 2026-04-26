@@ -500,7 +500,56 @@ async def _auto_clear_stale_conflicts(
                 context="auto_cleared",
             ))
             cleared += 1
+        else:
+            # Conflict still in overflow → refresh its activity-set so
+            # the UI no longer lists activities that have moved out of
+            # the day. The historical junction was set at detection
+            # time and would otherwise mislead the user (e.g. shows
+            # POB#2 on 21 mai even after POB#2 was shifted to 26 mai).
+            await _refresh_conflict_junction(db, c, entity_id)
+            # Also refresh the overflow_amount so the cluster's
+            # max_overflow / sum_overflow reflect the *current* peak.
+            c.overflow_amount = max(0, cap["used"] - cap["total"])
     return cleared
+
+
+async def _refresh_conflict_junction(
+    db: AsyncSession,
+    conflict: PlannerConflict,
+    entity_id: UUID,
+) -> None:
+    """Sync the conflict↔activity junction with the activities that
+    actually overlap the conflict_date right now. Called from the
+    auto-clear sweep so a conflict that's still open after an
+    arbitration only lists its current contributors.
+    """
+    day = conflict.conflict_date
+    overlap_q = await db.execute(
+        select(PlannerActivity.id).where(
+            PlannerActivity.entity_id == entity_id,
+            PlannerActivity.asset_id == conflict.asset_id,
+            PlannerActivity.active == True,  # noqa: E712
+            PlannerActivity.status.in_(["submitted", "validated", "in_progress"]),
+            PlannerActivity.start_date <= datetime.combine(day, datetime.max.time()),
+            PlannerActivity.end_date >= datetime.combine(day, datetime.min.time()),
+        )
+    )
+    actual_ids = {row[0] for row in overlap_q.all()}
+    junction_q = await db.execute(
+        select(PlannerConflictActivity).where(
+            PlannerConflictActivity.conflict_id == conflict.id,
+        )
+    )
+    existing = {row.activity_id: row for row in junction_q.scalars().all()}
+    # Drop rows for activities that no longer overlap.
+    for aid, row in existing.items():
+        if aid not in actual_ids:
+            await db.delete(row)
+    # Add rows for activities that newly overlap (rare for an open
+    # conflict but possible if a same-day patch added a new activity).
+    for aid in actual_ids:
+        if aid not in existing:
+            db.add(PlannerConflictActivity(conflict_id=conflict.id, activity_id=aid))
 
 
 # ── Activities CRUD ──────────────────────────────────────────────────────

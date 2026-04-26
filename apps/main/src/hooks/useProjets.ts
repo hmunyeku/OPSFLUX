@@ -981,6 +981,16 @@ export function useActivityFeed(projectId: string, limit = 50) {
   })
 }
 
+// ── Planner Links ──────────────────────────────────────────
+
+export function usePlannerLinks(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['planner-links', projectId],
+    queryFn: () => projetsService.getPlannerLinks(projectId!),
+    enabled: !!projectId,
+  })
+}
+
 // ── PDF Export ─────────────────────────────────────────────
 
 export function useExportProjectPdf() {

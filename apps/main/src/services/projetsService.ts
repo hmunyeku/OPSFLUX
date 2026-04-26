@@ -22,6 +22,7 @@ import type {
   CustomFieldDef, CustomFieldValuePayload,
   ProjectComment, ProjectCommentCreate,
   ActivityFeedItem,
+  ProjectPlannerLinkGroup,
   PaginatedResponse, PaginationParams,
 } from '@/types/api'
 
@@ -635,6 +636,14 @@ export const projetsService = {
   // ── Activity Feed ──
   getActivityFeed: async (projectId: string, limit = 50): Promise<ActivityFeedItem[]> => {
     const { data } = await api.get(`/api/v1/projects/${projectId}/activity-feed`, { params: { limit } })
+    return data
+  },
+
+  // ── Planner Links ──
+  // Returns project tasks that have at least one linked PlannerActivity,
+  // grouped by task. Powers the "Planner" tab of the project panel.
+  getPlannerLinks: async (projectId: string): Promise<ProjectPlannerLinkGroup[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/planner-links`)
     return data
   },
 

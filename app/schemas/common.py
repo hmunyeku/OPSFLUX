@@ -1992,6 +1992,10 @@ class ProjectTaskRead(OpsFluxSchema):
     created_at: datetime
     # Enriched
     assignee_name: str | None = None
+    # Number of PlannerActivity rows whose `source_task_id` points to
+    # this task. Lets the UI surface a "linked to N Planner activity(ies)"
+    # chip without making a per-row request.
+    linked_planner_count: int = 0
 
 
 class ProjectTaskEnriched(ProjectTaskRead):

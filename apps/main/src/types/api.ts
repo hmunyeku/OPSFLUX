@@ -1465,6 +1465,29 @@ export interface ProjectTask {
   is_milestone: boolean
   created_at: string
   assignee_name?: string | null
+  /** Number of PlannerActivity rows whose source_task_id == this task id.
+   *  Surfaced as a chip on the TaskRow + drives the new Planner tab. */
+  linked_planner_count?: number
+}
+
+/** PlannerActivity entry as exposed by /projects/{id}/planner-links. */
+export interface ProjectPlannerLinkActivity {
+  id: string
+  title: string
+  status: string | null
+  start_date: string | null
+  end_date: string | null
+  site_name: string | null
+  pax_quota: number | null
+}
+
+/** Group of PlannerActivity rows linked to the same project task. */
+export interface ProjectPlannerLinkGroup {
+  task_id: string
+  task_title: string
+  task_status: string | null
+  task_progress: number | null
+  activities: ProjectPlannerLinkActivity[]
 }
 
 /** Task with project info — for cross-project spreadsheet view. */

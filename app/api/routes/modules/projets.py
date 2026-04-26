@@ -1847,6 +1847,21 @@ async def list_project_tasks(
     query = query.order_by(ProjectTask.order, ProjectTask.created_at)
     result = await db.execute(query)
     tasks = result.scalars().all()
+    # Bulk-load the linked Planner activity counts for the whole project
+    # in a single query (instead of N+1). Maps task_id -> count.
+    from app.models.planner import PlannerActivity as _PA
+    planner_counts: dict[UUID, int] = {}
+    if tasks:
+        pc_rows = await db.execute(
+            select(_PA.source_task_id, sqla_func.count(_PA.id))
+            .where(
+                _PA.project_id == project_id,
+                _PA.source_task_id.is_not(None),
+                _PA.active == True,
+            )
+            .group_by(_PA.source_task_id)
+        )
+        planner_counts = {row[0]: int(row[1]) for row in pc_rows.all()}
     enriched = []
     from decimal import Decimal as _Decimal
     for t in tasks:
@@ -1862,6 +1877,7 @@ async def list_project_tasks(
             d["assignee_name"] = f"{u.first_name} {u.last_name}" if u else None
         else:
             d["assignee_name"] = None
+        d["linked_planner_count"] = planner_counts.get(t.id, 0)
         enriched.append(d)
     return enriched
 
@@ -3564,3 +3580,59 @@ async def get_activity_feed(project_id: UUID, limit: int = 50, entity_id: UUID =
         feed.append({"type": "comment", "date": cm.created_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "comment_id": str(cm.id), "owner_id": str(cm.owner_id), "body": cm.body[:200], "owner_type": cm.owner_type})
     feed.sort(key=lambda x: x["date"], reverse=True)
     return feed[:limit]
+
+
+# ── Planner Links ──────────────────────────────────────────────────────
+# Surface the project's tasks alongside their linked PlannerActivity
+# rows. Powers the new "Planner" tab in the project detail panel —
+# users land here to see which of their tasks have been pushed to the
+# operational schedule and jump back to Planner from a single place.
+
+
+@router.get("/{project_id}/planner-links")
+async def get_planner_links(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return tasks that are linked to one or more PlannerActivity rows
+    in this project, grouped by task. Each entry exposes the minimum
+    fields the Planner tab needs to render: identification, schedule,
+    status, and (when available) the assigned site.
+    """
+    await _get_project_or_404(db, project_id, entity_id)
+    from app.models.planner import PlannerActivity
+    from app.models.common import Site
+    rows = (await db.execute(
+        select(PlannerActivity, ProjectTask.title, ProjectTask.status, ProjectTask.progress, Site.name)
+        .outerjoin(ProjectTask, PlannerActivity.source_task_id == ProjectTask.id)
+        .outerjoin(Site, PlannerActivity.site_id == Site.id)
+        .where(
+            PlannerActivity.project_id == project_id,
+            PlannerActivity.source_task_id.is_not(None),
+            PlannerActivity.active == True,
+        )
+        .order_by(ProjectTask.order, PlannerActivity.start_date)
+    )).all()
+    grouped: dict[str, dict] = {}
+    for pa, t_title, t_status, t_progress, site_name in rows:
+        tid = str(pa.source_task_id)
+        if tid not in grouped:
+            grouped[tid] = {
+                "task_id": tid,
+                "task_title": t_title or "—",
+                "task_status": t_status,
+                "task_progress": t_progress,
+                "activities": [],
+            }
+        grouped[tid]["activities"].append({
+            "id": str(pa.id),
+            "title": pa.title,
+            "status": pa.status,
+            "start_date": pa.start_date.isoformat() if pa.start_date else None,
+            "end_date": pa.end_date.isoformat() if pa.end_date else None,
+            "site_name": site_name,
+            "pax_quota": pa.pax_quota,
+        })
+    return list(grouped.values())

@@ -5,6 +5,7 @@
  * Extracted from ProjetsPage.tsx — pure restructure, no behavior changes.
  */
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   FolderKanban, Plus, Loader2, Trash2, Users, Target, X, Check,
@@ -14,7 +15,7 @@ import {
   Link2, Package, CheckSquare, History, ArrowRight,
   Settings2,
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
-  Sun, Cloud, CloudRain, CloudLightning,
+  Sun, Cloud, CloudRain, CloudLightning, CalendarClock,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Info, Paperclip, LayoutList, BarChart3, Search } from 'lucide-react'
@@ -58,6 +59,7 @@ import {
   useCustomFields, useSetCustomFieldValue,
   useProjectComments, useCreateProjectComment, useDeleteComment,
   useActivityFeed,
+  usePlannerLinks,
   useExportProjectPdf,
 } from '@/hooks/useProjets'
 import { useCurrentEntity } from '@/hooks/useEntities'
@@ -579,6 +581,7 @@ function TaskRow({
   depth?: number
 }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const updateTask = useUpdateProjectTask()
   const deleteTask = useDeleteProjectTask()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -743,6 +746,23 @@ function TaskRow({
             <span className="shrink-0 text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground tabular-nums">
               {subAgg.done}/{subAgg.total}
             </span>
+          )}
+          {/* Planner link chip — surfaces tasks pushed to the operational
+              schedule. Click jumps to the Planner module pre-filtered on
+              this task so the user can see the activity in calendar. */}
+          {(task.linked_planner_count ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate(`/planner?source_task_id=${task.id}`)
+              }}
+              className="shrink-0 inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
+              title={`${task.linked_planner_count} activité(s) Planner liée(s) — cliquer pour ouvrir`}
+            >
+              <CalendarClock size={9} />
+              <span className="tabular-nums">{task.linked_planner_count}</span>
+            </button>
           )}
           {(task.priority === 'high' || task.priority === 'critical') && (
             <span className={cn('text-[9px] px-1 rounded shrink-0', task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500')}>
@@ -1632,6 +1652,135 @@ function CommentsSection({ projectId }: { projectId: string }) {
   )
 }
 
+// -- Planner Links Section ---------------------------------------------------
+
+function PlannerLinksSection({ projectId }: { projectId: string }) {
+  const navigate = useNavigate()
+  const { data: groups = [], isLoading } = usePlannerLinks(projectId)
+  const [search, setSearch] = useState('')
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return groups
+    const q = search.trim().toLowerCase()
+    return groups
+      .map(g => ({
+        ...g,
+        activities: g.activities.filter(a =>
+          a.title.toLowerCase().includes(q) ||
+          (a.site_name?.toLowerCase().includes(q) ?? false),
+        ),
+      }))
+      .filter(g => g.task_title.toLowerCase().includes(q) || g.activities.length > 0)
+  }, [groups, search])
+
+  const totalActivities = useMemo(
+    () => groups.reduce((s, g) => s + g.activities.length, 0),
+    [groups],
+  )
+
+  const fmt = (iso: string | null) => iso
+    ? new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+    : '—'
+
+  return (
+    <FormSection
+      title={`Planner — tâches liées (${groups.length} tâche${groups.length > 1 ? 's' : ''} · ${totalActivities} activité${totalActivities > 1 ? 's' : ''})`}
+      defaultExpanded
+    >
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground py-2">
+          <Loader2 size={12} className="animate-spin" /> Chargement…
+        </div>
+      ) : groups.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">
+          Aucune tâche de ce projet n'est liée à une activité Planner.
+          Créez une activité Planner depuis une tâche pour la voir apparaître ici.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {/* Search */}
+          {groups.length > 1 && (
+            <div className="relative">
+              <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher une tâche, une activité, un site…"
+                className={cn(panelInputClass, 'h-7 text-[11px] pl-7 w-full')}
+              />
+            </div>
+          )}
+
+          {/* Grouped list — one card per source task */}
+          <div className="space-y-2">
+            {filtered.map((g) => (
+              <div key={g.task_id} className="border border-border rounded-md overflow-hidden bg-card/40">
+                {/* Task header — clickable to jump to Tâches tab */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('opsflux:focus-task', { detail: { taskId: g.task_id } }))
+                  }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
+                  title="Aller à la tâche"
+                >
+                  <ListTodo size={11} className="shrink-0 text-muted-foreground" />
+                  <span className="font-medium text-[11px] truncate flex-1">{g.task_title}</span>
+                  {g.task_progress != null && (
+                    <span className={cn(
+                      'text-[10px] tabular-nums shrink-0',
+                      g.task_progress >= 100 ? 'text-green-600' :
+                      g.task_progress >= 50 ? 'text-primary' :
+                      'text-muted-foreground',
+                    )}>{g.task_progress}%</span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {g.activities.length} activité{g.activities.length > 1 ? 's' : ''}
+                  </span>
+                  <ChevronRight size={10} className="text-muted-foreground shrink-0" />
+                </button>
+
+                {/* Activities table */}
+                <div className="divide-y divide-border/30">
+                  {g.activities.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => navigate(`/planner?activity_id=${a.id}`)}
+                      className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center px-2 py-1.5 text-[11px] hover:bg-muted/40 transition-colors text-left group"
+                      title="Ouvrir dans Planner"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <CalendarClock size={10} className="text-blue-500 shrink-0" />
+                        <span className="truncate">{a.title}</span>
+                        {a.status && (
+                          <span className="text-[9px] uppercase px-1 rounded bg-muted text-muted-foreground shrink-0">{a.status}</span>
+                        )}
+                      </div>
+                      {a.site_name && (
+                        <span className="text-[10px] text-muted-foreground truncate max-w-[100px]" title={a.site_name}>
+                          {a.site_name}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                        {fmt(a.start_date)} → {fmt(a.end_date)}
+                      </span>
+                      <ChevronRight size={10} className="text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {filtered.length === 0 && (
+              <p className="text-[11px] text-muted-foreground italic text-center py-2">Aucun résultat</p>
+            )}
+          </div>
+        </div>
+      )}
+    </FormSection>
+  )
+}
+
 // -- Activity Feed Section ----------------------------------------------------
 
 // Field labels — converts internal column names to friendly French
@@ -1857,13 +2006,26 @@ function ActivityFeedSection({
                 <span className="tabular-nums opacity-70">{n}</span>
               </button>
             ))}
-            {feed.length > 6 && (
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher…"
-                className={cn(panelInputClass, 'h-6 text-[10px] flex-1 min-w-[120px] ml-auto')}
-              />
+            {feed.length > 1 && (
+              <div className="relative flex-1 min-w-[140px] ml-auto">
+                <Search size={10} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher (titre, auteur, champ, commentaire…)"
+                  className={cn(panelInputClass, 'h-6 text-[10px] pl-5 w-full')}
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    title="Effacer"
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -2028,7 +2190,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
   const { data: allUsersData } = useUsers({ page_size: 100, active: true })
   const goutiSyncOne = useGoutiSyncOne()
   const [showPlannerLink, setShowPlannerLink] = useState(false)
-  const [detailTab, setDetailTab] = useState<'fiche' | 'taches' | 'planification' | 'activite' | 'documents'>('fiche')
+  const [detailTab, setDetailTab] = useState<'fiche' | 'taches' | 'planification' | 'planner' | 'historique' | 'documents'>('fiche')
   const exportPdf = useExportProjectPdf()
   const { data: goutiStatus } = useGoutiStatus()
   const { toast } = useToast()
@@ -2136,7 +2298,10 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           { id: 'fiche', label: 'Fiche', icon: Info },
           { id: 'taches', label: `Tâches (${tasks?.length ?? 0})`, icon: ListTodo },
           { id: 'planification', label: 'Planification', icon: BarChart3 },
-          { id: 'activite', label: 'Activité', icon: LayoutList },
+          { id: 'planner', label: 'Planner', icon: CalendarClock },
+          // Renamed Activité -> Historique to lift the confusion with
+          // the Planner module (this tab is the audit log / changelog).
+          { id: 'historique', label: 'Historique', icon: LayoutList },
           { id: 'documents', label: 'Documents', icon: Paperclip },
         ]}
         activeId={detailTab}
@@ -2450,7 +2615,11 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           <PlanningRevisionsSection projectId={id} />
         </>}
 
-        {detailTab === 'activite' && <>
+        {detailTab === 'planner' && (
+          <PlannerLinksSection projectId={id} />
+        )}
+
+        {detailTab === 'historique' && <>
           {/* Custom Fields (EAV) */}
           <CustomFieldsSection projectId={id} />
 

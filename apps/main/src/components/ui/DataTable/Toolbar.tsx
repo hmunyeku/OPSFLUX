@@ -376,11 +376,13 @@ export function DataTableToolbar({
   const isMultiSelectFilter = currentFilter?.type === 'multi-select'
 
   return (
-    <div className="border-b border-border shrink-0" ref={containerRef}>
-      {/* Mobile: allow the toolbar to wrap to two lines so the search input
-          stays usable and the right-side action cluster doesn't push the
-          search field off-screen. Desktop: single 36px row as before. */}
-      <div className="flex flex-wrap sm:flex-nowrap items-center min-h-9 sm:h-9 px-2 sm:px-3 py-1 sm:py-0 gap-1.5 sm:gap-2">
+    <div className="@container/dt-toolbar border-b border-border shrink-0" ref={containerRef}>
+      {/* Layout reflows on the toolbar's actual container width (not
+          the viewport) — the panel-detail view shrinks the toolbar
+          to ~50% of the viewport, so viewport breakpoints alone make
+          the right-side cluster overlap the search. Container queries
+          fix that. */}
+      <div className="flex flex-wrap @md/dt-toolbar:flex-nowrap items-center min-h-9 @md/dt-toolbar:h-9 px-2 @md/dt-toolbar:px-3 py-1 @md/dt-toolbar:py-0 gap-1.5 @md/dt-toolbar:gap-2">
 
         {/* ── Visual query search bar ── */}
         <div
@@ -658,11 +660,11 @@ export function DataTableToolbar({
 
         {toolbarLeft}
 
-        <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 whitespace-nowrap hidden sm:inline">
+        <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 whitespace-nowrap hidden @md/dt-toolbar:inline">
           {totalCount.toLocaleString('fr-FR')} résultat{totalCount !== 1 ? 's' : ''}
         </span>
 
-        <div className="w-px h-4 bg-border shrink-0 hidden sm:block" />
+        <div className="w-px h-4 bg-border shrink-0 hidden @md/dt-toolbar:block" />
 
         {/* View mode toggle */}
         {viewModes && viewModes.length > 1 && (

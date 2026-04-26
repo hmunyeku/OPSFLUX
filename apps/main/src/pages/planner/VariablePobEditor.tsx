@@ -378,8 +378,6 @@ export function VariablePobEditor({
     )
   }
 
-  const cellSize = compact ? 'w-9 h-9 text-[11px]' : 'w-11 h-11 text-xs'
-
   return (
     <div
       ref={containerRef}
@@ -509,83 +507,111 @@ export function VariablePobEditor({
         </div>
       )}
 
-      {/* ── Grid (Excel-like inline edit) ── */}
-      <div className="p-2 max-h-[320px] overflow-y-auto">
-        <div className="flex flex-wrap gap-1">
-          {days.map((d, idx) => {
-            const v = valueMap[d.key]
-            const sel = isSelected(idx)
-            const isWeekend = d.weekday === 0 || d.weekday === 6
-            const inDragFill = isInDragFill(idx)
-            const isFocused = anchor === idx && lead === idx
-            return (
-              <div
-                key={d.key}
-                data-pob-cell={idx}
-                className={cn(
-                  'relative flex flex-col items-center rounded border select-none transition-colors',
-                  cellSize,
-                  inDragFill
-                    ? 'border-primary bg-primary/20 ring-1 ring-primary'
-                    : sel
-                      ? 'border-primary bg-primary/10 ring-1 ring-primary/60'
-                      : isWeekend
-                        ? 'border-border/60 bg-muted/40 hover:bg-muted'
-                        : 'border-border hover:bg-muted/40',
-                )}
-                onMouseDown={(e) => {
-                  // Mouse-select behavior: only takes over when the
-                  // user clicks OUTSIDE the input (ie. the date label
-                  // strip). Inside the input, focus + caret handling
-                  // is native.
-                  if ((e.target as HTMLElement).tagName !== 'INPUT') {
-                    onCellMouseDown(idx, e)
-                  }
-                }}
-                onMouseEnter={(e) => onCellMouseEnter(idx, e)}
-                title={`${WEEKDAY_FULL[d.weekday]} ${d.date.getUTCDate()}/${String(d.date.getUTCMonth() + 1).padStart(2, '0')}`}
-              >
-                <span className="text-[8px] text-muted-foreground leading-none mt-0.5">
-                  {WEEKDAY_LABELS[d.weekday]}{d.date.getUTCDate()}
-                </span>
-                <input
-                  ref={(el) => { cellRefs.current[idx] = el }}
-                  type="text"
-                  inputMode="numeric"
-                  value={v ?? ''}
-                  placeholder="·"
-                  onFocus={(e) => {
-                    setAnchor(idx); setLead(idx)
-                    // Auto-select content so typing replaces.
-                    e.currentTarget.select()
-                  }}
-                  onChange={(e) => setSingleCell(idx, e.target.value)}
-                  onKeyDown={(e) => handleCellKey(e, idx)}
-                  onPaste={(e) => {
-                    const text = e.clipboardData.getData('text')
-                    if (!text) return
-                    e.preventDefault()
-                    writePastedValues(idx, text)
-                  }}
-                  className={cn(
-                    'w-full bg-transparent text-center font-semibold tabular-nums leading-none mt-0.5 outline-none border-0 p-0',
-                    compact ? 'text-[11px] h-5' : 'text-xs h-6',
-                    v == null ? 'text-muted-foreground/50' : 'text-foreground',
-                  )}
-                />
-                {/* Autofill handle — small primary dot at bottom-right
-                    of the focused cell. Drag to spread the cell's
-                    value across following cells. */}
-                {isFocused && !inDragFill && (
-                  <span
-                    onMouseDown={(e) => startDragFill(idx, e)}
-                    className="absolute -right-[3px] -bottom-[3px] w-2 h-2 rounded-sm bg-primary cursor-crosshair shadow-sm"
-                    title="Glisser pour remplir"
-                  />
-                )}
-              </div>
-            )
-          })}
+      {/* ── Grid (true spreadsheet layout) ──
+          Days are chunked into weeks. Each week renders as a 2-row
+          table-like strip with a date header on top and an editable
+          input below. Cells share borders (no gap) for a real
+          Excel feel. */}
+      <div className="p-2 max-h-[360px] overflow-y-auto overflow-x-auto">
+        <div className="space-y-2 inline-block min-w-full">
+          {(() => {
+            // Chunk days into weeks of 7 — wrapping at week boundaries
+            // makes the grid scan naturally as a calendar week.
+            const weeks: typeof days[] = []
+            for (let i = 0; i < days.length; i += 7) {
+              weeks.push(days.slice(i, i + 7))
+            }
+            const cellW = compact ? 'w-12' : 'w-14'
+            const headerH = compact ? 'h-5 text-[9px]' : 'h-6 text-[10px]'
+            const inputH = compact ? 'h-8 text-xs' : 'h-9 text-sm'
+            return weeks.map((week, wIdx) => {
+              const weekStartIdx = wIdx * 7
+              return (
+                <div key={wIdx} className="flex">
+                  {/* Header row + body row laid out as a single
+                      column per day so the shared borders connect
+                      cleanly between header and input. */}
+                  {week.map((d, dayIdx) => {
+                    const idx = weekStartIdx + dayIdx
+                    const v = valueMap[d.key]
+                    const sel = isSelected(idx)
+                    const isWeekend = d.weekday === 0 || d.weekday === 6
+                    const inDragFill = isInDragFill(idx)
+                    const isFocused = anchor === idx && lead === idx
+                    return (
+                      <div
+                        key={d.key}
+                        data-pob-cell={idx}
+                        className={cn('relative flex flex-col -ml-px first:ml-0', cellW)}
+                        title={`${WEEKDAY_FULL[d.weekday]} ${d.date.getUTCDate()}/${String(d.date.getUTCMonth() + 1).padStart(2, '0')}`}
+                      >
+                        {/* Header cell: date label */}
+                        <div
+                          onMouseDown={(e) => {
+                            if ((e.target as HTMLElement).tagName !== 'INPUT') onCellMouseDown(idx, e)
+                          }}
+                          onMouseEnter={(e) => onCellMouseEnter(idx, e)}
+                          className={cn(
+                            'flex items-center justify-center border border-border select-none',
+                            headerH,
+                            isWeekend ? 'bg-muted/70 text-muted-foreground' : 'bg-muted/40 text-muted-foreground',
+                            sel && 'bg-primary/15 border-primary/50',
+                            inDragFill && 'bg-primary/25 border-primary',
+                          )}
+                        >
+                          <span className="font-medium tabular-nums">
+                            {WEEKDAY_LABELS[d.weekday]}{d.date.getUTCDate()}
+                          </span>
+                        </div>
+                        {/* Body cell: editable value */}
+                        <div
+                          className={cn(
+                            'relative flex items-center border border-t-0 border-border bg-background',
+                            inputH,
+                            sel && 'border-primary/50 bg-primary/5',
+                            inDragFill && 'border-primary bg-primary/15',
+                            isWeekend && !sel && !inDragFill && 'bg-muted/20',
+                          )}
+                        >
+                          <input
+                            ref={(el) => { cellRefs.current[idx] = el }}
+                            type="text"
+                            inputMode="numeric"
+                            value={v ?? ''}
+                            placeholder="·"
+                            onFocus={(e) => {
+                              setAnchor(idx); setLead(idx)
+                              e.currentTarget.select()
+                            }}
+                            onChange={(e) => setSingleCell(idx, e.target.value)}
+                            onKeyDown={(e) => handleCellKey(e, idx)}
+                            onPaste={(e) => {
+                              const text = e.clipboardData.getData('text')
+                              if (!text) return
+                              e.preventDefault()
+                              writePastedValues(idx, text)
+                            }}
+                            className={cn(
+                              'w-full h-full bg-transparent text-center font-semibold tabular-nums leading-none outline-none border-0 px-1',
+                              v == null ? 'text-muted-foreground/40 placeholder:text-muted-foreground/40' : 'text-foreground',
+                              isFocused && 'ring-2 ring-inset ring-primary/60 z-10',
+                            )}
+                          />
+                          {isFocused && !inDragFill && (
+                            <span
+                              onMouseDown={(e) => startDragFill(idx, e)}
+                              className="absolute -right-[3px] -bottom-[3px] w-2.5 h-2.5 rounded-sm bg-primary border border-background cursor-crosshair shadow-sm z-20"
+                              title="Glisser pour remplir"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })
+          })()}
         </div>
       </div>
 

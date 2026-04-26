@@ -611,17 +611,13 @@ export function PanelContentLayout({
         // without wasting vertical space (collapsed cards stack densely).
         'p-3 space-y-3',
         '@[640px]:px-5 @[640px]:py-4',
-        // Boxed mode on wide viewports: previously capped aggressively
-        // (~80% width) which felt empty on fullscreen detail panels.
-        // We keep an auto margin so very wide screens still have a hair
-        // of breathing room, but the caps now track ~95% of the viewport
-        // so the table-style sections (tasks, activity) get the room
-        // they deserve without dead space on either side.
-        '@[1024px]:px-6 @[1024px]:py-4 @[1024px]:mx-auto',
-        '@[1280px]:max-w-[1240px]',
-        '@[1440px]:max-w-[1400px]',
-        '@[1600px]:max-w-[1560px]',
-        '@[1920px]:max-w-[1860px]',
+        // Full-bleed: previously capped width left ~200-300px of dead
+        // space on wide screens. The detail panel is the user's main
+        // working surface, so we let it breathe and use the full
+        // available width. Padding alone provides the margins.
+        '@[1024px]:px-6 @[1024px]:py-4',
+        '@[1440px]:px-8',
+        '@[1920px]:px-10',
         className,
       )}
     >

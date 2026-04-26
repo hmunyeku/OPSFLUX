@@ -173,22 +173,51 @@ export function formatDateOnly(d: string | null | undefined) {
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 
-/** Display 'min–max' for a variable POB schedule, or the constant if all equal */
-export function formatVariablePaxRange(daily: Record<string, number> | null | undefined, fallback: number): string {
-  if (!daily || Object.keys(daily).length === 0) return String(fallback)
-  const values = Object.values(daily).filter((v): v is number => typeof v === 'number')
+/** Filter the `daily` map to only entries whose date key falls within
+ *  the activity's [start, end] range. Without this, stale orphan
+ *  entries left from a previous date range (zeros or values outside
+ *  today's plan) skew min/max/avg computations. */
+function filterDailyToRange(
+  daily: Record<string, number> | null | undefined,
+  startDate?: string | null,
+  endDate?: string | null,
+): number[] {
+  if (!daily) return []
+  const startKey = startDate ? startDate.split('T')[0] : null
+  const endKey = endDate ? endDate.split('T')[0] : null
+  const values: number[] = []
+  for (const [k, v] of Object.entries(daily)) {
+    if (typeof v !== 'number') continue
+    if (startKey && k < startKey) continue
+    if (endKey && k > endKey) continue
+    values.push(v)
+  }
+  return values
+}
+
+/** Display 'min–max' for a variable POB schedule, or the constant if all equal.
+ *  Pass start/end so orphan entries outside the activity window are ignored. */
+export function formatVariablePaxRange(
+  daily: Record<string, number> | null | undefined,
+  fallback: number,
+  startDate?: string | null,
+  endDate?: string | null,
+): string {
+  const values = filterDailyToRange(daily, startDate, endDate)
   if (values.length === 0) return String(fallback)
   const min = Math.min(...values)
   const max = Math.max(...values)
   return min === max ? String(min) : `${min}–${max}`
 }
 
-/** Long-form tooltip explaining the pax range. Used as the `title`
- *  attribute next to formatVariablePaxRange so a hover reveals what
- *  the abbreviated '5–22' actually means. */
-export function formatVariablePaxTooltip(daily: Record<string, number> | null | undefined, fallback: number): string {
-  if (!daily || Object.keys(daily).length === 0) return `${fallback} PAX (constant)`
-  const values = Object.values(daily).filter((v): v is number => typeof v === 'number')
+/** Long-form tooltip explaining the pax range. */
+export function formatVariablePaxTooltip(
+  daily: Record<string, number> | null | undefined,
+  fallback: number,
+  startDate?: string | null,
+  endDate?: string | null,
+): string {
+  const values = filterDailyToRange(daily, startDate, endDate)
   if (values.length === 0) return `${fallback} PAX (constant)`
   const min = Math.min(...values)
   const max = Math.max(...values)

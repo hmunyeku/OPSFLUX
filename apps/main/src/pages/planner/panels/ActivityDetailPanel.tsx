@@ -1045,10 +1045,10 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       value={
                         <span
                           className="inline-flex items-center gap-1 cursor-help"
-                          title={formatVariablePaxTooltip(activity.pax_quota_daily, activity.pax_quota)}
+                          title={formatVariablePaxTooltip(activity.pax_quota_daily, activity.pax_quota, activity.start_date, activity.end_date)}
                         >
                           <Users size={12} className="text-muted-foreground" />
-                          {formatVariablePaxRange(activity.pax_quota_daily, activity.pax_quota)}
+                          {formatVariablePaxRange(activity.pax_quota_daily, activity.pax_quota, activity.start_date, activity.end_date)}
                           <span className="text-[10px] text-muted-foreground ml-1">(min–max journalier)</span>
                         </span>
                       }

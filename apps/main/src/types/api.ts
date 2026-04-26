@@ -1845,7 +1845,7 @@ export interface ProjectCommentCreate {
 // ── Activity Feed ─────────────────────────────────────────
 
 export interface ActivityFeedItem {
-  type: 'status_change' | 'task_change' | 'comment'
+  type: 'status_change' | 'task_change' | 'comment' | 'situation'
   date: string
   user: string | null
   detail?: string
@@ -1861,6 +1861,11 @@ export interface ActivityFeedItem {
   owner_id?: string
   body?: string
   owner_type?: string
+  // ── 'situation' specific ──
+  situation_id?: string
+  progress?: number
+  weather?: string | null
+  trend?: string | null
 }
 
 // ── TravelWiz — Vectors ─────────────────────────────────────

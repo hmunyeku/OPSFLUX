@@ -3560,7 +3560,7 @@ async def export_projects_gantt_pdf(
 
 @router.get("/{project_id}/activity-feed")
 async def get_activity_feed(project_id: UUID, limit: int = 50, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db)):
-    """Unified activity timeline — merges status changes, task modifications, comments."""
+    """Unified activity timeline — merges status changes, task modifications, comments, situation snapshots."""
     await _get_project_or_404(db, project_id, entity_id)
     feed: list[dict] = []
     from app.models.common import ProjectStatusHistory, ProjectComment
@@ -3580,6 +3580,34 @@ async def get_activity_feed(project_id: UUID, limit: int = 50, entity_id: UUID =
         # owner_id lets the UI jump to the underlying task when the
         # comment was posted on a task (vs. on the project itself).
         feed.append({"type": "comment", "date": cm.created_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "comment_id": str(cm.id), "owner_id": str(cm.owner_id), "body": cm.body[:200], "owner_type": cm.owner_type})
+    # Situation snapshots — surface every "Enregistrer la situation"
+    # capture in the timeline so the team has a single chronological
+    # view of "what happened on this project". The body excerpt is the
+    # situation_text (or a synthesized "Snapshot — N% (météo/tendance)"
+    # when the user didn't write any note).
+    for s, fn, ln in (await db.execute(
+        select(ProjectSituation, User.first_name, User.last_name)
+        .outerjoin(User, ProjectSituation.captured_by == User.id)
+        .where(ProjectSituation.project_id == project_id)
+        .order_by(ProjectSituation.captured_at.desc())
+        .limit(limit)
+    )).all():
+        body = (s.situation_text or "").strip()
+        if not body:
+            bits = [f"{s.progress}%"]
+            if s.weather: bits.append(s.weather)
+            if s.trend: bits.append(s.trend)
+            body = "Snapshot — " + " · ".join(bits)
+        feed.append({
+            "type": "situation",
+            "date": s.captured_at.isoformat(),
+            "user": f"{fn} {ln}".strip() if fn else None,
+            "situation_id": str(s.id),
+            "progress": s.progress,
+            "weather": s.weather,
+            "trend": s.trend,
+            "body": body[:300],
+        })
     feed.sort(key=lambda x: x["date"], reverse=True)
     return feed[:limit]
 

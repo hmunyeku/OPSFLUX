@@ -2316,7 +2316,7 @@ function ActivityFeedSection({
   onNavigateToTask?: (taskId: string) => void
 }) {
   const { data: feed = [], isLoading } = useActivityFeed(projectId)
-  const [filter, setFilter] = useState<'all' | 'task_change' | 'comment' | 'status_change'>('all')
+  const [filter, setFilter] = useState<'all' | 'task_change' | 'comment' | 'status_change' | 'situation'>('all')
   const [search, setSearch] = useState('')
 
   const iconForType = (type: string) => {
@@ -2324,6 +2324,7 @@ function ActivityFeedSection({
       case 'status_change': return <Circle size={11} className="text-blue-500" />
       case 'task_change': return <Settings2 size={11} className="text-amber-500" />
       case 'comment': return <MessageSquare size={11} className="text-green-500" />
+      case 'situation': return <Target size={11} className="text-primary" />
       default: return <Activity size={11} className="text-muted-foreground" />
     }
   }
@@ -2368,6 +2369,7 @@ function ActivityFeedSection({
     task_change: feed.filter(f => f.type === 'task_change').length,
     comment: feed.filter(f => f.type === 'comment').length,
     status_change: feed.filter(f => f.type === 'status_change').length,
+    situation: feed.filter(f => f.type === 'situation').length,
   }), [feed])
 
   // Resolve the target task id for a row — task_change has it directly,
@@ -2430,6 +2432,17 @@ function ActivityFeedSection({
           </>
         )}
 
+        {item.type === 'situation' && (
+          <>
+            <span className="text-muted-foreground/50 shrink-0">·</span>
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 shrink-0">Situation</span>
+            {typeof item.progress === 'number' && (
+              <span className="px-1 rounded bg-primary/10 text-primary text-[10px] font-medium tabular-nums shrink-0">{item.progress}%</span>
+            )}
+            <span className="text-foreground/90 truncate">{item.body}</span>
+          </>
+        )}
+
         {/* Change detail (only for task_change) */}
         {item.type === 'task_change' && (
           <>
@@ -2475,6 +2488,7 @@ function ActivityFeedSection({
           <div className="flex flex-wrap items-center gap-1.5">
             {([
               ['all', 'Tout', counts.all],
+              ['situation', 'Situations', counts.situation],
               ['task_change', 'Tâches', counts.task_change],
               ['comment', 'Commentaires', counts.comment],
               ['status_change', 'Statut', counts.status_change],

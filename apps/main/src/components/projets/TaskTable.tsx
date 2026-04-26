@@ -361,6 +361,12 @@ export interface TaskTableProps {
   onOpenAdvanced?: (task: ProjectTask) => void
   /** Callback when a task is clicked (single click on the row body — not on a cell editor). */
   onRowClick?: (task: ProjectTask) => void
+  /** Currently selected task id — receives a primary highlight. Drives
+   *  the contextual toolbar actions in the parent (indent, +after, …). */
+  selectedTaskId?: string | null
+  /** Called when the user clicks anywhere on the row body. Use this
+   *  to lift selection to the parent. */
+  onSelect?: (taskId: string) => void
   /** Optional className for the wrapping element. */
   className?: string
 }
@@ -378,6 +384,8 @@ export function TaskTable({
   maxHeight,
   onOpenAdvanced,
   onRowClick,
+  selectedTaskId,
+  onSelect,
   className,
 }: TaskTableProps) {
   const updateTask = useUpdateProjectTask()
@@ -533,6 +541,7 @@ export function TaskTable({
               depth={depth}
               hasChildren={hasChildren}
               isCollapsed={collapsed.has(task.id)}
+              isSelected={selectedTaskId === task.id}
               columns={visibleColumns}
               gridTemplate={gridTemplate}
               rowHeight={rowHeight}
@@ -542,7 +551,10 @@ export function TaskTable({
               onField={(field, value) => handleField(task, field, value)}
               onDuration={(days) => handleDuration(task, days)}
               onOpenAdvanced={onOpenAdvanced ? () => onOpenAdvanced(task) : undefined}
-              onRowClick={onRowClick ? () => onRowClick(task) : undefined}
+              onRowClick={() => {
+                onSelect?.(task.id)
+                onRowClick?.(task)
+              }}
             />
           ))
         )}
@@ -559,6 +571,7 @@ interface RowProps {
   task: ProjectTask
   depth: number
   hasChildren: boolean
+  isSelected?: boolean
   isCollapsed: boolean
   columns: TaskTableColumn[]
   gridTemplate: string
@@ -573,7 +586,7 @@ interface RowProps {
 }
 
 function TaskTableRow({
-  task, depth, hasChildren, isCollapsed,
+  task, depth, hasChildren, isCollapsed, isSelected,
   columns, gridTemplate, rowHeight, displayProgress,
   onToggleCollapse, onStatusClick, onField, onDuration,
   onOpenAdvanced, onRowClick,
@@ -742,10 +755,11 @@ function TaskTableRow({
   return (
     <div
       className={cn(
-        'grid items-center gap-1 px-2 border-b border-border/30 last:border-0 text-[11px]',
+        'grid items-center gap-1 px-2 border-b border-border/30 last:border-0 text-[11px] cursor-pointer',
         rowHeight,
-        'hover:bg-muted/30 transition-colors',
-        onRowClick && 'cursor-pointer',
+        isSelected
+          ? 'bg-primary/10 ring-1 ring-inset ring-primary/40'
+          : 'hover:bg-muted/30 transition-colors',
       )}
       style={{ gridTemplateColumns: gridTemplate }}
       onClick={onRowClick}

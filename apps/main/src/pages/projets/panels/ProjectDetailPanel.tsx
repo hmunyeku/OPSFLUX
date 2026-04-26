@@ -11,7 +11,7 @@ import {
   FolderKanban, Plus, Loader2, Trash2, Users, Target, X, Check,
   Milestone, ListTodo, UserPlus,
   Circle, CheckCircle2,
-  ChevronRight, Layers, RefreshCw,
+  ChevronRight, ChevronLeft, Layers, RefreshCw,
   Link2, Package, CheckSquare, History, ArrowRight,
   Settings2,
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
@@ -1158,11 +1158,13 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
  * persist the ratio in localStorage between visits.
  */
 function TaskFullscreenOverlay({
-  projectId, tasks, hierarchical, onClose, onOpenAdvanced,
+  projectId, tasks, hierarchical, selectedTaskId, onSelect, onClose, onOpenAdvanced,
 }: {
   projectId: string
   tasks: ProjectTask[]
   hierarchical: boolean
+  selectedTaskId: string | null
+  onSelect: (id: string | null) => void
   onClose: () => void
   onOpenAdvanced: (task: ProjectTask) => void
 }) {
@@ -1235,6 +1237,8 @@ function TaskFullscreenOverlay({
             projectId={projectId}
             hierarchical={hierarchical}
             maxHeight="100%"
+            selectedTaskId={selectedTaskId}
+            onSelect={onSelect}
             onOpenAdvanced={onOpenAdvanced}
           />
         </div>
@@ -1290,6 +1294,108 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
   }
   const [fullscreen, setFullscreen] = useState(false)
   const openTaskAdvanced = useUIStore((s) => s.openDynamicPanel)
+  // Selected row id — drives contextual toolbar actions (indent,
+  // outdent, +after, +sub-task). Cleared when the user clicks empty
+  // space or after an action that mutates the structure.
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const selectedTask = selectedTaskId ? tasks.find(t => t.id === selectedTaskId) ?? null : null
+  const createTask = useCreateProjectTask()
+  const updateTaskMut = useUpdateProjectTask()
+
+  // Insert a new task at a given parent + position. The order is set
+  // to (anchor.order + 1); ties are broken by created_at ascending so
+  // the new task lands just below the anchor.
+  const insertTask = useCallback(async (opts: {
+    parentId: string | null
+    anchorOrder: number
+    title: string
+    isMilestone?: boolean
+  }) => {
+    try {
+      const created = await createTask.mutateAsync({
+        projectId,
+        payload: {
+          title: opts.title,
+          parent_id: opts.parentId,
+          order: opts.anchorOrder + 1,
+          is_milestone: !!opts.isMilestone,
+        } as never,
+      })
+      // Auto-select the freshly created row so the next action
+      // chains naturally.
+      if (created?.id) setSelectedTaskId(created.id)
+    } catch { /* toast handled upstream */ }
+  }, [createTask, projectId])
+
+  const handleAddAfter = useCallback(() => {
+    if (selectedTask) {
+      insertTask({
+        parentId: selectedTask.parent_id,
+        anchorOrder: selectedTask.order ?? 0,
+        title: 'Nouvelle tâche',
+      })
+    } else {
+      const maxOrder = tasks.reduce((m, t) => Math.max(m, t.order ?? 0), 0)
+      insertTask({ parentId: null, anchorOrder: maxOrder, title: 'Nouvelle tâche' })
+    }
+  }, [selectedTask, tasks, insertTask])
+
+  const handleAddSubtask = useCallback(() => {
+    if (!selectedTask) return
+    const childMax = tasks
+      .filter(t => t.parent_id === selectedTask.id)
+      .reduce((m, t) => Math.max(m, t.order ?? 0), 0)
+    insertTask({
+      parentId: selectedTask.id,
+      anchorOrder: childMax,
+      title: 'Nouvelle sous-tâche',
+    })
+  }, [selectedTask, tasks, insertTask])
+
+  const handleAddMilestone = useCallback(() => {
+    const anchor = selectedTask
+    insertTask({
+      parentId: anchor?.parent_id ?? null,
+      anchorOrder: anchor?.order ?? tasks.reduce((m, t) => Math.max(m, t.order ?? 0), 0),
+      title: 'Nouveau jalon',
+      isMilestone: true,
+    })
+  }, [selectedTask, tasks, insertTask])
+
+  // Indent: set parent_id to the previous sibling (the one immediately
+  // above with the same parent_id).
+  const handleIndent = useCallback(() => {
+    if (!selectedTask) return
+    const siblings = tasks
+      .filter(t => t.parent_id === selectedTask.parent_id)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    const idx = siblings.findIndex(t => t.id === selectedTask.id)
+    if (idx <= 0) return // already first under its parent → can't indent
+    const prev = siblings[idx - 1]
+    updateTaskMut.mutate({ projectId, taskId: selectedTask.id, payload: { parent_id: prev.id } })
+  }, [selectedTask, tasks, updateTaskMut, projectId])
+
+  // Outdent: set parent_id to the grandparent (or null if already at root).
+  const handleOutdent = useCallback(() => {
+    if (!selectedTask || !selectedTask.parent_id) return
+    const parent = tasks.find(t => t.id === selectedTask.parent_id)
+    updateTaskMut.mutate({
+      projectId,
+      taskId: selectedTask.id,
+      payload: { parent_id: parent?.parent_id ?? null },
+    })
+  }, [selectedTask, tasks, updateTaskMut, projectId])
+
+  // Compute eligibility for the contextual buttons so we can disable
+  // them rather than hide (less jumpy UI).
+  const canIndent = useMemo(() => {
+    if (!selectedTask) return false
+    const siblings = tasks
+      .filter(t => t.parent_id === selectedTask.parent_id)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    return siblings.findIndex(t => t.id === selectedTask.id) > 0
+  }, [selectedTask, tasks])
+  const canOutdent = !!selectedTask?.parent_id
 
   const counts = useMemo(() => ({
     todo: tasks.filter(t => t.status === 'todo').length,
@@ -1458,16 +1564,57 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
               </select>
             </>
           )}
-          {/* Add task — primary action, sits in the toolbar so it's
-              always reachable above the table (no scrolling required). */}
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="h-7 px-2 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1 shrink-0 ml-auto"
-            title="Créer une nouvelle tâche"
-          >
-            <Plus size={11} /> <span className="hidden sm:inline">Ajouter</span>
-          </button>
+          {/* Structural actions — contextual to the selected row.
+              All buttons share the toolbar so the user never has to
+              hunt for a hidden menu. Disabled (rather than hidden) so
+              the layout stays stable. */}
+          <div className="inline-flex items-center gap-0.5 ml-auto">
+            <button
+              type="button"
+              onClick={handleAddAfter}
+              className="h-7 px-2 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1 shrink-0"
+              title={selectedTask ? `Insérer une tâche après "${selectedTask.title}"` : 'Ajouter une tâche'}
+            >
+              <Plus size={11} /> <span className="hidden sm:inline">{selectedTask ? 'Après' : 'Ajouter'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleAddSubtask}
+              disabled={!selectedTask}
+              className="h-7 px-2 text-[10px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+              title={selectedTask ? `Sous-tâche de "${selectedTask.title}"` : 'Sélectionnez une tâche pour créer une sous-tâche'}
+            >
+              <Plus size={11} /> <span className="hidden md:inline">Sous-tâche</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleAddMilestone}
+              className="h-7 px-2 text-[10px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1"
+              title="Ajouter un jalon"
+            >
+              <Milestone size={11} /> <span className="hidden md:inline">Jalon</span>
+            </button>
+            {/* Indent/outdent — gentle visual gap so they read as a pair */}
+            <span className="w-1" />
+            <button
+              type="button"
+              onClick={handleOutdent}
+              disabled={!canOutdent}
+              className="h-7 w-7 rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Désindenter (Maj+Tab)"
+            >
+              <ChevronLeft size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={handleIndent}
+              disabled={!canIndent}
+              className="h-7 w-7 rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Indenter (Tab)"
+            >
+              <ChevronRight size={12} />
+            </button>
+          </div>
           {/* View controls — grouped so they wrap together on narrow widths */}
           <div className="inline-flex items-center gap-1.5">
             <div className="inline-flex rounded border border-border overflow-hidden h-7">
@@ -1527,6 +1674,8 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
             projectId={projectId}
             hierarchical={!isFiltered}
             maxHeight="500px"
+            selectedTaskId={selectedTaskId}
+            onSelect={setSelectedTaskId}
             onOpenAdvanced={(task) =>
               openTaskAdvanced({ type: 'task-detail', module: 'projets', id: task.id, meta: { projectId } })
             }
@@ -1560,6 +1709,8 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
           projectId={projectId}
           tasks={isFiltered ? sorted : tasks}
           hierarchical={!isFiltered}
+          selectedTaskId={selectedTaskId}
+          onSelect={setSelectedTaskId}
           onClose={() => setFullscreen(false)}
           onOpenAdvanced={(task) =>
             openTaskAdvanced({ type: 'task-detail', module: 'projets', id: task.id, meta: { projectId } })

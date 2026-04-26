@@ -280,13 +280,16 @@ export function StatCard({ label, value, icon: Icon, accent, sparkline, onClick,
   active?: boolean
 }) {
   // Single-line layout: [icon] LABEL ── sparkline ── VALUE.
+  // Each card is its own container query context (`@container/kpi`)
+  // so the sparkline can hide itself when the card itself is narrow,
+  // independently of viewport.
   const Tag = onClick ? 'button' : 'div'
   return (
     <Tag
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={cn(
-        'group relative flex items-center gap-2 rounded-lg border bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all w-full text-left',
+        '@container/kpi group relative flex items-center gap-2 rounded-lg border bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all w-full text-left',
         onClick && 'cursor-pointer hover:border-primary/50 hover:shadow-sm',
         active ? 'border-primary/60 ring-1 ring-primary/30 bg-primary/5' : 'border-border/70 hover:border-border',
       )}
@@ -303,8 +306,14 @@ export function StatCard({ label, value, icon: Icon, accent, sparkline, onClick,
       <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{label}</span>
       {/* Spacer pushes sparkline + value to the right edge */}
       <span className="flex-1" />
+      {/* Sparkline is hidden when the card is narrow (typical when
+          the detail panel splits the viewport) so the label + value
+          keep enough room. Its container is the StatCard itself
+          (each card is its own @container/kpi). */}
       {sparkline && sparkline.length >= 2 && sparkline.some(v => v > 0) && (
-        <Sparkline values={sparkline} accent={accent} />
+        <span className="hidden @[180px]/kpi:inline-flex shrink-0">
+          <Sparkline values={sparkline} accent={accent} />
+        </span>
       )}
       <span className={cn(
         'text-lg font-bold tabular-nums font-display tracking-tight leading-none',

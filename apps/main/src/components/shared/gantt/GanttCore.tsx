@@ -1488,18 +1488,18 @@ export function GanttCore(props: GanttCoreProps) {
           </div>
 
           {/* Grid body — drag to pan on empty areas.
-              When a `footerRow` is present we hide the body's HORIZONTAL
-              scrollbar so the page only shows ONE horizontal scrollbar
-              (the footer's) — avoids the stacked-scrollbars look the
-              user flagged. The body's scrollLeft is still adjustable
-              programmatically via `onFooterScroll` (footer drives). */}
+              When a `footerRow` is present we keep horizontal scrolling
+              functional (touch swipe on mobile, drag on desktop) but
+              HIDE the scrollbar visually so the page only shows ONE
+              scrollbar (the footer's). Scroll events are still emitted,
+              so onBodyScroll can sync header/footer. */}
           <div
             ref={bodyScrollRef}
             data-gantt-body
             data-gantt-body-scroll
             className={cn(
               'flex-1 cursor-grab active:cursor-grabbing',
-              footerRow ? 'overflow-x-hidden overflow-y-auto' : 'overflow-auto',
+              footerRow ? 'overflow-auto scrollbar-none' : 'overflow-auto',
             )}
             onScroll={onBodyScroll}
             onMouseDown={onDragScroll}

@@ -674,11 +674,14 @@ function RowIconBtn({
   title: string
   onClick: (e: React.MouseEvent) => void
 }) {
+  // Color at rest already tells the user what each action does
+  // (red = destructive, green = validate, blue = primary, amber =
+  // warning). Hover reinforces with a tinted background.
   const toneClass =
-    tone === 'primary' ? 'hover:bg-primary/10 hover:text-primary'
-    : tone === 'emerald' ? 'hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400'
-    : tone === 'rose' ? 'hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400'
-    : 'hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400'
+    tone === 'primary' ? 'text-primary hover:bg-primary/10'
+    : tone === 'emerald' ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10'
+    : tone === 'rose' ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-500/10'
+    : 'text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
   return (
     <button
       type="button"
@@ -686,7 +689,7 @@ function RowIconBtn({
       title={title}
       aria-label={title}
       className={cn(
-        'inline-flex items-center justify-center w-6 h-6 rounded text-muted-foreground transition-colors',
+        'inline-flex items-center justify-center w-6 h-6 rounded transition-colors',
         toneClass,
       )}
     >

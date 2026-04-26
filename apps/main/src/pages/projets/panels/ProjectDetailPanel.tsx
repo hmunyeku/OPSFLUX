@@ -1458,8 +1458,18 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
               </select>
             </>
           )}
+          {/* Add task — primary action, sits in the toolbar so it's
+              always reachable above the table (no scrolling required). */}
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="h-7 px-2 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1 shrink-0 ml-auto"
+            title="Créer une nouvelle tâche"
+          >
+            <Plus size={11} /> <span className="hidden sm:inline">Ajouter</span>
+          </button>
           {/* View controls — grouped so they wrap together on narrow widths */}
-          <div className="inline-flex items-center gap-1.5 ml-auto">
+          <div className="inline-flex items-center gap-1.5">
             <div className="inline-flex rounded border border-border overflow-hidden h-7">
               <button
                 type="button"
@@ -1496,6 +1506,15 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
         </div>
       )}
 
+      {/* Inline create form — appears above the body when toggled on
+          via the toolbar 'Ajouter' button, so it never disrupts the
+          scrolled-down task list. */}
+      {showCreate && (
+        <div className="mb-2">
+          <TaskCreateForm projectId={projectId} onClose={() => setShowCreate(false)} />
+        </div>
+      )}
+
       {/* Body */}
       {tasks.length > 0 ? (
         filtered.length === 0 ? (
@@ -1518,7 +1537,21 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
           </div>
         )
       ) : (
-        <EmptyState icon={ListTodo} title="Aucune tâche" variant="search" size="compact" />
+        // Empty state — keep an inline 'Add' button so the user can
+        // create the very first task without scrolling/searching for it
+        // (the toolbar above only renders when tasks.length > 0).
+        <div className="flex flex-col items-center gap-2 py-4">
+          <EmptyState icon={ListTodo} title="Aucune tâche" variant="search" size="compact" />
+          {!showCreate && (
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80"
+            >
+              <Plus size={12} /> Créer la première tâche
+            </button>
+          )}
+        </div>
       )}
 
       {/* Fullscreen overlay — table on the left, ProjectGantt on the right */}
@@ -1534,17 +1567,6 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
         />
       )}
 
-      {/* Create form or button */}
-      {showCreate ? (
-        <TaskCreateForm projectId={projectId} onClose={() => setShowCreate(false)} />
-      ) : (
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1"
-        >
-          <Plus size={12} /> Ajouter une tâche
-        </button>
-      )}
     </FormSection>
   )
 }

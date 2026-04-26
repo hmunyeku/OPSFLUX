@@ -5,7 +5,7 @@
  * tabs/panels split. Consumed by files under `./tabs/` and `./panels/`
  * and by `PlannerPage.tsx` itself.
  */
-import { CalendarRange, ListTodo, AlertTriangle, BarChart3, Calendar, Wrench, HardHat, Gauge, Shield, Drill, Eye, GanttChart, FlaskConical, TrendingUp, LayoutDashboard } from 'lucide-react'
+import { CalendarRange, ListTodo, AlertTriangle, BarChart3, Calendar, Wrench, HardHat, Gauge, Shield, Drill, Eye, GanttChart, FlaskConical, TrendingUp, LayoutDashboard, type LucideIcon } from 'lucide-react'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
 import { cn } from '@/lib/utils'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
@@ -397,5 +397,43 @@ function Sparkline({ values, accent }: { values: number[]; accent?: string }) {
       <path d={area} fill={tone} fillOpacity={0.15} />
       <path d={line} fill="none" stroke={tone} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  )
+}
+
+
+// ──────────────────────────────────────────────────────────────────────
+// RowIconBtn — uniform compact icon button used by table row actions.
+// Footprint 24×24, icon-only, color-at-rest indicates the action tone
+// (primary=blue, emerald=validate, rose=destructive, amber=warning).
+// Hover reinforces with a tinted background.
+// ──────────────────────────────────────────────────────────────────────
+export function RowIconBtn({
+  icon: Icon, tone, title, onClick, disabled,
+}: {
+  icon: LucideIcon
+  tone: 'primary' | 'emerald' | 'rose' | 'amber'
+  title: string
+  onClick: (e: React.MouseEvent) => void
+  disabled?: boolean
+}) {
+  const toneClass =
+    tone === 'primary' ? 'text-primary hover:bg-primary/10'
+    : tone === 'emerald' ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10'
+    : tone === 'rose' ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-500/10'
+    : 'text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      className={cn(
+        'inline-flex items-center justify-center w-6 h-6 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+        toneClass,
+      )}
+    >
+      <Icon size={13} strokeWidth={2.25} />
+    </button>
   )
 }

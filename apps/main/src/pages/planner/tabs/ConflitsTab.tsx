@@ -5,7 +5,10 @@
  */
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Clock, CheckCircle2, Loader2 } from 'lucide-react'
+import {
+  AlertTriangle, Clock, CheckCircle2, Loader2, BarChart3, ChevronUp, ChevronDown,
+  X, Bell, MessageSquare,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -45,6 +48,7 @@ import {
   PLANNER_ACTIVITY_STATUS_VALUES,
   StatusBadge,
   StatCard,
+  RowIconBtn,
   buildDictionaryOptions,
   formatDateShort,
   extractApiError,
@@ -148,6 +152,38 @@ export function ConflitsTab() {
     const deferred = items.filter((c) => c.status === 'deferred').length
     return { open, resolved, deferred }
   }, [items])
+
+  // 8-week buckets, conflict_date based, used by the StatCard sparklines.
+  const sparklines = useMemo(() => {
+    const buckets = 8
+    const weekMs = 7 * 86_400_000
+    const now = Date.now()
+    const bucketStart = now - buckets * weekMs
+    const init = () => Array.from({ length: buckets }, () => 0)
+    const total = init()
+    const open = init()
+    const resolved = init()
+    const deferred = init()
+    for (const c of items) {
+      const t = c.conflict_date ? new Date(c.conflict_date).getTime() : null
+      if (!t || t < bucketStart || t > now) continue
+      const idx = Math.min(buckets - 1, Math.max(0, Math.floor((t - bucketStart) / weekMs)))
+      total[idx]++
+      if (c.status === 'open') open[idx]++
+      else if (c.status === 'resolved') resolved[idx]++
+      else if (c.status === 'deferred') deferred[idx]++
+    }
+    return { total, open, resolved, deferred }
+  }, [items])
+
+  // UI state — mirrored from ActivitiesTab so the tab feels consistent.
+  // showStats: collapsible stats grid on mobile (always visible on md+).
+  // showSignals/showRequests: collapsible side-tray sections; default
+  // collapsed on mobile so the conflicts table is reachable in 1 scroll.
+  const [showStats, setShowStats] = useState(false)
+  const [showSignals, setShowSignals] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth >= 768)
+  const [showRequests, setShowRequests] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth >= 768)
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
   const [resolveModal, setResolveModal] = useState<string | null>(null)
   const [resolution, setResolution] = useState('')
@@ -344,20 +380,20 @@ export function ConflitsTab() {
     {
       id: 'actions',
       header: '',
-      size: 80,
-          cell: ({ row }) => {
+      size: 50,
+      cell: ({ row }) => {
         if (row.original.status !== 'open') return null
         return (
-          <button
-            className="gl-button-sm gl-button-default text-xs"
+          <RowIconBtn
+            icon={CheckCircle2}
+            tone="emerald"
+            title={t('planner.resolve_conflict_action')}
+            disabled={resolveConflict.isPending}
             onClick={(e) => {
               e.stopPropagation()
               setResolveModal(row.original.id)
             }}
-            disabled={resolveConflict.isPending}
-          >
-            {t('planner.resolve_conflict_action')}
-          </button>
+          />
         )
       },
     },
@@ -365,84 +401,94 @@ export function ConflitsTab() {
 
   return (
     <>
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label={t('planner.stats.total_conflicts')} value={total} icon={AlertTriangle} />
-        <StatCard label={t('planner.stats.open')} value={stats.open} icon={AlertTriangle} accent="text-destructive" />
-        <StatCard label={t('planner.stats.resolved')} value={stats.resolved} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
-        <StatCard label={t('planner.stats.deferred')} value={stats.deferred} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
-      </div>
-
-      {/* Filter bar — wraps to 2 rows on narrow viewports so the
-          status tabs stop colliding with the type dropdown and the
-          conflict counter on mobile. */}
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-9 shrink-0">
-        <select
-          value={conflictFilters.conflictTypeFilter}
-          onChange={(e) => updateConflictFilter('conflictTypeFilter', e.target.value)}
-          className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary min-w-0 flex-shrink"
-          title="Filtrer par type de conflit"
+      {/* Stats grid — same patterns as ActivitiesTab:
+            • collapsible on mobile via Statistiques toggle
+            • clickable to filter (statusFilter)
+            • sparklines per metric (8-week conflict_date trend)
+            • container queries so the grid reflows when the right
+              detail panel docks. */}
+      <div className="border-b border-border">
+        <button
+          type="button"
+          onClick={() => setShowStats(!showStats)}
+          className="md:hidden w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/5 transition-colors"
         >
-          <option value="">{t('planner.filters.all_types')}</option>
-          <option value="pax_overflow">Dépassement POB</option>
-          <option value="priority_clash">Conflit priorité</option>
-        </select>
-        {hasAdvancedConflictFilters && (
-          <button
-            type="button"
-            onClick={resetConflictFilters}
-            className="gl-button gl-button-sm gl-button-default h-6 text-[10px]"
-            title="Réinitialiser tous les filtres"
-          >
-            Réinitialiser
-          </button>
-        )}
-        {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} conflits</span>}
-      </div>
-
-      {/* Advanced filter row (asset, date range) — wraps on mobile
-          so the asset picker and the date range don't squash each
-          other down to unusable widths. */}
-      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 border-b border-border px-3.5 py-1.5 min-h-10 shrink-0 bg-background-subtle">
-        <div className="flex-1 min-w-[200px] max-w-[300px]">
-          <AssetPicker
-            value={conflictFilters.assetId}
-            onChange={(id) => updateConflictFilter('assetId', id)}
-            placeholder="Tous assets"
-            clearable
-          />
-        </div>
-        <div className="flex items-center gap-1.5 sm:ml-auto shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">Période</span>
-          <input
-            type="date"
-            className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
-            value={conflictFilters.dateFrom ?? ''}
-            onChange={(e) => updateConflictFilter('dateFrom', e.target.value || null)}
-            title="Début"
-          />
-          <span className="text-muted-foreground text-xs">→</span>
-          <input
-            type="date"
-            className="gl-form-input text-xs h-7 w-[125px] sm:w-[130px]"
-            value={conflictFilters.dateTo ?? ''}
-            onChange={(e) => updateConflictFilter('dateTo', e.target.value || null)}
-            min={conflictFilters.dateFrom ?? undefined}
-            title="Fin"
-          />
+          <span className="flex items-center gap-2">
+            <BarChart3 size={14} className="text-muted-foreground" />
+            Statistiques
+          </span>
+          {showStats ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        <div
+          className={cn(
+            "@container/stats",
+            showStats ? "block" : "hidden md:block",
+          )}
+        >
+          <div className="flex gap-2 overflow-x-auto px-4 py-3 snap-x snap-mandatory @md/stats:grid @md/stats:grid-cols-4 @md/stats:gap-3 @md/stats:overflow-visible @md/stats:snap-none">
+            <StatCard
+              label={t('planner.stats.total_conflicts')}
+              value={total}
+              icon={AlertTriangle}
+              sparkline={sparklines.total}
+              onClick={() => updateConflictFilter('statusFilter', '')}
+              active={!conflictFilters.statusFilter}
+            />
+            <StatCard
+              label={t('planner.stats.open')}
+              value={stats.open}
+              icon={AlertTriangle}
+              accent="text-destructive"
+              sparkline={sparklines.open}
+              onClick={() => updateConflictFilter('statusFilter', conflictFilters.statusFilter === 'open' ? '' : 'open')}
+              active={conflictFilters.statusFilter === 'open'}
+            />
+            <StatCard
+              label={t('planner.stats.resolved')}
+              value={stats.resolved}
+              icon={CheckCircle2}
+              accent="text-emerald-600 dark:text-emerald-400"
+              sparkline={sparklines.resolved}
+              onClick={() => updateConflictFilter('statusFilter', conflictFilters.statusFilter === 'resolved' ? '' : 'resolved')}
+              active={conflictFilters.statusFilter === 'resolved'}
+            />
+            <StatCard
+              label={t('planner.stats.deferred')}
+              value={stats.deferred}
+              icon={Clock}
+              accent="text-amber-600 dark:text-amber-400"
+              sparkline={sparklines.deferred}
+              onClick={() => updateConflictFilter('statusFilter', conflictFilters.statusFilter === 'deferred' ? '' : 'deferred')}
+              active={conflictFilters.statusFilter === 'deferred'}
+            />
+          </div>
         </div>
       </div>
 
       <div className="border-b border-border px-4 py-3">
-        <div className="rounded-lg border border-border bg-background p-3">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('planner.revision_signals.title')}</p>
-              <p className="text-xs text-muted-foreground">{t('planner.revision_signals.description')}</p>
+        <div className="rounded-lg border border-border bg-background">
+          {/* Collapsible header — click toggles the section so it doesn't
+              eat the whole vertical space on mobile when there are many
+              signals. Counter stays visible in the header. */}
+          <button
+            type="button"
+            onClick={() => setShowSignals(!showSignals)}
+            className="w-full flex items-center justify-between gap-3 px-3 py-2 hover:bg-accent/5 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Bell size={14} className="text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('planner.revision_signals.title')}</p>
+                <p className="text-xs text-muted-foreground truncate">{t('planner.revision_signals.description')}</p>
+              </div>
             </div>
-            <span className="gl-badge gl-badge-info">{revisionSignals.length}</span>
-          </div>
-          <div className="space-y-2">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="gl-badge gl-badge-info">{revisionSignals.length}</span>
+              {showSignals ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </div>
+          </button>
+          {showSignals && (
+          <div className="px-3 pb-3 space-y-2 border-t border-border/50 pt-3">
             {revisionSignalsLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
             {!revisionSignalsLoading && revisionSignals.length === 0 && (
               <p className="text-xs italic text-muted-foreground">{t('planner.revision_signals.empty')}</p>
@@ -541,11 +587,38 @@ export function ConflitsTab() {
               </div>
             ))}
           </div>
+          )}
         </div>
       </div>
 
       <div className="border-b border-border px-4 py-3">
-        <div className="grid gap-3 lg:grid-cols-2">
+        {/* Collapsible decision-requests section — single header
+            wrapping both incoming/outgoing columns; toggling hides
+            everything to free vertical space on small screens. */}
+        <div className="rounded-lg border border-border bg-background">
+          <button
+            type="button"
+            onClick={() => setShowRequests(!showRequests)}
+            className="w-full flex items-center justify-between gap-3 px-3 py-2 hover:bg-accent/5 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <MessageSquare size={14} className="text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('planner.revision_requests.section_title', 'Demandes de décision')}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {incomingRevisionRequests.length} entrante{incomingRevisionRequests.length > 1 ? 's' : ''} · {outgoingRevisionRequests.length} sortante{outgoingRevisionRequests.length > 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {incomingRevisionRequests.length > 0 && (
+                <span className="gl-badge gl-badge-warning">{incomingRevisionRequests.length}</span>
+              )}
+              {showRequests ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </div>
+          </button>
+          {showRequests && (
+          <div className="px-3 pb-3 pt-3 border-t border-border/50 grid gap-3 lg:grid-cols-2">
           <div className="rounded-lg border border-border bg-background p-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <div>
@@ -703,6 +776,8 @@ export function ConflitsTab() {
               ))}
             </div>
           </div>
+          </div>
+          )}
         </div>
       </div>
 
@@ -713,18 +788,142 @@ export function ConflitsTab() {
           isLoading={isLoading}
           pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
-          filters={[{
-            id: 'status',
-            label: t('common.status'),
-            type: 'multi-select',
-            operators: ['is', 'is_not'],
-            options: conflictStatusOptions.filter((o) => o.value).map((o) => ({ value: o.value, label: o.label })),
-          }]}
-          activeFilters={conflictFilters.statusFilter ? { status: [conflictFilters.statusFilter] } : {}}
+          toolbarLeft={
+            <div className="flex items-center gap-1.5 min-w-0">
+              {/* Desktop: AssetPicker inline (async, 200+ entries — too
+                  big for the visual search bar's static-options filter). */}
+              <div className="hidden md:flex items-center gap-1.5 min-w-0">
+                <div className="w-[180px] min-w-0">
+                  <AssetPicker
+                    value={conflictFilters.assetId}
+                    onChange={(id) => updateConflictFilter('assetId', id)}
+                    placeholder="Asset"
+                    clearable
+                  />
+                </div>
+              </div>
+              {/* Mobile: same trigger pattern as ActivitiesTab — popover
+                  anchored to the viewport so the picker can't bleed
+                  off-screen behind the card list. */}
+              <div className="md:hidden relative">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="h-7 px-2 text-[10px] border border-border rounded inline-flex items-center gap-1 hover:bg-muted/50"
+                  title="Asset"
+                >
+                  {conflictFilters.assetId && (
+                    <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">1</span>
+                  )}
+                  Filtres
+                  {showAdvancedFilters ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                </button>
+                {showAdvancedFilters && (
+                  <>
+                    <div className="fixed inset-0 z-40 bg-foreground/10" onClick={() => setShowAdvancedFilters(false)} />
+                    <div className="fixed inset-x-2 top-[5.5rem] z-50 max-w-md mx-auto rounded-md border bg-popover shadow-xl p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-foreground">Filtres avancés</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowAdvancedFilters(false)}
+                          className="text-muted-foreground hover:text-foreground p-0.5"
+                          aria-label="Fermer"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Asset</div>
+                        <AssetPicker
+                          value={conflictFilters.assetId}
+                          onChange={(id) => updateConflictFilter('assetId', id)}
+                          placeholder="Asset"
+                          clearable
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              {hasAdvancedConflictFilters && (
+                <button
+                  type="button"
+                  onClick={resetConflictFilters}
+                  className="h-7 px-2 text-[10px] border border-border rounded hover:bg-muted/50 shrink-0"
+                  title="Réinitialiser tous les filtres"
+                >
+                  Réinitialiser
+                </button>
+              )}
+            </div>
+          }
+          filters={[
+            {
+              id: 'status',
+              label: t('common.status'),
+              type: 'multi-select',
+              operators: ['is', 'is_not'],
+              options: conflictStatusOptions.filter((o) => o.value).map((o) => ({ value: o.value, label: o.label })),
+            },
+            {
+              id: 'conflict_type',
+              label: t('planner.columns.type'),
+              type: 'select',
+              operators: ['is'],
+              options: [
+                { value: 'pax_overflow', label: 'Dépassement POB' },
+                { value: 'priority_clash', label: 'Conflit priorité' },
+              ],
+            },
+            {
+              id: 'period',
+              label: 'Période',
+              type: 'date-range',
+            },
+          ]}
+          activeFilters={{
+            ...(conflictFilters.statusFilter ? { status: [conflictFilters.statusFilter] } : {}),
+            ...(conflictFilters.conflictTypeFilter ? { conflict_type: conflictFilters.conflictTypeFilter } : {}),
+            ...((conflictFilters.dateFrom || conflictFilters.dateTo)
+              ? { period: { operator: 'between', from: conflictFilters.dateFrom ?? '', to: conflictFilters.dateTo ?? '' } }
+              : {}),
+          }}
           onFilterChange={(id, v) => {
-            if (id !== 'status') return
-            const arr = Array.isArray(v) ? v : v != null ? [v] : []
-            updateConflictFilter('statusFilter', arr.length > 0 ? String(arr[0]) : '')
+            if (id === 'status') {
+              const arr = Array.isArray(v) ? v : v != null ? [v] : []
+              updateConflictFilter('statusFilter', arr.length > 0 ? String(arr[0]) : '')
+              return
+            }
+            if (id === 'conflict_type') {
+              if (v == null) { updateConflictFilter('conflictTypeFilter', ''); return }
+              if (typeof v === 'object' && v !== null && 'value' in v) {
+                updateConflictFilter('conflictTypeFilter', String((v as { value: unknown }).value ?? ''))
+                return
+              }
+              updateConflictFilter('conflictTypeFilter', String(v))
+              return
+            }
+            if (id === 'period') {
+              if (v == null) {
+                updateConflictFilter('dateFrom', null)
+                updateConflictFilter('dateTo', null)
+                return
+              }
+              if (typeof v === 'object' && v !== null) {
+                const obj = v as { operator?: string; from?: string; to?: string; value?: string }
+                if (obj.operator === 'between') {
+                  updateConflictFilter('dateFrom', obj.from || null)
+                  updateConflictFilter('dateTo', obj.to || null)
+                } else if (obj.operator === 'gt') {
+                  updateConflictFilter('dateFrom', obj.value || null)
+                  updateConflictFilter('dateTo', null)
+                } else if (obj.operator === 'lt') {
+                  updateConflictFilter('dateFrom', null)
+                  updateConflictFilter('dateTo', obj.value || null)
+                }
+              }
+            }
           }}
           emptyIcon={AlertTriangle}
           emptyTitle={t('planner.no_conflict')}

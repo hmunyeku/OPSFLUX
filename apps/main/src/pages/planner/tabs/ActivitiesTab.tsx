@@ -9,7 +9,6 @@ import {
   CalendarRange, ListTodo, Clock, Users, CheckCircle2, Send, Ban, ChevronDown, ChevronUp, BarChart3,
   AlertTriangle, Check, X, Trash2,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -46,6 +45,7 @@ import {
   PLANNER_ACTIVITY_TYPE_VALUES,
   StatusBadge,
   StatCard,
+  RowIconBtn,
   buildDictionaryOptions,
   formatDateShort,
   extractApiError,
@@ -695,42 +695,8 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
   )
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// RowIconBtn — uniform compact icon button used by the row actions.
-// All actions share the same 24×24 footprint, muted at rest, tinted
-// on hover according to their semantic tone.
-// ──────────────────────────────────────────────────────────────────────
-function RowIconBtn({
-  icon: Icon, tone, title, onClick,
-}: {
-  icon: LucideIcon
-  tone: 'primary' | 'emerald' | 'rose' | 'amber'
-  title: string
-  onClick: (e: React.MouseEvent) => void
-}) {
-  // Color at rest already tells the user what each action does
-  // (red = destructive, green = validate, blue = primary, amber =
-  // warning). Hover reinforces with a tinted background.
-  const toneClass =
-    tone === 'primary' ? 'text-primary hover:bg-primary/10'
-    : tone === 'emerald' ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10'
-    : tone === 'rose' ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-500/10'
-    : 'text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      aria-label={title}
-      className={cn(
-        'inline-flex items-center justify-center w-6 h-6 rounded transition-colors',
-        toneClass,
-      )}
-    >
-      <Icon size={13} strokeWidth={2.25} />
-    </button>
-  )
-}
+// RowIconBtn moved to ../shared.tsx so other tabs (Conflits…) can reuse
+// the same uniform 24×24 row-action footprint. Imported above.
 
 // ──────────────────────────────────────────────────────────────────────
 // ActivityDurationBar — per-row mini POB sparkline.

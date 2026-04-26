@@ -92,3 +92,7 @@ test-e2e/
 
 # Local dev config overrides (never tracked)
 config.json
+
+# Local scratch / inspiration material — never commit
+/tmp/
+

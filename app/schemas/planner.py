@@ -190,11 +190,41 @@ class ConflictRead(PlannerSchema):
     resolved_by_name: str | None = None
     activity_ids: list[UUID] = Field(default_factory=list)
     activity_titles: list[str] = Field(default_factory=list)
+    # Summary of the concrete activity-level change applied as part of
+    # the resolution (shift/set_window/set_quota/cancel). Populated only
+    # when the resolve call carried an `apply` payload.
+    applied_action: dict | None = None
+
+
+class ConflictApplyAction(BaseModel):
+    """Concrete change to apply to one of the conflicting activities.
+
+    Mirrors the real-world arbitration patterns we see in production
+    forecasting emails: shift dates, lower the daily pax quota, or
+    cancel an activity outright. The chosen action is applied
+    server-side in the same transaction as the resolution so siblings
+    in the same conflict cluster auto-clean via the standard
+    re-detection hooks (validate / patch / pob_capacity change).
+    """
+    activity_id: UUID
+    action: str = Field(..., pattern=r"^(shift|set_window|set_quota|cancel)$")
+    # shift → days (positive = push later, negative = pull earlier)
+    days: int | None = None
+    # set_window → new ISO start/end (yyyy-mm-dd or full ISO)
+    start_date: str | None = None
+    end_date: str | None = None
+    # set_quota → new pax_quota (int >=0)
+    pax_quota: int | None = None
 
 
 class ConflictResolve(BaseModel):
     resolution: str = Field(..., pattern=r"^(approve_both|reschedule|reduce_pax|cancel|deferred)$")
     resolution_note: str | None = None
+    # Optional concrete action that mutates the underlying activity.
+    # When present, the change is applied first and the resolution
+    # status is set on the conflict afterwards. Sibling conflicts in
+    # the same window get re-detected by the standard hooks.
+    apply: ConflictApplyAction | None = None
 
 
 class BulkConflictResolveItem(BaseModel):

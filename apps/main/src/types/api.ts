@@ -2562,11 +2562,34 @@ export interface PlannerConflict {
   resolved_by_name: string | null
   activity_ids: string[]
   activity_titles: string[]
+  // Set on the response when the resolve call carried an apply action.
+  applied_action?: PlannerConflictAppliedAction | null
+}
+
+/** Concrete change applied to one of the involved activities as part
+ *  of a conflict resolution (mirrors backend ConflictApplyAction). */
+export interface PlannerConflictApplyAction {
+  activity_id: string
+  action: 'shift' | 'set_window' | 'set_quota' | 'cancel'
+  days?: number | null
+  start_date?: string | null
+  end_date?: string | null
+  pax_quota?: number | null
+}
+
+/** Server-rendered summary of what was applied (returned in ConflictRead). */
+export interface PlannerConflictAppliedAction {
+  activity_id: string
+  activity_title: string
+  action: 'shift' | 'set_window' | 'set_quota' | 'cancel'
+  before: { start_date: string | null; end_date: string | null; pax_quota: number | null; status: string }
+  after: { start_date: string | null; end_date: string | null; pax_quota: number | null; status: string }
 }
 
 export interface PlannerConflictResolve {
   resolution: string
   resolution_note?: string | null
+  apply?: PlannerConflictApplyAction | null
 }
 
 export interface PlannerRevisionSignal {

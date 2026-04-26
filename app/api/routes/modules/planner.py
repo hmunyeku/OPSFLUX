@@ -438,6 +438,71 @@ async def _detect_and_create_conflicts(
     return conflicts_created
 
 
+async def _auto_clear_stale_conflicts(
+    db: AsyncSession,
+    asset_id: UUID,
+    entity_id: UUID,
+    triggered_by_resolution: str,
+    triggered_by_note: str | None,
+    actor_id: UUID,
+) -> int:
+    """Mark stale open conflicts as resolved when capacity is no longer
+    in overflow on their day.
+
+    Called after the resolve endpoint applies a concrete action (shift,
+    set_window, set_quota, cancel) on one of the involved activities.
+    The action may move/shrink the activity out of the overlap, leaving
+    the old-window conflicts as zombies — `_detect_and_create_conflicts`
+    only ADDS conflicts, never CLOSES them. This helper performs the
+    closing pass for the same asset, propagating the user's chosen
+    resolution to every sibling that's no longer a real overflow.
+    Returns the count of auto-resolved conflicts.
+    """
+    open_result = await db.execute(
+        select(PlannerConflict).where(
+            PlannerConflict.entity_id == entity_id,
+            PlannerConflict.asset_id == asset_id,
+            PlannerConflict.status == "open",
+            PlannerConflict.active == True,  # noqa: E712
+            PlannerConflict.conflict_type == "pax_overflow",
+        )
+    )
+    open_conflicts = open_result.scalars().all()
+    if not open_conflicts:
+        return 0
+    asset = await db.get(Installation, asset_id)
+    if not asset:
+        return 0
+    cleared = 0
+    for c in open_conflicts:
+        # Only reconsider pax_overflow — priority_clash is a binary
+        # property of the activities and is handled by re-detection
+        # on the activity itself.
+        cap = await _compute_daily_capacity(db, asset, entity_id, c.conflict_date)
+        if cap["used"] <= cap["total"] or cap["total"] <= 0:
+            c.status = "resolved"
+            c.resolution = triggered_by_resolution
+            c.resolution_note = (
+                (triggered_by_note + " · " if triggered_by_note else "")
+                + f"Auto-clearé suite à un arbitrage (re-détection sur {c.conflict_date.isoformat()})"
+            )
+            c.resolved_by = actor_id
+            c.resolved_at = datetime.now(timezone.utc)
+            db.add(PlannerConflictAudit(
+                conflict_id=c.id,
+                actor_id=actor_id,
+                action="auto_resolve",
+                old_status="open",
+                new_status="resolved",
+                old_resolution=None,
+                new_resolution=triggered_by_resolution,
+                resolution_note=c.resolution_note,
+                context="auto_cleared",
+            ))
+            cleared += 1
+    return cleared
+
+
 # ── Activities CRUD ──────────────────────────────────────────────────────
 
 
@@ -1410,6 +1475,124 @@ async def resolve_conflict(
             },
         )
 
+    # ── Optional concrete action on the underlying activity ──
+    # Apply BEFORE flipping the conflict status so re-detection on the
+    # mutated activity has a chance to clear sibling conflicts in the
+    # same cluster (and we still mark this one resolved at the end).
+    applied_action_summary: dict | None = None
+    if body.apply is not None:
+        # Permission to mutate the activity itself. We're inside a route
+        # that already enforces 'planner.conflict.resolve' but the apply
+        # action edits an activity record so it needs the activity
+        # permission as well — defence-in-depth, no privilege escalation.
+        from app.core.rbac import get_user_permissions
+        user_perms = await get_user_permissions(current_user.id, entity_id, db)
+        if "planner.activity.update" not in user_perms and "*" not in user_perms:
+            raise StructuredHTTPException(
+                403,
+                code="PERMISSION_DENIED_ACTIVITY_UPDATE",
+                message="Permission 'planner.activity.update' is required to apply an action while resolving a conflict.",
+            )
+        target = await db.get(PlannerActivity, body.apply.activity_id)
+        if not target or target.entity_id != entity_id or not target.active:
+            raise StructuredHTTPException(
+                404,
+                code="ACTIVITY_NOT_FOUND_FOR_APPLY",
+                message="Activity referenced by the apply action does not exist or is out of scope.",
+            )
+        # Sanity: the activity must be one of the conflict's involved activities.
+        link_check = await db.execute(
+            select(PlannerConflictActivity.activity_id).where(
+                PlannerConflictActivity.conflict_id == conflict.id,
+                PlannerConflictActivity.activity_id == target.id,
+            )
+        )
+        if link_check.scalars().first() is None:
+            raise StructuredHTTPException(
+                400,
+                code="APPLY_ACTIVITY_NOT_IN_CONFLICT",
+                message="The activity selected for the apply action is not part of this conflict.",
+            )
+
+        action = body.apply.action
+        before = {
+            "start_date": target.start_date,
+            "end_date": target.end_date,
+            "pax_quota": target.pax_quota,
+            "status": target.status,
+        }
+        if action == "shift":
+            if body.apply.days is None or body.apply.days == 0:
+                raise StructuredHTTPException(
+                    400,
+                    code="APPLY_SHIFT_DAYS_REQUIRED",
+                    message="A non-zero 'days' value is required for action 'shift'.",
+                )
+            if not target.start_date or not target.end_date:
+                raise StructuredHTTPException(
+                    400,
+                    code="APPLY_SHIFT_NEEDS_WINDOW",
+                    message="Cannot shift an activity that has no start_date or end_date.",
+                )
+            delta = timedelta(days=int(body.apply.days))
+            target.start_date = target.start_date + delta
+            target.end_date = target.end_date + delta
+        elif action == "set_window":
+            if not body.apply.start_date and not body.apply.end_date:
+                raise StructuredHTTPException(
+                    400,
+                    code="APPLY_SET_WINDOW_REQUIRED",
+                    message="At least one of 'start_date' / 'end_date' is required for action 'set_window'.",
+                )
+            if body.apply.start_date:
+                target.start_date = datetime.fromisoformat(body.apply.start_date.replace("Z", "+00:00"))
+            if body.apply.end_date:
+                target.end_date = datetime.fromisoformat(body.apply.end_date.replace("Z", "+00:00"))
+            if target.start_date and target.end_date and target.end_date < target.start_date:
+                raise StructuredHTTPException(
+                    400,
+                    code="APPLY_END_BEFORE_START",
+                    message="end_date must be after start_date",
+                )
+        elif action == "set_quota":
+            if body.apply.pax_quota is None or body.apply.pax_quota < 0:
+                raise StructuredHTTPException(
+                    400,
+                    code="APPLY_QUOTA_REQUIRED",
+                    message="A non-negative 'pax_quota' value is required for action 'set_quota'.",
+                )
+            target.pax_quota = int(body.apply.pax_quota)
+        elif action == "cancel":
+            target.status = "cancelled"
+        applied_action_summary = {
+            "activity_id": str(target.id),
+            "activity_title": target.title,
+            "action": action,
+            "before": {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in before.items()},
+            "after": {
+                "start_date": target.start_date.isoformat() if target.start_date else None,
+                "end_date": target.end_date.isoformat() if target.end_date else None,
+                "pax_quota": target.pax_quota,
+                "status": target.status,
+            },
+        }
+        # Re-detect on this activity so NEW conflicts on the new window
+        # are surfaced. Then sweep stale OPEN conflicts whose day no
+        # longer overflows — this is what makes the cluster collapse
+        # into a single arbitration in the user's eyes.
+        if target.status in ("submitted", "validated", "in_progress"):
+            await _detect_and_create_conflicts(db, target, entity_id)
+        cleared = await _auto_clear_stale_conflicts(
+            db,
+            asset_id=conflict.asset_id,
+            entity_id=entity_id,
+            triggered_by_resolution=body.resolution,
+            triggered_by_note=body.resolution_note,
+            actor_id=current_user.id,
+        )
+        if applied_action_summary is not None:
+            applied_action_summary["auto_cleared_count"] = cleared
+
     old_status = conflict.status
     old_resolution = conflict.resolution
     conflict.status = "deferred" if body.resolution == "deferred" else "resolved"
@@ -1465,9 +1648,12 @@ async def resolve_conflict(
             "resolved_by": str(current_user.id),
             "activity_ids": [str(aid) for aid in activity_ids],
             "activity_titles": activity_titles,
+            "applied_action": applied_action_summary,
         },
     ))
 
+    if applied_action_summary:
+        d["applied_action"] = applied_action_summary
     return d
 
 

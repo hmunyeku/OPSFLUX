@@ -156,6 +156,111 @@ export interface PlannerTimelinePref {
 
 // ── Helpers ───────────────────────────────────────────────────
 
+/** Group raw per-day conflicts into clusters of consecutive days with
+ *  the same asset + same set of involved activities. The user resolves
+ *  one cluster at a time — the backend mutates one activity and
+ *  auto-clears the rest, keeping the UX from drowning in 1-day rows.
+ *  Pure function, no React deps so it can be unit-tested.
+ */
+import type { PlannerConflict } from '@/types/api'
+
+export interface ConflictClusterShape {
+  key: string
+  asset_id: string
+  asset_name: string | null
+  start_date: string
+  end_date: string
+  days: number
+  max_overflow: number
+  sum_overflow: number
+  activity_ids: string[]
+  activity_titles: string[]
+  open_conflict_ids: string[]
+  primary_conflict_id: string | null
+  members: PlannerConflict[]
+  status: 'open' | 'resolved' | 'deferred' | 'partial'
+}
+
+const DAY_MS = 86_400_000
+
+export function clusterConflicts(items: PlannerConflict[]): ConflictClusterShape[] {
+  if (items.length === 0) return []
+  // Sort by asset + activity-set + date so consecutive same-set days
+  // line up next to each other. Activity-set key uses sorted ids so
+  // [A,B] and [B,A] cluster together.
+  const setKey = (c: PlannerConflict) =>
+    `${c.asset_id}__${[...c.activity_ids].sort().join(',')}`
+  const sorted = [...items].sort((a, b) => {
+    const ka = setKey(a)
+    const kb = setKey(b)
+    if (ka !== kb) return ka < kb ? -1 : 1
+    return a.conflict_date < b.conflict_date ? -1 : a.conflict_date > b.conflict_date ? 1 : 0
+  })
+
+  const clusters: ConflictClusterShape[] = []
+  let bucket: PlannerConflict[] = []
+  let bucketKey = ''
+  let bucketLastDate = ''
+
+  const flush = () => {
+    if (bucket.length === 0) return
+    const first = bucket[0]
+    const last = bucket[bucket.length - 1]
+    const open = bucket.filter((c) => c.status === 'open')
+    const resolved = bucket.filter((c) => c.status === 'resolved')
+    const deferred = bucket.filter((c) => c.status === 'deferred')
+    let status: ConflictClusterShape['status'] = 'open'
+    if (open.length === 0 && deferred.length === 0) status = 'resolved'
+    else if (open.length === 0 && deferred.length > 0) status = 'deferred'
+    else if (resolved.length > 0 || deferred.length > 0) status = 'partial'
+    const overflows = bucket.map((c) => c.overflow_amount ?? 0)
+    clusters.push({
+      key: `${first.asset_id}::${[...first.activity_ids].sort().join(',')}::${first.conflict_date}::${last.conflict_date}`,
+      asset_id: first.asset_id,
+      asset_name: first.asset_name,
+      start_date: first.conflict_date,
+      end_date: last.conflict_date,
+      days: bucket.length,
+      max_overflow: Math.max(0, ...overflows),
+      sum_overflow: overflows.reduce((s, v) => s + v, 0),
+      activity_ids: [...first.activity_ids],
+      activity_titles: [...first.activity_titles],
+      open_conflict_ids: open.map((c) => c.id),
+      primary_conflict_id: open[0]?.id ?? null,
+      members: bucket.slice(),
+      status,
+    })
+    bucket = []
+  }
+
+  for (const c of sorted) {
+    const k = setKey(c)
+    if (bucketKey !== k) {
+      flush()
+      bucketKey = k
+      bucket = [c]
+      bucketLastDate = c.conflict_date
+      continue
+    }
+    // Same activity-set: only group if conflict_date is consecutive
+    // (or duplicate). Otherwise start a new cluster (gap break).
+    const last = new Date(bucketLastDate).getTime()
+    const cur = new Date(c.conflict_date).getTime()
+    const gap = Math.round((cur - last) / DAY_MS)
+    if (gap <= 1) {
+      bucket.push(c)
+      bucketLastDate = c.conflict_date
+    } else {
+      flush()
+      bucketKey = k
+      bucket = [c]
+      bucketLastDate = c.conflict_date
+    }
+  }
+  flush()
+  return clusters
+}
+
 export function buildDictionaryOptions(labels: Record<string, string>, values: readonly string[], allLabel?: string) {
   return [
     ...(allLabel ? [{ value: '', label: allLabel }] : []),

@@ -1,7 +1,7 @@
 /**
  * React Query hooks for the Planner module (activities, conflicts, capacity, gantt).
  */
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueries, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { plannerService } from '@/services/plannerService'
 import type {
   PlannerActivityCreate, PlannerActivityUpdate,
@@ -50,6 +50,26 @@ export function useAssetPobToday(assetIds: string[]) {
     staleTime: 60_000,
     refetchInterval: 60_000,
   })
+}
+
+/** Fetch a small batch of activities by id in parallel. Used by the
+ *  Conflict resolution modal to display the involved activities'
+ *  current dates / quotas inside the action panel. */
+export function useActivitiesByIds(ids: string[]) {
+  const results = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: ['planner', 'activities', id],
+      queryFn: () => plannerService.getActivity(id),
+      enabled: !!id,
+      staleTime: 30_000,
+    })),
+  })
+  const map = new Map<string, NonNullable<typeof results[number]['data']>>()
+  results.forEach((r, i) => {
+    if (r.data) map.set(ids[i], r.data)
+  })
+  const isLoading = results.some((r) => r.isLoading)
+  return { byId: map, isLoading }
 }
 
 export function useActivity(id: string | undefined) {

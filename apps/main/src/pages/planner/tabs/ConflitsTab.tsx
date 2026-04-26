@@ -52,7 +52,11 @@ import {
   buildDictionaryOptions,
   formatDateShort,
   extractApiError,
+  clusterConflicts,
+  type ConflictClusterShape,
 } from '../shared'
+import { ResolveConflictModal } from '../panels/ResolveConflictModal'
+import { useActivitiesByIds } from '@/hooks/usePlanner'
 
 interface ConflitsTabFilters {
   statusFilter: string
@@ -185,10 +189,19 @@ export function ConflitsTab() {
   const [showRequests, setShowRequests] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth >= 768)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
-  const [resolveModal, setResolveModal] = useState<string | null>(null)
-  const [resolution, setResolution] = useState('')
-  const [resolutionNote, setResolutionNote] = useState('')
-  const { data: conflictAudit, isLoading: conflictAuditLoading } = useConflictAudit(resolveModal ?? undefined)
+  // The legacy resolve modal was driven by a single conflict id and a
+  // free-text resolution. The new flow operates on a *cluster* — a
+  // contiguous run of days on the same asset with the same activity
+  // set. The modal mutates one of the involved activities and the
+  // backend auto-clears all sibling days, so users no longer have to
+  // tap "Résoudre" 10 times for a 10-day overlap.
+  const [activeCluster, setActiveCluster] = useState<ConflictClusterShape | null>(null)
+  // Fetch the audit history of the cluster's primary open conflict
+  // (the one the apply action will target).
+  const { data: conflictAudit, isLoading: conflictAuditLoading } = useConflictAudit(activeCluster?.primary_conflict_id ?? undefined)
+  // Fetch the involved activities lazily (only when a cluster is open).
+  const involvedIds = activeCluster?.activity_ids ?? []
+  const { byId: activitiesById } = useActivitiesByIds(involvedIds)
 
   const [bulkSelection, setBulkSelection] = useState<PlannerConflict[]>([])
   const [bulkResolveOpen, setBulkResolveOpen] = useState(false)
@@ -196,13 +209,62 @@ export function ConflitsTab() {
   const [bulkResolutionNote, setBulkResolutionNote] = useState('')
   const bulkResolveConflicts = useBulkResolveConflicts()
 
-  const handleResolve = useCallback(() => {
-    if (!resolveModal || !resolution) return
-    resolveConflict.mutate(
-      { id: resolveModal, payload: { resolution, resolution_note: resolutionNote || undefined } },
-      { onSuccess: () => { setResolveModal(null); setResolution(''); setResolutionNote('') } },
-    )
-  }, [resolveModal, resolution, resolutionNote, resolveConflict])
+  // New cluster-aware resolver. Two paths:
+  // 1) An apply action is supplied → POST /resolve on the cluster's
+  //    primary open conflict with the apply payload. The backend
+  //    mutates the activity, re-detects, and auto-clears stale
+  //    siblings — one user click = whole cluster resolved.
+  // 2) No apply action (approve_both / deferred) → bulk-resolve every
+  //    open conflict id of the cluster with the same resolution + note.
+  const handleClusterResolve = useCallback(
+    async (params: {
+      resolution: 'approve_both' | 'reschedule' | 'reduce_pax' | 'cancel' | 'deferred'
+      note: string | null
+      apply: import('@/types/api').PlannerConflictApplyAction | null
+    }) => {
+      if (!activeCluster) return
+      try {
+        if (params.apply && activeCluster.primary_conflict_id) {
+          await resolveConflict.mutateAsync({
+            id: activeCluster.primary_conflict_id,
+            payload: {
+              resolution: params.resolution,
+              resolution_note: params.note || undefined,
+              apply: params.apply,
+            },
+          })
+          toast({
+            title: t('planner.toast.conflicts_resolved', { count: activeCluster.open_conflict_ids.length || 1 }),
+            variant: 'success',
+          })
+        } else if (activeCluster.open_conflict_ids.length > 0) {
+          const result = await bulkResolveConflicts.mutateAsync(
+            activeCluster.open_conflict_ids.map((id) => ({
+              conflict_id: id,
+              resolution: params.resolution,
+              resolution_note: params.note || undefined,
+            })),
+          )
+          const errCount = result.errors?.length ?? 0
+          toast({
+            title: t('planner.toast.conflicts_resolved', { count: result.resolved }),
+            description: errCount > 0
+              ? t('planner.toast.errors_count', { count: errCount, skipped: result.skipped })
+              : undefined,
+            variant: errCount > 0 ? 'error' : 'success',
+          })
+        }
+        setActiveCluster(null)
+      } catch (err) {
+        toast({
+          title: t('planner.toast.bulk_resolve_failed'),
+          description: extractApiError(err),
+          variant: 'error',
+        })
+      }
+    },
+    [activeCluster, resolveConflict, bulkResolveConflicts, toast, t],
+  )
 
   const handleBulkResolve = useCallback(() => {
     if (!bulkResolution) return
@@ -305,43 +367,58 @@ export function ConflitsTab() {
     )
   }, [respondDecisionEndDate, respondDecisionMode, respondDecisionModal, respondDecisionNote, respondDecisionPaxQuota, respondDecisionStartDate, respondDecisionStatus, respondRevisionDecisionRequest])
 
-  const columns = useMemo<ColumnDef<PlannerConflict, unknown>[]>(() => [
+  // Cluster the raw per-day conflicts into "arbitration units" — one
+  // contiguous run on the same asset with the same activity-set. This
+  // is what the user reasons about ("delay BTF1 by 5d resolves the
+  // 20-25 mai overflow"), not 6 separate daily rows.
+  const clusters = useMemo<ConflictClusterShape[]>(() => clusterConflicts(items), [items])
+
+  const clusterColumns = useMemo<ColumnDef<ConflictClusterShape, unknown>[]>(() => [
     {
       accessorKey: 'asset_name',
       header: t('planner.columns.site'),
+      size: 90,
       cell: ({ row }) => row.original.asset_id
-        ? <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name || row.original.asset_id} showIcon={false} className="font-medium" />
-        : <span className="font-medium text-foreground">{row.original.asset_name || '—'}</span>,
+        ? <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name || row.original.asset_id} showIcon={false} className="font-medium text-xs" />
+        : <span className="font-medium text-foreground text-xs">{row.original.asset_name || '—'}</span>,
     },
     {
-      accessorKey: 'conflict_date',
+      id: 'window',
       header: t('planner.columns.conflict_date'),
-      size: 120,
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
-          {formatDateShort(row.original.conflict_date)}
-        </span>
-      ),
+      size: 200,
+      cell: ({ row }) => {
+        const c = row.original
+        const same = c.start_date === c.end_date
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-foreground tabular-nums whitespace-nowrap">
+              {same ? formatDateShort(c.start_date) : `${formatDateShort(c.start_date)} → ${formatDateShort(c.end_date)}`}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {c.days <= 1 ? t('planner.conflict_cluster.single_day') : t('planner.conflict_cluster.n_days', { count: c.days })}
+            </span>
+          </div>
+        )
+      },
     },
     {
-      accessorKey: 'conflict_type',
+      id: 'peak',
       header: t('planner.columns.type'),
       size: 130,
       cell: ({ row }) => {
-        const ct = row.original.conflict_type
-        const overflow = row.original.overflow_amount
-        const isPriority = ct === 'priority_clash'
+        const c = row.original
+        const isPriority = c.members[0]?.conflict_type === 'priority_clash'
         return (
           <span
             className={cn(
               'gl-badge inline-flex items-center gap-1',
               isPriority ? 'gl-badge-purple' : 'gl-badge-warning',
             )}
-            title={isPriority ? 'Conflit de priorité' : `Dépassement POB${overflow != null ? ` (+${overflow})` : ''}`}
+            title={isPriority ? 'Conflit de priorité' : `Pic POB +${c.max_overflow}`}
           >
             {isPriority ? 'Priorité' : 'POB'}
-            {!isPriority && overflow != null && overflow > 0 && (
-              <span className="tabular-nums">+{overflow}</span>
+            {!isPriority && c.max_overflow > 0 && (
+              <span className="tabular-nums">+{c.max_overflow}</span>
             )}
           </span>
         )
@@ -351,53 +428,90 @@ export function ConflitsTab() {
       id: 'activities',
       header: t('planner.columns.activities_involved'),
       cell: ({ row }) => (
-        <div className="flex flex-col gap-0.5 max-w-[250px]">
+        <div className="flex flex-col gap-0.5 min-w-0">
           {row.original.activity_titles.length > 0 ? (
-            row.original.activity_titles.map((title, i) => (
-              <span key={i} className="text-xs text-muted-foreground truncate block">{title}</span>
+            row.original.activity_titles.slice(0, 3).map((title, i) => (
+              <span
+                key={i}
+                className="text-xs text-foreground/90 line-clamp-1 break-words"
+                title={title}
+              >
+                {title}
+              </span>
             ))
           ) : (
-            <span className="text-xs text-muted-foreground">{row.original.activity_ids.length} activité(s)</span>
+            <span className="text-xs text-muted-foreground">
+              {t('planner.conflict_cluster.involved_activities', { count: row.original.activity_ids.length })}
+            </span>
+          )}
+          {row.original.activity_titles.length > 3 && (
+            <span className="text-[10px] text-muted-foreground">+{row.original.activity_titles.length - 3}</span>
           )}
         </div>
       ),
     },
     {
-      accessorKey: 'resolution',
+      id: 'resolution',
       header: t('planner.columns.resolution'),
-      size: 140,
+      size: 130,
       cell: ({ row }) => {
-        if (!row.original.resolution) return <span className="text-xs text-muted-foreground">{'—'}</span>
-        return <span className="text-xs text-muted-foreground">{resolutionLabels[row.original.resolution] || row.original.resolution}</span>
+        // Show the resolution from the most-recently resolved member
+        // (or "—" if none). Multiple members of a cluster usually share
+        // the same resolution after auto-clear propagation.
+        const resolved = row.original.members.find((m) => m.resolution)
+        if (!resolved?.resolution) return <span className="text-xs text-muted-foreground">—</span>
+        return (
+          <span className="text-xs text-muted-foreground">
+            {resolutionLabels[resolved.resolution] || resolved.resolution}
+          </span>
+        )
       },
     },
     {
-      accessorKey: 'status',
+      id: 'status',
       header: t('planner.columns.status'),
-      size: 100,
-      cell: ({ row }) => <StatusBadge status={row.original.status} labels={conflictStatusLabels} badges={CONFLICT_STATUS_BADGES} />,
+      size: 95,
+      cell: ({ row }) => {
+        const s = row.original.status
+        if (s === 'partial') {
+          return (
+            <span className="gl-badge gl-badge-warning" title="Cluster partiellement résolu">
+              Partiel
+            </span>
+          )
+        }
+        return (
+          <StatusBadge
+            status={s}
+            labels={conflictStatusLabels}
+            badges={CONFLICT_STATUS_BADGES}
+          />
+        )
+      },
     },
     {
       id: 'actions',
       header: '',
       size: 50,
       cell: ({ row }) => {
-        if (row.original.status !== 'open') return null
+        const c = row.original
+        // Hide the resolve button on fully-closed clusters.
+        if (c.status === 'resolved' || c.status === 'deferred') return null
         return (
           <RowIconBtn
             icon={CheckCircle2}
             tone="emerald"
             title={t('planner.resolve_conflict_action')}
-            disabled={resolveConflict.isPending}
+            disabled={resolveConflict.isPending || bulkResolveConflicts.isPending}
             onClick={(e) => {
               e.stopPropagation()
-              setResolveModal(row.original.id)
+              setActiveCluster(c)
             }}
           />
         )
       },
     },
-  ], [conflictStatusLabels, resolutionLabels, resolveConflict.isPending, t])
+  ], [conflictStatusLabels, resolutionLabels, resolveConflict.isPending, bulkResolveConflicts.isPending, t])
 
   return (
     <>
@@ -465,6 +579,9 @@ export function ConflitsTab() {
         </div>
       </div>
 
+      {/* Hide entirely when no signals — saves ~150px of vertical real
+          estate so the conflict table is reachable in 1 scroll. */}
+      {revisionSignals.length > 0 && (
       <div className="border-b border-border px-4 py-3">
         <div className="rounded-lg border border-border bg-background">
           {/* Collapsible header — click toggles the section so it doesn't
@@ -590,7 +707,12 @@ export function ConflitsTab() {
           )}
         </div>
       </div>
+      )}
 
+      {/* Hide entirely when no decision requests pending in either
+          direction. A user with 0/0 should land directly on the
+          conflict table. */}
+      {(incomingRevisionRequests.length > 0 || outgoingRevisionRequests.length > 0) && (
       <div className="border-b border-border px-4 py-3">
         {/* Collapsible decision-requests section — single header
             wrapping both incoming/outgoing columns; toggling hides
@@ -780,12 +902,14 @@ export function ConflitsTab() {
           )}
         </div>
       </div>
+      )}
 
       <PanelContent scroll={false}>
-        <DataTable<PlannerConflict>
-          columns={columns}
-          data={items}
+        <DataTable<ConflictClusterShape>
+          columns={clusterColumns}
+          data={clusters}
           isLoading={isLoading}
+          getRowId={(row) => row.key}
           pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           toolbarLeft={
@@ -929,15 +1053,25 @@ export function ConflitsTab() {
           emptyTitle={t('planner.no_conflict')}
           storageKey="planner-conflicts"
           selectable
-          onSelectionChange={(rows) => setBulkSelection(rows)}
+          onSelectionChange={(rows) => {
+            // Flatten selected clusters back to per-day conflicts so
+            // the existing bulk-resolve modal (which expects PlannerConflict
+            // entities) keeps working unchanged.
+            const flat = (rows as ConflictClusterShape[])
+              .flatMap((cl) => cl.members)
+              .filter((c) => c.status === 'open')
+            setBulkSelection(flat)
+          }}
           batchActions={[
             {
               id: 'bulk-resolve',
               label: 'Résoudre en masse',
               variant: 'default',
               onAction: (rows) => {
-                const openRows = rows.filter((r) => r.status === 'open')
-                if (openRows.length === 0) {
+                const openMembers = (rows as ConflictClusterShape[])
+                  .flatMap((cl) => cl.members)
+                  .filter((c) => c.status === 'open')
+                if (openMembers.length === 0) {
                   toast({
                     title: t('planner.toast.no_open_conflict'),
                     description: t('planner.toast.no_open_conflict_desc'),
@@ -945,7 +1079,7 @@ export function ConflitsTab() {
                   })
                   return
                 }
-                setBulkSelection(openRows)
+                setBulkSelection(openMembers)
                 setBulkResolveOpen(true)
               },
             },
@@ -953,72 +1087,20 @@ export function ConflitsTab() {
         />
       </PanelContent>
 
-      {/* Resolve conflict modal */}
-      {resolveModal && (
-        <div className="gl-modal-backdrop" onClick={() => setResolveModal(null)}>
-          <div className="gl-modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-foreground">{t('planner.resolve_conflict_title')}</h3>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.resolve_conflict_field')}</label>
-              <select
-                value={resolution}
-                onChange={(e) => setResolution(e.target.value)}
-                className="w-full h-8 px-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">{t('planner.resolve_conflict_placeholder')}</option>
-                {resolutionOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <label className="text-xs font-medium text-muted-foreground">{t('planner.resolve_conflict_history')}</label>
-                {conflictAuditLoading && <span className="text-[11px] text-muted-foreground">{t('common.loading')}</span>}
-              </div>
-              <div className="max-h-40 space-y-2 overflow-y-auto rounded border border-border bg-muted/20 p-2">
-                {!conflictAuditLoading && (!conflictAudit || conflictAudit.length === 0) && (
-                  <p className="text-xs italic text-muted-foreground">{t('planner.resolve_conflict_history_empty')}</p>
-                )}
-                {(conflictAudit ?? []).map((entry) => (
-                  <div key={entry.id} className="rounded border border-border bg-background px-2 py-1.5 text-xs">
-                    <p className="font-medium text-foreground">
-                      {(entry.actor_name || t('planner.revision_signals.actor_fallback'))} · {formatDateShort(entry.created_at)}
-                    </p>
-                    <p className="text-muted-foreground">
-                      {entry.new_resolution
-                        ? `${resolutionLabels[entry.new_resolution] || entry.new_resolution}`
-                        : (entry.action || '—')}
-                    </p>
-                    {entry.resolution_note && (
-                      <p className="mt-1 text-muted-foreground">{entry.resolution_note}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.resolve_conflict_note')}</label>
-              <textarea
-                value={resolutionNote}
-                onChange={(e) => setResolutionNote(e.target.value)}
-                className="w-full min-h-[60px] px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder={t('planner.resolve_conflict_note_placeholder')}
-              />
-            </div>
-            <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setResolveModal(null)}>{t('common.cancel')}</button>
-              <button
-                className="gl-button-sm gl-button-confirm"
-                onClick={handleResolve}
-                disabled={!resolution || resolveConflict.isPending}
-              >
-                {resolveConflict.isPending ? <Loader2 size={12} className="animate-spin" /> : t('planner.confirm_resolution')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Cluster-aware resolve modal — replaces the legacy single-conflict
+          dialog. Lets the user choose a resolution AND a concrete change
+          to apply to one of the involved activities (shift / set_window /
+          set_quota / cancel). The backend mutates the activity, re-detects,
+          and auto-clears stale siblings → 1 click resolves N days. */}
+      <ResolveConflictModal
+        cluster={activeCluster as ConflictClusterShape | null}
+        activitiesById={activitiesById}
+        audit={conflictAudit ?? null}
+        auditLoading={conflictAuditLoading}
+        isPending={resolveConflict.isPending || bulkResolveConflicts.isPending}
+        onClose={() => setActiveCluster(null)}
+        onConfirm={(p) => handleClusterResolve(p)}
+      />
 
       {/* Bulk resolve conflicts modal */}
       {bulkResolveOpen && (

@@ -328,6 +328,23 @@ export function DataTable<TData>({
   const [showImportWizard, setShowImportWizard] = useState(false)
   const [exportWizardOpen, setExportWizardOpen] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
+
+  // Auto-detect narrow containers so the table can fall back to a
+  // vertical card list on mobile (no horizontal scroll suffering).
+  // Tracks the actual container width — works inside split panels too.
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const [isNarrow, setIsNarrow] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth < 640)
+  useEffect(() => {
+    if (!rootRef.current) return
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) {
+        const narrow = e.contentRect.width < 640
+        setIsNarrow((prev) => (prev === narrow ? prev : narrow))
+      }
+    })
+    ro.observe(rootRef.current)
+    return () => ro.disconnect()
+  }, [])
   const { menu: headerMenu, openMenu: openHeaderMenu, closeMenu: closeHeaderMenu } = useColumnHeaderMenu()
 
   const handleViewModeChange = useCallback((mode: ViewMode) => {
@@ -938,6 +955,89 @@ export function DataTable<TData>({
     )
   }
 
+  // ── Render: mobile auto-cards ──
+  // Stacks each row as a card showing label/value pairs from the visible
+  // columns. Only kicks in below 640px container width when the user is
+  // in 'table' mode — keeps explicit grid/cards/performance modes intact.
+  const renderMobileCards = () => {
+    const rows = table.getRowModel().rows
+    // Pull visible leaf columns, skip selection/checkbox utility columns.
+    const visibleCols = table.getVisibleLeafColumns().filter((c) => c.id !== '__select__' && c.id !== 'select')
+    return (
+      <>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-2">
+          {rows.map((row, idx) => {
+            const id = getRowId(row.original)
+            const isSelected = !!rowSelection[id]
+            return (
+              <div
+                key={id}
+                onClick={() => {
+                  if (selectionMode) {
+                    setRowSelection((prev) => {
+                      const next = { ...prev }
+                      if (next[id]) delete next[id]
+                      else next[id] = true
+                      return next
+                    })
+                    lastSelectedIndex.current = idx
+                  } else {
+                    onRowClick?.(row.original)
+                  }
+                }}
+                className={cn(
+                  'rounded-lg border bg-card shadow-sm px-3 py-2 cursor-pointer transition-colors',
+                  'hover:border-primary/40 active:bg-accent/40',
+                  isSelected && 'border-primary bg-primary/5',
+                )}
+              >
+                {row.getVisibleCells()
+                  .filter((cell) => cell.column.id !== '__select__' && cell.column.id !== 'select')
+                  .map((cell, ci) => {
+                    const header = cell.column.columnDef.header
+                    const headerLabel = typeof header === 'string'
+                      ? header
+                      : (cell.column.columnDef.meta as { label?: string } | undefined)?.label ?? cell.column.id
+                    // First visible cell: emphasized as the card title.
+                    if (ci === 0) {
+                      return (
+                        <div key={cell.id} className="text-sm font-medium text-foreground mb-1.5 break-words">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={cell.id} className="flex items-start justify-between gap-2 py-0.5 text-xs">
+                        <span className="text-muted-foreground shrink-0 max-w-[40%] truncate">
+                          {headerLabel}
+                        </span>
+                        <span className="text-foreground text-right break-words min-w-0">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </span>
+                      </div>
+                    )
+                  })}
+              </div>
+            )
+          })}
+          {visibleCols.length === 0 && (
+            <div className="text-xs text-muted-foreground text-center py-6">
+              Aucune colonne visible.
+            </div>
+          )}
+        </div>
+
+        {pagination && onPaginationChange && (
+          <DataTablePaginationBar
+            pagination={pagination}
+            onPageChange={(p) => onPaginationChange(p, pagination.pageSize)}
+            onPageSizeChange={(size) => onPaginationChange(1, size)}
+          />
+        )}
+      </>
+    )
+  }
+
   // ── Render: performance (GlideRenderer) ──
   const renderPerformance = () => (
     <>
@@ -973,7 +1073,7 @@ export function DataTable<TData>({
   )
 
   return (
-    <div className={cn('flex flex-col h-full', className)}>
+    <div ref={rootRef} className={cn('flex flex-col h-full', className)}>
       <input
         ref={importInputRef}
         type="file"
@@ -1019,7 +1119,11 @@ export function DataTable<TData>({
       />
 
       {data.length === 0 && !isLoading ? renderEmpty() : (
+        // On narrow containers, transparently swap the table for a stacked
+        // card list. Explicit grid/cards/performance modes still render
+        // their own layout — only the default 'table' falls through.
         viewMode === 'performance' ? renderPerformance() :
+        viewMode === 'table' && isNarrow ? renderMobileCards() :
         viewMode === 'table' ? renderTable() : renderGrid()
       )}
 

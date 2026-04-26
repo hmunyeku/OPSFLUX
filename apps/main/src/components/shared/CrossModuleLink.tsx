@@ -10,6 +10,7 @@
  * a rich popover card with object summary (name, code, type, status, date).
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -202,6 +203,34 @@ export function CrossModuleLink({
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
+  // Trigger ref + computed popover position. We render the popover
+  // via a portal to document.body so it escapes any `overflow:auto`
+  // scrolling container (e.g. the DataTable body) and stacking
+  // contexts that would otherwise clip / hide it behind the toolbar.
+  const triggerRef = useRef<HTMLSpanElement>(null)
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(null)
+  useEffect(() => {
+    if (!showPopover || !triggerRef.current) { setPopoverPos(null); return }
+    const update = () => {
+      const r = triggerRef.current?.getBoundingClientRect()
+      if (!r) return
+      const POPOVER_W = 256, POPOVER_H = 180, MARGIN = 8
+      // Try above the trigger first; flip below if not enough room.
+      const placement: 'top' | 'bottom' = r.top - POPOVER_H - MARGIN > 0 ? 'top' : 'bottom'
+      const top = placement === 'top' ? r.top - POPOVER_H - MARGIN : r.bottom + MARGIN
+      // Center horizontally on the trigger; clamp to viewport.
+      const rawLeft = r.left + r.width / 2 - POPOVER_W / 2
+      const left = Math.max(MARGIN, Math.min(window.innerWidth - POPOVER_W - MARGIN, rawLeft))
+      setPopoverPos({ top, left, placement })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [showPopover])
 
   const supportsPreview = PREVIEW_MODULES.has(module)
 
@@ -285,6 +314,7 @@ export function CrossModuleLink({
 
   return (
     <span
+      ref={triggerRef}
       className="relative inline-flex"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -308,20 +338,18 @@ export function CrossModuleLink({
         {showIcon && <ExternalLink size={10} className="shrink-0 opacity-60 mt-[3px]" />}
       </button>
 
-      {/* Rich hover popover */}
-      {showPopover && supportsPreview && (
+      {/* Rich hover popover — rendered via portal to document.body so
+          it escapes overflow:auto scroll containers (DataTable body,
+          modal scrolls) and any local stacking contexts that would
+          clip it behind the table toolbar/header. */}
+      {showPopover && supportsPreview && popoverPos && createPortal(
         <div
           ref={popoverRef}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className={cn(
-            'absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2',
-            'animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-150',
-          )}
+          className="fixed z-[1000] animate-in fade-in-0 zoom-in-95 duration-150"
+          style={{ top: popoverPos.top, left: popoverPos.left }}
         >
-          {/* Arrow */}
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 bg-popover border-b border-r border-border" />
-
           <div className="w-64 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
             {isLoading ? (
               <PreviewSkeleton />
@@ -331,7 +359,8 @@ export function CrossModuleLink({
               <PreviewCard preview={preview} ModuleIcon={ModuleIcon} />
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Fallback: simple CSS tooltip for modules without preview support */}

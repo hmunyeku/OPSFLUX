@@ -12,6 +12,7 @@ import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Minus, Trash2, Copy, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { usePromptInput } from '@/components/ui/ConfirmDialog'
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ export function VariablePobEditor({
   compact = false,
 }: VariablePobEditorProps) {
   const { t } = useTranslation()
+  const promptInput = usePromptInput()
   const days = useMemo(() => buildDayList(startDate, endDate), [startDate, endDate])
   const valueMap = value || {}
 
@@ -437,8 +439,16 @@ export function VariablePobEditor({
 
         <button
           type="button"
-          onClick={() => {
-            const v = Number(prompt('Valeur PAX pour tous les jours :', String(defaultValue || 1)))
+          onClick={async () => {
+            const raw = await promptInput({
+              title: 'Remplir tous les jours',
+              message: 'Valeur PAX appliquée à tous les jours du plan :',
+              placeholder: String(defaultValue || 1),
+              defaultValue: String(defaultValue || 1),
+              confirmLabel: 'Remplir',
+            })
+            if (raw == null) return
+            const v = Number(raw)
             if (Number.isFinite(v)) fillAllWith(v)
           }}
           className="gl-button gl-button-default"
@@ -448,8 +458,16 @@ export function VariablePobEditor({
         </button>
         <button
           type="button"
-          onClick={() => {
-            const v = Number(prompt('Valeur PAX en semaine (Lun-Ven) :', String(defaultValue || 1)))
+          onClick={async () => {
+            const raw = await promptInput({
+              title: 'Remplir Lun-Ven',
+              message: 'Valeur PAX appliquée aux jours de semaine :',
+              placeholder: String(defaultValue || 1),
+              defaultValue: String(defaultValue || 1),
+              confirmLabel: 'Remplir',
+            })
+            if (raw == null) return
+            const v = Number(raw)
             if (Number.isFinite(v)) fillWeekdaysOnly(v)
           }}
           className="gl-button gl-button-default"
@@ -459,8 +477,16 @@ export function VariablePobEditor({
         </button>
         <button
           type="button"
-          onClick={() => {
-            const v = Number(prompt('Valeur PAX le week-end (Sam-Dim) :', '0'))
+          onClick={async () => {
+            const raw = await promptInput({
+              title: 'Remplir Sam-Dim',
+              message: 'Valeur PAX appliquée aux week-ends :',
+              placeholder: '0',
+              defaultValue: '0',
+              confirmLabel: 'Remplir',
+            })
+            if (raw == null) return
+            const v = Number(raw)
             if (Number.isFinite(v)) fillWeekendsOnly(v)
           }}
           className="gl-button gl-button-default"

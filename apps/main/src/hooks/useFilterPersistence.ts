@@ -61,10 +61,19 @@ function writeLocalStorage<T>(key: string, value: T): void {
   }
 }
 
+// All UI filter persistence keys are namespaced under `ui.filters.`
+// to avoid clashing with backend admin-only prefixes (e.g. `planner.`,
+// `paxlog.`, `core.default_imputation`) which the settings API blocks
+// at user scope. Without this namespace, saving a key like
+// `planner.activities.filters` returned 403.
+const SETTINGS_KEY_PREFIX = 'ui.filters.'
+const dbKeyOf = (key: string) => SETTINGS_KEY_PREFIX + key
+
 async function fetchDbValue<T>(key: string): Promise<T | null> {
   try {
     const { data } = await api.get<SettingRead[]>('/api/v1/settings', { params: { scope: 'user' } })
-    const setting = data.find((s) => s.key === key)
+    const dbKey = dbKeyOf(key)
+    const setting = data.find((s) => s.key === dbKey || s.key === key)
     if (!setting) return null
     const raw = setting.value?.v ?? setting.value
     return (raw ?? null) as T | null
@@ -75,7 +84,11 @@ async function fetchDbValue<T>(key: string): Promise<T | null> {
 
 async function writeDbValue<T>(key: string, value: T): Promise<void> {
   try {
-    await api.put('/api/v1/settings', { key, value: { v: value } }, { params: { scope: 'user' } })
+    await api.put(
+      '/api/v1/settings',
+      { key: dbKeyOf(key), value: { v: value } },
+      { params: { scope: 'user' } },
+    )
   } catch {
     // Network errors / 401s shouldn't break the UI — localStorage already
     // captured the value, the worst case is we lose cross-device sync until

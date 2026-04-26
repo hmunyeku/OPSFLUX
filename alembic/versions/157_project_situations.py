@@ -23,7 +23,10 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "157_project_situations"
-down_revision = "156_agent_run_attachments_manifest"
+# Chain: 156 -> 133_currency_rates -> 134 -> 135 -> 136_project_trend_color
+# is the actual head of the projects/* branch. Pointing at 156 directly
+# creates a second head which crashes alembic upgrade on boot.
+down_revision = "136_project_trend_color"
 branch_labels = None
 depends_on = None
 

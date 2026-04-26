@@ -1458,40 +1458,41 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
               </select>
             </>
           )}
-          {/* View toggle */}
-          <div className="inline-flex rounded border border-border overflow-hidden ml-auto h-7">
+          {/* View controls — grouped so they wrap together on narrow widths */}
+          <div className="inline-flex items-center gap-1.5 ml-auto">
+            <div className="inline-flex rounded border border-border overflow-hidden h-7">
+              <button
+                type="button"
+                onClick={() => setViewModePersist('table')}
+                className={cn(
+                  'px-2 text-[10px] transition-colors',
+                  viewMode === 'table' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50',
+                )}
+                title="Vue tableau (édition inline)"
+              >
+                Tableau
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewModePersist('list')}
+                className={cn(
+                  'px-2 text-[10px] border-l border-border transition-colors',
+                  viewMode === 'list' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50',
+                )}
+                title="Vue liste (hiérarchique)"
+              >
+                Liste
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => setViewModePersist('table')}
-              className={cn(
-                'px-2 text-[10px] transition-colors',
-                viewMode === 'table' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50',
-              )}
-              title="Vue tableau (édition inline)"
+              onClick={() => setFullscreen(true)}
+              className="h-7 px-2 text-[10px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1 shrink-0"
+              title="Ouvrir en plein écran (Tableau + Gantt)"
             >
-              Tableau
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewModePersist('list')}
-              className={cn(
-                'px-2 text-[10px] border-l border-border transition-colors',
-                viewMode === 'list' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50',
-              )}
-              title="Vue liste (hiérarchique)"
-            >
-              Liste
+              ⛶ <span className="hidden sm:inline">Plein écran</span>
             </button>
           </div>
-          {/* Fullscreen */}
-          <button
-            type="button"
-            onClick={() => setFullscreen(true)}
-            className="h-7 px-2 text-[10px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1"
-            title="Ouvrir en plein écran (Tableau + Gantt)"
-          >
-            ⛶ Plein écran
-          </button>
         </div>
       )}
 

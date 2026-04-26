@@ -59,20 +59,23 @@ export interface TaskTableColumn {
   label?: string
   /** Right-align numeric columns. */
   align?: 'left' | 'right' | 'center'
+  /** Hide the column when the container is below this many pixels.
+   *  Used to make the table responsive without horizontal scroll. */
+  hideBelow?: number
 }
 
 export const DEFAULT_COLUMNS: TaskTableColumn[] = [
-  { id: 'wbs',          width: '64px',  label: 'WBS' },
+  { id: 'wbs',          width: '56px',          label: 'WBS',                                hideBelow: 540 },
   { id: 'status',       width: '24px' },
-  { id: 'title',        width: 'minmax(220px, 1fr)', label: 'Tâche' },
-  { id: 'start_date',   width: '92px',  label: 'Début',     align: 'right' },
-  { id: 'due_date',     width: '92px',  label: 'Fin',       align: 'right' },
-  { id: 'duration',     width: '52px',  label: 'Durée',     align: 'right' },
-  { id: 'progress',     width: '64px',  label: '%',         align: 'right' },
-  { id: 'meteo',        width: '28px',  label: '',          align: 'center' },
-  { id: 'planner',      width: '36px',  label: '',          align: 'center' },
-  { id: 'assignee',     width: '120px', label: 'Assigné' },
-  { id: 'actions',      width: '32px',  label: '',          align: 'center' },
+  { id: 'title',        width: 'minmax(120px, 1fr)', label: 'Tâche' },
+  { id: 'start_date',   width: '74px',          label: 'Début',     align: 'right',          hideBelow: 380 },
+  { id: 'due_date',     width: '74px',          label: 'Fin',       align: 'right' },
+  { id: 'duration',     width: '46px',          label: 'Dur.',      align: 'right',          hideBelow: 460 },
+  { id: 'progress',     width: '52px',          label: '%',         align: 'right' },
+  { id: 'meteo',        width: '24px',          label: '',          align: 'center',         hideBelow: 360 },
+  { id: 'planner',      width: '34px',          label: '',          align: 'center',         hideBelow: 320 },
+  { id: 'assignee',     width: '110px',         label: 'Assigné',                            hideBelow: 720 },
+  { id: 'actions',      width: '28px',          label: '',          align: 'center' },
 ]
 
 // ──────────────────────────────────────────────────────────────────────
@@ -380,6 +383,26 @@ export function TaskTable({
   const updateTask = useUpdateProjectTask()
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
+  // Track container width via ResizeObserver so we can hide columns
+  // tagged with `hideBelow`. Keeps the table inside its parent without
+  // horizontal scroll on narrow screens (panel docked, mobile, etc.).
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(9999)
+  useEffect(() => {
+    if (!wrapRef.current) return
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setContainerWidth(e.contentRect.width)
+    })
+    ro.observe(wrapRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  // Filter the column set against the current container width.
+  const visibleColumns = useMemo(
+    () => columns.filter(c => !c.hideBelow || containerWidth >= c.hideBelow),
+    [columns, containerWidth],
+  )
+
   // Build hierarchy index (parent -> children, ordered by `order`).
   const tree = useMemo(() => {
     const byParent = new Map<string | null, ProjectTask[]>()
@@ -464,12 +487,13 @@ export function TaskTable({
     updateTask.mutate({ projectId, taskId: task.id, payload: { due_date: due } })
   }
 
-  // Build the CSS grid template from the column widths.
-  const gridTemplate = columns.map(c => c.width).join(' ')
+  // Build the CSS grid template from the visible column widths.
+  const gridTemplate = visibleColumns.map(c => c.width).join(' ')
   const rowHeight = density === 'compact' ? 'h-7' : 'h-8'
 
   return (
     <div
+      ref={wrapRef}
       className={cn(
         'border border-border rounded-md overflow-hidden bg-card/30',
         className,
@@ -481,7 +505,7 @@ export function TaskTable({
         className="grid items-center gap-1 px-2 py-1 bg-muted/50 border-b border-border text-[9px] font-semibold uppercase tracking-wide text-muted-foreground sticky top-0 z-10"
         style={{ gridTemplateColumns: gridTemplate }}
       >
-        {columns.map(col => (
+        {visibleColumns.map(col => (
           <div
             key={col.id}
             className={cn(
@@ -509,7 +533,7 @@ export function TaskTable({
               depth={depth}
               hasChildren={hasChildren}
               isCollapsed={collapsed.has(task.id)}
-              columns={columns}
+              columns={visibleColumns}
               gridTemplate={gridTemplate}
               rowHeight={rowHeight}
               displayProgress={aggregateProgress.get(task.id) ?? task.progress ?? 0}

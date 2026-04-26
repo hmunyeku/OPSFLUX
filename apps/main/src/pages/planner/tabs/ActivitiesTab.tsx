@@ -429,23 +429,20 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
             Active card highlights when its filter is set; click again
             to clear (TOTAL = clear all status filter). */}
         {/* Stats strip — three modes driven by container width:
-              <sm  : horizontal scrollable strip (mobile-first; takes
-                     a single row and the user swipes to see more,
-                     instead of a 2-col grid of 6 cards eating the
-                     whole screen).
-              md+  : 3-col grid (laptop / panel-docked view).
+              <md  : horizontal scrollable strip (mobile-first; takes
+                     a single row and the user swipes to see more).
+              md+  : 3-col grid (panel-docked view).
               5xl+ : 6-col grid (full desktop).
-            The @container wrapper is needed because container
-            queries target the *containing* element, not self. */}
-        <div className="@container/stats">
-        <div className={cn(
-          // Narrow: horizontal scroll strip (default).
-          "flex gap-2 overflow-x-auto px-4 py-3 -mx-px snap-x snap-mandatory",
-          // Wide enough: switch to grid layout.
-          "@md/stats:grid @md/stats:grid-cols-3 @md/stats:gap-3 @md/stats:overflow-visible @md/stats:snap-none",
-          "@5xl/stats:grid-cols-6",
-          showStats ? "" : "hidden md:flex md:@md/stats:grid"
-        )}>
+            Visibility on small viewports is gated by `showStats` and
+            the mobile toggle button; on md+ viewport the stats are
+            always shown (collapse button is hidden). */}
+        <div
+          className={cn(
+            "@container/stats",
+            showStats ? "block" : "hidden md:block",
+          )}
+        >
+        <div className="flex gap-2 overflow-x-auto px-4 py-3 snap-x snap-mandatory @md/stats:grid @md/stats:grid-cols-3 @md/stats:gap-3 @md/stats:overflow-visible @md/stats:snap-none @5xl/stats:grid-cols-6">
           <StatCard
             label={t('planner.stats.total')}
             value={total}

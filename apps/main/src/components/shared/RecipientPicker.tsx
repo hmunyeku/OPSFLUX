@@ -289,17 +289,24 @@ export function RecipientPicker({
             <span
               key={`${r.email}-${idx}`}
               className={cn(
-                'inline-flex items-center gap-1 max-w-[60ch]',
+                // max-w-full keeps the chip from pushing the row past
+                // its container on narrow viewports — combined with
+                // `truncate` on the inner label, long names + long
+                // email addresses degrade gracefully on mobile.
+                'inline-flex items-center gap-1 max-w-full min-w-0',
                 'rounded-md border border-border bg-muted/40',
                 'pl-1.5 pr-0.5 py-0.5 text-[11px] text-foreground',
               )}
               title={display}
             >
               <Icon size={11} className="text-muted-foreground shrink-0" />
-              <span className="truncate">
+              <span className="truncate min-w-0">
                 {r.label ? (
                   <>
-                    {r.label} <span className="text-muted-foreground">&lt;{r.email}&gt;</span>
+                    {r.label}{' '}
+                    <span className="text-muted-foreground hidden sm:inline">
+                      &lt;{r.email}&gt;
+                    </span>
                   </>
                 ) : (
                   r.email

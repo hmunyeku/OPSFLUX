@@ -131,13 +131,26 @@ export function EmailComposer({
       }}
     >
       <div
-        className="gl-modal-card max-w-2xl w-[min(92vw,720px)] flex flex-col"
+        className={cn(
+          // gl-modal-card already gives `w-full max-w-md`; we widen on
+          // tablet+ so the rich-text editor + chip pickers have room.
+          // Crucially we DON'T add a fixed pixel/vw width — the card
+          // stays inside the backdrop's 12px gutter on mobile and grows
+          // up to 720px on desktop without ever creating horizontal
+          // overflow.
+          'gl-modal-card sm:max-w-xl md:max-w-2xl flex flex-col',
+          // Cap height to the viewport so the body is the part that
+          // scrolls when content is tall — header + footer stay pinned.
+          // `!overflow-hidden` overrides the `overflow-y-auto` baked
+          // into `gl-modal-card` (we move the scroll to the body div).
+          'max-h-[92dvh] !overflow-hidden',
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header ──────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">
+        <div className="flex items-start justify-between gap-3 min-w-0 shrink-0">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-semibold text-foreground break-words">
               {title ?? t('common.send_email', 'Envoyer par email')}
             </h3>
             {attachments && attachments.length > 0 && (
@@ -152,7 +165,7 @@ export function EmailComposer({
           <button
             type="button"
             onClick={() => !sending && onClose()}
-            className="text-muted-foreground hover:text-foreground p-0.5 -m-0.5"
+            className="text-muted-foreground hover:text-foreground p-0.5 -m-0.5 shrink-0"
             aria-label={t('common.close', 'Fermer')}
           >
             <X size={14} />
@@ -160,7 +173,11 @@ export function EmailComposer({
         </div>
 
         {/* Recipients ─────────────────────────────────────────── */}
-        <div className="space-y-2.5 mt-3">
+        {/* Body wrapper takes the remaining vertical space and is the
+            ONLY part of the modal that scrolls — header (title) and
+            footer (Cancel / Send) stay pinned, which matters most on
+            mobile where 92dvh isn't enough to show everything at once. */}
+        <div className="space-y-2.5 mt-3 flex-1 min-h-0 overflow-y-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -286,7 +303,7 @@ export function EmailComposer({
         </div>
 
         {/* Footer ──────────────────────────────────────────────── */}
-        <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-border">
+        <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-border shrink-0">
           <button
             type="button"
             onClick={() => !sending && onClose()}

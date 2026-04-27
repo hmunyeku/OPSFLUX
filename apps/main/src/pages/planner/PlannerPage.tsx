@@ -51,6 +51,7 @@ import { ScenariosTab } from './tabs/ScenariosTab'
 import { ForecastTab } from './tabs/ForecastTab'
 import { ScenarioDetailPanel } from './panels/ScenarioDetailPanel'
 import { ActivityDetailPanel } from './panels/ActivityDetailPanel'
+import { ConflictClusterDetailPanel } from './panels/ConflictClusterDetailPanel'
 import { CreateActivityPanel } from './panels/CreateActivityPanel'
 
 import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
@@ -285,7 +286,8 @@ export function PlannerPage() {
 
       {dynamicPanel?.module === 'planner' && dynamicPanel.type === 'create' && <CreateActivityPanel />}
       {dynamicPanel?.module === 'planner' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && dynamicPanel.meta?.subtype === 'scenario' && <ScenarioDetailPanel id={dynamicPanel.id} />}
-      {dynamicPanel?.module === 'planner' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && dynamicPanel.meta?.subtype !== 'scenario' && <ActivityDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'planner' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && dynamicPanel.meta?.subtype === 'conflict-cluster' && <ConflictClusterDetailPanel />}
+      {dynamicPanel?.module === 'planner' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && dynamicPanel.meta?.subtype !== 'scenario' && dynamicPanel.meta?.subtype !== 'conflict-cluster' && <ActivityDetailPanel id={dynamicPanel.id} />}
     </div>
   )
 }

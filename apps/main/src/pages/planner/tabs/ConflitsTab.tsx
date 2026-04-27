@@ -31,9 +31,9 @@ import {
   useForceRevisionDecisionRequest,
   useAcceptCounterRevisionDecision,
   useResolveConflict,
-  useConflictAudit,
   useBulkResolveConflicts,
 } from '@/hooks/usePlanner'
+import { useUIStore } from '@/stores/uiStore'
 import type {
   PlannerConflict,
   PlannerRevisionSignal,
@@ -55,9 +55,6 @@ import {
   clusterConflicts,
   type ConflictClusterShape,
 } from '../shared'
-import { ResolveConflictModal } from '../panels/ResolveConflictModal'
-import { useActivitiesByIds } from '@/hooks/usePlanner'
-
 interface ConflitsTabFilters {
   statusFilter: string
   conflictTypeFilter: string
@@ -189,82 +186,30 @@ export function ConflitsTab() {
   const [showRequests, setShowRequests] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth >= 768)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
-  // The legacy resolve modal was driven by a single conflict id and a
-  // free-text resolution. The new flow operates on a *cluster* — a
-  // contiguous run of days on the same asset with the same activity
-  // set. The modal mutates one of the involved activities and the
-  // backend auto-clears all sibling days, so users no longer have to
-  // tap "Résoudre" 10 times for a 10-day overlap.
-  const [activeCluster, setActiveCluster] = useState<ConflictClusterShape | null>(null)
-  // Fetch the audit history of the cluster's primary open conflict
-  // (the one the apply action will target).
-  const { data: conflictAudit, isLoading: conflictAuditLoading } = useConflictAudit(activeCluster?.primary_conflict_id ?? undefined)
-  // Fetch the involved activities lazily (only when a cluster is open).
-  const involvedIds = activeCluster?.activity_ids ?? []
-  const { byId: activitiesById } = useActivitiesByIds(involvedIds)
+  // Cluster resolution now lives in the standard OpsFlux right-side
+  // detail panel (ConflictClusterDetailPanel) rather than a transient
+  // modal — same UX as Activities / Scenarios. The cluster is passed
+  // through dynamicPanel.data; the panel handles its own form state,
+  // mutations, and close. No modal state to track here.
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const openClusterPanel = useCallback(
+    (cluster: ConflictClusterShape) => {
+      openDynamicPanel({
+        type: 'detail',
+        module: 'planner',
+        id: cluster.primary_conflict_id || cluster.key,
+        meta: { subtype: 'conflict-cluster' },
+        data: { cluster: cluster as unknown as Record<string, unknown> },
+      })
+    },
+    [openDynamicPanel],
+  )
 
   const [bulkSelection, setBulkSelection] = useState<PlannerConflict[]>([])
   const [bulkResolveOpen, setBulkResolveOpen] = useState(false)
   const [bulkResolution, setBulkResolution] = useState('')
   const [bulkResolutionNote, setBulkResolutionNote] = useState('')
   const bulkResolveConflicts = useBulkResolveConflicts()
-
-  // New cluster-aware resolver. Two paths:
-  // 1) An apply action is supplied → POST /resolve on the cluster's
-  //    primary open conflict with the apply payload. The backend
-  //    mutates the activity, re-detects, and auto-clears stale
-  //    siblings — one user click = whole cluster resolved.
-  // 2) No apply action (approve_both / deferred) → bulk-resolve every
-  //    open conflict id of the cluster with the same resolution + note.
-  const handleClusterResolve = useCallback(
-    async (params: {
-      resolution: 'approve_both' | 'reschedule' | 'reduce_pax' | 'cancel' | 'deferred'
-      note: string | null
-      apply: import('@/types/api').PlannerConflictApplyAction | null
-    }) => {
-      if (!activeCluster) return
-      try {
-        if (params.apply && activeCluster.primary_conflict_id) {
-          await resolveConflict.mutateAsync({
-            id: activeCluster.primary_conflict_id,
-            payload: {
-              resolution: params.resolution,
-              resolution_note: params.note || undefined,
-              apply: params.apply,
-            },
-          })
-          toast({
-            title: t('planner.toast.conflicts_resolved', { count: activeCluster.open_conflict_ids.length || 1 }),
-            variant: 'success',
-          })
-        } else if (activeCluster.open_conflict_ids.length > 0) {
-          const result = await bulkResolveConflicts.mutateAsync(
-            activeCluster.open_conflict_ids.map((id) => ({
-              conflict_id: id,
-              resolution: params.resolution,
-              resolution_note: params.note || undefined,
-            })),
-          )
-          const errCount = result.errors?.length ?? 0
-          toast({
-            title: t('planner.toast.conflicts_resolved', { count: result.resolved }),
-            description: errCount > 0
-              ? t('planner.toast.errors_count', { count: errCount, skipped: result.skipped })
-              : undefined,
-            variant: errCount > 0 ? 'error' : 'success',
-          })
-        }
-        setActiveCluster(null)
-      } catch (err) {
-        toast({
-          title: t('planner.toast.bulk_resolve_failed'),
-          description: extractApiError(err),
-          variant: 'error',
-        })
-      }
-    },
-    [activeCluster, resolveConflict, bulkResolveConflicts, toast, t],
-  )
 
   const handleBulkResolve = useCallback(() => {
     if (!bulkResolution) return
@@ -505,7 +450,7 @@ export function ConflitsTab() {
             disabled={resolveConflict.isPending || bulkResolveConflicts.isPending}
             onClick={(e) => {
               e.stopPropagation()
-              setActiveCluster(c)
+              openClusterPanel(c)
             }}
           />
         )
@@ -1087,20 +1032,10 @@ export function ConflitsTab() {
         />
       </PanelContent>
 
-      {/* Cluster-aware resolve modal — replaces the legacy single-conflict
-          dialog. Lets the user choose a resolution AND a concrete change
-          to apply to one of the involved activities (shift / set_window /
-          set_quota / cancel). The backend mutates the activity, re-detects,
-          and auto-clears stale siblings → 1 click resolves N days. */}
-      <ResolveConflictModal
-        cluster={activeCluster as ConflictClusterShape | null}
-        activitiesById={activitiesById}
-        audit={conflictAudit ?? null}
-        auditLoading={conflictAuditLoading}
-        isPending={resolveConflict.isPending || bulkResolveConflicts.isPending}
-        onClose={() => setActiveCluster(null)}
-        onConfirm={(p) => handleClusterResolve(p)}
-      />
+      {/* The cluster-aware resolve UI now lives in
+          ConflictClusterDetailPanel, mounted by PlannerPage when the
+          dynamicPanel.meta.subtype is 'conflict-cluster'. Triggered by
+          openClusterPanel(c) from the row's resolve action. */}
 
       {/* Bulk resolve conflicts modal */}
       {bulkResolveOpen && (

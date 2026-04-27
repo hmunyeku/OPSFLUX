@@ -633,6 +633,7 @@ export function ConflictClusterDetailPanel() {
                   </div>
                 )}
               </div>
+              </div>
             )}
           </FormSection>
         )}

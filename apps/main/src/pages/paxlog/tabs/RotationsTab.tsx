@@ -7,8 +7,9 @@ import type { RotationCycle } from '@/services/paxlogService'
 import type { ColumnDef } from '@tanstack/react-table'
 import { PanelContent } from '@/components/layout/PanelHeader'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
-import { RefreshCw } from 'lucide-react'
-import { ROTATION_STATUS_LABELS_FALLBACK, formatDateShort, daysUntil, CountdownBadge, StatusBadge, ROTATION_STATUS_BADGES } from '../shared'
+import { RefreshCw, Activity, AlertTriangle, CalendarClock, Users, BarChart3, ChevronDown, ChevronUp } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { ROTATION_STATUS_LABELS_FALLBACK, formatDateShort, daysUntil, CountdownBadge, StatusBadge, ROTATION_STATUS_BADGES, StatCard } from '../shared'
 
 export function RotationsTab() {
   const { t } = useTranslation()
@@ -16,6 +17,9 @@ export function RotationsTab() {
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [showStats, setShowStats] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.innerWidth >= 768,
+  )
   const rotationStatusOptions = useDictionaryOptions('pax_rotation_status')
   const rotationStatusLabels = useDictionaryLabels('pax_rotation_status', ROTATION_STATUS_LABELS_FALLBACK)
   const endCycle = useEndRotationCycle()
@@ -36,6 +40,23 @@ export function RotationsTab() {
       (r.company_name || '').toLowerCase().includes(q)
     )
   }, [data?.items, search])
+
+  // Stats: active cycles, dues within 7 days, blocked compliance,
+  // total PAX in rotation. Computed from the visible page — when
+  // pagination is active these are sample-level (cheap, no extra
+  // API call); the user can step into the dashboard for global stats.
+  const stats = useMemo(() => {
+    const items = data?.items || []
+    const active = items.filter((r) => r.status === 'active').length
+    const dueSoon = items.filter((r) => {
+      if (!r.next_rotation_date || r.status !== 'active') return false
+      const days = daysUntil(r.next_rotation_date)
+      return days >= 0 && days <= 7
+    }).length
+    const blocked = items.filter((r) => (r.compliance_issue_count ?? 0) > 0).length
+    const totalPax = items.length
+    return { active, dueSoon, blocked, totalPax }
+  }, [data?.items])
 
   const rotationStatusFilterOptions = useMemo(
     () => [
@@ -142,7 +163,54 @@ export function RotationsTab() {
 
   return (
     <>
-      {/* Status filter moved into the DataTable visual-search toolbar. */}
+      {/* Stats strip — same pattern as ActivitiesTab / AdsTab. */}
+      <div className="border-b border-border">
+        <button
+          type="button"
+          onClick={() => setShowStats((v) => !v)}
+          className="md:hidden w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/5 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <BarChart3 size={14} className="text-muted-foreground" />
+            {t('paxlog.stats.label', 'Statistiques')}
+          </span>
+          {showStats ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        <div
+          className={cn(
+            '@container/stats',
+            showStats ? 'block' : 'hidden md:block',
+          )}
+        >
+          <div className="flex gap-2 overflow-x-auto px-4 py-3 snap-x snap-mandatory @md/stats:grid @md/stats:grid-cols-4 @md/stats:gap-3 @md/stats:overflow-visible @md/stats:snap-none">
+            <StatCard
+              label={t('paxlog.rotations_kpis.active', 'Actifs')}
+              value={stats.active}
+              icon={Activity}
+              accent="text-emerald-600 dark:text-emerald-400"
+              onClick={() => { setStatusFilter(statusFilter === 'active' ? '' : 'active'); setPage(1) }}
+              active={statusFilter === 'active'}
+            />
+            <StatCard
+              label={t('paxlog.rotations_kpis.due_soon', 'À venir 7j')}
+              value={stats.dueSoon}
+              icon={CalendarClock}
+              accent="text-amber-600 dark:text-amber-400"
+            />
+            <StatCard
+              label={t('paxlog.rotations_kpis.blocked', 'Conformité bloquée')}
+              value={stats.blocked}
+              icon={AlertTriangle}
+              accent="text-destructive"
+            />
+            <StatCard
+              label={t('paxlog.rotations_kpis.total', 'Total PAX')}
+              value={stats.totalPax}
+              icon={Users}
+            />
+          </div>
+        </div>
+      </div>
 
       <PanelContent scroll={false}>
         <DataTable<RotationCycle>

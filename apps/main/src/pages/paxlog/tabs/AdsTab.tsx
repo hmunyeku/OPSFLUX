@@ -8,7 +8,7 @@ import type { AdsSummary } from '@/services/paxlogService'
 import type { ColumnDef } from '@tanstack/react-table'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { cn } from '@/lib/utils'
-import { Users, ClipboardList, Clock, Shield, CheckCircle2 } from 'lucide-react'
+import { Users, ClipboardList, Clock, Shield, CheckCircle2, BarChart3, ChevronDown, ChevronUp } from 'lucide-react'
 import { PanelContent } from '@/components/layout/PanelHeader'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { ADS_STATUS_LABELS_FALLBACK, buildStatusFilterOptions, formatDate, StatusBadge, ADS_STATUS_BADGES, StatCard } from '../shared'
@@ -20,6 +20,11 @@ export function AdsTab({ openDetail, requesterOnly = false, validatorOnly = fals
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState(validatorOnly ? 'pending_validation' : '')
+  // Mobile-only stats collapse (mirrors ActivitiesTab — saves space
+  // on phones where the strip would push the table off-screen).
+  const [showStats, setShowStats] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.innerWidth >= 768,
+  )
   const visitCategoryLabels = useDictionaryLabels('visit_category')
   const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
   const adsStatusOptions = useMemo(
@@ -43,6 +48,30 @@ export function AdsTab({ openDetail, requesterOnly = false, validatorOnly = fals
     const approved = items.filter((a) => a.status === 'approved').length
     const totalPax = items.reduce((sum, a) => sum + (a.pax_count ?? 0), 0)
     return { pending, review, approved, totalPax }
+  }, [items])
+
+  // 8-week sparklines bucketed by ADS start_date — gives the user a
+  // sense of trend on each KPI without an extra API call. Empty arrays
+  // when items haven't loaded; the StatCard auto-hides the spark when
+  // every value is zero.
+  const sparklines = useMemo(() => {
+    const WEEKS = 8
+    const totalArr = new Array(WEEKS).fill(0) as number[]
+    const pendingArr = new Array(WEEKS).fill(0) as number[]
+    const approvedArr = new Array(WEEKS).fill(0) as number[]
+    const paxArr = new Array(WEEKS).fill(0) as number[]
+    const now = Date.now()
+    const weekMs = 7 * 86_400_000
+    for (const a of items) {
+      const ref = a.start_date ? new Date(a.start_date).getTime() : (a.created_at ? new Date(a.created_at).getTime() : null)
+      if (ref == null) continue
+      const idx = WEEKS - 1 - Math.min(WEEKS - 1, Math.max(0, Math.floor((now - ref) / weekMs)))
+      totalArr[idx]++
+      if (['submitted', 'pending_project_review', 'pending_compliance', 'pending_validation'].includes(a.status)) pendingArr[idx]++
+      if (a.status === 'approved') approvedArr[idx]++
+      paxArr[idx] += a.pax_count ?? 0
+    }
+    return { total: totalArr, pending: pendingArr, approved: approvedArr, pax: paxArr }
   }, [items])
 
   const adsColumns = useMemo<ColumnDef<AdsSummary, unknown>[]>(() => [
@@ -127,15 +156,71 @@ export function AdsTab({ openDetail, requesterOnly = false, validatorOnly = fals
           </p>
         </div>
       )}
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label={requesterOnly ? t('paxlog.ads.kpis.my_ads') : validatorOnly ? t('paxlog.ads.kpis.queue_ads') : t('common.total')} value={data?.total ?? 0} icon={ClipboardList} />
-        <StatCard label={validatorOnly ? t('paxlog.ads.kpis.validation') : t('paxlog.ads.kpis.pending')} value={stats.pending} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
-        <StatCard label={validatorOnly ? t('paxlog.ads.kpis.review_gaps') : t('paxlog.ads.kpis.approved')} value={validatorOnly ? stats.review : stats.approved} icon={validatorOnly ? Shield : CheckCircle2} accent={validatorOnly ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'} />
-        <StatCard label={t('paxlog.ads.kpis.total_pax')} value={stats.totalPax} icon={Users} />
+      {/* Stats strip — mirrors ActivitiesTab pattern:
+          mobile collapsible toggle + horizontal scroll-snap strip
+          below md, 4-column grid above md, sparklines that hide on
+          narrow @container/kpi widths. Cards drive the status
+          filter where applicable. */}
+      <div className="border-b border-border">
+        <button
+          type="button"
+          onClick={() => setShowStats((v) => !v)}
+          className="md:hidden w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/5 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <BarChart3 size={14} className="text-muted-foreground" />
+            {t('paxlog.stats.label', 'Statistiques')}
+          </span>
+          {showStats ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        <div
+          className={cn(
+            '@container/stats',
+            showStats ? 'block' : 'hidden md:block',
+          )}
+        >
+          <div className="flex gap-2 overflow-x-auto px-4 py-3 snap-x snap-mandatory @md/stats:grid @md/stats:grid-cols-4 @md/stats:gap-3 @md/stats:overflow-visible @md/stats:snap-none">
+            <StatCard
+              label={requesterOnly ? t('paxlog.ads.kpis.my_ads') : validatorOnly ? t('paxlog.ads.kpis.queue_ads') : t('common.total')}
+              value={data?.total ?? 0}
+              icon={ClipboardList}
+              sparkline={sparklines.total}
+              onClick={() => { setStatusFilter(''); setPage(1) }}
+              active={!statusFilter}
+            />
+            <StatCard
+              label={validatorOnly ? t('paxlog.ads.kpis.validation') : t('paxlog.ads.kpis.pending')}
+              value={stats.pending}
+              icon={Clock}
+              accent="text-amber-600 dark:text-amber-400"
+              sparkline={sparklines.pending}
+              onClick={() => {
+                const next = statusFilter === 'pending_validation' ? '' : 'pending_validation'
+                setStatusFilter(next); setPage(1)
+              }}
+              active={statusFilter === 'pending_validation'}
+            />
+            <StatCard
+              label={validatorOnly ? t('paxlog.ads.kpis.review_gaps') : t('paxlog.ads.kpis.approved')}
+              value={validatorOnly ? stats.review : stats.approved}
+              icon={validatorOnly ? Shield : CheckCircle2}
+              accent={validatorOnly ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}
+              sparkline={sparklines.approved}
+              onClick={validatorOnly ? undefined : () => {
+                const next = statusFilter === 'approved' ? '' : 'approved'
+                setStatusFilter(next); setPage(1)
+              }}
+              active={!validatorOnly && statusFilter === 'approved'}
+            />
+            <StatCard
+              label={t('paxlog.ads.kpis.total_pax')}
+              value={stats.totalPax}
+              icon={Users}
+              sparkline={sparklines.pax}
+            />
+          </div>
+        </div>
       </div>
-
-      {/* Status filter moved into the DataTable visual-search toolbar. */}
 
       <PanelContent scroll={false}>
         <DataTable<AdsSummary>

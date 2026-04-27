@@ -190,7 +190,8 @@
     "start_date_short": "Start",
     "end_date_short": "End",
     "unit": "Unit",
-    "filter_ellipsis": "Filter…"
+    "filter_ellipsis": "Filter…",
+    "stats": "Statistics"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -2772,7 +2773,16 @@
       }
     },
     "sejour": "Séjour",
-    "qr_operationnel": "QR opérationnel"
+    "qr_operationnel": "QR opérationnel",
+    "stats": {
+      "label": "Statistics"
+    },
+    "rotations_kpis": {
+      "active": "Active",
+      "due_soon": "Due in 7d",
+      "blocked": "Compliance blocked",
+      "total": "Total PAX"
+    }
   },
   "planner": {
     "title": "Planner",

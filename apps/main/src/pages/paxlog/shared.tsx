@@ -170,20 +170,90 @@ export function CompletenessBar({ value }: { value: number }) {
   )
 }
 
-export function StatCard({ label, value, icon: Icon, accent }: {
+// Tiny inline sparkline — renders an area chart in ~60×18 px. Stroke
+// inherits the StatCard accent (defaults to primary).
+function Sparkline({ values, accent }: { values: number[]; accent?: string }) {
+  const W = 64, H = 18
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = Math.max(1, max - min)
+  const step = W / Math.max(1, values.length - 1)
+  const pts = values.map((v, i) => [i * step, H - 2 - ((v - min) / range) * (H - 4)] as const)
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
+  const area = `${line} L${W},${H} L0,${H} Z`
+  const tone = accent?.includes('red') || accent?.includes('destructive') ? '#ef4444'
+    : accent?.includes('amber') || accent?.includes('yellow') ? '#f59e0b'
+    : accent?.includes('emerald') || accent?.includes('green') ? '#10b981'
+    : accent?.includes('blue') ? '#3b82f6'
+    : accent?.includes('violet') || accent?.includes('purple') ? '#8b5cf6'
+    : 'hsl(var(--primary))'
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0 ml-auto">
+      <path d={area} fill={tone} fillOpacity={0.15} />
+      <path d={line} fill="none" stroke={tone} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+/**
+ * StatCard — single-line KPI card matching the Planner pattern.
+ *
+ * - Inline layout: [icon] LABEL ─ sparkline ─ VALUE
+ * - When `onClick` is set the card becomes a button that drives a
+ *   filter; the parent passes `active` to highlight the chosen state.
+ * - Each card is its own `@container/kpi` so the sparkline auto-hides
+ *   on narrow widths (e.g. when the right panel docks at 380px).
+ * - Width is controlled by the parent grid; the card snaps on
+ *   horizontal-scroll lists (mobile strip → desktop grid via the
+ *   parent's `@container/stats` query).
+ */
+export function StatCard({ label, value, icon: Icon, accent, sparkline, onClick, active }: {
   label: string
   value: string | number
   icon: typeof Users
   accent?: string
+  /** Optional 8-week sparkline values (≥2 numbers). Skipped when
+   *  not provided or all zero. */
+  sparkline?: number[]
+  /** Click → filter activation. */
+  onClick?: () => void
+  /** Highlight when the card's filter is currently active. */
+  active?: boolean
 }) {
+  const Tag = onClick ? 'button' : 'div'
   return (
-    <div className="rounded-lg border border-border bg-background p-3">
-      <div className="flex items-center gap-2 text-muted-foreground mb-1">
-        <Icon size={13} />
-        <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
-      </div>
-      <p className={cn('text-lg font-semibold tabular-nums', accent || 'text-foreground')}>{value}</p>
-    </div>
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={cn(
+        '@container/kpi group relative flex items-center gap-2 rounded-lg border bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all text-left shrink-0 snap-start w-[160px] @md/stats:w-full',
+        onClick && 'cursor-pointer hover:border-primary/50 hover:shadow-sm',
+        active ? 'border-primary/60 ring-1 ring-primary/30 bg-primary/5' : 'border-border/70 hover:border-border',
+      )}
+    >
+      <div className={cn(
+        'absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b',
+        accent?.includes('red') || accent?.includes('destructive') ? 'from-red-500/80 to-red-400/40'
+        : accent?.includes('amber') || accent?.includes('yellow')  ? 'from-amber-500/80 to-amber-400/40'
+        : accent?.includes('emerald') || accent?.includes('green') ? 'from-emerald-500/80 to-emerald-400/40'
+        : accent?.includes('violet') || accent?.includes('purple') ? 'from-violet-500/80 to-violet-400/40'
+        : 'from-primary/80 to-highlight/40',
+      )} />
+      <Icon size={13} className="text-muted-foreground shrink-0 ml-0.5" />
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{label}</span>
+      <span className="flex-1" />
+      {sparkline && sparkline.length >= 2 && sparkline.some(v => v > 0) && (
+        <span className="hidden @[180px]/kpi:inline-flex shrink-0">
+          <Sparkline values={sparkline} accent={accent} />
+        </span>
+      )}
+      <span className={cn(
+        'text-lg font-bold tabular-nums tracking-tight leading-none',
+        accent || 'text-foreground',
+      )}>
+        {value}
+      </span>
+    </Tag>
   )
 }
 

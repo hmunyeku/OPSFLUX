@@ -3,7 +3,12 @@ import { useSearchParams } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   AlertTriangle,
+  BarChart3,
   Boxes,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Clock,
   FileDown,
   FileText,
   LayoutDashboard,
@@ -11,6 +16,7 @@ import {
   Plus,
   ScanSearch,
   Search,
+  Send,
   Truck,
 } from 'lucide-react'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
@@ -66,14 +72,75 @@ const TAB_DEFS: { id: PackLogTab; labelKey: string; icon: typeof LayoutDashboard
   { id: 'alerts', labelKey: 'packlog.tabs.alerts', icon: AlertTriangle },
 ]
 
-/** Shared StatCard for PackLog tabs — uniform across modules. */
-function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
+/**
+ * PackLog StatCard — same single-line pattern as Planner / PaxLog.
+ *
+ *   [icon] LABEL ─── [sparkline] ─── VALUE
+ *
+ * Exposes optional `onClick` (turning the card into a button that
+ * drives a filter) and `active` (highlight when the linked filter
+ * is on). `@container/kpi` per-card so the sparkline auto-hides on
+ * narrow widths, and `snap-start` so the card behaves as a snap
+ * target inside a horizontal-scroll mobile strip.
+ */
+function StatCard({ label, value, accent, onClick, active, sparkline, icon: Icon }: {
+  label: string
+  value: string | number
+  accent?: string
+  onClick?: () => void
+  active?: boolean
+  sparkline?: number[]
+  icon?: typeof AlertTriangle
+}) {
+  const Tag = onClick ? 'button' : 'div'
   return (
-    <div className="group relative rounded-xl border border-border/70 bg-gradient-to-br from-background to-background/60 p-3 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-border">
-      <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-primary/80 to-highlight/40" />
-      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-xl font-bold tabular-nums font-display tracking-tight ${accent ?? 'text-foreground'}`}>{value}</p>
-    </div>
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={`@container/kpi group relative flex items-center gap-2 rounded-lg border bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all text-left shrink-0 snap-start w-[160px] @md/stats:w-full ${
+        onClick ? 'cursor-pointer hover:border-primary/50 hover:shadow-sm' : ''
+      } ${
+        active ? 'border-primary/60 ring-1 ring-primary/30 bg-primary/5' : 'border-border/70 hover:border-border'
+      }`}
+    >
+      <div className={`absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b ${
+        accent?.includes('red') || accent?.includes('destructive') ? 'from-red-500/80 to-red-400/40'
+        : accent?.includes('amber') || accent?.includes('yellow') ? 'from-amber-500/80 to-amber-400/40'
+        : accent?.includes('emerald') || accent?.includes('green') ? 'from-emerald-500/80 to-emerald-400/40'
+        : 'from-primary/80 to-highlight/40'
+      }`} />
+      {Icon && <Icon size={13} className="text-muted-foreground shrink-0 ml-0.5" />}
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{label}</span>
+      <span className="flex-1" />
+      {sparkline && sparkline.length >= 2 && sparkline.some(v => v > 0) && (
+        <span className="hidden @[180px]/kpi:inline-flex shrink-0">
+          <PackLogSparkline values={sparkline} accent={accent} />
+        </span>
+      )}
+      <span className={`text-lg font-bold tabular-nums tracking-tight leading-none ${accent ?? 'text-foreground'}`}>{value}</span>
+    </Tag>
+  )
+}
+
+/** Tiny inline sparkline shared by every PackLog StatCard. */
+function PackLogSparkline({ values, accent }: { values: number[]; accent?: string }) {
+  const W = 64, H = 18
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = Math.max(1, max - min)
+  const step = W / Math.max(1, values.length - 1)
+  const pts = values.map((v, i) => [i * step, H - 2 - ((v - min) / range) * (H - 4)] as const)
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
+  const area = `${line} L${W},${H} L0,${H} Z`
+  const tone = accent?.includes('red') || accent?.includes('destructive') ? '#ef4444'
+    : accent?.includes('amber') || accent?.includes('yellow') ? '#f59e0b'
+    : accent?.includes('emerald') || accent?.includes('green') ? '#10b981'
+    : 'hsl(var(--primary))'
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0 ml-auto">
+      <path d={area} fill={tone} fillOpacity={0.15} />
+      <path d={line} fill="none" stroke={tone} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 
@@ -171,6 +238,9 @@ function RequestsTab() {
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const [showStats, setShowStats] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.innerWidth >= 768,
+  )
   const locale = i18n.language?.startsWith('fr') ? 'fr-FR' : 'en-US'
   const requestStatusOptions = useDictionaryOptions('packlog_cargo_request_status')
   const requestStatusLabels = useDictionaryLabels('packlog_cargo_request_status')
@@ -183,6 +253,28 @@ function RequestsTab() {
     blocked: items.filter((item) => !item.is_ready_for_submission).length,
     submitted: items.filter((item) => item.status === 'submitted').length,
   }), [data?.total, items])
+
+  // 8-week sparklines on visible items keyed by created_at —
+  // a quick cheap trend that needs no new API call.
+  const sparklines = useMemo(() => {
+    const WEEKS = 8
+    const totalArr = new Array(WEEKS).fill(0) as number[]
+    const readyArr = new Array(WEEKS).fill(0) as number[]
+    const blockedArr = new Array(WEEKS).fill(0) as number[]
+    const submittedArr = new Array(WEEKS).fill(0) as number[]
+    const now = Date.now()
+    const weekMs = 7 * 86_400_000
+    for (const r of items) {
+      const ref = r.created_at ? new Date(r.created_at).getTime() : null
+      if (ref == null) continue
+      const idx = WEEKS - 1 - Math.min(WEEKS - 1, Math.max(0, Math.floor((now - ref) / weekMs)))
+      totalArr[idx]++
+      if (r.is_ready_for_submission) readyArr[idx]++
+      else blockedArr[idx]++
+      if (r.status === 'submitted') submittedArr[idx]++
+    }
+    return { total: totalArr, ready: readyArr, blocked: blockedArr, submitted: submittedArr }
+  }, [items])
 
   const columns = useMemo<ColumnDef<CargoRequest, unknown>[]>(() => [
     { accessorKey: 'request_code', header: t('packlog.requests.columns.reference'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.request_code}</span> },
@@ -197,13 +289,58 @@ function RequestsTab() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label={t('packlog.requests.stats.total')} value={stats.total} />
-        <StatCard label={t('packlog.requests.stats.ready')} value={stats.ready} accent="text-emerald-600" />
-        <StatCard label={t('packlog.requests.stats.blocked')} value={stats.blocked} accent="text-amber-600" />
-        <StatCard label={t('packlog.requests.stats.submitted')} value={stats.submitted} />
+      {/* Stats strip — same pattern as Planner / PaxLog: clickable
+          KPI cards drive the status filter, with sparklines that
+          auto-hide on narrow @container/kpi widths. Mobile gets a
+          collapsible 'Statistiques' toggle and a horizontal-snap
+          scrollable strip; md+ gets a 4-col grid. */}
+      <div className="border-b border-border">
+        <button
+          type="button"
+          onClick={() => setShowStats((v) => !v)}
+          className="md:hidden w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/5 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <BarChart3 size={14} className="text-muted-foreground" />
+            {t('common.stats', 'Statistiques')}
+          </span>
+          {showStats ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        <div className={`@container/stats ${showStats ? 'block' : 'hidden md:block'}`}>
+          <div className="flex gap-2 overflow-x-auto px-4 py-3 snap-x snap-mandatory @md/stats:grid @md/stats:grid-cols-4 @md/stats:gap-3 @md/stats:overflow-visible @md/stats:snap-none">
+            <StatCard
+              label={t('packlog.requests.stats.total')}
+              value={stats.total}
+              icon={FileText}
+              sparkline={sparklines.total}
+              onClick={() => { setStatus(''); setPage(1) }}
+              active={!status}
+            />
+            <StatCard
+              label={t('packlog.requests.stats.ready')}
+              value={stats.ready}
+              icon={CheckCircle2}
+              accent="text-emerald-600"
+              sparkline={sparklines.ready}
+            />
+            <StatCard
+              label={t('packlog.requests.stats.blocked')}
+              value={stats.blocked}
+              icon={AlertTriangle}
+              accent="text-amber-600"
+              sparkline={sparklines.blocked}
+            />
+            <StatCard
+              label={t('packlog.requests.stats.submitted')}
+              value={stats.submitted}
+              icon={Send}
+              sparkline={sparklines.submitted}
+              onClick={() => { setStatus(status === 'submitted' ? '' : 'submitted'); setPage(1) }}
+              active={status === 'submitted'}
+            />
+          </div>
+        </div>
       </div>
-      {/* Status filter moved into the DataTable visual-search toolbar. */}
       <PanelContent scroll={false}>
         <DataTable<CargoRequest>
           columns={columns}
@@ -245,6 +382,9 @@ function CargoTab() {
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const [showStats, setShowStats] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.innerWidth >= 768,
+  )
   const locale = i18n.language?.startsWith('fr') ? 'fr-FR' : 'en-US'
   const cargoStatusOptions = useDictionaryOptions('packlog_cargo_status')
   const cargoStatusLabels = useDictionaryLabels('packlog_cargo_status')
@@ -258,6 +398,27 @@ function CargoTab() {
     incidents: items.filter((item) => item.status === 'damaged' || item.status === 'missing').length,
   }), [data?.total, items])
 
+  // 8-week sparklines on visible cargo items, bucketed by created_at.
+  const sparklines = useMemo(() => {
+    const WEEKS = 8
+    const total = new Array(WEEKS).fill(0) as number[]
+    const inTransit = new Array(WEEKS).fill(0) as number[]
+    const delivered = new Array(WEEKS).fill(0) as number[]
+    const incidents = new Array(WEEKS).fill(0) as number[]
+    const now = Date.now()
+    const weekMs = 7 * 86_400_000
+    for (const c of items) {
+      const ref = c.created_at ? new Date(c.created_at).getTime() : null
+      if (ref == null) continue
+      const idx = WEEKS - 1 - Math.min(WEEKS - 1, Math.max(0, Math.floor((now - ref) / weekMs)))
+      total[idx]++
+      if (c.status === 'in_transit') inTransit[idx]++
+      if (c.status === 'delivered_final') delivered[idx]++
+      if (c.status === 'damaged' || c.status === 'missing') incidents[idx]++
+    }
+    return { total, inTransit, delivered, incidents }
+  }, [items])
+
   const columns = useMemo<ColumnDef<CargoItem, unknown>[]>(() => [
     { accessorKey: 'tracking_code', header: t('packlog.cargo.columns.tracking'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.tracking_code}</span> },
     { id: 'designation', header: t('packlog.cargo.columns.label'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.designation || row.original.description}</span> },
@@ -270,17 +431,56 @@ function CargoTab() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label={t('packlog.cargo.stats.total')} value={stats.total} />
-        <StatCard label={t('packlog.cargo.stats.in_transit')} value={stats.inTransit} />
-        <StatCard label={t('packlog.cargo.stats.delivered')} value={stats.delivered} accent="text-emerald-600" />
-        <StatCard label={t('packlog.cargo.stats.incidents')} value={stats.incidents} accent="text-destructive" />
+      {/* Stats strip — same pattern as the Requests tab. */}
+      <div className="border-b border-border">
+        <button
+          type="button"
+          onClick={() => setShowStats((v) => !v)}
+          className="md:hidden w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/5 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <BarChart3 size={14} className="text-muted-foreground" />
+            {t('common.stats', 'Statistiques')}
+          </span>
+          {showStats ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        <div className={`@container/stats ${showStats ? 'block' : 'hidden md:block'}`}>
+          <div className="flex gap-2 overflow-x-auto px-4 py-3 snap-x snap-mandatory @md/stats:grid @md/stats:grid-cols-4 @md/stats:gap-3 @md/stats:overflow-visible @md/stats:snap-none">
+            <StatCard
+              label={t('packlog.cargo.stats.total')}
+              value={stats.total}
+              icon={Package}
+              sparkline={sparklines.total}
+              onClick={() => { setStatus(''); setPage(1) }}
+              active={!status}
+            />
+            <StatCard
+              label={t('packlog.cargo.stats.in_transit')}
+              value={stats.inTransit}
+              icon={Truck}
+              sparkline={sparklines.inTransit}
+              onClick={() => { setStatus(status === 'in_transit' ? '' : 'in_transit'); setPage(1) }}
+              active={status === 'in_transit'}
+            />
+            <StatCard
+              label={t('packlog.cargo.stats.delivered')}
+              value={stats.delivered}
+              icon={CheckCircle2}
+              accent="text-emerald-600"
+              sparkline={sparklines.delivered}
+              onClick={() => { setStatus(status === 'delivered_final' ? '' : 'delivered_final'); setPage(1) }}
+              active={status === 'delivered_final'}
+            />
+            <StatCard
+              label={t('packlog.cargo.stats.incidents')}
+              value={stats.incidents}
+              icon={AlertTriangle}
+              accent="text-destructive"
+              sparkline={sparklines.incidents}
+            />
+          </div>
+        </div>
       </div>
-      {/* Status filter moved into the DataTable visual-search toolbar
-          (token-based, collapses into a chip when active). The previous
-          always-on row of 15 status chips dominated the page vertically
-          and made users filter via buttons rather than the unified
-          search bar pattern used elsewhere. */}
       <PanelContent scroll={false}>
         <DataTable<CargoItem>
           columns={columns}

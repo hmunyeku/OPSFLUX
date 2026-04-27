@@ -186,7 +186,9 @@
     "comment": "Comment",
     "history": "History",
     "total": "Total",
-    "project": "Project"
+    "project": "Project",
+    "start_date_short": "Start",
+    "end_date_short": "End"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -1440,7 +1442,26 @@
     "assigne": "Assigné",
     "pob_demande": "POB demandé",
     "heures_reelles": "Heures réelles",
-    "aucun_commentaire_pour_le_moment": "Aucun commentaire pour le moment"
+    "aucun_commentaire_pour_le_moment": "Aucun commentaire pour le moment",
+    "task_status": {
+      "todo": "To do",
+      "in_progress": "In progress",
+      "review": "Review",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "gantt": {
+      "col_days": "Days",
+      "col_predecessors": "Pred."
+    },
+    "metrics": {
+      "progress": "Progress",
+      "planning": "Planning",
+      "duration_status": "Duration status",
+      "workload_status": "Workload status",
+      "tasks": "Tasks",
+      "project_status": "Project status"
+    }
   },
   "dashboard": {
     "title": "Dashboard",
@@ -3108,7 +3129,38 @@
     },
     "cluster": {
       "partial_tooltip": "Partially resolved cluster"
-    }
+    },
+    "scenario": {
+      "active_view": "Active view",
+      "promoted_by": "Promoted by",
+      "promoted_at": "Promoted on",
+      "last_simulated": "Last simulation",
+      "simulation_result": "Simulation result",
+      "conflict_days": "Conflict days",
+      "worst_overflow": "Max overflow",
+      "total_pax": "Total PAX",
+      "avg_occupancy": "Avg. occupancy",
+      "new_activity": "New activity in the scenario",
+      "title_example": "e.g. Drilling campaign P22",
+      "empty_overlay": "No changes or new activities in this scenario",
+      "remove_activity": "Remove from scenario",
+      "help_title": "How does a scenario work?",
+      "help_step1_title": "1. Create",
+      "help_step1": "A scenario is an alternative plan (\"what if?\"). It does not touch the live plan.",
+      "help_step2_title": "2. Add activities",
+      "help_step2": "Click \"Add\" to create activities specific to this scenario, or from the Gantt select an activity and choose \"Add to scenario\".",
+      "help_step3_title": "3. Simulate",
+      "help_step3": "Runs a capacity-conflict calculation to assess the scenario's feasibility.",
+      "help_step4_title": "4. Validate → Promote",
+      "help_step4": "Move to \"Validated\" for review, then \"Promote\" converts the scenario's activities into real activities in the plan.",
+      "help_step5_title": "5. Restore",
+      "help_step5": "If a promoted scenario causes issues, \"Restore\" cancels the promotion and reverts to the previous state."
+    },
+    "activity_type": {
+      "drilling": "Drilling",
+      "inspection": "Inspection"
+    },
+    "pax_quota": "PAX quota"
   },
   "travelwiz": {
     "title": "TravelWiz",

@@ -48,28 +48,32 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: '#94a3b8', medium: '#3b82f6', high: '#f59e0b', critical: '#ef4444',
 }
 
-const STATUS_OPTIONS = [
-  { value: 'todo', label: 'À faire', color: TASK_COLORS.todo },
-  { value: 'in_progress', label: 'En cours', color: TASK_COLORS.in_progress },
-  { value: 'review', label: 'Revue', color: TASK_COLORS.review },
-  { value: 'done', label: 'Terminé', color: TASK_COLORS.done },
-  { value: 'cancelled', label: 'Annulé', color: TASK_COLORS.cancelled },
+// Status / priority option builders — translated at call time so
+// the labels follow the active language. The static `_FALLBACK`
+// arrays keep the original FR copy in sync with the seeded i18n
+// keys, so the build-time string-extraction stays accurate.
+const buildStatusOptions = (t: (key: string, fallback?: string) => string) => [
+  { value: 'todo',        label: t('projets.task_status.todo', 'À faire'),       color: TASK_COLORS.todo },
+  { value: 'in_progress', label: t('projets.task_status.in_progress', 'En cours'), color: TASK_COLORS.in_progress },
+  { value: 'review',      label: t('projets.task_status.review', 'Revue'),       color: TASK_COLORS.review },
+  { value: 'done',        label: t('projets.task_status.done', 'Terminé'),      color: TASK_COLORS.done },
+  { value: 'cancelled',   label: t('projets.task_status.cancelled', 'Annulé'),  color: TASK_COLORS.cancelled },
 ]
-const PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Basse', color: PRIORITY_COLORS.low },
-  { value: 'medium', label: 'Moyenne', color: PRIORITY_COLORS.medium },
-  { value: 'high', label: 'Haute', color: PRIORITY_COLORS.high },
-  { value: 'critical', label: 'Critique', color: PRIORITY_COLORS.critical },
+const buildPriorityOptions = (t: (key: string, fallback?: string) => string) => [
+  { value: 'low',      label: t('projets.priority.low', 'Basse'),       color: PRIORITY_COLORS.low },
+  { value: 'medium',   label: t('projets.priority.medium', 'Moyenne'),  color: PRIORITY_COLORS.medium },
+  { value: 'high',     label: t('projets.priority.high', 'Haute'),      color: PRIORITY_COLORS.high },
+  { value: 'critical', label: t('projets.priority.critical', 'Critique'), color: PRIORITY_COLORS.critical },
 ]
 
 // ── Grid columns ────────────────────────────────────────────────
 
-const COLUMNS: GanttColumn[] = [
-  { id: 'start', label: 'Début', width: 62, align: 'center', editable: true, editType: 'date' },
-  { id: 'end', label: 'Fin', width: 62, align: 'center', editable: true, editType: 'date' },
-  { id: 'duration', label: 'Jrs', width: 32, align: 'right' },
-  { id: 'progress', label: '%', width: 28, align: 'right', editable: true, editType: 'number' },
-  { id: 'predecessors', label: 'Préd.', width: 40, align: 'center' },
+const buildColumns = (t: (key: string, fallback?: string) => string): GanttColumn[] => [
+  { id: 'start',        label: t('common.start_date_short', 'Début'), width: 62, align: 'center', editable: true, editType: 'date' },
+  { id: 'end',          label: t('common.end_date_short', 'Fin'),     width: 62, align: 'center', editable: true, editType: 'date' },
+  { id: 'duration',     label: t('projets.gantt.col_days', 'Jrs'),    width: 32, align: 'right' },
+  { id: 'progress',     label: '%',                                    width: 28, align: 'right', editable: true, editType: 'number' },
+  { id: 'predecessors', label: t('projets.gantt.col_predecessors', 'Préd.'), width: 40, align: 'center' },
 ]
 
 function fmtDate(iso: string | null | undefined): string {
@@ -81,6 +85,12 @@ function fmtDate(iso: string | null | undefined): string {
 
 export function ProjectGanttWrapper() {
   const { t } = useTranslation()
+  // Translated option lists / columns — rebuilt cheaply per render
+  // since they read live from i18n. useMemo to avoid identity churn
+  // when t hasn't changed.
+  const STATUS_OPTIONS = useMemo(() => buildStatusOptions(t), [t])
+  const PRIORITY_OPTIONS = useMemo(() => buildPriorityOptions(t), [t])
+  const COLUMNS = useMemo(() => buildColumns(t), [t])
   const { data: pd, isLoading: projLoading } = useProjects({ page_size: 200 })
   const openPanel = useUIStore(s => s.openDynamicPanel)
   const { toast } = useToast()

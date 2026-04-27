@@ -317,15 +317,15 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                     </span>
                   )}
                   {isThisScenarioActive && (
-                    <span className="gl-badge text-[10px] gl-badge-info">Vue active</span>
+                    <span className="gl-badge text-[10px] gl-badge-info">{t('planner.scenario.active_view', 'Vue active')}</span>
                   )}
                 </div>
               } />
               <ReadOnlyRow label={t('common.created_by')} value={scenario.created_by_name || '—'} />
               <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(scenario.created_at)} />
-              {scenario.promoted_by_name && <ReadOnlyRow label="Promu par" value={scenario.promoted_by_name} />}
-              {scenario.promoted_at && <ReadOnlyRow label="Promu le" value={formatDate(scenario.promoted_at)} />}
-              {scenario.last_simulated_at && <ReadOnlyRow label="Dernière simulation" value={new Date(scenario.last_simulated_at).toLocaleString('fr-FR')} />}
+              {scenario.promoted_by_name && <ReadOnlyRow label={t('planner.scenario.promoted_by', 'Promu par')} value={scenario.promoted_by_name} />}
+              {scenario.promoted_at && <ReadOnlyRow label={t('planner.scenario.promoted_at', 'Promu le')} value={formatDate(scenario.promoted_at)} />}
+              {scenario.last_simulated_at && <ReadOnlyRow label={t('planner.scenario.last_simulated', 'Dernière simulation')} value={new Date(scenario.last_simulated_at).toLocaleString('fr-FR')} />}
               {!isPromoted && !isArchived && (
                 <div className="col-span-full pt-1">
                   <button className="text-xs text-primary hover:underline" onClick={() => setEditing(true)}>{t('common.edit')}</button>
@@ -337,12 +337,12 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
 
         {/* ── Simulation results ── */}
         {sim && (
-          <FormSection title="Resultat simulation" defaultExpanded>
+          <FormSection title={t('planner.scenario.simulation_result', 'Résultat simulation')} defaultExpanded>
             <DetailFieldGrid>
-              <ReadOnlyRow label="Jours de conflit" value={String(sim.conflict_days ?? '—')} />
-              <ReadOnlyRow label="Debordement max" value={String(sim.worst_overflow ?? '—')} />
-              {sim.total_pax != null && <ReadOnlyRow label="PAX total" value={String(sim.total_pax)} />}
-              {sim.avg_occupancy != null && <ReadOnlyRow label="Occupation moy." value={`${Math.round(sim.avg_occupancy * 100)}%`} />}
+              <ReadOnlyRow label={t('planner.scenario.conflict_days', 'Jours de conflit')} value={String(sim.conflict_days ?? '—')} />
+              <ReadOnlyRow label={t('planner.scenario.worst_overflow', 'Débordement max')} value={String(sim.worst_overflow ?? '—')} />
+              {sim.total_pax != null && <ReadOnlyRow label={t('planner.scenario.total_pax', 'PAX total')} value={String(sim.total_pax)} />}
+              {sim.avg_occupancy != null && <ReadOnlyRow label={t('planner.scenario.avg_occupancy', 'Occupation moy.')} value={`${Math.round(sim.avg_occupancy * 100)}%`} />}
             </DetailFieldGrid>
           </FormSection>
         )}
@@ -369,43 +369,43 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
         >
           {showAddActivity && !isPromoted && !isArchived && (
             <div className="mb-3 rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Nouvelle activité dans le scénario</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t('planner.scenario.new_activity', 'Nouvelle activité dans le scénario')}</p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="col-span-2">
-                  <label className="text-[10px] text-muted-foreground">Titre *</label>
-                  <input type="text" className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.title} onChange={(e) => setAddActivityForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ex: Campagne forage P22" />
+                  <label className="text-[10px] text-muted-foreground">{t('common.title', 'Titre')} *</label>
+                  <input type="text" className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.title} onChange={(e) => setAddActivityForm((f) => ({ ...f, title: e.target.value }))} placeholder={t('planner.scenario.title_example', 'Ex: Campagne forage P22')} />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Type</label>
+                  <label className="text-[10px] text-muted-foreground">{t('common.type', 'Type')}</label>
                   <select className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.type} onChange={(e) => setAddActivityForm((f) => ({ ...f, type: e.target.value }))}>
                     <option value="project">{t('common.project')}</option>
                     <option value="maintenance">{t('common.maintenance')}</option>
-                    <option value="drilling">Forage</option>
-                    <option value="inspection">Inspection</option>
-                    <option value="other">Autre</option>
+                    <option value="drilling">{t('planner.activity_type.drilling', 'Forage')}</option>
+                    <option value="inspection">{t('planner.activity_type.inspection', 'Inspection')}</option>
+                    <option value="other">{t('common.other', 'Autre')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">PAX quota</label>
+                  <label className="text-[10px] text-muted-foreground">{t('planner.pax_quota', 'Quota PAX')}</label>
                   <input type="number" min={1} className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.pax_quota} onChange={(e) => setAddActivityForm((f) => ({ ...f, pax_quota: Math.max(1, parseInt(e.target.value) || 1) }))} />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Date début *</label>
+                  <label className="text-[10px] text-muted-foreground">{t('common.start_date', 'Date début')} *</label>
                   <input type="date" className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.start_date} onChange={(e) => setAddActivityForm((f) => ({ ...f, start_date: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Date fin *</label>
+                  <label className="text-[10px] text-muted-foreground">{t('common.end_date', 'Date fin')} *</label>
                   <input type="date" className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.end_date} onChange={(e) => setAddActivityForm((f) => ({ ...f, end_date: e.target.value }))} />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-[10px] text-muted-foreground">Notes</label>
+                  <label className="text-[10px] text-muted-foreground">{t('common.notes', 'Notes')}</label>
                   <textarea className={cn(panelInputClass, 'mt-0.5 min-h-[40px]')} value={addActivityForm.notes} onChange={(e) => setAddActivityForm((f) => ({ ...f, notes: e.target.value }))} />
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
                 <button className="gl-button-sm gl-button-default text-xs" onClick={() => setShowAddActivity(false)}>{t('common.cancel')}</button>
                 <button className="gl-button-sm gl-button-confirm text-xs" onClick={handleAddScenarioActivity} disabled={addScenarioActivity.isPending}>
-                  {addScenarioActivity.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
+                  {addScenarioActivity.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.add', 'Ajouter')}
                 </button>
               </div>
             </div>
@@ -420,7 +420,7 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
             </div>
           )}
           {overlayActivities.length === 0 && !showAddActivity ? (
-            <p className="text-xs text-muted-foreground py-2 text-center">Aucune modification ou nouvelle activité dans ce scénario</p>
+            <p className="text-xs text-muted-foreground py-2 text-center">{t('planner.scenario.empty_overlay', 'Aucune modification ou nouvelle activité dans ce scénario')}</p>
           ) : (
             <div className="divide-y divide-border">
               {overlayActivities.map((act: Record<string, unknown>) => (
@@ -442,7 +442,7 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                   {!isPromoted && !isArchived && (
                     <button
                       className="gl-button gl-button-danger opacity-0 group-hover:opacity-100"
-                      title="Retirer du scénario"
+                      title={t('planner.scenario.remove_activity', 'Retirer du scénario')}
                       onClick={() => handleRemoveScenarioActivity(act.id as string)}
                     >
                       <Trash2 size={11} />
@@ -455,13 +455,13 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* ── How scenarios work ── */}
-        <FormSection title="Comment fonctionne un scenario ?" collapsible defaultExpanded={overlayActivities.length === 0}>
+        <FormSection title={t('planner.scenario.help_title', 'Comment fonctionne un scénario ?')} collapsible defaultExpanded={overlayActivities.length === 0}>
           <div className="text-xs text-muted-foreground space-y-2 leading-relaxed">
-            <p><span className="font-semibold text-foreground">1. Creer</span> — Un scenario est un plan alternatif ("et si ?"). Il ne touche pas au plan en cours.</p>
-            <p><span className="font-semibold text-foreground">2. Ajouter des activites</span> — Cliquez "Ajouter" pour creer des activites propres a ce scenario, ou depuis le Gantt, selectionnez une activite et choisissez "Ajouter au scenario".</p>
-            <p><span className="font-semibold text-foreground">3. Simuler</span> — Lance un calcul de conflits de capacite pour evaluer la faisabilite du scenario.</p>
-            <p><span className="font-semibold text-foreground">4. Valider &rarr; Promouvoir</span> — Passer a "Valide" pour review, puis "Promouvoir" convertit les activites du scenario en activites reelles dans le plan.</p>
-            <p><span className="font-semibold text-foreground">5. Restaurer</span> — Si un scenario promu pose probleme, "Restaurer" annule la promotion et revient a l'etat precedent.</p>
+            <p><span className="font-semibold text-foreground">{t('planner.scenario.help_step1_title', '1. Créer')}</span> — {t('planner.scenario.help_step1', 'Un scénario est un plan alternatif (« et si ? »). Il ne touche pas au plan en cours.')}</p>
+            <p><span className="font-semibold text-foreground">{t('planner.scenario.help_step2_title', '2. Ajouter des activités')}</span> — {t('planner.scenario.help_step2', 'Cliquez « Ajouter » pour créer des activités propres à ce scénario, ou depuis le Gantt, sélectionnez une activité et choisissez « Ajouter au scénario ».')}</p>
+            <p><span className="font-semibold text-foreground">{t('planner.scenario.help_step3_title', '3. Simuler')}</span> — {t('planner.scenario.help_step3', 'Lance un calcul de conflits de capacité pour évaluer la faisabilité du scénario.')}</p>
+            <p><span className="font-semibold text-foreground">{t('planner.scenario.help_step4_title', '4. Valider → Promouvoir')}</span> — {t('planner.scenario.help_step4', 'Passer à « Validé » pour review, puis « Promouvoir » convertit les activités du scénario en activités réelles dans le plan.')}</p>
+            <p><span className="font-semibold text-foreground">{t('planner.scenario.help_step5_title', '5. Restaurer')}</span> — {t('planner.scenario.help_step5', "Si un scénario promu pose problème, « Restaurer » annule la promotion et revient à l'état précédent.")}</p>
           </div>
         </FormSection>
         </>)}

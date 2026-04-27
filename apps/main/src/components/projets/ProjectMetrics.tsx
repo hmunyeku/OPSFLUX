@@ -19,6 +19,7 @@
  *   - Snapshots via useProjectSituations
  */
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Save, History, Target, ListTodo, Users, Milestone as MilestoneIcon,
   Sun, Cloud, CloudRain, CloudLightning, CloudSun,
@@ -125,6 +126,7 @@ interface MetricsProps {
 }
 
 export function ProjectMetrics({ project, tasks, members, milestones }: MetricsProps) {
+  const { t } = useTranslation()
   const { data: situations = [], isLoading } = useProjectSituations(project.id)
   const createSituation = useCreateProjectSituation()
   const updateProject = useUpdateProject()
@@ -215,7 +217,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           Fixed 300px gauge column on lg+ keeps the visual weight stable
           regardless of project name length. */}
       <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4">
-        <FormSection title="Avancement" defaultExpanded>
+        <FormSection title={t('projets.metrics.progress', 'Avancement')} defaultExpanded>
           <div className="flex flex-col items-center gap-3 pt-1">
             <ProgressGauge value={project.progress} />
             <div className="grid grid-cols-2 gap-2 w-full">
@@ -225,7 +227,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           </div>
         </FormSection>
 
-        <FormSection title="Planning" defaultExpanded>
+        <FormSection title={t('projets.metrics.planning', 'Planning')} defaultExpanded>
           <ProjectInsightsBar project={project} />
         </FormSection>
       </div>
@@ -275,7 +277,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
 
       {/* ─── ROW 3 ── Détail durées + charge ─── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormSection title="Statut des durées" collapsible defaultExpanded={false} storageKey="project-detail-metrics-durations">
+        <FormSection title={t('projets.metrics.duration_status', 'Statut des durées')} collapsible defaultExpanded={false} storageKey="project-detail-metrics-durations">
           <div className="space-y-1.5 text-[11px]">
             <StatRow icon={CalendarClock} label="Date de fin prévue" value={fmtDate(project.end_date)} />
             <StatRow icon={CalendarClock} label="Fin dernière tâche" value={fmtDate(lastTaskEnd)} />
@@ -293,7 +295,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           </div>
         </FormSection>
 
-        <FormSection title="Statut de la charge" collapsible defaultExpanded={false} storageKey="project-detail-metrics-workload">
+        <FormSection title={t('projets.metrics.workload_status', 'Statut de la charge')} collapsible defaultExpanded={false} storageKey="project-detail-metrics-workload">
           <div className="space-y-1.5 text-[11px]">
             <StatRow icon={Scale} label="Charge totale" value={`${hoursEstimated.toFixed(0)} h`} suffix={`${hoursToJH(hoursEstimated)} j/h`} />
             <StatRow icon={Scale} label="Charge consommée" value={`${hoursConsumed.toFixed(0)} h`} suffix={`${hoursToJH(hoursConsumed)} j/h`} />
@@ -303,7 +305,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
       </div>
 
       {/* ─── ROW 4 ── Tâches: répartition par statut ─── */}
-      <FormSection title="Tâches" collapsible defaultExpanded={false} storageKey="project-detail-metrics-tasks">
+      <FormSection title={t('projets.metrics.tasks', 'Tâches')} collapsible defaultExpanded={false} storageKey="project-detail-metrics-tasks">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <QuantTile icon={ListTodo} label="Total" value={tasksTotal} tone={tasksTotal > 0 ? 'foreground' : 'muted'} />
           <QuantTile icon={Target} label="Terminées" value={tasksDone} tone="good" />
@@ -313,7 +315,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
       </FormSection>
 
       {/* ─── ROW 5 ── Situation projet (textarea + météo + tendance + save) ─── */}
-      <FormSection title="Situation projet" defaultExpanded>
+      <FormSection title={t('projets.metrics.project_status', 'Situation projet')} defaultExpanded>
         <div className="space-y-3">
           {/* Editor */}
           <div>

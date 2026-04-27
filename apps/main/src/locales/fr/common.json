@@ -186,7 +186,9 @@
     "comment": "Commentaire",
     "history": "Historique",
     "total": "Total",
-    "project": "Projet"
+    "project": "Projet",
+    "start_date_short": "Début",
+    "end_date_short": "Fin"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -1401,7 +1403,8 @@
       "todo": "À faire",
       "in_progress": "En cours",
       "review": "Revue",
-      "done": "Terminé"
+      "done": "Terminé",
+      "cancelled": "Annulé"
     },
     "task_subtabs": {
       "dependencies": "Dépendances",
@@ -1600,7 +1603,19 @@
     "assigne": "Assigné",
     "pob_demande": "POB demandé",
     "heures_reelles": "Heures réelles",
-    "aucun_commentaire_pour_le_moment": "Aucun commentaire pour le moment"
+    "aucun_commentaire_pour_le_moment": "Aucun commentaire pour le moment",
+    "gantt": {
+      "col_days": "Jrs",
+      "col_predecessors": "Préd."
+    },
+    "metrics": {
+      "progress": "Avancement",
+      "planning": "Planning",
+      "duration_status": "Statut des durées",
+      "workload_status": "Statut de la charge",
+      "tasks": "Tâches",
+      "project_status": "Situation projet"
+    }
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -3367,7 +3382,38 @@
     },
     "cluster": {
       "partial_tooltip": "Cluster partiellement résolu"
-    }
+    },
+    "scenario": {
+      "active_view": "Vue active",
+      "promoted_by": "Promu par",
+      "promoted_at": "Promu le",
+      "last_simulated": "Dernière simulation",
+      "simulation_result": "Résultat simulation",
+      "conflict_days": "Jours de conflit",
+      "worst_overflow": "Débordement max",
+      "total_pax": "PAX total",
+      "avg_occupancy": "Occupation moy.",
+      "new_activity": "Nouvelle activité dans le scénario",
+      "title_example": "Ex: Campagne forage P22",
+      "empty_overlay": "Aucune modification ou nouvelle activité dans ce scénario",
+      "remove_activity": "Retirer du scénario",
+      "help_title": "Comment fonctionne un scénario ?",
+      "help_step1_title": "1. Créer",
+      "help_step1": "Un scénario est un plan alternatif (« et si ? »). Il ne touche pas au plan en cours.",
+      "help_step2_title": "2. Ajouter des activités",
+      "help_step2": "Cliquez « Ajouter » pour créer des activités propres à ce scénario, ou depuis le Gantt, sélectionnez une activité et choisissez « Ajouter au scénario ».",
+      "help_step3_title": "3. Simuler",
+      "help_step3": "Lance un calcul de conflits de capacité pour évaluer la faisabilité du scénario.",
+      "help_step4_title": "4. Valider → Promouvoir",
+      "help_step4": "Passer à « Validé » pour review, puis « Promouvoir » convertit les activités du scénario en activités réelles dans le plan.",
+      "help_step5_title": "5. Restaurer",
+      "help_step5": "Si un scénario promu pose problème, « Restaurer » annule la promotion et revient à l'état précédent."
+    },
+    "activity_type": {
+      "drilling": "Forage",
+      "inspection": "Inspection"
+    },
+    "pax_quota": "Quota PAX"
   },
   "travelwiz": {
     "title": "TravelWiz",

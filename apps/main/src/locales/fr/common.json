@@ -188,7 +188,8 @@
     "total": "Total",
     "project": "Projet",
     "start_date_short": "Début",
-    "end_date_short": "Fin"
+    "end_date_short": "Fin",
+    "unit": "Unité"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -1615,7 +1616,20 @@
       "workload_status": "Statut de la charge",
       "tasks": "Tâches",
       "project_status": "Situation projet"
-    }
+    },
+    "task_detail": {
+      "description_placeholder": "Aucune description — cliquer ou double-cliquer pour ajouter",
+      "state_priority": "État & priorité",
+      "parent_progress_tooltip": "Cette tâche est un parent — son avancement est calculé automatiquement à partir de ses sous-tâches selon la méthode de pondération du projet.",
+      "assignment": "Assignation",
+      "pob_workload": "POB & Charge",
+      "no_subtasks_title": "Aucune sous-tâche",
+      "no_subtasks_desc": "Cette tâche n'a pas de sous-tâches.",
+      "no_dependency": "Aucune dépendance",
+      "no_comments": "Aucun commentaire pour le moment",
+      "add_comment_placeholder": "Ajouter un commentaire…"
+    },
+    "task": "Tâche"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -3413,7 +3427,26 @@
       "drilling": "Forage",
       "inspection": "Inspection"
     },
-    "pax_quota": "Quota PAX"
+    "pax_quota": "Quota PAX",
+    "dependency": {
+      "lag": "Délai",
+      "lag_days": "Délai (jours)",
+      "lag_tooltip": "Délai (lag)",
+      "type_tooltip": "Type de dépendance",
+      "empty": "Aucune dépendance"
+    },
+    "recurrence": {
+      "frequency": "Fréquence",
+      "interval": "Intervalle",
+      "weekday": "Jour de la semaine",
+      "end_date": "Date fin de récurrence"
+    },
+    "activity_detail": {
+      "continue_edit_hint_prefix": "Cliquez sur l'onglet ",
+      "tab_information": "Informations",
+      "continue_edit_hint_suffix": " pour continuer l'édition.",
+      "advanced_actions": "Actions avancées"
+    }
   },
   "travelwiz": {
     "title": "TravelWiz",

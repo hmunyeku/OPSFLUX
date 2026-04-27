@@ -2587,7 +2587,12 @@ function PlannerLinksSection({ projectId }: { projectId: string }) {
                     <button
                       key={a.id}
                       type="button"
-                      onClick={() => navigate(`/planner?activity_id=${a.id}`)}
+                      // PlannerPage's useOpenDetailFromPath matches
+                      // `/planner/activity/{id}` to open the activity
+                      // detail panel — the previous `?activity_id=` query
+                      // param wasn't consumed by anything (user reported
+                      // dead link in the project's planner-links section).
+                      onClick={() => navigate(`/planner/activity/${a.id}`)}
                       className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center px-2 py-1.5 text-[11px] hover:bg-muted/40 transition-colors text-left group"
                       title="Ouvrir dans Planner"
                     >

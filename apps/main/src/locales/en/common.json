@@ -188,7 +188,8 @@
     "total": "Total",
     "project": "Project",
     "start_date_short": "Start",
-    "end_date_short": "End"
+    "end_date_short": "End",
+    "unit": "Unit"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -1461,7 +1462,20 @@
       "workload_status": "Workload status",
       "tasks": "Tasks",
       "project_status": "Project status"
-    }
+    },
+    "task_detail": {
+      "description_placeholder": "No description — click or double-click to add",
+      "state_priority": "State & priority",
+      "parent_progress_tooltip": "This task is a parent — its progress is computed automatically from its subtasks using the project's weighting method.",
+      "assignment": "Assignment",
+      "pob_workload": "POB & Workload",
+      "no_subtasks_title": "No subtasks",
+      "no_subtasks_desc": "This task has no subtasks.",
+      "no_dependency": "No dependency",
+      "no_comments": "No comment yet",
+      "add_comment_placeholder": "Add a comment…"
+    },
+    "task": "Task"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -3160,7 +3174,26 @@
       "drilling": "Drilling",
       "inspection": "Inspection"
     },
-    "pax_quota": "PAX quota"
+    "pax_quota": "PAX quota",
+    "dependency": {
+      "lag": "Lag",
+      "lag_days": "Lag (days)",
+      "lag_tooltip": "Lag",
+      "type_tooltip": "Dependency type",
+      "empty": "No dependency"
+    },
+    "recurrence": {
+      "frequency": "Frequency",
+      "interval": "Interval",
+      "weekday": "Day of week",
+      "end_date": "Recurrence end date"
+    },
+    "activity_detail": {
+      "continue_edit_hint_prefix": "Click the ",
+      "tab_information": "Information",
+      "continue_edit_hint_suffix": " tab to continue editing.",
+      "advanced_actions": "Advanced actions"
+    }
   },
   "travelwiz": {
     "title": "TravelWiz",

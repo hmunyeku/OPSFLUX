@@ -171,7 +171,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
         />
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex flex-col">
-            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">Type</label>
+            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">{t('common.type', 'Type')}</label>
             <select
               value={draftType}
               onChange={(e) => setDraftType(e.target.value)}
@@ -184,7 +184,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
             </select>
           </div>
           <div className="flex flex-col">
-            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">Délai</label>
+            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">{t('planner.dependency.lag', 'Délai')}</label>
             <input
               type="number"
               value={draftLagValue}
@@ -195,7 +195,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">Unité</label>
+            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">{t('common.unit', 'Unité')}</label>
             <select
               value={draftLagUnit}
               onChange={(e) => setDraftLagUnit(e.target.value as LagUnit)}
@@ -238,9 +238,9 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
       <span className="font-medium text-foreground truncate flex-1" title={otherActivityTitle || otherActivityId}>
         {otherActivityTitle || otherActivityId.slice(0, 8) + '…'}
       </span>
-      <span className="gl-badge gl-badge-neutral text-[10px]" title="Type de dépendance">{dep.dependency_type}</span>
+      <span className="gl-badge gl-badge-neutral text-[10px]" title={t('planner.dependency.type_tooltip', 'Type de dépendance')}>{dep.dependency_type}</span>
       {lagDisplay && (
-        <span className="text-muted-foreground text-[10px] tabular-nums" title="Délai (lag)">{lagDisplay}</span>
+        <span className="text-muted-foreground text-[10px] tabular-nums" title={t('planner.dependency.lag_tooltip', 'Délai (lag)')}>{lagDisplay}</span>
       )}
       <button
         onClick={startEdit}
@@ -805,7 +805,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                     className={panelInputClass}
                   >
                     <option value="constant">{t('common.constant')}</option>
-                    <option value="variable">Variable (par jour)</option>
+                    <option value="variable">{t('planner.pob_mode.variable', 'Variable (par jour)')}</option>
                   </select>
                 </DynamicPanelField>
                 {editForm.pax_quota_mode !== 'variable' && (
@@ -822,7 +822,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
               </FormGrid>
               {((editForm.pax_quota_mode as string) === 'variable' && editForm.start_date && editForm.end_date) ? (
                 <div className="mt-3">
-                  <p className="text-xs text-muted-foreground mb-2">Plan POB jour par jour :</p>
+                  <p className="text-xs text-muted-foreground mb-2">{t('planner.create_activity.pob_daily_intro', 'Plan POB jour par jour :')}</p>
                   <VariablePobEditor
                     startDate={editForm.start_date as string}
                     endDate={editForm.end_date as string}
@@ -933,7 +933,9 @@ export function ActivityDetailPanel({ id }: { id: string }) {
           </>
           ) : (
             <div className="p-6 text-sm text-muted-foreground">
-              Cliquez sur l'onglet <strong>Informations</strong> pour continuer l'édition.
+              {t('planner.activity_detail.continue_edit_hint_prefix', "Cliquez sur l'onglet ")}
+              <strong>{t('planner.activity_detail.tab_information', 'Informations')}</strong>
+              {t('planner.activity_detail.continue_edit_hint_suffix', " pour continuer l'édition.")}
             </div>
           )
         ) : (
@@ -1179,7 +1181,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">Aucune dépendance</p>
+                <p className="text-xs text-muted-foreground">{t('planner.dependency.empty', 'Aucune dépendance')}</p>
               )}
 
               {showDepAdd ? (
@@ -1193,7 +1195,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                     />
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">Type</label>
+                        <label className="text-xs font-medium text-muted-foreground">{t('common.type', 'Type')}</label>
                         <select
                           value={depForm.dependency_type}
                           onChange={(e) => setDepForm({ ...depForm, dependency_type: e.target.value })}
@@ -1205,7 +1207,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                         </select>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">Délai (jours)</label>
+                        <label className="text-xs font-medium text-muted-foreground">{t('planner.dependency.lag_days', 'Délai (jours)')}</label>
                         <input
                           type="number"
                           value={depForm.lag_days}
@@ -1241,7 +1243,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                   <div className="space-y-2 p-2.5 rounded-lg border border-border bg-background-subtle">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">Frequence</label>
+                        <label className="text-xs font-medium text-muted-foreground">{t('planner.recurrence.frequency', 'Fréquence')}</label>
                         <select
                           value={recForm.frequency}
                           onChange={(e) => setRecForm({ ...recForm, frequency: e.target.value })}
@@ -1253,7 +1255,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                         </select>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">Intervalle</label>
+                        <label className="text-xs font-medium text-muted-foreground">{t('planner.recurrence.interval', 'Intervalle')}</label>
                         <input
                           type="number"
                           value={recForm.interval_value}
@@ -1265,7 +1267,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                     </div>
                     {recForm.frequency === 'weekly' && (
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">Jour de la semaine</label>
+                        <label className="text-xs font-medium text-muted-foreground">{t('planner.recurrence.weekday', 'Jour de la semaine')}</label>
                         <select
                           value={recForm.day_of_week}
                           onChange={(e) => setRecForm({ ...recForm, day_of_week: parseInt(e.target.value) })}
@@ -1278,7 +1280,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       </div>
                     )}
                     <div>
-                      <label className="text-xs font-medium text-muted-foreground">Date fin recurrence</label>
+                      <label className="text-xs font-medium text-muted-foreground">{t('planner.recurrence.end_date', 'Date fin de récurrence')}</label>
                       <input
                         type="date"
                         value={recForm.end_date}
@@ -1316,7 +1318,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             )}
 
             {canOverridePriority && (
-            <FormSection title="Actions avancées">
+            <FormSection title={t('planner.activity_detail.advanced_actions', 'Actions avancées')}>
               {showPriorityOverride ? (
                 <div className="space-y-2 p-2.5 rounded-lg border border-border bg-background-subtle">
                   <div className="grid grid-cols-2 gap-2">

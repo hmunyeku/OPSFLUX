@@ -366,7 +366,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
   if (!task) {
     return (
-      <DynamicPanelShell title="Tâche" subtitle={t('common.loading_ellipsis')} icon={<CheckCircle2 size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('projets.task', 'Tâche')} subtitle={t('common.loading_ellipsis')} icon={<CheckCircle2 size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )
@@ -506,13 +506,13 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 </p>
                 <InlineEditableTextarea
                   value={task.description || ''}
-                  placeholder="Aucune description — cliquer ou double-cliquer pour ajouter"
+                  placeholder={t('projets.task_detail.description_placeholder', 'Aucune description — cliquer ou double-cliquer pour ajouter')}
                   onSave={(v) => handleSave('description', v || null)}
                 />
               </div>
 
               <div className="mt-3">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5">Tags</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5">{t('common.tags', 'Tags')}</p>
                 <TagManager ownerType="project_task" ownerId={taskId} compact />
               </div>
             </FormSection>
@@ -520,7 +520,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             {/* ── 2-column layout: État/Assignation | Planning/POB ── */}
             <SectionColumns>
               <div className="@container space-y-5">
-                <FormSection title="État & priorité" collapsible defaultExpanded storageKey="task-detail-state">
+                <FormSection title={t('projets.task_detail.state_priority', 'État & priorité')} collapsible defaultExpanded storageKey="task-detail-state">
                   <DetailFieldGrid>
                     <InlineEditableSelect
                       label="Statut"
@@ -545,7 +545,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                         {isParentTask && (
                           <span
                             className="ml-1 text-[9px] font-normal text-muted-foreground/70 normal-case"
-                            title="Cette tâche est un parent — son avancement est calculé automatiquement à partir de ses sous-tâches selon la méthode de pondération du projet."
+                            title={t('projets.task_detail.parent_progress_tooltip', 'Cette tâche est un parent — son avancement est calculé automatiquement à partir de ses sous-tâches selon la méthode de pondération du projet.')}
                           >
                             (calculé)
                           </span>
@@ -606,7 +606,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   )}
                 </FormSection>
 
-                <FormSection title="Assignation" collapsible defaultExpanded storageKey="task-detail-assign">
+                <FormSection title={t('projets.task_detail.assignment', 'Assignation')} collapsible defaultExpanded storageKey="task-detail-assign">
                   <DetailFieldGrid>
                     <InlineEditableSelect
                       label="Assigné"
@@ -667,7 +667,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   </DetailFieldGrid>
                 </FormSection>
 
-                <FormSection title="POB & Charge" collapsible defaultExpanded storageKey="task-detail-pob">
+                <FormSection title={t('projets.task_detail.pob_workload', 'POB & Charge')} collapsible defaultExpanded storageKey="task-detail-pob">
                   <DetailFieldGrid>
                     <InlineEditableRow
                       label="POB demandé"
@@ -737,8 +737,8 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             {childTasks.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Layers size={32} className="mb-3 opacity-30" />
-                <p className="text-sm font-medium">Aucune sous-tâche</p>
-                <p className="text-xs mt-1 text-muted-foreground/70">Cette tâche n&apos;a pas de sous-tâches.</p>
+                <p className="text-sm font-medium">{t('projets.task_detail.no_subtasks_title', 'Aucune sous-tâche')}</p>
+                <p className="text-xs mt-1 text-muted-foreground/70">{t('projets.task_detail.no_subtasks_desc', "Cette tâche n'a pas de sous-tâches.")}</p>
               </div>
             ) : (
               <FormSection title={`Sous-tâches (${childTasks.length})`} collapsible defaultExpanded storageKey="task-detail-children">
@@ -804,7 +804,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
               storageKey="task-detail-deps"
             >
               {incomingDeps.length === 0 && outgoingDeps.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">Aucune dépendance</p>
+                <p className="text-xs text-muted-foreground italic">{t('projets.task_detail.no_dependency', 'Aucune dépendance')}</p>
               ) : (
                 <SectionColumns>
                   {/* Predecessors */}
@@ -814,7 +814,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                       Antécédents ({incomingDeps.length})
                     </p>
                     {incomingDeps.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/70 italic px-2 py-1.5">Aucun</p>
+                      <p className="text-xs text-muted-foreground/70 italic px-2 py-1.5">{t('common.none', 'Aucun')}</p>
                     ) : (
                       <div className="space-y-1">
                         {incomingDeps.map((dep) => {
@@ -851,7 +851,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                       Successeurs ({outgoingDeps.length})
                     </p>
                     {outgoingDeps.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/70 italic px-2 py-1.5">Aucun</p>
+                      <p className="text-xs text-muted-foreground/70 italic px-2 py-1.5">{t('common.none', 'Aucun')}</p>
                     ) : (
                       <div className="space-y-1">
                         {outgoingDeps.map((dep) => {
@@ -1001,7 +1001,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           <>
             {/* Pièces jointes */}
             <FormSection
-              title="Pièces jointes"
+              title={t('common.attachments', 'Pièces jointes')}
               collapsible
               defaultExpanded={false}
               storageKey="task-detail-attachments"
@@ -1031,7 +1031,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   </div>
                 ))}
                 {commentsCount === 0 && (
-                  <p className="text-xs text-muted-foreground italic px-2 py-1.5">Aucun commentaire pour le moment</p>
+                  <p className="text-xs text-muted-foreground italic px-2 py-1.5">{t('projets.task_detail.no_comments', 'Aucun commentaire pour le moment')}</p>
                 )}
               </div>
 
@@ -1042,7 +1042,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
-                  placeholder="Ajouter un commentaire..."
+                  placeholder={t('projets.task_detail.add_comment_placeholder', 'Ajouter un commentaire…')}
                   className="gl-form-input flex-1 h-8 px-2 text-sm"
                 />
                 <button

@@ -48,7 +48,7 @@ import { apiGeoToEditorValue, editorValueToApiGeo, latLonToPointValue } from '@/
 import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
 import {
-  useField, useUpdateField, useDeleteField,
+  useField, useFields, useUpdateField, useDeleteField,
   useSite, useSites, useUpdateSite, useDeleteSite,
   useInstallation, useInstallations, useUpdateInstallation, useDeleteInstallation,
   useEquipmentList,
@@ -402,6 +402,13 @@ export function SiteDetailPanel({ id }: { id: string }) {
   const { data: parentField } = useField(site?.field_id)
   const updateSite = useUpdateSite()
 
+  // Load all fields for parent selection dropdown
+  const { data: fieldsData } = useFields({ page_size: 1000 })
+  const fieldOptions = fieldsData?.items.map((f: any) => ({
+    value: f.id,
+    label: `${f.code} — ${f.name}`
+  })) || []
+
   // Child count: installations belonging to this site
   const { data: childInstallations, isLoading: childInstLoading } = useInstallations({ site_id: id, page_size: 1 })
   const deleteSite = useDeleteSite()
@@ -460,9 +467,12 @@ export function SiteDetailPanel({ id }: { id: string }) {
                 ? <InlineEditableTags label={t('common.status')} value={site.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={site.status} />} />
               }
-              <ReadOnlyRow label={t('assets.field_parent')} value={
-                <CrossModuleLink module="ar-field" id={site.field_id} label={parentField ? `${parentField.code} — ${parentField.name}` : '...'} />
-              } />
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.field_parent')} value={site.field_id} options={fieldOptions} onSave={(v) => handleSave('field_id', v)} />
+                : <ReadOnlyRow label={t('assets.field_parent')} value={
+                    <CrossModuleLink module="ar-field" id={site.field_id} label={parentField ? `${parentField.code} — ${parentField.name}` : '...'} />
+                  } />
+              }
               {canUpdate
                 ? <InlineEditableSelect label={t('assets.environment')} value={site.environment || ''} options={ENVIRONMENT_OPTIONS} onSave={(v) => handleSave('environment', v || null)} />
                 : <ReadOnlyRow label={t('assets.environment')} value={site.environment} />
@@ -632,6 +642,13 @@ export function InstallationDetailPanel({ id }: { id: string }) {
   const updateInst = useUpdateInstallation()
   const deleteInst = useDeleteInstallation()
 
+  // Load all sites for parent selection dropdown
+  const { data: sitesData } = useSites({ page_size: 1000 })
+  const siteOptions = sitesData?.items.map((s: any) => ({
+    value: s.id,
+    label: `${s.code} — ${s.name}`
+  })) || []
+
   // Child count: equipment belonging to this installation
   const { data: childEquipment, isLoading: childEquipLoading } = useEquipmentList({ installation_id: id, page_size: 1 })
   const [tab, setTab] = useState<PanelTab>('details')
@@ -689,9 +706,12 @@ export function InstallationDetailPanel({ id }: { id: string }) {
                 ? <InlineEditableTags label={t('common.status')} value={inst.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={inst.status} />} />
               }
-              <ReadOnlyRow label={t('assets.site_parent')} value={
-                <CrossModuleLink module="ar-site" id={inst.site_id} label={parentSite ? `${parentSite.code} — ${parentSite.name}` : '...'} />
-              } />
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.site_parent')} value={inst.site_id} options={siteOptions} onSave={(v) => handleSave('site_id', v)} />
+                : <ReadOnlyRow label={t('assets.site_parent')} value={
+                    <CrossModuleLink module="ar-site" id={inst.site_id} label={parentSite ? `${parentSite.code} — ${parentSite.name}` : '...'} />
+                  } />
+              }
               {canUpdate
                 ? <InlineEditableSelect label={t('assets.environment')} value={inst.environment || ''} options={ENVIRONMENT_OPTIONS} onSave={(v) => handleSave('environment', v || null)} />
                 : <ReadOnlyRow label={t('assets.environment')} value={inst.environment} />

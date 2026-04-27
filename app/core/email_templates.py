@@ -1055,6 +1055,96 @@ DEFAULT_TEMPLATES: list[dict] = [
             },
         },
     },
+    # ── Conflict arbitration broadcast ────────────────────────────────────
+    # Sent by the operator (Production Manager) AFTER a conflict has been
+    # arbitrated, to broadcast the decision to the activity creators /
+    # project managers / task assignees. Carries the arbitration PDF as
+    # attachment (handled outside this template). Slug used by
+    # `email_conflict_cluster` in app/api/routes/modules/planner.py.
+    {
+        "slug": "planner.conflict.arbitration",
+        "name": "Diffusion d'un arbitrage de conflit",
+        "description": (
+            "Email de diffusion envoyé après l'arbitrage d'un conflit POB "
+            "Planner. Le PDF de synthèse est joint automatiquement par "
+            "le module."
+        ),
+        "object_type": "planner_conflict",
+        "variables_schema": {
+            "asset_name": "Nom du site/actif concerné",
+            "asset_code": "Code du site/actif",
+            "window_start": "Début de la fenêtre du conflit (date)",
+            "window_end": "Fin de la fenêtre du conflit (date)",
+            "days": "Nombre de jours du cluster",
+            "max_overflow": "Pic POB en dépassement (PAX)",
+            "status_label": "Statut global (Ouvert/Résolu/Différé/Partiel)",
+            "resolution_label": "Libellé de la décision appliquée",
+            "resolution_note": "Note d'arbitrage saisie par l'opérateur (texte libre, optionnel)",
+            "activities_titles": "Liste comma-separated des titres d'activités impliquées",
+            "actor_name": "Nom de l'opérateur qui a arbitré",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": (
+                    "[Planner] Arbitrage conflit {{ asset_name }} "
+                    "{{ window_start }}{% if window_end and window_end != window_start %} → {{ window_end }}{% endif %}"
+                ),
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Voici la synthèse de l'<strong>arbitrage du conflit POB</strong> sur "
+                    "<strong>{{ asset_name }}</strong> "
+                    "pour la fenêtre du <strong>{{ window_start }}</strong>"
+                    "{% if window_end and window_end != window_start %} au <strong>{{ window_end }}</strong>{% endif %} "
+                    "({{ days }} jour{% if days > 1 %}s{% endif %}, pic POB +{{ max_overflow }} PAX).</p>"
+                    "<ul>"
+                    "<li><strong>Statut :</strong> {{ status_label }}</li>"
+                    "{% if resolution_label %}<li><strong>Décision :</strong> {{ resolution_label }}</li>{% endif %}"
+                    "{% if activities_titles %}<li><strong>Activités impliquées :</strong> {{ activities_titles }}</li>{% endif %}"
+                    "</ul>"
+                    "{% if resolution_note %}"
+                    "<p><strong>Note d'arbitrage :</strong></p>"
+                    "<blockquote style=\"border-left: 3px solid #cbd5e1; padding-left: 12px; color: #475569;\">"
+                    "{{ resolution_note }}"
+                    "</blockquote>"
+                    "{% endif %}"
+                    "<p>Le détail complet (calendrier, jour par jour, historique d'arbitrage) "
+                    "est joint en PDF.</p>"
+                    "<p>Cordialement,<br/>{{ actor_name | default('Production Manager') }}<br/>"
+                    "<em>{{ entity.name | default('OpsFlux') }}</em></p>"
+                ),
+            },
+            "en": {
+                "subject": (
+                    "[Planner] Conflict arbitration {{ asset_name }} "
+                    "{{ window_start }}{% if window_end and window_end != window_start %} → {{ window_end }}{% endif %}"
+                ),
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>Here is the summary of the <strong>POB conflict arbitration</strong> on "
+                    "<strong>{{ asset_name }}</strong> "
+                    "for the window of <strong>{{ window_start }}</strong>"
+                    "{% if window_end and window_end != window_start %} to <strong>{{ window_end }}</strong>{% endif %} "
+                    "({{ days }} day{% if days > 1 %}s{% endif %}, peak POB +{{ max_overflow }} PAX).</p>"
+                    "<ul>"
+                    "<li><strong>Status:</strong> {{ status_label }}</li>"
+                    "{% if resolution_label %}<li><strong>Decision:</strong> {{ resolution_label }}</li>{% endif %}"
+                    "{% if activities_titles %}<li><strong>Activities involved:</strong> {{ activities_titles }}</li>{% endif %}"
+                    "</ul>"
+                    "{% if resolution_note %}"
+                    "<p><strong>Arbitration note:</strong></p>"
+                    "<blockquote style=\"border-left: 3px solid #cbd5e1; padding-left: 12px; color: #475569;\">"
+                    "{{ resolution_note }}"
+                    "</blockquote>"
+                    "{% endif %}"
+                    "<p>The full breakdown (calendar, day-by-day, arbitration history) "
+                    "is attached as PDF.</p>"
+                    "<p>Best regards,<br/>{{ actor_name | default('Production Manager') }}<br/>"
+                    "<em>{{ entity.name | default('OpsFlux') }}</em></p>"
+                ),
+            },
+        },
+    },
     # ── TravelWiz Templates ────────────────────────────────────────────────
     {
         "slug": "travelwiz.voyage.confirmed",

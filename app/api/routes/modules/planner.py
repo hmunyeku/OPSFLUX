@@ -3717,31 +3717,73 @@ async def email_conflict_cluster(
             message="PDF template 'planner.conflict_resolution' not found.",
         )
 
-    subject = payload.subject or (
-        f"[Planner] Arbitrage conflit {cluster_payload['asset_code'] or ''} "
-        f"{cluster_payload['window_start']} → {cluster_payload['window_end']}"
+    # Resolve the customisable email template — admins can override the
+    # subject and body via the Email Templates admin UI for slug
+    # `planner.conflict.arbitration`. Falls back to the seed template
+    # when no override exists. Only used when the user didn't type their
+    # own subject / body in the composer.
+    from app.core.email_templates import render_email
+
+    # Last applied resolution (if any) — surfaced in the template so the
+    # default body actually carries the decision the operator just made.
+    last_resolution_label = next(
+        (m.get("resolution_label") for m in cluster_payload["members"]
+         if m.get("resolution_label")),
+        None,
     )
-    default_body = (
-        f"Bonjour,\n\n"
-        f"Voici la synthèse de l'arbitrage du conflit POB sur "
-        f"{cluster_payload['asset_name']} pour la fenêtre "
-        f"{cluster_payload['window_start']} → {cluster_payload['window_end']} "
-        f"({cluster_payload['days']} jour{'s' if cluster_payload['days'] > 1 else ''}, "
-        f"pic POB +{cluster_payload['max_overflow']}).\n\n"
-        f"Statut : {cluster_payload['status_label']}\n"
-        f"Activités impliquées : "
-        f"{', '.join(a['title'] for a in cluster_payload['activities'])}\n\n"
-        f"Le détail complet est joint en PDF.\n\n"
-        f"-- {generated_by}"
+    last_resolution_note = next(
+        (m.get("resolution_note") for m in cluster_payload["members"]
+         if m.get("resolution_note")),
+        None,
     )
+    template_vars = {
+        "asset_name": cluster_payload["asset_name"],
+        "asset_code": cluster_payload["asset_code"],
+        "window_start": cluster_payload["window_start"],
+        "window_end": cluster_payload["window_end"],
+        "days": cluster_payload["days"],
+        "max_overflow": cluster_payload["max_overflow"],
+        "status_label": cluster_payload["status_label"],
+        "resolution_label": last_resolution_label,
+        "resolution_note": last_resolution_note,
+        "activities_titles": ", ".join(
+            a["title"] for a in cluster_payload["activities"] if a.get("title")
+        ),
+        "actor_name": generated_by,
+        "entity": {"name": entity.name if entity else "", "code": getattr(entity, "code", "")},
+    }
+    rendered = await render_email(
+        db,
+        slug="planner.conflict.arbitration",
+        entity_id=entity_id,
+        language="fr",
+        variables=template_vars,
+    )
+
+    if rendered:
+        default_subject, default_body_html = rendered
+    else:
+        # Defensive fallback — should never hit in practice because the
+        # seed templates ship with the slug.
+        default_subject = (
+            f"[Planner] Arbitrage conflit {cluster_payload['asset_code'] or ''} "
+            f"{cluster_payload['window_start']} → {cluster_payload['window_end']}"
+        )
+        default_body_html = (
+            f"<p>Voici la synthèse de l'arbitrage du conflit POB sur "
+            f"{cluster_payload['asset_name']}.</p>"
+            f"<p>Le détail complet est joint en PDF.</p>"
+        )
+
+    subject = payload.subject or default_subject
     asset_part = (cluster_payload["asset_code"] or "asset").lower().replace("/", "-")
     filename = f"arbitrage-conflit-{asset_part}-{cluster_payload['window_start']}.pdf"
 
-    # The body provided by the user (or the default we crafted) is plain
-    # text. Wrap it as <pre> so SMTP renders it predictably while still
-    # allowing HTML mail clients to display the line breaks correctly.
-    body_text = payload.body or default_body
-    body_html = f'<pre style="font-family: Helvetica, Arial, sans-serif; font-size: 13px; white-space: pre-wrap;">{body_text}</pre>'
+    # When the user typed their own message in the composer, it arrives
+    # as HTML (RichTextField output). When they didn't, we use the
+    # rendered template HTML. Either way we forward HTML to SMTP — no
+    # more <pre>-wrapping plain text.
+    body_html = payload.body or default_body_html
 
     await send_email(
         to=payload.recipients,

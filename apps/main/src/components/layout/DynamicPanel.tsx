@@ -129,8 +129,14 @@ export function DynamicPanelShell({
   // the window level but bail when focus is inside an editor / input
   // so Esc still cancels in-place edits (Tiptap, native inputs) before
   // closing the panel.
+  //
+  // When the panel doesn't pass an explicit `onClose` prop (most do
+  // not — they rely on the global `useUIStore.closeDynamicPanel()`),
+  // we fall back to closing via the store. Without that fallback the
+  // shortcut only worked on the handful of panels that wired onClose
+  // themselves.
+  const closeDynamicPanelFallback = useUIStore((s) => s.closeDynamicPanel)
   useEffect(() => {
-    if (!onClose) return
     const isEditableTarget = (el: EventTarget | null): boolean => {
       const node = el as HTMLElement | null
       if (!node) return false
@@ -146,11 +152,18 @@ export function DynamicPanelShell({
       // Skip when an outer modal (gl-modal-card) is open above us —
       // it has its own Esc handler and we don't want to fight it.
       if (document.querySelector('.gl-modal-backdrop')) return
-      onClose()
+      // Skip in inline mode — the parent surface is responsible for
+      // its own keyboard handling there.
+      if (inline) return
+      if (onClose) {
+        onClose()
+      } else {
+        closeDynamicPanelFallback()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, closeDynamicPanelFallback, inline])
 
   // Resolve the actions region once so the three render branches below stay
   // identical. `actionItems` (typed, responsive) wins over legacy `actions`

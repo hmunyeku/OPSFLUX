@@ -24,6 +24,7 @@ import {
   panelInputClass,
   type ActionItem,
 } from '@/components/layout/DynamicPanel'
+import { EmailComposer } from '@/components/shared/EmailComposer'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { plannerService } from '@/services/plannerService'
@@ -810,140 +811,41 @@ export function ConflictClusterDetailPanel() {
       </PanelContentLayout>
 
       {emailModalOpen && (
-        <EmailConflictModal
-          cluster={cluster}
+        <EmailComposer
+          open={emailModalOpen}
           onClose={() => setEmailModalOpen(false)}
-          onSent={() => {
-            setEmailModalOpen(false)
-            toast({ title: 'Email envoyé', variant: 'success' })
+          title={`Envoyer l'arbitrage par email · ${cluster.asset_name ?? 'Conflit'}`}
+          defaultSubject={`[Planner] Arbitrage conflit ${cluster.asset_name ?? ''} ${cluster.start_date} → ${cluster.end_date}`}
+          attachments={[
+            {
+              label: `arbitrage-conflit-${(cluster.asset_name ?? 'asset').toLowerCase().replace(/\s+/g, '-')}-${cluster.start_date}.pdf`,
+              hint: 'PDF de synthèse de l\'arbitrage (généré automatiquement)',
+            },
+          ]}
+          onSend={async ({ recipients, cc, subject, body }) => {
+            // Use the first member's id as anchor when primary is null
+            // (fully-resolved clusters). The backend rebuilds the cluster
+            // from any of its members, so any anchor works.
+            const anchorId = cluster.primary_conflict_id || cluster.members[0]?.id
+            if (!anchorId) {
+              throw new Error('Aucun conflit ancre pour cette grappe.')
+            }
+            try {
+              await plannerService.emailConflictCluster(anchorId, {
+                recipients,
+                cc: cc.length > 0 ? cc : undefined,
+                subject: subject || undefined,
+                body: body || undefined,
+              })
+              setEmailModalOpen(false)
+              toast({ title: 'Email envoyé', variant: 'success' })
+            } catch (err) {
+              throw new Error(extractApiError(err))
+            }
           }}
         />
       )}
     </DynamicPanelShell>
-  )
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// EmailConflictModal — minimal recipients/subject/body form. Sends via
-// the OpsFlux email system with the cluster's PDF as attachment.
-// ──────────────────────────────────────────────────────────────────────
-function EmailConflictModal({
-  cluster,
-  onClose,
-  onSent,
-}: {
-  cluster: ConflictClusterShape
-  onClose: () => void
-  onSent: () => void
-}) {
-  const [recipients, setRecipients] = useState('')
-  const [cc, setCc] = useState('')
-  const [subject, setSubject] = useState(
-    `[Planner] Arbitrage conflit ${cluster.asset_name ?? ''} ${cluster.start_date} → ${cluster.end_date}`,
-  )
-  const [body, setBody] = useState('')
-  const [sending, setSending] = useState(false)
-  const { toast } = useToast()
-
-  const parseList = (s: string): string[] =>
-    s.split(/[,;\s]+/).map((x) => x.trim()).filter((x) => /\S+@\S+\.\S+/.test(x))
-
-  const recipientList = parseList(recipients)
-  const ccList = parseList(cc)
-  const canSend = recipientList.length > 0 && !sending && !!cluster.primary_conflict_id
-
-  const handleSend = async () => {
-    if (!canSend) return
-    const anchorId = cluster.primary_conflict_id || cluster.members[0]?.id
-    if (!anchorId) return
-    setSending(true)
-    try {
-      await plannerService.emailConflictCluster(anchorId, {
-        recipients: recipientList,
-        cc: ccList.length > 0 ? ccList : undefined,
-        subject: subject || undefined,
-        body: body || undefined,
-      })
-      onSent()
-    } catch (err) {
-      toast({ title: 'Échec envoi email', description: extractApiError(err), variant: 'error' })
-    } finally {
-      setSending(false)
-    }
-  }
-
-  return (
-    <div className="gl-modal-backdrop" onClick={() => !sending && onClose()}>
-      <div className="gl-modal-card max-w-xl" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-sm font-semibold text-foreground">Envoyer l'arbitrage par email</h3>
-        <p className="text-[11px] text-muted-foreground -mt-1">
-          Le PDF de synthèse est joint automatiquement à l'envoi.
-        </p>
-
-        <div>
-          <label className="text-xs font-medium text-muted-foreground block mb-1">
-            Destinataires <span className="text-rose-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={recipients}
-            onChange={(e) => setRecipients(e.target.value)}
-            placeholder="om@perenco.com, projet@perenco.com"
-            className={cn('w-full h-8 px-2 text-sm border border-border rounded bg-background')}
-          />
-          {recipientList.length > 0 && (
-            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
-              {recipientList.length} adresse{recipientList.length > 1 ? 's' : ''} reconnue{recipientList.length > 1 ? 's' : ''}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-muted-foreground block mb-1">Cc (optionnel)</label>
-          <input
-            type="text"
-            value={cc}
-            onChange={(e) => setCc(e.target.value)}
-            placeholder="cc@perenco.com"
-            className={cn('w-full h-8 px-2 text-sm border border-border rounded bg-background')}
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-muted-foreground block mb-1">Objet</label>
-          <input
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            className={cn('w-full h-8 px-2 text-sm border border-border rounded bg-background')}
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-muted-foreground block mb-1">Message (optionnel)</label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Si laissé vide, un message standard est utilisé."
-            className={cn('w-full min-h-[100px] px-2 py-1.5 text-sm border border-border rounded bg-background resize-y')}
-          />
-        </div>
-
-        <div className="flex items-center gap-2 justify-end">
-          <button className="gl-button-sm gl-button-default" onClick={onClose} disabled={sending}>
-            Annuler
-          </button>
-          <button
-            className="gl-button-sm gl-button-confirm"
-            onClick={handleSend}
-            disabled={!canSend}
-          >
-            <Send size={12} />
-            {sending ? 'Envoi…' : 'Envoyer'}
-          </button>
-        </div>
-      </div>
-    </div>
   )
 }
 

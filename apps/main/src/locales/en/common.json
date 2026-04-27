@@ -3072,7 +3072,8 @@
     "reinitialiser_le_filtre_de_validite": "Réinitialiser le filtre de validité",
     "modifier_la_dependance": "Modifier la dépendance",
     "columns": {
-      "site": "Site"
+      "site": "Site",
+      "asset": "Asset"
     },
     "simulation": {
       "label": "Simulation",
@@ -3082,6 +3083,31 @@
     "scenarios": {
       "empty": "No scenarios",
       "new": "New scenario"
+    },
+    "create_activity": {
+      "title": "New activity",
+      "title_placeholder": "Activity title",
+      "subtype_placeholder": "Subtype (optional)",
+      "pob_daily_intro": "Day-by-day POB plan:",
+      "description_placeholder": "Activity description…",
+      "well_ref": "Well ref.",
+      "rig_name": "Rig name",
+      "depth_m": "Depth in meters",
+      "program_ref": "Program reference",
+      "regulatory_ref": "Regulatory ref.",
+      "work_order": "Work order #"
+    },
+    "pob_mode": {
+      "constant": "Constant (same value every day)",
+      "variable": "Variable (per day)"
+    },
+    "advanced_filters": "Advanced filters",
+    "reset_all_filters": "Reset all filters",
+    "bulk_resolve": {
+      "title": "Bulk resolve"
+    },
+    "cluster": {
+      "partial_tooltip": "Partially resolved cluster"
     }
   },
   "travelwiz": {

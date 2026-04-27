@@ -3342,6 +3342,31 @@
     "scenarios": {
       "empty": "Aucun scénario",
       "new": "Nouveau scénario"
+    },
+    "create_activity": {
+      "title": "Nouvelle activité",
+      "title_placeholder": "Titre de l'activité",
+      "subtype_placeholder": "Sous-type (optionnel)",
+      "pob_daily_intro": "Plan POB jour par jour :",
+      "description_placeholder": "Description de l'activité…",
+      "well_ref": "Ref. puits",
+      "rig_name": "Nom du rig",
+      "depth_m": "Profondeur en mètres",
+      "program_ref": "Référence programme",
+      "regulatory_ref": "Réf. réglementaire",
+      "work_order": "N° bon de travail"
+    },
+    "pob_mode": {
+      "constant": "Constant (même valeur tous les jours)",
+      "variable": "Variable (par jour)"
+    },
+    "advanced_filters": "Filtres avancés",
+    "reset_all_filters": "Réinitialiser tous les filtres",
+    "bulk_resolve": {
+      "title": "Résolution en masse"
+    },
+    "cluster": {
+      "partial_tooltip": "Cluster partiellement résolu"
     }
   },
   "travelwiz": {

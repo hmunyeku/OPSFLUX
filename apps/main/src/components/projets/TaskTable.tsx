@@ -28,11 +28,28 @@
 import { useMemo, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import {
   ChevronRight, MoreHorizontal, Sun, Cloud, CloudRain, CloudLightning,
-  CalendarClock, AlertCircle, ListChecks,
+  CalendarClock, AlertCircle, ListChecks, GripVertical,
 } from 'lucide-react'
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
 import type { ProjectTask } from '@/types/api'
-import { useUpdateProjectTask } from '@/hooks/useProjets'
+import { useUpdateProjectTask, useReorderProjectTasks } from '@/hooks/useProjets'
 
 // ──────────────────────────────────────────────────────────────────────
 // Public column model
@@ -65,6 +82,9 @@ export interface TaskTableColumn {
 }
 
 export const DEFAULT_COLUMNS: TaskTableColumn[] = [
+  // First column = drag handle. Hidden on narrow viewports where the
+  // user wouldn't have hover affordance anyway.
+  { id: 'drag',         width: '20px',          label: '',          align: 'center',         hideBelow: 480 },
   { id: 'wbs',          width: '56px',          label: 'WBS',                                hideBelow: 540 },
   { id: 'status',       width: '24px' },
   { id: 'title',        width: 'minmax(120px, 1fr)', label: 'Tâche' },
@@ -408,6 +428,16 @@ export function TaskTable({
   className,
 }: TaskTableProps) {
   const updateTask = useUpdateProjectTask()
+  const reorderTasks = useReorderProjectTasks()
+
+  // ── Drag & drop sensors ──────────────────────────────────────
+  // 6px activation distance avoids stealing single-clicks on the
+  // editable cells that share the row. Keyboard sensor enables
+  // Space + arrows for accessibility.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   // Track container width via ResizeObserver so we can hide columns
@@ -558,6 +588,36 @@ export function TaskTable({
     updateTask.mutate({ projectId, taskId: task.id, payload: { due_date: due } })
   }
 
+  // ── Drag-end handler ─────────────────────────────────────────
+  // Reorder ONLY among siblings of the same parent (same depth +
+  // same parent_id). The dnd-kit drop target uses task ids; we
+  // resolve the dragged + over rows in flatRows, validate they
+  // share a parent, then POST the new order to the backend (which
+  // also auto-syncs linked planner activities).
+  const handleDragEnd = useCallback((e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const draggedRow = flatRows.find((r) => r.task.id === active.id)
+    const overRow = flatRows.find((r) => r.task.id === over.id)
+    if (!draggedRow || !overRow) return
+    if (draggedRow.task.parent_id !== overRow.task.parent_id) {
+      // Cross-parent drop is out-of-scope for V1; ignore silently.
+      return
+    }
+    // Reorder the siblings array.
+    const siblings = flatRows
+      .filter((r) => r.task.parent_id === draggedRow.task.parent_id)
+      .map((r) => r.task)
+    const oldIdx = siblings.findIndex((t) => t.id === active.id)
+    const newIdx = siblings.findIndex((t) => t.id === over.id)
+    if (oldIdx < 0 || newIdx < 0) return
+    const reordered = arrayMove(siblings, oldIdx, newIdx)
+    reorderTasks.mutate({
+      projectId,
+      items: reordered.map((t, i) => ({ id: t.id, order: i })),
+    })
+  }, [flatRows, projectId, reorderTasks])
+
   // Build the CSS grid template from the visible column widths.
   const gridTemplate = visibleColumns.map(c => c.width).join(' ')
   const rowHeight = density === 'compact' ? 'h-7' : 'h-8'
@@ -609,29 +669,45 @@ export function TaskTable({
             </p>
           </div>
         ) : (
-          flatRows.map(({ task, depth, hasChildren }) => (
-            <TaskTableRow
-              key={task.id}
-              task={task}
-              depth={depth}
-              hasChildren={hasChildren}
-              isCollapsed={collapsed.has(task.id)}
-              isSelected={selectedTaskId === task.id}
-              columns={visibleColumns}
-              gridTemplate={gridTemplate}
-              rowHeight={rowHeight}
-              displayProgress={aggregateProgress.get(task.id) ?? task.progress ?? 0}
-              onToggleCollapse={() => toggleCollapse(task.id)}
-              onStatusClick={() => handleStatusClick(task)}
-              onField={(field, value) => handleField(task, field, value)}
-              onDuration={(days) => handleDuration(task, days)}
-              onOpenAdvanced={onOpenAdvanced ? () => onOpenAdvanced(task) : undefined}
-              onRowClick={() => {
-                onSelect?.(task.id)
-                onRowClick?.(task)
-              }}
-            />
-          ))
+          // Drag-reorder: SortableContext registers every row's id so
+          // dnd-kit knows the target list. Within-sibling reorder is
+          // enforced at drop time (handleDragEnd); we still hand the
+          // full list of ids here because dnd-kit needs to track all
+          // candidates to compute the dragOver position.
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={flatRows.map((r) => r.task.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {flatRows.map(({ task, depth, hasChildren }) => (
+                <TaskTableRow
+                  key={task.id}
+                  task={task}
+                  depth={depth}
+                  hasChildren={hasChildren}
+                  isCollapsed={collapsed.has(task.id)}
+                  isSelected={selectedTaskId === task.id}
+                  columns={visibleColumns}
+                  gridTemplate={gridTemplate}
+                  rowHeight={rowHeight}
+                  displayProgress={aggregateProgress.get(task.id) ?? task.progress ?? 0}
+                  onToggleCollapse={() => toggleCollapse(task.id)}
+                  onStatusClick={() => handleStatusClick(task)}
+                  onField={(field, value) => handleField(task, field, value)}
+                  onDuration={(days) => handleDuration(task, days)}
+                  onOpenAdvanced={onOpenAdvanced ? () => onOpenAdvanced(task) : undefined}
+                  onRowClick={() => {
+                    onSelect?.(task.id)
+                    onRowClick?.(task)
+                  }}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         )}
       </div>
     </div>
@@ -670,6 +746,23 @@ function TaskTableRow({
   const weather = computeWeather(task, displayProgress)
   const duration = computeDurationDays(task.start_date, task.due_date)
 
+  // Sortable wiring — dnd-kit attaches the listeners only to the
+  // grip cell (`...listeners` below) so the rest of the row stays
+  // clickable for inline edits / select.
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id })
+  const dragStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+  }
+
   const WeatherIcon = weather === 'sunny' ? Sun
     : weather === 'cloudy' ? Cloud
     : weather === 'rainy' ? CloudRain
@@ -683,6 +776,21 @@ function TaskTableRow({
 
   const renderCell = (col: TaskTableColumn): ReactNode => {
     switch (col.id) {
+      case 'drag':
+        return (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center justify-center w-full text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing"
+            title="Glisser pour réorganiser"
+            aria-label="Glisser pour réorganiser"
+          >
+            <GripVertical size={11} />
+          </button>
+        )
+
       case 'wbs':
         return (
           <span className="truncate text-[10px] tabular-nums text-muted-foreground" title={task.code || undefined}>
@@ -836,14 +944,16 @@ function TaskTableRow({
 
   return (
     <div
+      ref={setNodeRef}
       className={cn(
         'grid items-center gap-1 px-2 border-b border-border/30 last:border-0 text-[11px] cursor-pointer',
         rowHeight,
         isSelected
           ? 'bg-primary/10 ring-1 ring-inset ring-primary/40'
           : 'hover:bg-muted/30 transition-colors',
+        isDragging && 'z-10 shadow-md',
       )}
-      style={{ gridTemplateColumns: gridTemplate }}
+      style={{ ...dragStyle, gridTemplateColumns: gridTemplate }}
       onClick={onRowClick}
     >
       {columns.map(col => (

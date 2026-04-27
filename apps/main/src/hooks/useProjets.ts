@@ -449,7 +449,40 @@ export function useReorderProjectTasks() {
   return useMutation({
     mutationFn: ({ projectId, items }: { projectId: string; items: { id: string; order: number; status?: string }[] }) =>
       projetsService.reorderTasks(projectId, items),
-    onSuccess: (_, { projectId }) => {
+    // Optimistic reorder — drag-drop should feel instant, with the
+    // server-side roll-up only refreshing the cache after settle.
+    // Snapshot every variant of project-tasks for this project, patch
+    // the order field on the matching ids, rollback on error.
+    onMutate: async ({ projectId, items }) => {
+      const orderById = new Map(items.map((it) => [it.id, it.order]))
+      await qc.cancelQueries({ queryKey: ['project-tasks', projectId] })
+      const matches = qc.getQueriesData({ queryKey: ['project-tasks', projectId] })
+      const previous: { key: readonly unknown[]; data: unknown }[] = []
+      for (const [key, data] of matches) {
+        previous.push({ key, data })
+        if (!Array.isArray(data)) continue
+        const next = (data as Record<string, unknown>[]).map((t) => {
+          const tid = (t as { id?: string }).id
+          if (tid && orderById.has(tid)) {
+            return { ...t, order: orderById.get(tid) }
+          }
+          return t
+        })
+        // Sort by order so the table re-renders in the new sequence.
+        next.sort(
+          (a, b) =>
+            ((a as { order?: number }).order ?? 0) -
+            ((b as { order?: number }).order ?? 0),
+        )
+        qc.setQueryData(key, next)
+      }
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      const snapshots = (ctx as { previous?: { key: readonly unknown[]; data: unknown }[] } | undefined)?.previous
+      for (const s of snapshots ?? []) qc.setQueryData(s.key, s.data)
+    },
+    onSettled: (_data, _err, { projectId }) => {
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] })
       invalidatePlannerViewsFromTask(qc)
     },

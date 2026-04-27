@@ -107,20 +107,20 @@ function ActivityInner() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle activité"
-      subtitle="Planner"
+      title={t('planner.create_activity.title', 'Nouvelle activité')}
+      subtitle={t('planner.title', 'Planner')}
       icon={<CalendarRange size={14} className="text-primary" />}
       actions={
         <>
           <PanelActionButton onClick={closeDynamicPanel}>
-            Annuler
+            {t('common.cancel')}
           </PanelActionButton>
           <PanelActionButton
             variant="primary"
             disabled={createActivity.isPending}
             onClick={() => (document.getElementById('create-activity-form') as HTMLFormElement)?.requestSubmit()}
           >
-            {createActivity.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
+            {createActivity.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create', 'Créer')}
           </PanelActionButton>
         </>
       }
@@ -139,7 +139,7 @@ function ActivityInner() {
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   className={panelInputClass}
-                  placeholder="Titre de l'activité"
+                  placeholder={t('planner.create_activity.title_placeholder', "Titre de l'activité")}
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Site" required>
@@ -178,7 +178,7 @@ function ActivityInner() {
                   value={form.subtype ?? ''}
                   onChange={(e) => setForm({ ...form, subtype: e.target.value || null })}
                   className={panelInputClass}
-                  placeholder="Sous-type (optionnel)"
+                  placeholder={t('planner.create_activity.subtype_placeholder', 'Sous-type (optionnel)')}
                 />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.priority_field')}>
@@ -198,8 +198,8 @@ function ActivityInner() {
                   onChange={(e) => setForm({ ...form, pax_quota_mode: e.target.value as 'constant' | 'variable' })}
                   className={panelInputClass}
                 >
-                  <option value="constant">Constant (même valeur tous les jours)</option>
-                  <option value="variable">Variable (par jour)</option>
+                  <option value="constant">{t('planner.pob_mode.constant', 'Constant (même valeur tous les jours)')}</option>
+                  <option value="variable">{t('planner.pob_mode.variable', 'Variable (par jour)')}</option>
                 </select>
               </DynamicPanelField>
               {form.pax_quota_mode !== 'variable' && (
@@ -217,7 +217,7 @@ function ActivityInner() {
             </FormGrid>
             {form.pax_quota_mode === 'variable' && form.start_date && form.end_date && (
               <div className="mt-3">
-                <p className="text-xs text-muted-foreground mb-2">Plan POB jour par jour :</p>
+                <p className="text-xs text-muted-foreground mb-2">{t('planner.create_activity.pob_daily_intro', 'Plan POB jour par jour :')}</p>
                 <VariablePobEditor
                   startDate={form.start_date}
                   endDate={form.end_date}
@@ -245,7 +245,7 @@ function ActivityInner() {
                 value={form.description ?? ''}
                 onChange={(html) => setForm({ ...form, description: html || null })}
                 rows={4}
-                placeholder="Description de l'activité..."
+                placeholder={t('planner.create_activity.description_placeholder', "Description de l'activité…")}
                 imageOwnerType={stagingOwnerType}
                 imageOwnerId={stagingRef}
               />
@@ -285,7 +285,7 @@ function ActivityInner() {
                     value={form.well_reference ?? ''}
                     onChange={(e) => setForm({ ...form, well_reference: e.target.value || null })}
                     className={panelInputClass}
-                    placeholder="Ref. puits"
+                    placeholder={t('planner.create_activity.well_ref', 'Ref. puits')}
                   />
                 </DynamicPanelField>
                 <DynamicPanelField label={t('common.rig_name')}>
@@ -294,7 +294,7 @@ function ActivityInner() {
                     value={form.rig_name ?? ''}
                     onChange={(e) => setForm({ ...form, rig_name: e.target.value || null })}
                     className={panelInputClass}
-                    placeholder="Nom du rig"
+                    placeholder={t('planner.create_activity.rig_name', 'Nom du rig')}
                   />
                 </DynamicPanelField>
               </FormGrid>
@@ -318,7 +318,7 @@ function ActivityInner() {
                     value={form.target_depth ?? ''}
                     onChange={(e) => setForm({ ...form, target_depth: parseFloat(e.target.value) || null })}
                     className={panelInputClass}
-                    placeholder="Profondeur en metres"
+                    placeholder={t('planner.create_activity.depth_m', 'Profondeur en mètres')}
                   />
                 </DynamicPanelField>
                 <DynamicPanelField label={t('common.drilling_program_ref')}>
@@ -327,7 +327,7 @@ function ActivityInner() {
                     value={form.drilling_program_ref ?? ''}
                     onChange={(e) => setForm({ ...form, drilling_program_ref: e.target.value || null })}
                     className={panelInputClass}
-                    placeholder="Référence programme"
+                    placeholder={t('planner.create_activity.program_ref', 'Référence programme')}
                   />
                 </DynamicPanelField>
               </FormGrid>
@@ -343,7 +343,7 @@ function ActivityInner() {
                     value={form.regulatory_ref ?? ''}
                     onChange={(e) => setForm({ ...form, regulatory_ref: e.target.value || null })}
                     className={panelInputClass}
-                    placeholder="Réf. réglementaire"
+                    placeholder={t('planner.create_activity.regulatory_ref', 'Réf. réglementaire')}
                   />
                 </DynamicPanelField>
                 <DynamicPanelField label={t('common.work_order')}>
@@ -352,7 +352,7 @@ function ActivityInner() {
                     value={form.work_order_ref ?? ''}
                     onChange={(e) => setForm({ ...form, work_order_ref: e.target.value || null })}
                     className={panelInputClass}
-                    placeholder="No. bon de travail"
+                    placeholder={t('planner.create_activity.work_order', 'N° bon de travail')}
                   />
                 </DynamicPanelField>
               </FormGrid>

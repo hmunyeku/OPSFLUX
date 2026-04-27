@@ -1243,6 +1243,11 @@ function ProjectMiniGantt({
       rows={rows}
       bars={bars}
       initialScale="month"
+      // Match TaskTable's `h-8` row height (32px) so left and right
+      // panes align row-for-row in fullscreen split. barHeight is
+      // tightened proportionally so the bar still has top/bottom
+      // breathing space inside the row (32 - 20 = 12px ÷ 2 = 6px each).
+      initialSettings={{ rowHeight: 32, barHeight: 20 }}
       showToolbar
       showGrid
       minHeight="100%"
@@ -1342,33 +1347,106 @@ function TaskFullscreenOverlay({
 
   // ── Synchronised vertical scroll between the table and the gantt
   // mini-pane. The user expects the same row to align on both sides
-  // (Microsoft Project-style). We bind both panes' onScroll handlers
-  // to mirror each other; a flag breaks the recursive update loop.
+  // (Microsoft Project-style). The actual scrollable elements live
+  // INSIDE each component (TaskTable's body div, GanttCore's body
+  // scroll), so we resolve them via stable data-attributes after
+  // mount rather than scrolling the outer wrappers — those don't
+  // overflow when the inner scrollers cap at 100% height.
   const leftScrollRef = useRef<HTMLDivElement | null>(null)
   const rightScrollRef = useRef<HTMLDivElement | null>(null)
   const syncingRef = useRef(false)
+  // Padding added on top of the TaskTable wrapper so its first row
+  // sits at the SAME Y as the gantt's first row (gantt has a taller
+  // header — toolbar + scale strip — than the bare TaskTable header).
+  const [topPadLeft, setTopPadLeft] = useState(0)
+  const [topPadRight, setTopPadRight] = useState(0)
+
   useEffect(() => {
-    const left = leftScrollRef.current
-    const right = rightScrollRef.current
-    if (!left || !right) return
+    let raf = 0
+    let leftBody: HTMLElement | null = null
+    let rightBody: HTMLElement | null = null
+
     const onLeft = () => {
-      if (syncingRef.current) return
+      if (syncingRef.current || !leftBody || !rightBody) return
       syncingRef.current = true
-      right.scrollTop = left.scrollTop
+      rightBody.scrollTop = leftBody.scrollTop
       requestAnimationFrame(() => { syncingRef.current = false })
     }
     const onRight = () => {
-      if (syncingRef.current) return
+      if (syncingRef.current || !leftBody || !rightBody) return
       syncingRef.current = true
-      left.scrollTop = right.scrollTop
+      leftBody.scrollTop = rightBody.scrollTop
       requestAnimationFrame(() => { syncingRef.current = false })
     }
-    left.addEventListener('scroll', onLeft)
-    right.addEventListener('scroll', onRight)
-    return () => {
-      left.removeEventListener('scroll', onLeft)
-      right.removeEventListener('scroll', onRight)
+
+    const measure = () => {
+      const lp = leftScrollRef.current
+      const rp = rightScrollRef.current
+      if (!lp || !rp) return
+
+      // Resolve the actual inner scrollers.
+      leftBody = lp.querySelector('[data-tasktable-body]') as HTMLElement | null
+      rightBody = rp.querySelector('[data-gantt-body-scroll]') as HTMLElement | null
+
+      // Equalize the inner header heights so row 1 lines up on both
+      // sides. Measure each header relative to its component's OWN
+      // wrapper (NOT the pane wrapper) so the variable paddingTop we
+      // set below doesn't feed back into the next measurement and
+      // create an oscillation. The pane with the SHORTER header gets
+      // padding added on top so the row baselines match.
+      if (leftBody && rightBody) {
+        const tableWrap = leftBody.parentElement
+        const ganttWrap = rightBody.closest('[data-gantt-toolbar]')?.parentElement
+          ?? rightBody.parentElement?.parentElement
+          ?? rightBody.parentElement
+        if (tableWrap && ganttWrap) {
+          const lHeader = leftBody.getBoundingClientRect().top - tableWrap.getBoundingClientRect().top
+          const rHeader = rightBody.getBoundingClientRect().top - ganttWrap.getBoundingClientRect().top
+          const delta = rHeader - lHeader
+          if (delta > 0.5) {
+            setTopPadLeft(delta)
+            setTopPadRight(0)
+          } else if (delta < -0.5) {
+            setTopPadLeft(0)
+            setTopPadRight(-delta)
+          } else {
+            setTopPadLeft(0)
+            setTopPadRight(0)
+          }
+        }
+      }
+
+      if (leftBody) leftBody.addEventListener('scroll', onLeft)
+      if (rightBody) rightBody.addEventListener('scroll', onRight)
     }
+
+    // Defer one frame so children have laid out their inner DOM.
+    raf = requestAnimationFrame(() => {
+      measure()
+      // Re-measure on resize — toolbar wrapping changes header height
+      // so the offset can drift between viewport widths.
+      const ro = new ResizeObserver(() => {
+        // Detach scroll listeners before re-attaching at new measure.
+        if (leftBody) leftBody.removeEventListener('scroll', onLeft)
+        if (rightBody) rightBody.removeEventListener('scroll', onRight)
+        measure()
+      })
+      if (leftScrollRef.current) ro.observe(leftScrollRef.current)
+      if (rightScrollRef.current) ro.observe(rightScrollRef.current)
+      // Stash for cleanup via closure.
+      ;(measure as unknown as { _ro?: ResizeObserver })._ro = ro
+    })
+
+    return () => {
+      cancelAnimationFrame(raf)
+      const ro = (measure as unknown as { _ro?: ResizeObserver })._ro
+      ro?.disconnect()
+      if (leftBody) leftBody.removeEventListener('scroll', onLeft)
+      if (rightBody) rightBody.removeEventListener('scroll', onRight)
+    }
+    // ResizeObserver covers viewport changes — including the mobile
+    // single-pane flip — so we don't need to re-run on isMobile.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── Mobile single-pane mode. Below 768px the 50/50 horizontal
@@ -1536,10 +1614,14 @@ function TaskFullscreenOverlay({
         <div
           ref={leftScrollRef}
           className={cn(
-            'overflow-auto p-3',
+            'overflow-hidden flex flex-col',
             isMobile && mobilePane !== 'table' && 'hidden',
           )}
-          style={isMobile ? { width: '100%' } : { width: `${splitPct}%` }}
+          style={
+            isMobile
+              ? { width: '100%', paddingTop: topPadLeft }
+              : { width: `${splitPct}%`, paddingTop: topPadLeft }
+          }
         >
           <TaskTable
             tasks={tasks}
@@ -1549,6 +1631,7 @@ function TaskFullscreenOverlay({
             selectedTaskId={selectedTaskId}
             onSelect={onSelect}
             onOpenAdvanced={onOpenAdvanced}
+            className="flex-1 min-h-0"
           />
         </div>
 
@@ -1571,10 +1654,14 @@ function TaskFullscreenOverlay({
         <div
           ref={rightScrollRef}
           className={cn(
-            'bg-muted/10 min-h-0 overflow-auto',
+            'bg-muted/10 min-h-0 overflow-hidden flex flex-col',
             isMobile && mobilePane !== 'gantt' && 'hidden',
           )}
-          style={isMobile ? { width: '100%' } : { width: `${100 - splitPct}%` }}
+          style={
+            isMobile
+              ? { width: '100%', paddingTop: topPadRight }
+              : { width: `${100 - splitPct}%`, paddingTop: topPadRight }
+          }
         >
           <ProjectMiniGantt
             tasks={tasks}

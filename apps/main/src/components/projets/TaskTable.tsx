@@ -503,7 +503,7 @@ export function TaskTable({
     <div
       ref={wrapRef}
       className={cn(
-        'border border-border rounded-md overflow-hidden bg-card/30',
+        'border border-border rounded-md overflow-hidden bg-card/30 flex flex-col',
         className,
       )}
       style={{ maxHeight }}
@@ -528,7 +528,11 @@ export function TaskTable({
       </div>
 
       {/* Body */}
-      <div className="overflow-auto" style={{ maxHeight: maxHeight ? undefined : 'none' }}>
+      <div
+        data-tasktable-body
+        className="overflow-auto flex-1 min-h-0"
+        style={{ maxHeight: maxHeight ? undefined : 'none' }}
+      >
         {flatRows.length === 0 ? (
           <div className="text-[11px] text-muted-foreground italic p-3 text-center">
             Aucune tâche.

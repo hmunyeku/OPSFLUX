@@ -27,6 +27,22 @@ import type {
 
 const BASE = '/api/v1/planner'
 
+// ── Conflict email recipient suggestions ──
+// Mirrors EmailRecipientSuggestion / ConflictEmailSuggestionsResponse
+// in app/api/routes/modules/planner.py. Source values:
+//   activity_creator | project_manager | task_assignee | arbitrator | resolver
+export interface ConflictEmailSuggestion {
+  email: string
+  label: string | null
+  source: string
+  context: string | null
+}
+
+export interface ConflictEmailSuggestions {
+  to: ConflictEmailSuggestion[]
+  cc: ConflictEmailSuggestion[]
+}
+
 // ── Server-side rendered Gantt PDF payload ──
 // Mirrors the Pydantic schemas in app/api/routes/modules/planner.py.
 // The frontend builds this from its memoised rows / bars / cells and
@@ -355,6 +371,18 @@ export const plannerService = {
   // ── Conflict audit trail ──
   getConflictAudit: async (conflictId: string): Promise<ConflictAuditEntry[]> => {
     const { data } = await api.get(`${BASE}/conflicts/${conflictId}/audit`)
+    return data
+  },
+
+  // ── Email recipient suggestions for a conflict cluster ──
+  // Returns the activity creators / project managers / task assignees as
+  // pre-filled "to" recipients, plus the current user (and any past
+  // arbitrator) on cc, so the user only has to click Send. Free editing
+  // remains possible in the EmailComposer chip input.
+  getConflictEmailSuggestions: async (
+    conflictId: string,
+  ): Promise<ConflictEmailSuggestions> => {
+    const { data } = await api.get(`${BASE}/conflicts/${conflictId}/email-suggestions`)
     return data
   },
 

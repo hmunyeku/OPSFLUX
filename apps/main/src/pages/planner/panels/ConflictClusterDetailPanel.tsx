@@ -85,6 +85,14 @@ export function ConflictClusterDetailPanel() {
   const resolveConflict = useResolveConflict()
   const bulkResolveConflicts = useBulkResolveConflicts()
 
+  // Suggested email recipients fetched lazily — only when the user
+  // actually clicks "Email" so we don't burn a request per panel open.
+  const [emailSuggestions, setEmailSuggestions] = useState<{
+    to: { email: string; label?: string; source: 'user' }[]
+    cc: { email: string; label?: string; source: 'user' }[]
+  } | null>(null)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+
   // Audit history of the cluster's primary conflict. For fully-closed
   // clusters `primary_conflict_id` is null (it points to the first OPEN
   // member), so we fall back to the first member's id — that lets the
@@ -268,6 +276,39 @@ export function ConflictClusterDetailPanel() {
   // as an attachment. Mirrors the real-world arbitration broadcast we
   // see in operations emails ("voici l'arbitrage de la fenêtre du …").
   const [emailModalOpen, setEmailModalOpen] = useState(false)
+
+  // Fetch suggested recipients (activity creators / project managers /
+  // task assignees) lazily when the user clicks the Email button. We
+  // keep the modal closed until suggestions land so the form opens
+  // already pre-filled — better than flashing the modal empty and then
+  // populating it as the response arrives.
+  const handleOpenEmail = useCallback(async () => {
+    const anchorId = cluster?.primary_conflict_id || cluster?.members[0]?.id
+    if (!anchorId) {
+      setEmailSuggestions({ to: [], cc: [] })
+      setEmailModalOpen(true)
+      return
+    }
+    setLoadingSuggestions(true)
+    try {
+      const res = await plannerService.getConflictEmailSuggestions(anchorId)
+      // Backend sources (activity_creator / project_manager / …) carry
+      // more meaning than the picker's 3-value enum. We keep the
+      // friendly label and tag them all as 'user' so the chip picks
+      // the people-icon that matches what they really are: known
+      // OpsFlux users pulled from the directory.
+      setEmailSuggestions({
+        to: res.to.map((r) => ({ email: r.email, label: r.label ?? undefined, source: 'user' })),
+        cc: res.cc.map((r) => ({ email: r.email, label: r.label ?? undefined, source: 'user' })),
+      })
+    } catch {
+      // Soft-fail: open with empty suggestions, the user can still type.
+      setEmailSuggestions({ to: [], cc: [] })
+    } finally {
+      setLoadingSuggestions(false)
+      setEmailModalOpen(true)
+    }
+  }, [cluster?.primary_conflict_id, cluster?.members])
   const [exportingPdf, setExportingPdf] = useState(false)
   const handleDownloadPdf = useCallback(async () => {
     if (!cluster?.primary_conflict_id && cluster?.members.length === 0) return
@@ -307,7 +348,8 @@ export function ConflictClusterDetailPanel() {
           id: 'email',
           label: 'Email',
           icon: Send,
-          onClick: () => setEmailModalOpen(true),
+          onClick: () => { void handleOpenEmail() },
+          disabled: loadingSuggestions,
         },
         {
           id: 'close',
@@ -328,7 +370,8 @@ export function ConflictClusterDetailPanel() {
           id: 'email',
           label: 'Email',
           icon: Send,
-          onClick: () => setEmailModalOpen(true),
+          onClick: () => { void handleOpenEmail() },
+          disabled: loadingSuggestions,
         },
         {
           id: 'cancel',
@@ -815,7 +858,14 @@ export function ConflictClusterDetailPanel() {
           open={emailModalOpen}
           onClose={() => setEmailModalOpen(false)}
           title={`Envoyer l'arbitrage par email · ${cluster.asset_name ?? 'Conflit'}`}
+          defaultRecipients={emailSuggestions?.to ?? []}
+          defaultCc={emailSuggestions?.cc ?? []}
           defaultSubject={`[Planner] Arbitrage conflit ${cluster.asset_name ?? ''} ${cluster.start_date} → ${cluster.end_date}`}
+          bodyHint={
+            (emailSuggestions?.to.length ?? 0) > 0
+              ? `${emailSuggestions?.to.length} destinataire(s) suggéré(s) (créateurs d'activité, chefs de projet, assignés). Vous pouvez retirer ou ajouter librement.`
+              : undefined
+          }
           attachments={[
             {
               label: `arbitrage-conflit-${(cluster.asset_name ?? 'asset').toLowerCase().replace(/\s+/g, '-')}-${cluster.start_date}.pdf`,

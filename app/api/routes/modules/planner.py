@@ -3760,6 +3760,196 @@ async def email_conflict_cluster(
     return {"sent": True, "recipients": payload.recipients, "cc": payload.cc, "subject": subject}
 
 
+# ── Email recipient suggestions ─────────────────────────────────────────
+#
+# Pre-fills the email composer's "To" field with the people who actually
+# care about the conflict — activity creators, project managers, project
+# task assignees — plus the current user (the arbitrator) on Cc. Saves
+# the user from typing addresses they already have in the system, while
+# still letting them edit the chip list freely before sending.
+
+
+class EmailRecipientSuggestion(BaseModel):
+    email: str
+    label: str | None = None
+    source: str  # 'activity_creator' | 'project_manager' | 'task_assignee' | 'arbitrator' | 'resolver'
+    context: str | None = None  # human-readable origin (e.g. activity title)
+
+
+class ConflictEmailSuggestionsResponse(BaseModel):
+    to: list[EmailRecipientSuggestion]
+    cc: list[EmailRecipientSuggestion]
+
+
+@router.get(
+    "/conflicts/{conflict_id}/email-suggestions",
+    response_model=ConflictEmailSuggestionsResponse,
+)
+async def get_conflict_email_suggestions(
+    conflict_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.conflict.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Suggested recipients for the cluster's email arbitrage broadcast.
+
+    Returns:
+        - to:  activity creators + project managers + task assignees of
+               every activity involved in the cluster, de-duplicated by
+               email. Empty entries (no email on file) are dropped.
+        - cc:  the current user (the arbitrator), plus any other actor
+               who already touched this cluster's audit log — usually
+               nobody on a fresh open conflict, but for already-resolved
+               clusters this surfaces the original resolver so they can
+               be looped in on the broadcast.
+
+    The frontend treats this as a hint — the user can still edit, remove
+    or add recipients freely in the EmailComposer chip input before
+    sending.
+    """
+    # Reuse the cluster builder so we work from the canonical activity
+    # set (junction-aware, contiguous days), not just the anchor row.
+    cluster_payload = await _build_cluster_payload_from_anchor(
+        db, conflict_id, entity_id,
+    )
+
+    # Gather every relevant user id by walking the activities in the
+    # cluster. The activity meta already comes back from the cluster
+    # builder; we additionally need to fetch the activity rows to read
+    # `created_by`, `project_id` and `source_task_id` (these aren't on
+    # the meta payload by design — keeps the cluster shape lean).
+    activity_ids = [UUID(a["id"]) for a in cluster_payload["activities"]]
+    activities_q = await db.execute(
+        select(PlannerActivity).where(PlannerActivity.id.in_(activity_ids))
+    )
+    activities = activities_q.scalars().all()
+
+    user_ids: set[UUID] = set()
+    user_origin: dict[UUID, list[tuple[str, str]]] = {}
+    # ↑ user_id → list of (source, context) — keeps the FIRST source we
+    # see per user but accumulates contexts so the chip can show why
+    # they were suggested.
+
+    def _track(uid: UUID | None, source: str, context: str) -> None:
+        if not uid:
+            return
+        user_ids.add(uid)
+        user_origin.setdefault(uid, []).append((source, context))
+
+    # Project + task lookups — bulk so we don't issue one query per
+    # activity. Most clusters touch <5 activities so this is cheap.
+    project_ids = {a.project_id for a in activities if a.project_id}
+    task_ids = {a.source_task_id for a in activities if a.source_task_id}
+    projects: dict[UUID, Project] = {}
+    if project_ids:
+        pj_q = await db.execute(select(Project).where(Project.id.in_(project_ids)))
+        projects = {p.id: p for p in pj_q.scalars().all()}
+    tasks: dict[UUID, ProjectTask] = {}
+    if task_ids:
+        tk_q = await db.execute(select(ProjectTask).where(ProjectTask.id.in_(task_ids)))
+        tasks = {t.id: t for t in tk_q.scalars().all()}
+
+    for a in activities:
+        _track(a.created_by, "activity_creator", a.title or str(a.id))
+        if a.project_id and (proj := projects.get(a.project_id)):
+            _track(proj.manager_id, "project_manager", proj.name or proj.code or "Projet")
+        if a.source_task_id and (task := tasks.get(a.source_task_id)):
+            _track(task.assignee_id, "task_assignee", task.title or "Tâche")
+
+    # Resolve all collected user ids in one go.
+    users_by_id: dict[UUID, User] = {}
+    if user_ids:
+        usr_q = await db.execute(select(User).where(User.id.in_(user_ids)))
+        users_by_id = {u.id: u for u in usr_q.scalars().all()}
+
+    # Build the "to" list — de-duplicate by email, lowercased.
+    seen_emails: set[str] = set()
+    to_list: list[EmailRecipientSuggestion] = []
+    for uid in user_ids:
+        u = users_by_id.get(uid)
+        if not u or not u.email:
+            continue
+        key = u.email.strip().lower()
+        if not key or key in seen_emails:
+            continue
+        seen_emails.add(key)
+        sources = user_origin.get(uid, [])
+        # Pick the most specific source (priority: project_manager >
+        # task_assignee > activity_creator) so the chip badge tells the
+        # truth about why this person was added.
+        source_priority = {"project_manager": 0, "task_assignee": 1, "activity_creator": 2}
+        sources.sort(key=lambda s: source_priority.get(s[0], 99))
+        first_source, first_context = sources[0]
+        full_name = (
+            getattr(u, "full_name", None)
+            or f"{getattr(u, 'first_name', '') or ''} {getattr(u, 'last_name', '') or ''}".strip()
+            or u.email
+        )
+        to_list.append(
+            EmailRecipientSuggestion(
+                email=u.email, label=full_name, source=first_source, context=first_context,
+            )
+        )
+
+    # Build the "cc" list:
+    # 1. Current user (arbitrator) — always, unless they're already in `to`.
+    # 2. Any audit actor that isn't us and isn't already in `to` — surfaces
+    #    the prior resolver on already-resolved clusters.
+    cc_list: list[EmailRecipientSuggestion] = []
+    seen_cc: set[str] = set(seen_emails)
+    if current_user.email:
+        me_key = current_user.email.strip().lower()
+        if me_key and me_key not in seen_cc:
+            me_name = (
+                getattr(current_user, "full_name", None)
+                or f"{getattr(current_user, 'first_name', '') or ''} {getattr(current_user, 'last_name', '') or ''}".strip()
+                or current_user.email
+            )
+            cc_list.append(
+                EmailRecipientSuggestion(
+                    email=current_user.email, label=me_name, source="arbitrator",
+                    context="Vous (arbitre)",
+                )
+            )
+            seen_cc.add(me_key)
+
+    # Past resolvers from audit — surfaces the original arbitrator on
+    # already-resolved clusters so they're looped in on the broadcast.
+    # We pull distinct actor_ids from non-auto audit rows attached to
+    # any of the cluster's members.
+    audit_q = await db.execute(
+        select(PlannerConflictAudit.actor_id).where(
+            PlannerConflictAudit.conflict_id.in_([m.id for m in cluster_payload["members_raw"]]),
+            PlannerConflictAudit.actor_id.is_not(None),
+            PlannerConflictAudit.context != "auto_cleared",
+        ).distinct()
+    )
+    actor_ids = [r for r in audit_q.scalars().all() if r is not None]
+    if actor_ids:
+        actor_q = await db.execute(select(User).where(User.id.in_(actor_ids)))
+        for u in actor_q.scalars().all():
+            if not u.email:
+                continue
+            k = u.email.strip().lower()
+            if not k or k in seen_cc:
+                continue
+            full_name = (
+                getattr(u, "full_name", None)
+                or f"{getattr(u, 'first_name', '') or ''} {getattr(u, 'last_name', '') or ''}".strip()
+                or u.email
+            )
+            cc_list.append(
+                EmailRecipientSuggestion(
+                    email=u.email, label=full_name, source="resolver",
+                    context="Arbitre précédent",
+                )
+            )
+            seen_cc.add(k)
+
+    return ConflictEmailSuggestionsResponse(to=to_list, cc=cc_list)
+
+
 # ── Capacity Heatmap ─────────────────────────────────────────────────────
 
 

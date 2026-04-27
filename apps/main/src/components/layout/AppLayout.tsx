@@ -106,7 +106,14 @@ export function AppLayout({ children }: AppLayoutProps) {
     setMobileSidebarOpen,
   } = useUIStore()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const dynamicPanelMode = useUIStore((s) => s.dynamicPanelMode)
   const showGlobalPanel = !!dynamicPanel && GLOBAL_PANEL_MODULES.has(dynamicPanel.module)
+  // When a global panel is in 'full' mode (e.g. on mobile via the
+  // auto-fullscreen logic in DynamicPanelShell), it claims the whole
+  // main area. The page's own <main> needs to step out of the flex
+  // row otherwise both fight for `flex-1` space and the user gets a
+  // 50/50 split — exactly the bug we hit on mobile <768px.
+  const isGlobalPanelFull = showGlobalPanel && dynamicPanelMode === 'full'
 
   // ── Persist sidebar state via user preferences (DB-backed) ──
   const { getPref, setPref } = useUserPreferences()
@@ -250,12 +257,17 @@ export function AppLayout({ children }: AppLayoutProps) {
           />
         </div>
 
-        {/* ── Zones 3+4+5: Main area — 150ms after topbar so content lands last. ── */}
+        {/* ── Zones 3+4+5: Main area — 150ms after topbar so content lands last.
+            When a global panel takes full mode (mobile auto-fullscreen),
+            we hide the main so the panel doesn't fight it for flex space. */}
         <main
           role="main"
           id="main-content"
           data-tour="main-content"
-          className="flex-1 overflow-hidden min-w-0 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:delay-150"
+          className={cn(
+            'flex-1 overflow-hidden min-w-0 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:delay-150',
+            isGlobalPanelFull && 'hidden',
+          )}
         >
           {children}
         </main>

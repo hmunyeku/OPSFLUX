@@ -49,17 +49,19 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 // Status / priority option builders — translated at call time so
-// the labels follow the active language. The static `_FALLBACK`
-// arrays keep the original FR copy in sync with the seeded i18n
-// keys, so the build-time string-extraction stays accurate.
-const buildStatusOptions = (t: (key: string, fallback?: string) => string) => [
+// the labels follow the active language. The builder accepts the
+// react-i18next `TFunction` directly (typed as `any` here to avoid
+// pulling the i18next type surface into this file — the runtime
+// signature is identical to (key, fallback?) → string).
+type Tfn = (key: string, fallback?: string) => string
+const buildStatusOptions = (t: Tfn) => [
   { value: 'todo',        label: t('projets.task_status.todo', 'À faire'),       color: TASK_COLORS.todo },
   { value: 'in_progress', label: t('projets.task_status.in_progress', 'En cours'), color: TASK_COLORS.in_progress },
   { value: 'review',      label: t('projets.task_status.review', 'Revue'),       color: TASK_COLORS.review },
   { value: 'done',        label: t('projets.task_status.done', 'Terminé'),      color: TASK_COLORS.done },
   { value: 'cancelled',   label: t('projets.task_status.cancelled', 'Annulé'),  color: TASK_COLORS.cancelled },
 ]
-const buildPriorityOptions = (t: (key: string, fallback?: string) => string) => [
+const buildPriorityOptions = (t: Tfn) => [
   { value: 'low',      label: t('projets.priority.low', 'Basse'),       color: PRIORITY_COLORS.low },
   { value: 'medium',   label: t('projets.priority.medium', 'Moyenne'),  color: PRIORITY_COLORS.medium },
   { value: 'high',     label: t('projets.priority.high', 'Haute'),      color: PRIORITY_COLORS.high },
@@ -68,7 +70,7 @@ const buildPriorityOptions = (t: (key: string, fallback?: string) => string) => 
 
 // ── Grid columns ────────────────────────────────────────────────
 
-const buildColumns = (t: (key: string, fallback?: string) => string): GanttColumn[] => [
+const buildColumns = (t: Tfn): GanttColumn[] => [
   { id: 'start',        label: t('common.start_date_short', 'Début'), width: 62, align: 'center', editable: true, editType: 'date' },
   { id: 'end',          label: t('common.end_date_short', 'Fin'),     width: 62, align: 'center', editable: true, editType: 'date' },
   { id: 'duration',     label: t('projets.gantt.col_days', 'Jrs'),    width: 32, align: 'right' },
@@ -87,10 +89,13 @@ export function ProjectGanttWrapper() {
   const { t } = useTranslation()
   // Translated option lists / columns — rebuilt cheaply per render
   // since they read live from i18n. useMemo to avoid identity churn
-  // when t hasn't changed.
-  const STATUS_OPTIONS = useMemo(() => buildStatusOptions(t), [t])
-  const PRIORITY_OPTIONS = useMemo(() => buildPriorityOptions(t), [t])
-  const COLUMNS = useMemo(() => buildColumns(t), [t])
+  // when t hasn't changed. The TFunction type from react-i18next is
+  // narrower than our (key, fallback) → string contract; a cast is
+  // safe because the runtime signature matches.
+  const tt = t as unknown as Tfn
+  const STATUS_OPTIONS = useMemo(() => buildStatusOptions(tt), [tt])
+  const PRIORITY_OPTIONS = useMemo(() => buildPriorityOptions(tt), [tt])
+  const COLUMNS = useMemo(() => buildColumns(tt), [tt])
   const { data: pd, isLoading: projLoading } = useProjects({ page_size: 200 })
   const openPanel = useUIStore(s => s.openDynamicPanel)
   const { toast } = useToast()

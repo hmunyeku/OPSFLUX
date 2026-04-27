@@ -213,6 +213,7 @@ export function WbsSection({ projectId }: { projectId: string }) {
 // -- CPM Section (Critical Path Method) --------------------------------------
 
 export function CpmSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: cpm, isLoading } = useProjectCpm(projectId)
   // Project + tasks fetched in parallel — both should already be cached
   // by the parent panel, so this is a no-op network-wise. We use them
@@ -698,6 +699,7 @@ export function PlanningRevisionsSection({ projectId }: { projectId: string }) {
 // -- Sub-Projects Section (for detail panel) ----------------------------------
 
 export function SubProjectsSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: children, isLoading } = useSubProjects(projectId)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const projectStatusLabels = useDictionaryLabels('project_status', PROJECT_STATUS_LABELS_FALLBACK)

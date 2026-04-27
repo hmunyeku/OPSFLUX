@@ -267,9 +267,43 @@ export function DataTableToolbar({
   }, [filters])
 
   const handleSelectOperator = useCallback((filterId: string, operator: FilterOperator) => {
+    // If the filter already has a value, immediately re-emit it under
+    // the new operator so the change is persisted even if the user
+    // dismisses the values step without picking anything. Without this,
+    // switching operator on an existing token did nothing visible until
+    // the user re-picked a value.
+    const current = activeFilters?.[filterId]
+    if (current !== undefined && current !== null && current !== '') {
+      let values: unknown[] = []
+      let singleValue: unknown = undefined
+      if (Array.isArray(current)) {
+        values = [...current]
+      } else if (typeof current === 'object' && current !== null) {
+        const v = current as { value?: unknown; values?: unknown[] }
+        if (Array.isArray(v.values)) values = [...v.values]
+        else if (v.value !== undefined) singleValue = v.value
+      } else {
+        singleValue = current
+      }
+      // Re-emit under the new operator. Date-range structured values
+      // (with from/to) are skipped here — those flow through the
+      // DateRangeValuePicker apply path with its own operator.
+      const filter = filters?.find((f) => f.id === filterId)
+      const isDateRange = filter?.type === 'date-range'
+      if (!isDateRange) {
+        if (operator === 'is') {
+          if (singleValue !== undefined) onFilterChange?.(filterId, singleValue)
+          else if (values.length === 1) onFilterChange?.(filterId, values[0])
+          else if (values.length > 1) onFilterChange?.(filterId, values)
+        } else {
+          if (singleValue !== undefined) onFilterChange?.(filterId, { operator, value: singleValue })
+          else if (values.length > 0) onFilterChange?.(filterId, { operator, values })
+        }
+      }
+    }
     setDropdown({ type: 'values', filterId, operator })
     setFilterSearch('')
-  }, [])
+  }, [activeFilters, filters, onFilterChange])
 
   const handleSelectValue = useCallback((filterId: string, value: string, operator: FilterOperator, isMultiSelect: boolean) => {
     if (isMultiSelect) {
@@ -458,16 +492,49 @@ export function DataTableToolbar({
                 )
               )}
               <span className="inline-flex items-center h-[20px] rounded overflow-hidden text-[11px] font-medium border border-border/60">
-                {/* Filter name */}
-                <span className="px-1.5 bg-accent/80 text-muted-foreground border-r border-border/60">
+                {/* Filter name — clickable to re-edit (re-pick the
+                    operator, then a value). Re-opens the operators
+                    dropdown anchored to the same filter. */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDropdown({ type: 'operators', filterId: token.filterId })
+                    setFilterSearch('')
+                  }}
+                  className="px-1.5 bg-accent/80 text-muted-foreground border-r border-border/60 hover:bg-accent/90 transition-colors"
+                  title="Modifier le filtre"
+                >
                   {token.label}
-                </span>
-                {/* Operator */}
-                <span className="px-1 bg-accent/40 text-muted-foreground/70 text-[10px] border-r border-border/60">
+                </button>
+                {/* Operator — clickable to switch operator only. */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDropdown({ type: 'operators', filterId: token.filterId })
+                    setFilterSearch('')
+                  }}
+                  className="px-1 bg-accent/40 text-muted-foreground/70 text-[10px] border-r border-border/60 hover:bg-accent/60 hover:text-foreground/80 transition-colors"
+                  title="Changer l'opérateur"
+                >
                   {FILTER_OPERATOR_LABELS[token.operator]}
-                </span>
-                {/* Value(s) — joined with "ou" for multi-select */}
-                <span className="px-1.5 text-foreground">
+                </button>
+                {/* Value(s) — clickable to re-pick value(s). */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDropdown({
+                      type: 'values',
+                      filterId: token.filterId,
+                      operator: token.operator,
+                    })
+                    setFilterSearch('')
+                  }}
+                  className="px-1.5 text-foreground hover:bg-accent/40 transition-colors text-left"
+                  title="Modifier la valeur"
+                >
                   {token.valueLabels.length > 1
                     ? token.valueLabels.map((v, j) => (
                         <span key={j}>
@@ -477,7 +544,7 @@ export function DataTableToolbar({
                       ))
                     : token.valueLabels[0]
                   }
-                </span>
+                </button>
                 {/* Remove button */}
                 <button
                   onClick={(e) => { e.stopPropagation(); handleRemoveToken(token.filterId) }}
@@ -896,8 +963,9 @@ interface DateRangeValuePickerProps {
   onClear: () => void
 }
 function DateRangeValuePicker({ filter, operator, currentValue, onApply, onClear }: DateRangeValuePickerProps) {
-  // Pull existing dates out of the current filter value, regardless of shape.
-  const initial = (() => {
+  // Extract from/to from any of the supported value shapes. Pure
+  // function so we can re-derive on operator switch.
+  const deriveFromTo = useCallback((): { from: string; to: string } => {
     if (currentValue && typeof currentValue === 'object' && currentValue !== null) {
       const v = currentValue as { value?: unknown; values?: unknown[]; from?: string; to?: string; start?: string; end?: string }
       if (v.from || v.to) return { from: v.from ?? '', to: v.to ?? '' }
@@ -906,9 +974,22 @@ function DateRangeValuePicker({ filter, operator, currentValue, onApply, onClear
       if (typeof v.value === 'string') return operator === 'lt' ? { from: '', to: v.value } : { from: v.value, to: '' }
     }
     return { from: '', to: '' }
-  })()
-  const [from, setFrom] = useState(initial.from)
-  const [to, setTo] = useState(initial.to)
+  }, [currentValue, operator])
+
+  const [from, setFrom] = useState(() => deriveFromTo().from)
+  const [to, setTo] = useState(() => deriveFromTo().to)
+  // Re-initialise when the user switches operator while the picker is
+  // already open (e.g. between → gt). Without this, the inputs kept
+  // showing the previous values for the wrong operator's view.
+  const lastOpRef = useRef(operator)
+  useEffect(() => {
+    if (lastOpRef.current !== operator) {
+      lastOpRef.current = operator
+      const next = deriveFromTo()
+      setFrom(next.from)
+      setTo(next.to)
+    }
+  }, [operator, deriveFromTo])
 
   const isBetween = operator === 'between'
   const apply = () => {

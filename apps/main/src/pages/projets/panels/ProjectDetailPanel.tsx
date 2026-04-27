@@ -1167,12 +1167,15 @@ const TASK_BAR_COLORS: Record<string, string> = {
 }
 
 function ProjectMiniGantt({
-  tasks, selectedTaskId, onSelect, onOpenAdvanced,
+  tasks, selectedTaskId, onSelect, onOpenAdvanced, showGrid = true,
 }: {
   tasks: ProjectTask[]
   selectedTaskId: string | null
   onSelect: (id: string | null) => void
   onOpenAdvanced: (task: ProjectTask) => void
+  /** Hide Gantt's internal task grid panel — used in fullscreen
+   *  where TaskTable on the left already plays that role. */
+  showGrid?: boolean
 }) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set(tasks.map(t => t.id)))
 
@@ -1249,7 +1252,7 @@ function ProjectMiniGantt({
       // breathing space inside the row (32 - 20 = 12px ÷ 2 = 6px each).
       initialSettings={{ rowHeight: 32, barHeight: 20 }}
       showToolbar
-      showGrid
+      showGrid={showGrid}
       minHeight="100%"
       expandedRows={expandedRows}
       onToggleRow={toggleRow}
@@ -1668,6 +1671,13 @@ function TaskFullscreenOverlay({
             selectedTaskId={selectedTaskId}
             onSelect={onSelect}
             onOpenAdvanced={onOpenAdvanced}
+            // In fullscreen, the TaskTable on the left already lists
+            // tasks (and is editable). Showing Gantt's internal task
+            // grid would duplicate the labels and — because it has its
+            // own collapse state and scroll position — make rows drift
+            // out of alignment with the TaskTable. Hide it so the
+            // right pane is purely the timeline bars.
+            showGrid={false}
           />
         </div>
       </div>

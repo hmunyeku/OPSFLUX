@@ -238,6 +238,26 @@ export function ConflictClusterDetailPanel() {
   // in the UX. Pure resolutions (approve_both / deferred) stay allowed.
   const canApply = hasPermission('planner.activity.update')
 
+  // ── Read-only mode ────────────────────────────────────────────
+  // A cluster is "closed" once every member has been resolved or
+  // deferred. The panel then becomes a historical view: no resolution
+  // form, no Confirmer action — just summary, the most recent decision
+  // surfaced at the top, calendar, audit timeline, and PDF/email.
+  // 'partial' clusters keep the editable surface (some members are
+  // still open and need a decision).
+  const isReadOnly = cluster.status === 'resolved' || cluster.status === 'deferred'
+
+  // Most recent NON-auto audit entry — that's the human-applied
+  // resolution we want to surface at the top in read-only mode. We
+  // fall back to any entry if the cluster was only auto-cleared.
+  const latestDecision = useMemo(() => {
+    if (!audit || audit.length === 0) return null
+    const sorted = [...audit].sort((a, b) =>
+      a.created_at < b.created_at ? 1 : -1,
+    )
+    return sorted.find((e) => e.context !== 'auto_cleared') ?? sorted[0] ?? null
+  }, [audit])
+
   // PDF + email: download the cluster as A4 portrait PDF, or send it
   // as an attachment. Mirrors the real-world arbitration broadcast we
   // see in operations emails ("voici l'arbitrage de la fenêtre du …").
@@ -268,35 +288,57 @@ export function ConflictClusterDetailPanel() {
   // convention — surfaced in the panel toolbar so the user can act
   // without scrolling to a fixed footer.
   const isPending = resolveConflict.isPending || bulkResolveConflicts.isPending
-  const actions: ActionItem[] = [
-    {
-      id: 'export-pdf',
-      label: 'PDF',
-      icon: FileText,
-      onClick: handleDownloadPdf,
-      disabled: exportingPdf,
-    },
-    {
-      id: 'email',
-      label: 'Email',
-      icon: Send,
-      onClick: () => setEmailModalOpen(true),
-    },
-    {
-      id: 'cancel',
-      label: t('common.cancel'),
-      icon: XCircle,
-      onClick: () => closeDynamicPanel(),
-    },
-    {
-      id: 'confirm',
-      label: t('planner.confirm_resolution'),
-      icon: CheckCircle2,
-      onClick: handleConfirm,
-      variant: 'primary',
-      disabled: !canConfirm || isPending || (supportsApply && !canApply),
-    },
-  ]
+  const actions: ActionItem[] = isReadOnly
+    ? [
+        {
+          id: 'export-pdf',
+          label: 'PDF',
+          icon: FileText,
+          onClick: handleDownloadPdf,
+          disabled: exportingPdf,
+        },
+        {
+          id: 'email',
+          label: 'Email',
+          icon: Send,
+          onClick: () => setEmailModalOpen(true),
+        },
+        {
+          id: 'close',
+          label: t('common.close', 'Fermer'),
+          icon: XCircle,
+          onClick: () => closeDynamicPanel(),
+        },
+      ]
+    : [
+        {
+          id: 'export-pdf',
+          label: 'PDF',
+          icon: FileText,
+          onClick: handleDownloadPdf,
+          disabled: exportingPdf,
+        },
+        {
+          id: 'email',
+          label: 'Email',
+          icon: Send,
+          onClick: () => setEmailModalOpen(true),
+        },
+        {
+          id: 'cancel',
+          label: t('common.cancel'),
+          icon: XCircle,
+          onClick: () => closeDynamicPanel(),
+        },
+        {
+          id: 'confirm',
+          label: t('planner.confirm_resolution'),
+          icon: CheckCircle2,
+          onClick: handleConfirm,
+          variant: 'primary',
+          disabled: !canConfirm || isPending || (supportsApply && !canApply),
+        },
+      ]
 
   const same = cluster.start_date === cluster.end_date
   const headerSubtitle = same
@@ -306,7 +348,13 @@ export function ConflictClusterDetailPanel() {
   return (
     <DynamicPanelShell
       title={`${cluster.asset_name ?? 'Conflit'} · ${headerSubtitle}`}
-      icon={<AlertTriangle size={14} className="text-warning" />}
+      icon={
+        isReadOnly ? (
+          <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />
+        ) : (
+          <AlertTriangle size={14} className="text-warning" />
+        )
+      }
       actionItems={actions}
     >
       <PanelContentLayout>
@@ -399,7 +447,63 @@ export function ConflictClusterDetailPanel() {
           </div>
         </FormSection>
 
+        {/* ── Read-only "Résolution appliquée" summary ─────────────
+            Surfaced at the top of the form area when the cluster is
+            already resolved/deferred so the user immediately sees the
+            decision, who applied it and when, plus the note. The full
+            audit timeline below preserves the rest of the history. */}
+        {isReadOnly && (
+          <FormSection title="Résolution appliquée">
+            {!latestDecision ? (
+              <p className="text-xs italic text-muted-foreground">
+                Aucune trace de décision dans l'historique.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="rounded border border-emerald-500/30 bg-emerald-500/5 px-2 py-1.5">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Décision
+                  </div>
+                  <div className="text-emerald-700 dark:text-emerald-300 font-semibold truncate">
+                    {latestDecision.new_resolution
+                      ? RESOLUTION_LABELS_FALLBACK[latestDecision.new_resolution]
+                          ?? latestDecision.new_resolution
+                      : '—'}
+                  </div>
+                </div>
+                <div className="rounded border border-border px-2 py-1.5">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Appliquée par
+                  </div>
+                  <div className="text-foreground font-medium truncate">
+                    {latestDecision.actor_name ?? '—'}
+                  </div>
+                </div>
+                <div className="rounded border border-border px-2 py-1.5">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Date
+                  </div>
+                  <div className="text-foreground font-medium tabular-nums">
+                    {formatDateShort(latestDecision.created_at)}
+                  </div>
+                </div>
+                {latestDecision.resolution_note && (
+                  <div className="sm:col-span-3 rounded border border-border bg-background px-2 py-1.5">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Note d'arbitrage
+                    </div>
+                    <p className="text-foreground/90 whitespace-pre-wrap">
+                      {latestDecision.resolution_note}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </FormSection>
+        )}
+
         {/* ── Resolution selector ─────────────────────────────── */}
+        {!isReadOnly && (
         <FormSection title={t('planner.resolve_conflict_field')}>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
             {RESOLUTION_OPTIONS.map((r) => (
@@ -429,9 +533,10 @@ export function ConflictClusterDetailPanel() {
             </p>
           )}
         </FormSection>
+        )}
 
         {/* ── Action panel (contextual) ───────────────────────── */}
-        {supportsApply && (
+        {!isReadOnly && supportsApply && (
           <FormSection title={t('planner.conflict_action.title', "Action sur l'activité")}>
             <p className="text-[11px] text-muted-foreground -mt-1 mb-2">
               {t('planner.conflict_action.subtitle')}
@@ -596,14 +701,16 @@ export function ConflictClusterDetailPanel() {
         )}
 
         {/* ── Note ────────────────────────────────────────────── */}
-        <FormSection title={t('planner.resolve_conflict_note')}>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className={cn(panelInputClass, 'min-h-[60px] resize-y')}
-            placeholder={t('planner.resolve_conflict_note_placeholder')}
-          />
-        </FormSection>
+        {!isReadOnly && (
+          <FormSection title={t('planner.resolve_conflict_note')}>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className={cn(panelInputClass, 'min-h-[60px] resize-y')}
+              placeholder={t('planner.resolve_conflict_note_placeholder')}
+            />
+          </FormSection>
+        )}
 
         {/* ── Per-day breakdown — week-aligned calendar ────────── */}
         <FormSection

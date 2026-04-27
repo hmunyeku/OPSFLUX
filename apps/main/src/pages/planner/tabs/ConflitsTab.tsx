@@ -7,7 +7,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, Clock, CheckCircle2, Loader2, BarChart3, ChevronUp, ChevronDown,
-  X, Bell, MessageSquare,
+  X, Bell, MessageSquare, FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -460,14 +460,16 @@ export function ConflitsTab() {
       size: 50,
       cell: ({ row }) => {
         const c = row.original
-        // Hide the resolve button on fully-closed clusters.
-        if (c.status === 'resolved' || c.status === 'deferred') return null
+        // Resolved/deferred clusters open in read-only mode so users can
+        // audit HOW a conflict was historically resolved. Open clusters
+        // get the same icon/tooltip pair as before to drive resolution.
+        const isClosed = c.status === 'resolved' || c.status === 'deferred'
         return (
           <RowIconBtn
-            icon={CheckCircle2}
-            tone="emerald"
-            title={t('planner.resolve_conflict_action')}
-            disabled={resolveConflict.isPending || bulkResolveConflicts.isPending}
+            icon={isClosed ? FileText : CheckCircle2}
+            tone={isClosed ? 'primary' : 'emerald'}
+            title={isClosed ? 'Voir la résolution' : t('planner.resolve_conflict_action')}
+            disabled={!isClosed && (resolveConflict.isPending || bulkResolveConflicts.isPending)}
             onClick={(e) => {
               e.stopPropagation()
               openClusterPanel(c)
@@ -875,6 +877,11 @@ export function ConflitsTab() {
           data={clusters}
           isLoading={isLoading}
           getRowId={(row) => row.key}
+          // Any cluster — open or resolved/deferred — opens the
+          // ConflictClusterDetailPanel. Resolved rows render in
+          // read-only mode so users can audit how a past conflict
+          // was historically resolved (was a request from operations).
+          onRowClick={(row) => openClusterPanel(row)}
           pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           toolbarLeft={

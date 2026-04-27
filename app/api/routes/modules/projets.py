@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import delete as sql_delete, select, func as sqla_func, text
+from sqlalchemy import delete as sql_delete, select, func as sqla_func, text, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
@@ -2647,10 +2647,23 @@ async def delete_task_dependency(
     _: None = require_permission("project.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Remove a task dependency."""
+    """Remove a task dependency.
+
+    Tenant isolation: the dependency MUST be scoped to a task that
+    belongs to `project_id`. Without the join, knowing a dep_id from
+    one project let a user delete it from another project of the same
+    entity. We constrain `from_task_id` (and by extension the dep) to
+    a task whose project matches.
+    """
     await _get_project_or_404(db, project_id, entity_id)
+    project_task_subq = (
+        select(ProjectTask.id).where(ProjectTask.project_id == project_id)
+    ).subquery()
     result = await db.execute(
-        select(ProjectTaskDependency).where(ProjectTaskDependency.id == dep_id)
+        select(ProjectTaskDependency).where(
+            ProjectTaskDependency.id == dep_id,
+            ProjectTaskDependency.from_task_id.in_(select(project_task_subq.c.id)),
+        )
     )
     dep = result.scalar_one_or_none()
     if not dep:
@@ -2897,8 +2910,20 @@ async def remove_task_assignee(
     _: None = require_permission("project.task.assign"),
     db: AsyncSession = Depends(get_db),
 ):
+    """Remove an assignee from a task.
+
+    Tenant isolation: the assignee row MUST belong to the URL's
+    `task_id` — without this filter, knowing an assignee_id let a
+    user wipe assignees from a different task of the same tenant
+    just by guessing the URL.
+    """
     await _get_project_or_404(db, project_id, entity_id)
-    a = (await db.execute(select(ProjectTaskAssignee).where(ProjectTaskAssignee.id == assignee_id))).scalar_one_or_none()
+    a = (await db.execute(
+        select(ProjectTaskAssignee).where(
+            ProjectTaskAssignee.id == assignee_id,
+            ProjectTaskAssignee.task_id == task_id,
+        )
+    )).scalar_one_or_none()
     if not a: raise HTTPException(404, "Assignee not found")
     await db.delete(a); await db.commit()
 
@@ -2971,8 +2996,34 @@ async def delete_comment(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("project.comment.delete"), db: AsyncSession = Depends(get_db),
 ):
+    """Soft-delete a comment.
+
+    Tenant isolation: the comment must be attached either to the
+    project itself, or to a task that belongs to it. Without this
+    check, a comment_id from project A let a user mark inactive a
+    comment of project B in the same tenant.
+    """
     await _get_project_or_404(db, project_id, entity_id)
-    comment = (await db.execute(select(ProjectComment).where(ProjectComment.id == comment_id))).scalar_one_or_none()
+    project_task_subq = (
+        select(ProjectTask.id).where(ProjectTask.project_id == project_id)
+    ).subquery()
+    comment = (await db.execute(
+        select(ProjectComment).where(
+            ProjectComment.id == comment_id,
+            or_(
+                # Comment on the project itself
+                and_(
+                    ProjectComment.owner_type == "project",
+                    ProjectComment.owner_id == project_id,
+                ),
+                # Comment on a task that belongs to this project
+                and_(
+                    ProjectComment.owner_type == "task",
+                    ProjectComment.owner_id.in_(select(project_task_subq.c.id)),
+                ),
+            ),
+        )
+    )).scalar_one_or_none()
     if not comment: raise HTTPException(404, "Comment not found")
     comment.active = False; await db.commit()
 

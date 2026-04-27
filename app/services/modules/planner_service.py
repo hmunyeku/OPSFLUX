@@ -479,8 +479,16 @@ async def get_gantt_data(
     statuses: list[str] | None = None,
     show_permanent_ops: bool = True,
     scenario_id: "UUID | None" = None,
+    created_by_filter: "UUID | None" = None,
 ) -> dict:
     """Get activities grouped by asset for Gantt chart rendering.
+
+    Args:
+        created_by_filter: when set, only return activities created by
+            this user. Mirrors the scope restriction applied by
+            list_activities when the caller lacks `planner.activity.read_all`
+            — without this the Gantt would expose every activity in the
+            entity to a user who can only see their own in the table.
 
     Returns:
     {
@@ -505,6 +513,8 @@ async def get_gantt_data(
             PlannerActivity.end_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc),
         )
     )
+    if created_by_filter is not None:
+        query = query.where(PlannerActivity.created_by == created_by_filter)
 
     if not show_permanent_ops:
         query = query.where(PlannerActivity.type != "permanent_ops")
@@ -859,6 +869,7 @@ async def get_capacity_heatmap(
     end_date: date,
     asset_ids: list[UUID] | None = None,
     scenario_id: "UUID | None" = None,
+    created_by_filter: "UUID | None" = None,
 ) -> list[dict]:
     """Get capacity heatmap data — daily saturation per asset.
 
@@ -866,6 +877,13 @@ async def get_capacity_heatmap(
     activities, real POB) instead of N×D×2. For 6 assets × 365 days the
     previous version issued ~4380 queries (~15 s on the VPS). This version
     issues 4 queries and aggregates in Python (~1.5 s).
+
+    Args:
+        created_by_filter: when set, only include activities created by
+            this user in the saturation calculation. Mirrors the visibility
+            rule applied by list_activities so a user without
+            `planner.activity.read_all` doesn't see other users'
+            activities through the heatmap.
 
     Returns a flat list of daily entries with forecast and real POB.
     """
@@ -970,6 +988,7 @@ async def get_capacity_heatmap(
             PlannerActivity.end_date.isnot(None),
             PlannerActivity.start_date <= datetime.combine(end_date, datetime.max.time(), tzinfo=timezone.utc),
             PlannerActivity.end_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc),
+            *([PlannerActivity.created_by == created_by_filter] if created_by_filter is not None else []),
         )
     )
     # Collect rows as list so we can apply scenario overlay before aggregating.

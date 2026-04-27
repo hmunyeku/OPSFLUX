@@ -587,12 +587,26 @@ async def list_activities(
     )
 
     # ── User-scoped data visibility ──
+    # Three explicit branches:
+    #   scope == "my"    → always filter to acting user (forced personal view)
+    #   scope == "all"   → no scope filter, but require `read_all` permission
+    #                      otherwise we silently fall back to "my".
+    #   scope is missing → default behaviour: "all" if user has read_all,
+    #                      otherwise "my".
+    can_read_all = await has_user_permission(
+        current_user, entity_id, "planner.activity.read_all", db
+    )
     if scope == "my":
         query = query.where(PlannerActivity.created_by == acting_user_id)
-    elif scope != "all":
-        can_read_all = await has_user_permission(
-            current_user, entity_id, "planner.activity.read_all", db
-        )
+    elif scope == "all":
+        if not can_read_all:
+            # User explicitly asked "all" but lacks the permission —
+            # downgrade silently to "my" rather than 403, so the table
+            # keeps rendering with their own data.
+            query = query.where(PlannerActivity.created_by == acting_user_id)
+    else:
+        # Default — implicit scope. Behaves like "all" for privileged
+        # users, "my" for everyone else.
         if not can_read_all:
             query = query.where(PlannerActivity.created_by == acting_user_id)
 
@@ -3185,6 +3199,7 @@ async def override_priority(
 
 @router.get("/gantt")
 async def get_gantt(
+    request: Request,
     start_date: date = Query(...),
     end_date: date = Query(...),
     asset_id: UUID | None = Query(None),
@@ -3203,12 +3218,23 @@ async def get_gantt(
     scenario's overlay: removed activities are excluded, field overrides are
     applied, and new scenario activities are appended. This lets every tab
     show the full simulation without touching the live plan.
+
+    Visibility scope: a user without `planner.activity.read_all` only
+    sees activities they created — same rule as the activities table.
+    Without this the Gantt would leak every activity in the entity.
     """
     from app.services.modules.planner_service import get_gantt_data
 
     asset_ids = [asset_id] if asset_id else None
     type_list = types.split(",") if types else None
     status_list = statuses.split(",") if statuses else None
+
+    # Apply user-scoped visibility (mirrors list_activities).
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
+    can_read_all = await has_user_permission(
+        current_user, entity_id, "planner.activity.read_all", db
+    )
+    created_by_filter = None if can_read_all else acting_user_id
 
     return await get_gantt_data(
         db, entity_id, start_date, end_date,
@@ -3217,6 +3243,7 @@ async def get_gantt(
         statuses=status_list,
         show_permanent_ops=show_permanent_ops,
         scenario_id=scenario_id,
+        created_by_filter=created_by_filter,
     )
 
 
@@ -4126,6 +4153,7 @@ async def get_conflict_email_suggestions(
 
 @router.get("/capacity-heatmap", response_model=CapacityHeatmapResponse)
 async def get_heatmap(
+    request: Request,
     start_date: date = Query(...),
     end_date: date = Query(...),
     asset_id: UUID | None = None,
@@ -4140,8 +4168,17 @@ async def get_heatmap(
     When scenario_id is provided, the capacity load is computed against
     the scenario's merged activity set (removed activities excluded,
     overrides applied, new activities included).
+
+    Visibility scope: a user without `planner.activity.read_all` only
+    has their own activities counted in the saturation aggregation.
     """
     from app.services.modules.planner_service import get_capacity_heatmap
+
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
+    can_read_all = await has_user_permission(
+        current_user, entity_id, "planner.activity.read_all", db
+    )
+    created_by_filter = None if can_read_all else acting_user_id
 
     asset_ids = [asset_id] if asset_id else None
     return {
@@ -4149,6 +4186,7 @@ async def get_heatmap(
             db, entity_id, start_date, end_date,
             asset_ids=asset_ids,
             scenario_id=scenario_id,
+            created_by_filter=created_by_filter,
         ),
         "config": await _get_capacity_heatmap_config(db, entity_id),
     }
@@ -4159,6 +4197,7 @@ async def get_heatmap(
 
 @router.get("/calendar")
 async def get_calendar(
+    request: Request,
     asset_id: UUID | None = None,
     start: date = Query(..., description="Start date (inclusive)"),
     end: date = Query(..., description="End date (inclusive)"),
@@ -4176,7 +4215,16 @@ async def get_calendar(
             {"date": "2026-03-19", "activities": [...], "pax_total": 45, "capacity": 80}
         ]
     }
+
+    Visibility scope: a user without `planner.activity.read_all` only
+    sees activities they created — same rule as list_activities.
     """
+    # Apply user-scoped visibility (mirrors list_activities).
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
+    can_read_all = await has_user_permission(
+        current_user, entity_id, "planner.activity.read_all", db
+    )
+
     # Build activity query for the date range
     query = (
         select(PlannerActivity)
@@ -4190,6 +4238,8 @@ async def get_calendar(
             PlannerActivity.status.in_(["draft", "submitted", "validated", "in_progress"]),
         )
     )
+    if not can_read_all:
+        query = query.where(PlannerActivity.created_by == acting_user_id)
     if asset_id:
         query = query.where(PlannerActivity.asset_id == asset_id)
 

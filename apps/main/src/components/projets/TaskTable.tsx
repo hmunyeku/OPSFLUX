@@ -56,6 +56,7 @@ import { useUpdateProjectTask, useReorderProjectTasks } from '@/hooks/useProjets
 // ──────────────────────────────────────────────────────────────────────
 
 export type TaskTableColumnId =
+  | 'drag'
   | 'wbs'
   | 'status'
   | 'title'

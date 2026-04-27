@@ -279,7 +279,7 @@ function EditableDate({
 }
 
 function EditableNumber({
-  value, min, max, onCommit, suffix, className,
+  value, min, max, onCommit, suffix, className, readOnly, readOnlyTitle,
 }: {
   value: number | null
   min?: number
@@ -287,6 +287,11 @@ function EditableNumber({
   onCommit: (next: number | null) => void
   suffix?: string
   className?: string
+  /** When true the value is shown but cannot be edited — used for
+   *  parent-task progress which is server-computed from the children
+   *  (see audit B3). */
+  readOnly?: boolean
+  readOnlyTitle?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value?.toString() ?? '')
@@ -308,6 +313,20 @@ function EditableNumber({
   }
 
   if (!editing) {
+    if (readOnly) {
+      return (
+        <span
+          className={cn(
+            'w-full text-right truncate px-1 -mx-1 py-0.5 text-[10px] tabular-nums cursor-not-allowed',
+            value == null && 'text-muted-foreground/60 italic',
+            className,
+          )}
+          title={readOnlyTitle ?? 'Calculé automatiquement à partir des sous-tâches'}
+        >
+          {value == null ? '—' : `${value}${suffix ?? ''}`}
+        </span>
+      )
+    }
     return (
       <button
         type="button"
@@ -423,27 +442,26 @@ export function TaskTable({
     return byParent
   }, [tasks])
 
-  // Per-task aggregate progress (parents reflect their children mean).
+  // Per-task display progress.
+  //
+  // Bug fix (audit C2): the previous implementation computed a naive
+  // arithmetic mean of direct children, which DIVERGED from the
+  // backend's weighted average (Project.progress_weight_method:
+  // equal | effort | duration | manual — see _update_project_progress
+  // in app/api/routes/modules/projets.py). Result: the % shown in the
+  // table differed from the % persisted server-side after a reload.
+  //
+  // Fix: trust the server. The backend recomputes parent progress on
+  // every task mutation and writes it to ProjectTask.progress. We just
+  // surface that value as-is; the only fallback is for transient cases
+  // where the server hasn't refreshed yet (still 0 from creation).
   const aggregateProgress = useMemo(() => {
     const map = new Map<string, number>()
-    const childCount = new Map<string, number>()
-    const compute = (taskId: string): number => {
-      if (map.has(taskId)) return map.get(taskId)!
-      const children = tree.get(taskId) || []
-      if (children.length === 0) {
-        const t = tasks.find(t => t.id === taskId)
-        const v = t?.progress ?? 0
-        map.set(taskId, v); return v
-      }
-      const sum = children.reduce((s, c) => s + compute(c.id), 0)
-      const v = Math.round(sum / children.length)
-      map.set(taskId, v)
-      childCount.set(taskId, children.length)
-      return v
+    for (const t of tasks) {
+      map.set(t.id, t.progress ?? 0)
     }
-    for (const t of tasks) compute(t.id)
     return map
-  }, [tasks, tree])
+  }, [tasks])
 
   // Flatten to a render order respecting collapse state.
   const flatRows = useMemo(() => {
@@ -702,6 +720,13 @@ function TaskTableRow({
             max={100}
             suffix="%"
             onCommit={(v) => onField('progress', v ?? 0)}
+            // Parent tasks have their progress recomputed server-side
+            // from their children (weighted average per
+            // Project.progress_weight_method). Editing it directly would
+            // be silently overwritten by the next mutation. Lock the
+            // cell with a tooltip explaining the rule.
+            readOnly={hasChildren}
+            readOnlyTitle="Calculé automatiquement à partir des sous-tâches (moyenne pondérée selon la méthode du projet)"
             className={cn(
               displayProgress >= 100 ? 'text-green-600' :
               overdue ? 'text-red-500' :

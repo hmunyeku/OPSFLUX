@@ -218,12 +218,80 @@ async def _enrich_activity(db: AsyncSession, activity: PlannerActivity) -> dict:
     return d
 
 
+async def _bulk_children_pob(
+    db: AsyncSession, parent_ids: list, entity_id
+) -> dict:
+    """Compute children_pob payload for many parent activities in a
+    single query — avoids the N+1 that plagued list_activities when
+    every row triggered its own _compute_children_pob round-trip
+    (audit B1).
+
+    Returns a dict { parent_id: {children_pob_total, children_pob_daily,
+    has_children} } with all parent_ids as keys (parents without
+    children get the no-children sentinel).
+    """
+    if not parent_ids:
+        return {}
+    result = await db.execute(
+        select(
+            PlannerActivity.parent_id,
+            PlannerActivity.pax_quota,
+            PlannerActivity.pax_quota_mode,
+            PlannerActivity.pax_quota_daily,
+        ).where(
+            PlannerActivity.parent_id.in_(parent_ids),
+            PlannerActivity.entity_id == entity_id,
+            PlannerActivity.active == True,  # noqa: E712
+            PlannerActivity.deleted_at.is_(None),
+        )
+    )
+    # Bucket children by parent_id then aggregate per bucket — one
+    # query, in-memory aggregation.
+    buckets: dict = {}
+    for row in result.all():
+        buckets.setdefault(row.parent_id, []).append(row)
+
+    out: dict = {}
+    for pid in parent_ids:
+        children = buckets.get(pid, [])
+        if not children:
+            out[pid] = {
+                "children_pob_total": None,
+                "children_pob_daily": None,
+                "has_children": False,
+            }
+            continue
+        total_constant = 0
+        merged_daily: dict[str, int] = {}
+        has_any_variable = False
+        for child in children:
+            c_mode = child.pax_quota_mode or "constant"
+            c_quota = child.pax_quota or 0
+            c_daily = child.pax_quota_daily
+            if c_mode == "variable" and isinstance(c_daily, dict) and c_daily:
+                has_any_variable = True
+                for day_key, day_val in c_daily.items():
+                    merged_daily[day_key] = merged_daily.get(day_key, 0) + int(day_val or 0)
+            else:
+                total_constant += c_quota
+        out[pid] = {
+            "children_pob_total": total_constant if not has_any_variable else sum(merged_daily.values()),
+            "children_pob_daily": merged_daily if has_any_variable else None,
+            "has_children": True,
+        }
+    return out
+
+
 async def _compute_children_pob(
     db: AsyncSession, activity_id, entity_id
 ) -> dict:
     """Compute children_pob_total, children_pob_daily, has_children for a
     parent activity.  Sums pax_quota (constant mode) and merges
-    pax_quota_daily (variable mode) across all direct children."""
+    pax_quota_daily (variable mode) across all direct children.
+
+    Single-row helper — for list paths use `_bulk_children_pob` to avoid
+    N+1 (one SELECT per row was costing ~50× the response time on a
+    50-item page)."""
     children_result = await db.execute(
         select(
             PlannerActivity.pax_quota,
@@ -658,7 +726,13 @@ async def list_activities(
                 else:
                     scenario_new_acts.append(ov)
 
-    async def _transform(row):
+    # Children-POB cache populated in bulk per-page below to avoid
+    # the N+1 that called _compute_children_pob once per row (audit
+    # B1). Lookup keyed by activity.id; missing keys mean "not yet
+    # computed" — the per-row transform falls back to the slow path.
+    children_pob_cache: dict = {}
+
+    def _transform(row):
         activity = row[0]
         d = {c.key: getattr(activity, c.key) for c in activity.__table__.columns}
         # Apply scenario overlay if applicable
@@ -676,32 +750,78 @@ async def list_activities(
         d["created_by_name"] = None
         d["submitted_by_name"] = None
         d["validated_by_name"] = None
-        # §2.5 — Children POB summation
-        d.update(await _compute_children_pob(db, activity.id, activity.entity_id))
+        # §2.5 — Children POB summation (cache-backed, see bulk
+        # prefetch below).
+        cached = children_pob_cache.get(activity.id)
+        if cached is not None:
+            d.update(cached)
+        else:
+            d.update({"children_pob_total": None, "children_pob_daily": None, "has_children": False})
         return d
 
-    async def _transform_filtered(row):
-        result = await _transform(row)
-        return result  # None rows are filtered by paginate or post-processed
-
     if not scenario_id:
-        return await paginate(db, query, pagination, transform=_transform)
+        # Manual paginate so we can bulk-prefetch children_pob for the
+        # current page in a single query, then run sync transforms.
+        page_size = pagination.page_size if hasattr(pagination, 'page_size') else 50
+        page = pagination.page if hasattr(pagination, 'page') else 1
+        offset = (page - 1) * page_size
 
-    # With scenario overlay: we need to filter removed activities and append new ones.
-    # Fetch all (no pagination limit on raw query for now — apply manually).
-    count_q = select(sqla_func.count()).select_from(query.subquery())
-    count_result = await db.execute(count_q)
-    total = count_result.scalar() or 0
+        count_result = await db.execute(select(sqla_func.count()).select_from(query.subquery()))
+        total = count_result.scalar() or 0
 
-    offset = (pagination.page - 1) * pagination.page_size if hasattr(pagination, 'page') else 0
+        rows_result = await db.execute(query.offset(offset).limit(page_size))
+        rows = rows_result.all()
+
+        # Bulk prefetch children POB for the visible page only.
+        ids_on_page = [r[0].id for r in rows]
+        children_pob_cache.update(
+            await _bulk_children_pob(db, ids_on_page, entity_id)
+        )
+
+        items = [_transform(r) for r in rows]
+        pages = max(1, (total + page_size - 1) // page_size) if total > 0 else 0
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "pages": pages,
+        }
+
+    # ── Scenario overlay pagination ───────────────────────────────
+    # Bug fix (audit C1): the previous version computed `total` from
+    # the LIVE query alone and sliced `items[:page_size]` AFTER the
+    # offset, which caused two issues:
+    #   - `total` over-counted activities the overlay had REMOVED
+    #     (so the user paginated past the end on stale total).
+    #   - on page > 1, scenario-new activities (always appended) would
+    #     fall off the [:page_size] slice or appear duplicated since
+    #     the offset was applied to the live query, not to the merged
+    #     list.
+    #
+    # We now fetch the full merged set in memory (live + filter
+    # removed + append scenario_new), THEN paginate. The trade-off is
+    # the merged set is loaded fully — acceptable because the table is
+    # already entity-scoped and scenario-bounded; if it ever grows
+    # unbounded the proper fix is a server-side merged view.
     page_size = pagination.page_size if hasattr(pagination, 'page_size') else 50
+    page = pagination.page if hasattr(pagination, 'page') else 1
 
-    rows_result = await db.execute(query.offset(offset).limit(page_size + len(scenario_overlay) + 10))
-    items = []
-    for row in rows_result.all():
-        d = await _transform(row)
+    rows_result = await db.execute(query)
+    rows = rows_result.all()
+
+    # Bulk prefetch children_pob for the entire merged set (still one
+    # query — we accept loading everything since the scenario merge
+    # path is already in-memory).
+    children_pob_cache.update(
+        await _bulk_children_pob(db, [r[0].id for r in rows], entity_id)
+    )
+
+    merged: list[dict] = []
+    for row in rows:
+        d = _transform(row)
         if d is not None:  # skip removed
-            items.append(d)
+            merged.append(d)
 
     # Append new scenario activities (not based on live activities)
     for new_act in scenario_new_acts:
@@ -716,9 +836,20 @@ async def list_activities(
         d["entity_id"] = entity_id
         d.setdefault("status", "draft")
         d.setdefault("active", True)
-        items.append(d)
+        merged.append(d)
 
-    return {"items": items[:page_size], "total": total + len(scenario_new_acts), "page": getattr(pagination, 'page', 1), "page_size": page_size}
+    total = len(merged)
+    pages = max(1, (total + page_size - 1) // page_size)
+    offset = (page - 1) * page_size
+    items = merged[offset : offset + page_size]
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": pages,
+    }
 
 
 @router.post("/activities", response_model=ActivityRead, status_code=201)

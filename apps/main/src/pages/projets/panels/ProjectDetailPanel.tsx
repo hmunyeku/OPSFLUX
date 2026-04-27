@@ -1341,12 +1341,55 @@ function TaskFullscreenOverlay({
     return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
   }, [splitPct])
 
-  // Escape closes.
+  // Keyboard shortcuts (audit K1) — the toolbar tooltips advertise
+  // Tab / Maj+Tab / Suppr but no listener was wired. Now actually
+  // bound:
+  //   Escape    → close fullscreen
+  //   Tab       → indent selected task (when a task is selected and
+  //                 focus isn't inside an editor / input / button)
+  //   Shift+Tab → outdent selected task (same rules)
+  //   Delete    → delete selected task (same rules)
+  // We skip the shortcut when focus is inside an editable element so
+  // typing Tab inside an input still moves to the next field.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const isEditableTarget = (el: EventTarget | null): boolean => {
+      const node = el as HTMLElement | null
+      if (!node) return false
+      if (node.isContentEditable) return true
+      const tag = node.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      // Treat the rich-text editor as editable (Tiptap uses
+      // contenteditable inside .ProseMirror).
+      if (node.closest?.('.ProseMirror')) return true
+      return false
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (isEditableTarget(e.target)) return
+      if (!selectedTaskId) return
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        if (e.shiftKey) {
+          if (canOutdent) handleOutdent()
+        } else {
+          if (canIndent) handleIndent()
+        }
+        return
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Only intercept Backspace when no modifier is held — Cmd/Ctrl+
+        // Backspace is browser back navigation we don't want to override.
+        if (e.metaKey || e.ctrlKey || e.altKey) return
+        e.preventDefault()
+        handleDelete()
+      }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, selectedTaskId, canIndent, canOutdent, handleIndent, handleOutdent, handleDelete])
 
   // ── Synchronised vertical scroll between the table and the gantt
   // mini-pane. The user expects the same row to align on both sides

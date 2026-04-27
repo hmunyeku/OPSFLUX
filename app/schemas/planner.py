@@ -19,6 +19,13 @@ class ActivityRead(PlannerSchema):
     entity_id: UUID
     asset_id: UUID
     project_id: UUID | None = None
+    # Project task this activity was created from (Projets → Planner
+    # round-trip link). NULL when the activity wasn't sent from a
+    # project task. Was missing from the schema, which silently
+    # stripped the field from API responses — the FE then couldn't
+    # tell which planner activity belongs to which project task on
+    # the projet detail panel.
+    source_task_id: UUID | None = None
     parent_id: UUID | None = None
     type: str
     subtype: str | None = None

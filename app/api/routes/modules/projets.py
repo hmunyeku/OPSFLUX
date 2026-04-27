@@ -3686,11 +3686,17 @@ async def get_planner_activities(
     """
     await _get_project_or_404(db, project_id, entity_id)
     from app.models.planner import PlannerActivity
-    from app.models.common import Site
+    from app.models.asset_registry import Installation
+    # Bug fix: the previous code imported a non-existent `Site` model
+    # from app.models.common (kept failing with ImportError at runtime
+    # → 500 on this endpoint) and joined on PlannerActivity.site_id
+    # which doesn't exist either — the planner activity links to an
+    # Installation through `asset_id`. Project task -> planner
+    # round-trip is now actually visible on the project's tab again.
     rows = (await db.execute(
-        select(PlannerActivity, ProjectTask.title, ProjectTask.status, ProjectTask.progress, Site.name)
+        select(PlannerActivity, ProjectTask.title, ProjectTask.status, ProjectTask.progress, Installation.name)
         .outerjoin(ProjectTask, PlannerActivity.source_task_id == ProjectTask.id)
-        .outerjoin(Site, PlannerActivity.site_id == Site.id)
+        .outerjoin(Installation, PlannerActivity.asset_id == Installation.id)
         .where(
             PlannerActivity.project_id == project_id,
             PlannerActivity.source_task_id.is_not(None),

@@ -315,6 +315,7 @@ export function ResponsiveActionBar({
             className={buttonClass(item.variant)}
             title={item.tooltip ?? item.label}
             aria-label={item.label}
+            data-action-id={item.id}
           >
             {item.loading ? (
               <Loader2 size={12} className="animate-spin shrink-0" />
@@ -354,6 +355,7 @@ export function ResponsiveActionBar({
                     role="menuitem"
                     onClick={() => runAction(item)}
                     disabled={item.disabled || item.loading}
+                    data-action-id={item.id}
                     className={cn(
                       'w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors',
                       'hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none',

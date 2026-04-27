@@ -211,6 +211,38 @@ def _snapshot_fields(obj, field_names: list[str]) -> dict:
     return {f: getattr(obj, f, None) for f in field_names}
 
 
+async def _validate_parent_exists(
+    db: AsyncSession,
+    parent_model,
+    parent_id: UUID,
+    entity_id: UUID,
+    parent_label: str,
+):
+    """
+    Validate that a parent asset exists and belongs to the same entity.
+    Raises StructuredHTTPException(404) if not found or archived.
+    """
+    result = await db.execute(
+        select(parent_model).where(
+            parent_model.id == parent_id,
+            parent_model.entity_id == entity_id,
+            parent_model.archived == False,
+        )
+    )
+    parent = result.scalars().first()
+    if not parent:
+        raise StructuredHTTPException(
+            404,
+            code="PARENT_NOT_FOUND",
+            message="Parent {parent_label} not found or archived",
+            params={
+                "parent_label": parent_label,
+                "parent_id": str(parent_id),
+            },
+        )
+    return parent
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # CHANGE LOG ENDPOINTS
 # ════════════════════════════════════════════════════════════════════════════
@@ -568,6 +600,11 @@ async def update_site(
     obj = await _get_or_404(db, OilSite, site_id, entity_id, "Site")
     updates = body.model_dump(exclude_unset=True)
     old_data = _snapshot_fields(obj, list(updates.keys()))
+
+    # Validate parent change if field_id is being updated
+    if "field_id" in updates and updates["field_id"] is not None:
+        await _validate_parent_exists(db, OilField, updates["field_id"], entity_id, "Field")
+
     for key, value in updates.items():
         setattr(obj, key, value)
     await _log_ar_changes(db, "ar_site", site_id, obj.code, old_data, updates, current_user.id, entity_id)
@@ -725,6 +762,11 @@ async def update_installation(
     obj = await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
     updates = body.model_dump(exclude_unset=True)
     old_data = _snapshot_fields(obj, list(updates.keys()))
+
+    # Validate parent change if site_id is being updated
+    if "site_id" in updates and updates["site_id"] is not None:
+        await _validate_parent_exists(db, OilSite, updates["site_id"], entity_id, "Site")
+
     pob_capacity_changed = (
         "pob_capacity" in updates
         and old_data.get("pob_capacity") != updates["pob_capacity"]
@@ -1075,6 +1117,11 @@ async def update_equipment(
     obj = await _get_or_404(db, RegistryEquipment, equipment_id, entity_id, "Equipment")
     updates = body.model_dump(exclude_unset=True)
     old_data = _snapshot_fields(obj, list(updates.keys()))
+
+    # Validate parent change if installation_id is being updated
+    if "installation_id" in updates and updates["installation_id"] is not None:
+        await _validate_parent_exists(db, Installation, updates["installation_id"], entity_id, "Installation")
+
     for key, value in updates.items():
         setattr(obj, key, value)
     await _log_ar_changes(db, "ar_equipment", equipment_id, obj.tag_number, old_data, updates, current_user.id, entity_id)

@@ -48,7 +48,7 @@ import {
   useEquipmentItem, useUpdateEquipment, useDeleteEquipment,
   usePipeline, useUpdatePipeline, useDeletePipeline,
   useCraneConfigurations,
-  useInstallation,
+  useInstallation, useInstallations,
 } from '@/hooks/useAssetRegistry'
 
 // Asset criticality + bool options (also used in DetailPanels.tsx;
@@ -217,6 +217,13 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
   const deleteEquip = useDeleteEquipment()
   const [tab, setTab] = useState<PanelTab>('details')
 
+  // Load all installations for parent selection dropdown
+  const { data: installationsData } = useInstallations({ page_size: 1000 })
+  const installationOptions = installationsData?.items.map((i: any) => ({
+    value: i.id,
+    label: `${i.code} — ${i.name}`
+  })) || []
+
   if (!equip) return null
 
   const handleSave = (key: string, value: unknown) => {
@@ -271,11 +278,14 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
                 ? <InlineEditableTags label={t('common.status')} value={equip.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={equip.status} />} />
               }
-              {equip.installation_id && (
-                <ReadOnlyRow label={t('assets.installation_parent')} value={
-                  <CrossModuleLink module="ar-installation" id={equip.installation_id} label={parentInstallation ? `${parentInstallation.code} — ${parentInstallation.name}` : '...'} />
-                } />
-              )}
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.installation_parent')} value={equip.installation_id || ''} options={installationOptions} onSave={(v) => handleSave('installation_id', v || null)} />
+                : equip.installation_id ? (
+                    <ReadOnlyRow label={t('assets.installation_parent')} value={
+                      <CrossModuleLink module="ar-installation" id={equip.installation_id} label={parentInstallation ? `${parentInstallation.code} — ${parentInstallation.name}` : '...'} />
+                    } />
+                  ) : null
+              }
               {canUpdate
                 ? <InlineEditableSelect label={t('assets.criticality')} value={equip.criticality || ''} options={CRITICALITY_OPTIONS} onSave={(v) => handleSave('criticality', v || null)} />
                 : <ReadOnlyRow label={t('assets.criticality')} value={

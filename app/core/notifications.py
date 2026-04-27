@@ -310,6 +310,7 @@ async def send_email(
     event_type: str | None = None,
     cc: list[str] | None = None,
     attachments: list[dict] | None = None,
+    raise_on_failure: bool = False,
 ) -> None:
     """Send an email via SMTP. Uses DB integration settings if configured, .env as fallback.
 
@@ -317,6 +318,12 @@ async def send_email(
         to: Single email address or list of addresses (To: header).
         cc: Optional list of Cc: addresses.
         attachments: Optional list of {filename, content (bytes), mime_type} dicts.
+        raise_on_failure: when True, propagate SMTP / config errors to the
+            caller instead of swallowing them. Use this for MANUAL user-
+            initiated emails (composer broadcasts, password resets, …)
+            so the API can return a real error to the UI. Automated
+            background notifications keep the default (False) so that
+            an SMTP outage doesn't fail the user's primary action.
 
     Automatically falls back to Docker-internal SMTP aliases (mailu-smtp, etc.)
     when the configured host is unreachable (hairpin NAT workaround).
@@ -418,3 +425,5 @@ async def send_email(
 
     except Exception:
         logger.exception("Failed to send email to %s — subject: %s", to, subject)
+        if raise_on_failure:
+            raise

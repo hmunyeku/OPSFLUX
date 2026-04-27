@@ -3785,20 +3785,41 @@ async def email_conflict_cluster(
     # more <pre>-wrapping plain text.
     body_html = payload.body or default_body_html
 
-    await send_email(
-        to=payload.recipients,
-        cc=payload.cc or None,
-        subject=subject,
-        body_html=body_html,
-        from_name=generated_by,
-        db=db,
-        user_id=current_user.id,
-        category="planner",
-        event_type="planner.conflict.email",
-        attachments=[
-            {"filename": filename, "content": pdf_bytes, "mime_type": "application/pdf"},
-        ],
-    )
+    # NOTE: do NOT pass user_id here. The user-id channel-pref gate in
+    # send_email() is meant for AUTO notifications fired BY the system
+    # AT a user — it checks whether THAT user has opted-in to receive
+    # `category=planner / event_type=planner.conflict.email` mails.
+    # For a MANUAL broadcast the current_user is the SENDER (the
+    # arbitrator), not the recipient — gating on their prefs would
+    # cause the broadcast to be silently dropped if the arbitrator
+    # happened to disable Planner email notifications for themselves.
+    # Bug observed in production: emails reported as "sent" but never
+    # actually leaving the SMTP because of this check.
+    try:
+        await send_email(
+            to=payload.recipients,
+            cc=payload.cc or None,
+            subject=subject,
+            body_html=body_html,
+            from_name=generated_by,
+            attachments=[
+                {"filename": filename, "content": pdf_bytes, "mime_type": "application/pdf"},
+            ],
+            # MANUAL broadcast — surface SMTP failures to the UI instead
+            # of pretending success. Without this, send_email swallows
+            # exceptions for the benefit of background notifications,
+            # but here the user explicitly clicked Send and needs to
+            # know if delivery actually happened.
+            raise_on_failure=True,
+        )
+    except Exception as exc:
+        logger.exception("Failed to send conflict arbitration email")
+        raise StructuredHTTPException(
+            500, code="EMAIL_SEND_FAILED",
+            message="L'envoi de l'email a échoué : {error}",
+            params={"error": str(exc)},
+        )
+
     return {"sent": True, "recipients": payload.recipients, "cc": payload.cc, "subject": subject}
 
 

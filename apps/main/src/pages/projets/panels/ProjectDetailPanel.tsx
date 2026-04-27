@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   FolderKanban, Plus, Loader2, Trash2, Users, Target, X, Check,
-  Milestone, ListTodo, UserPlus,
+  Milestone, ListTodo, UserPlus, ExternalLink,
   Circle, CheckCircle2,
   ChevronRight, ChevronLeft, Layers, RefreshCw,
   Link2, Package, CheckSquare, History, ArrowRight,
@@ -1276,6 +1276,11 @@ function ProjectMiniGantt({
  */
 function TaskFullscreenOverlay({
   projectId, tasks, hierarchical, selectedTaskId, onSelect, onClose, onOpenAdvanced,
+  // MS-Project-style structural actions — same handlers as the
+  // non-fullscreen toolbar so the user never re-learns the controls.
+  handleAddAfter, handleAddSubtask, handleAddMilestone,
+  handleIndent, handleOutdent, handleDelete,
+  canIndent, canOutdent,
 }: {
   projectId: string
   tasks: ProjectTask[]
@@ -1284,7 +1289,19 @@ function TaskFullscreenOverlay({
   onSelect: (id: string | null) => void
   onClose: () => void
   onOpenAdvanced: (task: ProjectTask) => void
+  handleAddAfter: () => void
+  handleAddSubtask: () => void
+  handleAddMilestone: () => void
+  handleIndent: () => void
+  handleOutdent: () => void
+  handleDelete: () => void
+  canIndent: boolean
+  canOutdent: boolean
 }) {
+  const selectedTask = useMemo(
+    () => tasks.find((t) => t.id === selectedTaskId) ?? null,
+    [tasks, selectedTaskId],
+  )
   // Lock body scroll while open.
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -1323,14 +1340,52 @@ function TaskFullscreenOverlay({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  // ── Synchronised vertical scroll between the table and the gantt
+  // mini-pane. The user expects the same row to align on both sides
+  // (Microsoft Project-style). We bind both panes' onScroll handlers
+  // to mirror each other; a flag breaks the recursive update loop.
+  const leftScrollRef = useRef<HTMLDivElement | null>(null)
+  const rightScrollRef = useRef<HTMLDivElement | null>(null)
+  const syncingRef = useRef(false)
+  useEffect(() => {
+    const left = leftScrollRef.current
+    const right = rightScrollRef.current
+    if (!left || !right) return
+    const onLeft = () => {
+      if (syncingRef.current) return
+      syncingRef.current = true
+      right.scrollTop = left.scrollTop
+      // Reset the flag in the next frame so the inverse onScroll
+      // (which fires from the assignment above) is filtered out.
+      requestAnimationFrame(() => { syncingRef.current = false })
+    }
+    const onRight = () => {
+      if (syncingRef.current) return
+      syncingRef.current = true
+      left.scrollTop = right.scrollTop
+      requestAnimationFrame(() => { syncingRef.current = false })
+    }
+    left.addEventListener('scroll', onLeft)
+    right.addEventListener('scroll', onRight)
+    return () => {
+      left.removeEventListener('scroll', onLeft)
+      right.removeEventListener('scroll', onRight)
+    }
+  }, [])
+
   return (
     <div className="fixed inset-0 z-[100] bg-background flex flex-col">
       {/* Header bar */}
-      <div className="h-12 shrink-0 border-b border-border flex items-center justify-between px-4 bg-card">
+      <div className="h-11 shrink-0 border-b border-border flex items-center justify-between px-3 bg-card">
         <div className="flex items-center gap-2 text-sm font-medium">
           <ListTodo size={14} className="text-primary" />
           <span>Tâches du projet</span>
           <span className="text-muted-foreground text-xs">({tasks.length})</span>
+          {selectedTask && (
+            <span className="text-[11px] text-muted-foreground/80 hidden md:inline truncate max-w-[40ch]">
+              · sélection : <span className="text-foreground/80">{selectedTask.title}</span>
+            </span>
+          )}
         </div>
         <button
           type="button"
@@ -1342,10 +1397,93 @@ function TaskFullscreenOverlay({
         </button>
       </div>
 
+      {/* MS-Project-style toolbar — all structural operations on tasks.
+          Most buttons are contextual to the selected task (disabled
+          rather than hidden so the layout doesn't jump). Keyboard hints
+          in the titles match the non-fullscreen toolbar. */}
+      <div className="h-9 shrink-0 border-b border-border flex items-center gap-1 px-3 bg-muted/20 overflow-x-auto">
+        <button
+          type="button"
+          onClick={handleAddAfter}
+          className="h-7 px-2 text-[11px] rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1.5 shrink-0"
+          title={selectedTask ? `Insérer une tâche après « ${selectedTask.title} »` : 'Ajouter une tâche'}
+        >
+          <Plus size={12} />
+          {selectedTask ? 'Tâche après' : 'Ajouter'}
+        </button>
+        <button
+          type="button"
+          onClick={handleAddSubtask}
+          disabled={!selectedTask}
+          className="h-7 px-2 text-[11px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          title={selectedTask ? `Sous-tâche de « ${selectedTask.title} »` : 'Sélectionnez une tâche pour créer une sous-tâche'}
+        >
+          <Plus size={12} /> Sous-tâche
+        </button>
+        <button
+          type="button"
+          onClick={handleAddMilestone}
+          className="h-7 px-2 text-[11px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1.5 shrink-0"
+          title="Ajouter un jalon"
+        >
+          <Milestone size={12} /> Jalon
+        </button>
+
+        <span className="w-px h-5 bg-border mx-1.5" />
+
+        <button
+          type="button"
+          onClick={handleOutdent}
+          disabled={!canOutdent}
+          className="h-7 w-7 rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          title="Désindenter (Maj+Tab)"
+        >
+          <ChevronLeft size={13} />
+        </button>
+        <button
+          type="button"
+          onClick={handleIndent}
+          disabled={!canIndent}
+          className="h-7 w-7 rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          title="Indenter (Tab)"
+        >
+          <ChevronRight size={13} />
+        </button>
+
+        <span className="w-px h-5 bg-border mx-1.5" />
+
+        <button
+          type="button"
+          onClick={() => selectedTask && onOpenAdvanced(selectedTask)}
+          disabled={!selectedTask}
+          className="h-7 px-2 text-[11px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          title="Ouvrir le détail complet de la tâche"
+        >
+          <ExternalLink size={12} /> Détails
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={!selectedTask}
+          className="h-7 px-2 text-[11px] rounded border border-border text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/40 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          title="Supprimer la tâche sélectionnée (irréversible)"
+        >
+          <Trash2 size={12} /> Supprimer
+        </button>
+
+        {/* Spacer pushes any future right-aligned widgets to the edge */}
+        <div className="flex-1" />
+        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 hidden md:inline">
+          {tasks.filter((tt) => tt.status === 'done').length} / {tasks.length} terminées
+        </span>
+      </div>
+
       {/* Split body */}
       <div className="flex-1 min-h-0 flex">
-        {/* Left: TaskTable */}
+        {/* Left: TaskTable in its own scroll container — height drives
+            the synced gantt scroll on the right. */}
         <div
+          ref={leftScrollRef}
           className="overflow-auto p-3"
           style={{ width: `${splitPct}%` }}
         >
@@ -1373,11 +1511,11 @@ function TaskFullscreenOverlay({
           title="Glisser pour redimensionner"
         />
 
-        {/* Right: Gantt — embedded GanttCore fed from the same task list.
-            Selecting a task in the table highlights the row in the Gantt;
-            clicking a bar lifts selection back to the table. */}
+        {/* Right: Gantt — its scroll container is bound to the left
+            container via the syncingRef effect above. */}
         <div
-          className="bg-muted/10 min-h-0"
+          ref={rightScrollRef}
+          className="bg-muted/10 min-h-0 overflow-auto"
           style={{ width: `${100 - splitPct}%` }}
         >
           <ProjectMiniGantt
@@ -1411,6 +1549,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
   const selectedTask = selectedTaskId ? tasks.find(t => t.id === selectedTaskId) ?? null : null
   const createTask = useCreateProjectTask()
   const updateTaskMut = useUpdateProjectTask()
+  const deleteTaskMut = useDeleteProjectTask()
 
   // Insert a new task at a given parent + position. The order is set
   // to (anchor.order + 1); ties are broken by created_at ascending so
@@ -1471,6 +1610,17 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
       isMilestone: true,
     })
   }, [selectedTask, tasks, insertTask])
+
+  // Delete the selected task (and any descendants the backend
+  // cascades). Uses the existing useDeleteProjectTask mutation so the
+  // confirm + toast flow stays consistent with the per-row trash
+  // button.
+  const handleDeleteSelected = useCallback(() => {
+    if (!selectedTask) return
+    if (!window.confirm(`Supprimer la tâche « ${selectedTask.title} » ? Cette action est irréversible.`)) return
+    deleteTaskMut.mutate({ projectId, taskId: selectedTask.id })
+    setSelectedTaskId(null)
+  }, [selectedTask, deleteTaskMut, projectId])
 
   // Indent: set parent_id to the previous sibling (the one immediately
   // above with the same parent_id).
@@ -1825,6 +1975,14 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
           onOpenAdvanced={(task) =>
             openTaskAdvanced({ type: 'task-detail', module: 'projets', id: task.id, meta: { projectId } })
           }
+          handleAddAfter={handleAddAfter}
+          handleAddSubtask={handleAddSubtask}
+          handleAddMilestone={handleAddMilestone}
+          handleIndent={handleIndent}
+          handleOutdent={handleOutdent}
+          handleDelete={handleDeleteSelected}
+          canIndent={canIndent}
+          canOutdent={canOutdent}
         />
       )}
 

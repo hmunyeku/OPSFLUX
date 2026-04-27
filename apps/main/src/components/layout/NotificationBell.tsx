@@ -16,6 +16,11 @@ import { Bell, BellRing, CheckCheck, ExternalLink, Inbox, Loader2 } from 'lucide
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
+import { useUIStore } from '@/stores/uiStore'
+// Side-effect: registers the notifications panel renderer the first
+// time the bell is mounted in the topbar, so "Voir tout" can open the
+// dynamic panel without going through React Router.
+import '@/pages/notifications/NotificationsPanelRegister'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -327,12 +332,20 @@ export function NotificationBell() {
               ))}
           </div>
 
-          {/* Footer — link to full journal */}
+          {/* Footer — open the full journal in the right-side panel.
+              Replaces the previous /notifications full-screen page;
+              the panel docks like every other detail surface in OpsFlux
+              and is mobile-friendly out of the box. */}
           <div className="border-t border-border/60 bg-muted/10">
             <button
               onClick={() => {
                 setOpen(false)
-                navigate('/notifications')
+                useUIStore.getState().openDynamicPanel({
+                  type: 'detail',
+                  module: 'notifications',
+                  id: 'journal',
+                  meta: { subtype: 'journal' },
+                })
               }}
               className="w-full text-xs text-primary hover:bg-primary/5 py-2 font-medium"
             >

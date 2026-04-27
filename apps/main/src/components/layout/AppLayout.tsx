@@ -35,7 +35,11 @@ import { useWebSocket } from '@/hooks/useWebSocket'
 import { useActiveAnnouncements, useDismissAnnouncement } from '@/hooks/useAnnouncements'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
-import { DetachedPanelsPortal } from './DetachedPanelRenderer'
+import { DetachedPanelsPortal, renderRegisteredPanel } from './DetachedPanelRenderer'
+// Side-effect: register module renderers that should be available
+// app-wide (not bound to a specific page). Notifications can be opened
+// from the topbar Bell on any page.
+import '@/pages/notifications/NotificationsPanelRegister'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
 import { HelpProvider, HelpPanel } from './HelpSystem'
 import { AssistantPanel } from './AssistantPanel'
@@ -84,6 +88,13 @@ interface AppLayoutProps {
   children: React.ReactNode
 }
 
+// Modules whose dynamic-panel content is registered at the layout
+// level (not bound to a specific page) so they can be opened from
+// anywhere in the app (e.g. the topbar Bell). The page-specific
+// modules (planner, moc, projets, …) keep their own renderer wired
+// inline within their page component.
+const GLOBAL_PANEL_MODULES = new Set(['notifications'])
+
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation()
   const {
@@ -94,6 +105,8 @@ export function AppLayout({ children }: AppLayoutProps) {
     mobileSidebarOpen,
     setMobileSidebarOpen,
   } = useUIStore()
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const showGlobalPanel = !!dynamicPanel && GLOBAL_PANEL_MODULES.has(dynamicPanel.module)
 
   // ── Persist sidebar state via user preferences (DB-backed) ──
   const { getPref, setPref } = useUserPreferences()
@@ -246,6 +259,11 @@ export function AppLayout({ children }: AppLayoutProps) {
         >
           {children}
         </main>
+
+        {/* Global panel slot — modules in GLOBAL_PANEL_MODULES (e.g.
+            notifications) render here so they can be opened from any
+            page without each page having to wire a renderer. */}
+        {showGlobalPanel && dynamicPanel && renderRegisteredPanel(dynamicPanel)}
       </div>
 
       {/* Floating detached panels (rendered via portal to body) */}

@@ -291,6 +291,20 @@ class PlannerConflictAudit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     resolution_note: Mapped[str | None] = mapped_column(Text)
     context: Mapped[str | None] = mapped_column(String(100))  # e.g. "single" | "bulk"
 
+    # ── Concrete-action capture ─────────────────────────────────────
+    # When the operator picked an arbitration that mutates an activity
+    # (shift, set_window, set_quota, cancel), we record both the
+    # affected activity and the full before/after payload so downstream
+    # readers (panel timeline, PDF, email broadcast) can render an
+    # explicit decision line — "Replanifié X de +5j" rather than just
+    # "Replanifier". NULL for pure decisions (approve_both, deferred).
+    target_activity_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True,
+    )
+    action_payload: Mapped[dict | None] = mapped_column(
+        JSONB, nullable=True,
+    )
+
 
 # ─── Scenarios (What-If simulation with persistence) ────────────────────────
 

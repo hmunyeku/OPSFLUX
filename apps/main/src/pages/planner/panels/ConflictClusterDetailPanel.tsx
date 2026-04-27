@@ -48,6 +48,70 @@ import {
 
 type Resolution = 'approve_both' | 'reschedule' | 'reduce_pax' | 'cancel' | 'deferred'
 
+/** Build an explicit human-readable decision sentence for an audit entry.
+ *
+ *  Mirrors the backend `_decision_sentence_fr` so the panel surfaces
+ *  exactly the same wording as the PDF and email broadcast — operators
+ *  shouldn't have to wonder which story is the real one. Falls back to
+ *  the resolution label when there's no concrete action payload (e.g.
+ *  pure approve_both / deferred). */
+function decisionSentence(
+  newResolution: string | null | undefined,
+  payload: import('@/types/api').ConflictAuditActionPayload | null | undefined,
+): string | null {
+  if (!newResolution && !payload) return null
+  const fmt = (s?: string | null): string => {
+    if (!s) return '—'
+    try {
+      const d = new Date(s)
+      return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    } catch {
+      return s.slice(0, 10)
+    }
+  }
+  const action = payload?.action
+  const title = payload?.activity_title || '—'
+  const before = payload?.before || {}
+  const after = payload?.after || {}
+
+  if (action === 'shift') {
+    let delta: number | null = null
+    try {
+      const b = before.start_date ? new Date(before.start_date).getTime() : null
+      const a = after.start_date ? new Date(after.start_date).getTime() : null
+      if (b !== null && a !== null) delta = Math.round((a - b) / 86_400_000)
+    } catch {
+      /* noop */
+    }
+    const sign = (delta ?? 0) >= 0 ? '+' : ''
+    const deltaPart = delta !== null ? ` de ${sign}${delta} j` : ''
+    return (
+      `Replanifié l'activité « ${title} »${deltaPart} ` +
+      `(${fmt(before.start_date)} → ${fmt(before.end_date)} ` +
+      `⇒ ${fmt(after.start_date)} → ${fmt(after.end_date)})`
+    )
+  }
+  if (action === 'set_window') {
+    return (
+      `Nouvelle fenêtre pour « ${title} » : ${fmt(after.start_date)} → ${fmt(after.end_date)} ` +
+      `(avant : ${fmt(before.start_date)} → ${fmt(before.end_date)})`
+    )
+  }
+  if (action === 'set_quota') {
+    return `Quota PAX abaissé sur « ${title} » : ${before.pax_quota ?? '?'} → ${after.pax_quota ?? '?'} PAX`
+  }
+  if (action === 'cancel') {
+    return `Activité « ${title} » annulée`
+  }
+  if (newResolution === 'approve_both') {
+    return 'Approuvée sans modification (les deux activités maintenues).'
+  }
+  if (newResolution === 'deferred') {
+    return 'Décision reportée — pas de modification de planning.'
+  }
+  return null
+}
+
 const RESOLUTION_OPTIONS: Resolution[] = [
   'approve_both',
   'reschedule',
@@ -508,10 +572,32 @@ export function ConflictClusterDetailPanel() {
                 Aucune trace de décision dans l'historique.
               </p>
             ) : (
+              <div className="space-y-2">
+                {/* Explicit decision sentence — what was ACTUALLY done.
+                    "Replanifier" alone is ambiguous — operators flagged
+                    it as such. We surface "Replanifié X de +5j (15/05
+                    → 20/05)" so anyone reading the panel understands
+                    the decision without having to chase the audit log. */}
+                {(() => {
+                  const sentence = decisionSentence(
+                    latestDecision.new_resolution,
+                    latestDecision.action_payload,
+                  )
+                  return sentence ? (
+                    <div className="rounded border border-emerald-500/40 bg-emerald-500/5 px-3 py-2">
+                      <div className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold mb-0.5">
+                        Décision
+                      </div>
+                      <div className="text-xs text-foreground leading-relaxed">
+                        {sentence}
+                      </div>
+                    </div>
+                  ) : null
+                })()}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                 <div className="rounded border border-emerald-500/30 bg-emerald-500/5 px-2 py-1.5">
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Décision
+                    Type d'arbitrage
                   </div>
                   <div className="text-emerald-700 dark:text-emerald-300 font-semibold truncate">
                     {latestDecision.new_resolution
@@ -822,11 +908,12 @@ export function ConflictClusterDetailPanel() {
                             {formatDateShort(entry.created_at)}
                           </span>
                         </div>
-                        <div className="mt-0.5 flex items-center gap-1.5">
-                          <span className="text-foreground/80">
-                            {entry.new_resolution
-                              ? RESOLUTION_LABELS_FALLBACK[entry.new_resolution] || entry.new_resolution
-                              : (entry.action || '—')}
+                        <div className="mt-0.5 flex items-start gap-1.5 flex-wrap">
+                          <span className="text-foreground/80 leading-relaxed">
+                            {decisionSentence(entry.new_resolution, entry.action_payload)
+                              ?? (entry.new_resolution
+                                ? RESOLUTION_LABELS_FALLBACK[entry.new_resolution] || entry.new_resolution
+                                : (entry.action || '—'))}
                           </span>
                           {isAuto && (
                             <span className="inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400">

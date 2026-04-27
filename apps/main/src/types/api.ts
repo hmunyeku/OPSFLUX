@@ -2888,6 +2888,29 @@ export interface BulkConflictResolveResult {
   conflict_ids: string[]
 }
 
+/** Concrete-action capture on an audit entry — what the operator
+ *  actually did to an activity when arbitrating. NULL fields mean
+ *  the resolution was a pure decision (approve_both / deferred) with
+ *  no activity mutation. Mirrors `action_payload` JSONB in the DB. */
+export interface ConflictAuditActionPayload {
+  activity_id?: string
+  activity_title?: string
+  action: 'shift' | 'set_window' | 'set_quota' | 'cancel'
+  before?: {
+    start_date?: string | null
+    end_date?: string | null
+    pax_quota?: number | null
+    status?: string | null
+  }
+  after?: {
+    start_date?: string | null
+    end_date?: string | null
+    pax_quota?: number | null
+    status?: string | null
+  }
+  auto_cleared_count?: number
+}
+
 export interface ConflictAuditEntry {
   id: string
   conflict_id: string
@@ -2901,6 +2924,10 @@ export interface ConflictAuditEntry {
   resolution_note: string | null
   context: string | null
   created_at: string
+  /** Activity acted upon when an apply action ran. NULL for pure decisions. */
+  target_activity_id?: string | null
+  /** Full applied-action summary (action + before/after state). */
+  action_payload?: ConflictAuditActionPayload | null
 }
 
 export interface ProposedActivity {

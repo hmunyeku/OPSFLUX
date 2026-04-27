@@ -1650,7 +1650,11 @@ async def resolve_conflict(
     conflict.resolved_by = current_user.id
     conflict.resolved_at = datetime.now(timezone.utc)
 
-    # Append an audit row (append-only history of who resolved what)
+    # Append an audit row (append-only history of who resolved what).
+    # When a concrete action was applied (shift/set_window/set_quota/
+    # cancel), capture the target activity + full before/after payload
+    # so downstream readers can render an explicit decision instead of
+    # just the resolution label.
     db.add(PlannerConflictAudit(
         conflict_id=conflict.id,
         actor_id=current_user.id,
@@ -1661,6 +1665,11 @@ async def resolve_conflict(
         new_resolution=body.resolution,
         resolution_note=body.resolution_note,
         context="single",
+        target_activity_id=(
+            UUID(applied_action_summary["activity_id"])
+            if applied_action_summary else None
+        ),
+        action_payload=applied_action_summary,
     ))
 
     await db.commit()
@@ -1847,6 +1856,8 @@ async def list_conflict_audit(
             "resolution_note": row.resolution_note,
             "context": row.context,
             "created_at": row.created_at,
+            "target_activity_id": row.target_activity_id,
+            "action_payload": row.action_payload,
         }
     return [_to_dict(r) for r in rows]
 
@@ -3464,6 +3475,15 @@ async def _build_cluster_payload_from_anchor(
                 getattr(actor, "full_name", None)
                 or (actor.email if actor else None)
             )
+        # Render an explicit, human-readable decision sentence so the
+        # PDF/email don't expose just "Replanifier" — the operator's
+        # manager flagged that as ambiguous (rescheduled what? by how
+        # much?). target_activity_id + action_payload were added in
+        # migration 158 to capture exactly that.
+        decision_sentence = _decision_sentence_fr(
+            new_resolution=row.new_resolution,
+            action_payload=row.action_payload,
+        )
         audit_entries.append({
             "actor_name": actor_name,
             "created_at": row.created_at.strftime("%d/%m/%Y %H:%M") if row.created_at else "",
@@ -3475,6 +3495,9 @@ async def _build_cluster_payload_from_anchor(
             "old_status": row.old_status,
             "new_status": row.new_status,
             "resolution_note": row.resolution_note,
+            "target_activity_id": str(row.target_activity_id) if row.target_activity_id else None,
+            "action_payload": row.action_payload,
+            "decision_sentence": decision_sentence,
         })
 
     # Members for the day list
@@ -3572,6 +3595,91 @@ _RESOLUTION_LABELS_FR = {
     "cancel": "Annuler une activité",
     "deferred": "Reporter la décision",
 }
+
+
+def _format_iso_date_fr(s: str | None) -> str:
+    """ISO date → 'JJ/MM/AAAA'. Tolerant of None and partial strings."""
+    if not s:
+        return "—"
+    try:
+        d = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return d.strftime("%d/%m/%Y")
+    except Exception:
+        return s[:10]
+
+
+def _decision_sentence_fr(
+    *, new_resolution: str | None, action_payload: dict | None,
+) -> str | None:
+    """Build a human-readable decision sentence for the audit log.
+
+    Surfaces *what* was actually changed instead of just the resolution
+    label. Examples:
+
+        Replanifié l'activité « Workover P-12 » de +5 j
+            (15/05/2026 → 20/05/2026 ⇒ 20/05/2026 → 25/05/2026)
+        Quota PAX abaissé sur « Inspection turbine » : 38 → 22 PAX
+        Activité « Maintenance tubing » annulée
+        Nouvelle fenêtre pour « Workover P-12 » : 22/05/2026 → 27/05/2026
+        Approuvée sans modification (les deux activités maintenues).
+        Décision reportée — pas de modification de planning.
+
+    Returns None when we have neither resolution nor action payload —
+    the caller falls back to the resolution label or generic action.
+    """
+    if not new_resolution and not action_payload:
+        return None
+
+    payload = action_payload or {}
+    action = payload.get("action")
+    activity_title = payload.get("activity_title") or "—"
+    before = payload.get("before") or {}
+    after = payload.get("after") or {}
+
+    if action == "shift":
+        # Compute delta days from before → after for clarity.
+        delta = None
+        try:
+            b = datetime.fromisoformat(str(before.get("start_date")).replace("Z", "+00:00"))
+            a = datetime.fromisoformat(str(after.get("start_date")).replace("Z", "+00:00"))
+            delta = (a - b).days
+        except Exception:
+            pass
+        sign = "+" if (delta or 0) >= 0 else ""
+        delta_part = f" de {sign}{delta} j" if delta is not None else ""
+        return (
+            f"Replanifié l'activité « {activity_title} »{delta_part} "
+            f"({_format_iso_date_fr(before.get('start_date'))} → "
+            f"{_format_iso_date_fr(before.get('end_date'))}"
+            f" ⇒ {_format_iso_date_fr(after.get('start_date'))} → "
+            f"{_format_iso_date_fr(after.get('end_date'))})"
+        )
+
+    if action == "set_window":
+        return (
+            f"Nouvelle fenêtre pour « {activity_title} » : "
+            f"{_format_iso_date_fr(after.get('start_date'))} → "
+            f"{_format_iso_date_fr(after.get('end_date'))} "
+            f"(avant : {_format_iso_date_fr(before.get('start_date'))} → "
+            f"{_format_iso_date_fr(before.get('end_date'))})"
+        )
+
+    if action == "set_quota":
+        return (
+            f"Quota PAX abaissé sur « {activity_title} » : "
+            f"{before.get('pax_quota', '?')} → {after.get('pax_quota', '?')} PAX"
+        )
+
+    if action == "cancel":
+        return f"Activité « {activity_title} » annulée"
+
+    # No concrete action — pure decision.
+    if new_resolution == "approve_both":
+        return "Approuvée sans modification (les deux activités maintenues)."
+    if new_resolution == "deferred":
+        return "Décision reportée — pas de modification de planning."
+
+    return None
 
 
 class ConflictPdfExportRequest(BaseModel):

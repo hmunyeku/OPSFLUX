@@ -4342,6 +4342,25 @@ _PLANNER_CONFLICT_RESOLUTION_BODY_FR = """\
     </tbody>
   </table>
 
+  {% set last_decision = (audit | selectattr('context', 'ne', 'auto_cleared') | list | first) if audit else None %}
+  {% if last_decision and last_decision.decision_sentence %}
+  <h2>Décision arbitrale</h2>
+  <div style="border:1pt solid #10b981;background:#ecfdf5;border-radius:1mm;padding:2.5mm 3mm;margin-bottom:3mm;">
+    <div style="font-size:9pt;font-weight:700;color:#065f46;line-height:1.45">
+      {{ last_decision.decision_sentence }}
+    </div>
+    <div style="font-size:7.5pt;color:#475569;margin-top:1.5mm">
+      Appliquée par <strong>{{ last_decision.actor_name or 'Système' }}</strong>
+      le <strong>{{ last_decision.created_at }}</strong>
+    </div>
+    {% if last_decision.resolution_note %}
+    <div style="font-size:8pt;color:#1f2937;margin-top:2mm;padding:2mm;border-left:2pt solid #10b981;background:#ffffff;font-style:italic">
+      « {{ last_decision.resolution_note }} »
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <h2>Historique d'arbitrage</h2>
   {% if audit %}
   <div class="timeline">
@@ -4350,7 +4369,11 @@ _PLANNER_CONFLICT_RESOLUTION_BODY_FR = """\
       <span class="who">{{ a.actor_name or 'Système' }}</span>
       <span class="when"> · {{ a.created_at }}</span>
       <div class="what">
-        {{ a.resolution_label or a.action or '—' }}
+        {% if a.decision_sentence %}
+          {{ a.decision_sentence }}
+        {% else %}
+          {{ a.resolution_label or a.action or '—' }}
+        {% endif %}
         {% if a.context == 'auto_cleared' %}<span style="color:#10b981;font-size:7pt">· auto</span>{% endif %}
         {% if a.old_status and a.new_status and a.old_status != a.new_status %}
           <span style="color:#94a3b8;font-size:7pt">({{ a.old_status }} → {{ a.new_status }})</span>

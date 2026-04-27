@@ -119,7 +119,7 @@ export function WbsSection({ projectId }: { projectId: string }) {
           <button
             onClick={() => deleteNode.mutate({ projectId, nodeId: node.id })}
             className="p-0.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100"
-            title="Archiver le nœud"
+            title={t('projets.advanced.archive_node', 'Archiver le nœud')}
           >
             <X size={10} />
           </button>
@@ -274,7 +274,7 @@ export function CpmSection({ projectId }: { projectId: string }) {
 
   return (
     <FormSection
-      title="Chemin critique (CPM)"
+      title={t('projets.advanced.cpm_title', 'Chemin critique (CPM)')}
       collapsible
       defaultExpanded={false}
       storageKey="project-detail-cpm"
@@ -294,20 +294,20 @@ export function CpmSection({ projectId }: { projectId: string }) {
           {/* Stats row — 4 KPIs: durée projet, tâches critiques, total, marge moyenne */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
             <div className="border border-primary/30 bg-primary/5 rounded p-2">
-              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Durée totale</div>
+              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.advanced.cpm.total_duration', 'Durée totale')}</div>
               <div className="text-lg font-semibold tabular-nums text-primary">{cpm.project_duration_days} j</div>
             </div>
             <div className="border border-red-500/30 bg-red-500/5 rounded p-2">
-              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Tâches critiques</div>
+              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.advanced.cpm.critical_tasks', 'Tâches critiques')}</div>
               <div className="text-lg font-semibold tabular-nums text-red-600">{cpm.critical_path_task_ids.length}</div>
             </div>
             <div className="border border-border rounded p-2">
-              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Tâches totales</div>
+              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.advanced.cpm.total_tasks', 'Tâches totales')}</div>
               <div className="text-lg font-semibold tabular-nums">{cpm.tasks.length}</div>
             </div>
             {stats && (
               <div className="border border-border rounded p-2">
-                <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Marge moyenne</div>
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.advanced.cpm.avg_slack', 'Marge moyenne')}</div>
                 <div className={cn(
                   'text-lg font-semibold tabular-nums',
                   stats.avgSlack === 0 ? 'text-red-600' :
@@ -368,7 +368,7 @@ export function CpmSection({ projectId }: { projectId: string }) {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Filtrer…"
+                  placeholder={t('common.filter_ellipsis', 'Filtrer…')}
                   className={cn(panelInputClass, 'pl-5 h-6 text-[10px]')}
                 />
               </div>
@@ -619,7 +619,7 @@ export function PlanningRevisionsSection({ projectId }: { projectId: string }) {
                   onClick={() => handleApply(rev)}
                   disabled={applyRev.isPending}
                   className="p-0.5 rounded hover:bg-primary/10 text-primary disabled:opacity-30"
-                  title="Activer cette révision"
+                  title={t('projets.advanced.activate_revision', 'Activer cette révision')}
                 >
                   <Play size={10} />
                 </button>
@@ -628,7 +628,7 @@ export function PlanningRevisionsSection({ projectId }: { projectId: string }) {
                 <button
                   onClick={() => deleteRev.mutate({ projectId, revisionId: rev.id })}
                   className="p-0.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100"
-                  title="Supprimer"
+                  title={t('common.delete', 'Supprimer')}
                 >
                   <X size={10} />
                 </button>
@@ -703,7 +703,7 @@ export function SubProjectsSection({ projectId }: { projectId: string }) {
   const projectStatusLabels = useDictionaryLabels('project_status', PROJECT_STATUS_LABELS_FALLBACK)
 
   if (isLoading) return <div className="text-xs text-muted-foreground py-2"><Loader2 size={12} className="animate-spin inline mr-1" />Chargement...</div>
-  if (!children || children.length === 0) return <EmptyState icon={Layers} title="Aucun sous-projet" variant="search" size="compact" />
+  if (!children || children.length === 0) return <EmptyState icon={Layers} title={t('projets.advanced.no_subprojects', 'Aucun sous-projet')} variant="search" size="compact" />
 
   return (
     <div className="border border-border rounded-md overflow-hidden">

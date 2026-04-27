@@ -189,7 +189,8 @@
     "project": "Projet",
     "start_date_short": "Début",
     "end_date_short": "Fin",
-    "unit": "Unité"
+    "unit": "Unité",
+    "filter_ellipsis": "Filtrer…"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -1629,7 +1630,28 @@
       "no_comments": "Aucun commentaire pour le moment",
       "add_comment_placeholder": "Ajouter un commentaire…"
     },
-    "task": "Tâche"
+    "task": "Tâche",
+    "advanced": {
+      "archive_node": "Archiver le nœud",
+      "cpm_title": "Chemin critique (CPM)",
+      "activate_revision": "Activer cette révision",
+      "no_subprojects": "Aucun sous-projet",
+      "cpm": {
+        "total_duration": "Durée totale",
+        "critical_tasks": "Tâches critiques",
+        "total_tasks": "Tâches totales",
+        "avg_slack": "Marge moyenne"
+      }
+    },
+    "timesheet": {
+      "previous_week": "Semaine précédente",
+      "next_week": "Semaine suivante",
+      "legend_draft": "Brouillon",
+      "legend_submitted": "Soumis",
+      "legend_validated": "Validé",
+      "legend_rejected": "Rejeté",
+      "shortcuts_hint": "Tab pour cellule suivante · Entrée pour valider · 0 pour vider"
+    }
   },
   "dashboard": {
     "title": "Tableau de bord",

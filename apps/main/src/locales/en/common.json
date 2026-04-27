@@ -189,7 +189,8 @@
     "project": "Project",
     "start_date_short": "Start",
     "end_date_short": "End",
-    "unit": "Unit"
+    "unit": "Unit",
+    "filter_ellipsis": "Filter…"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -1475,7 +1476,28 @@
       "no_comments": "No comment yet",
       "add_comment_placeholder": "Add a comment…"
     },
-    "task": "Task"
+    "task": "Task",
+    "advanced": {
+      "archive_node": "Archive node",
+      "cpm_title": "Critical path (CPM)",
+      "activate_revision": "Activate this revision",
+      "no_subprojects": "No sub-project",
+      "cpm": {
+        "total_duration": "Total duration",
+        "critical_tasks": "Critical tasks",
+        "total_tasks": "Total tasks",
+        "avg_slack": "Average slack"
+      }
+    },
+    "timesheet": {
+      "previous_week": "Previous week",
+      "next_week": "Next week",
+      "legend_draft": "Draft",
+      "legend_submitted": "Submitted",
+      "legend_validated": "Validated",
+      "legend_rejected": "Rejected",
+      "shortcuts_hint": "Tab for next cell · Enter to confirm · 0 to clear"
+    }
   },
   "dashboard": {
     "title": "Dashboard",

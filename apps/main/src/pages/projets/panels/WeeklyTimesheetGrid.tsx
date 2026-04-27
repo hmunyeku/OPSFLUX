@@ -20,6 +20,7 @@
  *  - rejected  : fond rouge (modifiable, repassera draft à la sauvegarde)
  */
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, Send, Loader2, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -99,6 +100,7 @@ export function WeeklyTimesheetGrid({
   /** Target hours per week (default 40h = 5 jours × 8h). Used for the X/40 badge. */
   weeklyTargetHours?: number
 }) {
+  const { t } = useTranslation()
   const currentUser = useAuthStore((s) => s.user)
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()))
 
@@ -249,7 +251,7 @@ export function WeeklyTimesheetGrid({
         <button
           onClick={() => setWeekStart((w) => addDays(w, -7))}
           className="h-7 w-7 inline-flex items-center justify-center rounded border border-border hover:bg-muted"
-          title="Semaine précédente"
+          title={t('projets.timesheet.previous_week', 'Semaine précédente')}
         >
           <ChevronLeft size={14} />
         </button>
@@ -262,7 +264,7 @@ export function WeeklyTimesheetGrid({
         <button
           onClick={() => setWeekStart((w) => addDays(w, 7))}
           className="h-7 w-7 inline-flex items-center justify-center rounded border border-border hover:bg-muted"
-          title="Semaine suivante"
+          title={t('projets.timesheet.next_week', 'Semaine suivante')}
         >
           <ChevronRight size={14} />
         </button>
@@ -401,11 +403,11 @@ export function WeeklyTimesheetGrid({
       </div>
 
       <div className="text-[10px] text-muted-foreground italic flex flex-wrap gap-3">
-        <span><span className="inline-block w-2 h-2 rounded-sm bg-muted align-middle mr-1" />Brouillon</span>
-        <span><span className="inline-block w-2 h-2 rounded-sm bg-blue-500/40 align-middle mr-1" />Soumis</span>
-        <span><span className="inline-block w-2 h-2 rounded-sm bg-green-500/40 align-middle mr-1" />Validé</span>
-        <span><span className="inline-block w-2 h-2 rounded-sm bg-red-500/40 align-middle mr-1" />Rejeté</span>
-        <span className="ml-auto">Tab pour cellule suivante · Entrée pour valider · 0 pour vider</span>
+        <span><span className="inline-block w-2 h-2 rounded-sm bg-muted align-middle mr-1" />{t('projets.timesheet.legend_draft', 'Brouillon')}</span>
+        <span><span className="inline-block w-2 h-2 rounded-sm bg-blue-500/40 align-middle mr-1" />{t('projets.timesheet.legend_submitted', 'Soumis')}</span>
+        <span><span className="inline-block w-2 h-2 rounded-sm bg-green-500/40 align-middle mr-1" />{t('projets.timesheet.legend_validated', 'Validé')}</span>
+        <span><span className="inline-block w-2 h-2 rounded-sm bg-red-500/40 align-middle mr-1" />{t('projets.timesheet.legend_rejected', 'Rejeté')}</span>
+        <span className="ml-auto">{t('projets.timesheet.shortcuts_hint', 'Tab pour cellule suivante · Entrée pour valider · 0 pour vider')}</span>
       </div>
     </div>
   )

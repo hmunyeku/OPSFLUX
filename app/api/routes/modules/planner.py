@@ -3347,6 +3347,419 @@ async def export_gantt_pdf(
     )
 
 
+# ── Conflict cluster PDF + Email ─────────────────────────────────────────
+#
+# Single endpoint family for the "arbitrate then broadcast" workflow we
+# observe on real production sites (RDR Q2-2026 etc.). The user picks
+# any conflict from a cluster — the backend rebuilds the cluster from
+# the DB (every open/resolved conflict on the same asset that shares
+# the same activity set, contiguous days), renders the PDF via the
+# `planner.conflict_resolution` system template, and either streams
+# the file back or sends it as an email attachment.
+
+
+async def _build_cluster_payload_from_anchor(
+    db: AsyncSession,
+    anchor_conflict_id: UUID,
+    entity_id: UUID,
+) -> dict:
+    """Re-build the cluster (members + audit + calendar + activities)
+    from an anchor conflict id. Mirrors the frontend's clusterConflicts
+    helper but works server-side from the canonical DB state, so the
+    PDF and email always reflect the truth even if the user had a stale
+    table cached."""
+    anchor = await db.get(PlannerConflict, anchor_conflict_id)
+    if not anchor or anchor.entity_id != entity_id:
+        raise StructuredHTTPException(
+            404, code="CONFLICT_NOT_FOUND",
+            message="Conflict not found or out of scope",
+        )
+
+    # Pull every conflict on the same asset, then group like the FE does.
+    asset_conflicts_q = await db.execute(
+        select(PlannerConflict).where(
+            PlannerConflict.entity_id == entity_id,
+            PlannerConflict.asset_id == anchor.asset_id,
+            PlannerConflict.active == True,  # noqa: E712
+        ).order_by(PlannerConflict.conflict_date.asc())
+    )
+    all_conflicts = asset_conflicts_q.scalars().all()
+
+    # Junction → activity set per conflict.
+    junction_q = await db.execute(
+        select(PlannerConflictActivity).where(
+            PlannerConflictActivity.conflict_id.in_([c.id for c in all_conflicts]),
+        )
+    )
+    by_conflict_actset: dict[UUID, frozenset[UUID]] = {}
+    for row in junction_q.scalars().all():
+        s = by_conflict_actset.get(row.conflict_id, frozenset())
+        by_conflict_actset[row.conflict_id] = s | {row.activity_id}
+
+    anchor_set = by_conflict_actset.get(anchor.id, frozenset())
+
+    # Walk left from anchor while consecutive AND same activity_set.
+    by_id = {c.id: c for c in all_conflicts}
+    sorted_dates = sorted(
+        all_conflicts,
+        key=lambda c: c.conflict_date,
+    )
+    pos = next((i for i, c in enumerate(sorted_dates) if c.id == anchor.id), -1)
+    if pos < 0:
+        raise StructuredHTTPException(500, code="ANCHOR_LOOKUP_FAILED", message="Anchor not in conflict list")
+
+    members: list[PlannerConflict] = [anchor]
+    # extend left
+    i = pos - 1
+    while i >= 0:
+        prev = sorted_dates[i]
+        if (sorted_dates[i + 1].conflict_date - prev.conflict_date).days != 1:
+            break
+        if by_conflict_actset.get(prev.id, frozenset()) != anchor_set:
+            break
+        members.insert(0, prev)
+        i -= 1
+    # extend right
+    j = pos + 1
+    while j < len(sorted_dates):
+        nxt = sorted_dates[j]
+        if (nxt.conflict_date - sorted_dates[j - 1].conflict_date).days != 1:
+            break
+        if by_conflict_actset.get(nxt.id, frozenset()) != anchor_set:
+            break
+        members.append(nxt)
+        j += 1
+
+    # Asset
+    asset = await db.get(Installation, anchor.asset_id)
+
+    # Activities
+    activities_meta: list[dict] = []
+    for aid in anchor_set:
+        a = await db.get(PlannerActivity, aid)
+        if not a:
+            continue
+        activities_meta.append({
+            "id": str(a.id),
+            "title": a.title,
+            "type": a.type,
+            "start_date": a.start_date.isoformat() if a.start_date else None,
+            "end_date": a.end_date.isoformat() if a.end_date else None,
+            "pax_quota": a.pax_quota,
+            "status": a.status,
+        })
+
+    # Audit (from anchor's own audit row — frontend uses the primary)
+    audit_q = await db.execute(
+        select(PlannerConflictAudit).where(
+            PlannerConflictAudit.conflict_id.in_([c.id for c in members]),
+        ).order_by(PlannerConflictAudit.created_at.desc())
+    )
+    audit_entries: list[dict] = []
+    for row in audit_q.scalars().all():
+        actor_name = None
+        if row.actor_id:
+            actor = await db.get(User, row.actor_id)
+            actor_name = (
+                getattr(actor, "full_name", None)
+                or (actor.email if actor else None)
+            )
+        audit_entries.append({
+            "actor_name": actor_name,
+            "created_at": row.created_at.strftime("%d/%m/%Y %H:%M") if row.created_at else "",
+            "resolution_label": (
+                _RESOLUTION_LABELS_FR.get(row.new_resolution or "", row.new_resolution or "") if row.new_resolution else None
+            ),
+            "action": row.action,
+            "context": row.context,
+            "old_status": row.old_status,
+            "new_status": row.new_status,
+            "resolution_note": row.resolution_note,
+        })
+
+    # Members for the day list
+    members_payload: list[dict] = []
+    sum_overflow = 0
+    max_overflow = 0
+    for m in members:
+        ov = int(m.overflow_amount or 0)
+        sum_overflow += ov
+        if ov > max_overflow:
+            max_overflow = ov
+        members_payload.append({
+            "conflict_date": m.conflict_date.isoformat(),
+            "overflow_amount": m.overflow_amount,
+            "resolution_label": (
+                _RESOLUTION_LABELS_FR.get(m.resolution or "", m.resolution) if m.resolution else None
+            ),
+            "status": m.status,
+            "resolution_note": m.resolution_note,
+        })
+
+    # Calendar (Mon-Sun weeks framing the cluster).
+    member_by_date = {m.conflict_date: m for m in members}
+
+    def _start_of_iso_week(d: date) -> date:
+        return d - timedelta(days=(d.weekday()))  # Monday=0
+
+    def _iso_week(d: date) -> int:
+        return d.isocalendar()[1]
+
+    cal_start = _start_of_iso_week(members[0].conflict_date)
+    cal_end_week_monday = _start_of_iso_week(members[-1].conflict_date)
+    cal_end = cal_end_week_monday + timedelta(days=6)
+    weeks_payload: list[dict] = []
+    cur = cal_start
+    while cur <= cal_end:
+        days = []
+        for i in range(7):
+            d = cur + timedelta(days=i)
+            mem = member_by_date.get(d)
+            days.append({
+                "date": d.isoformat(),
+                "day": d.day,
+                "in_cluster": mem is not None,
+                "overflow": (mem.overflow_amount if mem else None),
+                "status": (mem.status if mem else None),
+                "resolution_label": (
+                    _RESOLUTION_LABELS_FR.get(mem.resolution or "", mem.resolution)
+                    if mem and mem.resolution else None
+                ),
+            })
+        weeks_payload.append({
+            "week": _iso_week(cur),
+            "year": cur.year,
+            "days": days,
+        })
+        cur += timedelta(days=7)
+
+    # Cluster status rollup (same logic as the frontend).
+    open_n = sum(1 for m in members if m.status == "open")
+    resolved_n = sum(1 for m in members if m.status == "resolved")
+    deferred_n = sum(1 for m in members if m.status == "deferred")
+    if open_n == 0 and deferred_n == 0:
+        status_label = "Résolu"
+    elif open_n == 0 and deferred_n > 0:
+        status_label = "Différé"
+    elif resolved_n > 0 or deferred_n > 0:
+        status_label = "Partiel"
+    else:
+        status_label = "Ouvert"
+
+    return {
+        "asset": asset,
+        "asset_name": asset.name if asset else None,
+        "asset_code": asset.code if asset else None,
+        "asset_pob_capacity": asset.pob_capacity if asset else None,
+        "window_start": members[0].conflict_date.isoformat(),
+        "window_end": members[-1].conflict_date.isoformat(),
+        "days": len(members),
+        "max_overflow": max_overflow,
+        "sum_overflow": sum_overflow,
+        "status_label": status_label,
+        "activities": activities_meta,
+        "members": members_payload,
+        "audit": audit_entries,
+        "calendar": weeks_payload,
+        "members_raw": members,
+    }
+
+
+_RESOLUTION_LABELS_FR = {
+    "approve_both": "Approuver les deux",
+    "reschedule": "Replanifier",
+    "reduce_pax": "Réduire PAX",
+    "cancel": "Annuler une activité",
+    "deferred": "Reporter la décision",
+}
+
+
+class ConflictPdfExportRequest(BaseModel):
+    conflict_id: UUID
+    title: str | None = None
+
+
+@router.post("/export/conflict-pdf")
+async def export_conflict_pdf(
+    payload: ConflictPdfExportRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.conflict.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render a conflict cluster as A4 portrait PDF.
+
+    The cluster is rebuilt server-side from any of its members'
+    `conflict_id` (used as anchor). Uses the system PDF template
+    `planner.conflict_resolution`.
+    """
+    from app.core.pdf_templates import render_pdf
+    from app.models.common import Entity
+
+    cluster_payload = await _build_cluster_payload_from_anchor(db, payload.conflict_id, entity_id)
+    entity = await db.get(Entity, entity_id)
+    generated_at = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    generated_by = getattr(current_user, "full_name", None) or current_user.email
+
+    try:
+        pdf_bytes = await render_pdf(
+            db,
+            slug="planner.conflict_resolution",
+            entity_id=entity_id,
+            language="fr",
+            variables={
+                "title": payload.title or "Arbitrage de conflit Planner",
+                "asset_name": cluster_payload["asset_name"],
+                "asset_code": cluster_payload["asset_code"],
+                "asset_pob_capacity": cluster_payload["asset_pob_capacity"],
+                "window_start": cluster_payload["window_start"],
+                "window_end": cluster_payload["window_end"],
+                "days": cluster_payload["days"],
+                "max_overflow": cluster_payload["max_overflow"],
+                "sum_overflow": cluster_payload["sum_overflow"],
+                "status_label": cluster_payload["status_label"],
+                "activities": cluster_payload["activities"],
+                "members": cluster_payload["members"],
+                "audit": cluster_payload["audit"],
+                "calendar": cluster_payload["calendar"],
+                "entity": {"name": entity.name if entity else "", "code": getattr(entity, "code", "")},
+                "generated_at": generated_at,
+                "generated_by": generated_by,
+            },
+        )
+    except Exception as e:
+        logger.exception("Failed to render conflict PDF")
+        raise StructuredHTTPException(
+            500, code="PDF_GENERATION_FAILED",
+            message="PDF generation failed: {e}",
+            params={"e": str(e)},
+        )
+
+    if pdf_bytes is None:
+        raise StructuredHTTPException(
+            404, code="PDF_TEMPLATE_PLANNER_CONFLICT_NOT_FOUND",
+            message="PDF template 'planner.conflict_resolution' not found. Run the seed_pdf_templates job.",
+        )
+
+    asset_part = (cluster_payload["asset_code"] or "asset").lower().replace("/", "-")
+    win = cluster_payload["window_start"]
+    filename = f"arbitrage-conflit-{asset_part}-{win}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+class ConflictEmailRequest(BaseModel):
+    conflict_id: UUID
+    recipients: list[str] = Field(..., min_length=1, max_length=20)
+    cc: list[str] = Field(default_factory=list, max_length=20)
+    subject: str | None = None
+    body: str | None = None
+
+
+@router.post("/conflicts/{conflict_id}/email")
+async def email_conflict_cluster(
+    conflict_id: UUID,
+    payload: ConflictEmailRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.conflict.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Email the conflict cluster PDF to a list of recipients.
+
+    Renders the same `planner.conflict_resolution` template used by the
+    /export/conflict-pdf endpoint and ships it through the standard
+    OpsFlux EmailService — same SMTP config, same logging, same
+    audit trail as every other module's email.
+    """
+    if payload.conflict_id != conflict_id:
+        raise StructuredHTTPException(
+            400, code="CONFLICT_ID_MISMATCH",
+            message="conflict_id in path differs from body",
+        )
+    from app.core.pdf_templates import render_pdf
+    from app.models.common import Entity
+    from app.core.notifications import send_email
+
+    cluster_payload = await _build_cluster_payload_from_anchor(db, conflict_id, entity_id)
+    entity = await db.get(Entity, entity_id)
+    generated_at = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    generated_by = getattr(current_user, "full_name", None) or current_user.email
+
+    pdf_bytes = await render_pdf(
+        db, slug="planner.conflict_resolution", entity_id=entity_id, language="fr",
+        variables={
+            "title": payload.subject or "Arbitrage de conflit Planner",
+            "asset_name": cluster_payload["asset_name"],
+            "asset_code": cluster_payload["asset_code"],
+            "asset_pob_capacity": cluster_payload["asset_pob_capacity"],
+            "window_start": cluster_payload["window_start"],
+            "window_end": cluster_payload["window_end"],
+            "days": cluster_payload["days"],
+            "max_overflow": cluster_payload["max_overflow"],
+            "sum_overflow": cluster_payload["sum_overflow"],
+            "status_label": cluster_payload["status_label"],
+            "activities": cluster_payload["activities"],
+            "members": cluster_payload["members"],
+            "audit": cluster_payload["audit"],
+            "calendar": cluster_payload["calendar"],
+            "entity": {"name": entity.name if entity else "", "code": getattr(entity, "code", "")},
+            "generated_at": generated_at,
+            "generated_by": generated_by,
+        },
+    )
+    if pdf_bytes is None:
+        raise StructuredHTTPException(
+            404, code="PDF_TEMPLATE_PLANNER_CONFLICT_NOT_FOUND",
+            message="PDF template 'planner.conflict_resolution' not found.",
+        )
+
+    subject = payload.subject or (
+        f"[Planner] Arbitrage conflit {cluster_payload['asset_code'] or ''} "
+        f"{cluster_payload['window_start']} → {cluster_payload['window_end']}"
+    )
+    default_body = (
+        f"Bonjour,\n\n"
+        f"Voici la synthèse de l'arbitrage du conflit POB sur "
+        f"{cluster_payload['asset_name']} pour la fenêtre "
+        f"{cluster_payload['window_start']} → {cluster_payload['window_end']} "
+        f"({cluster_payload['days']} jour{'s' if cluster_payload['days'] > 1 else ''}, "
+        f"pic POB +{cluster_payload['max_overflow']}).\n\n"
+        f"Statut : {cluster_payload['status_label']}\n"
+        f"Activités impliquées : "
+        f"{', '.join(a['title'] for a in cluster_payload['activities'])}\n\n"
+        f"Le détail complet est joint en PDF.\n\n"
+        f"-- {generated_by}"
+    )
+    asset_part = (cluster_payload["asset_code"] or "asset").lower().replace("/", "-")
+    filename = f"arbitrage-conflit-{asset_part}-{cluster_payload['window_start']}.pdf"
+
+    # The body provided by the user (or the default we crafted) is plain
+    # text. Wrap it as <pre> so SMTP renders it predictably while still
+    # allowing HTML mail clients to display the line breaks correctly.
+    body_text = payload.body or default_body
+    body_html = f'<pre style="font-family: Helvetica, Arial, sans-serif; font-size: 13px; white-space: pre-wrap;">{body_text}</pre>'
+
+    await send_email(
+        to=payload.recipients,
+        cc=payload.cc or None,
+        subject=subject,
+        body_html=body_html,
+        from_name=generated_by,
+        db=db,
+        user_id=current_user.id,
+        category="planner",
+        event_type="planner.conflict.email",
+        attachments=[
+            {"filename": filename, "content": pdf_bytes, "mime_type": "application/pdf"},
+        ],
+    )
+    return {"sent": True, "recipients": payload.recipients, "cc": payload.cc, "subject": subject}
+
+
 # ── Capacity Heatmap ─────────────────────────────────────────────────────
 
 

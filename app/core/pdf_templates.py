@@ -952,6 +952,71 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             },
         },
     },
+    {
+        # Planner Conflict Resolution — captures one cluster (asset +
+        # contiguous days + activity set) with its full arbitration
+        # history. Matches the email-driven arbitration flow we observe
+        # on production sites (RDR Q2-2026 etc.) so a Production Manager
+        # can attach the PDF to the broadcast email after resolving.
+        "slug": "planner.conflict_resolution",
+        "name": "Arbitrage de conflit Planner",
+        "description": (
+            "Synthèse PDF d'un cluster de conflits Planner (un asset + "
+            "fenêtre contiguë + activités impliquées) avec calendrier, "
+            "résolution(s) appliquée(s) et historique d'arbitrage."
+        ),
+        "object_type": "system",
+        "page_size": "A4",
+        "orientation": "portrait",
+        "margin_top": 12,
+        "margin_right": 12,
+        "margin_bottom": 14,
+        "margin_left": 12,
+        "variables_schema": {
+            "title": "Titre du document",
+            "asset_name": "Nom de l'installation concernée",
+            "asset_code": "Code de l'installation",
+            "asset_pob_capacity": "POB max de l'installation (capacité)",
+            "window_start": "Date de début de la fenêtre du cluster (ISO)",
+            "window_end": "Date de fin de la fenêtre du cluster (ISO)",
+            "days": "Nombre de jours du cluster",
+            "max_overflow": "Pic POB dépassé (en PAX)",
+            "sum_overflow": "Somme cumulée des dépassements (PAX·jours)",
+            "status_label": "Statut global du cluster (Ouvert/Résolu/Différé/Partiel)",
+            "activities": (
+                "Liste des activités impliquées : [{title, type, "
+                "start_date, end_date, pax_quota, status}]"
+            ),
+            "members": (
+                "Liste des conflits jour par jour : [{conflict_date, "
+                "overflow_amount, resolution_label, status, resolution_note}]"
+            ),
+            "audit": (
+                "Historique d'arbitrage trié anti-chronologique : "
+                "[{actor_name, created_at, resolution_label, action, "
+                "context, resolution_note, old_status, new_status}]"
+            ),
+            "calendar": (
+                "Représentation calendrier : [{week, year, days:[{date, "
+                "in_cluster, overflow, status, resolution_label}]}]"
+            ),
+            "entity": "Objet entity avec .name et .code",
+            "generated_at": "Horodatage de génération",
+            "generated_by": "Utilisateur ayant généré le PDF",
+        },
+        "default_versions": {
+            "fr": {
+                "body_html": "",  # patched below
+                "header_html": None,
+                "footer_html": None,
+            },
+            "en": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+        },
+    },
 ]
 
 
@@ -4106,6 +4171,230 @@ _MOC_REPORT_BODY_EN = _MOC_REPORT_BODY_FR \
 
 DEFAULT_PDF_TEMPLATES[11]["default_versions"]["fr"]["body_html"] = _MOC_REPORT_BODY_FR
 DEFAULT_PDF_TEMPLATES[11]["default_versions"]["en"]["body_html"] = _MOC_REPORT_BODY_EN
+
+
+# ── Planner Conflict Resolution PDF (A4 portrait) ───────────────────────
+
+_PLANNER_CONFLICT_RESOLUTION_BODY_FR = """\
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 12mm 12mm 14mm 12mm;
+    @bottom-left { content: "{{ entity.name or '' }}"; font-size: 7pt; color: #94a3b8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    @bottom-center { content: "Page " counter(page) " / " counter(pages); font-size: 7pt; color: #94a3b8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    @bottom-right { content: "Arbitrage Planner · {{ generated_at }}"; font-size: 7pt; color: #94a3b8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; padding: 0; font-size: 9pt; line-height: 1.4; }
+  h1 { font-size: 14pt; margin: 0 0 1mm 0; color: #0f3460; font-weight: 700; letter-spacing: -0.2px; }
+  h2 { font-size: 10pt; margin: 6mm 0 2mm 0; color: #0f3460; font-weight: 700; padding-bottom: 1mm; border-bottom: 1pt solid #cbd5e1; text-transform: uppercase; letter-spacing: 0.4px; }
+  h3 { font-size: 9pt; margin: 4mm 0 1.5mm 0; color: #334155; font-weight: 600; }
+  .header { border-bottom: 2pt solid #0f3460; padding-bottom: 3mm; margin-bottom: 4mm; }
+  .header .subtitle { color: #64748b; font-size: 9pt; margin-top: 1mm; }
+  .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2mm; margin-top: 3mm; }
+  .meta-tile { border: 0.5pt solid #cbd5e1; border-radius: 1mm; padding: 2mm; }
+  .meta-tile .lbl { font-size: 6.5pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; }
+  .meta-tile .val { font-size: 11pt; font-weight: 700; color: #0f3460; margin-top: 0.5mm; tab-size: 4; font-variant-numeric: tabular-nums; }
+  .meta-tile .val.warn { color: #b45309; }
+  .meta-tile .val.danger { color: #b91c1c; }
+
+  .activity-card { border: 0.5pt solid #cbd5e1; border-radius: 1mm; padding: 2mm 3mm; margin-bottom: 1.5mm; page-break-inside: avoid; }
+  .activity-card .title { font-weight: 600; color: #0f172a; }
+  .activity-card .sub { color: #64748b; font-size: 7.5pt; margin-top: 0.5mm; }
+
+  table.day-list { width: 100%; border-collapse: collapse; margin-top: 1mm; }
+  table.day-list th, table.day-list td { border: 0.4pt solid #e2e8f0; padding: 1mm 2mm; text-align: left; font-size: 8pt; }
+  table.day-list th { background: #f1f5f9; color: #475569; font-weight: 600; text-transform: uppercase; font-size: 6.5pt; letter-spacing: 0.3px; }
+  table.day-list td.center { text-align: center; }
+  table.day-list td.tab { font-variant-numeric: tabular-nums; }
+  table.day-list .badge { display: inline-block; padding: 0.5mm 1.5mm; border-radius: 1mm; font-size: 7pt; font-weight: 600; }
+  .badge.open { background: #fee2e2; color: #b91c1c; }
+  .badge.resolved { background: #dcfce7; color: #166534; }
+  .badge.deferred { background: #fef3c7; color: #92400e; }
+
+  /* Calendar grid */
+  .cal-row { display: grid; grid-template-columns: 8mm repeat(7, 1fr); border-top: 0.4pt solid #e2e8f0; }
+  .cal-row.head { border-top: none; background: #f1f5f9; font-size: 6.5pt; text-transform: uppercase; color: #64748b; letter-spacing: 0.3px; }
+  .cal-cell { padding: 1mm 1.5mm; border-left: 0.3pt solid #e2e8f0; min-height: 9mm; }
+  .cal-cell.first { border-left: 0; }
+  .cal-cell.head-day { padding: 1mm 0; text-align: center; }
+  .cal-cell.weeknum { background: #f8fafc; color: #64748b; text-align: center; font-size: 7pt; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cal-cell.in-open { background: #fef2f2; color: #991b1b; }
+  .cal-cell.in-resolved { background: #f0fdf4; color: #166534; }
+  .cal-cell.in-deferred { background: #fffbeb; color: #92400e; }
+  .cal-cell.weekend { background: #fafafa; color: #94a3b8; }
+  .cal-cell .day-num { font-weight: 600; font-size: 8pt; font-variant-numeric: tabular-nums; }
+  .cal-cell .ovf { font-weight: 700; font-size: 8pt; margin-top: 0.5mm; font-variant-numeric: tabular-nums; }
+  .cal-cell .resol { font-size: 6.5pt; opacity: 0.85; margin-top: 0.5mm; }
+
+  /* Audit timeline */
+  .timeline { position: relative; padding-left: 5mm; }
+  .timeline::before { content: ''; position: absolute; left: 1.5mm; top: 1mm; bottom: 1mm; width: 0.4pt; background: #cbd5e1; }
+  .audit-item { position: relative; margin-bottom: 2mm; page-break-inside: avoid; }
+  .audit-item::before { content: ''; position: absolute; left: -4mm; top: 1.5mm; width: 2mm; height: 2mm; border-radius: 50%; background: #0f3460; }
+  .audit-item.auto::before { background: #10b981; }
+  .audit-item .who { font-weight: 600; color: #0f172a; font-size: 8.5pt; }
+  .audit-item .when { color: #64748b; font-size: 7pt; font-variant-numeric: tabular-nums; }
+  .audit-item .what { color: #334155; font-size: 8pt; margin-top: 0.5mm; }
+  .audit-item .note { color: #64748b; font-size: 7.5pt; margin-top: 0.5mm; font-style: italic; padding-left: 2mm; border-left: 1pt solid #e2e8f0; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>{{ title or 'Arbitrage de conflit Planner' }}</h1>
+    <div class="subtitle">
+      {{ asset_name or '—' }}{% if asset_code %} <span style="color:#94a3b8">({{ asset_code }})</span>{% endif %}
+      · Fenêtre {{ window_start }}{% if window_end and window_end != window_start %} → {{ window_end }}{% endif %}
+      · {{ days }} jour{% if days > 1 %}s{% endif %}
+    </div>
+    <div class="meta-grid">
+      <div class="meta-tile">
+        <div class="lbl">Statut</div>
+        <div class="val">{{ status_label or '—' }}</div>
+      </div>
+      <div class="meta-tile">
+        <div class="lbl">Pic POB</div>
+        <div class="val warn">+{{ max_overflow }}</div>
+      </div>
+      <div class="meta-tile">
+        <div class="lbl">Cumul (PAX·j)</div>
+        <div class="val">{{ sum_overflow }}</div>
+      </div>
+      <div class="meta-tile">
+        <div class="lbl">Capacité site</div>
+        <div class="val">{{ asset_pob_capacity if asset_pob_capacity is not none else '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Activités impliquées</h2>
+  {% if activities %}
+    {% for a in activities %}
+    <div class="activity-card">
+      <div class="title">{{ a.title or a.id }}</div>
+      <div class="sub">
+        {{ a.type or '—' }}
+        {% if a.start_date %} · {{ a.start_date }}{% if a.end_date %} → {{ a.end_date }}{% endif %}{% endif %}
+        {% if a.pax_quota is not none %} · {{ a.pax_quota }} PAX{% endif %}
+        {% if a.status %} · {{ a.status }}{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p style="font-style:italic;color:#94a3b8">Aucune activité enregistrée.</p>
+  {% endif %}
+
+  {% if calendar %}
+  <h2>Calendrier</h2>
+  <div class="cal-row head">
+    <div class="cal-cell head-day">Sem.</div>
+    <div class="cal-cell head-day">Lun</div>
+    <div class="cal-cell head-day">Mar</div>
+    <div class="cal-cell head-day">Mer</div>
+    <div class="cal-cell head-day">Jeu</div>
+    <div class="cal-cell head-day">Ven</div>
+    <div class="cal-cell head-day" style="color:#94a3b8">Sam</div>
+    <div class="cal-cell head-day" style="color:#94a3b8">Dim</div>
+  </div>
+  {% for w in calendar %}
+  <div class="cal-row">
+    <div class="cal-cell weeknum">S{{ '%02d'|format(w.week) }}</div>
+    {% for d in w.days %}
+    <div class="cal-cell {% if d.in_cluster %}in-{{ d.status or 'open' }}{% elif loop.index0 >= 5 %}weekend{% endif %} {% if loop.index0 == 0 %}first{% endif %}">
+      <div class="day-num">{{ d.day }}</div>
+      {% if d.in_cluster and d.overflow %}
+      <div class="ovf">+{{ d.overflow }}</div>
+      {% endif %}
+      {% if d.in_cluster and d.resolution_label %}
+      <div class="resol">{{ d.resolution_label }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <h2>Détail jour par jour</h2>
+  <table class="day-list">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th class="center">Pic POB</th>
+        <th>Résolution</th>
+        <th>Statut</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in members %}
+      <tr>
+        <td class="tab">{{ m.conflict_date }}</td>
+        <td class="center tab">{% if m.overflow_amount %}+{{ m.overflow_amount }}{% else %}—{% endif %}</td>
+        <td>{{ m.resolution_label or '—' }}</td>
+        <td><span class="badge {{ m.status }}">{{ m.status }}</span></td>
+        <td>{{ (m.resolution_note or '')[:120] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Historique d'arbitrage</h2>
+  {% if audit %}
+  <div class="timeline">
+    {% for a in audit %}
+    <div class="audit-item {% if a.context == 'auto_cleared' or a.action == 'auto_resolve' %}auto{% endif %}">
+      <span class="who">{{ a.actor_name or 'Système' }}</span>
+      <span class="when"> · {{ a.created_at }}</span>
+      <div class="what">
+        {{ a.resolution_label or a.action or '—' }}
+        {% if a.context == 'auto_cleared' %}<span style="color:#10b981;font-size:7pt">· auto</span>{% endif %}
+        {% if a.old_status and a.new_status and a.old_status != a.new_status %}
+          <span style="color:#94a3b8;font-size:7pt">({{ a.old_status }} → {{ a.new_status }})</span>
+        {% endif %}
+      </div>
+      {% if a.resolution_note %}
+      <div class="note">{{ a.resolution_note }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="font-style:italic;color:#94a3b8">Aucune décision antérieure pour ce conflit.</p>
+  {% endif %}
+</body>
+</html>
+"""
+
+# English mirror — only labels differ.
+_PLANNER_CONFLICT_RESOLUTION_BODY_EN = (
+    _PLANNER_CONFLICT_RESOLUTION_BODY_FR
+    .replace('lang="fr"', 'lang="en"')
+    .replace('Arbitrage Planner', 'Planner arbitration')
+    .replace('Arbitrage de conflit Planner', 'Planner conflict arbitration')
+    .replace('Fenêtre', 'Window')
+    .replace('jour', 'day')
+    .replace('Activités impliquées', 'Activities involved')
+    .replace('Aucune activité enregistrée.', 'No activity recorded.')
+    .replace('Calendrier', 'Calendar')
+    .replace('Sem.', 'Wk.')
+    .replace('Lun', 'Mon').replace('Mar', 'Tue').replace('Mer', 'Wed')
+    .replace('Jeu', 'Thu').replace('Ven', 'Fri').replace('Sam', 'Sat').replace('Dim', 'Sun')
+    .replace('Détail jour par jour', 'Day-by-day breakdown')
+    .replace('Date', 'Date').replace('Pic POB', 'POB peak')
+    .replace('Résolution', 'Resolution').replace('Statut', 'Status').replace('Note', 'Note')
+    .replace("Historique d'arbitrage", 'Arbitration history')
+    .replace('Aucune décision antérieure pour ce conflit.', 'No previous decision for this conflict.')
+    .replace('Système', 'System').replace('auto', 'auto')
+    .replace('Statut', 'Status').replace('Pic POB', 'POB peak')
+    .replace('Cumul (PAX·j)', 'Cumulative (PAX·d)').replace('Capacité site', 'Site capacity')
+)
+
+DEFAULT_PDF_TEMPLATES[12]["default_versions"]["fr"]["body_html"] = _PLANNER_CONFLICT_RESOLUTION_BODY_FR
+DEFAULT_PDF_TEMPLATES[12]["default_versions"]["en"]["body_html"] = _PLANNER_CONFLICT_RESOLUTION_BODY_EN
 
 
 # ── Rendering helpers ────────────────────────────────────────────────────

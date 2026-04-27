@@ -200,6 +200,24 @@ export const plannerService = {
     return data as Blob
   },
 
+  // ── Conflict cluster: PDF export + email broadcast ──
+  exportConflictPdf: async (payload: { conflict_id: string; title?: string }): Promise<Blob> => {
+    const { data } = await api.post(`${BASE}/export/conflict-pdf`, payload, {
+      responseType: 'blob',
+    })
+    return data as Blob
+  },
+  emailConflictCluster: async (
+    conflictId: string,
+    payload: { recipients: string[]; cc?: string[]; subject?: string; body?: string },
+  ): Promise<{ sent: boolean; recipients: string[]; cc?: string[]; subject: string }> => {
+    const { data } = await api.post(`${BASE}/conflicts/${conflictId}/email`, {
+      conflict_id: conflictId,
+      ...payload,
+    })
+    return data
+  },
+
   // ── Conflicts ──
   listConflicts: async (params: ConflictListParams = {}): Promise<PaginatedResponse<PlannerConflict>> => {
     const { data } = await api.get(`${BASE}/conflicts`, { params })

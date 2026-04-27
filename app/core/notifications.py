@@ -299,7 +299,7 @@ async def _smtp_send_via(
 
 async def send_email(
     *,
-    to: str,
+    to: str | list[str],
     subject: str,
     body_html: str,
     from_name: str | None = None,
@@ -308,8 +308,15 @@ async def send_email(
     category: str | None = None,
     channel: str = "email",
     event_type: str | None = None,
+    cc: list[str] | None = None,
+    attachments: list[dict] | None = None,
 ) -> None:
     """Send an email via SMTP. Uses DB integration settings if configured, .env as fallback.
+
+    Args:
+        to: Single email address or list of addresses (To: header).
+        cc: Optional list of Cc: addresses.
+        attachments: Optional list of {filename, content (bytes), mime_type} dicts.
 
     Automatically falls back to Docker-internal SMTP aliases (mailu-smtp, etc.)
     when the configured host is unreachable (hairpin NAT workaround).
@@ -343,6 +350,7 @@ async def send_email(
 
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        from email.mime.application import MIMEApplication
 
         cfg = await _get_smtp_config()
 
@@ -356,11 +364,35 @@ async def send_email(
             logger.warning("SMTP not configured — skipping email to %s", to)
             return
 
-        message = MIMEMultipart("alternative")
+        # Build the MIME tree. When attachments are provided, the outer
+        # container becomes 'mixed' (parts in order: alternative-text +
+        # each attachment); without attachments we keep 'alternative' so
+        # body-only mails stay simple.
+        to_list: list[str] = [to] if isinstance(to, str) else list(to)
+        cc_list: list[str] = list(cc or [])
+        if attachments:
+            message = MIMEMultipart("mixed")
+            alt = MIMEMultipart("alternative")
+            alt.attach(MIMEText(body_html, "html"))
+            message.attach(alt)
+            for att in attachments:
+                fn = att.get("filename", "attachment.bin")
+                content = att.get("content", b"")
+                mt = att.get("mime_type", "application/octet-stream")
+                main, _, sub = mt.partition("/")
+                part = MIMEApplication(content, _subtype=sub or "octet-stream")
+                # MIMEApplication ignores main type → set Content-Type explicitly.
+                part.replace_header("Content-Type", f'{mt}; name="{fn}"')
+                part.add_header("Content-Disposition", "attachment", filename=fn)
+                message.attach(part)
+        else:
+            message = MIMEMultipart("alternative")
+            message.attach(MIMEText(body_html, "html"))
         message["From"] = f"{from_name or cfg.get('from_name', 'OpsFlux')} <{cfg.get('from_email', '')}>"
-        message["To"] = to
+        message["To"] = ", ".join(to_list)
+        if cc_list:
+            message["Cc"] = ", ".join(cc_list)
         message["Subject"] = subject
-        message.attach(MIMEText(body_html, "html"))
 
         # Try the configured host first
         try:

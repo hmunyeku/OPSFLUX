@@ -3073,6 +3073,15 @@
     "modifier_la_dependance": "Modifier la dépendance",
     "columns": {
       "site": "Site"
+    },
+    "simulation": {
+      "label": "Simulation",
+      "banner_warning": "no change triggers a workflow",
+      "exit": "Exit"
+    },
+    "scenarios": {
+      "empty": "No scenarios",
+      "new": "New scenario"
     }
   },
   "travelwiz": {

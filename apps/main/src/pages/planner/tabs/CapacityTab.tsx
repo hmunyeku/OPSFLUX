@@ -40,6 +40,7 @@ import ReactECharts from 'echarts-for-react'
 import { cn } from '@/lib/utils'
 import { PanelContent } from '@/components/layout/PanelHeader'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -804,8 +805,24 @@ export function CapacityTab({
       {/* ── Body — sub-view ────────────────────────────────────── */}
       <PanelContent>
         {isLoading ? (
-          <div className="flex items-center justify-center h-[200px]">
-            <Loader2 size={16} className="animate-spin text-muted-foreground" />
+          // Skeleton shaped like a heatmap-row strip + a few rows
+          // below — preserves layout-shift between loading & ready,
+          // unlike a centered spinner.
+          <div className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <div className="grid grid-cols-12 gap-1">
+              {Array.from({ length: 36 }).map((_, i) => (
+                <Skeleton key={i} className="h-10" />
+              ))}
+            </div>
+            <div className="grid grid-cols-12 gap-1 pt-2">
+              {Array.from({ length: 24 }).map((_, i) => (
+                <Skeleton key={i} className="h-10" />
+              ))}
+            </div>
           </div>
         ) : (
           <div className="p-4 space-y-6">

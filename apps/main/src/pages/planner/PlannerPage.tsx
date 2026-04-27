@@ -247,18 +247,18 @@ export function PlannerPage() {
           {isSimulationMode && (
             <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-sm">
               <FlaskConical size={14} className="shrink-0" />
-              <span className="font-medium">Simulation</span>
+              <span className="font-medium">{t('planner.simulation.label', 'Simulation')}</span>
               {activeScenarioData?.title && (
                 <span className="font-semibold truncate max-w-[200px]">— {activeScenarioData.title}</span>
               )}
               <span className="text-amber-600 dark:text-amber-400 hidden sm:inline truncate">
-                — aucune modification ne déclenche de workflow
+                — {t('planner.simulation.banner_warning', 'aucune modification ne déclenche de workflow')}
               </span>
               <button
                 onClick={() => setActiveScenario(null)}
                 className="ml-auto shrink-0 text-xs px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors whitespace-nowrap"
               >
-                ✕ Quitter
+                ✕ {t('planner.simulation.exit', 'Quitter')}
               </button>
             </div>
           )}

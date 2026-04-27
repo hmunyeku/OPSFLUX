@@ -3333,7 +3333,16 @@
     "remplir_avec": "Remplir avec :",
     "reinitialiser_le_filtre_de_type": "Réinitialiser le filtre de type",
     "reinitialiser_le_filtre_de_validite": "Réinitialiser le filtre de validité",
-    "modifier_la_dependance": "Modifier la dépendance"
+    "modifier_la_dependance": "Modifier la dépendance",
+    "simulation": {
+      "label": "Simulation",
+      "banner_warning": "aucune modification ne déclenche de workflow",
+      "exit": "Quitter"
+    },
+    "scenarios": {
+      "empty": "Aucun scénario",
+      "new": "Nouveau scénario"
+    }
   },
   "travelwiz": {
     "title": "TravelWiz",

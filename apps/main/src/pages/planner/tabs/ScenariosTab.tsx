@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelContent } from '@/components/layout/PanelHeader'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -150,13 +151,19 @@ export function ScenariosTab({
       {/* Scenario list */}
       <PanelContent>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+          // Skeleton list — 4 cards mimicking the real scenario tiles
+          // so the layout doesn't jump when data lands.
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
         ) : scenarios.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/50">
             <FlaskConical size={32} strokeWidth={1.5} />
-            <span className="text-sm">Aucun scénario</span>
+            <span className="text-sm">{t('planner.scenarios.empty', 'Aucun scénario')}</span>
             <button onClick={() => setShowCreate(true)} className="gl-button gl-button-default inline-flex items-center gap-1.5 text-xs mt-1">
-              <Plus size={12} /> Nouveau scénario
+              <Plus size={12} /> {t('planner.scenarios.new', 'Nouveau scénario')}
             </button>
           </div>
         ) : (

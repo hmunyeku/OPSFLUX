@@ -28,7 +28,7 @@
 import { useMemo, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import {
   ChevronRight, MoreHorizontal, Sun, Cloud, CloudRain, CloudLightning,
-  CalendarClock, AlertCircle,
+  CalendarClock, AlertCircle, ListChecks,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProjectTask } from '@/types/api'
@@ -597,8 +597,16 @@ export function TaskTable({
         style={{ maxHeight: maxHeight ? undefined : 'none' }}
       >
         {flatRows.length === 0 ? (
-          <div className="text-[11px] text-muted-foreground italic p-3 text-center">
-            Aucune tâche.
+          <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
+            <ListChecks size={28} strokeWidth={1.5} className="text-muted-foreground/40" />
+            <p className="text-xs text-muted-foreground">
+              Aucune tâche pour ce projet.
+            </p>
+            <p className="text-[11px] text-muted-foreground/70">
+              Utilisez le bouton « Ajouter » au-dessus du tableau ou la touche{' '}
+              <kbd className="px-1 py-0.5 rounded border border-border bg-muted/40 text-[10px]">N</kbd>
+              {' '}depuis cette page pour créer la première.
+            </p>
           </div>
         ) : (
           flatRows.map(({ task, depth, hasChildren }) => (

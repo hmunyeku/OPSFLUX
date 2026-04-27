@@ -10,7 +10,6 @@
  *   - tabs/ConflitsTab.tsx
  *   - tabs/CapacityTab.tsx
  *   - tabs/ScenariosTab.tsx
- *   - tabs/ForecastTab.tsx
  *   - panels/ScenarioDetailPanel.tsx
  *   - panels/ActivityDetailPanel.tsx
  *   - panels/CreateActivityPanel.tsx
@@ -48,7 +47,6 @@ import { ActivitiesTab } from './tabs/ActivitiesTab'
 import { ConflitsTab } from './tabs/ConflitsTab'
 import { CapacityTab } from './tabs/CapacityTab'
 import { ScenariosTab } from './tabs/ScenariosTab'
-import { ForecastTab } from './tabs/ForecastTab'
 import { ScenarioDetailPanel } from './panels/ScenarioDetailPanel'
 import { ActivityDetailPanel } from './panels/ActivityDetailPanel'
 import { ConflictClusterDetailPanel } from './panels/ConflictClusterDetailPanel'
@@ -62,8 +60,17 @@ export function PlannerPage() {
   const tabFromUrl = searchParams.get('tab') as PlannerTab | null
   const scenarioFromUrl = searchParams.get('scenario')
 
+  // Legacy redirect: ?tab=forecast was a separate tab pre-merger.
+  // It now lives as a sub-view inside Capacity. Old bookmarks /
+  // shared links keep working via this transparent redirect.
+  const normalizedTabFromUrl: PlannerTab | null =
+    tabFromUrl === ('forecast' as unknown as PlannerTab)
+      ? 'capacity'
+      : tabFromUrl
   const [activeTab, setActiveTabRaw] = useState<PlannerTab>(
-    tabFromUrl && VALID_PLANNER_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
+    normalizedTabFromUrl && VALID_PLANNER_TABS.has(normalizedTabFromUrl)
+      ? normalizedTabFromUrl
+      : 'dashboard',
   )
 
   // Active scenario: if URL has ?scenario=<id>, we're in simulation mode for that scenario.
@@ -280,7 +287,6 @@ export function PlannerPage() {
               }}
             />
           )}
-          {activeTab === 'forecast' && <ForecastTab />}
         </div>
       )}
 

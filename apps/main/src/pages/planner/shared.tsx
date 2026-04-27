@@ -5,20 +5,25 @@
  * tabs/panels split. Consumed by files under `./tabs/` and `./panels/`
  * and by `PlannerPage.tsx` itself.
  */
-import { CalendarRange, ListTodo, AlertTriangle, BarChart3, Calendar, Wrench, HardHat, Gauge, Shield, Drill, Eye, GanttChart, FlaskConical, TrendingUp, LayoutDashboard, type LucideIcon } from 'lucide-react'
+import { CalendarRange, ListTodo, AlertTriangle, BarChart3, Calendar, Wrench, HardHat, Gauge, Shield, Drill, Eye, GanttChart, FlaskConical, LayoutDashboard, type LucideIcon } from 'lucide-react'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
 import { cn } from '@/lib/utils'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 
 // ── Tab definitions ───────────────────────────────────────────
 
-export type PlannerTab = 'dashboard' | 'gantt' | 'activities' | 'conflicts' | 'capacity' | 'scenarios' | 'forecast'
+export type PlannerTab = 'dashboard' | 'gantt' | 'activities' | 'conflicts' | 'capacity' | 'scenarios'
 
 // Tab definitions use i18n keys — the labels are resolved at render time
 // inside PlannerPage via useMemo + useTranslation.
 // Activités comes before Plan: most users land on the planner to
 // triage activities, not to scroll the Gantt — keep the most-used
 // view first. Dashboard stays leftmost as the project-wide overview.
+//
+// 'forecast' was merged into 'capacity' — same data at different
+// horizons, the user no longer has to pick which tab to land on.
+// Legacy URLs with ?tab=forecast are redirected to capacity in
+// PlannerPage.
 export const TAB_DEFS: { id: PlannerTab; labelKey: string; icon: typeof CalendarRange }[] = [
   { id: 'dashboard', labelKey: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'activities', labelKey: 'planner.tabs.activities', icon: ListTodo },
@@ -26,10 +31,9 @@ export const TAB_DEFS: { id: PlannerTab; labelKey: string; icon: typeof Calendar
   { id: 'conflicts', labelKey: 'planner.tabs.conflicts', icon: AlertTriangle },
   { id: 'capacity', labelKey: 'planner.tabs.capacity', icon: BarChart3 },
   { id: 'scenarios', labelKey: 'planner.tabs.scenarios', icon: FlaskConical },
-  { id: 'forecast', labelKey: 'planner.tabs.forecast', icon: TrendingUp },
 ]
 
-export const VALID_PLANNER_TABS = new Set<PlannerTab>(['dashboard', 'gantt', 'activities', 'conflicts', 'capacity', 'scenarios', 'forecast'])
+export const VALID_PLANNER_TABS = new Set<PlannerTab>(['dashboard', 'gantt', 'activities', 'conflicts', 'capacity', 'scenarios'])
 
 // ── Constants ─────────────────────────────────────────────────
 

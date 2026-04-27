@@ -185,7 +185,8 @@
     "duration": "Durée",
     "comment": "Commentaire",
     "history": "Historique",
-    "total": "Total"
+    "total": "Total",
+    "project": "Projet"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -2888,8 +2889,7 @@
       "activities": "Activités",
       "conflicts": "Conflits",
       "capacity": "Capacité",
-      "scenarios": "Scénarios",
-      "forecast": "Prévisions"
+      "scenarios": "Scénarios"
     },
     "columns": {
       "title": "Titre",
@@ -2983,7 +2983,11 @@
     "forecast": {
       "description": "Prévision de charge basée sur les 90 derniers jours et les activités planifiées, avec rappel du POB réel constaté.",
       "avg_real_pob": "POB réel moyen",
-      "real_pob_short": "R {{count}}"
+      "real_pob_short": "R {{count}}",
+      "cumulative_title": "Charge projetée — tendance cumulée",
+      "projected_load": "Charge projetée",
+      "real_pob": "POB réel",
+      "capacity_max": "Capacité max"
     },
     "timeline_empty_title": "Timeline Gantt",
     "timeline_empty_description": "La vue Gantt interactive sera disponible ici. Visualisez vos projets, tâches et jalons sur une frise chronologique.",
@@ -3132,7 +3136,38 @@
       "days_suffix": "j",
       "previous_period": "Période précédente",
       "next_period": "Période suivante",
-      "today": "Aujourd’hui"
+      "today": "Aujourd’hui",
+      "kpi": {
+        "at_risk_days": "Jours à risque (>80%)",
+        "overflow_days": "Jours en surcapacité",
+        "peak_load": "Pic de charge",
+        "avg_saturation": "Saturation moyenne"
+      },
+      "subview": {
+        "heatmap": "Carte",
+        "trend": "Tendance",
+        "calendar": "Calendrier"
+      },
+      "horizon": "Horizon",
+      "horizon_year": "1 an",
+      "range_start": "Du",
+      "range_end": "Au",
+      "activity_type": "Type d'activité",
+      "max_pax": "Max PAX total",
+      "permanent_ops_quota": "Quota ops permanentes",
+      "reason": "Motif",
+      "reason_placeholder": "Raison de la modification…",
+      "saturation": "Saturation capacité",
+      "calendar_title": "Calendrier de saturation",
+      "trend_pick_asset": "Sélectionnez un site pour voir la projection.",
+      "history_title": "Historique des capacités",
+      "history": {
+        "effective_date": "Date effective",
+        "max_pax": "Max PAX",
+        "permanent_quota": "Quota ops perm.",
+        "reason": "Motif",
+        "changed_by": "Modifié par"
+      }
     },
     "revision_signals": {
       "title": "Révisions suggérées",

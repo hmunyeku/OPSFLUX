@@ -185,7 +185,8 @@
     "duration": "Duration",
     "comment": "Comment",
     "history": "History",
-    "total": "Total"
+    "total": "Total",
+    "project": "Project"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -2872,12 +2873,47 @@
       "days_suffix": "d",
       "previous_period": "Previous period",
       "next_period": "Next period",
-      "today": "Today"
+      "today": "Today",
+      "kpi": {
+        "at_risk_days": "At-risk days (>80%)",
+        "overflow_days": "Overflow days",
+        "peak_load": "Peak load",
+        "avg_saturation": "Average saturation"
+      },
+      "subview": {
+        "heatmap": "Map",
+        "trend": "Trend",
+        "calendar": "Calendar"
+      },
+      "horizon": "Horizon",
+      "horizon_year": "1 yr",
+      "range_start": "From",
+      "range_end": "To",
+      "activity_type": "Activity type",
+      "max_pax": "Max PAX total",
+      "permanent_ops_quota": "Permanent ops quota",
+      "reason": "Reason",
+      "reason_placeholder": "Reason for the change…",
+      "saturation": "Capacity saturation",
+      "calendar_title": "Saturation calendar",
+      "trend_pick_asset": "Pick a site to view the projection.",
+      "history_title": "Capacity history",
+      "history": {
+        "effective_date": "Effective date",
+        "max_pax": "Max PAX",
+        "permanent_quota": "Perm. ops quota",
+        "reason": "Reason",
+        "changed_by": "Changed by"
+      }
     },
     "forecast": {
       "description": "Load forecast based on the last 90 days and scheduled activities, with the observed real POB shown as a secondary signal.",
       "avg_real_pob": "Average real POB",
-      "real_pob_short": "R {{count}}"
+      "real_pob_short": "R {{count}}",
+      "cumulative_title": "Projected load — cumulative trend",
+      "projected_load": "Projected load",
+      "real_pob": "Real POB",
+      "capacity_max": "Max capacity"
     },
     "revision_signals": {
       "title": "Suggested revisions",
@@ -3026,7 +3062,10 @@
     "remplir_avec": "Remplir avec :",
     "reinitialiser_le_filtre_de_type": "Réinitialiser le filtre de type",
     "reinitialiser_le_filtre_de_validite": "Réinitialiser le filtre de validité",
-    "modifier_la_dependance": "Modifier la dépendance"
+    "modifier_la_dependance": "Modifier la dépendance",
+    "columns": {
+      "site": "Site"
+    }
   },
   "travelwiz": {
     "title": "TravelWiz",

@@ -1355,8 +1355,6 @@ function TaskFullscreenOverlay({
       if (syncingRef.current) return
       syncingRef.current = true
       right.scrollTop = left.scrollTop
-      // Reset the flag in the next frame so the inverse onScroll
-      // (which fires from the assignment above) is filtered out.
       requestAnimationFrame(() => { syncingRef.current = false })
     }
     const onRight = () => {
@@ -1372,6 +1370,23 @@ function TaskFullscreenOverlay({
       right.removeEventListener('scroll', onRight)
     }
   }, [])
+
+  // ── Mobile single-pane mode. Below 768px the 50/50 horizontal
+  // split would give ~187px per pane on a phone — both unusable.
+  // Switch to a stacked layout where the user toggles between Tâches
+  // and Gantt with a segmented control. Synced scroll is moot in
+  // single-pane mode; we keep the refs for desktop.
+  const [isMobile, setIsMobile] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.innerWidth < 768,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile(e.matches)
+    handler(mq)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  const [mobilePane, setMobilePane] = useState<'table' | 'gantt'>('table')
 
   return (
     <div className="fixed inset-0 z-[100] bg-background flex flex-col">
@@ -1478,14 +1493,53 @@ function TaskFullscreenOverlay({
         </span>
       </div>
 
-      {/* Split body */}
+      {/* Mobile pane toggle — only shown < 768px. Lets the user pick
+          which surface to look at; both fit the full screen width.
+          Splitting 50/50 on a 375px phone gave 187px of TaskTable +
+          187px of Gantt — both unusable. */}
+      {isMobile && (
+        <div className="h-9 shrink-0 border-b border-border flex items-center px-3 bg-card">
+          <div className="inline-flex rounded-md border border-border bg-muted/20 p-0.5 w-full">
+            <button
+              type="button"
+              onClick={() => setMobilePane('table')}
+              className={cn(
+                'flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded text-xs transition-colors',
+                mobilePane === 'table'
+                  ? 'bg-background shadow-sm text-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <ListTodo size={12} /> Tâches
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobilePane('gantt')}
+              className={cn(
+                'flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded text-xs transition-colors',
+                mobilePane === 'gantt'
+                  ? 'bg-background shadow-sm text-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Layers size={12} /> Gantt
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Body — desktop: side-by-side split with synced scroll.
+          Mobile: single pane, choice driven by the toggle above. */}
       <div className="flex-1 min-h-0 flex">
-        {/* Left: TaskTable in its own scroll container — height drives
-            the synced gantt scroll on the right. */}
+        {/* Left: TaskTable in its own scroll container.
+            Hidden on mobile when gantt is chosen. */}
         <div
           ref={leftScrollRef}
-          className="overflow-auto p-3"
-          style={{ width: `${splitPct}%` }}
+          className={cn(
+            'overflow-auto p-3',
+            isMobile && mobilePane !== 'table' && 'hidden',
+          )}
+          style={isMobile ? { width: '100%' } : { width: `${splitPct}%` }}
         >
           <TaskTable
             tasks={tasks}
@@ -1498,25 +1552,29 @@ function TaskFullscreenOverlay({
           />
         </div>
 
-        {/* Splitter */}
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          className="w-1 bg-border hover:bg-primary/40 cursor-col-resize transition-colors shrink-0"
-          onMouseDown={(e) => {
-            e.preventDefault()
-            dragging.current = true
-            document.body.style.cursor = 'col-resize'
-          }}
-          title="Glisser pour redimensionner"
-        />
+        {/* Splitter — desktop only. */}
+        {!isMobile && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            className="w-1 bg-border hover:bg-primary/40 cursor-col-resize transition-colors shrink-0"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              dragging.current = true
+              document.body.style.cursor = 'col-resize'
+            }}
+            title="Glisser pour redimensionner"
+          />
+        )}
 
-        {/* Right: Gantt — its scroll container is bound to the left
-            container via the syncingRef effect above. */}
+        {/* Right: Gantt. Hidden on mobile when table is chosen. */}
         <div
           ref={rightScrollRef}
-          className="bg-muted/10 min-h-0 overflow-auto"
-          style={{ width: `${100 - splitPct}%` }}
+          className={cn(
+            'bg-muted/10 min-h-0 overflow-auto',
+            isMobile && mobilePane !== 'gantt' && 'hidden',
+          )}
+          style={isMobile ? { width: '100%' } : { width: `${100 - splitPct}%` }}
         >
           <ProjectMiniGantt
             tasks={tasks}

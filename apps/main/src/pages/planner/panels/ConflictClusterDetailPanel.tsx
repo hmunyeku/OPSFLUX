@@ -84,8 +84,13 @@ export function ConflictClusterDetailPanel() {
   const resolveConflict = useResolveConflict()
   const bulkResolveConflicts = useBulkResolveConflicts()
 
-  // Audit history of the cluster's primary open conflict.
-  const { data: audit, isLoading: auditLoading } = useConflictAudit(cluster?.primary_conflict_id ?? undefined)
+  // Audit history of the cluster's primary conflict. For fully-closed
+  // clusters `primary_conflict_id` is null (it points to the first OPEN
+  // member), so we fall back to the first member's id — that lets the
+  // read-only view actually surface the audit trail for resolved
+  // clusters, which was the whole point of opening them.
+  const auditConflictId = cluster?.primary_conflict_id ?? cluster?.members?.[0]?.id
+  const { data: audit, isLoading: auditLoading } = useConflictAudit(auditConflictId)
   // Live activity data for the picker (current dates / quotas).
   const involvedIds = useMemo(() => cluster?.activity_ids ?? [], [cluster?.key])
   const { byId: activitiesById } = useActivitiesByIds(involvedIds)

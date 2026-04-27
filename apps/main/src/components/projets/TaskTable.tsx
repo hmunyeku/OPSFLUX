@@ -497,6 +497,51 @@ export function TaskTable({
     })
   }, [])
 
+  // Keyboard navigation between rows (audit K4) — Up/Down moves the
+  // selection through the visible flatRows, wrapping at edges. We
+  // gate on `wrapRef` containing focus so the shortcut doesn't fight
+  // other tables on the page, and we skip when focus is in an editor
+  // (Tiptap / native input) so arrow keys still navigate inside the
+  // editor's value first.
+  useEffect(() => {
+    if (!onSelect) return
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const isEditableTarget = (el: EventTarget | null): boolean => {
+      const node = el as HTMLElement | null
+      if (!node) return false
+      if (node.isContentEditable) return true
+      const tag = node.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      if (node.closest?.('.ProseMirror')) return true
+      return false
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+      // Only react when this table is actually focused / contains focus.
+      const target = e.target as Node | null
+      if (!wrap.contains(target as Node) && document.activeElement !== document.body) return
+      if (isEditableTarget(e.target)) return
+      if (flatRows.length === 0) return
+      const currentIdx = selectedTaskId
+        ? flatRows.findIndex((r) => r.task.id === selectedTaskId)
+        : -1
+      let nextIdx: number
+      if (e.key === 'ArrowDown') {
+        nextIdx = currentIdx < 0 ? 0 : Math.min(flatRows.length - 1, currentIdx + 1)
+      } else {
+        nextIdx = currentIdx < 0 ? flatRows.length - 1 : Math.max(0, currentIdx - 1)
+      }
+      if (nextIdx !== currentIdx) {
+        e.preventDefault()
+        onSelect(flatRows[nextIdx].task.id)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onSelect, selectedTaskId, flatRows])
+
   const handleStatusClick = (task: ProjectTask) => {
     updateTask.mutate({ projectId, taskId: task.id, payload: { status: nextStatus(task.status) } })
   }

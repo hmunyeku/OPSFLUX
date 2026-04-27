@@ -124,6 +124,34 @@ export function DynamicPanelShell({
   const { t } = useTranslation()
   const isFloating = useIsInsideFloatingPanel()
 
+  // Esc closes the panel — a UX expectation across the app that was
+  // missing on every dynamic-panel surface (audit K2). We listen at
+  // the window level but bail when focus is inside an editor / input
+  // so Esc still cancels in-place edits (Tiptap, native inputs) before
+  // closing the panel.
+  useEffect(() => {
+    if (!onClose) return
+    const isEditableTarget = (el: EventTarget | null): boolean => {
+      const node = el as HTMLElement | null
+      if (!node) return false
+      if (node.isContentEditable) return true
+      const tag = node.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      if (node.closest?.('.ProseMirror')) return true
+      return false
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (isEditableTarget(e.target)) return
+      // Skip when an outer modal (gl-modal-card) is open above us —
+      // it has its own Esc handler and we don't want to fight it.
+      if (document.querySelector('.gl-modal-backdrop')) return
+      onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   // Resolve the actions region once so the three render branches below stay
   // identical. `actionItems` (typed, responsive) wins over legacy `actions`
   // (opaque ReactNode) when both are provided.

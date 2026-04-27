@@ -381,7 +381,50 @@ export function useUpdateProjectTask() {
   return useMutation({
     mutationFn: ({ projectId, taskId, payload }: { projectId: string; taskId: string; payload: ProjectTaskUpdate }) =>
       projetsService.updateTask(projectId, taskId, payload),
-    onSuccess: (_, { projectId }) => {
+    // Optimistic update (audit B2): the inline editors in TaskTable
+    // (status cycle, dates, %, title) hit this mutation per keystroke
+    // commit. Without optimism the UI flashed back to the previous
+    // value while the server roundtripped, and two quick edits could
+    // race (B sets first, A sets second, A wins because its response
+    // came last). Snapshot → patch → rollback on error.
+    onMutate: async ({ projectId, taskId, payload }) => {
+      const queryKeys = [
+        ['project-tasks', projectId] as const,
+      ]
+      // Cancel any in-flight fetches so they don't overwrite our patch.
+      await Promise.all(
+        queryKeys.map((k) => qc.cancelQueries({ queryKey: k as readonly unknown[] })),
+      )
+      // Snapshot the current cache for every matching query (params
+      // are the third element so we patch ALL variants in one go).
+      const previous: { key: readonly unknown[]; data: unknown }[] = []
+      for (const key of queryKeys) {
+        const matches = qc.getQueriesData({ queryKey: key as readonly unknown[] })
+        for (const [k, data] of matches) {
+          previous.push({ key: k, data })
+        }
+      }
+      // Apply the patch in-place — the cache stores arrays of tasks.
+      for (const { key, data } of previous) {
+        if (!Array.isArray(data)) continue
+        const next = (data as Record<string, unknown>[]).map((t) =>
+          (t as { id?: string }).id === taskId ? { ...t, ...payload } : t,
+        )
+        qc.setQueryData(key, next)
+      }
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      // Rollback every snapshot we took.
+      const snapshots = (ctx as { previous?: { key: readonly unknown[]; data: unknown }[] } | undefined)?.previous
+      for (const s of snapshots ?? []) {
+        qc.setQueryData(s.key, s.data)
+      }
+    },
+    onSettled: (_data, _err, { projectId }) => {
+      // Always re-sync with the server — covers the case where the
+      // backend computed something (parent progress, sibling reorder)
+      // we didn't predict.
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] })
       invalidatePlannerViewsFromTask(qc)
     },

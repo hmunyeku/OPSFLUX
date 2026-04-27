@@ -186,6 +186,33 @@ export function PlannerPage() {
     openDynamicPanel({ type: 'create', module: 'planner', meta: { subtype: 'activity' } })
   }, [openDynamicPanel])
 
+  // Keyboard shortcut: `n` opens the New Activity panel — same gate
+  // as the toolbar button (canCreate + tab matches + not simulating).
+  // Skipped when focus is inside any editable surface so typing 'n'
+  // in a field still produces an 'n' (audit K3).
+  useEffect(() => {
+    if (!canCreate || isSimulationMode) return
+    if (activeTab !== 'activities' && activeTab !== 'gantt') return
+    const isEditableTarget = (el: EventTarget | null): boolean => {
+      const node = el as HTMLElement | null
+      if (!node) return false
+      if (node.isContentEditable) return true
+      const tag = node.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      if (node.closest?.('.ProseMirror')) return true
+      return false
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'n' && e.key !== 'N') return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (isEditableTarget(e.target)) return
+      e.preventDefault()
+      handleCreate()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [canCreate, isSimulationMode, activeTab, handleCreate])
+
   const handleTimelineScaleChange = useCallback((scale: TimeScale) => {
     const range = getDefaultDateRange(scale)
     setSharedTimelineScale(scale)

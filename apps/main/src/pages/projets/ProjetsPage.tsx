@@ -13,7 +13,7 @@
  *  - TaskDetailPanel.tsx (untouched)
  *  - shared.tsx (constants, types, small helpers)
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -70,6 +70,31 @@ export function ProjetsPage() {
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'projets'
+
+  // Keyboard shortcut: `n` opens the create-project panel (audit K3).
+  // Only when not on the dashboard (no create button there) and when
+  // focus isn't in an editable surface.
+  useEffect(() => {
+    if (viewTab === 'dashboard') return
+    const isEditableTarget = (el: EventTarget | null): boolean => {
+      const node = el as HTMLElement | null
+      if (!node) return false
+      if (node.isContentEditable) return true
+      const tag = node.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      if (node.closest?.('.ProseMirror')) return true
+      return false
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'n' && e.key !== 'N') return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (isEditableTarget(e.target)) return
+      e.preventDefault()
+      openDynamicPanel({ type: 'create', module: 'projets' })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewTab, openDynamicPanel])
 
   return (
     <div className="flex h-full">

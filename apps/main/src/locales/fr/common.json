@@ -3167,6 +3167,14 @@
         "permanent_quota": "Quota ops perm.",
         "reason": "Motif",
         "changed_by": "Modifié par"
+      },
+      "drill": {
+        "forecast": "Charge prévue",
+        "real_pob": "POB réel",
+        "capacity": "Capacité",
+        "remaining": "Marge restante",
+        "deficit": "Dépassement",
+        "saturation": "Saturation"
       }
     },
     "revision_signals": {

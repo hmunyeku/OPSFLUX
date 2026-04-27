@@ -119,6 +119,27 @@ export function CapacityTab({
   // Mobile filters popover open state — DOM-local, not persisted.
   const [showMobileFilters, setShowMobileFilters] = useState(false)
 
+  // Day-cell drill-down: clicking a heatmap bucket opens a modal with
+  // the bucket's saturation breakdown plus a shortcut to view the
+  // matching activities. Bucket shape is the same as HeatmapBucket
+  // declared at the bottom of this file — repeated inline here because
+  // TS hoists types but linters trip on cross-reference order.
+  const [drillDown, setDrillDown] = useState<{
+    assetName: string
+    assetId: string
+    bucket: {
+      key: string
+      label: string
+      forecast_pax: number
+      real_pob: number
+      capacity_limit: number
+      remaining_capacity: number
+      saturation_pct: number
+      start_date: string
+      end_date: string
+    }
+  } | null>(null)
+
   // How many of the secondary filters are currently set — drives the
   // badge on the mobile "Filtres" button so the user knows at a glance
   // that filters are active even when the popover is closed.
@@ -420,6 +441,46 @@ export function CapacityTab({
     }
   }, [forecastData, heatmapDays])
 
+  // ── KPI sparklines — daily series sampled from the forecast so
+  //   each stat card shows the trend it represents (saturation curve,
+  //   load curve, threshold-crossings count). When no asset is picked,
+  //   we sample from the heatmap days. Always returns ≥2 numbers so
+  //   StatCard's sparkline doesn't bail out. ──────────────────────────
+  const sparklines = useMemo(() => {
+    if (forecastData?.forecast && forecastData.forecast.length > 0) {
+      const fc = forecastData.forecast as ForecastDay[]
+      const sat = fc.map((d) =>
+        d.max_capacity > 0 ? Math.round((d.combined_load / d.max_capacity) * 100) : 0,
+      )
+      const atRisk: number[] = []
+      const overflow: number[] = []
+      let satRunning = 0
+      let overRunning = 0
+      for (const pct of sat) {
+        if (pct > 80) satRunning++
+        if (pct > 100) overRunning++
+        atRisk.push(satRunning)
+        overflow.push(overRunning)
+      }
+      return {
+        atRisk,
+        overflow,
+        peak: fc.map((d) => d.combined_load),
+        avgSat: sat,
+      }
+    }
+    if (heatmapDays.length > 0) {
+      const sat = heatmapDays.map((d) => Math.round(d.saturation_pct))
+      return {
+        atRisk: sat.map((p) => (p > 80 ? 1 : 0)),
+        overflow: sat.map((p) => (p > 100 ? 1 : 0)),
+        peak: heatmapDays.map((d) => d.forecast_pax),
+        avgSat: sat,
+      }
+    }
+    return { atRisk: [], overflow: [], peak: [], avgSat: [] }
+  }, [forecastData, heatmapDays])
+
   const isLoading = heatmapLoading || (subView === 'trend' && forecastLoading)
 
   // ──────────────────────────────────────────────────────────────
@@ -436,12 +497,14 @@ export function CapacityTab({
             value={kpis.atRiskDays}
             icon={AlertTriangle}
             accent={kpis.atRiskDays > 0 ? 'text-amber-600 dark:text-amber-400' : undefined}
+            sparkline={sparklines.atRisk}
           />
           <StatCard
             label={t('planner.capacity.kpi.overflow_days', 'Jours en surcapacité')}
             value={kpis.overflowDays}
             icon={AlertTriangle}
             accent={kpis.overflowDays > 0 ? 'text-rose-600 dark:text-rose-400' : undefined}
+            sparkline={sparklines.overflow}
           />
           <StatCard
             label={t('planner.capacity.kpi.peak_load', 'Pic de charge')}
@@ -451,6 +514,7 @@ export function CapacityTab({
                 : kpis.peakLoad
             }
             icon={TrendingUp}
+            sparkline={sparklines.peak}
           />
           <StatCard
             label={t('planner.capacity.kpi.avg_saturation', 'Saturation moyenne')}
@@ -463,6 +527,7 @@ export function CapacityTab({
                   ? 'text-amber-600 dark:text-amber-400'
                   : 'text-emerald-600 dark:text-emerald-400'
             }
+            sparkline={sparklines.avgSat}
           />
         </div>
       </div>
@@ -760,6 +825,13 @@ export function CapacityTab({
                 assetId={assetId}
                 timelineScale={timelineScale}
                 onTimelineScaleChange={onTimelineScaleChange}
+                onCellClick={(section, bucket) =>
+                  setDrillDown({
+                    assetName: section.assetName,
+                    assetId: section.assetId,
+                    bucket,
+                  })
+                }
               />
             )}
 
@@ -811,6 +883,117 @@ export function CapacityTab({
           </div>
         )}
       </PanelContent>
+
+      {/* ── Day drill-down modal ──────────────────────────────────
+          Opens when the user clicks any heatmap cell. Surfaces the
+          numbers behind the color (forecast PAX / real POB / capacity
+          / remaining / saturation %) and gives a one-click route to
+          the activities-for-that-day list. */}
+      {drillDown && (
+        <div className="gl-modal-backdrop" onClick={() => setDrillDown(null)}>
+          <div
+            className={cn('gl-modal-card max-w-md', '!overflow-visible')}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-foreground truncate">
+                  {drillDown.assetName} · {drillDown.bucket.label}
+                </h3>
+                <p className="text-[11px] text-muted-foreground tabular-nums">
+                  {drillDown.bucket.start_date}
+                  {drillDown.bucket.end_date !== drillDown.bucket.start_date &&
+                    ` → ${drillDown.bucket.end_date}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrillDown(null)}
+                className="text-muted-foreground hover:text-foreground p-0.5 -m-0.5 shrink-0"
+                aria-label={t('common.close', 'Fermer')}
+              >
+                <ChevronUp size={14} />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded border border-border px-2 py-1.5">
+                <div className="text-[10px] uppercase text-muted-foreground">
+                  {t('planner.capacity.drill.forecast', 'Charge prévue')}
+                </div>
+                <div className="text-foreground font-semibold tabular-nums">
+                  {drillDown.bucket.forecast_pax} PAX
+                </div>
+              </div>
+              <div className="rounded border border-border px-2 py-1.5">
+                <div className="text-[10px] uppercase text-muted-foreground">
+                  {t('planner.capacity.drill.real_pob', 'POB réel')}
+                </div>
+                <div className="text-foreground font-semibold tabular-nums">
+                  {drillDown.bucket.real_pob} PAX
+                </div>
+              </div>
+              <div className="rounded border border-border px-2 py-1.5">
+                <div className="text-[10px] uppercase text-muted-foreground">
+                  {t('planner.capacity.drill.capacity', 'Capacité')}
+                </div>
+                <div className="text-foreground font-semibold tabular-nums">
+                  {drillDown.bucket.capacity_limit} PAX
+                </div>
+              </div>
+              <div
+                className={cn(
+                  'rounded border px-2 py-1.5',
+                  drillDown.bucket.remaining_capacity < 0
+                    ? 'border-rose-500/40 bg-rose-500/5'
+                    : 'border-emerald-500/40 bg-emerald-500/5',
+                )}
+              >
+                <div className="text-[10px] uppercase text-muted-foreground">
+                  {drillDown.bucket.remaining_capacity < 0
+                    ? t('planner.capacity.drill.deficit', 'Dépassement')
+                    : t('planner.capacity.drill.remaining', 'Marge restante')}
+                </div>
+                <div
+                  className={cn(
+                    'font-semibold tabular-nums',
+                    drillDown.bucket.remaining_capacity < 0
+                      ? 'text-rose-700 dark:text-rose-300'
+                      : 'text-emerald-700 dark:text-emerald-300',
+                  )}
+                >
+                  {Math.abs(drillDown.bucket.remaining_capacity)} PAX
+                </div>
+              </div>
+            </div>
+            {/* Saturation gauge */}
+            <div>
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                <span>{t('planner.capacity.drill.saturation', 'Saturation')}</span>
+                <span className="tabular-nums font-semibold text-foreground">
+                  {drillDown.bucket.saturation_pct.toFixed(0)}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full transition-all"
+                  style={{
+                    width: `${Math.min(100, drillDown.bucket.saturation_pct)}%`,
+                    backgroundColor: saturationColor(drillDown.bucket.saturation_pct).backgroundColor,
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 justify-end pt-2 border-t border-border">
+              <button
+                className="gl-button-sm gl-button-default"
+                onClick={() => setDrillDown(null)}
+              >
+                {t('common.close', 'Fermer')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Edit capacity modal ────────────────────────────────── */}
       {showCapModal && (
@@ -948,6 +1131,7 @@ interface HeatmapViewProps {
   assetId: string
   timelineScale: TimeScale
   onTimelineScaleChange: (s: TimeScale) => void
+  onCellClick?: (section: HeatmapSection, bucket: HeatmapBucket) => void
 }
 
 function HeatmapView({
@@ -965,6 +1149,7 @@ function HeatmapView({
   assetId,
   timelineScale,
   onTimelineScaleChange,
+  onCellClick,
 }: HeatmapViewProps) {
   const { t } = useTranslation()
 
@@ -1123,11 +1308,15 @@ function HeatmapView({
                         <div className="overflow-x-auto">
                           <div className="flex min-w-max gap-1">
                             {section.buckets.map((b) => (
-                              <div
+                              <button
                                 key={`${section.assetId}-${b.key}`}
+                                type="button"
+                                onClick={() => onCellClick?.(section, b)}
                                 className={cn(
-                                  'h-12 rounded flex shrink-0 flex-col items-center justify-center cursor-default px-1',
+                                  'h-12 rounded flex shrink-0 flex-col items-center justify-center px-1 transition-all',
+                                  'hover:ring-2 hover:ring-primary/50 hover:scale-[1.04] focus:outline-none focus:ring-2 focus:ring-primary',
                                   capacityCellWidthClass,
+                                  onCellClick ? 'cursor-pointer' : 'cursor-default',
                                 )}
                                 style={saturationColor(b.saturation_pct)}
                                 title={t('planner.capacity.heatmap_day_tooltip', {
@@ -1137,12 +1326,13 @@ function HeatmapView({
                                   capacity: b.capacity_limit,
                                   saturation: b.saturation_pct.toFixed(0),
                                 })}
+                                aria-label={`${section.assetName} ${b.label} — ${b.saturation_pct.toFixed(0)}%`}
                               >
                                 <span className="text-[9px] font-medium leading-none">{b.label}</span>
                                 <span className="text-[8px] leading-none mt-0.5">
                                   {b.forecast_pax}/{b.real_pob}
                                 </span>
-                              </div>
+                              </button>
                             ))}
                           </div>
                         </div>

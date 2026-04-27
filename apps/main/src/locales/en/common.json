@@ -2904,6 +2904,14 @@
         "permanent_quota": "Perm. ops quota",
         "reason": "Reason",
         "changed_by": "Changed by"
+      },
+      "drill": {
+        "forecast": "Forecast load",
+        "real_pob": "Real POB",
+        "capacity": "Capacity",
+        "remaining": "Remaining margin",
+        "deficit": "Overflow",
+        "saturation": "Saturation"
       }
     },
     "forecast": {

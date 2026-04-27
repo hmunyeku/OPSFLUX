@@ -306,9 +306,56 @@ export function ConflictClusterDetailPanel() {
               </div>
             </div>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground">
-            <span className="text-muted-foreground/70 mr-1">{t('planner.columns.activities_involved')}:</span>
-            {cluster.activity_titles.join(' · ')}
+        </FormSection>
+
+        {/* ── Activités impliquées — promoted to its own section so the
+            user immediately sees WHAT is in conflict, and can jump to
+            the underlying activity detail panel with one click. */}
+        <FormSection title={t('planner.columns.activities_involved')}>
+          <div className="space-y-1.5">
+            {cluster.activity_ids.map((aid, idx) => {
+              const a = activitiesById.get(aid)
+              const title = a?.title || cluster.activity_titles[idx] || aid
+              const subtitle = a
+                ? `${formatDateShort(a.start_date)} → ${formatDateShort(a.end_date)} · ${a.pax_quota ?? '?'} PAX${a.status ? ` · ${a.status}` : ''}`
+                : null
+              return (
+                <button
+                  key={aid}
+                  type="button"
+                  onClick={() => {
+                    // Switch the right panel to the activity detail —
+                    // standard OpsFlux cross-entity navigation.
+                    useUIStore.getState().openDynamicPanel({
+                      type: 'detail',
+                      module: 'planner',
+                      id: aid,
+                      meta: { subtype: 'activity' },
+                    })
+                  }}
+                  className={cn(
+                    'w-full flex items-start justify-between gap-2 px-3 py-2 rounded border border-border',
+                    'bg-background hover:bg-accent/40 hover:border-primary/40 transition-colors',
+                    'text-left group',
+                  )}
+                  title={`Ouvrir « ${title} »`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-foreground group-hover:text-primary truncate">
+                      {title}
+                    </div>
+                    {subtitle && (
+                      <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+                        {subtitle}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground/60 group-hover:text-primary shrink-0 mt-0.5">
+                    Ouvrir →
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </FormSection>
 
@@ -518,35 +565,18 @@ export function ConflictClusterDetailPanel() {
           />
         </FormSection>
 
-        {/* ── Per-day breakdown ───────────────────────────────── */}
+        {/* ── Per-day breakdown — week-aligned calendar ────────── */}
         <FormSection
           title={(
             <span className="inline-flex items-center gap-1.5">
-              <ListChecks size={12} /> Détail jour par jour ({cluster.members.length})
+              <ListChecks size={12} /> Calendrier du conflit ({cluster.members.length} jour{cluster.members.length > 1 ? 's' : ''})
             </span>
           ) as unknown as string}
         >
-          <div className="max-h-44 overflow-y-auto rounded border border-border bg-muted/10 divide-y divide-border/60">
-            {cluster.members.map((m) => (
-              <div key={m.id} className="px-2 py-1 flex items-center justify-between text-[11px]">
-                <span className="tabular-nums text-foreground">{formatDateShort(m.conflict_date)}</span>
-                <span className="text-muted-foreground">
-                  {m.overflow_amount != null && m.overflow_amount > 0 ? `+${m.overflow_amount}` : '—'}
-                </span>
-                <span className="text-muted-foreground/70 truncate ml-2 max-w-[40%]">
-                  {m.resolution ? RESOLUTION_LABELS_FALLBACK[m.resolution] || m.resolution : '—'}
-                </span>
-                <StatusBadge
-                  status={m.status}
-                  labels={CONFLICT_STATUS_LABELS_FALLBACK}
-                  badges={CONFLICT_STATUS_BADGES}
-                />
-              </div>
-            ))}
-          </div>
+          <ConflictWeekCalendar cluster={cluster} />
         </FormSection>
 
-        {/* ── Audit history ───────────────────────────────────── */}
+        {/* ── Audit history — vertical timeline ───────────────── */}
         <FormSection
           title={(
             <span className="inline-flex items-center gap-1.5">
@@ -560,30 +590,265 @@ export function ConflictClusterDetailPanel() {
               {t('planner.resolve_conflict_history_empty')}
             </p>
           )}
-          <div className="space-y-1.5">
-            {(audit ?? []).map((entry) => (
-              <div key={entry.id} className="rounded border border-border bg-background/50 px-2 py-1.5 text-[11px]">
-                <p className="font-medium text-foreground truncate">
-                  {(entry.actor_name || t('planner.revision_signals.actor_fallback'))} · {formatDateShort(entry.created_at)}
-                </p>
-                <p className="text-muted-foreground truncate">
-                  {entry.new_resolution
-                    ? RESOLUTION_LABELS_FALLBACK[entry.new_resolution] || entry.new_resolution
-                    : (entry.action || '—')}
-                  {entry.context === 'auto_cleared' && (
-                    <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                      <Clock size={9} /> auto
-                    </span>
-                  )}
-                </p>
-                {entry.resolution_note && (
-                  <p className="mt-0.5 text-muted-foreground/80 line-clamp-2">{entry.resolution_note}</p>
-                )}
-              </div>
-            ))}
-          </div>
+          {audit && audit.length > 0 && (
+            // Most-recent-first vertical timeline. The left rail is a
+            // 1px line; each entry has a colored dot anchored on it
+            // (emerald for auto-clear, primary for manual user actions),
+            // followed by the actor / date / resolution / note.
+            <ol className="relative pl-4 space-y-2.5">
+              <span
+                aria-hidden="true"
+                className="absolute left-[7px] top-1 bottom-1 w-px bg-border"
+              />
+              {[...audit]
+                .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+                .map((entry) => {
+                  const isAuto = entry.context === 'auto_cleared'
+                  return (
+                    <li key={entry.id} className="relative">
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          'absolute -left-4 top-1.5 inline-block h-2 w-2 rounded-full ring-2 ring-background',
+                          isAuto
+                            ? 'bg-emerald-500'
+                            : entry.action === 'auto_resolve'
+                              ? 'bg-emerald-500'
+                              : 'bg-primary',
+                        )}
+                      />
+                      <div className="rounded border border-border bg-background px-2 py-1.5 text-[11px]">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-foreground truncate">
+                            {entry.actor_name || t('planner.revision_signals.actor_fallback')}
+                          </span>
+                          <span className="text-muted-foreground tabular-nums shrink-0 text-[10px]">
+                            {formatDateShort(entry.created_at)}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5">
+                          <span className="text-foreground/80">
+                            {entry.new_resolution
+                              ? RESOLUTION_LABELS_FALLBACK[entry.new_resolution] || entry.new_resolution
+                              : (entry.action || '—')}
+                          </span>
+                          {isAuto && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                              <Clock size={9} /> auto
+                            </span>
+                          )}
+                          {entry.old_status && entry.new_status && entry.old_status !== entry.new_status && (
+                            <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                              {entry.old_status} → {entry.new_status}
+                            </span>
+                          )}
+                        </div>
+                        {entry.resolution_note && (
+                          <p className="mt-1 text-muted-foreground/80 line-clamp-2">
+                            {entry.resolution_note}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+            </ol>
+          )}
         </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// ConflictWeekCalendar — week-aligned calendar for the cluster
+//
+// The previous list-style breakdown (one row per day) didn't help
+// the user reason about the *shape* of the overflow window — was it
+// 5 contiguous workdays, did it bleed through a weekend, was the
+// peak in the first or second week? A calendar makes that legible
+// in a glance: each day is a cell, in-cluster days carry the POB
+// overflow + a status dot, off-cluster days are muted.
+// ──────────────────────────────────────────────────────────────────────
+const WEEK_DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const DAY_MS_LOCAL = 86_400_000
+
+function startOfMondayWeek(d: Date): Date {
+  // Monday-based week (ISO 8601). getDay returns 0 for Sunday so we
+  // shift to make Monday = 0.
+  const day = (d.getDay() + 6) % 7
+  const out = new Date(d)
+  out.setHours(0, 0, 0, 0)
+  out.setDate(out.getDate() - day)
+  return out
+}
+
+function isoWeekNumber(d: Date): number {
+  // ISO week number — Thursday-anchored.
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  const dayNum = (date.getUTCDay() + 6) % 7
+  date.setUTCDate(date.getUTCDate() - dayNum + 3)
+  const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4))
+  const diff = (date.getTime() - firstThursday.getTime()) / DAY_MS_LOCAL
+  return 1 + Math.round((diff - ((firstThursday.getUTCDay() + 6) % 7)) / 7)
+}
+
+function ConflictWeekCalendar({ cluster }: { cluster: ConflictClusterShape }) {
+  // Build a quick lookup by ISO-date → conflict member.
+  const memberByDate = useMemo(() => {
+    const m = new Map<string, typeof cluster.members[number]>()
+    for (const c of cluster.members) m.set(c.conflict_date.slice(0, 10), c)
+    return m
+  }, [cluster.key])
+
+  // Frame the calendar from the Monday of the cluster's first day to
+  // the Sunday of the cluster's last day, giving the user the full
+  // week context (workdays vs weekend etc.).
+  const weeks = useMemo(() => {
+    const start = startOfMondayWeek(new Date(cluster.start_date))
+    const lastDay = new Date(cluster.end_date)
+    // Sunday of last week
+    const end = startOfMondayWeek(lastDay)
+    end.setDate(end.getDate() + 6)
+    const out: { week: number; year: number; days: Date[] }[] = []
+    let cursor = new Date(start)
+    while (cursor.getTime() <= end.getTime()) {
+      const days: Date[] = []
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(cursor)
+        d.setDate(d.getDate() + i)
+        days.push(d)
+      }
+      out.push({ week: isoWeekNumber(cursor), year: cursor.getFullYear(), days })
+      cursor = new Date(cursor)
+      cursor.setDate(cursor.getDate() + 7)
+    }
+    return out
+  }, [cluster.key, cluster.start_date, cluster.end_date])
+
+  const today = useMemo(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  }, [])
+  const todayIso = today.toISOString().slice(0, 10)
+
+  // Cell color tone driven by status (open = amber/destructive,
+  // resolved = emerald, deferred = warning).
+  const cellTone = (status: string) =>
+    status === 'open'
+      ? 'border-rose-400/60 bg-rose-500/5 text-rose-700 dark:text-rose-300'
+      : status === 'resolved'
+        ? 'border-emerald-400/60 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300'
+        : status === 'deferred'
+          ? 'border-amber-400/60 bg-amber-500/5 text-amber-700 dark:text-amber-300'
+          : 'border-border bg-muted/10 text-muted-foreground'
+
+  const dotTone = (status: string) =>
+    status === 'open'
+      ? 'bg-rose-500'
+      : status === 'resolved'
+        ? 'bg-emerald-500'
+        : status === 'deferred'
+          ? 'bg-amber-500'
+          : 'bg-muted-foreground/40'
+
+  return (
+    <div className="rounded border border-border bg-background overflow-hidden">
+      {/* Header — weekday names */}
+      <div className="grid grid-cols-[2.5rem_repeat(7,minmax(0,1fr))] text-[10px] uppercase tracking-wide text-muted-foreground bg-muted/20">
+        <div className="px-1 py-1.5 text-center border-r border-border">Sem.</div>
+        {WEEK_DAYS_FR.map((d, i) => (
+          <div
+            key={d}
+            className={cn(
+              'px-1 py-1.5 text-center',
+              i === 5 || i === 6 ? 'text-muted-foreground/60' : '',
+            )}
+          >
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Weeks */}
+      {weeks.map(({ week, year, days }) => (
+        <div
+          key={`${year}-W${week}`}
+          className="grid grid-cols-[2.5rem_repeat(7,minmax(0,1fr))] border-t border-border/60"
+        >
+          {/* Week column */}
+          <div className="px-1 py-1 text-[10px] tabular-nums text-muted-foreground border-r border-border/60 flex items-center justify-center">
+            S{String(week).padStart(2, '0')}
+          </div>
+          {/* Day cells */}
+          {days.map((d) => {
+            const iso = d.toISOString().slice(0, 10)
+            const member = memberByDate.get(iso)
+            const isInCluster = !!member
+            const isWeekend = d.getDay() === 0 || d.getDay() === 6
+            const isToday = iso === todayIso
+            return (
+              <div
+                key={iso}
+                title={
+                  member
+                    ? `${formatDateShort(iso)} · ${
+                        member.overflow_amount != null && member.overflow_amount > 0
+                          ? `Pic POB +${member.overflow_amount}`
+                          : 'sans dépassement'
+                      }${member.resolution ? ` · ${RESOLUTION_LABELS_FALLBACK[member.resolution] || member.resolution}` : ''}`
+                    : formatDateShort(iso)
+                }
+                className={cn(
+                  'min-h-[52px] px-1 py-1 border-l border-border/40 first:border-l-0 flex flex-col gap-0.5 text-[10px]',
+                  isInCluster
+                    ? cellTone(member.status)
+                    : isWeekend
+                      ? 'bg-muted/10 text-muted-foreground/40'
+                      : 'text-muted-foreground/70',
+                  isToday && 'ring-1 ring-primary/50 ring-inset',
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={cn('tabular-nums font-medium', isToday && 'text-primary')}>
+                    {d.getDate()}
+                  </span>
+                  {isInCluster && (
+                    <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', dotTone(member.status))} />
+                  )}
+                </div>
+                {isInCluster && member.overflow_amount != null && member.overflow_amount > 0 && (
+                  <div className="text-[10px] font-semibold tabular-nums leading-none mt-0.5">
+                    +{member.overflow_amount}
+                  </div>
+                )}
+                {isInCluster && member.resolution && (
+                  <div className="text-[9px] truncate leading-none mt-0.5 opacity-80">
+                    {RESOLUTION_LABELS_FALLBACK[member.resolution] || member.resolution}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ))}
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-3 px-2 py-1.5 border-t border-border/60 text-[10px] text-muted-foreground bg-muted/10">
+        <span className="inline-flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-rose-500" /> Ouvert
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" /> Résolu
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-amber-500" /> Différé
+        </span>
+        <span className="inline-flex items-center gap-1 ml-auto">
+          Pic POB = dépassement de capacité quotidien
+        </span>
+      </div>
+    </div>
   )
 }

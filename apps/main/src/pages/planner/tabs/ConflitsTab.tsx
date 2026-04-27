@@ -373,24 +373,44 @@ export function ConflitsTab() {
       id: 'activities',
       header: t('planner.columns.activities_involved'),
       cell: ({ row }) => (
-        <div className="flex flex-col gap-0.5 min-w-0">
+        // Render each involved activity as a small clickable chip that
+        // opens the activity detail panel directly. Wraps onto multiple
+        // lines so the column visually fills the table width instead
+        // of leaving a big empty zone — and the user can drill into any
+        // contributor with one click.
+        <div className="flex flex-wrap items-center gap-1 min-w-0">
           {row.original.activity_titles.length > 0 ? (
-            row.original.activity_titles.slice(0, 3).map((title, i) => (
-              <span
-                key={i}
-                className="text-xs text-foreground/90 line-clamp-1 break-words"
-                title={title}
-              >
-                {title}
-              </span>
-            ))
+            row.original.activity_ids.map((aid, i) => {
+              const title = row.original.activity_titles[i] || aid
+              return (
+                <button
+                  key={aid}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openDynamicPanel({
+                      type: 'detail',
+                      module: 'planner',
+                      id: aid,
+                      meta: { subtype: 'activity' },
+                    })
+                  }}
+                  className={cn(
+                    'inline-flex items-center max-w-full px-1.5 py-0.5 rounded',
+                    'text-[11px] text-foreground/90 bg-muted/40 border border-border/60',
+                    'hover:bg-primary/10 hover:border-primary/40 hover:text-primary',
+                    'transition-colors truncate',
+                  )}
+                  title={`Ouvrir « ${title} »`}
+                >
+                  <span className="truncate">{title}</span>
+                </button>
+              )
+            })
           ) : (
             <span className="text-xs text-muted-foreground">
               {t('planner.conflict_cluster.involved_activities', { count: row.original.activity_ids.length })}
             </span>
-          )}
-          {row.original.activity_titles.length > 3 && (
-            <span className="text-[10px] text-muted-foreground">+{row.original.activity_titles.length - 3}</span>
           )}
         </div>
       ),

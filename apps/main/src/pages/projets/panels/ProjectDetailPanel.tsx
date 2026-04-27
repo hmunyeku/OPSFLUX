@@ -41,6 +41,7 @@ import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { TagManager } from '@/components/shared/TagManager'
 import { useUIStore } from '@/stores/uiStore'
+import { useUserPref } from '@/hooks/useFilterPersistence'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
@@ -1291,10 +1292,9 @@ function TaskFullscreenOverlay({
     return () => { document.body.style.overflow = prev }
   }, [])
 
-  // Splitter state (left column width %).
-  const [splitPct, setSplitPct] = useState<number>(() => {
-    try { return Number(localStorage.getItem('task-fullscreen-split') || '50') } catch { return 50 }
-  })
+  // Splitter state (left column width %). DB-synced via useUserPref so
+  // the fullscreen split ratio follows the user across devices.
+  const [splitPct, setSplitPct] = useUserPref<number>('projet.task_fullscreen_split', 50)
   const dragging = useRef(false)
 
   useEffect(() => {
@@ -1307,7 +1307,8 @@ function TaskFullscreenOverlay({
       if (dragging.current) {
         dragging.current = false
         document.body.style.cursor = ''
-        try { localStorage.setItem('task-fullscreen-split', String(splitPct)) } catch { /* ignore */ }
+        // setSplitPct already persists on every move via useUserPref —
+        // the legacy localStorage write here was redundant.
       }
     }
     window.addEventListener('mousemove', move)
@@ -1398,13 +1399,9 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
   const [sortBy, setSortBy] = useState<'order' | 'due_date' | 'priority' | 'progress'>('order')
   // 'list' = legacy hierarchical row layout
   // 'table' = new editable TaskTable (sticky header, inline edit)
-  const [viewMode, setViewMode] = useState<'list' | 'table'>(() => {
-    try { return (localStorage.getItem('projet-tasks-view') as 'list' | 'table') || 'table' } catch { return 'table' }
-  })
-  const setViewModePersist = (v: 'list' | 'table') => {
-    setViewMode(v)
-    try { localStorage.setItem('projet-tasks-view', v) } catch { /* ignore */ }
-  }
+  // DB-synced so the user's chosen layout follows them across devices.
+  const [viewMode, setViewMode] = useUserPref<'list' | 'table'>('projet.tasks_view', 'table')
+  const setViewModePersist = (v: 'list' | 'table') => setViewMode(v)
   const [fullscreen, setFullscreen] = useState(false)
   const openTaskAdvanced = useUIStore((s) => s.openDynamicPanel)
   // Selected row id — drives contextual toolbar actions (indent,

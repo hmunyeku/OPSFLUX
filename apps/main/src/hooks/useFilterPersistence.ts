@@ -185,3 +185,18 @@ export function useFilterPersistence<T>(
 
   return [value, setValue]
 }
+
+/**
+ * useUserPref — generic UI-state persistence hook (DB-first, with
+ * localStorage cache + sync). Use this for ANY user UI preference
+ * that should follow the user across devices: collapsible-section
+ * states, Gantt panel hidden, Project detail tab, file-manager view
+ * mode, …
+ *
+ * Strictly an alias for useFilterPersistence so the call site reads
+ * naturally for non-filter contexts. Same semantics:
+ *   - localStorage read on mount → instant render
+ *   - background DB fetch → DB wins, both caches updated
+ *   - setter writes localStorage immediately + debounced DB write
+ */
+export const useUserPref = useFilterPersistence

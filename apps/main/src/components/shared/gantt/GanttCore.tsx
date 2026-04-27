@@ -27,6 +27,7 @@ import {
   Undo2, Redo2, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useUserPref } from '@/hooks/useFilterPersistence'
 import {
   type TimeScale, SCALE_META, buildCells, buildHeaderGroups, computeBar,
   toISO, daysB, addD, getDefaultDateRange, textColorForBackground,
@@ -290,24 +291,17 @@ export function GanttCore(props: GanttCoreProps) {
   const resizingPanel = useRef(false)
   // Mobile: panel takes too much room. Auto-collapse below ~720px;
   // user can still toggle with the panel button in the toolbar.
-  // Persisted across sessions.
-  const [panelHidden, setPanelHidden] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem('gantt:panelHidden')
-      if (stored === '1') return true
-      if (stored === '0') return false
-      // No explicit user choice yet → default to hidden on narrow viewports
-      // so mobile users see the timeline immediately.
-      return typeof window !== 'undefined' && window.innerWidth < 720
-    } catch { return false }
-  })
+  // Persisted DB-first via useUserPref so the choice follows the user
+  // across devices.
+  const defaultPanelHidden =
+    typeof window !== 'undefined' && window.innerWidth < 720
+  const [panelHidden, setPanelHidden] = useUserPref<boolean>(
+    'gantt.panelHidden',
+    defaultPanelHidden,
+  )
   const togglePanelHidden = useCallback(() => {
-    setPanelHidden((prev) => {
-      const next = !prev
-      try { localStorage.setItem('gantt:panelHidden', next ? '1' : '0') } catch { /* ignore */ }
-      return next
-    })
-  }, [])
+    setPanelHidden((prev) => !prev)
+  }, [setPanelHidden])
   // Auto-collapse on narrow containers — only on first observe so we
   // don't override the user's manual toggle when they widen the window.
   const autoCollapsedRef = useRef(false)

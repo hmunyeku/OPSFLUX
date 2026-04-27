@@ -30,6 +30,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Gauge,
   Loader2,
   Pencil,
@@ -114,6 +115,20 @@ export function CapacityTab({
   // a DB roundtrip per branch).
   const [expandedFieldIds, setExpandedFieldIds] = useState<Set<string>>(new Set())
   const [expandedSiteIds, setExpandedSiteIds] = useState<Set<string>>(new Set())
+
+  // Mobile filters popover open state — DOM-local, not persisted.
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
+
+  // How many of the secondary filters are currently set — drives the
+  // badge on the mobile "Filtres" button so the user knows at a glance
+  // that filters are active even when the popover is closed.
+  const filtersActiveCount = useMemo(() => {
+    let n = 0
+    if (assetId) n++
+    if (projectId) n++
+    if (typeFilter) n++
+    return n
+  }, [assetId, projectId, typeFilter])
 
   const dateRange = useMemo(
     () => ({ from: timelineStartDate, to: timelineEndDate }),
@@ -452,87 +467,153 @@ export function CapacityTab({
         </div>
       </div>
 
-      {/* ── Toolbar ────────────────────────────────────────────── */}
-      <div className="border-b border-border px-4 py-3 flex flex-wrap items-end gap-3">
-        <div className="w-[220px]">
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
-            {t('planner.columns.site', 'Site')}
-          </label>
-          <AssetPicker
-            value={assetId || null}
-            onChange={(id) => setAssetId(id || '')}
-            placeholder={t('planner.filters.all_assets', 'Tous assets')}
-            clearable
-          />
-        </div>
-        <div className="w-[200px]">
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
-            {t('common.project', 'Projet')}
-          </label>
-          <ProjectPicker
-            value={projectId}
-            onChange={(id) => setProjectId(id)}
-            placeholder={t('planner.filters.all_projects', 'Tous projets')}
-            clearable
-          />
-        </div>
-        <div>
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
-            {t('planner.capacity.activity_type', 'Type d\'activité')}
-          </label>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className={cn(panelInputClass, 'h-7 text-xs w-[150px]')}
-          >
-            <option value="">{t('planner.filters.all_types', 'Tous types')}</option>
-            {activityTypeOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
-            {t('planner.capacity.horizon', 'Horizon')}
-          </label>
-          <div className="inline-flex rounded-md border border-border bg-muted/20 p-0.5">
-            {HORIZON_PRESETS.map((h) => (
-              <button
-                key={h}
-                type="button"
-                onClick={() => setHorizon(h)}
-                className={cn(
-                  'px-2 py-1 rounded text-[11px] font-medium transition-colors',
-                  horizon === h
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {h >= 365 ? t('planner.capacity.horizon_year', '1 an') : `${h}j`}
-              </button>
-            ))}
+      {/* ── Toolbar ────────────────────────────────────────────────
+          Two-row responsive toolbar:
+            Row 1 (always visible): sub-view segmented control + the
+                  active filter "chips" (Site, Projet, Type) on
+                  desktop / a single "Filtres" button on mobile.
+            Row 2 (heatmap only): horizon for trend/calendar, OR
+                  date range nav for heatmap.
+          The pattern matches Activities/Conflits — secondary filters
+          collapse behind a popover on narrow viewports so the
+          toolbar never wraps into a 4-row monstrosity. */}
+      <div className="border-b border-border bg-background sticky top-0 z-10">
+        <div className="px-3 sm:px-4 py-2 flex items-center gap-2 flex-wrap">
+          {/* Sub-view picker — always inline, icon-only on mobile */}
+          <div className="inline-flex rounded-md border border-border bg-muted/20 p-0.5 shrink-0">
+            {SUB_VIEWS.map((v) => {
+              const Icon = v.icon
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setSubView(v.id)}
+                  className={cn(
+                    'px-2 py-1 rounded text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors',
+                    subView === v.id
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  title={t(v.labelKey)}
+                  aria-label={t(v.labelKey)}
+                >
+                  <Icon size={12} />
+                  <span className="hidden sm:inline">{t(v.labelKey)}</span>
+                </button>
+              )
+            })}
           </div>
+
+          {/* Desktop filters — inline */}
+          <div className="hidden md:flex items-center gap-1.5 flex-wrap min-w-0">
+            <div className="w-[180px]">
+              <AssetPicker
+                value={assetId || null}
+                onChange={(id) => setAssetId(id || '')}
+                placeholder={t('planner.filters.all_assets', 'Tous assets')}
+                clearable
+              />
+            </div>
+            <div className="w-[160px]">
+              <ProjectPicker
+                value={projectId}
+                onChange={(id) => setProjectId(id)}
+                placeholder={t('planner.filters.all_projects', 'Tous projets')}
+                clearable
+              />
+            </div>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className={cn(panelInputClass, 'h-7 text-xs w-[140px]')}
+            >
+              <option value="">{t('planner.filters.all_types', 'Tous types')}</option>
+              {activityTypeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Mobile filter popover trigger */}
+          <button
+            type="button"
+            onClick={() => setShowMobileFilters((v) => !v)}
+            className="md:hidden h-7 px-2 text-[11px] border border-border rounded inline-flex items-center gap-1 hover:bg-muted/50"
+          >
+            {filtersActiveCount > 0 && (
+              <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
+                {filtersActiveCount}
+              </span>
+            )}
+            {t('common.filter', 'Filtres')}
+            {showMobileFilters ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+          </button>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Horizon segmented control — only meaningful for trend / calendar.
+              Hidden on heatmap where date-range below drives the period. */}
+          {subView !== 'heatmap' && (
+            <div className="inline-flex rounded-md border border-border bg-muted/20 p-0.5 shrink-0">
+              {HORIZON_PRESETS.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setHorizon(h)}
+                  className={cn(
+                    'px-1.5 sm:px-2 py-1 rounded text-[10px] sm:text-[11px] font-medium transition-colors',
+                    horizon === h
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  title={
+                    h >= 365 ? t('planner.capacity.horizon_year', '1 an') : `${h} jours`
+                  }
+                >
+                  {h >= 365 ? '1 an' : `${h}j`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {assetId && (
+            <button
+              className="gl-button-sm gl-button-default inline-flex items-center gap-1 shrink-0"
+              onClick={() => setShowCapModal(true)}
+              title={t('planner.edit_capacity', 'Modifier capacité')}
+            >
+              <Pencil size={11} />
+              <span className="hidden lg:inline">
+                {t('planner.edit_capacity', 'Modifier capacité')}
+              </span>
+            </button>
+          )}
         </div>
 
-        {/* Date range — only impacts the heatmap (not the forecast). */}
+        {/* Row 2 — heatmap-only date-range navigator. Hidden when
+            sub-view is trend/calendar (those use horizon instead). */}
         {subView === 'heatmap' && (
-          <>
-            <DateRangePicker
-              startDate={dateRange.from || null}
-              endDate={dateRange.to || null}
-              onStartChange={(v) => onTimelineRangeChange(v || dateRange.from, dateRange.to)}
-              onEndChange={(v) => onTimelineRangeChange(dateRange.from, v || dateRange.to)}
-              startLabel={t('planner.capacity.range_start', 'Du')}
-              endLabel={t('planner.capacity.range_end', 'Au')}
-            />
-            <div className="flex items-end gap-1">
+          <div className="px-3 sm:px-4 pb-2 flex items-center gap-2 flex-wrap border-t border-border/40 pt-2">
+            <div className="hidden sm:block">
+              <DateRangePicker
+                startDate={dateRange.from || null}
+                endDate={dateRange.to || null}
+                onStartChange={(v) =>
+                  onTimelineRangeChange(v || dateRange.from, dateRange.to)
+                }
+                onEndChange={(v) => onTimelineRangeChange(dateRange.from, v || dateRange.to)}
+                startLabel={t('planner.capacity.range_start', 'Du')}
+                endLabel={t('planner.capacity.range_end', 'Au')}
+              />
+            </div>
+            <div className="flex items-center gap-1 sm:ml-auto">
               <button
                 type="button"
                 className="gl-button-sm gl-button-default inline-flex items-center"
                 onClick={() => shiftRange(-1)}
-                title={t('planner.capacity.previous_period')}
                 aria-label={t('planner.capacity.previous_period')}
               >
                 <ChevronLeft size={12} />
@@ -548,49 +629,110 @@ export function CapacityTab({
                 type="button"
                 className="gl-button-sm gl-button-default inline-flex items-center"
                 onClick={() => shiftRange(1)}
-                title={t('planner.capacity.next_period')}
                 aria-label={t('planner.capacity.next_period')}
               >
                 <ChevronRight size={12} />
               </button>
             </div>
-          </>
+            {/* Scale picker on mobile only — desktop has it inside the
+                heatmap header. Folded here on mobile to save a row. */}
+            <div className="sm:hidden flex items-center gap-1 overflow-x-auto">
+              {(['day', 'week', 'month', 'quarter'] as TimeScale[]).map((sc) => (
+                <button
+                  key={sc}
+                  type="button"
+                  onClick={() => onTimelineScaleChange(sc)}
+                  className={cn(
+                    'px-2 py-1 rounded text-[10px] font-medium shrink-0',
+                    timelineScale === sc
+                      ? 'bg-primary/15 text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/40',
+                  )}
+                >
+                  {t(`planner.capacity.scale.${sc}`)}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
-        {/* Sub-view segmented control — pushed to the right edge on desktop. */}
-        <div className="ml-auto inline-flex rounded-md border border-border bg-muted/20 p-0.5">
-          {SUB_VIEWS.map((v) => {
-            const Icon = v.icon
-            return (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => setSubView(v.id)}
-                className={cn(
-                  'px-2 py-1 rounded text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors',
-                  subView === v.id
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Icon size={12} />
-                <span className="hidden sm:inline">{t(v.labelKey)}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {assetId && (
-          <button
-            className="gl-button-sm gl-button-default inline-flex items-center gap-1"
-            onClick={() => setShowCapModal(true)}
-            title={t('planner.edit_capacity', 'Modifier capacité')}
-          >
-            <Pencil size={11} />
-            <span className="hidden sm:inline">
-              {t('planner.edit_capacity', 'Modifier capacité')}
-            </span>
-          </button>
+        {/* Mobile filters popover */}
+        {showMobileFilters && (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-foreground/10 md:hidden"
+              onClick={() => setShowMobileFilters(false)}
+            />
+            <div className="fixed inset-x-3 top-[7rem] z-50 max-w-md mx-auto rounded-md border bg-popover shadow-xl p-3 space-y-2.5 md:hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground">
+                  {t('common.filter', 'Filtres')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowMobileFilters(false)}
+                  className="text-muted-foreground hover:text-foreground p-0.5"
+                  aria-label={t('common.close', 'Fermer')}
+                >
+                  <ChevronUp size={14} />
+                </button>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
+                  {t('planner.columns.site', 'Site')}
+                </label>
+                <AssetPicker
+                  value={assetId || null}
+                  onChange={(id) => setAssetId(id || '')}
+                  placeholder={t('planner.filters.all_assets', 'Tous assets')}
+                  clearable
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
+                  {t('common.project', 'Projet')}
+                </label>
+                <ProjectPicker
+                  value={projectId}
+                  onChange={(id) => setProjectId(id)}
+                  placeholder={t('planner.filters.all_projects', 'Tous projets')}
+                  clearable
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
+                  {t('planner.capacity.activity_type', "Type d'activité")}
+                </label>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className={cn(panelInputClass, 'h-8 text-xs w-full')}
+                >
+                  <option value="">
+                    {t('planner.filters.all_types', 'Tous types')}
+                  </option>
+                  {activityTypeOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {filtersActiveCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssetId('')
+                    setProjectId(null)
+                    setTypeFilter('')
+                  }}
+                  className="w-full text-xs text-primary hover:underline pt-1"
+                >
+                  {t('common.reset', 'Réinitialiser')}
+                </button>
+              )}
+            </div>
+          </>
         )}
       </div>
 
@@ -848,7 +990,9 @@ function HeatmapView({
         <p className="text-xs text-muted-foreground mb-3">
           {t('planner.capacity.heatmap_description')}
         </p>
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Desktop-only scale picker — mobile gets it on the
+            sticky toolbar's row 2 so we don't duplicate. */}
+        <div className="hidden sm:flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             {t('planner.capacity.scale_label')}
           </span>

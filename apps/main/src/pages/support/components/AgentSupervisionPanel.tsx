@@ -9,6 +9,7 @@
  */
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { useUIStore } from '@/stores/uiStore'
 import {
@@ -144,10 +145,12 @@ function Sparkline({ data }: { data: { date: string; total: number; success: num
 }
 
 export function AgentSupervisionPanel() {
+  const { t, i18n } = useTranslation()
   const [windowDays, setWindowDays] = useState(7)
   const { data, isLoading, refetch } = useSupervision(windowDays)
   const qc = useQueryClient()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const locale = i18n.language === 'en' ? 'en-US' : 'fr-FR'
 
   if (isLoading || !data) {
     return (
@@ -184,7 +187,7 @@ export function AgentSupervisionPanel() {
         <button
           onClick={() => { void qc.invalidateQueries({ queryKey: ['agent-supervision'] }); void refetch() }}
           className="gl-button-sm gl-button-default"
-          title="Rafraîchir"
+          title={t('common.refresh', 'Rafraîchir')}
         >
           <RotateCw size={12} />
         </button>
@@ -195,33 +198,33 @@ export function AgentSupervisionPanel() {
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 flex items-center gap-2">
           <AlertTriangle size={16} className="text-red-600 dark:text-red-400 shrink-0" />
           <div className="flex-1 text-sm">
-            <span className="font-semibold text-red-700 dark:text-red-400">Circuit breaker actif</span>
-            <span className="text-muted-foreground"> — déclenché le {new Date(data.circuit_breaker_tripped_at).toLocaleString('fr-FR')} après {data.consecutive_failures} échecs consécutifs.</span>
+            <span className="font-semibold text-red-700 dark:text-red-400">{t('support.supervision.cb_active', 'Circuit breaker actif')}</span>
+            <span className="text-muted-foreground"> — {t('support.supervision.cb_triggered', 'déclenché le {{date}} après {{n}} échecs consécutifs.', { date: new Date(data.circuit_breaker_tripped_at).toLocaleString(locale), n: data.consecutive_failures })}</span>
           </div>
         </div>
       )}
 
       {/* Stat grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={Activity} label="Runs total" value={data.total_runs} sublabel={`${data.active_runs} actifs`} />
+        <StatCard icon={Activity} label={t('support.supervision.runs_total', 'Runs total')} value={data.total_runs} sublabel={t('support.supervision.runs_active', '{{n}} actifs', { n: data.active_runs })} />
         <StatCard
           icon={CheckCircle2}
-          label="Taux de succès"
+          label={t('support.supervision.success_rate', 'Taux de succès')}
           value={`${Math.round(data.success_rate * 100)}%`}
-          sublabel={`${data.runs_by_status.completed ?? 0} complétés`}
+          sublabel={t('support.supervision.completed_count', '{{n}} complétés', { n: data.runs_by_status.completed ?? 0 })}
           tone={successTone}
         />
         <StatCard
           icon={DollarSign}
-          label="Coût période"
+          label={t('support.supervision.period_cost', 'Coût période')}
           value={`$${data.total_cost_usd.toFixed(2)}`}
-          sublabel={data.avg_cost_usd ? `moy. $${data.avg_cost_usd.toFixed(3)}/run` : undefined}
+          sublabel={data.avg_cost_usd ? t('support.supervision.avg_cost', 'moy. ${{c}}/run', { c: data.avg_cost_usd.toFixed(3) }) : undefined}
         />
         <StatCard
           icon={Clock}
-          label="Temps moyen"
+          label={t('support.supervision.avg_time', 'Temps moyen')}
           value={formatDuration(data.avg_wall_time_seconds)}
-          sublabel={`${data.total_tokens.toLocaleString()} tokens`}
+          sublabel={t('support.supervision.tokens_total', '{{n}} tokens', { n: data.total_tokens.toLocaleString() })}
         />
       </div>
 
@@ -229,11 +232,11 @@ export function AgentSupervisionPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Budget mensuel</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('support.supervision.monthly_budget', 'Budget mensuel')}</span>
             <TrendingUp size={12} className={cn('text-muted-foreground', budgetTone === 'danger' && 'text-red-500', budgetTone === 'warning' && 'text-amber-500')} />
           </div>
           <div className="text-2xl font-bold tabular-nums">${data.monthly_spent_usd.toFixed(2)}</div>
-          <div className="text-[11px] text-muted-foreground">sur ${data.monthly_budget_usd.toFixed(2)}</div>
+          <div className="text-[11px] text-muted-foreground">{t('support.supervision.budget_over', 'sur')} ${data.monthly_budget_usd.toFixed(2)}</div>
           <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
             <div
               className={cn('h-full rounded-full transition-all',
@@ -245,7 +248,7 @@ export function AgentSupervisionPanel() {
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Répartition statuts</div>
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('support.supervision.status_breakdown', 'Répartition statuts')}</div>
           <div className="space-y-1">
             {Object.entries(data.runs_by_status).sort(([, a], [, b]) => b - a).map(([status, count]) => (
               <div key={status} className="flex items-center justify-between text-xs">
@@ -254,23 +257,23 @@ export function AgentSupervisionPanel() {
               </div>
             ))}
             {Object.keys(data.runs_by_status).length === 0 && (
-              <div className="text-xs text-muted-foreground">Aucun run sur la période</div>
+              <div className="text-xs text-muted-foreground">{t('support.supervision.no_runs_period', 'Aucun run sur la période')}</div>
             )}
           </div>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Circuit breaker</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('support.supervision.cb_label', 'Circuit breaker')}</span>
             <Shield size={12} className={cbTone === 'danger' ? 'text-red-500' : 'text-emerald-500'} />
           </div>
           <div className={cn('text-lg font-bold', cbTone === 'danger' ? 'text-red-600' : 'text-emerald-600')}>
-            {data.circuit_breaker_tripped_at ? 'Activé' : 'OK'}
+            {data.circuit_breaker_tripped_at ? t('support.supervision.cb_active_short', 'Activé') : t('support.supervision.cb_ok', 'OK')}
           </div>
           <div className="text-[11px] text-muted-foreground mt-0.5">
             {data.consecutive_failures > 0
-              ? `${data.consecutive_failures} échec${data.consecutive_failures > 1 ? 's' : ''} consécutif${data.consecutive_failures > 1 ? 's' : ''}`
-              : 'Aucun échec récent'}
+              ? t('support.supervision.consec_failures', '{{n}} échec(s) consécutif(s)', { n: data.consecutive_failures })
+              : t('support.supervision.no_recent_failure', 'Aucun échec récent')}
           </div>
         </div>
       </div>
@@ -279,12 +282,12 @@ export function AgentSupervisionPanel() {
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Zap size={11} /> Activité quotidienne
+            <Zap size={11} /> {t('support.supervision.daily_activity', 'Activité quotidienne')}
           </span>
           <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-500/70" /> succès</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-red-500/70" /> échec</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-muted-foreground/40" /> autre</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-500/70" /> {t('support.supervision.legend_success', 'succès')}</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-red-500/70" /> {t('support.supervision.legend_failed', 'échec')}</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-muted-foreground/40" /> {t('support.supervision.legend_other', 'autre')}</span>
           </div>
         </div>
         <Sparkline data={data.daily_timeseries} />
@@ -293,10 +296,10 @@ export function AgentSupervisionPanel() {
       {/* Recent failures */}
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5">
-          <XCircle size={11} /> Échecs récents
+          <XCircle size={11} /> {t('support.supervision.recent_failures', 'Échecs récents')}
         </div>
         {data.recent_failures.length === 0 ? (
-          <div className="text-xs text-muted-foreground text-center py-4">Aucun échec — excellent !</div>
+          <div className="text-xs text-muted-foreground text-center py-4">{t('support.supervision.no_failures', 'Aucun échec — excellent !')}</div>
         ) : (
           <div className="space-y-1">
             {data.recent_failures.map((f) => (
@@ -311,15 +314,15 @@ export function AgentSupervisionPanel() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 text-xs">
                     <span className="font-semibold text-foreground">{f.status}</span>
-                    <span className="text-muted-foreground">· phase {f.current_phase}</span>
+                    <span className="text-muted-foreground">· {t('support.supervision.phase_label', 'phase')} {f.current_phase}</span>
                     <span className="text-muted-foreground">· ${f.cost_usd.toFixed(3)}</span>
                   </div>
                   <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-                    {f.error_message || '(aucun message)'}
+                    {f.error_message || t('support.supervision.no_message', '(aucun message)')}
                   </div>
                 </div>
                 <span className="text-[10px] text-muted-foreground shrink-0">
-                  {new Date(f.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  {new Date(f.created_at).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                 </span>
               </button>
             ))}

@@ -2,6 +2,7 @@
  * "Agent IA" tab on the ticket detail — launch / monitor / cancel runs.
  */
 import { Bot, Play, XCircle, CheckCircle2, Loader2, AlertCircle, ExternalLink, Github, ThumbsUp, ThumbsDown, Rocket, Eye } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   useAgentRunsForTicket,
   useLaunchAgentRun,
@@ -18,17 +19,20 @@ import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { AgentRunReviewPanel } from './AgentRunReviewPanel'
 
-const PHASES: { id: AgentPhase; label: string }[] = [
-  { id: 'triage', label: 'Triage' },
-  { id: 'reproduction', label: 'Reproduction' },
-  { id: 'diagnosis', label: 'Diagnostic' },
-  { id: 'fix', label: 'Correction' },
-  { id: 'deploy', label: 'Déploiement' },
-  { id: 'verification', label: 'Vérification' },
-  { id: 'report', label: 'Rapport' },
-]
-
 const TERMINAL = ['completed', 'failed', 'cancelled', 'rejected', 'failed_and_reverted']
+
+function usePhases(): { id: AgentPhase; label: string }[] {
+  const { t } = useTranslation()
+  return [
+    { id: 'triage', label: t('support.agent.phase.triage', 'Triage') },
+    { id: 'reproduction', label: t('support.agent.phase.reproduction', 'Reproduction') },
+    { id: 'diagnosis', label: t('support.agent.phase.diagnosis', 'Diagnostic') },
+    { id: 'fix', label: t('support.agent.phase.fix', 'Correction') },
+    { id: 'deploy', label: t('support.agent.phase.deploy', 'Déploiement') },
+    { id: 'verification', label: t('support.agent.phase.verification', 'Vérification') },
+    { id: 'report', label: t('support.agent.phase.report', 'Rapport') },
+  ]
+}
 
 export function TicketAgentTab({
   ticketId,
@@ -37,6 +41,7 @@ export function TicketAgentTab({
   ticketId: string
   canManage: boolean
 }) {
+  const { t } = useTranslation()
   const { data: runs = [], isLoading } = useAgentRunsForTicket(ticketId)
   const { data: config } = useAgentConfig()
   const launch = useLaunchAgentRun()
@@ -49,56 +54,60 @@ export function TicketAgentTab({
 
   const handleDeployAndVerify = async (run: AgentRun) => {
     const ok = await confirm({
-      title: 'Déployer sur staging et lancer Playwright ?',
-      message: 'La branche agent sera déployée sur l’environnement staging Dokploy, suivi des scénarios Playwright pertinents.',
-      confirmLabel: 'Déployer et vérifier',
+      title: t('support.agent.confirm.deploy_title', 'Déployer sur staging et lancer Playwright ?'),
+      message: t('support.agent.confirm.deploy_msg', 'La branche agent sera déployée sur l’environnement staging Dokploy, suivi des scénarios Playwright pertinents.'),
+      confirmLabel: t('support.agent.confirm.deploy_label', 'Déployer et vérifier'),
     })
     if (!ok) return
     try {
       const result = await deployVerify.mutateAsync(run.id)
       const label = result.deploy_ok
-        ? `Déploiement OK — ${result.passed ?? 0}✓ / ${result.failed ?? 0}✗ / ${result.critical_failures ?? 0} critiques`
-        : `Déploiement échoué : ${result.deploy_message ?? 'erreur'}`
+        ? t('support.agent.deploy.ok', 'Déploiement OK — {{passed}}✓ / {{failed}}✗ / {{crit}} critiques', {
+            passed: result.passed ?? 0,
+            failed: result.failed ?? 0,
+            crit: result.critical_failures ?? 0,
+          })
+        : t('support.agent.deploy.failed', 'Déploiement échoué : {{msg}}', { msg: result.deploy_message ?? t('common.error', 'erreur') })
       toast({
-        title: 'Deploy + verify terminé',
+        title: t('support.agent.deploy.done_title', 'Deploy + verify terminé'),
         description: label,
         variant: result.deploy_ok && !result.critical_failures ? 'success' : 'error',
       })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      toast({ title: 'Échec deploy+verify', description: msg || String(err), variant: 'error' })
+      toast({ title: t('support.agent.deploy.fail_title', 'Échec deploy+verify'), description: msg || String(err), variant: 'error' })
     }
   }
 
   const handleApprove = async (run: AgentRun) => {
     const ok = await confirm({
-      title: 'Approuver et merger la PR ?',
-      message: `La PR #${run.github_pr_number} sera squash-mergée sur le repo. Le pipeline CI/CD déclenchera un déploiement.`,
-      confirmLabel: 'Approuver et merger',
+      title: t('support.agent.confirm.approve_title', 'Approuver et merger la PR ?'),
+      message: t('support.agent.confirm.approve_msg', 'La PR #{{n}} sera squash-mergée sur le repo. Le pipeline CI/CD déclenchera un déploiement.', { n: run.github_pr_number }),
+      confirmLabel: t('support.agent.confirm.approve_label', 'Approuver et merger'),
     })
     if (!ok) return
     try {
       await approve.mutateAsync(run.id)
-      toast({ title: 'PR mergée', variant: 'success' })
+      toast({ title: t('support.agent.toast.merged', 'PR mergée'), variant: 'success' })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      toast({ title: 'Merge impossible', description: msg || String(err), variant: 'error' })
+      toast({ title: t('support.agent.toast.merge_failed', 'Merge impossible'), description: msg || String(err), variant: 'error' })
     }
   }
 
   const handleReject = async (run: AgentRun) => {
     const ok = await confirm({
-      title: 'Rejeter ce run ?',
-      message: `La PR #${run.github_pr_number ?? '(?)'} sera fermée. Tu peux laisser un motif pour l’agent.`,
-      confirmLabel: 'Rejeter',
+      title: t('support.agent.confirm.reject_title', 'Rejeter ce run ?'),
+      message: t('support.agent.confirm.reject_msg', 'La PR #{{n}} sera fermée. Tu peux laisser un motif pour l’agent.', { n: run.github_pr_number ?? '(?)' }),
+      confirmLabel: t('support.agent.confirm.reject_label', 'Rejeter'),
       variant: 'danger',
     })
     if (!ok) return
     try {
       await reject.mutateAsync({ runId: run.id })
-      toast({ title: 'Run rejeté', variant: 'success' })
+      toast({ title: t('support.agent.toast.rejected', 'Run rejeté'), variant: 'success' })
     } catch (err) {
-      toast({ title: 'Erreur', description: String(err), variant: 'error' })
+      toast({ title: t('common.error', 'Erreur'), description: String(err), variant: 'error' })
     }
   }
 
@@ -107,33 +116,33 @@ export function TicketAgentTab({
 
   const handleLaunch = async () => {
     const ok = await confirm({
-      title: 'Lancer l’agent de maintenance ?',
-      message: 'L’agent va analyser le ticket, produire un diagnostic et créer une PR. Tu pourras l’annuler à tout moment.',
-      confirmLabel: 'Lancer',
+      title: t('support.agent.confirm.launch_title', 'Lancer l’agent de maintenance ?'),
+      message: t('support.agent.confirm.launch_msg', 'L’agent va analyser le ticket, produire un diagnostic et créer une PR. Tu pourras l’annuler à tout moment.'),
+      confirmLabel: t('support.agent.confirm.launch_label', 'Lancer'),
     })
     if (!ok) return
     try {
       await launch.mutateAsync({ ticket_id: ticketId })
-      toast({ title: 'Agent lancé', description: 'Le run apparaît dans la liste ci-dessous.', variant: 'success' })
+      toast({ title: t('support.agent.toast.launched', 'Agent lancé'), description: t('support.agent.toast.launched_desc', 'Le run apparaît dans la liste ci-dessous.'), variant: 'success' })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      toast({ title: 'Lancement impossible', description: msg || String(err), variant: 'error' })
+      toast({ title: t('support.agent.toast.launch_failed', 'Lancement impossible'), description: msg || String(err), variant: 'error' })
     }
   }
 
   const handleCancel = async (run: AgentRun) => {
     const ok = await confirm({
-      title: 'Annuler ce run ?',
-      message: 'Le container sera arrêté. Les artefacts déjà produits sont conservés.',
-      confirmLabel: 'Annuler le run',
+      title: t('support.agent.confirm.cancel_title', 'Annuler ce run ?'),
+      message: t('support.agent.confirm.cancel_msg', 'Le container sera arrêté. Les artefacts déjà produits sont conservés.'),
+      confirmLabel: t('support.agent.confirm.cancel_label', 'Annuler le run'),
       variant: 'danger',
     })
     if (!ok) return
     try {
       await cancel.mutateAsync(run.id)
-      toast({ title: 'Run annulé', variant: 'success' })
+      toast({ title: t('support.agent.toast.cancelled', 'Run annulé'), variant: 'success' })
     } catch (err) {
-      toast({ title: 'Erreur', description: String(err), variant: 'error' })
+      toast({ title: t('common.error', 'Erreur'), description: String(err), variant: 'error' })
     }
   }
 
@@ -142,10 +151,10 @@ export function TicketAgentTab({
       <div className="border border-border/60 rounded-lg bg-card">
         <div className="px-4 py-3 border-b border-border/40 flex items-center gap-2">
           <Bot size={14} className="text-primary" />
-          <span className="text-sm font-semibold">Agent de maintenance IA</span>
+          <span className="text-sm font-semibold">{t('support.agent.title', 'Agent de maintenance IA')}</span>
           {config && (
             <span className="ml-auto text-[10px] text-muted-foreground">
-              {config.enabled ? 'Activé' : 'Désactivé'} ·{' '}
+              {config.enabled ? t('support.agent.enabled', 'Activé') : t('support.agent.disabled', 'Désactivé')} ·{' '}
               {config.current_month_spent_usd.toFixed(2)} /{' '}
               {config.monthly_budget_usd.toFixed(2)} USD
             </span>
@@ -157,9 +166,9 @@ export function TicketAgentTab({
             <div className="flex items-start gap-2 p-3 rounded bg-yellow-50 dark:bg-yellow-950/50 border border-yellow-200 dark:border-yellow-800 text-xs">
               <AlertCircle size={14} className="text-yellow-700 dark:text-yellow-300 mt-0.5 shrink-0" />
               <div>
-                <p className="font-medium text-yellow-900 dark:text-yellow-200">Agent désactivé</p>
+                <p className="font-medium text-yellow-900 dark:text-yellow-200">{t('support.agent.disabled_title', 'Agent désactivé')}</p>
                 <p className="text-yellow-700 dark:text-yellow-300 mt-0.5">
-                  Active l’agent dans Paramètres → Support → Agent de maintenance IA avant de lancer un run.
+                  {t('support.agent.disabled_desc', 'Active l’agent dans Paramètres → Support → Agent de maintenance IA avant de lancer un run.')}
                 </p>
               </div>
             </div>
@@ -169,9 +178,9 @@ export function TicketAgentTab({
             <div className="flex items-start gap-2 p-3 rounded bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-xs">
               <AlertCircle size={14} className="text-red-700 dark:text-red-300 mt-0.5 shrink-0" />
               <div>
-                <p className="font-medium text-red-900 dark:text-red-200">Circuit breaker déclenché</p>
+                <p className="font-medium text-red-900 dark:text-red-200">{t('support.agent.cb_title', 'Circuit breaker déclenché')}</p>
                 <p className="text-red-700 dark:text-red-300 mt-0.5">
-                  Trop d’échecs consécutifs. Les nouveaux runs sont bloqués jusqu’à expiration du cooldown.
+                  {t('support.agent.cb_desc', 'Trop d’échecs consécutifs. Les nouveaux runs sont bloqués jusqu’à expiration du cooldown.')}
                 </p>
               </div>
             </div>
@@ -192,7 +201,7 @@ export function TicketAgentTab({
           ) : (
             <div className="flex flex-col gap-2">
               <p className="text-xs text-muted-foreground">
-                Aucun run actif pour ce ticket.
+                {t('support.agent.no_active', 'Aucun run actif pour ce ticket.')}
               </p>
               {canManage && config?.enabled && (
                 <button
@@ -202,7 +211,7 @@ export function TicketAgentTab({
                   disabled={launch.isPending}
                 >
                   {launch.isPending ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-                  Lancer l’agent
+                  {t('support.agent.launch', 'Lancer l’agent')}
                 </button>
               )}
             </div>
@@ -219,7 +228,7 @@ export function TicketAgentTab({
         return (
           <div className="border border-border/60 rounded-lg bg-card">
             <div className="px-4 py-2.5 border-b border-border/40">
-              <span className="text-sm font-semibold">Dernier run — proposition de l'agent</span>
+              <span className="text-sm font-semibold">{t('support.agent.last_run_proposal', "Dernier run — proposition de l'agent")}</span>
               <span className="ml-2 text-[10px] text-muted-foreground font-mono">
                 {latestReviewable.id.slice(0, 8)}
               </span>
@@ -241,7 +250,7 @@ export function TicketAgentTab({
       {previousRuns.length > 0 && (
         <div className="border border-border/60 rounded-lg bg-card">
           <div className="px-4 py-2.5 border-b border-border/40">
-            <span className="text-sm font-semibold">Runs précédents</span>
+            <span className="text-sm font-semibold">{t('support.agent.previous_runs', 'Runs précédents')}</span>
           </div>
           <ul className="divide-y divide-border/40">
             {previousRuns.map((r) => (
@@ -253,7 +262,7 @@ export function TicketAgentTab({
 
       {isLoading && runs.length === 0 && (
         <div className="text-xs text-muted-foreground flex items-center gap-2">
-          <Loader2 size={12} className="animate-spin" /> Chargement…
+          <Loader2 size={12} className="animate-spin" /> {t('common.loading', 'Chargement…')}
         </div>
       )}
     </div>
@@ -283,6 +292,8 @@ function ActiveRunCard({
   isRejecting: boolean
   isDeploying: boolean
 }) {
+  const { t } = useTranslation()
+  const PHASES = usePhases()
   const currentIdx = PHASES.findIndex((p) => p.id === run.current_phase)
   const awaitingApproval = run.status === 'awaiting_human'
   return (
@@ -291,7 +302,7 @@ function ActiveRunCard({
         <span className="text-sm font-mono text-primary">{run.id.slice(0, 8)}</span>
         <StatusBadge status={run.status} />
         <span className="text-[11px] text-muted-foreground">
-          Mode : {run.autonomy_mode} · Déploiement : {run.deployment_mode}
+          {t('support.agent.mode_label', 'Mode')} : {run.autonomy_mode} · {t('support.agent.deployment_label', 'Déploiement')} : {run.deployment_mode}
         </span>
       </div>
 
@@ -343,7 +354,7 @@ function ActiveRunCard({
 
       <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
         <span>
-          Tokens : {run.llm_tokens_used.toLocaleString()} · Coût :{' '}
+          {t('support.agent.tokens', 'Tokens')} : {run.llm_tokens_used.toLocaleString()} · {t('support.agent.cost', 'Coût')} :{' '}
           {Number(run.llm_cost_usd).toFixed(4)} USD
         </span>
         {run.wall_time_seconds != null && <span>· {run.wall_time_seconds}s</span>}
@@ -354,11 +365,10 @@ function ActiveRunCard({
           <AlertCircle size={14} className="text-blue-700 dark:text-blue-300 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-blue-900 dark:text-blue-200">
-              Approbation requise
+              {t('support.agent.approval_required', 'Approbation requise')}
             </p>
             <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-0.5">
-              Tous les gates sont verts. Tu peux déployer sur staging + vérifier avant
-              approbation, ou approuver directement (le CI/CD prendra le relais).
+              {t('support.agent.approval_desc', 'Tous les gates sont verts. Tu peux déployer sur staging + vérifier avant approbation, ou approuver directement (le CI/CD prendra le relais).')}
             </p>
             <div className="flex gap-2 mt-2 flex-wrap">
               <button
@@ -368,7 +378,7 @@ function ActiveRunCard({
                 disabled={isApproving || isRejecting || isDeploying}
               >
                 {isDeploying ? <Loader2 size={12} className="animate-spin" /> : <Rocket size={12} />}
-                Déployer + vérifier (staging)
+                {t('support.agent.deploy_verify_btn', 'Déployer + vérifier (staging)')}
               </button>
               <button
                 type="button"
@@ -377,7 +387,7 @@ function ActiveRunCard({
                 disabled={isApproving || isRejecting || isDeploying}
               >
                 {isApproving ? <Loader2 size={12} className="animate-spin" /> : <ThumbsUp size={12} />}
-                Approuver et merger
+                {t('support.agent.approve_merge', 'Approuver et merger')}
               </button>
               <button
                 type="button"
@@ -386,7 +396,7 @@ function ActiveRunCard({
                 disabled={isApproving || isRejecting || isDeploying}
               >
                 {isRejecting ? <Loader2 size={12} className="animate-spin" /> : <ThumbsDown size={12} />}
-                Rejeter
+                {t('support.agent.reject', 'Rejeter')}
               </button>
             </div>
           </div>
@@ -403,7 +413,7 @@ function ActiveRunCard({
           className="gl-button gl-button-sm gl-button-default text-destructive"
           onClick={() => onCancel(run)}
         >
-          <XCircle size={12} /> Annuler le run
+          <XCircle size={12} /> {t('support.agent.cancel_run', 'Annuler le run')}
         </button>
       )}
     </div>
@@ -455,12 +465,13 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function VerificationResultsPanel({ runId }: { runId: string }) {
+  const { t } = useTranslation()
   const { data: results = [], isLoading } = useVerificationResults(runId)
 
   if (isLoading) {
     return (
       <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-        <Loader2 size={10} className="animate-spin" /> Chargement des résultats Playwright…
+        <Loader2 size={10} className="animate-spin" /> {t('support.agent.loading_playwright', 'Chargement des résultats Playwright…')}
       </div>
     )
   }
@@ -478,9 +489,9 @@ function VerificationResultsPanel({ runId }: { runId: string }) {
     <div className="border border-border/60 rounded bg-muted/30 p-3 space-y-2">
       <div className="flex items-center gap-2 text-xs">
         <Eye size={12} className="text-primary" />
-        <span className="font-medium">Vérification Playwright</span>
+        <span className="font-medium">{t('support.agent.playwright_check', 'Vérification Playwright')}</span>
         <span className="ml-auto text-[11px] text-muted-foreground">
-          {passed}✓ {failed}✗ {critFail > 0 && `· ${critFail} critique(s)`}
+          {passed}✓ {failed}✗ {critFail > 0 && `· ${critFail} ${t('support.agent.critical_count', 'critique(s)')}`}
         </span>
       </div>
       <ul className="space-y-1">
@@ -521,7 +532,7 @@ function VerificationResultsPanel({ runId }: { runId: string }) {
               )}
               {r.console_errors.length > 0 && (
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {r.console_errors.length} console error(s)
+                  {r.console_errors.length} {t('support.agent.console_errors', 'console error(s)')}
                 </p>
               )}
             </div>

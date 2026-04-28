@@ -5,6 +5,7 @@
  */
 import { useState } from 'react'
 import { Github, Link2, ExternalLink, Loader2, CheckCircle2, PauseCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useIntegrationConnections } from '@/hooks/useIntegrationConnections'
 import {
   useEnableTicketGithubSync,
@@ -30,6 +31,7 @@ export function TicketGithubCard({
   ticket: TicketGithubCardTicket
   canManage: boolean
 }) {
+  const { t } = useTranslation()
   const { data: connections, isLoading } = useIntegrationConnections('github')
   const enableSync = useEnableTicketGithubSync()
   const disableSync = useDisableTicketGithubSync()
@@ -42,16 +44,16 @@ export function TicketGithubCard({
 
   const handleEnable = async () => {
     if (!selectedConnId) {
-      toast({ title: 'Sélectionnez un connecteur', variant: 'warning' })
+      toast({ title: t('support.github.select_connector', 'Sélectionnez un connecteur'), variant: 'warning' })
       return
     }
     try {
       await enableSync.mutateAsync({ ticketId: ticket.id, connectionId: selectedConnId })
-      toast({ title: 'Ticket lié à GitHub', variant: 'success' })
+      toast({ title: t('support.github.linked_success', 'Ticket lié à GitHub'), variant: 'success' })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string; message?: string } } })?.response?.data
       toast({
-        title: 'Échec de liaison GitHub',
+        title: t('support.github.link_failed', 'Échec de liaison GitHub'),
         description: msg?.message || msg?.detail || String(err),
         variant: 'error',
       })
@@ -61,9 +63,9 @@ export function TicketGithubCard({
   const handleDisable = async () => {
     try {
       await disableSync.mutateAsync(ticket.id)
-      toast({ title: 'Sync GitHub désactivée', variant: 'success' })
+      toast({ title: t('support.github.sync_disabled', 'Sync GitHub désactivée'), variant: 'success' })
     } catch (err) {
-      toast({ title: 'Erreur', description: String(err), variant: 'error' })
+      toast({ title: t('common.error', 'Erreur'), description: String(err), variant: 'error' })
     }
   }
 
@@ -74,9 +76,9 @@ export function TicketGithubCard({
         ticketId: ticket.id,
         connectionId: ticket.github_connection_id,
       })
-      toast({ title: 'Sync GitHub réactivée', variant: 'success' })
+      toast({ title: t('support.github.sync_resumed', 'Sync GitHub réactivée'), variant: 'success' })
     } catch (err) {
-      toast({ title: 'Erreur', description: String(err), variant: 'error' })
+      toast({ title: t('common.error', 'Erreur'), description: String(err), variant: 'error' })
     }
   }
 
@@ -88,13 +90,13 @@ export function TicketGithubCard({
         {isLinked && ticket.github_sync_enabled && (
           <span className="ml-auto inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300">
             <CheckCircle2 size={10} />
-            Sync active
+            {t('support.github.sync_active', 'Sync active')}
           </span>
         )}
         {isLinked && !ticket.github_sync_enabled && (
           <span className="ml-auto inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
             <PauseCircle size={10} />
-            En pause
+            {t('support.github.paused', 'En pause')}
           </span>
         )}
       </div>
@@ -103,7 +105,7 @@ export function TicketGithubCard({
         {isLinked ? (
           <>
             <div className="text-xs text-muted-foreground">
-              Lié au connecteur <strong className="text-foreground">{linkedConn?.name ?? '—'}</strong>
+              {t('support.github.linked_to', 'Lié au connecteur')} <strong className="text-foreground">{linkedConn?.name ?? '—'}</strong>
             </div>
             <div className="space-y-1.5">
               <a
@@ -131,7 +133,7 @@ export function TicketGithubCard({
             </div>
             {ticket.github_last_synced_at && (
               <div className="text-[10px] text-muted-foreground">
-                Dernier sync : {new Date(ticket.github_last_synced_at).toLocaleString()}
+                {t('support.github.last_sync', 'Dernier sync')} : {new Date(ticket.github_last_synced_at).toLocaleString()}
               </div>
             )}
             {canManage && (
@@ -144,7 +146,7 @@ export function TicketGithubCard({
                     disabled={disableSync.isPending}
                   >
                     {disableSync.isPending ? <Loader2 size={12} className="animate-spin" /> : <PauseCircle size={12} />}
-                    Mettre en pause
+                    {t('support.github.pause', 'Mettre en pause')}
                   </button>
                 ) : (
                   <button
@@ -154,7 +156,7 @@ export function TicketGithubCard({
                     disabled={enableSync.isPending}
                   >
                     {enableSync.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                    Réactiver
+                    {t('support.github.resume', 'Réactiver')}
                   </button>
                 )}
               </div>
@@ -163,7 +165,7 @@ export function TicketGithubCard({
         ) : (
           <>
             <p className="text-xs text-muted-foreground">
-              Pas encore lié à une Issue GitHub. Sélectionnez un connecteur pour activer la sync.
+              {t('support.github.not_linked_desc', 'Pas encore lié à une Issue GitHub. Sélectionnez un connecteur pour activer la sync.')}
             </p>
             {canManage && (
               <div className="space-y-2">
@@ -174,7 +176,7 @@ export function TicketGithubCard({
                     onChange={(e) => setSelectedConnId(e.target.value)}
                     disabled={isLoading || activeConns.length === 0}
                   >
-                    <option value="">— Choisir un connecteur —</option>
+                    <option value="">{t('support.github.choose_connector', '— Choisir un connecteur —')}</option>
                     {activeConns.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name} (
@@ -194,12 +196,12 @@ export function TicketGithubCard({
                     ) : (
                       <Github size={12} />
                     )}
-                    Créer l’Issue GitHub et activer la sync
+                    {t('support.github.create_and_link', 'Créer l’Issue GitHub et activer la sync')}
                   </button>
                 </div>
                 {activeConns.length === 0 && !isLoading && (
                   <p className="text-[10px] text-muted-foreground italic">
-                    Aucun connecteur GitHub actif. Créez-en un via Paramètres → Intégrations.
+                    {t('support.github.no_connector', 'Aucun connecteur GitHub actif. Créez-en un via Paramètres → Intégrations.')}
                   </p>
                 )}
               </div>

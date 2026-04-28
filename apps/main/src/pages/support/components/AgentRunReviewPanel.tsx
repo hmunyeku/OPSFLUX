@@ -13,6 +13,7 @@
  * `awaiting_human` with a PR attached.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   FileEdit, AlertTriangle, GitMerge, XCircle, ExternalLink, ChevronDown, ChevronRight,
   Terminal, Edit3, Search, FileText, ListChecks, CircleAlert, Bot, RefreshCw,
@@ -40,6 +41,7 @@ export function AgentRunReviewPanel({
   isRejecting,
   canManage,
 }: Props) {
+  const { t } = useTranslation()
   const report = run.report_json
   const failedGates = run.failed_gates
   const hasPR = Boolean(run.github_pr_url)
@@ -63,13 +65,13 @@ export function AgentRunReviewPanel({
       {report?.root_cause && (
         <div className="border border-border/60 rounded bg-muted/30 p-3">
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-            Cause racine
+            {t('support.review.root_cause', 'Cause racine')}
           </p>
           <p className="text-xs text-foreground">{report.root_cause}</p>
           {report.reasoning_summary && (
             <>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-3 mb-1">
-                Raisonnement
+                {t('support.review.reasoning', 'Raisonnement')}
               </p>
               <p className="text-xs text-foreground">{report.reasoning_summary}</p>
             </>
@@ -83,7 +85,7 @@ export function AgentRunReviewPanel({
           <div className="px-3 py-2 border-b border-border/40 flex items-center gap-2">
             <FileEdit size={12} className="text-primary" />
             <span className="text-xs font-medium">
-              Fichiers modifiés ({report.files_modified.length})
+              {t('support.review.files_modified', 'Fichiers modifiés')} ({report.files_modified.length})
             </span>
           </div>
           <ul className="divide-y divide-border/30">
@@ -109,7 +111,7 @@ export function AgentRunReviewPanel({
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle size={12} className="text-yellow-700 dark:text-yellow-400" />
             <span className="text-xs font-medium text-yellow-900 dark:text-yellow-200">
-              Vérifications post-execution
+              {t('support.review.post_exec_checks', 'Vérifications post-execution')}
             </span>
           </div>
           <ul className="space-y-1 mt-2">
@@ -120,7 +122,7 @@ export function AgentRunReviewPanel({
             ))}
           </ul>
           <p className="text-[10px] text-yellow-700 dark:text-yellow-400 mt-2">
-            La PR reste ouverte pour ta review. Vérifie les CI checks GitHub avant de merger.
+            {t('support.review.pr_open_warning', 'La PR reste ouverte pour ta review. Vérifie les CI checks GitHub avant de merger.')}
           </p>
         </div>
       )}
@@ -131,7 +133,7 @@ export function AgentRunReviewPanel({
           <div className="flex items-center gap-2 mb-1">
             <CircleAlert size={12} className="text-orange-700 dark:text-orange-400" />
             <span className="text-xs font-medium text-orange-900 dark:text-orange-200">
-              L'agent signale
+              {t('support.review.agent_warns', "L'agent signale")}
             </span>
           </div>
           <ul className="list-disc list-inside text-[11px] text-orange-900 dark:text-orange-200 space-y-0.5 mt-1">
@@ -148,7 +150,7 @@ export function AgentRunReviewPanel({
             target="_blank" rel="noopener noreferrer"
             className="gl-button gl-button-sm gl-button-default"
           >
-            <ExternalLink size={11} /> Voir la PR sur GitHub
+            <ExternalLink size={11} /> {t('support.review.view_pr', 'Voir la PR sur GitHub')}
           </a>
           <button
             type="button"
@@ -157,7 +159,7 @@ export function AgentRunReviewPanel({
             disabled={isMerging || isRejecting}
           >
             <GitMerge size={11} />
-            {isMerging ? 'Merge en cours…' : 'Merger sur main'}
+            {isMerging ? t('support.review.merging', 'Merge en cours…') : t('support.review.merge', 'Merger sur main')}
           </button>
           <button
             type="button"
@@ -166,7 +168,7 @@ export function AgentRunReviewPanel({
             disabled={isMerging || isRejecting}
           >
             <XCircle size={11} />
-            {isRejecting ? 'Rejet…' : 'Rejeter'}
+            {isRejecting ? t('support.review.rejecting', 'Rejet…') : t('support.review.reject', 'Rejeter')}
           </button>
           {canRetryCi && (
             <button
@@ -175,14 +177,14 @@ export function AgentRunReviewPanel({
               disabled={retryCi.isPending || isMerging || isRejecting}
               onClick={() => {
                 retryCi.mutate(run.id, {
-                  onSuccess: () => toast({ variant: 'success', title: 'Run de correction CI lancé' }),
-                  onError: (e) => toast({ variant: 'error', title: (e as Error).message || 'Échec du retry' }),
+                  onSuccess: () => toast({ variant: 'success', title: t('support.review.retry_launched', 'Run de correction CI lancé') }),
+                  onError: (e) => toast({ variant: 'error', title: (e as Error).message || t('support.review.retry_failed', 'Échec du retry') }),
                 })
               }}
-              title="L'agent va reprendre la même branche, lire les logs CI et tenter de corriger."
+              title={t('support.review.retry_tooltip', "L'agent va reprendre la même branche, lire les logs CI et tenter de corriger.")}
             >
               <RefreshCw size={11} className={retryCi.isPending ? 'animate-spin' : ''} />
-              {retryCi.isPending ? 'Relance…' : 'Corriger les CI rouges'}
+              {retryCi.isPending ? t('support.review.retrying', 'Relance…') : t('support.review.fix_ci', 'Corriger les CI rouges')}
             </button>
           )}
         </div>
@@ -196,7 +198,7 @@ export function AgentRunReviewPanel({
       >
         {logsOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
         <Terminal size={11} />
-        Voir les logs de l'agent
+        {t('support.review.view_logs', "Voir les logs de l'agent")}
       </button>
       {logsOpen && <AgentLogStream runId={run.id} />}
 
@@ -205,7 +207,7 @@ export function AgentRunReviewPanel({
         <div className="border border-border/60 rounded p-3">
           <div className="flex items-center gap-2 mb-1">
             <ListChecks size={12} className="text-primary" />
-            <span className="text-xs font-medium">Prochaines étapes recommandées</span>
+            <span className="text-xs font-medium">{t('support.review.next_steps', 'Prochaines étapes recommandées')}</span>
           </div>
           <ul className="list-decimal list-inside text-[11px] text-muted-foreground space-y-0.5 mt-1">
             {report.next_steps_recommended.map((s, i) => (<li key={i}>{s}</li>))}
@@ -217,6 +219,7 @@ export function AgentRunReviewPanel({
 }
 
 function StatusBanner({ run }: { run: AgentRun }) {
+  const { t } = useTranslation()
   const status = run.status
   const cls =
     status === 'completed'
@@ -227,10 +230,10 @@ function StatusBanner({ run }: { run: AgentRun }) {
           ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-900 dark:text-red-200'
           : 'bg-muted border-border text-muted-foreground'
   const label =
-    status === 'completed' ? 'Run terminé — la PR attend ta review'
-      : status === 'awaiting_human' ? 'Approbation requise'
-        : status === 'failed' ? 'Run en échec'
-          : status === 'rejected' ? 'Run rejeté'
+    status === 'completed' ? t('support.review.status.completed', 'Run terminé — la PR attend ta review')
+      : status === 'awaiting_human' ? t('support.review.status.awaiting_human', 'Approbation requise')
+        : status === 'failed' ? t('support.review.status.failed', 'Run en échec')
+          : status === 'rejected' ? t('support.review.status.rejected', 'Run rejeté')
             : status
   return (
     <div className={`border rounded px-3 py-2 text-xs ${cls}`}>
@@ -248,16 +251,17 @@ function StatusBanner({ run }: { run: AgentRun }) {
 }
 
 function AgentLogStream({ runId }: { runId: string }) {
+  const { t } = useTranslation()
   const { data: logs = [], isLoading, isError } = useAgentLogExcerpt(runId)
 
   if (isLoading) {
-    return <div className="text-[11px] text-muted-foreground p-2">Chargement des logs…</div>
+    return <div className="text-[11px] text-muted-foreground p-2">{t('support.review.logs_loading', 'Chargement des logs…')}</div>
   }
   if (isError) {
-    return <div className="text-[11px] text-destructive p-2">Logs indisponibles (volume non monté ?)</div>
+    return <div className="text-[11px] text-destructive p-2">{t('support.review.logs_unavailable', 'Logs indisponibles (volume non monté ?)')}</div>
   }
   if (logs.length === 0) {
-    return <div className="text-[11px] text-muted-foreground italic p-2">Aucun événement de log.</div>
+    return <div className="text-[11px] text-muted-foreground italic p-2">{t('support.review.logs_empty', 'Aucun événement de log.')}</div>
   }
   return (
     <div className="border border-border/60 rounded bg-black/90 dark:bg-black p-2 max-h-96 overflow-y-auto font-mono text-[10.5px]">

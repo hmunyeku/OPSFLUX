@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import { LayoutDashboard, ClipboardList, Clock, Users, Shield, AlertTriangle, RefreshCw, Briefcase, X, Search, Building2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
+
+/** Resolve the BCP47 locale matching the current i18n language. */
+function getLocale(): string {
+  return i18n.language === 'en' ? 'en-US' : 'fr-FR'
+}
 import { cn } from '@/lib/utils'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
 import { useTiers } from '@/hooks/useTiers'
@@ -139,12 +145,12 @@ export function SeverityBadge({ severity }: { severity: string }) {
 
 export function formatDate(d: string | null) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(d).toLocaleDateString(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 export function formatDateTime(d: string | null | undefined) {
   if (!d) return '—'
-  return new Date(d).toLocaleString('fr-FR', {
+  return new Date(d).toLocaleString(getLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -155,7 +161,7 @@ export function formatDateTime(d: string | null | undefined) {
 
 export function formatDateShort(d: string | null | undefined) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+  return new Date(d).toLocaleDateString(getLocale(), { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export function CompletenessBar({ value }: { value: number }) {

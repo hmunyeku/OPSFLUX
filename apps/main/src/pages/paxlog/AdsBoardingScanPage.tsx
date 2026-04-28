@@ -2,11 +2,16 @@ import { Loader2, Plane, QrCode, CheckCircle2, CircleDashed, AlertTriangle, User
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import i18n from '@/lib/i18n'
 import { useAdsBoardingContext, useUpdateAdsBoardingPassenger } from '@/hooks/usePaxlog'
+
+function getLocale(): string {
+  return i18n.language === 'en' ? 'en-US' : 'fr-FR'
+}
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) return '--'
-  return new Date(value).toLocaleString('fr-FR', {
+  return new Date(value).toLocaleString(getLocale(), {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
@@ -16,7 +21,7 @@ function formatDateTime(value: string | null | undefined) {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return '--'
-  return new Date(value).toLocaleDateString('fr-FR', {
+  return new Date(value).toLocaleDateString(getLocale(), {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

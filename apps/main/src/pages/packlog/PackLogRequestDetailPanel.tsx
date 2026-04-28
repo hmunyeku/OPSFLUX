@@ -10,7 +10,10 @@ import {
   Truck,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+
+const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import {
@@ -300,7 +303,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               Poids
             </p>
             <p className="mt-0.5 text-base font-semibold tabular-nums text-foreground">
-              {totalWeightKg.toLocaleString('fr-FR')} kg
+              {totalWeightKg.toLocaleString(numLocale())} kg
             </p>
             <p className="text-[10px] text-muted-foreground">{assignedCount} affectés</p>
           </div>
@@ -477,7 +480,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label={t('common.label_field')} value={cargoRequest.title} />
                 <ReadOnlyRow
                   label="Créée le"
-                  value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')}
+                  value={new Date(cargoRequest.created_at).toLocaleString(numLocale())}
                 />
               </DetailFieldGrid>
             </FormSection>
@@ -575,7 +578,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 <div className="mb-3 grid grid-cols-3 gap-2 @container">
                   <div className="rounded-md border border-border/50 bg-muted/30 px-2.5 py-1.5 text-center">
                     <p className="text-[10px] text-muted-foreground">Total</p>
-                    <p className="text-sm font-semibold tabular-nums">{totalWeightKg.toLocaleString('fr-FR')} kg</p>
+                    <p className="text-sm font-semibold tabular-nums">{totalWeightKg.toLocaleString(numLocale())} kg</p>
                   </div>
                   <div className="rounded-md border border-border/50 bg-muted/30 px-2.5 py-1.5 text-center">
                     <p className="text-[10px] text-muted-foreground">Packages</p>
@@ -617,7 +620,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                         </div>
                         <div className="shrink-0 text-right">
                           <p className="text-xs font-medium tabular-nums text-foreground">
-                            {Number(cargo.weight_kg).toLocaleString('fr-FR')} kg
+                            {Number(cargo.weight_kg).toLocaleString(numLocale())} kg
                           </p>
                           <p className="text-[10px] text-muted-foreground">{cargo.status}</p>
                         </div>
@@ -677,7 +680,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {option.vector_name ?? 'Vecteur'} ·{' '}
-                            {new Date(option.scheduled_departure).toLocaleString('fr-FR')}
+                            {new Date(option.scheduled_departure).toLocaleString(numLocale())}
                           </p>
                         </div>
                         <span
@@ -700,20 +703,20 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                           <span className="text-muted-foreground">Capacité rest. </span>
                           <span className="font-medium tabular-nums">
                             {option.remaining_weight_kg != null
-                              ? `${option.remaining_weight_kg.toLocaleString('fr-FR')} kg`
+                              ? `${option.remaining_weight_kg.toLocaleString(numLocale())} kg`
                               : 'illimitée'}
                           </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Poids demande </span>
                           <span className="font-medium tabular-nums">
-                            {option.total_request_weight_kg.toLocaleString('fr-FR')} kg
+                            {option.total_request_weight_kg.toLocaleString(numLocale())} kg
                           </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Surface est. </span>
                           <span className="font-medium tabular-nums">
-                            {option.total_request_surface_m2.toLocaleString('fr-FR')} m²
+                            {option.total_request_surface_m2.toLocaleString(numLocale())} m²
                           </span>
                         </div>
                         <div>
@@ -743,7 +746,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                               <MapPin size={9} className="mr-0.5" />
                               {zone.zone_name}
                               {zone.surface_m2 != null
-                                ? ` · ${zone.surface_m2.toLocaleString('fr-FR')} m²`
+                                ? ` · ${zone.surface_m2.toLocaleString(numLocale())} m²`
                                 : ''}
                             </span>
                           ))}

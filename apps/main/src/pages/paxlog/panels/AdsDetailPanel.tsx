@@ -398,7 +398,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
   const handleGenerateLink = (recipient?: { user_id: string | null; contact_id: string | null }) => {
     if (!hasAllowedCompaniesForExternalLink) {
       toast({
-        title: "Ajoutez au moins une entreprise autorisée avant de générer un lien externe.",
+        title: t('paxlog.ads_detail.external_link.no_companies', "Ajoutez au moins une entreprise autorisée avant de générer un lien externe."),
         variant: 'error',
       })
       return
@@ -443,7 +443,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
   const openExternalLinkFlow = () => {
     if (!hasAllowedCompaniesForExternalLink) {
       toast({
-        title: "Ajoutez au moins une entreprise autorisée dans l'AdS avant de générer un lien externe.",
+        title: t('paxlog.ads_detail.external_link.no_companies_ads', "Ajoutez au moins une entreprise autorisée dans l'AdS avant de générer un lien externe."),
         variant: 'error',
       })
       return
@@ -778,8 +778,8 @@ export function AdsDetailPanel({ id }: { id: string }) {
           </span>
           {ads.cross_company_flag && <span className="gl-badge gl-badge-warning">{t('paxlog.ads_detail.cross_company')}</span>}
           {ads.is_round_trip_no_overnight && (
-            <span className="gl-badge gl-badge-info" title={t('paxlog.ads_detail.round_trip_no_overnight_hint') || 'Visite d\'une journée — comptée dans le forecast PAX du jour uniquement'}>
-              A/R sans nuitée
+            <span className="gl-badge gl-badge-info" title={t('paxlog.ads_detail.round_trip_no_overnight_hint', "Visite d'une journée — comptée dans le forecast PAX du jour uniquement")}>
+              {t('paxlog.ads_detail.round_trip_no_overnight', 'A/R sans nuitée')}
             </span>
           )}
         </div>

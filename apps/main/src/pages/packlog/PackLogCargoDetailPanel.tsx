@@ -12,7 +12,10 @@ import {
   Undo2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+
+const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import {
   DynamicPanelShell,
   PanelContentLayout,
@@ -430,7 +433,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
   const manifestLabel = cargo.manifest_id
     ? (manifests?.items ?? []).find((manifest) => manifest.id === cargo.manifest_id)?.reference ?? cargo.manifest_id
     : null
-  const volumeLabel = cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m³` : '—'
+  const volumeLabel = cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString(numLocale())} m³` : '—'
   const cargoRequestStatusLabel = cargoRequest?.status
     ? (cargoRequestStatusLabels[cargoRequest.status] ?? cargoRequest.status)
     : '—'
@@ -464,7 +467,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
               )}
             </div>
             <div className="flex items-center gap-3 mt-1.5 flex-wrap text-[11px] text-muted-foreground">
-              {cargo.weight_kg && <span><span className="text-foreground font-medium">{cargo.weight_kg.toLocaleString('fr-FR')} kg</span></span>}
+              {cargo.weight_kg && <span><span className="text-foreground font-medium">{cargo.weight_kg.toLocaleString(numLocale())} kg</span></span>}
               {cargo.width_cm && cargo.length_cm && cargo.height_cm && <span>{cargo.width_cm}×{cargo.length_cm}×{cargo.height_cm} cm</span>}
               {cargo.voyage_code && <span>✈ {cargo.voyage_code}</span>}
               {cargo.destination_name && <span>→ {cargo.destination_name}</span>}
@@ -703,9 +706,9 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   <div className="@container space-y-4">
                     <FormSection title={t('packlog.cargo.section.dimensions', 'Dimensions & Poids')}>
                       <DetailFieldGrid>
-                        <ReadOnlyRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString('fr-FR')} kg` : '—'} />
+                        <ReadOnlyRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString(numLocale())} kg` : '—'} />
                         <ReadOnlyRow label="Dimensions" value={cargo.width_cm && cargo.length_cm && cargo.height_cm ? `${cargo.width_cm} × ${cargo.length_cm} × ${cargo.height_cm} cm` : '—'} />
-                        <ReadOnlyRow label="Surface totale" value={cargo.surface_m2 != null ? `${cargo.surface_m2.toLocaleString('fr-FR')} m²` : '—'} />
+                        <ReadOnlyRow label="Surface totale" value={cargo.surface_m2 != null ? `${cargo.surface_m2.toLocaleString(numLocale())} m²` : '—'} />
                         <ReadOnlyRow label="Volume estimé" value={volumeLabel} />
                         <ReadOnlyRow label={t('common.package_count')} value={cargo.package_count?.toString() ?? '—'} />
                         <ReadOnlyRow label="Empilable" value={cargo.stackable ? 'Oui' : 'Non'} />
@@ -724,10 +727,10 @@ export function CargoDetailPanel({ id }: { id: string }) {
                     <ReadOnlyRow label={t('common.recipient')} value={cargo.receiver_name ?? cargo.request_receiver_name ?? '—'} />
                     <ReadOnlyRow label={t('common.project')} value={projectLabel ?? '—'} />
                     <ReadOnlyRow label={t('common.imputation')} value={cargo.imputation_reference_name ? `${cargo.imputation_reference_code ?? ''} ${cargo.imputation_reference_name}`.trim() : '—'} />
-                    <ReadOnlyRow label="Préparé le" value={cargo.document_prepared_at ? new Date(cargo.document_prepared_at).toLocaleString('fr-FR') : '—'} />
-                    <ReadOnlyRow label="Disponible le" value={cargo.available_from ? new Date(cargo.available_from).toLocaleString('fr-FR') : '—'} />
+                    <ReadOnlyRow label="Préparé le" value={cargo.document_prepared_at ? new Date(cargo.document_prepared_at).toLocaleString(numLocale()) : '—'} />
+                    <ReadOnlyRow label="Disponible le" value={cargo.available_from ? new Date(cargo.available_from).toLocaleString(numLocale()) : '—'} />
                     <ReadOnlyRow label={t('common.created_at_label')} value={formatDate(cargo.created_at)} />
-                    {cargo.received_at && <ReadOnlyRow label="Reçu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
+                    {cargo.received_at && <ReadOnlyRow label="Reçu le" value={new Date(cargo.received_at).toLocaleString(numLocale())} />}
                     <ReadOnlyRow label={t('common.description')} value={cargo.description ?? '—'} />
                     {cargo.damage_notes && <ReadOnlyRow label="Notes avarie" value={cargo.damage_notes} />}
                   </DetailFieldGrid>

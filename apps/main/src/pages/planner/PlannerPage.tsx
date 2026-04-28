@@ -63,8 +63,10 @@ export function PlannerPage() {
   // Legacy redirect: ?tab=forecast was a separate tab pre-merger.
   // It now lives as a sub-view inside Capacity. Old bookmarks /
   // shared links keep working via this transparent redirect.
+  // String compare instead of casting to the (narrowed) PlannerTab
+  // union — same runtime, no `as unknown as`.
   const normalizedTabFromUrl: PlannerTab | null =
-    tabFromUrl === ('forecast' as unknown as PlannerTab)
+    (tabFromUrl as string | null) === 'forecast'
       ? 'capacity'
       : tabFromUrl
   const [activeTab, setActiveTabRaw] = useState<PlannerTab>(

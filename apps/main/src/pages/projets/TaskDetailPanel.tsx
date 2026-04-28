@@ -1017,7 +1017,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
               storageKey="task-detail-comments"
             >
               <div className="space-y-2.5">
-                {((comments || []) as unknown as { id: string; content?: string; body?: string; author_name?: string; created_at: string }[]).map(c => (
+                {(comments || []).map((c) => (
                   <div key={c.id} className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-1">
                       <MessageSquare size={10} />
@@ -1027,7 +1027,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                         {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{c.content || c.body}</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{c.body}</p>
                   </div>
                 ))}
                 {commentsCount === 0 && (

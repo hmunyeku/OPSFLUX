@@ -850,22 +850,22 @@ export function ConflictClusterDetailPanel() {
 
         {/* ── Per-day breakdown — week-aligned calendar ────────── */}
         <FormSection
-          title={(
+          title={
             <span className="inline-flex items-center gap-1.5">
               <ListChecks size={12} /> Calendrier du conflit ({cluster.members.length} jour{cluster.members.length > 1 ? 's' : ''})
             </span>
-          ) as unknown as string}
+          }
         >
           <ConflictWeekCalendar cluster={cluster} />
         </FormSection>
 
         {/* ── Audit history — vertical timeline ───────────────── */}
         <FormSection
-          title={(
+          title={
             <span className="inline-flex items-center gap-1.5">
               <History size={12} /> {t('planner.resolve_conflict_history')}
             </span>
-          ) as unknown as string}
+          }
         >
           {auditLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
           {!auditLoading && (!audit || audit.length === 0) && (

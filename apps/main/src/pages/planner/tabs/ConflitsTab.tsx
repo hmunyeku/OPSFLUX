@@ -199,6 +199,11 @@ export function ConflitsTab() {
         module: 'planner',
         id: cluster.primary_conflict_id || cluster.key,
         meta: { subtype: 'conflict-cluster' },
+        // The dynamic-panel store types `data` as Record<string,unknown>
+        // but ConflictClusterShape doesn't have an index signature,
+        // so TS requires the two-step `as unknown as` widening.
+        // Acceptable: the consumer panel re-narrows to the cluster
+        // shape on read (see ConflictClusterDetailPanel).
         data: { cluster: cluster as unknown as Record<string, unknown> },
       })
     },

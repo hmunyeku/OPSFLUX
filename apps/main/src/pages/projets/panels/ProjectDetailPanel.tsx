@@ -1411,6 +1411,10 @@ function TaskFullscreenOverlay({
     let raf = 0
     let leftBody: HTMLElement | null = null
     let rightBody: HTMLElement | null = null
+    // Stash the ResizeObserver as a local variable in this effect's
+    // closure (was previously hacked onto the `measure` function via
+    // `as unknown as` cast — clean closure binding instead).
+    let ro: ResizeObserver | null = null
 
     const onLeft = () => {
       if (syncingRef.current || !leftBody || !rightBody) return
@@ -1471,7 +1475,7 @@ function TaskFullscreenOverlay({
       measure()
       // Re-measure on resize — toolbar wrapping changes header height
       // so the offset can drift between viewport widths.
-      const ro = new ResizeObserver(() => {
+      ro = new ResizeObserver(() => {
         // Detach scroll listeners before re-attaching at new measure.
         if (leftBody) leftBody.removeEventListener('scroll', onLeft)
         if (rightBody) rightBody.removeEventListener('scroll', onRight)
@@ -1479,13 +1483,10 @@ function TaskFullscreenOverlay({
       })
       if (leftScrollRef.current) ro.observe(leftScrollRef.current)
       if (rightScrollRef.current) ro.observe(rightScrollRef.current)
-      // Stash for cleanup via closure.
-      ;(measure as unknown as { _ro?: ResizeObserver })._ro = ro
     })
 
     return () => {
       cancelAnimationFrame(raf)
-      const ro = (measure as unknown as { _ro?: ResizeObserver })._ro
       ro?.disconnect()
       if (leftBody) leftBody.removeEventListener('scroll', onLeft)
       if (rightBody) rightBody.removeEventListener('scroll', onRight)

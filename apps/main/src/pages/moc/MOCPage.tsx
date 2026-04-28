@@ -14,7 +14,20 @@ import { useSearchParams } from 'react-router-dom'
 import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/react-table'
-import { ClipboardList, LayoutDashboard, Plus, Rocket, UserCircle2 } from 'lucide-react'
+import {
+  ClipboardList,
+  LayoutDashboard,
+  Plus,
+  Rocket,
+  UserCircle2,
+  AlertTriangle,
+  CheckCircle2,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
@@ -133,6 +146,9 @@ function MOCListTab() {
   const [priorityFilter, setPriorityFilter] = useState<string | undefined>(undefined)
   const [mineAsManager, setMineAsManager] = useState(false)
   const [projectFilter, setProjectFilter] = useState<'all' | 'promoted' | 'not_promoted'>('all')
+  const [showStats, setShowStats] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.innerWidth >= 768,
+  )
 
   const siteOptions = useDictionaryOptions('moc_site')
   const priorityOptions = useDictionaryOptions('moc_priority')
@@ -327,7 +343,94 @@ function MOCListTab() {
     [t, siteOptions, statusOptions, priorityOptions],
   )
 
+  // KPIs computed from the visible page — same approach as the
+  // Planner Activities pattern. They double as quick filters when the
+  // user clicks them. The "Total" card clears the status filter; the
+  // others toggle a specific status set.
+  const items = data?.items ?? []
+  const stats = useMemo(() => {
+    const inProgress = items.filter((m) =>
+      ['execution', 'approved_to_study', 'under_study', 'study_in_validation'].includes(m.status),
+    ).length
+    const pending = items.filter((m) =>
+      ['created', 'submitted_to_confirm'].includes(m.status),
+    ).length
+    const closed = items.filter((m) =>
+      ['closed', 'executed_docs_pending'].includes(m.status),
+    ).length
+    return { total: data?.total ?? 0, pending, inProgress, closed }
+  }, [data?.total, items])
+
+  // 8-week sparklines from created_at — cheap trend, no extra API call.
+  const sparklines = useMemo(() => {
+    const WEEKS = 8
+    const total = new Array(WEEKS).fill(0) as number[]
+    const pending = new Array(WEEKS).fill(0) as number[]
+    const inProgress = new Array(WEEKS).fill(0) as number[]
+    const closed = new Array(WEEKS).fill(0) as number[]
+    const now = Date.now()
+    const weekMs = 7 * 86_400_000
+    for (const m of items) {
+      const ref = m.created_at ? new Date(m.created_at).getTime() : null
+      if (ref == null) continue
+      const idx = WEEKS - 1 - Math.min(WEEKS - 1, Math.max(0, Math.floor((now - ref) / weekMs)))
+      total[idx]++
+      if (['created', 'submitted_to_confirm'].includes(m.status)) pending[idx]++
+      if (['execution', 'approved_to_study', 'under_study', 'study_in_validation'].includes(m.status)) inProgress[idx]++
+      if (['closed', 'executed_docs_pending'].includes(m.status)) closed[idx]++
+    }
+    return { total, pending, inProgress, closed }
+  }, [items])
+
   return (
+    <>
+    {/* Stats strip — same pattern as Planner / PaxLog / PackLog. */}
+    <div className="border-b border-border">
+      <button
+        type="button"
+        onClick={() => setShowStats((v) => !v)}
+        className="md:hidden w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/5 transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <BarChart3 size={14} className="text-muted-foreground" />
+          {t('common.stats', 'Statistiques')}
+        </span>
+        {showStats ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      <div className={cn('@container/stats', showStats ? 'block' : 'hidden md:block')}>
+        <div className="flex gap-2 overflow-x-auto px-4 py-3 snap-x snap-mandatory @md/stats:grid @md/stats:grid-cols-4 @md/stats:gap-3 @md/stats:overflow-visible @md/stats:snap-none">
+          <MOCStatCard
+            label={t('moc.stats.total', 'Total')}
+            value={stats.total}
+            icon={ClipboardList}
+            sparkline={sparklines.total}
+            onClick={() => { setStatusFilter(undefined); setPage(1) }}
+            active={!statusFilter}
+          />
+          <MOCStatCard
+            label={t('moc.stats.pending', 'En attente')}
+            value={stats.pending}
+            icon={Clock}
+            accent="text-amber-600 dark:text-amber-400"
+            sparkline={sparklines.pending}
+          />
+          <MOCStatCard
+            label={t('moc.stats.in_progress', 'En cours')}
+            value={stats.inProgress}
+            icon={AlertTriangle}
+            accent="text-blue-600 dark:text-blue-400"
+            sparkline={sparklines.inProgress}
+          />
+          <MOCStatCard
+            label={t('moc.stats.closed', 'Clôturées')}
+            value={stats.closed}
+            icon={CheckCircle2}
+            accent="text-emerald-600 dark:text-emerald-400"
+            sparkline={sparklines.closed}
+          />
+        </div>
+      </div>
+    </div>
     <DataTable<MOC>
       columns={columns}
       data={data?.items ?? []}
@@ -419,6 +522,72 @@ function MOCListTab() {
         openDynamicPanel({ type: 'detail', module: 'moc', id: row.id })
       }
     />
+    </>
+  )
+}
+
+// ─── Local KPI card (matches Planner / PaxLog / PackLog pattern) ──────────
+
+function MOCStatCard({ label, value, icon: Icon, accent, sparkline, onClick, active }: {
+  label: string
+  value: string | number
+  icon: typeof ClipboardList
+  accent?: string
+  sparkline?: number[]
+  onClick?: () => void
+  active?: boolean
+}) {
+  const Tag = onClick ? 'button' : 'div'
+  return (
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={cn(
+        '@container/kpi group relative flex items-center gap-2 rounded-lg border bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all text-left shrink-0 snap-start w-[160px] @md/stats:w-full',
+        onClick && 'cursor-pointer hover:border-primary/50 hover:shadow-sm',
+        active ? 'border-primary/60 ring-1 ring-primary/30 bg-primary/5' : 'border-border/70 hover:border-border',
+      )}
+    >
+      <div className={cn(
+        'absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b',
+        accent?.includes('amber') || accent?.includes('yellow')  ? 'from-amber-500/80 to-amber-400/40'
+        : accent?.includes('emerald') || accent?.includes('green') ? 'from-emerald-500/80 to-emerald-400/40'
+        : accent?.includes('blue') ? 'from-blue-500/80 to-blue-400/40'
+        : 'from-primary/80 to-highlight/40',
+      )} />
+      <Icon size={13} className="text-muted-foreground shrink-0 ml-0.5" />
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{label}</span>
+      <span className="flex-1" />
+      {sparkline && sparkline.length >= 2 && sparkline.some((v) => v > 0) && (
+        <span className="hidden @[180px]/kpi:inline-flex shrink-0">
+          <MOCSparkline values={sparkline} accent={accent} />
+        </span>
+      )}
+      <span className={cn('text-lg font-bold tabular-nums tracking-tight leading-none', accent || 'text-foreground')}>
+        {value}
+      </span>
+    </Tag>
+  )
+}
+
+function MOCSparkline({ values, accent }: { values: number[]; accent?: string }) {
+  const W = 64, H = 18
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = Math.max(1, max - min)
+  const step = W / Math.max(1, values.length - 1)
+  const pts = values.map((v, i) => [i * step, H - 2 - ((v - min) / range) * (H - 4)] as const)
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
+  const area = `${line} L${W},${H} L0,${H} Z`
+  const tone = accent?.includes('amber') || accent?.includes('yellow') ? '#f59e0b'
+    : accent?.includes('emerald') || accent?.includes('green') ? '#10b981'
+    : accent?.includes('blue') ? '#3b82f6'
+    : 'hsl(var(--primary))'
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0 ml-auto">
+      <path d={area} fill={tone} fillOpacity={0.15} />
+      <path d={line} fill="none" stroke={tone} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 

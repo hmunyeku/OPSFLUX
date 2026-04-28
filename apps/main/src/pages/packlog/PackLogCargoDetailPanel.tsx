@@ -701,7 +701,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                     </FormSection>
                   </div>
                   <div className="@container space-y-4">
-                    <FormSection title="Dimensions & Poids">
+                    <FormSection title={t('packlog.cargo.section.dimensions', 'Dimensions & Poids')}>
                       <DetailFieldGrid>
                         <ReadOnlyRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString('fr-FR')} kg` : '—'} />
                         <ReadOnlyRow label="Dimensions" value={cargo.width_cm && cargo.length_cm && cargo.height_cm ? `${cargo.width_cm} × ${cargo.length_cm} × ${cargo.height_cm} cm` : '—'} />
@@ -714,7 +714,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   </div>
                 </SectionColumns>
 
-                <FormSection title="Demande & Traçabilité">
+                <FormSection title={t('packlog.cargo.section.request_tracking', 'Demande & Traçabilité')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Demande d'expédition" value={cargo.request_code ? `${cargo.request_code} — ${cargo.request_title ?? ''}`.trim() : '—'} />
                     <ReadOnlyRow label="Statut demande" value={cargoRequestStatusLabel} />
@@ -735,7 +735,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
 
                 <CargoReadinessSection missingRequirements={missingRequirements} workflowBlockingItems={workflowBlockingItems} />
 
-                <FormSection title="Matching SAP" collapsible defaultExpanded={false}>
+                <FormSection title={t('packlog.cargo.section.sap_matching', 'Matching SAP')} collapsible defaultExpanded={false}>
                   <div className="flex gap-2 items-end">
                     <div className="flex-1">
                       <p className="text-[10px] text-muted-foreground mb-1">Recherche par description</p>
@@ -763,7 +763,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
             {/* Tab: Logistique */}
             {activeTab === 'logistique' && (
               <div className="space-y-4">
-                <FormSection title="Transport & Manifeste">
+                <FormSection title={t('packlog.cargo.section.transport', 'Transport & Manifeste')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Voyage" value={cargo.voyage_code ?? '—'} />
                     <ReadOnlyRow label="Manifeste" value={manifestLabel ?? '—'} />
@@ -779,7 +779,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   pickupMapEmbedUrl={pickupMapEmbedUrl}
                 />
 
-                <FormSection title="Contacts & Opérations">
+                <FormSection title={t('packlog.cargo.section.contacts', 'Contacts & Opérations')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Lieu d'enlèvement" value={cargo.pickup_location_label ?? '—'} />
                     <ReadOnlyRow label="Coordonnées enlèvement" value={cargo.pickup_latitude != null && cargo.pickup_longitude != null ? `${cargo.pickup_latitude}, ${cargo.pickup_longitude}` : '—'} />
@@ -835,7 +835,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   cargoEvidenceOptions={cargoEvidenceOptions}
                   updateCargoAttachmentEvidence={updateCargoAttachmentEvidence}
                 />
-                <FormSection title="Preuves attendues" collapsible defaultExpanded={false}>
+                <FormSection title={t('packlog.cargo.section.expected_proofs', 'Preuves attendues')} collapsible defaultExpanded={false}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {requiredEvidenceTypes.map((code) => {
                       const present = (attachmentEvidence ?? []).some((item) => item.evidence_type === code)

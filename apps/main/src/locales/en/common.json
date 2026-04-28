@@ -191,7 +191,8 @@
     "end_date_short": "End",
     "unit": "Unit",
     "filter_ellipsis": "Filter…",
-    "stats": "Statistics"
+    "stats": "Statistics",
+    "identification": "Identification"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -4792,7 +4793,18 @@
         "created_at": "Created on"
       },
       "search_placeholder": "Search by tracking, description, request...",
-      "empty": "No cargo"
+      "empty": "No cargo",
+      "section": {
+        "dimensions": "Dimensions & Weight",
+        "request_tracking": "Request & Traceability",
+        "sap_matching": "SAP matching",
+        "transport": "Transport & Manifest",
+        "contacts": "Contacts & Operations",
+        "expected_proofs": "Expected proofs",
+        "readiness": "Dossier readiness",
+        "pickup_location": "Pickup location",
+        "files": "Operational files"
+      }
     },
     "tracking": {
       "stats": {
@@ -4918,7 +4930,18 @@
     "etat_agrege": "État agrégé",
     "qualification_des_preuves": "Qualification des preuves",
     "aucune_piece_jointe_a_qualifier": "Aucune pièce jointe à qualifier.",
-    "type_de_gestion": "Type de gestion"
+    "type_de_gestion": "Type de gestion",
+    "article": {
+      "create_title": "New article",
+      "sap_code": "SAP code",
+      "description_placeholder": "Article description",
+      "management_placeholder": "Consumable, Stock…",
+      "packaging": "Packaging",
+      "packaging_placeholder": "Carton, Pallet…",
+      "hazmat_label": "Hazardous material",
+      "hazmat_class": "HAZMAT class",
+      "hazmat_class_placeholder": "Class 1, 2…"
+    }
   },
   "support": {
     "soumettre_un_ticket": "Soumettre un ticket",

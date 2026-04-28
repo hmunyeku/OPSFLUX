@@ -191,7 +191,8 @@
     "end_date_short": "Fin",
     "unit": "Unité",
     "filter_ellipsis": "Filtrer…",
-    "stats": "Statistiques"
+    "stats": "Statistiques",
+    "identification": "Identification"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -5538,7 +5539,18 @@
         "created_at": "Créé le"
       },
       "search_placeholder": "Rechercher par tracking, description, demande...",
-      "empty": "Aucun colis"
+      "empty": "Aucun colis",
+      "section": {
+        "dimensions": "Dimensions & Poids",
+        "request_tracking": "Demande & Traçabilité",
+        "sap_matching": "Matching SAP",
+        "transport": "Transport & Manifeste",
+        "contacts": "Contacts & Opérations",
+        "expected_proofs": "Preuves attendues",
+        "readiness": "Complétude du dossier",
+        "pickup_location": "Localisation d'enlèvement",
+        "files": "Fichiers opérationnels"
+      }
     },
     "tracking": {
       "stats": {
@@ -5698,7 +5710,18 @@
     "etat_agrege": "État agrégé",
     "qualification_des_preuves": "Qualification des preuves",
     "aucune_piece_jointe_a_qualifier": "Aucune pièce jointe à qualifier.",
-    "type_de_gestion": "Type de gestion"
+    "type_de_gestion": "Type de gestion",
+    "article": {
+      "create_title": "Nouvel article",
+      "sap_code": "Code SAP",
+      "description_placeholder": "Description de l'article",
+      "management_placeholder": "Consommable, Stock…",
+      "packaging": "Conditionnement",
+      "packaging_placeholder": "Carton, Palette…",
+      "hazmat_label": "Matière dangereuse",
+      "hazmat_class": "Classe HAZMAT",
+      "hazmat_class_placeholder": "Classe 1, 2…"
+    }
   },
   "pidpfd": {
     "toast": {

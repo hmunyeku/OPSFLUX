@@ -46,7 +46,7 @@ export function CreateArticlePanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvel article"
+      title={t('packlog.article.create_title', 'Nouvel article')}
       subtitle={moduleLabel}
       icon={<Boxes size={14} className="text-primary" />}
       actions={
@@ -57,7 +57,7 @@ export function CreateArticlePanel() {
             disabled={createArticle.isPending}
             onClick={() => (document.getElementById('create-article-form') as HTMLFormElement)?.requestSubmit()}
           >
-            {createArticle.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
+            {createArticle.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create', 'Créer')}
           </PanelActionButton>
         </>
       }
@@ -66,7 +66,7 @@ export function CreateArticlePanel() {
         <PanelContentLayout>
           <FormSection title={t('common.identification')}>
             <FormGrid>
-              <DynamicPanelField label="Code SAP" required>
+              <DynamicPanelField label={t('packlog.article.sap_code', 'Code SAP')} required>
                 <input
                   type="text"
                   required
@@ -83,7 +83,7 @@ export function CreateArticlePanel() {
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   className={panelInputClass}
-                  placeholder="Description de l'article"
+                  placeholder={t('packlog.article.description_placeholder', "Description de l'article")}
                 />
               </DynamicPanelField>
               <DynamicPanelField label={t('packlog.type_de_gestion')}>
@@ -92,32 +92,32 @@ export function CreateArticlePanel() {
                   value={form.management_type ?? ''}
                   onChange={(e) => setForm({ ...form, management_type: e.target.value || null })}
                   className={panelInputClass}
-                  placeholder="Consommable, Stock..."
+                  placeholder={t('packlog.article.management_placeholder', 'Consommable, Stock…')}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Conditionnement">
+              <DynamicPanelField label={t('packlog.article.packaging', 'Conditionnement')}>
                 <input
                   type="text"
                   value={form.packaging ?? ''}
                   onChange={(e) => setForm({ ...form, packaging: e.target.value || null })}
                   className={panelInputClass}
-                  placeholder="Carton, Palette..."
+                  placeholder={t('packlog.article.packaging_placeholder', 'Carton, Palette…')}
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Unité">
+              <DynamicPanelField label={t('common.unit', 'Unité')}>
                 <input
                   type="text"
                   value={form.unit ?? ''}
                   onChange={(e) => setForm({ ...form, unit: e.target.value || null })}
                   className={panelInputClass}
-                  placeholder="kg, m, pce..."
+                  placeholder="kg, m, pce…"
                 />
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
           <FormSection title="HAZMAT">
             <FormGrid>
-              <DynamicPanelField label="Matiere dangereuse">
+              <DynamicPanelField label={t('packlog.article.hazmat_label', 'Matière dangereuse')}>
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input
                     type="checkbox"
@@ -128,13 +128,13 @@ export function CreateArticlePanel() {
                 </label>
               </DynamicPanelField>
               {form.is_hazmat && (
-                <DynamicPanelField label="Classe HAZMAT">
+                <DynamicPanelField label={t('packlog.article.hazmat_class', 'Classe HAZMAT')}>
                   <input
                     type="text"
                     value={form.hazmat_class ?? ''}
                     onChange={(e) => setForm({ ...form, hazmat_class: e.target.value || null })}
                     className={panelInputClass}
-                    placeholder="Classe 1, 2..."
+                    placeholder={t('packlog.article.hazmat_class_placeholder', 'Classe 1, 2…')}
                   />
                 </DynamicPanelField>
               )}

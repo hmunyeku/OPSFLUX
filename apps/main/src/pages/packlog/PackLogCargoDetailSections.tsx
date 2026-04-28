@@ -105,9 +105,10 @@ export function CargoReadinessSection({
   missingRequirements: string[]
   workflowBlockingItems: string[]
 }) {
+  const { t } = useTranslation()
   const displayedItems = workflowBlockingItems.length > 0 ? workflowBlockingItems : missingRequirements
   return (
-    <FormSection title="Complétude du dossier" collapsible defaultExpanded>
+    <FormSection title={t('packlog.cargo.section.readiness', 'Complétude du dossier')} collapsible defaultExpanded>
       <div className="space-y-2">
         <div
           className={cn(
@@ -144,8 +145,9 @@ export function CargoLocationSection({
   pickupMapUrl: string | null
   pickupMapEmbedUrl: string | null
 }) {
+  const { t } = useTranslation()
   return (
-    <FormSection title="Localisation d’enlèvement" collapsible defaultExpanded>
+    <FormSection title={t('packlog.cargo.section.pickup_location', "Localisation d'enlèvement")} collapsible defaultExpanded>
       <div className="space-y-2">
         <DetailFieldGrid>
           <ReadOnlyRow label="Lieu" value={pickupLocationLabel ?? '—'} />
@@ -189,10 +191,11 @@ export function CargoFilesSection({
   cargoId: string
   attachmentEvidence: CargoAttachmentEvidence[] | undefined
 }) {
+  const { t } = useTranslation()
   const photoCount = attachmentEvidence?.filter((item) => item.evidence_type === 'cargo_photo').length ?? 0
   const otherCount = attachmentEvidence?.filter((item) => item.evidence_type !== 'cargo_photo').length ?? 0
   return (
-    <FormSection title="Fichiers opérationnels" collapsible defaultExpanded>
+    <FormSection title={t('packlog.cargo.section.files', 'Fichiers opérationnels')} collapsible defaultExpanded>
       <div className="space-y-3">
         <AttachmentManager ownerType="cargo_item" ownerId={cargoId} compact />
         <div className="grid grid-cols-2 gap-2">

@@ -7,6 +7,7 @@ import { useUsers } from '@/hooks/useUsers'
 import { useState, useEffect } from 'react'
 import type { MissionPreparationTaskUpdate, MissionVisaFollowupUpdate, MissionAllowanceRequestUpdate, MissionNoticeModifyRequest, MissionProgramRead } from '@/services/paxlogService'
 import { DynamicPanelShell, PanelActionButton, FormGrid, FormSection, DynamicPanelField, PanelContentLayout, panelInputClass, ReadOnlyRow } from '@/components/layout/DynamicPanel'
+import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
 import { Briefcase, Loader2, Download, Send, CheckCircle2, FileCheck2, XCircle, RefreshCw, X, Link2, Info, ClipboardCheck, Users, BookOpen } from 'lucide-react'
 import { PanelContent } from '@/components/layout/PanelHeader'
 import { TabBar } from '@/components/ui/Tabs'
@@ -104,7 +105,7 @@ export function AvmDetailPanel({ id }: { id?: string }) {
   if (!id || isLoading) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<Briefcase size={14} className="text-primary" />}>
-        <PanelContent><div className="flex items-center justify-center p-8"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div></PanelContent>
+        <PanelContent><SkeletonDetailPanel /></PanelContent>
       </DynamicPanelShell>
     )
   }

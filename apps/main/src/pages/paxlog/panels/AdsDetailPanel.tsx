@@ -13,6 +13,7 @@ import type { AdsStayChangeRequest, StayProgramCreate, PaxCandidate, AdsPax } fr
 import { paxlogService } from '@/services/paxlogService'
 import { cn } from '@/lib/utils'
 import { ReadOnlyRow, DynamicPanelShell, DynamicPanelField, FormGrid, FormSection, PanelActionButton, DangerConfirmButton, DetailFieldGrid, PanelContentLayout, panelInputClass } from '@/components/layout/DynamicPanel'
+import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
 import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag, Info, Users, BedDouble, BookOpen } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -145,7 +146,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
   if (isLoading) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<ClipboardList size={14} className="text-primary" />}>
-        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+        <SkeletonDetailPanel />
       </DynamicPanelShell>
     )
   }

@@ -11,7 +11,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Calendar, User, Flag, CheckCircle2, Clock, ListTodo,
-  MessageSquare, Link2, ChevronRight, FolderKanban, Loader2,
+  MessageSquare, Link2, ChevronRight, FolderKanban,
   Send, X, ArrowRight, ArrowLeft,
   FileText, AlertCircle, TrendingUp, Pencil, Check, Layers,
 } from 'lucide-react'
@@ -24,6 +24,7 @@ import {
 import { useRevisionDecisionRequests, useRespondRevisionDecisionRequest } from '@/hooks/usePlanner'
 import { useUsers } from '@/hooks/useUsers'
 import { useToast } from '@/components/ui/Toast'
+import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
 import {
   DynamicPanelShell,
@@ -367,7 +368,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
   if (!task) {
     return (
       <DynamicPanelShell title={t('projets.task', 'Tâche')} subtitle={t('common.loading_ellipsis')} icon={<CheckCircle2 size={14} className="text-primary" />}>
-        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+        <SkeletonDetailPanel />
       </DynamicPanelShell>
     )
   }

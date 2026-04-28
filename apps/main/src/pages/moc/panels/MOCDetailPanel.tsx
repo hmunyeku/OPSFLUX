@@ -21,7 +21,6 @@ import {
   Factory,
   History,
   Info,
-  Loader2,
   MessageSquare,
   PlayCircle,
   Rocket,
@@ -40,6 +39,7 @@ import {
   DangerConfirmButton,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
+import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
 import { TabBar } from '@/components/ui/Tabs'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { NoteManager } from '@/components/shared/NoteManager'
@@ -165,9 +165,7 @@ export function MOCDetailPanel({ id }: Props) {
   if (isLoading || !moc) {
     return (
       <DynamicPanelShell title={t('common.loading')}>
-        <div className="flex items-center justify-center p-8">
-          <Loader2 size={18} className="animate-spin text-muted-foreground" />
-        </div>
+        <SkeletonDetailPanel />
       </DynamicPanelShell>
     )
   }

@@ -25,6 +25,7 @@ import {
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
+import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
 import { TabBar } from '@/components/ui/Tabs'
 import { useUIStore } from '@/stores/uiStore'
 import { UserPicker } from '@/components/shared/UserPicker'
@@ -419,7 +420,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
   if (isLoading || !cargo) {
     return (
       <DynamicPanelShell title={t('common.loading_ellipsis')} icon={<Package size={14} className="text-primary" />}>
-        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+        <SkeletonDetailPanel />
       </DynamicPanelShell>
     )
   }

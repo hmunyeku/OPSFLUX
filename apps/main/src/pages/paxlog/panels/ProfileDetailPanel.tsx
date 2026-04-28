@@ -7,7 +7,8 @@ import { useCallback, useMemo } from 'react'
 import { normalizeNames } from '@/lib/normalize'
 import type { CredentialType, PaxCredential, PaxSitePresence } from '@/services/paxlogService'
 import { DynamicPanelShell, PanelActionButton, FormSection, PanelContentLayout, DangerConfirmButton, InlineEditableRow, ReadOnlyRow, SectionColumns } from '@/components/layout/DynamicPanel'
-import { Users, Loader2, Plus, User, ArrowLeft, Trash2, Building2, Info } from 'lucide-react'
+import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
+import { Users, Plus, User, ArrowLeft, Trash2, Building2, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
@@ -41,7 +42,7 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
   if (isLoading) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<Users size={14} className="text-primary" />}>
-        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+        <SkeletonDetailPanel />
       </DynamicPanelShell>
     )
   }

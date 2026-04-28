@@ -44,6 +44,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useUserPref } from '@/hooks/useFilterPersistence'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
+import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -3104,7 +3105,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
   if (isLoading || !project) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<FolderKanban size={14} className="text-primary" />}>
-        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+        <SkeletonDetailPanel />
       </DynamicPanelShell>
     )
   }

@@ -25,6 +25,7 @@ import {
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
+import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
 import { TabBar } from '@/components/ui/Tabs'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
@@ -236,9 +237,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
         title={t('common.loading_ellipsis')}
         icon={<FileText size={14} className="text-primary" />}
       >
-        <div className="flex items-center justify-center py-16">
-          <Loader2 size={16} className="animate-spin text-muted-foreground" />
-        </div>
+        <SkeletonDetailPanel />
       </DynamicPanelShell>
     )
   }

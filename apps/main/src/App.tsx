@@ -14,6 +14,10 @@ const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
 const VerifyEmailPage = lazy(() => import('@/pages/auth/VerifyEmailPage'))
 const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage'))
+// Detached-window popup route — minimal app shell (no sidebar, no
+// topbar) that hosts a single DynamicPanel synced with the parent
+// via BroadcastChannel. See pages/_popup/PopupRoute.tsx.
+const PopupRoute = lazy(() => import('@/pages/_popup/PopupRoute'))
 
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })))
 const AssetsPage = lazy(() => import('@/pages/assets/AssetsPage').then(m => ({ default: m.AssetsPage })))
@@ -87,6 +91,19 @@ export default function App() {
       <Route path="/verify-email" element={<Suspense fallback={<LoaderFallback />}><VerifyEmailPage /></Suspense>} />
       <Route path="/captain-portal" element={<Suspense fallback={<LoaderFallback />}><CaptainPortalPage /></Suspense>} />
       <Route path="/tv/:token" element={<Suspense fallback={<LoaderFallback />}><TVModePage /></Suspense>} />
+      {/* Detached panel popup — protected (auth required via cookies)
+          but renders OUTSIDE the AppLayout so the popup window has no
+          sidebar / topbar / navigation chrome. See PopupRoute. */}
+      <Route
+        path="/_popup/:id"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<LoaderFallback />}>
+              <PopupRoute />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/*"
         element={

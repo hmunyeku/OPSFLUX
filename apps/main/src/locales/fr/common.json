@@ -3,6 +3,10 @@
     "name": "OpsFlux",
     "tagline": "Plateforme ERP opérations"
   },
+  "popup": {
+    "load_error_title": "Impossible de charger le panneau",
+    "invalid_url": "Paramètres de fenêtre détachée invalides."
+  },
   "nav": {
     "dashboard": "Tableau de bord",
     "assets": "Assets",
@@ -5805,6 +5809,7 @@
   "layout": {
     "reduire_en_panneau_lateral": "Réduire en panneau latéral",
     "detacher_en_modal_flottant": "Détacher en modal flottant",
+    "detacher_en_fenetre": "Détacher en fenêtre",
     "fermer_le_panneau": "Fermer le panneau",
     "double_cliquer_pour_modifier": "Double-cliquer pour modifier",
     "epingle": "Épinglé",

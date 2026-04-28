@@ -123,6 +123,14 @@ interface UIState {
   // Detached panels (floating modals)
   detachedPanels: DetachedPanel[]
   detachDynamicPanel: () => void
+  /**
+   * Detach the current dynamic panel as a real OS window (`window.open`).
+   * Falls back to the floating modal mode below 1024px viewport
+   * (popups become full-screen tabs on mobile — bad UX). Auth
+   * cookies + localStorage flow over automatically; React Query
+   * cache is synced via BroadcastChannel (see lib/popupBroadcast).
+   */
+  detachDynamicPanelToWindow: () => void
   closeDetachedPanel: (id: string) => void
   updateDetachedPanel: (id: string, updates: Partial<Pick<DetachedPanel, 'x' | 'y' | 'width' | 'height'>>) => void
   bringToFront: (id: string) => void
@@ -221,6 +229,56 @@ export const useUIStore = create<UIState>((set, get) => ({
       dynamicPanel: null,
       detachedPanels: [...s.detachedPanels, newPanel],
     }))
+  },
+
+  detachDynamicPanelToWindow: () => {
+    const { dynamicPanel, detachDynamicPanel } = get()
+    if (!dynamicPanel) return
+    // Mobile / narrow viewports: a real window.open opens a full-
+    // screen tab on mobile and most tablets (Chrome / Safari iOS /
+    // Android), which makes the panel fight the parent for screen
+    // space. Fall back to the floating-modal detach there.
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 0
+    if (vw < 1024) {
+      detachDynamicPanel()
+      return
+    }
+
+    const id = `popup-${++detachedCounter}`
+    const params = new URLSearchParams()
+    params.set('module', dynamicPanel.module)
+    params.set('type', dynamicPanel.type)
+    if ('id' in dynamicPanel && dynamicPanel.id) params.set('entity_id', dynamicPanel.id)
+    if (dynamicPanel.meta) {
+      try {
+        params.set('meta', encodeURIComponent(JSON.stringify(dynamicPanel.meta)))
+      } catch {
+        // meta not JSON-serialisable (rare) — drop it; the panel
+        // works without on most modules.
+      }
+    }
+    const url = `/_popup/${id}?${params.toString()}`
+    // Sized to comfortably hold the standard panel (DynamicPanelShell
+    // body is ~640px wide at the widest, plus chrome). The user can
+    // resize freely afterwards.
+    const w = 720
+    const h = Math.min(900, (typeof window !== 'undefined' ? window.screen.availHeight : 900))
+    const left = Math.max(0, ((typeof window !== 'undefined' ? window.screen.availWidth : 1920) - w) / 2)
+    const top = Math.max(0, ((typeof window !== 'undefined' ? window.screen.availHeight : 1080) - h) / 2)
+    const features = `popup=yes,width=${w},height=${h},left=${Math.round(left)},top=${Math.round(top)},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`
+    const popup = window.open(url, id, features)
+    if (!popup) {
+      // Pop-up blocker fired — degrade to the floating modal.
+      // (Browsers block when window.open is called outside a user
+      // gesture; the toolbar button click should always satisfy the
+      // gesture requirement, so this branch is a defensive fallback.)
+      detachDynamicPanel()
+      return
+    }
+    // Close the parent's panel slot — the user wanted it on the
+    // popup. The parent's React Query cache stays subscribed to
+    // the same data via BroadcastChannel (see lib/popupBroadcast).
+    set({ dynamicPanel: null })
   },
 
   closeDetachedPanel: (id) => {

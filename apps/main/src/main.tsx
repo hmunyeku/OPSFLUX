@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 
 import { queryClient } from '@/lib/queryClient'
+import { wireQueryClientBroadcast } from '@/lib/popupBroadcast'
 import { AuthProvider } from '@/stores/authStore'
 import { ThemeProvider } from '@/stores/themeStore'
 import { ToastProvider } from '@/components/ui/Toast'
@@ -22,6 +23,14 @@ import '@/lib/offlineQueue'
 window.addEventListener('vite:preloadError', () => {
   window.location.reload()
 })
+
+// Cross-window React Query cache sync — every BrowserRouter root
+// (main app + detached popup windows) wires its QueryClient to the
+// shared BroadcastChannel so a mutation in one window invalidates
+// the other's cache automatically. Auth + localStorage are already
+// shared via same-origin cookies, only the in-memory React Query
+// cache needs explicit broadcasting.
+wireQueryClientBroadcast(queryClient)
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

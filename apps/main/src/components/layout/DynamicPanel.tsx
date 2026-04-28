@@ -24,7 +24,7 @@ import {
   X, Check, Pencil, ChevronRight, ChevronLeft, ChevronDown,
   ChevronsLeft, ChevronsRight,
   ExternalLink, Pin, PinOff, Maximize2, Minimize2,
-  PanelLeft, PanelRight, ArrowLeft,
+  PanelLeft, PanelRight, ArrowLeft, AppWindow,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
@@ -221,6 +221,7 @@ export function DynamicPanelShell({
 
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const detachDynamicPanel = useUIStore((s) => s.detachDynamicPanel)
+  const detachDynamicPanelToWindow = useUIStore((s) => s.detachDynamicPanelToWindow)
 
   // Panel layout state
   const mode = useUIStore((s) => s.dynamicPanelMode)
@@ -364,6 +365,9 @@ export function DynamicPanelShell({
             <button onClick={toggleMode} className={hdrBtn} title={t('layout.reduire_en_panneau_lateral')}>
               <Minimize2 size={12} />
             </button>
+            <button onClick={detachDynamicPanelToWindow} className={hdrBtn} title={t('layout.detacher_en_fenetre', 'Détacher en fenêtre')}>
+              <AppWindow size={12} />
+            </button>
             <button onClick={detachDynamicPanel} className={hdrBtn} title={t('layout.detacher_en_modal_flottant')}>
               <ExternalLink size={12} />
             </button>
@@ -499,6 +503,11 @@ export function DynamicPanelShell({
           {/* Expand to full */}
           <button onClick={toggleMode} className={hdrBtn} title="Agrandir en pleine largeur">
             <Maximize2 size={12} />
+          </button>
+
+          {/* Detach to OS window */}
+          <button onClick={detachDynamicPanelToWindow} className={hdrBtn} title={t('layout.detacher_en_fenetre', 'Détacher en fenêtre')}>
+            <AppWindow size={12} />
           </button>
 
           {/* Detach */}

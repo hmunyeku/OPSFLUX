@@ -19,6 +19,7 @@
  */
 import { create } from 'zustand'
 import { safeLocal } from '@/lib/safeStorage'
+import { attachZustandSync } from '@/lib/popupZustand'
 
 // ── Panel content types ─────────────────────────────────────
 export type DynamicPanelView =
@@ -334,3 +335,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   globalSearch: '',
   setGlobalSearch: (v) => set({ globalSearch: v }),
 }))
+
+// Cross-window sync for whitelisted UI slices (sidebar/AI tab/dock
+// side/global search/etc.). The popup window's store stays in
+// lock-step with the parent for those keys; `dynamicPanel` and
+// `detachedPanels` deliberately stay per-window. See
+// `lib/popupZustand` for the whitelist + transport.
+attachZustandSync(useUIStore)

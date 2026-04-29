@@ -6762,177 +6762,6 @@ async def resolve_incident(
     return incident
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# AdS IMPUTATIONS (multi-project cost allocation)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-@router.get("/ads/{ads_id}/imputations")
-async def list_imputations(
-    ads_id: UUID,
-    request: Request,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
-    db: AsyncSession = Depends(get_db),
-):
-    """List cost imputations for an AdS — delegates to core cost_imputations."""
-    from app.api.routes.core.cost_imputations import list_cost_imputations
-
-    # Verify AdS
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
-    ads = ads_result.scalar_one_or_none()
-    if not ads:
-        raise StructuredHTTPException(
-            404,
-            code="ADS_NOT_FOUND",
-            message="AdS not found",
-        )
-    await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
-
-    return await list_cost_imputations(
-        owner_type="ads", owner_id=ads_id, current_user=current_user, db=db
-    )
-
-
-@router.get("/ads/{ads_id}/imputation-suggestion", response_model=AdsImputationSuggestionRead)
-async def get_imputation_suggestion(
-    ads_id: UUID,
-    request: Request,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
-    db: AsyncSession = Depends(get_db),
-):
-    """Return the default imputation suggestion for an AdS."""
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
-    ads = ads_result.scalar_one_or_none()
-    if not ads:
-        raise StructuredHTTPException(
-            404,
-            code="ADS_NOT_FOUND",
-            message="AdS not found",
-        )
-    await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
-
-    return await _resolve_ads_imputation_suggestion(db, ads=ads, entity_id=entity_id)
-
-
-class AdsImputationCreateBody(BaseModel):
-    """Body for adding a cost imputation line on an AdS."""
-    project_id: UUID | None = None
-    cost_center_id: UUID | None = None
-    percentage: float = Field(100.0, gt=0, le=100)
-    wbs_id: UUID | None = None
-    imputation_reference_id: UUID | None = None
-
-
-@router.post("/ads/{ads_id}/imputations", status_code=201)
-async def add_imputation(
-    ads_id: UUID,
-    body: AdsImputationCreateBody,
-    request: Request = None,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.update"),
-    db: AsyncSession = Depends(get_db),
-):
-    """Add a cost imputation line on an AdS — delegates to core cost_imputations."""
-    from app.api.routes.core.cost_imputations import create_cost_imputation
-    from app.schemas.common import CostImputationCreate
-
-    # Verify AdS
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
-    ads = ads_result.scalar_one_or_none()
-    if not ads:
-        raise StructuredHTTPException(
-            404,
-            code="ADS_NOT_FOUND",
-            message="AdS not found",
-        )
-    if not await _can_manage_ads(
-        ads, current_user=current_user, request=request, entity_id=entity_id, db=db
-    ):
-        raise StructuredHTTPException(
-            403,
-            code="VOUS_NE_POUVEZ_PAS_MODIFIER_LES",
-            message="Vous ne pouvez pas modifier les imputations de cette AdS.",
-        )
-
-    imputation_body = CostImputationCreate(
-        owner_type="ads",
-        owner_id=ads_id,
-        project_id=body.project_id,
-        cost_center_id=body.cost_center_id,
-        percentage=body.percentage,
-        wbs_id=body.wbs_id,
-        imputation_reference_id=body.imputation_reference_id,
-    )
-    result = await create_cost_imputation(
-        body=imputation_body,
-        request=request,
-        entity_id=entity_id,
-        current_user=current_user,
-        db=db,
-    )
-
-    if body.project_id is not None:
-        await _sync_ads_project_from_imputations(db, ads=ads)
-        await db.commit()
-
-    return result
-
-
-@router.delete("/ads/{ads_id}/imputations/{imputation_id}", status_code=204)
-async def delete_imputation(
-    ads_id: UUID,
-    imputation_id: UUID,
-    request: Request = None,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.update"),
-    db: AsyncSession = Depends(get_db),
-):
-    """Remove a cost imputation line on an AdS — delegates to core cost_imputations."""
-    from app.api.routes.core.cost_imputations import delete_cost_imputation
-
-    # Verify AdS belongs to entity
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
-    ads = ads_result.scalar_one_or_none()
-    if not ads:
-        raise StructuredHTTPException(
-            404,
-            code="ADS_NOT_FOUND",
-            message="AdS not found",
-        )
-    if not await _can_manage_ads(
-        ads, current_user=current_user, request=request, entity_id=entity_id, db=db
-    ):
-        raise StructuredHTTPException(
-            403,
-            code="VOUS_NE_POUVEZ_PAS_MODIFIER_LES",
-            message="Vous ne pouvez pas modifier les imputations de cette AdS.",
-        )
-
-    await delete_cost_imputation(
-        imputation_id=imputation_id,
-        request=request,
-        current_user=current_user,
-        db=db,
-    )
-    await _sync_ads_project_from_imputations(db, ads=ads)
-    await db.commit()
-    return None
-
-
 # Rotation cycles routes are defined in paxlog.rotations (registered at bottom of this module).
 
 
@@ -10105,7 +9934,7 @@ async def lift_signalement(
 # Domain submodules — import AFTER router is defined so their @router.* decorators
 # register on the shared APIRouter instance.
 # ---------------------------------------------------------------------------
-from . import avm, rotations  # noqa: E402,F401  (side-effect imports register routes)
+from . import avm, imputations, rotations  # noqa: E402,F401  (side-effect imports register routes)
 
 # Re-export route handlers from submodules so test code that calls them as
 # `paxlog.<func>` (e.g. `await paxlog.create_rotation_cycle(...)`) keeps working.
@@ -10127,4 +9956,10 @@ from .avm import (  # noqa: E402,F401
     submit_avm_route,
     update_avm,
     update_avm_preparation_task,
+)
+from .imputations import (  # noqa: E402,F401
+    add_imputation,
+    delete_imputation,
+    get_imputation_suggestion,
+    list_imputations,
 )

@@ -110,19 +110,6 @@ export function VectorDeckPlanTab({ vectorId }: { vectorId: string }) {
             </span>
           </button>
         )}
-
-        {plan?.deck_plan_svg && (
-          <div className="rounded-lg border border-border/60 bg-card p-2">
-            <div
-              className="w-full overflow-auto"
-              style={{ maxHeight: 360 }}
-              // SVG comes from our trusted Draw.io export pipeline. We intentionally
-              // inline it — the canvas overlay later will reference shapes by id.
-              // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: plan.deck_plan_svg }}
-            />
-          </div>
-        )}
       </div>
     </FormSection>
   )

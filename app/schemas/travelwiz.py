@@ -67,10 +67,13 @@ class VectorRead(OpsFluxSchema):
 
 
 class VectorDeckPlanRead(OpsFluxSchema):
-    """Deck plan payload for the vector — Draw.io XML + cached SVG export."""
+    """Deck plan payload for the vector — Draw.io mxGraph XML.
+
+    Rendered to inline SVG on the client by Draw.io's
+    `viewer-static.min.js`; no server-side SVG cache is kept.
+    """
     vector_id: UUID
     deck_plan_xml: str | None = None
-    deck_plan_svg: str | None = None
     deck_plan_updated_at: datetime | None = None
     deck_plan_updated_by: UUID | None = None
     deck_plan_updated_by_name: str | None = None
@@ -79,7 +82,6 @@ class VectorDeckPlanRead(OpsFluxSchema):
 class VectorDeckPlanUpdate(BaseModel):
     """Request body for PUT /vectors/{id}/deck-plan."""
     deck_plan_xml: str = Field(..., min_length=1)
-    deck_plan_svg: str | None = None  # Optional cached SVG export
 
 
 # ─── Transport Vector Zones ─────────────────────────────────────────────────

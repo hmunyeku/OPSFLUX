@@ -53,11 +53,12 @@ class TransportVector(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
     mmsi_number: Mapped[str | None] = mapped_column(String(20))  # AIS tracking (ships)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # ─── Deck plan (vessel/aircraft floor plan, drawn in Draw.io) ──────────
-    # Authored once per vector via the embedded Draw.io editor (same engine
-    # as PID/PFD module). Used as the visual background for the cargo
-    # placement canvas — items are positioned over this SVG.
+    # Authored once per vector via the detached Draw.io editor window
+    # (same engine as the PID/PFD module). The XML is the single source
+    # of truth — it is rendered to inline SVG on demand by Draw.io's
+    # `viewer-static.min.js` on the cargo placement canvas, so no SVG
+    # cache column is needed.
     deck_plan_xml: Mapped[str | None] = mapped_column(Text)  # Draw.io mxGraph XML
-    deck_plan_svg: Mapped[str | None] = mapped_column(Text)  # Cached SVG export
     deck_plan_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deck_plan_updated_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")

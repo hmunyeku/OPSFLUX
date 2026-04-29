@@ -5,7 +5,7 @@ import i18n from '@/lib/i18n'
 const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import {
   Ship, MapPin, Loader2, Trash2,
-  Info, Settings, Paperclip,
+  Info, Settings, Paperclip, Map as MapIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TabBar } from '@/components/ui/Tabs'
@@ -26,6 +26,7 @@ import {
 import { usePermission } from '@/hooks/usePermission'
 import type { TravelVectorUpdate } from '@/types/api'
 import { VECTOR_TYPE_MAP, deriveModeFromType } from '../shared'
+import { VectorDeckPlanTab } from './VectorDeckPlanTab'
 
 export function VectorDetailPanel({ id }: { id: string }) {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -40,7 +41,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
   const canDelete = hasPermission('travelwiz.voyage.delete')
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<TravelVectorUpdate>({})
-  const [detailTab, setDetailTab] = useState<'fiche' | 'operationnel' | 'documents'>('fiche')
+  const [detailTab, setDetailTab] = useState<'fiche' | 'operationnel' | 'plan' | 'documents'>('fiche')
 
   const startEdit = useCallback(() => {
     if (!vector) return
@@ -109,6 +110,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
         items={[
           { id: 'fiche', label: 'Fiche', icon: Info },
           { id: 'operationnel', label: 'Operationnel', icon: Settings },
+          { id: 'plan', label: t('travelwiz.vector.deck_plan.tab', 'Plan'), icon: MapIcon },
           { id: 'documents', label: 'Documents', icon: Paperclip },
         ]}
         activeId={detailTab}
@@ -232,6 +234,8 @@ export function VectorDetailPanel({ id }: { id: string }) {
             </>
           )
         )}
+
+        {detailTab === 'plan' && <VectorDeckPlanTab vectorId={vector.id} />}
 
         {detailTab === 'documents' && (
           <FormSection title={t('common.files')} collapsible defaultExpanded>

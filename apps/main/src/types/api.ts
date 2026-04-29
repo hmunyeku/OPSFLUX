@@ -1889,6 +1889,21 @@ export interface TravelVector {
   home_base_name?: string | null
   zone_count?: number
   voyage_count?: number
+  has_deck_plan?: boolean
+}
+
+export interface VectorDeckPlan {
+  vector_id: string
+  deck_plan_xml: string | null
+  deck_plan_svg: string | null
+  deck_plan_updated_at: string | null
+  deck_plan_updated_by: string | null
+  deck_plan_updated_by_name: string | null
+}
+
+export interface VectorDeckPlanUpdate {
+  deck_plan_xml: string
+  deck_plan_svg?: string | null
 }
 
 export interface TravelVectorCreate {

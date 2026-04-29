@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { travelwizService } from '@/services/travelwizService'
 import type {
   TravelVectorCreate, TravelVectorUpdate,
+  VectorDeckPlanUpdate,
   VectorZoneCreate, VectorZoneUpdate,
   RotationCreate, RotationUpdate,
   VoyageCreate, VoyageUpdate,
@@ -72,6 +73,29 @@ export function useDeleteVector() {
   return useMutation({
     mutationFn: (id: string) => travelwizService.deleteVector(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['travelwiz', 'vectors'] }) },
+  })
+}
+
+// ── Vector Deck Plan (Draw.io) ──
+
+export function useVectorDeckPlan(vectorId: string | undefined) {
+  return useQuery({
+    queryKey: ['travelwiz', 'vectors', vectorId, 'deck-plan'],
+    queryFn: () => travelwizService.getVectorDeckPlan(vectorId!),
+    enabled: !!vectorId,
+  })
+}
+
+export function useSaveVectorDeckPlan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ vectorId, payload }: { vectorId: string; payload: VectorDeckPlanUpdate }) =>
+      travelwizService.saveVectorDeckPlan(vectorId, payload),
+    onSuccess: (_, { vectorId }) => {
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'vectors', vectorId, 'deck-plan'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'vectors', vectorId] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'vectors'] })
+    },
   })
 }
 

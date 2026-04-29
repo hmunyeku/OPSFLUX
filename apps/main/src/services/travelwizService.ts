@@ -4,6 +4,7 @@
 import api from '@/lib/api'
 import type {
   TravelVector, TravelVectorCreate, TravelVectorUpdate,
+  VectorDeckPlan, VectorDeckPlanUpdate,
   VectorZone, VectorZoneCreate, VectorZoneUpdate,
   Rotation, RotationCreate, RotationUpdate,
   Voyage, VoyageCreate, VoyageUpdate, VoyageStatusUpdate,
@@ -107,6 +108,20 @@ export const travelwizService = {
 
   deleteVector: async (id: string): Promise<void> => {
     await api.delete(`${BASE}/vectors/${id}`)
+  },
+
+  // ── Vector Deck Plan (Draw.io authoring) ──
+  getVectorDeckPlan: async (vectorId: string): Promise<VectorDeckPlan> => {
+    const { data } = await api.get(`${BASE}/vectors/${vectorId}/deck-plan`)
+    return data
+  },
+
+  saveVectorDeckPlan: async (
+    vectorId: string,
+    payload: VectorDeckPlanUpdate,
+  ): Promise<VectorDeckPlan> => {
+    const { data } = await api.put(`${BASE}/vectors/${vectorId}/deck-plan`, payload)
+    return data
   },
 
   // ── Vector Zones ──

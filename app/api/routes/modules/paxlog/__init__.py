@@ -6058,24 +6058,30 @@ async def _build_ads_pdf_template_variables(
             departure_base_name = dep[0] or "—"
 
     # Approver display name (best-effort: ads has no approver_id column,
-    # but a recent workflow audit row may carry it. Fallback to "—")
+    # but a recent workflow audit row may carry it. Fallback to "—").
+    # Wrapped in a SAVEPOINT so a query failure (e.g. table missing in
+    # some deployments) does not poison the outer transaction — without
+    # the savepoint, the bare try/except left the connection in
+    # InFailedSQLTransactionError state, blocking every subsequent
+    # SELECT in this function.
     approver_name = "—"
     try:
-        appr_row = await db.execute(
-            sql_text(
-                "SELECT u.first_name, u.last_name FROM workflow_audit_logs wal "
-                "JOIN users u ON u.id = wal.user_id "
-                "WHERE wal.entity_type = 'ads' AND wal.entity_record_id = :ads_id "
-                "AND wal.action IN ('approved','approve') "
-                "ORDER BY wal.created_at DESC LIMIT 1"
-            ),
-            {"ads_id": ads.id},
-        )
-        appr = appr_row.first()
-        if appr:
-            approver_name = f"{appr[0] or ''} {appr[1] or ''}".strip() or "—"
+        async with db.begin_nested():
+            appr_row = await db.execute(
+                sql_text(
+                    "SELECT u.first_name, u.last_name FROM workflow_audit_logs wal "
+                    "JOIN users u ON u.id = wal.user_id "
+                    "WHERE wal.entity_type = 'ads' AND wal.entity_record_id = :ads_id "
+                    "AND wal.action IN ('approved','approve') "
+                    "ORDER BY wal.created_at DESC LIMIT 1"
+                ),
+                {"ads_id": ads.id},
+            )
+            appr = appr_row.first()
+            if appr:
+                approver_name = f"{appr[0] or ''} {appr[1] or ''}".strip() or "—"
     except Exception:
-        # workflow_audit_logs may not exist in every deployment
+        # workflow_audit_logs may not exist in every deployment.
         pass
 
     # Approval status mapping (template expects approved / pending / rejected)

@@ -101,7 +101,8 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: https://api.${DOMAIN:-opsflux.io}
-        BUILD_ID: "21"
+        VITE_DRAWIO_URL: https://drawio.${DOMAIN:-opsflux.io}
+        BUILD_ID: "22"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -164,12 +165,27 @@ services:
       - default
       - dokploy-network
 
-  # ─── Draw.io (self-hosted — module PID/PFD) ─────────────────
+  # ─── Draw.io (self-hosted — module PID/PFD + TravelWiz deck plan) ─
   drawio:
     image: jgraph/drawio:latest
     restart: unless-stopped
     environment:
       DRAWIO_SELF_CONTAINED: "1"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.services.opsflux-drawio.loadbalancer.server.port=8080"
+      - "traefik.http.routers.opsflux-drawio-web.entrypoints=web"
+      - "traefik.http.routers.opsflux-drawio-web.rule=Host(`drawio.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-drawio-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.opsflux-drawio-web.service=opsflux-drawio"
+      - "traefik.http.routers.opsflux-drawio-websecure.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-drawio-websecure.rule=Host(`drawio.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-drawio-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.opsflux-drawio-websecure.service=opsflux-drawio"
+    networks:
+      - default
+      - dokploy-network
 
   # ─── pgAdmin 4 (DB management — superadmin only) ──
   pgadmin:

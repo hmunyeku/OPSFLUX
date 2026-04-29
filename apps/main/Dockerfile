@@ -14,7 +14,9 @@ ARG BUILD_ID=1
 # Copy source and build
 COPY . .
 ARG VITE_API_URL=https://api.opsflux.io
+ARG VITE_DRAWIO_URL=https://drawio.opsflux.io
 ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_DRAWIO_URL=${VITE_DRAWIO_URL}
 RUN npm run build
 
 # ── Stage 2: Serve with nginx ────────────────────────────────

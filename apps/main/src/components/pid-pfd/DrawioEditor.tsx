@@ -5,18 +5,23 @@
  * - Loads XML content from props on init.
  * - Saves XML back via onSave callback.
  * - Toolbar: Save, Export SVG, Export PDF.
- * - URL is configurable: self-hosted (default http://localhost:8080) or SaaS (https://embed.diagrams.net).
+ * - URL resolves in priority order: explicit `drawioUrl` prop →
+ *   `VITE_DRAWIO_URL` build-time env (set by docker-compose to
+ *   `https://drawio.${DOMAIN}`) → localhost fallback for local dev.
  */
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Save, FileImage, FileDown, Loader2, X } from 'lucide-react'
+
+const DEFAULT_DRAWIO_URL =
+  (import.meta.env.VITE_DRAWIO_URL as string | undefined) || 'http://localhost:8080'
 
 export interface DrawioEditorProps {
   /** XML content to load into the editor */
   xmlContent?: string | null
   /** Callback when the user saves from the Draw.io editor */
   onSave: (xml: string) => void
-  /** Base URL for the Draw.io editor instance */
+  /** Base URL for the Draw.io editor instance. Defaults to VITE_DRAWIO_URL. */
   drawioUrl?: string
   /** Callback to close/dismiss the editor */
   onClose?: () => void
@@ -25,7 +30,7 @@ export interface DrawioEditorProps {
 export function DrawioEditor({
   xmlContent,
   onSave,
-  drawioUrl = 'http://localhost:8080',
+  drawioUrl = DEFAULT_DRAWIO_URL,
   onClose,
 }: DrawioEditorProps) {
   const { t } = useTranslation()

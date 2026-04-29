@@ -551,7 +551,6 @@ function PIDDetailPanel({ id }: { id: string }) {
                     xmlContent={doc.xml_content ?? undefined}
                     onSave={handleSaveXml}
                     onClose={() => setShowEditor(false)}
-                    drawioUrl="http://localhost:8080"
                   />
                 </div>
               </FormSection>

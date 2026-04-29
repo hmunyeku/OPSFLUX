@@ -53,14 +53,16 @@ export function DrawioEditor({
 
       switch (data.event) {
         case 'init':
-          // Editor is ready — load initial XML content
+          // Editor is ready — load initial XML content. Drawio waits on
+          // its internal "Loading…" splash until it receives `load`,
+          // even for a brand-new diagram. We always reply : send the
+          // existing XML when we have one, otherwise an empty payload
+          // so the editor falls through to a fresh blank canvas.
           setIsReady(true)
-          if (xmlContent) {
-            iframeRef.current?.contentWindow?.postMessage(
-              JSON.stringify({ action: 'load', xml: xmlContent }),
-              '*',
-            )
-          }
+          iframeRef.current?.contentWindow?.postMessage(
+            JSON.stringify({ action: 'load', xml: xmlContent ?? '' }),
+            '*',
+          )
           break
 
         case 'save':

@@ -166,15 +166,15 @@ services:
       - dokploy-network
 
   # ─── Draw.io (self-hosted — module PID/PFD + TravelWiz deck plan) ─
+  # Version pinned (was :latest) — the 29.6.10 build shipped a corrupt
+  # js/stencils.min.js that crashed the editor with a SyntaxError on
+  # line 195 in Brave/Chrome (and prevented the embed handshake from
+  # completing). 29.6.7 is the last known-good build.
   drawio:
-    image: jgraph/drawio:latest
+    image: jgraph/drawio:29.6.7
     restart: unless-stopped
     environment:
       DRAWIO_SELF_CONTAINED: "1"
-      # Cache-buster so docker-compose recreates the container when Traefik
-      # labels above change (image tag is :latest so docker would otherwise
-      # skip recreate and the new labels would never reach Traefik).
-      RESTART_KEY: "2"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"

@@ -6581,186 +6581,6 @@ async def update_ads_boarding_scan_passenger(
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAX INCIDENTS
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-@router.get("/incidents", response_model=PaginatedResponse[PaxIncidentRead])
-async def list_incidents(
-    user_id: UUID | None = None,
-    contact_id: UUID | None = None,
-    active_only: bool = True,
-    pagination: PaginationParams = Depends(),
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.incident.read"),
-    db: AsyncSession = Depends(get_db),
-):
-    """List PAX incidents."""
-    query = select(PaxIncident).where(PaxIncident.entity_id == entity_id)
-    if user_id:
-        query = query.where(PaxIncident.user_id == user_id)
-    if contact_id:
-        query = query.where(PaxIncident.contact_id == contact_id)
-    if active_only:
-        query = query.where(PaxIncident.resolved_at == None)  # noqa: E711
-    query = query.order_by(PaxIncident.created_at.desc())
-    return await paginate(db, query, pagination)
-
-
-@router.post("/incidents", response_model=PaxIncidentRead, status_code=201)
-async def create_incident(
-    body: PaxIncidentCreate,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.incident.create"),
-    db: AsyncSession = Depends(get_db),
-):
-    """Record a PAX incident."""
-    from app.services.modules.paxlog_service import create_signalement as svc_create
-
-    result = await svc_create(
-        db,
-        entity_id=entity_id,
-        data={
-            "user_id": body.user_id,
-            "contact_id": body.contact_id,
-            "company_id": body.company_id,
-            "pax_group_id": body.pax_group_id,
-            "asset_id": body.asset_id,
-            "severity": body.severity,
-            "description": body.description,
-            "incident_date": body.incident_date,
-            "ban_start_date": body.ban_start_date,
-            "ban_end_date": body.ban_end_date,
-            "category": body.category,
-            "decision": body.decision,
-            "decision_duration_days": body.decision_duration_days,
-            "recorded_by": current_user.id,
-        },
-    )
-
-    # Commit polymorphic children staged during the Create panel
-    # (evidence photos, reports, witness statements…)
-    if body.staging_ref:
-        from app.services.core.staging_service import commit_staging_children
-        await commit_staging_children(
-            db,
-            staging_owner_type="pax_incident_staging",
-            final_owner_type="pax_incident",
-            staging_ref=body.staging_ref,
-            final_owner_id=result["id"],
-            uploader_id=current_user.id,
-            entity_id=entity_id,
-        )
-
-    await record_audit(
-        db,
-        action="paxlog.incident.create",
-        resource_type="pax_incident",
-        resource_id=str(result["id"]),
-        user_id=current_user.id,
-        entity_id=entity_id,
-        details={
-            "severity": body.severity,
-            "user_id": str(body.user_id) if body.user_id else None,
-            "contact_id": str(body.contact_id) if body.contact_id else None,
-            "company_id": str(body.company_id) if body.company_id else None,
-            "pax_group_id": str(body.pax_group_id) if body.pax_group_id else None,
-        },
-    )
-
-    # Spec §3.10: when a signalement rejects ADS, freed capacity should
-    # trigger waitlist promotion for other waitlisted pax on the same
-    # planner activity / site.
-    rejected_ads_for_promotion: list = result.get("_rejected_ads", [])
-    if rejected_ads_for_promotion:
-        seen_keys: set[UUID] = set()
-        for rejected_ads in rejected_ads_for_promotion:
-            key = rejected_ads.planner_activity_id or rejected_ads.site_entry_asset_id
-            if key and key not in seen_keys:
-                seen_keys.add(key)
-                try:
-                    await _promote_waitlisted_ads_pax_if_capacity_available(
-                        db,
-                        entity_id=entity_id,
-                        ads=rejected_ads,
-                        actor_id=current_user.id,
-                    )
-                except Exception:
-                    logger.warning(
-                        "Failed to promote waitlisted pax after signalement rejection of ADS %s",
-                        rejected_ads.id, exc_info=True,
-                    )
-
-    await db.commit()
-
-    incident_result = await db.execute(
-        select(
-            PaxIncident,
-            User.first_name.label("user_first_name"),
-            User.last_name.label("user_last_name"),
-            TierContact.first_name.label("contact_first_name"),
-            TierContact.last_name.label("contact_last_name"),
-            Tier.name.label("company_name"),
-            PaxGroup.name.label("group_name"),
-            literal(None).label("asset_name"),
-        )
-        .outerjoin(User, User.id == PaxIncident.user_id)
-        .outerjoin(TierContact, TierContact.id == PaxIncident.contact_id)
-        .outerjoin(Tier, Tier.id == PaxIncident.company_id)
-        .outerjoin(PaxGroup, PaxGroup.id == PaxIncident.pax_group_id)
-        .where(PaxIncident.id == result["id"], PaxIncident.entity_id == entity_id)
-    )
-    row = incident_result.first()
-    if not row:
-        raise StructuredHTTPException(
-            404,
-            code="INCIDENT_NOT_FOUND",
-            message="Incident not found",
-        )
-
-    logger.info("PAX incident created (%s) by %s", body.severity, current_user.id)
-    return _incident_row_to_read(row)
-
-
-@router.patch("/incidents/{incident_id}/resolve", response_model=PaxIncidentRead)
-async def resolve_incident(
-    incident_id: UUID,
-    body: PaxIncidentResolve,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.incident.resolve"),
-    db: AsyncSession = Depends(get_db),
-):
-    """Resolve an active PAX incident."""
-    result = await db.execute(
-        select(PaxIncident).where(
-            PaxIncident.id == incident_id,
-            PaxIncident.entity_id == entity_id,
-        )
-    )
-    incident = result.scalar_one_or_none()
-    if not incident:
-        raise StructuredHTTPException(
-            404,
-            code="INCIDENT_NOT_FOUND",
-            message="Incident not found",
-        )
-    if incident.resolved_at:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cet incident est déjà résolu.",
-        )
-
-    incident.resolved_at = func.now()
-    incident.resolved_by = current_user.id
-    incident.resolution_notes = body.resolution_notes
-    await db.commit()
-    await db.refresh(incident)
-    return incident
-
 
 # Rotation cycles routes are defined in paxlog.rotations (registered at bottom of this module).
 
@@ -9934,7 +9754,7 @@ async def lift_signalement(
 # Domain submodules — import AFTER router is defined so their @router.* decorators
 # register on the shared APIRouter instance.
 # ---------------------------------------------------------------------------
-from . import avm, imputations, rotations  # noqa: E402,F401  (side-effect imports register routes)
+from . import avm, imputations, incidents, rotations  # noqa: E402,F401  (side-effect imports register routes)
 
 # Re-export route handlers from submodules so test code that calls them as
 # `paxlog.<func>` (e.g. `await paxlog.create_rotation_cycle(...)`) keeps working.
@@ -9962,4 +9782,9 @@ from .imputations import (  # noqa: E402,F401
     delete_imputation,
     get_imputation_suggestion,
     list_imputations,
+)
+from .incidents import (  # noqa: E402,F401
+    create_incident,
+    list_incidents,
+    resolve_incident,
 )

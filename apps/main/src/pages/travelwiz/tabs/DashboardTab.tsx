@@ -99,10 +99,10 @@ export function DashboardTab() {
     <>
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label="Voyages du jour" value={kpis?.active_voyages ?? trips.length} icon={Plane} accent="text-primary" />
-        <StatCard label="Cargo en transit" value={kpis?.cargo_in_transit ?? 0} icon={Package} accent="text-amber-500" />
-        <StatCard label="PAX en déplacement" value={kpis?.pax_in_transit ?? 0} icon={Users} accent="text-blue-500" />
-        <StatCard label="No-shows ce mois" value={kpis?.no_shows_month ?? 0} icon={XCircle} accent="text-destructive" />
+        <StatCard label={t('travelwiz.dashboard.kpi.voyages_today', 'Voyages du jour')} value={kpis?.active_voyages ?? trips.length} icon={Plane} accent="text-primary" />
+        <StatCard label={t('travelwiz.dashboard.kpi.cargo_transit', 'Cargo en transit')} value={kpis?.cargo_in_transit ?? 0} icon={Package} accent="text-amber-500" />
+        <StatCard label={t('travelwiz.dashboard.kpi.pax_transit', 'PAX en déplacement')} value={kpis?.pax_in_transit ?? 0} icon={Users} accent="text-blue-500" />
+        <StatCard label={t('travelwiz.dashboard.kpi.no_shows_month', 'No-shows ce mois')} value={kpis?.no_shows_month ?? 0} icon={XCircle} accent="text-destructive" />
       </div>
 
       {/* Fleet map */}

@@ -421,14 +421,14 @@ export function VoyageDetailPanel({ id }: { id: string }) {
                 <DetailFieldGrid>
                   <ReadOnlyRow label={t('common.code_field')} value={voyage.code} />
                   <ReadOnlyRow label={t('common.vector')} value={voyage.vector_name ?? '\u2014'} />
-                  <ReadOnlyRow label="Rotation" value={voyage.rotation_name ?? '\u2014'} />
-                  <ReadOnlyRow label="Base de depart" value={departureLabel} />
-                  <ReadOnlyRow label="Derniere escale planifiee" value={destinationLabel} />
-                  <ReadOnlyRow label="Depart programme" value={voyage.scheduled_departure ? new Date(voyage.scheduled_departure).toLocaleString(numLocale()) : '\u2014'} />
-                  <ReadOnlyRow label="Arrivee programmee" value={voyage.scheduled_arrival ? new Date(voyage.scheduled_arrival).toLocaleString(numLocale()) : '\u2014'} />
-                  <ReadOnlyRow label="Depart reel" value={voyage.actual_departure ? new Date(voyage.actual_departure).toLocaleString(numLocale()) : '\u2014'} />
-                  <ReadOnlyRow label="Arrivee reelle" value={voyage.actual_arrival ? new Date(voyage.actual_arrival).toLocaleString(numLocale()) : '\u2014'} />
-                  <ReadOnlyRow label="Motif du retard" value={voyage.delay_reason ?? '\u2014'} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.rotation', 'Rotation')} value={voyage.rotation_name ?? '\u2014'} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.departure_base', 'Base de d\u00e9part')} value={departureLabel} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.last_stop', 'Derni\u00e8re escale planifi\u00e9e')} value={destinationLabel} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.scheduled_departure', 'D\u00e9part programm\u00e9')} value={voyage.scheduled_departure ? new Date(voyage.scheduled_departure).toLocaleString(numLocale()) : '\u2014'} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.scheduled_arrival', 'Arriv\u00e9e programm\u00e9e')} value={voyage.scheduled_arrival ? new Date(voyage.scheduled_arrival).toLocaleString(numLocale()) : '\u2014'} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.actual_departure', 'D\u00e9part r\u00e9el')} value={voyage.actual_departure ? new Date(voyage.actual_departure).toLocaleString(numLocale()) : '\u2014'} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.actual_arrival', 'Arriv\u00e9e r\u00e9elle')} value={voyage.actual_arrival ? new Date(voyage.actual_arrival).toLocaleString(numLocale()) : '\u2014'} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.delay_reason', 'Motif du retard')} value={voyage.delay_reason ?? '\u2014'} />
                 </DetailFieldGrid>
               </FormSection>
 
@@ -560,18 +560,18 @@ export function VoyageDetailPanel({ id }: { id: string }) {
                     </div>
                   ))}
                 </div>
-              ) : <p className="text-xs text-muted-foreground py-2">Aucun evenement enregistre.</p>}
+              ) : <p className="text-xs text-muted-foreground py-2">{t('travelwiz.voyage.no_events', 'Aucun événement enregistré.')}</p>}
             </FormSection>
 
             {kpis && (
-              <FormSection title="KPIs du voyage" collapsible defaultExpanded>
+              <FormSection title={t('travelwiz.voyage.kpi_section', 'KPIs du voyage')} collapsible defaultExpanded>
                 <DetailFieldGrid>
-                  <ReadOnlyRow label="PAX total" value={kpis.total_pax} />
-                  <ReadOnlyRow label="Cargo total" value={`${(kpis.total_cargo_kg ?? 0).toLocaleString(numLocale())} kg`} />
-                  <ReadOnlyRow label="No-shows" value={kpis.no_shows} />
-                  <ReadOnlyRow label="A l'heure" value={kpis.on_time ? 'Oui' : `Non (${kpis.delay_minutes ?? 0} min)`} />
-                  <ReadOnlyRow label="Evenements" value={kpis.events_count} />
-                  <ReadOnlyRow label="Articles HAZMAT" value={kpis.hazmat_items} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.total_pax', 'PAX total')} value={kpis.total_pax} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.total_cargo', 'Cargo total')} value={`${(kpis.total_cargo_kg ?? 0).toLocaleString(numLocale())} kg`} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.no_shows', 'No-shows')} value={kpis.no_shows} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.on_time', "À l'heure")} value={kpis.on_time ? t('common.yes', 'Oui') : t('travelwiz.voyage.late_min', 'Non ({{min}} min)', { min: kpis.delay_minutes ?? 0 })} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.events_count', 'Événements')} value={kpis.events_count} />
+                  <ReadOnlyRow label={t('travelwiz.voyage.hazmat_items', 'Articles HAZMAT')} value={kpis.hazmat_items} />
                 </DetailFieldGrid>
               </FormSection>
             )}

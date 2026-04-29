@@ -19,6 +19,7 @@ import { Map as MapIcon, Pencil, Loader2, ExternalLink } from 'lucide-react'
 import i18n from '@/lib/i18n'
 
 import { FormSection } from '@/components/layout/DynamicPanel'
+import { DeckPlanViewer } from '@/components/travelwiz/DeckPlanViewer'
 import { useVectorDeckPlan } from '@/hooks/useTravelWiz'
 import { usePermission } from '@/hooks/usePermission'
 
@@ -109,6 +110,13 @@ export function VectorDeckPlanTab({ vectorId }: { vectorId: string }) {
                 : t('travelwiz.vector.deck_plan.create', 'Créer le plan')}
             </span>
           </button>
+        )}
+
+        {plan?.deck_plan_xml && (
+          <div className="rounded-lg border border-border/60 bg-card overflow-auto p-2"
+               style={{ maxHeight: 360 }}>
+            <DeckPlanViewer xml={plan.deck_plan_xml} />
+          </div>
         )}
       </div>
     </FormSection>

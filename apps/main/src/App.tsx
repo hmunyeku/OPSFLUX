@@ -19,6 +19,12 @@ const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage'))
 // via BroadcastChannel. See pages/_popup/PopupRoute.tsx.
 const PopupRoute = lazy(() => import('@/pages/_popup/PopupRoute'))
 
+// Full-window Draw.io editor for a vector deck plan — opened from
+// VectorDeckPlanTab via window.open so the user can park it on a
+// second monitor. Hosts the standalone DrawioEditor component
+// (no AppLayout chrome). See pages/_drawio/DrawioVectorEditorPage.tsx.
+const DrawioVectorEditorPage = lazy(() => import('@/pages/_drawio/DrawioVectorEditorPage'))
+
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })))
 const AssetsPage = lazy(() => import('@/pages/assets/AssetsPage').then(m => ({ default: m.AssetsPage })))
 const AssetRegistryPage = lazy(() => import('@/pages/asset-registry/AssetRegistryPage').then(m => ({ default: m.AssetRegistryPage })))
@@ -100,6 +106,18 @@ export default function App() {
           <ProtectedRoute>
             <Suspense fallback={<LoaderFallback />}>
               <PopupRoute />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      {/* Draw.io editor for a vector's deck plan — full-window,
+          opened via window.open from VectorDeckPlanTab. */}
+      <Route
+        path="/_drawio/vector/:vectorId"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<LoaderFallback />}>
+              <DrawioVectorEditorPage />
             </Suspense>
           </ProtectedRoute>
         }

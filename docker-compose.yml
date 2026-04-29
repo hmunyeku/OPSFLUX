@@ -171,12 +171,10 @@ services:
     restart: unless-stopped
     environment:
       DRAWIO_SELF_CONTAINED: "1"
-      DRAWIO_BASE_URL: https://drawio.${DOMAIN:-opsflux.io}
-      DRAWIO_VIEWER_URL: https://drawio.${DOMAIN:-opsflux.io}/js/viewer-static.min.js
       # Cache-buster so docker-compose recreates the container when Traefik
       # labels above change (image tag is :latest so docker would otherwise
       # skip recreate and the new labels would never reach Traefik).
-      RESTART_KEY: "1"
+      RESTART_KEY: "2"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"

@@ -63,6 +63,23 @@ class VectorRead(OpsFluxSchema):
     home_base_name: str | None = None
     zone_count: int = 0
     voyage_count: int = 0
+    has_deck_plan: bool = False
+
+
+class VectorDeckPlanRead(OpsFluxSchema):
+    """Deck plan payload for the vector — Draw.io XML + cached SVG export."""
+    vector_id: UUID
+    deck_plan_xml: str | None = None
+    deck_plan_svg: str | None = None
+    deck_plan_updated_at: datetime | None = None
+    deck_plan_updated_by: UUID | None = None
+    deck_plan_updated_by_name: str | None = None
+
+
+class VectorDeckPlanUpdate(BaseModel):
+    """Request body for PUT /vectors/{id}/deck-plan."""
+    deck_plan_xml: str = Field(..., min_length=1)
+    deck_plan_svg: str | None = None  # Optional cached SVG export
 
 
 # ─── Transport Vector Zones ─────────────────────────────────────────────────

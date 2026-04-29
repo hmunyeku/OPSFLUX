@@ -669,32 +669,51 @@ async def _complete_ads_from_travelwiz_passengers(
     return closed_count
 
 async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
-    """When return manifest is closed — auto-close linked AdS to 'completed'."""
+    """When a manifest is closed — auto-close linked AdS to 'completed'
+    only for passengers whose AdS considers this voyage a return leg
+    (i.e., voyage destination matches the AdS outbound_departure_base_id,
+    meaning the PAX is back at their origin base).
+    """
     payload = event.payload
     manifest_id = payload.get("manifest_id")
     voyage_id = payload.get("voyage_id")
     entity_id = payload.get("entity_id")
-    is_return = payload.get("is_return", False)
+    destination_asset_id = payload.get("destination_asset_id")
 
-    if not is_return or not manifest_id or not entity_id:
+    if not manifest_id or not entity_id or not destination_asset_id:
+        # Without a destination we cannot tell return from outbound — skip.
         return
 
     try:
         from sqlalchemy import select
         from app.models.travelwiz import ManifestPassenger
+        from app.models.paxlog import Ads, AdsPax
+
+        destination_uuid = UUID(str(destination_asset_id))
 
         async with async_session_factory() as db:
-            result = await db.execute(
-                select(ManifestPassenger).where(
-                    ManifestPassenger.manifest_id == UUID(str(manifest_id)),
-                    ManifestPassenger.ads_pax_id.isnot(None),
-                    ManifestPassenger.boarding_status == "boarded",
+            passenger_rows = (
+                await db.execute(
+                    select(ManifestPassenger, Ads.outbound_departure_base_id)
+                    .join(AdsPax, AdsPax.id == ManifestPassenger.ads_pax_id)
+                    .join(Ads, Ads.id == AdsPax.ads_id)
+                    .where(
+                        ManifestPassenger.manifest_id == UUID(str(manifest_id)),
+                        ManifestPassenger.ads_pax_id.isnot(None),
+                        ManifestPassenger.boarding_status == "boarded",
+                    )
                 )
-            )
-            passengers = result.scalars().all()
+            ).all()
+            return_passengers = [
+                row[0]
+                for row in passenger_rows
+                if row[1] == destination_uuid
+            ]
+            if not return_passengers:
+                return
             closed_count = await _complete_ads_from_travelwiz_passengers(
                 db=db,
-                passengers=passengers,
+                passengers=return_passengers,
                 manifest_id=str(manifest_id),
                 voyage_id=str(voyage_id) if voyage_id else None,
                 source="travelwiz.manifest.closed",
@@ -709,7 +728,10 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
 
 
 async def on_travelwiz_trip_closed(event: OpsFluxEvent) -> None:
-    """When voyage is closed — auto-close linked AdS from boarded passengers on closed pax manifests."""
+    """When voyage is closed — auto-close linked AdS only for passengers
+    whose AdS considers this voyage a return leg (voyage destination
+    matches the AdS outbound_departure_base_id, i.e. the PAX is back home).
+    """
     payload = event.payload
     voyage_id = payload.get("voyage_id")
     entity_id = payload.get("entity_id")
@@ -719,7 +741,8 @@ async def on_travelwiz_trip_closed(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
-        from app.models.travelwiz import ManifestPassenger, VoyageManifest
+        from app.models.travelwiz import ManifestPassenger, VoyageManifest, VoyageStop
+        from app.models.paxlog import Ads, AdsPax
 
         async with async_session_factory() as db:
             manifest_result = await db.execute(
@@ -733,17 +756,44 @@ async def on_travelwiz_trip_closed(event: OpsFluxEvent) -> None:
             if not manifest_ids:
                 return
 
-            passenger_result = await db.execute(
-                select(ManifestPassenger).where(
-                    ManifestPassenger.manifest_id.in_(manifest_ids),
-                    ManifestPassenger.ads_pax_id.isnot(None),
-                    ManifestPassenger.boarding_status == "boarded",
+            # Resolve voyage destination (last active stop) so we can tell
+            # return legs from outbound legs per-passenger.
+            last_stop_result = await db.execute(
+                select(VoyageStop.asset_id)
+                .where(
+                    VoyageStop.voyage_id == UUID(str(voyage_id)),
+                    VoyageStop.active == True,  # noqa: E712
                 )
+                .order_by(VoyageStop.stop_order.desc())
+                .limit(1)
             )
-            passengers = passenger_result.scalars().all()
+            destination_asset_id = last_stop_result.scalar_one_or_none()
+            if destination_asset_id is None:
+                return
+
+            passenger_rows = (
+                await db.execute(
+                    select(ManifestPassenger, Ads.outbound_departure_base_id)
+                    .join(AdsPax, AdsPax.id == ManifestPassenger.ads_pax_id)
+                    .join(Ads, Ads.id == AdsPax.ads_id)
+                    .where(
+                        ManifestPassenger.manifest_id.in_(manifest_ids),
+                        ManifestPassenger.ads_pax_id.isnot(None),
+                        ManifestPassenger.boarding_status == "boarded",
+                    )
+                )
+            ).all()
+            return_passengers = [
+                row[0]
+                for row in passenger_rows
+                if row[1] == destination_asset_id
+            ]
+            if not return_passengers:
+                return
+
             closed_count = await _complete_ads_from_travelwiz_passengers(
                 db=db,
-                passengers=passengers,
+                passengers=return_passengers,
                 manifest_id=None,
                 voyage_id=str(voyage_id),
                 source="travelwiz.trip.closed",

@@ -877,23 +877,6 @@ async def on_weather_updated(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_weather_updated")
 
 
-async def on_cargo_status_changed(event: OpsFluxEvent) -> None:
-    """Cargo status change → update voyage cargo summary if linked."""
-    try:
-        cargo_id = event.payload.get("cargo_id")
-        voyage_id = event.payload.get("voyage_id")
-        if not voyage_id:
-            return
-        logger.info(
-            "cargo.status_changed received: cargo=%s voyage=%s new_status=%s",
-            cargo_id, voyage_id, event.payload.get("to_status"),
-        )
-        # Trigger manifest/cargo-summary recompute on the voyage dashboard
-        # via cache invalidation (React Query will refetch on next mount).
-    except Exception:
-        logger.exception("Error in on_cargo_status_changed")
-
-
 def register_travelwiz_handlers(event_bus: EventBus) -> None:
     """Register all TravelWiz event handlers."""
     # TravelWiz lifecycle
@@ -903,8 +886,12 @@ def register_travelwiz_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("travelwiz.manifest.validated", on_manifest_validated)
     event_bus.subscribe("travelwiz.pickup.no_show", on_pickup_no_show)
 
-    # PaxLog → TravelWiz (AdS approved → add PAX to manifests)
+    # PaxLog → TravelWiz (AdS approved → add PAX to manifests).
+    # The active route handler emits "ads.approved"; "paxlog.ads.approved"
+    # is the namespaced legacy alias. Subscribe to both so we don't miss
+    # events if a future caller uses the namespaced form.
     event_bus.subscribe("paxlog.ads.approved", on_ads_approved)
+    event_bus.subscribe("ads.approved", on_ads_approved)
     event_bus.subscribe("ads.stay_change_requested", on_ads_stay_change_requested)
     event_bus.subscribe("paxlog.mission_notice.modified", on_avm_modified)
 
@@ -915,7 +902,5 @@ def register_travelwiz_handlers(event_bus: EventBus) -> None:
     # External signals → TravelWiz
     event_bus.subscribe("travelwiz.weather.updated", on_weather_updated)
     event_bus.subscribe("weather.updated", on_weather_updated)
-    event_bus.subscribe("packlog.cargo.status_changed", on_cargo_status_changed)
-    event_bus.subscribe("cargo.status_changed", on_cargo_status_changed)
 
     logger.info("TravelWiz event handlers registered (lifecycle + inter-module)")

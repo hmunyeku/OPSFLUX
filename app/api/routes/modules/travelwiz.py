@@ -1714,6 +1714,20 @@ async def update_voyage_status(
     # Emit event when voyage is closed → triggers PaxLog AdS auto-close
     if body.status == "closed":
         from app.core.events import OpsFluxEvent, event_bus
+        from app.models.travelwiz import VoyageStop
+
+        # Resolve voyage destination (last active stop asset) so the
+        # consumer can determine per-PAX whether this leg is a return.
+        last_stop_result = await db.execute(
+            select(VoyageStop.asset_id)
+            .where(
+                VoyageStop.voyage_id == voyage_id,
+                VoyageStop.active == True,  # noqa: E712
+            )
+            .order_by(VoyageStop.stop_order.desc())
+            .limit(1)
+        )
+        destination_asset_id = last_stop_result.scalar_one_or_none()
 
         # Find all PAX manifests for this voyage and emit close events
         manifest_result = await db.execute(
@@ -1732,7 +1746,10 @@ async def update_voyage_status(
                     "manifest_id": str(manifest.id),
                     "voyage_id": str(voyage_id),
                     "entity_id": str(entity_id),
-                    "is_return": True,  # Assume closing = return completed
+                    "departure_base_id": str(voyage.departure_base_id),
+                    "destination_asset_id": (
+                        str(destination_asset_id) if destination_asset_id else None
+                    ),
                 },
             ))
         await db.commit()

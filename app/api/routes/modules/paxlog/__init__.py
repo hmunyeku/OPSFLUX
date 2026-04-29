@@ -17,7 +17,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
 from jose import JWTError, jwt
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import and_, bindparam, func, literal, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -153,8 +153,11 @@ def _build_external_portal_url(token: str) -> str:
 
 
 def _build_ads_boarding_token(ads: Ads) -> str:
+    # The QR ships in the AdS PDF and ends up in mail/screenshots, so we
+    # keep its TTL tight. The mission window covers expected boardings;
+    # one extra day absorbs late returns or last-minute reschedules.
     expiry = datetime.combine(
-        ads.end_date + timedelta(days=14),
+        ads.end_date + timedelta(days=1),
         datetime.min.time(),
         tzinfo=timezone.utc,
     )
@@ -701,9 +704,13 @@ async def _try_ads_workflow_transition(
 ) -> tuple[str | None, object | None]:
     """Attempt FSM transition for an AdS.
 
-    Returns (current_state, instance) if workflow definition exists.
-    Returns (None, None) if no definition found (graceful fallback).
-    Raises HTTPException on permission errors.
+    Returns (current_state, instance) when the FSM workflow exists and
+    the transition succeeds. Returns (None, None) only when there is
+    no workflow definition for this slug (graceful fallback so route
+    logic remains usable when the workflow is not seeded).
+
+    A FSM-rejected transition (``not allowed``) is propagated as a 400
+    so route guards do not silently bypass the state machine.
     """
     try:
         instance = await fsm_service.transition(
@@ -722,7 +729,7 @@ async def _try_ads_workflow_transition(
         raise HTTPException(403, str(e))
     except FSMError as e:
         err_msg = str(e).lower()
-        if "not found" in err_msg or "not allowed" in err_msg:
+        if "not found" in err_msg:
             logger.debug(
                 "Workflow '%s' FSM skip (%s) — direct status update",
                 ADS_WORKFLOW_SLUG,
@@ -4702,11 +4709,30 @@ async def approve_ads(
         db=db,
     )
 
-    # Mark all compliant PAX as approved
+    # Mark only compliant PAX as approved. A `pending_check` entry would
+    # mean compliance never ran — that should not happen on an AdS that
+    # reached pending_validation, so refuse rather than silently auto-
+    # approving an unchecked PAX.
+    pending_check_count = await db.scalar(
+        select(func.count(AdsPax.id)).where(
+            AdsPax.ads_id == ads_id,
+            AdsPax.status == "pending_check",
+        )
+    )
+    if pending_check_count and pending_check_count > 0:
+        raise StructuredHTTPException(
+            400,
+            code="ADS_HAS_UNCHECKED_PAX",
+            message=(
+                "Impossible d'approuver : {count} PAX n'ont pas été contrôlés. "
+                "Renvoyez l'AdS en correction puis re-soumettez-la."
+            ),
+            params={"count": str(pending_check_count)},
+        )
     pax_result = await db.execute(
         select(AdsPax).where(
             AdsPax.ads_id == ads_id,
-            AdsPax.status.in_(["compliant", "pending_check"]),
+            AdsPax.status == "compliant",
         )
     )
     pax_entries = pax_result.scalars().all()
@@ -4994,7 +5020,7 @@ async def request_ads_review(
     ))
 
     logger.info("AdS %s sent back for review by %s", ads.reference, current_user.id)
-    return ads
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
 @router.post("/ads/{ads_id}/cancel", response_model=AdsRead)
@@ -5091,7 +5117,7 @@ async def cancel_ads(
         },
     ))
 
-    return ads
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
 @router.post("/ads/{ads_id}/manual-departure", response_model=AdsRead)
@@ -5113,13 +5139,20 @@ async def complete_ads_manual_departure(
             message="AdS not found",
         )
 
-    await paxlog_service.complete_ads_operationally(
-        db,
-        ads,
-        source="omaa.manual_departure",
-        actor_id=current_user.id,
-        reason=body.reason,
-    )
+    try:
+        await paxlog_service.complete_ads_operationally(
+            db,
+            ads,
+            source="omaa.manual_departure",
+            actor_id=current_user.id,
+            reason=body.reason,
+        )
+    except ValueError as exc:
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_COMPLETE_ADS_STATUS",
+            message=str(exc),
+        ) from exc
     await record_audit(
         db,
         action="paxlog.ads.manual_departure",
@@ -5228,12 +5261,19 @@ async def complete_ads(
             message="AdS not found",
         )
 
-    await paxlog_service.complete_ads_operationally(
-        db,
-        ads,
-        source="paxlog.manual_completion",
-        actor_id=current_user.id,
-    )
+    try:
+        await paxlog_service.complete_ads_operationally(
+            db,
+            ads,
+            source="paxlog.manual_completion",
+            actor_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise StructuredHTTPException(
+            400,
+            code="CANNOT_COMPLETE_ADS_STATUS",
+            message=str(exc),
+        ) from exc
     await record_audit(
         db,
         action="paxlog.ads.complete",
@@ -5370,7 +5410,7 @@ async def resubmit_ads(
         },
     )
     await db.commit()
-    return ads
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -6868,20 +6908,26 @@ async def get_imputation_suggestion(
     return await _resolve_ads_imputation_suggestion(db, ads=ads, entity_id=entity_id)
 
 
+class AdsImputationCreateBody(BaseModel):
+    """Body for adding a cost imputation line on an AdS."""
+    project_id: UUID | None = None
+    cost_center_id: UUID | None = None
+    percentage: float = Field(100.0, gt=0, le=100)
+    wbs_id: UUID | None = None
+    imputation_reference_id: UUID | None = None
+
+
 @router.post("/ads/{ads_id}/imputations", status_code=201)
 async def add_imputation(
     ads_id: UUID,
-    project_id: UUID | None = None,
-    cost_center_id: UUID | None = None,
-    percentage: float = 100.0,
-    wbs_id: UUID | None = None,
+    body: AdsImputationCreateBody,
     request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Add a cost imputation line — delegates to core cost_imputations."""
+    """Add a cost imputation line on an AdS — delegates to core cost_imputations."""
     from app.api.routes.core.cost_imputations import create_cost_imputation
     from app.schemas.common import CostImputationCreate
 
@@ -6896,32 +6942,33 @@ async def add_imputation(
             code="ADS_NOT_FOUND",
             message="AdS not found",
         )
-    if request is not None:
-        can_manage_ads = await _can_manage_ads(
-            ads, current_user=current_user, request=request, entity_id=entity_id, db=db
-        )
-    else:
-        can_manage_ads = await _can_manage_ads(
-            ads, current_user=current_user, entity_id=entity_id, db=db
-        )
-    if not can_manage_ads:
+    if not await _can_manage_ads(
+        ads, current_user=current_user, request=request, entity_id=entity_id, db=db
+    ):
         raise StructuredHTTPException(
             403,
             code="VOUS_NE_POUVEZ_PAS_MODIFIER_LES",
             message="Vous ne pouvez pas modifier les imputations de cette AdS.",
         )
 
-    body = CostImputationCreate(
+    imputation_body = CostImputationCreate(
         owner_type="ads",
         owner_id=ads_id,
-        project_id=project_id,
-        cost_center_id=cost_center_id,
-        percentage=percentage,
-        wbs_id=wbs_id,
+        project_id=body.project_id,
+        cost_center_id=body.cost_center_id,
+        percentage=body.percentage,
+        wbs_id=body.wbs_id,
+        imputation_reference_id=body.imputation_reference_id,
     )
-    result = await create_cost_imputation(body=body, current_user=current_user, db=db)
+    result = await create_cost_imputation(
+        body=imputation_body,
+        request=request,
+        entity_id=entity_id,
+        current_user=current_user,
+        db=db,
+    )
 
-    if project_id is not None:
+    if body.project_id is not None:
         await _sync_ads_project_from_imputations(db, ads=ads)
         await db.commit()
 
@@ -6938,7 +6985,7 @@ async def delete_imputation(
     _: None = require_permission("paxlog.ads.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Remove a cost imputation line — delegates to core cost_imputations."""
+    """Remove a cost imputation line on an AdS — delegates to core cost_imputations."""
     from app.api.routes.core.cost_imputations import delete_cost_imputation
 
     # Verify AdS belongs to entity
@@ -6952,15 +6999,9 @@ async def delete_imputation(
             code="ADS_NOT_FOUND",
             message="AdS not found",
         )
-    if request is not None:
-        can_manage_ads = await _can_manage_ads(
-            ads, current_user=current_user, request=request, entity_id=entity_id, db=db
-        )
-    else:
-        can_manage_ads = await _can_manage_ads(
-            ads, current_user=current_user, entity_id=entity_id, db=db
-        )
-    if not can_manage_ads:
+    if not await _can_manage_ads(
+        ads, current_user=current_user, request=request, entity_id=entity_id, db=db
+    ):
         raise StructuredHTTPException(
             403,
             code="VOUS_NE_POUVEZ_PAS_MODIFIER_LES",
@@ -6968,7 +7009,10 @@ async def delete_imputation(
         )
 
     await delete_cost_imputation(
-        imputation_id=imputation_id, current_user=current_user, db=db
+        imputation_id=imputation_id,
+        request=request,
+        current_user=current_user,
+        db=db,
     )
     await _sync_ads_project_from_imputations(db, ads=ads)
     await db.commit()

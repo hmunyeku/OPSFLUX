@@ -12,6 +12,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Save, FileImage, FileDown, Loader2, X } from 'lucide-react'
+import { LoaderFallback } from '@/components/ui/LoaderFallback'
 
 const DEFAULT_DRAWIO_URL =
   (import.meta.env.VITE_DRAWIO_URL as string | undefined) || 'http://localhost:8080'
@@ -184,14 +185,27 @@ export function DrawioEditor({
         )}
       </div>
 
-      {/* Draw.io iframe */}
-      <iframe
-        ref={iframeRef}
-        src={iframeSrc}
-        className="flex-1 w-full border-none"
-        style={{ minHeight: 0 }}
-        title="Draw.io Editor"
-      />
+      {/* Draw.io iframe + OpsFlux loader overlay (hides the upstream
+          "Loading… spin.gif" splash until the editor sends its `init`
+          postMessage). The iframe stays mounted underneath so the
+          handshake still happens; we just paint over it with an opaque
+          panel that disappears on isReady. */}
+      <div className="flex-1 relative w-full">
+        <iframe
+          ref={iframeRef}
+          src={iframeSrc}
+          className="absolute inset-0 w-full h-full border-none"
+          title="Draw.io Editor"
+        />
+        {!isReady && (
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-background"
+            aria-live="polite"
+          >
+            <LoaderFallback variant="inline" />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

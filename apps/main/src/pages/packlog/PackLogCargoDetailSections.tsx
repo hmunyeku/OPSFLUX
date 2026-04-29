@@ -501,21 +501,21 @@ export function CargoReturnSummarySection({
   const aggregateStatusLabel = (() => {
     switch (summary.aggregateStatus) {
       case 'partial_return':
-        return 'Retour partiel en cours'
+        return t('packlog.cargo.return.status.partial', 'Retour partiel en cours')
       case 'fully_returned':
-        return 'Retour déclaré sur 100% des quantités'
+        return t('packlog.cargo.return.status.full', 'Retour déclaré sur 100% des quantités')
       case 'not_started':
-        return 'Aucun retour saisi'
+        return t('packlog.cargo.return.status.none', 'Aucun retour saisi')
       default:
-        return 'Aucun élément détaillé'
+        return t('packlog.cargo.return.status.no_elements', 'Aucun élément détaillé')
     }
   })()
   const aggregateDispositionLabel = (() => {
     switch (summary.aggregateDisposition) {
       case 'not_dispatched':
-        return 'Aucune disposition finale'
+        return t('packlog.cargo.return.disposition.none', 'Aucune disposition finale')
       case 'mixed':
-        return 'Disposition mixte'
+        return t('packlog.cargo.return.disposition.mixed', 'Disposition mixte')
       case 'reintegrated':
       case 'scrapped':
       case 'yard_storage':
@@ -525,10 +525,10 @@ export function CargoReturnSummarySection({
     }
   })()
   return (
-    <FormSection title="Synthèse retour colis" collapsible defaultExpanded>
+    <FormSection title={t('packlog.cargo.return.section_title', 'Synthèse retour colis')} collapsible defaultExpanded>
       {!elements || elements.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          Aucun élément détaillé. La synthèse retour deviendra exploitable quand le colis sera découpé en sous-éléments.
+          {t('packlog.cargo.return.empty', 'Aucun élément détaillé. La synthèse retour deviendra exploitable quand le colis sera découpé en sous-éléments.')}
         </p>
       ) : (
         <div className="space-y-3">

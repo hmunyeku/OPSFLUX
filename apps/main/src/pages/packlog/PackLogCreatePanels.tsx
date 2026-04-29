@@ -105,7 +105,7 @@ function CreateCargoRequestInner() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle demande d’expédition"
+      title={t('packlog.create_request.title', 'Nouvelle demande d’expédition')}
       subtitle={moduleLabel}
       icon={<FileText size={14} className="text-primary" />}
       actions={
@@ -116,7 +116,7 @@ function CreateCargoRequestInner() {
             disabled={createCargoRequest.isPending}
             onClick={() => (document.getElementById('create-cargo-request-form') as HTMLFormElement)?.requestSubmit()}
           >
-            {createCargoRequest.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
+            {createCargoRequest.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create', 'Créer')}
           </PanelActionButton>
         </>
       }

@@ -494,18 +494,18 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
             )}
 
             {/* Parties */}
-            <FormSection title="Parties impliquées">
+            <FormSection title={t('packlog.request.section.parties', 'Parties impliquées')}>
               <DetailFieldGrid>
                 <ReadOnlyRow label={t('common.sender')} value={cargoRequest.sender_name ?? '—'} />
-                <ReadOnlyRow label="Contact" value={cargoRequest.sender_contact_name ?? '—'} />
+                <ReadOnlyRow label={t('common.contact', 'Contact')} value={cargoRequest.sender_contact_name ?? '—'} />
                 <ReadOnlyRow label={t('common.recipient')} value={cargoRequest.receiver_name ?? '—'} />
                 <ReadOnlyRow label={t('common.destination')} value={cargoRequest.destination_name ?? '—'} />
                 <ReadOnlyRow
-                  label="Demandeur"
+                  label={t('packlog.request.requester', 'Demandeur')}
                   value={cargoRequest.requester_display_name ?? cargoRequest.requester_name ?? '—'}
                 />
                 <ReadOnlyRow
-                  label="Imputation"
+                  label={t('packlog.request.imputation', 'Imputation')}
                   value={
                     cargoRequest.imputation_reference_name
                       ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim()
@@ -516,7 +516,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             {/* Complétude */}
-            <FormSection title="Complétude de la demande" collapsible defaultExpanded>
+            <FormSection title={t('packlog.request.section.completeness', 'Complétude de la demande')} collapsible defaultExpanded>
               <div className="space-y-1.5">
                 {/* Readiness banner */}
                 <div

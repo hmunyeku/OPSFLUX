@@ -812,7 +812,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
           id="ads-readiness"
           // Clean, consistent section title (aligned with Voyage panel
           // conventions: short noun, no inline status).
-          title="Synthèse"
+          title={t('paxlog.ads_detail.synthesis', 'Synthèse')}
           defaultExpanded
         >
           <div className="space-y-3">

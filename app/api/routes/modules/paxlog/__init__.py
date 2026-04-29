@@ -5950,6 +5950,13 @@ async def _build_ads_pdf_response(
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
+    if not pdf_bytes:
+        raise StructuredHTTPException(
+            404,
+            code="TEMPLATE_PDF_ADS_TICKET_INTROUVABLE",
+            message="Template PDF 'ads.ticket' introuvable. Créez-le dans Paramètres > Modèles PDF.",
+        )
+
     filename = f"ADS_{ads.reference.replace(' ', '_')}.pdf"
     return Response(
         content=pdf_bytes,

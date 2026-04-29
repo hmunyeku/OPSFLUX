@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
 import { Plane, Ship, Users, ArrowRight, Calendar, Weight } from 'lucide-react'
+
+const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -120,7 +123,7 @@ export function VoyagesTab() {
         return (
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
             <Weight size={11} />
-            {w ? `${Number(w).toLocaleString('fr-FR')}` : '—'}
+            {w ? `${Number(w).toLocaleString(numLocale())}` : '—'}
           </span>
         )
       },

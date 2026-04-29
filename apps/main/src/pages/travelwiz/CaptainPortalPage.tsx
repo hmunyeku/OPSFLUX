@@ -7,6 +7,9 @@
  */
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
+
+const getLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import {
   Ship, Users, Package, Loader2, LogIn, MapPin,
   Clock, CheckSquare, Send, CloudSun, ArrowRight,
@@ -51,7 +54,7 @@ const SEA_STATES = [
 
 function formatDateTime(d: string | null | undefined) {
   if (!d) return '--'
-  return new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return new Date(d).toLocaleString(getLocale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 // ── Login Screen ─────────────────────────────────────────────

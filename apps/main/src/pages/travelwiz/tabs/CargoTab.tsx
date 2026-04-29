@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
 import { Package, Truck, Weight, ArrowRight, AlertTriangle, Bell, Loader2 } from 'lucide-react'
+
+const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -74,7 +77,7 @@ export function CargoTab() {
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
           <Weight size={11} />
-          {row.original.weight_kg ? `${row.original.weight_kg.toLocaleString('fr-FR')}` : '—'}
+          {row.original.weight_kg ? `${row.original.weight_kg.toLocaleString(numLocale())}` : '—'}
         </span>
       ),
     },
@@ -137,7 +140,7 @@ export function CargoTab() {
     <>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
         <StatCard label="Total colis" value={stats.count} icon={Package} />
-        <StatCard label="Poids total" value={`${stats.totalWeight.toLocaleString('fr-FR')} kg`} icon={Weight} />
+        <StatCard label="Poids total" value={`${stats.totalWeight.toLocaleString(numLocale())} kg`} icon={Weight} />
         <StatCard label="En transit" value={stats.inTransit} icon={Truck} />
         <StatCard label="HAZMAT" value={stats.hazmat} icon={AlertTriangle} accent="text-destructive" />
       </div>

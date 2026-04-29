@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
 import { FileText, Users, Loader2, CheckCircle2 } from 'lucide-react'
+
+const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -85,7 +88,7 @@ export function ManifestesTab() {
         const w = row.original.total_weight_kg
         return (
           <span className="text-xs text-muted-foreground tabular-nums">
-            {w ? `${Number(w).toLocaleString('fr-FR')} kg` : '—'}
+            {w ? `${Number(w).toLocaleString(numLocale())} kg` : '—'}
           </span>
         )
       },

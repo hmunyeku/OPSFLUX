@@ -1,5 +1,8 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
+
+const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import {
   Ship, MapPin, Loader2, Trash2,
   Info, Settings, Paperclip,
@@ -167,8 +170,8 @@ export function VectorDetailPanel({ id }: { id: string }) {
                 <FormSection title={t('common.capacities')}>
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Capacite PAX" value={vector.pax_capacity} />
-                    <ReadOnlyRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '—'} />
-                    <ReadOnlyRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m³` : '—'} />
+                    <ReadOnlyRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString(numLocale())} kg` : '—'} />
+                    <ReadOnlyRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString(numLocale())} m³` : '—'} />
                   </DetailFieldGrid>
                 </FormSection>
               </div>

@@ -1,5 +1,8 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
+
+const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import {
   Plane, Package, FileText, Users, MapPin, Weight,
   Loader2, Trash2, CheckCircle2,
@@ -132,7 +135,7 @@ function VoyageCargoOperationsSection({
                       {' • '}
                       {item.destination_name ?? 'Destination non résolue'}
                       {' • '}
-                      {item.weight_kg.toLocaleString('fr-FR')} kg
+                      {item.weight_kg.toLocaleString(numLocale())} kg
                     </p>
                   </div>
                   <div className="text-right shrink-0">
@@ -421,10 +424,10 @@ export function VoyageDetailPanel({ id }: { id: string }) {
                   <ReadOnlyRow label="Rotation" value={voyage.rotation_name ?? '\u2014'} />
                   <ReadOnlyRow label="Base de depart" value={departureLabel} />
                   <ReadOnlyRow label="Derniere escale planifiee" value={destinationLabel} />
-                  <ReadOnlyRow label="Depart programme" value={voyage.scheduled_departure ? new Date(voyage.scheduled_departure).toLocaleString('fr-FR') : '\u2014'} />
-                  <ReadOnlyRow label="Arrivee programmee" value={voyage.scheduled_arrival ? new Date(voyage.scheduled_arrival).toLocaleString('fr-FR') : '\u2014'} />
-                  <ReadOnlyRow label="Depart reel" value={voyage.actual_departure ? new Date(voyage.actual_departure).toLocaleString('fr-FR') : '\u2014'} />
-                  <ReadOnlyRow label="Arrivee reelle" value={voyage.actual_arrival ? new Date(voyage.actual_arrival).toLocaleString('fr-FR') : '\u2014'} />
+                  <ReadOnlyRow label="Depart programme" value={voyage.scheduled_departure ? new Date(voyage.scheduled_departure).toLocaleString(numLocale()) : '\u2014'} />
+                  <ReadOnlyRow label="Arrivee programmee" value={voyage.scheduled_arrival ? new Date(voyage.scheduled_arrival).toLocaleString(numLocale()) : '\u2014'} />
+                  <ReadOnlyRow label="Depart reel" value={voyage.actual_departure ? new Date(voyage.actual_departure).toLocaleString(numLocale()) : '\u2014'} />
+                  <ReadOnlyRow label="Arrivee reelle" value={voyage.actual_arrival ? new Date(voyage.actual_arrival).toLocaleString(numLocale()) : '\u2014'} />
                   <ReadOnlyRow label="Motif du retard" value={voyage.delay_reason ?? '\u2014'} />
                 </DetailFieldGrid>
               </FormSection>
@@ -494,7 +497,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
             <FormSection title="Cargo" collapsible defaultExpanded>
               <div className="grid grid-cols-2 gap-2">
                 <div className="text-center p-2 rounded bg-muted/50">
-                  <p className="text-sm font-semibold tabular-nums">{cargoWeight.toLocaleString('fr-FR')} kg</p>
+                  <p className="text-sm font-semibold tabular-nums">{cargoWeight.toLocaleString(numLocale())} kg</p>
                   <p className="text-[10px] text-muted-foreground">Poids total</p>
                 </div>
                 <div className="text-center p-2 rounded bg-muted/50">
@@ -525,7 +528,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
                   </div>
                   <div className="rounded-lg border border-border p-3">
                     <div className="flex items-center gap-1.5 text-muted-foreground mb-1"><Weight size={12} /><span className="text-[10px] font-medium uppercase tracking-wide">Cargo (kg)</span></div>
-                    <p className="text-sm font-semibold tabular-nums">{(capacity.current_cargo_kg ?? 0).toLocaleString('fr-FR')} / {capacity.vector_capacity_cargo_kg?.toLocaleString('fr-FR') ?? '\u221e'}</p>
+                    <p className="text-sm font-semibold tabular-nums">{(capacity.current_cargo_kg ?? 0).toLocaleString(numLocale())} / {capacity.vector_capacity_cargo_kg?.toLocaleString(numLocale()) ?? '\u221e'}</p>
                     {capacity.cargo_utilization_pct !== null && (
                       <div className="mt-1.5 h-1.5 rounded-full bg-border overflow-hidden">
                         <div className={cn('h-full rounded-full transition-all', capacity.cargo_utilization_pct > 90 ? 'bg-destructive' : 'bg-primary')} style={{ width: `${Math.min(100, capacity.cargo_utilization_pct)}%` }} />
@@ -564,7 +567,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
               <FormSection title="KPIs du voyage" collapsible defaultExpanded>
                 <DetailFieldGrid>
                   <ReadOnlyRow label="PAX total" value={kpis.total_pax} />
-                  <ReadOnlyRow label="Cargo total" value={`${(kpis.total_cargo_kg ?? 0).toLocaleString('fr-FR')} kg`} />
+                  <ReadOnlyRow label="Cargo total" value={`${(kpis.total_cargo_kg ?? 0).toLocaleString(numLocale())} kg`} />
                   <ReadOnlyRow label="No-shows" value={kpis.no_shows} />
                   <ReadOnlyRow label="A l'heure" value={kpis.on_time ? 'Oui' : `Non (${kpis.delay_minutes ?? 0} min)`} />
                   <ReadOnlyRow label="Evenements" value={kpis.events_count} />

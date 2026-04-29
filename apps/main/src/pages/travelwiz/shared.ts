@@ -2,6 +2,10 @@
  * TravelWiz — shared types, constants and helpers used across tabs and panels.
  */
 import { Plane, Ship, Truck, Anchor } from 'lucide-react'
+import i18n from '@/lib/i18n'
+
+/** Resolve the BCP47 locale matching the current i18n language. */
+const getLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 
 export type TravelWizTab =
   | 'dashboard'
@@ -140,12 +144,12 @@ export const FLIGHT_STATUS_MAP: Record<string, { label: string; badge: string }>
 
 export function formatDateShort(d: string | null | undefined) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+  return new Date(d).toLocaleDateString(getLocale(), { day: '2-digit', month: 'short' })
 }
 
 export function formatDateTime(d: string | null | undefined) {
   if (!d) return '—'
-  return new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return new Date(d).toLocaleString(getLocale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 export function buildStatusOptions(labels: Record<string, string>, values: string[]) {

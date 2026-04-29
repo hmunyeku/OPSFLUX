@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
+
+const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import {
   FileText, Package, Plus, Loader2, MapPin, Pencil, Save,
 } from 'lucide-react'
@@ -807,11 +810,11 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.packages')}</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">{requestCargo.length}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{totalPackages.toLocaleString('fr-FR')} packages</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{totalPackages.toLocaleString(numLocale())} packages</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Poids total</p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">{totalWeightKg.toLocaleString('fr-FR')} kg</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{totalWeightKg.toLocaleString(numLocale())} kg</p>
                   <p className="mt-1 text-xs text-muted-foreground">{assignedCount} affectés à un manifeste</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
@@ -858,7 +861,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label={t('common.imputation')} value={cargoRequest.imputation_reference_name ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim() : '—'} />
                 <ReadOnlyRow label={t('common.requester')} value={cargoRequest.requester_display_name ?? cargoRequest.requester_name ?? '—'} />
                 <ReadOnlyRow label={t('common.package_count')} value={String(cargoRequest.cargo_count ?? 0)} />
-                <ReadOnlyRow label={t('common.created_at_female')} value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
+                <ReadOnlyRow label={t('common.created_at_female')} value={new Date(cargoRequest.created_at).toLocaleString(numLocale())} />
               </DetailFieldGrid>
             </FormSection>
 
@@ -907,7 +910,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                           <p className="text-sm font-medium text-foreground truncate">{cargo.designation || cargo.description}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs text-muted-foreground">{cargo.weight_kg.toLocaleString('fr-FR')} kg</p>
+                          <p className="text-xs text-muted-foreground">{cargo.weight_kg.toLocaleString(numLocale())} kg</p>
                           <p className="text-[11px] text-muted-foreground">{cargo.status}</p>
                         </div>
                       </div>
@@ -941,23 +944,23 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground">{option.voyage_code}</p>
                           <p className="text-xs text-muted-foreground">
-                            {option.vector_name ?? 'Vecteur'} · départ {new Date(option.scheduled_departure).toLocaleString('fr-FR')}
+                            {option.vector_name ?? 'Vecteur'} · départ {new Date(option.scheduled_departure).toLocaleString(numLocale())}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Base: {option.departure_base_name ?? '—'} · reste {option.remaining_weight_kg != null ? `${option.remaining_weight_kg.toLocaleString('fr-FR')} kg` : 'poids non borné'}
+                            Base: {option.departure_base_name ?? '—'} · reste {option.remaining_weight_kg != null ? `${option.remaining_weight_kg.toLocaleString(numLocale())} kg` : 'poids non borné'}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Demande: {option.total_request_weight_kg.toLocaleString('fr-FR')} kg · destination {option.destination_match ? 'compatible' : 'non compatible'}
+                            Demande: {option.total_request_weight_kg.toLocaleString(numLocale())} kg · destination {option.destination_match ? 'compatible' : 'non compatible'}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Surface estimée: {option.total_request_surface_m2.toLocaleString('fr-FR')} m² · {option.all_items_stackable ? 'empilable' : 'non empilable'}
+                            Surface estimée: {option.total_request_surface_m2.toLocaleString(numLocale())} m² · {option.all_items_stackable ? 'empilable' : 'non empilable'}
                           </p>
                           {option.compatible_zones.length > 0 && (
                             <div className="mt-1 flex flex-wrap gap-1">
                               {option.compatible_zones.map((zone) => (
                                 <span key={zone.zone_id} className="gl-badge gl-badge-neutral">
                                   {zone.zone_name}
-                                  {zone.surface_m2 != null ? ` · ${zone.surface_m2.toLocaleString('fr-FR')} m²` : ''}
+                                  {zone.surface_m2 != null ? ` · ${zone.surface_m2.toLocaleString(numLocale())} m²` : ''}
                                 </span>
                               ))}
                             </div>

@@ -75,18 +75,40 @@ async def list_rotation_cycles(
     )
     total = count_result.scalar() or 0
 
+    # Rebuild the WHERE clause with `prc.` prefixes so JOINs do not
+    # collide on shared column names (entity_id, user_id, status, …).
+    list_conditions = ["prc.entity_id = :eid"]
+    if user_id:
+        list_conditions.append("prc.user_id = :user_id")
+    if contact_id:
+        list_conditions.append("prc.contact_id = :contact_id")
+    if site_asset_id:
+        list_conditions.append("prc.site_asset_id = :site_id")
+    if status_filter:
+        list_conditions.append("prc.status = :status")
+    list_where = " AND ".join(list_conditions)
+
     offset = (pagination.page - 1) * pagination.page_size
     list_result = await db.execute(
         sa_text(
             f"""
-            SELECT id, entity_id, user_id, contact_id, site_asset_id, rotation_days_on, rotation_days_off,
-                   cycle_start_date, next_on_date, status,
-                   auto_create_ads, ads_lead_days,
-                   default_project_id, default_cc_id, notes, created_at, updated_at,
-                   pax_first_name, pax_last_name, site_name, company_name
-            FROM pax_rotation_cycles
-            WHERE {where_clause}
-            ORDER BY created_at DESC
+            SELECT prc.id, prc.entity_id, prc.user_id, prc.contact_id, prc.site_asset_id,
+                   prc.rotation_days_on, prc.rotation_days_off,
+                   prc.cycle_start_date, prc.status,
+                   prc.auto_create_ads, prc.ads_lead_days,
+                   prc.default_project_id, prc.default_cc_id,
+                   prc.created_at, prc.updated_at,
+                   COALESCE(u.first_name, tc.first_name) AS pax_first_name,
+                   COALESCE(u.last_name, tc.last_name) AS pax_last_name,
+                   ai.name AS site_name,
+                   t.name AS company_name
+            FROM pax_rotation_cycles prc
+            LEFT JOIN users u ON u.id = prc.user_id
+            LEFT JOIN tier_contacts tc ON tc.id = prc.contact_id
+            LEFT JOIN ar_installations ai ON ai.id = prc.site_asset_id
+            LEFT JOIN tiers t ON t.id = tc.tier_id
+            WHERE {list_where}
+            ORDER BY prc.created_at DESC
             LIMIT :limit OFFSET :offset
             """
         ),
@@ -115,19 +137,17 @@ async def list_rotation_cycles(
                 days_on=row[5],
                 days_off=row[6],
                 start_date=row[7],
-                next_rotation_date=row[8],
-                status=row[9],
-                auto_create_ads=row[10],
-                ads_lead_days=row[11],
-                default_project_id=row[12],
-                default_cc_id=row[13],
-                notes=row[14],
-                created_at=row[15],
-                updated_at=row[16],
-                pax_first_name=row[18],
-                pax_last_name=row[19],
-                site_name=row[20],
-                company_name=row[21],
+                status=row[8],
+                auto_create_ads=row[9],
+                ads_lead_days=row[10],
+                default_project_id=row[11],
+                default_cc_id=row[12],
+                created_at=row[13],
+                updated_at=row[14],
+                pax_first_name=row[15],
+                pax_last_name=row[16],
+                site_name=row[17],
+                company_name=row[18],
                 compliance_risk_level=risk_level,
                 compliance_issue_count=len(issues),
                 compliance_issue_preview=issues[:3],

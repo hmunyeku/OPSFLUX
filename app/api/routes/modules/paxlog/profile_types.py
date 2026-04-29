@@ -40,7 +40,7 @@ async def list_profile_types(
         sa_text(
             """
             SELECT id, code, name, description, created_at
-            FROM pax_profile_types
+            FROM profile_types
             WHERE entity_id = :eid OR entity_id IS NULL
             ORDER BY name
             """
@@ -73,7 +73,7 @@ async def create_profile_type(
     """Create a PAX profile type (job role/category)."""
     existing = await db.execute(
         sa_text(
-            "SELECT id FROM pax_profile_types WHERE code = :code AND (entity_id = :eid OR entity_id IS NULL)"
+            "SELECT id FROM profile_types WHERE code = :code AND (entity_id = :eid OR entity_id IS NULL)"
         ),
         {"code": code, "eid": str(entity_id)},
     )
@@ -86,7 +86,7 @@ async def create_profile_type(
     result = await db.execute(
         sa_text(
             """
-            INSERT INTO pax_profile_types (entity_id, code, name, description, created_at)
+            INSERT INTO profile_types (entity_id, code, name, description, created_at)
             VALUES (:eid, :code, :name, :desc, NOW())
             RETURNING id
             """
@@ -115,7 +115,7 @@ async def list_pax_profile_types(
             f"""
             SELECT pt.id, pt.code, pt.name, pt.description, ppt.created_at
             FROM pax_profile_types ppt
-            JOIN pax_profile_types pt ON pt.id = ppt.profile_type_id
+            JOIN profile_types pt ON pt.id = ppt.profile_type_id
             WHERE ppt.{fk_col} = :pax_id
             ORDER BY pt.name
             """
@@ -194,8 +194,8 @@ async def list_habilitation_matrix(
             SELECT hm.id, hm.profile_type_id, pt.code AS profile_code, pt.name AS profile_name,
                    hm.credential_type_id, ct.code AS cred_code, ct.name AS cred_name,
                    hm.mandatory
-            FROM habilitation_matrix hm
-            JOIN pax_profile_types pt ON pt.id = hm.profile_type_id
+            FROM profile_habilitation_matrix hm
+            JOIN profile_types pt ON pt.id = hm.profile_type_id
             JOIN credential_types ct ON ct.id = hm.credential_type_id
             WHERE {where_clause}
             ORDER BY pt.name, ct.name
@@ -232,7 +232,7 @@ async def add_habilitation_requirement(
     """Add a credential requirement to a profile type in the habilitation matrix."""
     existing = await db.execute(
         sa_text(
-            "SELECT id FROM habilitation_matrix "
+            "SELECT id FROM profile_habilitation_matrix "
             "WHERE profile_type_id = :pt_id AND credential_type_id = :ct_id "
             "AND (entity_id = :eid OR entity_id IS NULL)"
         ),
@@ -247,7 +247,7 @@ async def add_habilitation_requirement(
     result = await db.execute(
         sa_text(
             """
-            INSERT INTO habilitation_matrix (entity_id, profile_type_id, credential_type_id, mandatory, created_at)
+            INSERT INTO profile_habilitation_matrix (entity_id, profile_type_id, credential_type_id, mandatory, created_at)
             VALUES (:eid, :pt_id, :ct_id, :mandatory, NOW())
             RETURNING id
             """

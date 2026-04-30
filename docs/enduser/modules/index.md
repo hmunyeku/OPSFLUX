@@ -34,7 +34,7 @@ workflows et les pièges sans noyer le lecteur.
 | **MOC** | :material-check-circle: [Disponible](MOC.md) | À venir |
 | **TravelWiz** | :material-check-circle: [Disponible](travelwiz.md) | [Spec](../../developer/modules-spec/TRAVELWIZ.md) |
 | **PackLog** | À venir | À venir |
-| **Tiers** | À venir | [Spec](../../developer/modules-spec/TIERS.md) |
+| **Tiers** | :material-check-circle: [Disponible](tiers.md) | [Spec](../../developer/modules-spec/TIERS.md) |
 | **Projets** | À venir | [Spec](../../developer/modules-spec/PROJETS.md) |
 | **Planner** | À venir | [Spec](../../developer/modules-spec/PLANNER.md) |
 | **Conformité** | À venir | [Spec](../../developer/modules-spec/CONFORMITE.md) |

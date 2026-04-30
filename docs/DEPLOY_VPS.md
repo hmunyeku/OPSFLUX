@@ -709,7 +709,9 @@ C'est qu'une migration de "fix" assume un état d'une DB plus ancienne
 qui n'existe pas sur une fresh DB. Cas vu en pratique :
 `135_moc_fix_soft_delete` qui renommait `archived_at` → `deleted_at`,
 mais 134 a depuis été corrigé pour créer `deleted_at` directement →
-fresh DB n'a jamais eu `archived_at`.
+fresh DB n'a jamais eu `archived_at`. Fix appliqué dans le commit
+`b86bd0f1` — vérifié sur fresh DB le 2026-04-30 : la chaîne 0 → 159
+passe maintenant proprement.
 
 **Fix générique** : rendre la migration idempotente avec une vérif
 d'existence dans `information_schema.columns` :
@@ -727,6 +729,12 @@ def upgrade() -> None:
         op.alter_column("mocs", "archived_at", new_column_name="deleted_at")
     # else: déjà bon
 ```
+
+> **Sympôme caché** : APScheduler peut sembler tourner correctement dans
+> les logs (`travelwiz_pickup_reminders: 0 reminders sent`) après que
+> uvicorn ait fini par démarrer entre deux retries. Toujours regarder
+> `docker logs <backend> 2>&1 | grep -E "FAILED|ERROR.*alembic"` AVANT
+> de conclure que tout va bien.
 
 ### 13.6 — Récupérer des logs anciens
 
@@ -838,9 +846,20 @@ ERR Could not define the service name for the router: too many services
     routerName=opsflux-app-web
 ```
 
-Conséquence : Traefik route **non-déterministiquement** vers l'une ou
-l'autre instance, l'autre devient inaccessible, et les certificats LE
-peuvent partir en rate-limit.
+**Conséquences observées en production** (testé le 2026-04-30 avec
+deux compose `OPSFLUX` + `OPSFLUX-TEST` sur le même Traefik Dokploy) :
+
+| Service | Comportement de la 2e instance |
+|---|---|
+| Frontend (`app.<DOMAIN>`) | ✅ HTTP 200 — nginx statique sert le SPA quel que soit le Host header, donc même si Traefik route vers le mauvais conteneur, l'utilisateur final voit du contenu cohérent |
+| Backend (`api.<DOMAIN>`) | ❌ HTTP 404 — Traefik route vers le backend prod, qui rejette le Host inconnu |
+| Drawio (`drawio.<DOMAIN>`) | ❌ HTTP 404 — pareil |
+| pgAdmin (`db.<DOMAIN>`) | ❌ Routage non-déterministe → DB potentiellement écrasée si on se connecte au mauvais |
+| Spam Traefik | ~200 lignes ERR/min dans les logs |
+
+Conclusion : **n'essayez pas de mettre deux OpsFlux derrière la même
+Traefik** sans patcher d'abord les noms de routers. Le frontend qui
+"a l'air de marcher" est un faux positif dangereux.
 
 **Solutions** :
 

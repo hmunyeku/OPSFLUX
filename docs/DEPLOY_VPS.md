@@ -846,20 +846,28 @@ ERR Could not define the service name for the router: too many services
     routerName=opsflux-app-web
 ```
 
-**Conséquences observées en production** (testé le 2026-04-30 avec
-deux compose `OPSFLUX` + `OPSFLUX-TEST` sur le même Traefik Dokploy) :
+**Symptômes (avant le fix `STACK_NAME`, observés le 2026-04-30 avec
+deux compose `OPSFLUX` + `OPSFLUX-TEST` sur le même Traefik Dokploy)** :
 
 | Service | Comportement de la 2e instance |
 |---|---|
-| Frontend (`app.<DOMAIN>`) | ✅ HTTP 200 — nginx statique sert le SPA quel que soit le Host header, donc même si Traefik route vers le mauvais conteneur, l'utilisateur final voit du contenu cohérent |
+| Frontend (`app.<DOMAIN>`) | ⚠ HTTP 200 — nginx statique sert le SPA quel que soit le Host header, donc même si Traefik route vers le mauvais conteneur, l'utilisateur final voit du contenu cohérent. **Faux positif dangereux**. |
 | Backend (`api.<DOMAIN>`) | ❌ HTTP 404 — Traefik route vers le backend prod, qui rejette le Host inconnu |
 | Drawio (`drawio.<DOMAIN>`) | ❌ HTTP 404 — pareil |
 | pgAdmin (`db.<DOMAIN>`) | ❌ Routage non-déterministe → DB potentiellement écrasée si on se connecte au mauvais |
 | Spam Traefik | ~200 lignes ERR/min dans les logs |
 
-Conclusion : **n'essayez pas de mettre deux OpsFlux derrière la même
-Traefik** sans patcher d'abord les noms de routers. Le frontend qui
-"a l'air de marcher" est un faux positif dangereux.
+**Après application de la solution #1 (`STACK_NAME=opsflux-test3`)**,
+même setup, deux compose côte à côte sur le même Traefik :
+
+| Service | 2e instance |
+|---|---|
+| `app.<test-DOMAIN>` | ✅ 200 |
+| `api.<test-DOMAIN>/api/health` | ✅ 200 |
+| `drawio.<test-DOMAIN>` | ✅ 200 |
+| `ext.<test-DOMAIN>` | ✅ 200 |
+| Conflits Traefik OpsFlux | 0 |
+| Prod inchangée | ✅ tous endpoints 200 |
 
 **Solutions** :
 

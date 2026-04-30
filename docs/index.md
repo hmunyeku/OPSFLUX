@@ -77,7 +77,7 @@ d'événements interne.
 | `conformite` | Référentiel, règles, exemptions, fiches de poste | À venir | [Spec](developer/modules-spec/CONFORMITE.md) |
 | `papyrus` | Documents structurés versionnés, templates, dispatch | À venir | [Spec](developer/modules-spec/PAPYRUS.md) |
 | `pid_pfd` | P&ID / PFD éditeur (xyflow + import) | À venir | [Spec](developer/modules-spec/PID_PFD.md) |
-| `asset_registry` | Hiérarchie assets O&G + civil | À venir | [Spec](developer/modules-spec/ASSET_REGISTRY.md) |
+| `asset_registry` | Hiérarchie assets O&G + civil | [:material-check-circle:](enduser/modules/asset-registry.md) | [Spec](developer/modules-spec/ASSET_REGISTRY.md) |
 | `imputations` | Comptes analytiques, taux de change, OTP | À venir | [Spec](developer/modules-spec/IMPUTATIONS.md) |
 | `workflow` | Moteur d'états (FSM générique) | À venir | [Spec](developer/modules-spec/WORKFLOW.md) |
 | `support` | Tickets, agent IA auto-fix avec workflow CI | À venir | [Spec](developer/modules-spec/SUPPORT.md) |

@@ -40,7 +40,7 @@ workflows et les pièges sans noyer le lecteur.
 | **Conformité** | À venir | [Spec](../../developer/modules-spec/CONFORMITE.md) |
 | **Papyrus** | À venir | [Spec](../../developer/modules-spec/PAPYRUS.md) |
 | **PID/PFD** | À venir | [Spec](../../developer/modules-spec/PID_PFD.md) |
-| **Asset Registry** | À venir | [Spec](../../developer/modules-spec/ASSET_REGISTRY.md) |
+| **Asset Registry** | :material-check-circle: [Disponible](asset-registry.md) | [Spec](../../developer/modules-spec/ASSET_REGISTRY.md) |
 | **Imputations** | À venir | [Spec](../../developer/modules-spec/IMPUTATIONS.md) |
 | **Workflow** | À venir | [Spec](../../developer/modules-spec/WORKFLOW.md) |
 | **Support** | À venir | [Spec](../../developer/modules-spec/SUPPORT.md) |

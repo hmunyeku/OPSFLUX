@@ -19,7 +19,6 @@ import { Map as MapIcon, Pencil, Loader2, ExternalLink } from 'lucide-react'
 import i18n from '@/lib/i18n'
 
 import { FormSection } from '@/components/layout/DynamicPanel'
-import { DeckPlanViewer } from '@/components/travelwiz/DeckPlanViewer'
 import { useVectorDeckPlan } from '@/hooks/useTravelWiz'
 import { usePermission } from '@/hooks/usePermission'
 
@@ -112,10 +111,16 @@ export function VectorDeckPlanTab({ vectorId }: { vectorId: string }) {
           </button>
         )}
 
-        {plan?.deck_plan_xml && (
-          <div className="rounded-lg border border-border/60 bg-card overflow-auto p-2"
-               style={{ maxHeight: 360 }}>
-            <DeckPlanViewer xml={plan.deck_plan_xml} />
+        {plan?.deck_plan_svg && (
+          <div className="rounded-lg border border-border/60 bg-card p-2">
+            <div
+              className="w-full overflow-auto"
+              style={{ maxHeight: 360 }}
+              // SVG comes from our trusted Draw.io export pipeline. We intentionally
+              // inline it — the canvas overlay later will reference shapes by id.
+              // eslint-disable-next-line react/no-danger
+              dangerouslySetInnerHTML={{ __html: plan.deck_plan_svg }}
+            />
           </div>
         )}
       </div>

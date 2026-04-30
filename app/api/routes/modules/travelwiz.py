@@ -928,6 +928,7 @@ async def list_vectors(
         # Deck plan can be heavy (XML + SVG); expose a bool only on the
         # list, the full payload is fetched via /vectors/{id}/deck-plan.
         d["has_deck_plan"] = bool(d.pop("deck_plan_xml", None))
+        d.pop("deck_plan_svg", None)
         return d
 
     return await paginate(db, query, pagination, transform=_transform)
@@ -961,6 +962,7 @@ async def create_vector(
     await db.refresh(vector)
     d = {c.key: getattr(vector, c.key) for c in vector.__table__.columns}
     d.pop("deck_plan_xml", None)
+    d.pop("deck_plan_svg", None)
     d["has_deck_plan"] = False
     d["home_base_name"] = None
     d["zone_count"] = 0
@@ -979,6 +981,7 @@ async def get_vector(
     vector = await _get_vector_or_404(db, vector_id, entity_id)
     d = {c.key: getattr(vector, c.key) for c in vector.__table__.columns}
     d["has_deck_plan"] = bool(d.pop("deck_plan_xml", None))
+    d.pop("deck_plan_svg", None)
     # Counts
     zc = await db.execute(
         select(sqla_func.count()).select_from(TransportVectorZone)
@@ -1029,6 +1032,7 @@ async def update_vector(
 
     d = {c.key: getattr(vector, c.key) for c in vector.__table__.columns}
     d["has_deck_plan"] = bool(d.pop("deck_plan_xml", None))
+    d.pop("deck_plan_svg", None)
     d["home_base_name"] = None
     d["zone_count"] = 0
     d["voyage_count"] = 0
@@ -1060,13 +1064,11 @@ async def get_vector_deck_plan(
     _: None = require_permission("travelwiz.vector.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return the Draw.io XML for the vector's floor plan.
+    """Return the Draw.io XML and cached SVG for the vector's floor plan.
 
-    `deck_plan_xml` defaults to NULL when the plan has not been authored
-    yet — the consumer falls back to a parametric rectangle drawn from
-    the vector zones in that case. The XML is rendered to inline SVG
-    on demand by Draw.io's `viewer-static.min.js` on the cargo
-    placement canvas.
+    Both fields default to NULL when the plan has not been authored yet
+    — the consumer is expected to fall back to a parametric rectangle
+    drawn from the vector zones in that case.
     """
     vector = await _get_vector_or_404(db, vector_id, entity_id)
     updater_name: str | None = None
@@ -1077,6 +1079,7 @@ async def get_vector_deck_plan(
     return VectorDeckPlanRead(
         vector_id=vector.id,
         deck_plan_xml=vector.deck_plan_xml,
+        deck_plan_svg=vector.deck_plan_svg,
         deck_plan_updated_at=vector.deck_plan_updated_at,
         deck_plan_updated_by=vector.deck_plan_updated_by,
         deck_plan_updated_by_name=updater_name,
@@ -1092,9 +1095,11 @@ async def save_vector_deck_plan(
     _: None = require_permission("travelwiz.vector.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Persist a new Draw.io XML for the vector."""
+    """Persist a new Draw.io XML (and optional SVG cache) for the vector."""
     vector = await _get_vector_or_404(db, vector_id, entity_id)
     vector.deck_plan_xml = body.deck_plan_xml
+    if body.deck_plan_svg is not None:
+        vector.deck_plan_svg = body.deck_plan_svg
     vector.deck_plan_updated_at = datetime.now(timezone.utc)
     vector.deck_plan_updated_by = current_user.id
     await db.commit()
@@ -1107,12 +1112,14 @@ async def save_vector_deck_plan(
         resource_id=str(vector.id),
         user_id=current_user.id,
         entity_id=entity_id,
+        details={"has_svg": body.deck_plan_svg is not None},
     )
     await db.commit()
 
     return VectorDeckPlanRead(
         vector_id=vector.id,
         deck_plan_xml=vector.deck_plan_xml,
+        deck_plan_svg=vector.deck_plan_svg,
         deck_plan_updated_at=vector.deck_plan_updated_at,
         deck_plan_updated_by=vector.deck_plan_updated_by,
         deck_plan_updated_by_name=(

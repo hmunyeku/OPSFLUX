@@ -863,17 +863,32 @@ Traefik** sans patcher d'abord les noms de routers. Le frontend qui
 
 **Solutions** :
 
-1. **Une seule instance par Traefik** — le plus simple. Pour tester,
-   utiliser un VPS dédié (option A §7.1) au lieu du Traefik partagé
-   Dokploy.
-2. **Templater les router names** — fork du `docker-compose.yml` et
-   remplacer chaque `opsflux-app-web` par `${TRAEFIK_PREFIX:-opsflux}-app-web`,
-   puis exporter `TRAEFIK_PREFIX=opsflux-test` dans le `.env` de
-   l'instance de test. Pas encore intégré upstream — voir issue
-   `docker-compose: parametrize Traefik router names`.
+1. **Variable `STACK_NAME` (recommandé, intégré depuis le commit
+   suivant)** — le `docker-compose.yml` template désormais tous les
+   noms de routers/services/middlewares Traefik avec
+   `${STACK_NAME:-opsflux}-*`. Pour faire cohabiter plusieurs
+   instances :
+
+   ```ini
+   # .env de l'instance prod
+   STACK_NAME=opsflux        # défaut, rétro-compatible
+   DOMAIN=opsflux.io
+
+   # .env de l'instance staging (sur le même Traefik)
+   STACK_NAME=opsflux-staging
+   DOMAIN=staging.opsflux.io
+   ```
+
+   Tous les noms de routers deviennent `opsflux-staging-api-web`,
+   `opsflux-staging-app-web`, etc. → zéro collision côté Traefik. Les
+   `Host()` rules continuent à isoler le routage par domaine.
+
+2. **Une seule instance par Traefik** — toujours valable si vous
+   préférez l'isolation hard. Utiliser un VPS dédié (option A §7.1)
+   pour le staging.
 3. **Isoler Dokploy** — créer un projet Dokploy séparé avec son propre
    Traefik (Dokploy v0.21+ supporte plusieurs Traefik via le champ
-   `serverId`). Non testé sur cette stack.
+   `serverId`). Pertinent si on veut aussi isoler les certs ACME.
 
 ### 14.4 — Pièges Dokploy
 

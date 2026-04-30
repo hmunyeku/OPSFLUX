@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpsFlux — Plateforme ERP pour les op&eacute;rations industrielles</title>
-  <meta name="description" content="OpsFlux est une plateforme ERP moderne pour la gestion des op&eacute;rations, la conformit&eacute; HSE, les ressources humaines et la gestion de projets." />
-  <meta name="theme-color" content="#0B1120" />
-  <meta property="og:title" content="OpsFlux — Plateforme ERP op&eacute;rations industrielles" />
-  <meta property="og:description" content="Centralisez, automatisez et s&eacute;curisez vos processus m&eacute;tier." />
+  <title>OpsFlux — Plateforme ERP pour les opérations industrielles</title>
+  <meta name="description" content="OpsFlux centralise PaxLog, TravelWiz, Conformité HSE, Projets, Asset Registry et Workflow dans une plateforme multi-tenant pour les opérateurs Oil &amp; Gas, maritime et énergie." />
+  <meta name="theme-color" content="#0F172A" />
+  <meta property="og:title" content="OpsFlux — Plateforme ERP opérations industrielles" />
+  <meta property="og:description" content="Centralisez vos opérations, votre conformité HSE, vos voyages affréteurs et vos projets industriels dans une seule plateforme." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://www.opsflux.io" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -17,477 +17,474 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <!-- ─── Navbar ─────────────────────────────────────────────────────────── -->
-  <nav class="navbar" id="navbar">
-    <div class="container navbar-inner">
-      <a href="/" class="logo">
-        <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-          <rect width="32" height="32" rx="8" fill="#2563EB"/>
-          <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <a href="#main" class="skip-link">Aller au contenu principal</a>
+
+  <!-- ─── Header ────────────────────────────────────────────────────── -->
+  <header class="site-header" id="header">
+    <div class="container header-row">
+      <a href="/" class="brand" aria-label="Accueil OpsFlux">
+        <svg class="brand-mark" width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <rect width="32" height="32" rx="7" fill="currentColor"/>
+          <path d="M8 16 L14 22 L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
         </svg>
-        <span>OpsFlux</span>
+        <span class="brand-name">OpsFlux</span>
       </a>
-      <div class="nav-links" id="navLinks">
-        <a href="#features">Fonctionnalit&eacute;s</a>
+
+      <nav class="primary-nav" aria-label="Navigation principale">
         <a href="#modules">Modules</a>
-        <a href="#security">S&eacute;curit&eacute;</a>
-        <a href="#contact">Contact</a>
-      </div>
-      <div class="nav-actions">
+        <a href="#industries">Industries</a>
+        <a href="#tracker">Tracker</a>
+        <a href="#architecture">Architecture</a>
+        <a href="https://docs.opsflux.io" target="_blank" rel="noopener">Docs</a>
+      </nav>
+
+      <div class="header-actions">
         <a href="https://app.opsflux.io/login" class="btn btn-ghost">Se connecter</a>
-        <a href="#contact" class="btn btn-primary">D&eacute;mo gratuite</a>
-        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menu">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        <a href="#contact" class="btn btn-primary">Demander une démo</a>
+        <button class="menu-toggle" id="menuToggle" aria-label="Ouvrir le menu" aria-expanded="false">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M3 6h18M3 12h18M3 18h18"/>
+          </svg>
         </button>
       </div>
     </div>
-  </nav>
+  </header>
 
-  <!-- ─── Hero (Dark) ────────────────────────────────────────────────────── -->
-  <section class="hero">
-    <div class="hero-grid"></div>
-    <div class="container">
-      <div class="hero-badge fade-up"><span class="dot"></span> Plateforme ERP nouvelle g&eacute;n&eacute;ration</div>
-      <h1 class="fade-up fade-up-d1">Pilotez vos op&eacute;rations<br/>industrielles avec <span class="gradient-text">OpsFlux</span></h1>
-      <p class="hero-subtitle fade-up fade-up-d2">
-        Une seule plateforme pour centraliser, automatiser et s&eacute;curiser la gestion de vos op&eacute;rations, conformit&eacute; HSE, ressources humaines et projets.
-      </p>
-      <div class="hero-actions fade-up fade-up-d3">
-        <a href="#contact" class="btn btn-primary btn-lg">Demander une d&eacute;mo gratuite</a>
-        <a href="#features" class="btn btn-outline btn-lg">D&eacute;couvrir</a>
-      </div>
-      <div class="tracking-shell fade-up fade-up-d4" id="publicTracking">
-        <div class="tracking-shell-head">
-          <div>
-            <p class="tracking-eyebrow">Suivi public TravelWiz</p>
-            <h2>Suivez une exp&eacute;dition avec son code de tracking</h2>
-          </div>
-          <p class="tracking-shell-copy">Consultez l'&eacute;tat, la destination, le voyage associ&eacute; et l'historique public d'un colis sans ouvrir l'application interne.</p>
-        </div>
-        <form class="tracking-form" id="trackingForm">
-          <label class="sr-only" for="trackingCode">Code de suivi</label>
-          <input type="text" id="trackingCode" name="trackingCode" autocomplete="off" spellcheck="false" placeholder="Ex. TW-CARGO-2026-00421" />
-          <button type="submit" class="btn btn-primary">Rechercher</button>
-        </form>
-        <p class="tracking-hint" id="trackingHint">Le suivi public n'expose que les informations op&eacute;rationnelles utiles.</p>
-        <div class="tracking-feedback" id="trackingFeedback" hidden></div>
-        <section class="tracking-result" id="trackingResult" hidden aria-live="polite">
-          <div class="tracking-result-head">
-            <div>
-              <p class="tracking-result-label">Exp&eacute;dition</p>
-              <h3 id="trackingResultTitle">-</h3>
-            </div>
-            <div class="tracking-status-chip" id="trackingStatusChip">-</div>
-          </div>
-          <div class="tracking-summary-grid">
-            <article class="tracking-summary-card">
-              <span>Code</span>
-              <strong id="trackingCodeValue">-</strong>
-            </article>
-            <article class="tracking-summary-card">
-              <span>Destination</span>
-              <strong id="trackingDestinationValue">-</strong>
-            </article>
-            <article class="tracking-summary-card">
-              <span>Voyage</span>
-              <strong id="trackingVoyageValue">-</strong>
-            </article>
-            <article class="tracking-summary-card">
-              <span>Dimensions</span>
-              <strong id="trackingDimensionsValue">-</strong>
-            </article>
-          </div>
-          <div class="tracking-detail-grid">
-            <article class="tracking-panel">
-              <div class="tracking-panel-head">
-                <p>D&eacute;tail de l'exp&eacute;dition</p>
-              </div>
-              <dl class="tracking-data-list">
-                <div>
-                  <dt>Type</dt>
-                  <dd id="trackingTypeValue">-</dd>
-                </div>
-                <div>
-                  <dt>Poids</dt>
-                  <dd id="trackingWeightValue">-</dd>
-                </div>
-                <div>
-                  <dt>Exp&eacute;diteur</dt>
-                  <dd id="trackingSenderValue">-</dd>
-                </div>
-                <div>
-                  <dt>Destinataire</dt>
-                  <dd id="trackingReceiverValue">-</dd>
-                </div>
-                <div>
-                  <dt>Derni&egrave;re mise &agrave; jour</dt>
-                  <dd id="trackingLastEventValue">-</dd>
-                </div>
-                <div>
-                  <dt>R&eacute;ception</dt>
-                  <dd id="trackingReceivedAtValue">-</dd>
-                </div>
-              </dl>
-            </article>
-            <article class="tracking-panel">
-              <div class="tracking-panel-head">
-                <p>Historique public</p>
-              </div>
-              <ol class="tracking-timeline" id="trackingTimeline"></ol>
-            </article>
-          </div>
-        </section>
-      </div>
-      <div class="hero-stats fade-up fade-up-d4">
-        <div class="stat">
-          <span class="stat-value">12+</span>
-          <span class="stat-label">Modules</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value">100%</span>
-          <span class="stat-label">Conformit&eacute; HSE</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value">24/7</span>
-          <span class="stat-label">Disponibilit&eacute;</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value">RGPD</span>
-          <span class="stat-label">Conforme</span>
-        </div>
-      </div>
-    </div>
-    <div class="hero-fade"></div>
-  </section>
-
-  <!-- ─── Trusted By ─────────────────────────────────────────────────────── -->
-  <section class="trusted-section">
-    <div class="container">
-      <p class="trusted-header">Fait pour les entreprises industrielles</p>
-      <div class="trusted-logos">
-        <span>Oil &amp; Gas</span>
-        <span>Mining</span>
-        <span>Energy</span>
-        <span>Construction</span>
-        <span>Maritime</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── Features ───────────────────────────────────────────────────────── -->
-  <section class="section" id="features">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-badge">Fonctionnalit&eacute;s</span>
-        <h2>Tout ce dont vous avez besoin, en un seul endroit</h2>
-        <p>OpsFlux regroupe l'ensemble de vos outils m&eacute;tier dans une interface unifi&eacute;e, moderne et intuitive.</p>
-      </div>
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon" style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);color:#2563EB;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/></svg>
-          </div>
-          <h3>Conformit&eacute; HSE</h3>
-          <p>Suivi des formations, certifications, habilitations. Alertes automatiques avant expiration. V&eacute;rification et validation des donn&eacute;es sensibles.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon" style="background:linear-gradient(135deg,#F0FDF4,#DCFCE7);color:#16A34A;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-          </div>
-          <h3>Ressources Humaines</h3>
-          <p>Profils employ&eacute;s complets, passeports, visas, dossiers m&eacute;dicaux. Historique et tra&ccedil;abilit&eacute; compl&egrave;te.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon" style="background:linear-gradient(135deg,#FFF7ED,#FFEDD5);color:#EA580C;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M5 20V4h14v16"/><path d="M9 8h2"/><path d="M9 12h2"/><path d="M13 8h2"/><path d="M13 12h2"/><path d="M9 16h6"/></svg>
-          </div>
-          <h3>Gestion des Actifs</h3>
-          <p>Registre complet, maintenance pr&eacute;ventive, diagrammes P&amp;ID/PFD, suivi du cycle de vie et co&ucirc;ts.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon" style="background:linear-gradient(135deg,#FAF5FF,#EDE9FE);color:#7C3AED;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-          </div>
-          <h3>Tableaux de bord</h3>
-          <p>Dashboards personnalisables, widgets drag &amp; drop, KPIs temps r&eacute;el, requ&ecirc;tes SQL, mode TV.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon" style="background:linear-gradient(135deg,#FEF2F2,#FECACA);color:#DC2626;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
-          </div>
-          <h3>Workflows</h3>
-          <p>&Eacute;diteur visuel de processus m&eacute;tier. D&eacute;clencheurs, approbations, notifications et int&eacute;grations.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon" style="background:linear-gradient(135deg,#ECFEFF,#CFFAFE);color:#0891B2;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>
-          </div>
-          <h3>Gestion de Projets</h3>
-          <p>Planification, Gantt, jalons, allocation des ressources. Int&eacute;gration avec tous les modules.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── Modules ────────────────────────────────────────────────────────── -->
-  <section class="section section-alt" id="modules">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-badge">Modules</span>
-        <h2>Architecture modulaire, adapt&eacute;e &agrave; vos besoins</h2>
-        <p>Activez les modules n&eacute;cessaires. Chaque module s'int&egrave;gre parfaitement avec le reste de la plateforme.</p>
-      </div>
-      <div class="modules-grid">
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-          </div>
-          <h4>PaxLog</h4>
-          <p>Profils, documents, dossiers m&eacute;dicaux</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          </div>
-          <h4>Conformit&eacute;</h4>
-          <p>HSE, r&egrave;gles, v&eacute;rifications</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M5 20V4h14v16"/><path d="M9 8h2"/><path d="M13 8h2"/></svg>
-          </div>
-          <h4>Actifs</h4>
-          <p>Registre, maintenance, cycle de vie</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg>
-          </div>
-          <h4>Tiers</h4>
-          <p>Fournisseurs, sous-traitants, clients</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-          </div>
-          <h4>Projets</h4>
-          <p>Gantt, jalons, ressources</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          </div>
-          <h4>Planner</h4>
-          <p>Calendrier, affectations</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
-          </div>
-          <h4>TravelWiz</h4>
-          <p>Voyages, h&eacute;liport, manifestes</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
-          </div>
-          <h4>Workflows</h4>
-          <p>&Eacute;diteur visuel, automatisation</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-          </div>
-          <h4>Dashboard</h4>
-          <p>Widgets, KPIs, mode TV</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-          </div>
-          <h4>Reports</h4>
-          <p>Templates PDF, export</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-          </div>
-          <h4>Messaging</h4>
-          <p>Chat interne, canaux, fichiers</p>
-        </div>
-        <div class="module-card">
-          <div class="module-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m7.08 7.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m7.08-7.08l4.24-4.24"/></svg>
-          </div>
-          <h4>P&amp;ID / PFD</h4>
-          <p>Diagrammes, instrumentation</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── Security ───────────────────────────────────────────────────────── -->
-  <section class="section" id="security">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-badge">S&eacute;curit&eacute;</span>
-        <h2>La s&eacute;curit&eacute; au c&oelig;ur de la plateforme</h2>
-        <p>Con&ccedil;u pour r&eacute;pondre aux exigences les plus strictes en mati&egrave;re de s&eacute;curit&eacute; et de conformit&eacute; r&eacute;glementaire.</p>
-      </div>
-      <div class="security-grid">
-        <div class="security-card">
-          <div class="security-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-          </div>
-          <h4>Authentification MFA</h4>
-          <p>TOTP, OTP email/SMS, SSO LDAP/OAuth2. S&eacute;curit&eacute; maximale pour chaque connexion.</p>
-        </div>
-        <div class="security-card">
-          <div class="security-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-          <h4>RBAC Granulaire</h4>
-          <p>Permissions fines par r&ocirc;le, groupe, entit&eacute; et module. Principe du moindre privil&egrave;ge.</p>
-        </div>
-        <div class="security-card">
-          <div class="security-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>
-          </div>
-          <h4>Audit Complet</h4>
-          <p>Tra&ccedil;abilit&eacute; de toutes les actions. Journal horodat&eacute; et immutable.</p>
-        </div>
-        <div class="security-card">
-          <div class="security-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9"/></svg>
-          </div>
-          <h4>Multi-tenant</h4>
-          <p>Isolation compl&egrave;te des donn&eacute;es. Chaque organisation dans son propre espace s&eacute;curis&eacute;.</p>
-        </div>
-        <div class="security-card">
-          <div class="security-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-          </div>
-          <h4>Chiffrement</h4>
-          <p>HTTPS/TLS, bcrypt, JWT sign&eacute;s. Donn&eacute;es sensibles prot&eacute;g&eacute;es de bout en bout.</p>
-        </div>
-        <div class="security-card">
-          <div class="security-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M9 12l2 2 4-4"/></svg>
-          </div>
-          <h4>RGPD</h4>
-          <p>Conforme au R&egrave;glement G&eacute;n&eacute;ral sur la Protection des Donn&eacute;es. Droit &agrave; l'oubli, export.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── CTA ────────────────────────────────────────────────────────────── -->
-  <section class="section cta-section">
-    <div class="container">
-      <div class="cta-box">
-        <h2>Pr&ecirc;t &agrave; transformer vos op&eacute;rations ?</h2>
-        <p>Rejoignez les entreprises industrielles qui font confiance &agrave; OpsFlux pour piloter leurs op&eacute;rations en toute s&eacute;curit&eacute;.</p>
-        <div class="hero-actions">
-          <a href="#contact" class="btn btn-white btn-lg">Demander une d&eacute;mo gratuite</a>
-          <a href="https://app.opsflux.io/login" class="btn btn-outline btn-lg">Se connecter</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── Contact ────────────────────────────────────────────────────────── -->
-  <section class="section section-alt" id="contact">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-badge">Contact</span>
-        <h2>Demandez votre d&eacute;monstration</h2>
-        <p>Notre &eacute;quipe vous contactera dans les 24 heures pour organiser une d&eacute;mo personnalis&eacute;e.</p>
-      </div>
-      <div class="contact-form-wrapper">
-        <form class="contact-form" id="contactForm">
-          <div class="form-row">
-            <div class="form-group">
-              <label for="firstName">Pr&eacute;nom</label>
-              <input type="text" id="firstName" name="firstName" required placeholder="Jean" />
-            </div>
-            <div class="form-group">
-              <label for="lastName">Nom</label>
-              <input type="text" id="lastName" name="lastName" required placeholder="Dupont" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="email">Email professionnel</label>
-            <input type="email" id="email" name="email" required placeholder="jean.dupont@entreprise.com" />
-          </div>
-          <div class="form-group">
-            <label for="company">Entreprise</label>
-            <input type="text" id="company" name="company" required placeholder="Nom de votre entreprise" />
-          </div>
-          <div class="form-group">
-            <label for="employees">Nombre d'employ&eacute;s</label>
-            <select id="employees" name="employees">
-              <option value="">S&eacute;lectionnez</option>
-              <option value="1-50">1 &ndash; 50</option>
-              <option value="51-200">51 &ndash; 200</option>
-              <option value="201-500">201 &ndash; 500</option>
-              <option value="501-1000">501 &ndash; 1000</option>
-              <option value="1000+">1000+</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="message">Message <span style="font-weight:400;color:var(--gray-400)">(optionnel)</span></label>
-            <textarea id="message" name="message" rows="3" placeholder="D&eacute;crivez bri&egrave;vement vos besoins..."></textarea>
-          </div>
-          <button type="submit" class="btn btn-primary btn-lg btn-full">Envoyer ma demande</button>
-        </form>
-        <div class="form-success" id="formSuccess" style="display:none;">
-          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-          <h3>Demande envoy&eacute;e !</h3>
-          <p>Merci pour votre int&eacute;r&ecirc;t. Notre &eacute;quipe vous contactera dans les 24 heures.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── Footer ─────────────────────────────────────────────────────────── -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div class="footer-brand">
-          <a href="/" class="logo">
-            <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="#2563EB"/>
-              <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <span>OpsFlux</span>
+  <main id="main">
+    <!-- ─── Hero ──────────────────────────────────────────────────── -->
+    <section class="hero">
+      <div class="hero-bg" aria-hidden="true"></div>
+      <div class="container hero-content">
+        <p class="eyebrow reveal">Plateforme ERP industrielle multi-tenant</p>
+        <h1 class="hero-title reveal" style="--delay:.05s">
+          Une seule plateforme<br>pour vos opérations<br>
+          <span class="accent">industrielles critiques.</span>
+        </h1>
+        <p class="hero-lede reveal" style="--delay:.10s">
+          OpsFlux centralise mouvement de personnel, voyages affréteurs,
+          conformité HSE, projets, assets et MOC dans une stack unifiée
+          pensée pour l'oil &amp; gas, le maritime et l'énergie.
+        </p>
+        <div class="hero-cta reveal" style="--delay:.15s">
+          <a href="#contact" class="btn btn-primary btn-lg">Demander une démo</a>
+          <a href="#modules" class="btn btn-secondary btn-lg">
+            <span>Explorer les modules</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
-          <p>Plateforme ERP moderne pour la gestion des op&eacute;rations industrielles.</p>
         </div>
-        <div class="footer-links">
-          <h5>Produit</h5>
-          <a href="#features">Fonctionnalit&eacute;s</a>
-          <a href="#modules">Modules</a>
-          <a href="#security">S&eacute;curit&eacute;</a>
-          <a href="#contact">Tarifs</a>
-        </div>
-        <div class="footer-links">
-          <h5>Ressources</h5>
-          <a href="#">Documentation</a>
-          <a href="#">API</a>
-          <a href="#">Changelog</a>
-          <a href="#">Status</a>
-        </div>
-        <div class="footer-links">
-          <h5>L&eacute;gal</h5>
-          <a href="#">Mentions l&eacute;gales</a>
-          <a href="#">Confidentialit&eacute;</a>
-          <a href="#">CGU</a>
-          <a href="#">RGPD</a>
+        <dl class="hero-stats reveal" style="--delay:.20s">
+          <div><dt>Modules</dt><dd>15</dd></div>
+          <div><dt>Conformité HSE</dt><dd>100%</dd></div>
+          <div><dt>Disponibilité</dt><dd>24/7</dd></div>
+          <div><dt>RGPD</dt><dd>Conforme</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- ─── Industries ────────────────────────────────────────────── -->
+    <section class="section section-tight" id="industries">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow eyebrow-quiet">Pour qui</p>
+          <h2>Conçu pour les opérateurs industriels exigeants</h2>
+          <p class="lede">
+            Les défis terrain (sites isolés, conformité, traçabilité réglementaire,
+            multi-pays) sont au cœur du design produit.
+          </p>
+        </header>
+        <ul class="industries-row">
+          <li class="industry">
+            <span class="industry-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            </span>
+            <h3>Oil &amp; Gas</h3>
+            <p>Champs onshore, plateformes offshore, FPSO. Rotations, embarquement, conformité réglementaire.</p>
+          </li>
+          <li class="industry">
+            <span class="industry-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l3.18-1.06a4 4 0 0 1 2.55 0L12 17l3.27-1.06a4 4 0 0 1 2.55 0L21 17M3 21l3.18-1.06a4 4 0 0 1 2.55 0L12 21l3.27-1.06a4 4 0 0 1 2.55 0L21 21M5 13L3 17M19 13l2 4M5 13c0-3 2-7 7-7s7 4 7 7"/></svg>
+            </span>
+            <h3>Maritime</h3>
+            <p>Affrètements, manifestes passagers, captain portal, suivi cargo public via QR code.</p>
+          </li>
+          <li class="industry">
+            <span class="industry-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h2M22 12h-2M12 2v2M12 22v-2M5.6 5.6l1.4 1.4M16.95 16.95l1.45 1.45M5.6 18.4l1.4-1.4M16.95 7.05l1.45-1.45"/><circle cx="12" cy="12" r="4"/></svg>
+            </span>
+            <h3>Énergie</h3>
+            <p>Centrales, parcs solaires, fermes éoliennes. Maintenance préventive, asset registry, rapports.</p>
+          </li>
+          <li class="industry">
+            <span class="industry-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20M3 22V11l4-3 5 4 4-3 5 5v8"/></svg>
+            </span>
+            <h3>Mining</h3>
+            <p>Sites isolés, cycles d'équipes, tonnage, blast permits, traçabilité matériel.</p>
+          </li>
+          <li class="industry">
+            <span class="industry-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20M5 20V8h14v12M9 20v-8h6v8"/></svg>
+            </span>
+            <h3>Construction</h3>
+            <p>EPC offshore, lots multi-corps, sous-traitants, contrôles d'accès et habilitations.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ─── Capabilities ──────────────────────────────────────────── -->
+    <section class="section section-grey" id="capabilities">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow eyebrow-quiet">Capacités clés</p>
+          <h2>Tout ce qui rend une plateforme ERP réellement opérationnelle.</h2>
+          <p class="lede">
+            Pas de feature checklist marketing. Six piliers tirés de cas
+            d'usage réels chez les clients pilotes.
+          </p>
+        </header>
+        <div class="cap-grid">
+          <article class="cap reveal">
+            <div class="cap-icon cap-icon-blue" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <h3>Conformité HSE temps réel</h3>
+            <p>Habilitations, formations, visites médicales, visas. Alertes pré-expiration, vérification automatique à la soumission d'une ADS.</p>
+          </article>
+          <article class="cap reveal" style="--delay:.05s">
+            <div class="cap-icon cap-icon-green" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            </div>
+            <h3>Mouvement de personnel</h3>
+            <p>ADS, AVM, embarquement scanné, rotations off/on. Internes et externes (sous-traitants), portails dédiés.</p>
+          </article>
+          <article class="cap reveal" style="--delay:.10s">
+            <div class="cap-icon cap-icon-orange" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20M5 20V4h14v16M9 8h2M9 12h2M13 8h2M13 12h2M9 16h6"/></svg>
+            </div>
+            <h3>Asset Registry</h3>
+            <p>Hiérarchie champs → sites → installations → équipements. P&amp;ID/PFD éditables, KMZ import, cycle de vie complet.</p>
+          </article>
+          <article class="cap reveal" style="--delay:.15s">
+            <div class="cap-icon cap-icon-violet" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+            </div>
+            <h3>Tableaux de bord</h3>
+            <p>Onglets par rôle + GridStack libre. Widgets drag-and-drop, KPIs temps réel, requêtes SQL, mode TV.</p>
+          </article>
+          <article class="cap reveal" style="--delay:.20s">
+            <div class="cap-icon cap-icon-red" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <h3>Workflow Engine</h3>
+            <p>FSM générique pluggable sur tout objet. Éditeur visuel, transitions par rôle, signatures électroniques, audit complet.</p>
+          </article>
+          <article class="cap reveal" style="--delay:.25s">
+            <div class="cap-icon cap-icon-cyan" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>
+            </div>
+            <h3>Multi-tenant + multi-entités</h3>
+            <p>Schémas Postgres par tenant, scoping par entity_id sur toutes les tables métier. SSO Google, Microsoft, GitHub, Okta, Keycloak.</p>
+          </article>
         </div>
       </div>
-      <div class="footer-bottom">
-        <p>&copy; 2026 OpsFlux. Tous droits r&eacute;serv&eacute;s.</p>
+    </section>
+
+    <!-- ─── Modules ───────────────────────────────────────────────── -->
+    <section class="section" id="modules">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow eyebrow-quiet">15 modules</p>
+          <h2>Une architecture modulaire, activable à la carte.</h2>
+          <p class="lede">
+            Chaque module est indépendant et s'enregistre au démarrage via
+            le ModuleRegistry. Les interactions cross-modules passent par
+            un bus d'événements interne — pas de couplage dur.
+          </p>
+        </header>
+
+        <div class="module-grid">
+          <a href="https://docs.opsflux.io/enduser/modules/paxlog/" target="_blank" rel="noopener" class="module">
+            <h4>PaxLog</h4>
+            <p>Mouvements de personnel, ADS, AVM, embarquement, conformité.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>TravelWiz</h4>
+            <p>Voyages affréteurs, manifestes, captain portal, deck plans.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>PackLog</h4>
+            <p>Cargo &amp; emballage tracé QR, scan flux, retours.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>Conformité</h4>
+            <p>Référentiel, règles, exemptions, fiches de poste, matrice habilitations.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>Projets</h4>
+            <p>WBS, CPM, antécédents, ressources, pointage, pertes, MS Project-like.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>Planner</h4>
+            <p>Planification scénarisée, heatmap POB, conflits, gantt.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>Asset Registry</h4>
+            <p>Champs, sites, installations, équipements, pipelines, GIS PostGIS.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>PID / PFD</h4>
+            <p>Éditeur xyflow, import KMZ, versioning, export PDF.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>Tiers</h4>
+            <p>Entreprises, contacts, identifiants légaux, portails externes.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>Papyrus</h4>
+            <p>Documents structurés versionnés, templates, formulaires, dispatch.</p>
+          </a>
+          <a href="https://docs.opsflux.io/enduser/modules/MOC/" target="_blank" rel="noopener" class="module">
+            <h4>MOC</h4>
+            <p>Management of Change : formulaire 9-signatures, FSM 12 états.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>Imputations</h4>
+            <p>Comptes analytiques, taux de change historiques, OTP.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>Workflow</h4>
+            <p>Moteur d'états FSM générique, pluggable sur tout module.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>Support</h4>
+            <p>Tickets, agent IA auto-fix, workflow CI intégré.</p>
+          </a>
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
+            <h4>Dashboard</h4>
+            <p>Onglets par rôle + GridStack libre, widgets, KPIs, mode TV.</p>
+          </a>
+        </div>
       </div>
+    </section>
+
+    <!-- ─── Tracker public ────────────────────────────────────────── -->
+    <section class="section section-dark" id="tracker">
+      <div class="container">
+        <header class="section-head section-head-dark">
+          <p class="eyebrow eyebrow-quiet">Suivi public TravelWiz</p>
+          <h2>Suivez une expédition avec son code de tracking.</h2>
+          <p class="lede">
+            Consultez l'état, la destination, le voyage associé et l'historique
+            public d'un colis sans ouvrir l'application interne. Aucune donnée
+            sensible n'est exposée.
+          </p>
+        </header>
+
+        <div class="tracker" id="publicTracking">
+          <form class="tracker-form" id="trackingForm" autocomplete="off">
+            <label class="sr-only" for="trackingCode">Code de suivi</label>
+            <input type="text" id="trackingCode" name="trackingCode" spellcheck="false"
+                   placeholder="Ex. TW-CARGO-2026-00421" />
+            <button type="submit" class="btn btn-primary">Rechercher</button>
+          </form>
+          <p class="tracker-hint" id="trackingHint">Le suivi public n'expose que les informations opérationnelles utiles.</p>
+          <div class="tracker-feedback" id="trackingFeedback" hidden></div>
+
+          <section class="tracker-result" id="trackingResult" hidden aria-live="polite">
+            <header class="tracker-result-head">
+              <div>
+                <p class="tracker-result-label">Expédition</p>
+                <h3 id="trackingResultTitle">-</h3>
+              </div>
+              <div class="status-chip" id="trackingStatusChip">-</div>
+            </header>
+
+            <ul class="tracker-summary">
+              <li><span>Code</span><strong id="trackingCodeValue">-</strong></li>
+              <li><span>Destination</span><strong id="trackingDestinationValue">-</strong></li>
+              <li><span>Voyage</span><strong id="trackingVoyageValue">-</strong></li>
+              <li><span>Dimensions</span><strong id="trackingDimensionsValue">-</strong></li>
+            </ul>
+
+            <div class="tracker-detail">
+              <article class="tracker-panel">
+                <h4>Détail</h4>
+                <dl>
+                  <div><dt>Type</dt><dd id="trackingTypeValue">-</dd></div>
+                  <div><dt>Poids</dt><dd id="trackingWeightValue">-</dd></div>
+                  <div><dt>Expéditeur</dt><dd id="trackingSenderValue">-</dd></div>
+                  <div><dt>Destinataire</dt><dd id="trackingReceiverValue">-</dd></div>
+                  <div><dt>Dernière mise à jour</dt><dd id="trackingLastEventValue">-</dd></div>
+                  <div><dt>Réception</dt><dd id="trackingReceivedAtValue">-</dd></div>
+                </dl>
+              </article>
+              <article class="tracker-panel">
+                <h4>Historique public</h4>
+                <ol class="tracker-timeline" id="trackingTimeline"></ol>
+              </article>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Architecture & sécurité ───────────────────────────────── -->
+    <section class="section" id="architecture">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow eyebrow-quiet">Architecture &amp; sécurité</p>
+          <h2>Une stack open source moderne, conçue pour durer.</h2>
+        </header>
+
+        <div class="pillar-grid">
+          <article class="pillar reveal">
+            <div class="pillar-num">01</div>
+            <h3>Multi-tenant strict</h3>
+            <p>
+              Schemas PostgreSQL par tenant, scoping <code>entity_id</code> sur
+              toutes les tables métier. Aucune fuite cross-tenant possible —
+              les middlewares forcent le filtre à chaque requête SQL.
+            </p>
+          </article>
+          <article class="pillar reveal" style="--delay:.05s">
+            <div class="pillar-num">02</div>
+            <h3>Auth &amp; RBAC granulaire</h3>
+            <p>
+              SSO Google, Microsoft, GitHub, Okta, Keycloak. JWT + refresh.
+              Permissions hiérarchiques par module (~500), rôles
+              configurables, audit log complet.
+            </p>
+          </article>
+          <article class="pillar reveal" style="--delay:.10s">
+            <div class="pillar-num">03</div>
+            <h3>Stack technique</h3>
+            <p>
+              Python 3.12 / FastAPI / SQLAlchemy 2 async, PostgreSQL 16
+              (pgvector + PostGIS + ltree), Redis 7, React 18 / Vite /
+              TailwindCSS / shadcn-ui. Mobile React Native (Expo).
+            </p>
+          </article>
+          <article class="pillar reveal" style="--delay:.15s">
+            <div class="pillar-num">04</div>
+            <h3>Self-hostable</h3>
+            <p>
+              Docker Compose sur n'importe quel VPS — vanilla, Dokploy,
+              Coolify, EasyPanel, Caprover, Portainer. Traefik + Let's
+              Encrypt. Variables <code>DOMAIN</code>, <code>STACK_NAME</code>,
+              <code>CERT_RESOLVER</code>, <code>TRAEFIK_NETWORK</code>.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── How it works ──────────────────────────────────────────── -->
+    <section class="section section-grey" id="how">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow eyebrow-quiet">Comment démarrer</p>
+          <h2>Trois étapes pour mettre OpsFlux en production.</h2>
+        </header>
+        <ol class="steps">
+          <li class="step reveal">
+            <span class="step-num">1</span>
+            <h3>Configurez votre domaine</h3>
+            <p>
+              Pointez 8 sous-domaines (<code>app.</code>, <code>api.</code>,
+              <code>docs.</code>, <code>ext.</code>, <code>drawio.</code>,
+              <code>db.</code>, <code>www.</code>, apex) sur l'IP de votre
+              VPS. Ajoutez un wildcard si vous avez un cert.
+            </p>
+          </li>
+          <li class="step reveal" style="--delay:.05s">
+            <span class="step-num">2</span>
+            <h3>Lancez Docker Compose</h3>
+            <p>
+              <code>cp .env.example .env</code>, complétez <code>POSTGRES_PASSWORD</code>,
+              <code>SECRET_KEY</code>, <code>JWT_SECRET_KEY</code>,
+              <code>ENCRYPTION_KEY</code>, puis <code>docker compose up -d</code>.
+              Migrations + seed automatiques au boot.
+            </p>
+          </li>
+          <li class="step reveal" style="--delay:.10s">
+            <span class="step-num">3</span>
+            <h3>Connectez-vous</h3>
+            <p>
+              Login admin via <code>FIRST_SUPERUSER</code>. Activez les modules,
+              configurez les SSO providers depuis Settings → Intégrations,
+              invitez vos premiers utilisateurs.
+            </p>
+          </li>
+        </ol>
+        <div class="how-cta">
+          <a href="https://docs.opsflux.io/enduser/getting-started/deploy/" target="_blank" rel="noopener" class="btn btn-secondary">Guide de déploiement complet
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── CTA ───────────────────────────────────────────────────── -->
+    <section class="cta-band" id="contact">
+      <div class="container cta-inner">
+        <div>
+          <h2>Prêt à voir OpsFlux en action&nbsp;?</h2>
+          <p>Démo personnalisée 30 min. Réponse sous 48 h ouvrées.</p>
+        </div>
+        <div class="cta-actions">
+          <a href="mailto:contact@opsflux.io?subject=Demande%20de%20démo%20OpsFlux" class="btn btn-primary btn-lg">Demander une démo</a>
+          <a href="https://github.com/hmunyeku/OPSFLUX" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.91.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>
+            Voir le code source
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ─── Footer ────────────────────────────────────────────────── -->
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <a href="/" class="brand brand-light">
+          <svg class="brand-mark" width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <rect width="32" height="32" rx="7" fill="currentColor"/>
+            <path d="M8 16 L14 22 L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          <span class="brand-name">OpsFlux</span>
+        </a>
+        <p>Plateforme ERP modulaire pour les opérations industrielles.</p>
+      </div>
+
+      <nav class="footer-nav" aria-label="Produit">
+        <h4>Produit</h4>
+        <a href="#modules">Modules</a>
+        <a href="#capabilities">Capacités</a>
+        <a href="#tracker">Tracker public</a>
+        <a href="#architecture">Architecture</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Documentation">
+        <h4>Documentation</h4>
+        <a href="https://docs.opsflux.io/enduser/getting-started/overview/" target="_blank" rel="noopener">Vue d'ensemble</a>
+        <a href="https://docs.opsflux.io/enduser/getting-started/deploy/" target="_blank" rel="noopener">Guide de déploiement</a>
+        <a href="https://docs.opsflux.io/enduser/modules/paxlog/" target="_blank" rel="noopener">Doc PaxLog</a>
+        <a href="https://docs.opsflux.io/" target="_blank" rel="noopener">Tout sur docs.opsflux.io</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Plateforme">
+        <h4>Plateforme</h4>
+        <a href="https://app.opsflux.io" target="_blank" rel="noopener">Application</a>
+        <a href="https://app.opsflux.io/login" target="_blank" rel="noopener">Se connecter</a>
+        <a href="https://github.com/hmunyeku/OPSFLUX" target="_blank" rel="noopener">Code source</a>
+        <a href="mailto:contact@opsflux.io">contact@opsflux.io</a>
+      </nav>
+    </div>
+
+    <div class="container footer-bottom">
+      <p>&copy; <span id="year"></span> OpsFlux. Tous droits réservés.</p>
+      <p class="muted">Plateforme propriétaire — usage interne et sous licence.</p>
     </div>
   </footer>
 

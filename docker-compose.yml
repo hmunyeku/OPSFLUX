@@ -4,13 +4,19 @@
 # Dokploy creates .env from compose environment settings.
 # Domains & SSL managed by Dokploy's built-in Traefik.
 #
-# Two env vars steer routing:
-#   DOMAIN     → templates Host() rules. Defaults to opsflux.io.
-#   STACK_NAME → namespaces every Traefik router/service/middleware so
-#                multiple OpsFlux instances can coexist on the same
-#                Traefik (e.g. prod + staging behind the same proxy).
-#                Defaults to "opsflux" — unchanged from pre-namespacing.
-#                Override to "opsflux-staging" / "opsflux-test" / etc.
+# Three env vars steer routing:
+#   DOMAIN        → templates Host() rules. Defaults to opsflux.io.
+#   STACK_NAME    → namespaces every Traefik router/service/middleware
+#                   so multiple OpsFlux instances can coexist on the
+#                   same Traefik (e.g. prod + staging behind the same
+#                   proxy). Defaults to "opsflux".
+#                   Override to "opsflux-staging" / "opsflux-test" / etc.
+#   CERT_RESOLVER → name of the Traefik ACME cert resolver to use.
+#                   Defaults to "letsencrypt" (HTTP-01 per subdomain,
+#                   matches Dokploy + standalone Traefik §7.1 setup).
+#                   Set to "letsencrypt-dns" for DNS-01 wildcard.
+#                   See docs/DEPLOY_VPS.md §7.4 for the wildcard cert
+#                   setup (LE DNS-01 OR commercial wildcard upload).
 
 services:
   # ─── PostgreSQL 16 + pgvector + PostGIS ──────────────────────
@@ -87,7 +93,7 @@ services:
       - "traefik.http.routers.${STACK_NAME:-opsflux}-api-web.service=${STACK_NAME:-opsflux}-api"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-api-websecure.entrypoints=websecure"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-api-websecure.rule=Host(`api.${DOMAIN:-opsflux.io}`)"
-      - "traefik.http.routers.${STACK_NAME:-opsflux}-api-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-api-websecure.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-api-websecure.service=${STACK_NAME:-opsflux}-api"
       # ── MCP Gateway (mcp.<DOMAIN> → backend /mcp-gw/) ──
       - "traefik.http.routers.${STACK_NAME:-opsflux}-mcp-web.entrypoints=web"
@@ -96,7 +102,7 @@ services:
       - "traefik.http.routers.${STACK_NAME:-opsflux}-mcp-web.service=${STACK_NAME:-opsflux}-api"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-mcp-websecure.entrypoints=websecure"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-mcp-websecure.rule=Host(`mcp.${DOMAIN:-opsflux.io}`)"
-      - "traefik.http.routers.${STACK_NAME:-opsflux}-mcp-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-mcp-websecure.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-mcp-websecure.service=${STACK_NAME:-opsflux}-api"
     networks:
       - default
@@ -121,7 +127,7 @@ services:
       - "traefik.http.routers.${STACK_NAME:-opsflux}-app-web.service=${STACK_NAME:-opsflux}-app"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-app-websecure.entrypoints=websecure"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-app-websecure.rule=Host(`app.${DOMAIN:-opsflux.io}`)"
-      - "traefik.http.routers.${STACK_NAME:-opsflux}-app-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-app-websecure.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-app-websecure.service=${STACK_NAME:-opsflux}-app"
       - "traefik.http.services.${STACK_NAME:-opsflux}-app.loadbalancer.server.port=80"
     networks:
@@ -145,7 +151,7 @@ services:
       - "traefik.http.routers.${STACK_NAME:-opsflux}-ext-paxlog-web.service=${STACK_NAME:-opsflux}-ext-paxlog"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-ext-paxlog-websecure.entrypoints=websecure"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-ext-paxlog-websecure.rule=Host(`ext.${DOMAIN:-opsflux.io}`)"
-      - "traefik.http.routers.${STACK_NAME:-opsflux}-ext-paxlog-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-ext-paxlog-websecure.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-ext-paxlog-websecure.service=${STACK_NAME:-opsflux}-ext-paxlog"
       - "traefik.http.services.${STACK_NAME:-opsflux}-ext-paxlog.loadbalancer.server.port=80"
     networks:
@@ -163,13 +169,13 @@ services:
       # www.<DOMAIN>
       - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine.rule=Host(`www.${DOMAIN:-opsflux.io}`)"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine.entrypoints=websecure"
-      - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine.service=${STACK_NAME:-opsflux}-vitrine"
       - "traefik.http.services.${STACK_NAME:-opsflux}-vitrine.loadbalancer.server.port=80"
       # naked <DOMAIN> → redirect to www
       - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine-root.rule=Host(`${DOMAIN:-opsflux.io}`)"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine-root.entrypoints=websecure"
-      - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine-root.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine-root.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine-root.service=${STACK_NAME:-opsflux}-vitrine"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-vitrine-root.middlewares=${STACK_NAME:-opsflux}-vitrine-www-redirect"
       - "traefik.http.middlewares.${STACK_NAME:-opsflux}-vitrine-www-redirect.redirectregex.regex=^https://${DOMAIN:-opsflux.io}/(.*)"
@@ -199,7 +205,7 @@ services:
       - "traefik.http.routers.${STACK_NAME:-opsflux}-drawio-web.service=${STACK_NAME:-opsflux}-drawio"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-drawio-websecure.entrypoints=websecure"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-drawio-websecure.rule=Host(`drawio.${DOMAIN:-opsflux.io}`)"
-      - "traefik.http.routers.${STACK_NAME:-opsflux}-drawio-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-drawio-websecure.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-drawio-websecure.service=${STACK_NAME:-opsflux}-drawio"
     networks:
       - default
@@ -230,7 +236,7 @@ services:
       - "traefik.http.routers.${STACK_NAME:-opsflux}-pgadmin-web.service=${STACK_NAME:-opsflux}-pgadmin"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-pgadmin-websecure.entrypoints=websecure"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-pgadmin-websecure.rule=Host(`db.${DOMAIN:-opsflux.io}`)"
-      - "traefik.http.routers.${STACK_NAME:-opsflux}-pgadmin-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-pgadmin-websecure.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-pgadmin-websecure.service=${STACK_NAME:-opsflux}-pgadmin"
       - "traefik.http.services.${STACK_NAME:-opsflux}-pgadmin.loadbalancer.server.port=80"
     networks:

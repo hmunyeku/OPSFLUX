@@ -415,8 +415,129 @@ http:
 
 Puis dans `docker-compose.yml` (service `pgadmin`), ajouter :
 ```yaml
-- "traefik.http.routers.pgadmin-websecure.middlewares=pgadmin-allowlist@file"
+- "traefik.http.routers.${STACK_NAME:-opsflux}-pgadmin-websecure.middlewares=pgadmin-allowlist@file"
 ```
+
+### 7.4 — Certificat SSL wildcard
+
+Par défaut, le `docker-compose.yml` demande à Traefik un certificat
+**par sous-domaine** via le resolver ACME `letsencrypt` (HTTP-01,
+configuré en §7.1). Concrètement → 7 sous-domaines = 7 certs LE,
+7 challenges HTTP-01 successifs au premier deploy. Si quelque chose
+foire (DNS pas propagé, port 80 fermé, …), tu peux te retrouver
+rate-limité sur Let's Encrypt pendant 1h ou plus.
+
+Le `docker-compose.yml` expose une variable **`CERT_RESOLVER`**
+(défaut : `letsencrypt`) qui permet de basculer vers un wildcard sans
+toucher au compose. Trois scénarios.
+
+#### A. Wildcard via Let's Encrypt DNS-01 (gratuit, recommandé)
+
+Avantage : un seul cert `*.opsflux.io` couvre tous les sous-domaines.
+Pré-requis : DNS provider supporté par lego ([liste](https://go-acme.github.io/lego/dns/))
++ un token API en lecture/écriture sur la zone DNS.
+
+1. **Configurer le resolver DNS dans Traefik** (option A §7.1) :
+
+   ```yaml
+   # /opt/traefik/docker-compose.yml — service traefik, command:
+   - "--certificatesresolvers.letsencrypt-dns.acme.email=admin@opsflux.io"
+   - "--certificatesresolvers.letsencrypt-dns.acme.storage=/letsencrypt/acme.json"
+   - "--certificatesresolvers.letsencrypt-dns.acme.dnschallenge=true"
+   - "--certificatesresolvers.letsencrypt-dns.acme.dnschallenge.provider=cloudflare"
+   ```
+
+   Et passer les creds DNS au conteneur Traefik :
+   ```yaml
+   environment:
+     CF_API_EMAIL: admin@opsflux.io
+     CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+   ```
+
+   (Pour OVH : `OVH_ENDPOINT`, `OVH_APPLICATION_KEY`, `OVH_APPLICATION_SECRET`,
+   `OVH_CONSUMER_KEY`. Pour Hostinger : pas de support natif lego — passer
+   par une délégation DNS vers Cloudflare ou utiliser le scénario B.)
+
+2. **Côté `.env` OpsFlux**, ajouter une seule ligne :
+
+   ```ini
+   CERT_RESOLVER=letsencrypt-dns
+   ```
+
+3. **Redéployer** → Traefik émet un seul cert `*.opsflux.io` valide
+   pour tous les sous-domaines. Le rate-limit LE n'est plus un problème
+   parce qu'il s'agit d'**un seul ordre** ACME par déploiement.
+
+#### B. Wildcard acheté chez un CA commercial
+
+Tu as un `.crt` + `.key` en main (Sectigo, RapidSSL, GoDaddy, etc.).
+
+1. **Déposer les fichiers sur le VPS** :
+
+   ```bash
+   mkdir -p /opt/traefik/certs
+   cp wildcard.opsflux.io.crt /opt/traefik/certs/
+   cp wildcard.opsflux.io.key /opt/traefik/certs/
+   chmod 600 /opt/traefik/certs/*.key
+   ```
+
+2. **Déclarer le cert dans la config dynamique Traefik** —
+   `/opt/traefik/dynamic/wildcard.yml` :
+
+   ```yaml
+   tls:
+     certificates:
+       - certFile: /certs/wildcard.opsflux.io.crt
+         keyFile:  /certs/wildcard.opsflux.io.key
+   ```
+
+   Et monter le dossier `certs/` dans le `docker-compose.yml` Traefik :
+
+   ```yaml
+   volumes:
+     - ./certs:/certs:ro
+     # ... volumes existants
+   ```
+
+3. **Désactiver le resolver ACME côté OpsFlux** :
+
+   ```ini
+   # .env — ne pas mettre de chaîne vide ; supprimer les routers websecure
+   # qui demandent un cert auto. Cf. override ci-dessous.
+   ```
+
+   Puisque la valeur par défaut `letsencrypt` est utilisée si `CERT_RESOLVER=`
+   est vide (Compose interprète `${VAR:-default}` comme "default si vide ou
+   absent"), il faut soit :
+
+   - **Soit** créer un `docker-compose.override.yml` qui supprime les 8
+     labels `tls.certresolver` :
+
+     ```yaml
+     # docker-compose.override.yml — appliqué automatiquement par
+     # docker compose en plus du fichier principal
+     services:
+       backend:
+         labels:
+           - "!traefik.http.routers.${STACK_NAME:-opsflux}-api-websecure.tls.certresolver"
+           - "!traefik.http.routers.${STACK_NAME:-opsflux}-mcp-websecure.tls.certresolver"
+       frontend:
+         labels:
+           - "!traefik.http.routers.${STACK_NAME:-opsflux}-app-websecure.tls.certresolver"
+       # … (idem ext-paxlog, drawio, pgadmin, vitrine, vitrine-root)
+     ```
+
+   - **Soit** mettre `CERT_RESOLVER=<un-resolver-inexistant>` (e.g.
+     `none-please`). Traefik logue un warning mais sert le wildcard
+     du file provider parce qu'il matche le SNI.
+
+4. **Redéployer**. Traefik utilisera le wildcard pour tout `*.opsflux.io`.
+
+#### C. Pas de TLS du tout (intranet, dev en LAN)
+
+Mettre `CERT_RESOLVER=none-please` (resolver inexistant) ; Traefik
+sert son cert auto-signé par défaut → warning navigateur, mais HTTPS
+fonctionnel. Pour un usage VPN/intranet uniquement.
 
 ---
 

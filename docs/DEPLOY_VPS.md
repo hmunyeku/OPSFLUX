@@ -31,6 +31,9 @@ Pour une vue d'ensemble de l'architecture, voir [`STACK.md`](STACK.md).
 6. [Configurer `.env`](#6-configurer-env)
 7. [Mettre en place Traefik](#7-mettre-en-place-traefik)
 8. [Premier boot — build + migrations + seed](#8-premier-boot--build--migrations--seed)
+   - 8.1 — [Que se passe-t-il pendant ce premier boot ?](#81--que-se-passe-t-il-pendant-ce-premier-boot-)
+   - 8.2 — [Adapter le seed à votre contexte](#82--adapter-le-seed-à-votre-contexte)
+   - 8.3 — [Re-seeder une étape spécifique](#83--re-seeder-une-étape-spécifique)
 9. [Vérification post-déploiement](#9-vérification-post-déploiement)
 10. [Connexion initiale + sécurisation](#10-connexion-initiale--sécurisation)
 11. [Sauvegardes](#11-sauvegardes)
@@ -682,6 +685,175 @@ Puis démarrer le reste :
 ```bash
 docker compose up -d frontend ext-paxlog drawio pgadmin vitrine
 ```
+
+### 8.1 — Que se passe-t-il pendant ce premier boot ?
+
+Le boot du conteneur backend exécute, dans l'ordre :
+
+```
+mkdir -p /opt/opsflux/static/{avatars,attachments}     # 1. dossiers static
+alembic upgrade head                                   # 2. migrations DB
+python -m scripts.seed_i18n                            # 3. catalogue i18n
+uvicorn app.main:app …                                 # 4. lancement uvicorn
+                                                       #    └─ lifespan → seed_production_essentials()
+                                                       #    └─ DEV_SEED_ON_STARTUP → seed_dev_data() (dev only)
+                                                       #    └─ APScheduler + agent loops
+```
+
+**Tout est idempotent** : un redéploiement sur une DB existante ne
+duplique rien. Détail de chaque étape ci-dessous.
+
+#### 8.1.1 — Migrations Alembic
+
+Toute la chaîne `0 → head` (~160 migrations actuellement). Crée
+schemas, tables, contraintes, indexes, extensions PostgreSQL
+(`pg_trgm`, `vector`, `ltree`, `postgis` — voir
+`docker/init-extensions.sql`). Si une migration échoue le backend
+boucle ; voir [§13.5](#135--migration-alembic-qui-plante-sur-db-fresh).
+
+#### 8.1.2 — Catalogue i18n (FR / EN / ES / PT)
+
+`scripts/seed_i18n.py` lit :
+- `apps/main/src/locales/{fr,en,es,pt}.json` (~5 000 clés)
+- `apps/mobile/src/locales/{fr,en,es,pt}.ts` (~360 clés)
+- `scripts/i18n_seed/{fr,en,es,pt}.json` (clés backend / supplémentaires)
+
+→ insère dans `i18n_messages` (clé, langue, traduction) — environ
+**10 800 paires** au total. Recompute le hash `i18n_catalog_meta`
+par (langue, namespace) pour que le frontend puisse cache-buster.
+
+**Idempotent** : ne touche pas aux clés existantes. Pour forcer
+l'overwrite (utile après une mise à jour de fichier locale en prod) :
+
+```bash
+docker compose exec backend python -m scripts.seed_i18n --force
+```
+
+#### 8.1.3 — Production essentials (`seed_production_essentials`)
+
+Tourne à **chaque** démarrage du backend (lifespan FastAPI). Crée
+ce dont l'app a besoin pour fonctionner. Tout est idempotent — chaque
+sous-fonction `SELECT` avant `INSERT`.
+
+| Étape | Source | Effet |
+|---|---|---|
+| **Entity** | env `FIRST_ENTITY_*` | 1 ligne dans `entities` (code, name, country, timezone, currency, language='fr', fiscal_year_start=1) |
+| **Admin user** | env `FIRST_SUPERUSER` + `FIRST_SUPERUSER_PASSWORD` | 1 ligne dans `users` (hashé bcrypt). Si le hash existant est corrompu il est ré-écrit. |
+| **Groupe SUPER_ADMIN** | hardcoded | Group "Super Administrators" sur l'entity, role `SUPER_ADMIN`, admin assigné |
+| **Workflow definitions** | code (`_default_workflow_definitions()`) | FSM par défaut pour ADS, AVM, MOC, etc. |
+| **Dashboard tabs** | code (`ROLE_TABS`) | ~20 onglets par rôle (Mon planning, Mes ADS, Conformité, etc.) |
+| **Email templates** | `app/core/email_templates.py` (`DEFAULT_EMAIL_TEMPLATES`) | Templates Jinja2 pour invitation, reset password, ADS validée, AVM rejetée, etc. |
+| **PDF templates** | `app/core/pdf_templates.py` (`DEFAULT_PDF_TEMPLATES`) | Templates WeasyPrint pour ADS, manifeste cargo, certificat médical, MOC, etc. |
+| **Reference numbering** | code | 13 patterns par module : `ADS-{YYYY}-{####}`, `PRJ-{YY}-{######}`, `VYG-{YYYY}-{######}`, etc. Stockés dans `settings` scope `entity`. |
+| **Dictionary entries** | code (~100 catégories) | Listes déroulantes : visa types, vaccine types, passport types, medical checks, relationships, countries, currencies, EPI types, formations, habilitations, statuts métier (paxlog/travelwiz/packlog/planner/projets/MOC), … |
+| **Compliance matrix** | code | 32 positions × 23 types d'habilitations offshore (BOSCO, CARISTE, GRUTIER, HSE, …) |
+
+**Conséquence pratique** : après le premier boot, un super-admin peut
+se connecter et **tout est utilisable**. Pas besoin d'un setup wizard.
+Les onglets dashboard, les emails de notification, les PDFs générés,
+les listes de visa/vaccin, les références (ADS-2026-0001) — tout est
+en place.
+
+> **Limitation** : la langue de l'entity et de l'admin sont hardcodées
+> à `"fr"` dans le code. Pour changer, le faire après le boot via la
+> page de profil (admin) ou Settings → Préférences (entity).
+
+#### 8.1.4 — Dev seed (optionnel, dev only)
+
+Si `ENVIRONMENT=development` ET `DEV_SEED_ON_STARTUP=true`, le lifespan
+appelle aussi `seed_dev_data()` qui crée :
+- Sample users (operators, managers, viewers — emails `dev_*@opsflux.io`)
+- Sample assets (champs, sites, équipements de démo)
+- Sample tiers (entreprises de test)
+- Sample projets et missions
+
+**Ne tourne JAMAIS en prod**, même avec `DEV_SEED_ON_STARTUP=true`,
+parce que la garde `settings.is_dev` filtre sur `ENVIRONMENT`. Pour
+disposer de données de démo en staging, créer un compose dédié avec
+`ENVIRONMENT=development`.
+
+#### 8.1.5 — Seeds spécialisés (manuels)
+
+Certains seeds ne tournent pas au boot. À déclencher à la main une
+fois si nécessaire :
+
+```bash
+# Dictionnaires asset registry (matériaux pipes, fluides, catégories
+# équipements O&G — long, ~5000 entrées) — typiquement on le lance
+# une fois après le premier boot.
+docker compose exec backend python -m scripts.seed_asset_registry_dictionaries
+```
+
+### 8.2 — Adapter le seed à votre contexte
+
+Si vous n'êtes pas une entreprise camerounaise oil & gas, vous voudrez
+probablement changer les valeurs par défaut **avant** le premier boot,
+parce que certaines (entity code, country, currency, timezone) sont
+ensuite difficiles à changer proprement (FK partout) :
+
+```ini
+# .env — exemples cohérents
+
+# Compagnie maritime française basée à Marseille
+FIRST_ENTITY_CODE=CMA
+FIRST_ENTITY_NAME=CMA Logistics
+FIRST_ENTITY_COUNTRY=FR
+FIRST_ENTITY_TIMEZONE=Europe/Paris
+FIRST_ENTITY_CURRENCY=EUR
+
+# Operator pétrolier Émirats
+FIRST_ENTITY_CODE=ADNOC
+FIRST_ENTITY_NAME=ADNOC Offshore
+FIRST_ENTITY_COUNTRY=AE
+FIRST_ENTITY_TIMEZONE=Asia/Dubai
+FIRST_ENTITY_CURRENCY=AED
+```
+
+> ⚠ **Piège** : le seed cherche l'entity par
+> `code IN [FIRST_ENTITY_CODE, "CM", "PER_CMR"]`. Si une entity "CM"
+> existe déjà (legacy), il ne créera pas la nouvelle même avec
+> `FIRST_ENTITY_CODE=ADNOC`. Pour un fresh deploy c'est sans effet ;
+> mais pour un re-seed, supprimer l'entity legacy d'abord ou
+> modifier son code via SQL.
+
+Les autres seeds (dictionnaires, templates, dashboard tabs, compliance
+matrix) ne sont **pas paramétrables via env**. Ils sont voulus uniformes
+parce qu'ils définissent les enums de domaine (un visa "tourist"
+existe partout, peu importe le pays). Pour les surcharger après le
+boot :
+
+- **Dictionnaires** : éditer via Settings → Dictionnaires (UI superadmin) ou directement en SQL sur `dictionary_entries`.
+- **Templates email/PDF** : Settings → Templates (UI), ou
+  `email_templates` / `pdf_templates`. Le seed met à jour seulement
+  ceux qui ont `is_default=true` ; vos modifs custom (avec
+  `is_default=false`) sont préservées au redeploy.
+- **Reference numbering** : Settings → Numérotation (changer
+  `ADS-{YYYY}-{####}` en `ADS-{prefix}-{YY}{######}` par exemple).
+- **Compliance matrix** : Settings → Conformité → Matrice habilitations.
+
+### 8.3 — Re-seeder une étape spécifique
+
+Si on a fait des bêtises et on veut re-seeder uniquement les
+dictionnaires sans toucher aux users :
+
+```bash
+docker compose exec backend python -c "
+import asyncio
+from app.core.database import async_session_factory
+from app.services.core.seed_service import seed_dictionary_entries
+
+async def main():
+    async with async_session_factory() as s:
+        await seed_dictionary_entries(s)
+        await s.commit()
+
+asyncio.run(main())
+"
+```
+
+Idem pour `seed_email_templates`, `seed_pdf_templates`,
+`seed_reference_numbering`, `seed_compliance_matrix`,
+`seed_dashboard_tabs` (signatures dans `app/services/core/seed_service.py`).
 
 ---
 

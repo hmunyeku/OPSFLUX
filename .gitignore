@@ -60,6 +60,7 @@ alembic/versions/__pycache__/
 /doklogin*
 /commit_msg.txt
 /*.scratch.*
+/.ssh-tool/
 
 # ─── Claude / agent session artefacts ─────────────────────────
 # Temp snapshots, screenshots, audit transcripts, overnight handoffs

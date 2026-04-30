@@ -91,6 +91,30 @@ dig +short A opsflux.io
 
 Toutes les lignes doivent retourner l'IP du VPS.
 
+### 2.1 — Tester sans acheter de domaine (sslip.io / nip.io)
+
+Pour une instance de **test ou démo**, vous pouvez sauter l'étape DNS
+en utilisant un service "magic DNS" qui résout n'importe quel
+sous-domaine vers une IP encodée dans le nom :
+
+```
+DOMAIN=72-60-188-156.sslip.io     # remplace par <IP-de-ton-VPS> avec - au lieu de .
+```
+
+Toutes les routes Traefik deviennent automatiquement résolvables :
+`app.72-60-188-156.sslip.io`, `api.72-60-188-156.sslip.io`, etc.
+
+> **Limites** :
+> - Certains FAI résidentiels ou pare-feu d'entreprise **bloquent**
+>   sslip.io / nip.io (réponse `403 Web Filter Violation`). Tester
+>   d'abord depuis le VPS lui-même : `curl -ks https://app.<DOMAIN>`
+>   doit retourner du HTML.
+> - Let's Encrypt accepte sslip.io mais l'usage est partagé par
+>   beaucoup de monde — risque de hit le rate-limit "5 certs/semaine
+>   par domaine de second niveau". Préférer un vrai domaine pour la prod.
+> - Pas adapté à un usage end-user — utilisateurs externes peuvent
+>   être bloqués par leur DNS/proxy.
+
 ---
 
 ## 3. Préparer le serveur
@@ -673,7 +697,38 @@ docker volume ls               # repérer les volumes orphelins
 docker volume prune            # CAREFUL — vérifier d'abord
 ```
 
-### 13.5 — Récupérer des logs anciens
+### 13.5 — Migration alembic qui plante sur DB fresh
+
+Si le backend boucle avec un message du genre :
+```
+sqlalchemy.exc.ProgrammingError: column "X" does not exist
+[SQL: ALTER TABLE ... RENAME X TO Y]
+```
+
+C'est qu'une migration de "fix" assume un état d'une DB plus ancienne
+qui n'existe pas sur une fresh DB. Cas vu en pratique :
+`135_moc_fix_soft_delete` qui renommait `archived_at` → `deleted_at`,
+mais 134 a depuis été corrigé pour créer `deleted_at` directement →
+fresh DB n'a jamais eu `archived_at`.
+
+**Fix générique** : rendre la migration idempotente avec une vérif
+d'existence dans `information_schema.columns` :
+
+```python
+def _column_exists(table: str, column: str) -> bool:
+    bind = op.get_bind()
+    return bool(bind.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = :t AND column_name = :c"
+    ), {"t": table, "c": column}).first())
+
+def upgrade() -> None:
+    if _column_exists("mocs", "archived_at"):
+        op.alter_column("mocs", "archived_at", new_column_name="deleted_at")
+    # else: déjà bon
+```
+
+### 13.6 — Récupérer des logs anciens
 
 Logs JSON de chaque conteneur dans `/var/lib/docker/containers/<id>/<id>-json.log`.
 Configurer la rotation dans `/etc/docker/daemon.json` :
@@ -703,29 +758,117 @@ ACME. Le flow change :
 4. Auto-deploy = activé sur la branche `main`
 5. Premier déploiement = **Deploy** → suivre les logs
 
-### Triggers manuels
+### 14.1 — Triggers via API Dokploy
 
 ```bash
-# Via API Dokploy (cf. .env : API_DOKPLOY, DOKPLOY_COMPOSE_ID)
+# Trigger deploy
 curl -X POST "$API_DOKPLOY_URL/compose.deploy" \
   -H "x-api-key: $API_DOKPLOY" \
   -H "Content-Type: application/json" \
   -d "{\"composeId\":\"$DOKPLOY_COMPOSE_ID\"}"
 
-# Status
+# Status (retourne le compose complet — extraire .composeStatus)
 curl "$API_DOKPLOY_URL/compose.one?composeId=$DOKPLOY_COMPOSE_ID" \
-  -H "x-api-key: $API_DOKPLOY" | jq .composeStatus
+  -H "x-api-key: $API_DOKPLOY"
+# composeStatus: idle | running | done | error
 ```
 
-### Pièges Dokploy
+### 14.2 — Créer un compose programmatiquement (instance de test)
+
+Workflow complet en 4 appels API. Utile pour scripter une instance
+de staging/test sans passer par l'UI Dokploy :
+
+```bash
+TOKEN=$API_DOKPLOY
+# 1. Créer le compose vide dans un environnement existant
+COMPOSE_ID=$(curl -sX POST "$API_DOKPLOY_URL/compose.create" \
+  -H "x-api-key: $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"OPSFLUX-TEST","environmentId":"<env-id-existant>"}' \
+  | grep -oE '"composeId":"[^"]+"' | cut -d'"' -f4)
+
+# 2. Configurer la source GitHub
+curl -sX POST "$API_DOKPLOY_URL/compose.update" \
+  -H "x-api-key: $TOKEN" -H "Content-Type: application/json" \
+  -d "{
+    \"composeId\":\"$COMPOSE_ID\",
+    \"sourceType\":\"github\",
+    \"githubId\":\"<github-credential-id>\",
+    \"repository\":\"OPSFLUX\",
+    \"owner\":\"hmunyeku\",
+    \"branch\":\"main\",
+    \"composePath\":\"./docker-compose.yml\",
+    \"composeType\":\"docker-compose\",
+    \"autoDeploy\":false
+  }"
+
+# 3. Pousser le .env (un seul gros string)
+ENV_CONTENT=$(cat .env)
+node -e "console.log(JSON.stringify({composeId:'$COMPOSE_ID',env:require('fs').readFileSync('.env','utf8')}))" \
+  | curl -sX POST "$API_DOKPLOY_URL/compose.saveEnvironment" \
+    -H "x-api-key: $TOKEN" -H "Content-Type: application/json" --data-binary @-
+
+# 4. Déployer
+curl -sX POST "$API_DOKPLOY_URL/compose.deploy" \
+  -H "x-api-key: $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"composeId\":\"$COMPOSE_ID\"}"
+
+# Pour tear-down :
+curl -sX POST "$API_DOKPLOY_URL/compose.stop"   -H "x-api-key: $TOKEN" -d "{\"composeId\":\"$COMPOSE_ID\"}"
+curl -sX POST "$API_DOKPLOY_URL/compose.delete" -H "x-api-key: $TOKEN" -d "{\"composeId\":\"$COMPOSE_ID\"}"
+# `delete` ne supprime PAS les volumes Docker — nettoyer manuellement :
+ssh root@<vps> "docker volume rm \$(docker volume ls -q | grep <appName-prefix>)"
+```
+
+> **`composeStatus=done` ≠ application healthy.** Dokploy considère le
+> deploy "fini" dès que `docker compose up` rend la main, sans attendre
+> que les conteneurs deviennent healthy. Toujours vérifier après un
+> deploy : `docker ps --filter name=<appName>` puis tail des logs.
+
+### 14.3 — Conflit Traefik si vous déployez plusieurs instances OpsFlux
+
+⚠️ **Le `docker-compose.yml` actuel hardcode des noms de routers
+Traefik** (`opsflux-app-web`, `opsflux-api-web`, `opsflux-drawio-web`,
+`pgadmin-web`, `vitrine`, etc.). Si vous lancez **deux compose projects**
+qui partagent le même Traefik (cas classique sur Dokploy), les deux
+projects vont déclarer les mêmes router names → Traefik refuse :
+
+```
+ERR Router defined multiple times with different configurations
+ERR Could not define the service name for the router: too many services
+    routerName=opsflux-app-web
+```
+
+Conséquence : Traefik route **non-déterministiquement** vers l'une ou
+l'autre instance, l'autre devient inaccessible, et les certificats LE
+peuvent partir en rate-limit.
+
+**Solutions** :
+
+1. **Une seule instance par Traefik** — le plus simple. Pour tester,
+   utiliser un VPS dédié (option A §7.1) au lieu du Traefik partagé
+   Dokploy.
+2. **Templater les router names** — fork du `docker-compose.yml` et
+   remplacer chaque `opsflux-app-web` par `${TRAEFIK_PREFIX:-opsflux}-app-web`,
+   puis exporter `TRAEFIK_PREFIX=opsflux-test` dans le `.env` de
+   l'instance de test. Pas encore intégré upstream — voir issue
+   `docker-compose: parametrize Traefik router names`.
+3. **Isoler Dokploy** — créer un projet Dokploy séparé avec son propre
+   Traefik (Dokploy v0.21+ supporte plusieurs Traefik via le champ
+   `serverId`). Non testé sur cette stack.
+
+### 14.4 — Pièges Dokploy
 
 - **Ne JAMAIS lancer `docker run` en parallèle** d'un compose Dokploy
   pour le même service : Dokploy le supprime au prochain deploy.
   `scripts/deploy-vps.sh` documente ce piège historique.
-- Le redéploiement Dokploy supprime parfois le réseau partagé. Si vos
-  endpoints retournent HTTP 000 après un deploy, vérifier l'état de
-  Traefik : `docker ps | grep traefik` — restart-le manuellement avec
-  `docker start traefik`.
+- Le redéploiement Dokploy supprime parfois le réseau Docker `dokploy-network`
+  et Traefik s'arrête avec `failed to set up container networking`.
+  Si vos endpoints retournent HTTP 000 après un deploy, vérifier :
+  `docker ps | grep traefik` — restart manuellement avec
+  `docker network create dokploy-network && docker start traefik`.
+- `compose.delete` ne supprime PAS les volumes Docker associés. Faire
+  un `docker volume ls | grep <appName>` puis `docker volume rm` à la
+  main si vous voulez vraiment nettoyer.
 
 ---
 

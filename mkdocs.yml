@@ -1,0 +1,269 @@
+site_name: OpsFlux
+site_description: ERP industriel modulaire — opérations, conformité, projets, logistique
+site_url: https://docs.opsflux.io/
+repo_url: https://github.com/hmunyeku/OPSFLUX
+repo_name: hmunyeku/OPSFLUX
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+# Validation policy
+# Strict mode aborts on broken anchors. Most legacy CDC_*.md and
+# check/*.md files have anchors that don't match their headings (the
+# old TOC was hand-written with accents that don't survive MkDocs's
+# slugify). We log warnings rather than abort — these get fixed module
+# by module as docs are migrated to the new template.
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.action.edit
+    - content.tabs.link
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Mode sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Mode clair
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+
+plugins:
+  - search:
+      lang: fr
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+      fallback_to_build_date: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: "#"
+      toc_depth: 3
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/hmunyeku/OPSFLUX
+  generator: false
+
+copyright: >
+  &copy; OpsFlux. Usage interne — propriétaire.
+
+# Navigation
+# Hiérarchie pensée pour 3 publics :
+#   - Décideur / nouveau venu → Accueil + Démarrage rapide
+#   - User final / opérationnel → Modules
+#   - Dev / ops → Spécifications + Audits + ADR + Référence
+nav:
+  - Accueil: index.md
+
+  - Démarrage rapide:
+    - Vue d'ensemble: README.md
+    - Stack technique: STACK.md
+    - Déployer sur un VPS: DEPLOY_VPS.md
+
+  - Modules:
+    - Vue d'ensemble: modules/index.md
+    - PaxLog: modules/paxlog.md
+    - MOC (Management of Change): modules/MOC.md
+    # Les autres modules suivront — voir docs/modules/index.md pour le statut
+
+  - Spécifications:
+    - "Index": rebuilt/README.md
+    - "00 — Vue système": rebuilt/00_SYSTEM_OVERVIEW.md
+    - "01 — Référence Core": rebuilt/01_CORE_REFERENCE.md
+    - "02 — Modèle d'exécution PDCA": rebuilt/02_PDCA_EXECUTION_MODEL.md
+    - "03 — Workflows cross-modules": rebuilt/03_CROSS_MODULE_WORKFLOWS.md
+    - "04 — Règles UI/UX": rebuilt/04_UI_UX_RULES.md
+    - Modules (specs détaillées):
+      - Asset Registry: rebuilt/modules/ASSET_REGISTRY.md
+      - Conformité: rebuilt/modules/CONFORMITE.md
+      - Dashboard: rebuilt/modules/DASHBOARD.md
+      - Imputations: rebuilt/modules/IMPUTATIONS.md
+      - Messaging: rebuilt/modules/MESSAGING.md
+      - Papyrus: rebuilt/modules/PAPYRUS.md
+      - PaxLog: rebuilt/modules/PAXLOG.md
+      - PID/PFD: rebuilt/modules/PID_PFD.md
+      - Planner: rebuilt/modules/PLANNER.md
+      - Projets: rebuilt/modules/PROJETS.md
+      - Report Editor: rebuilt/modules/REPORT_EDITOR.md
+      - Support: rebuilt/modules/SUPPORT.md
+      - Tiers: rebuilt/modules/TIERS.md
+      - TravelWiz: rebuilt/modules/TRAVELWIZ.md
+      - Workflow: rebuilt/modules/WORKFLOW.md
+    - Workflows par objet:
+      - ADS: rebuilt/20_WORKFLOW_ADS.md
+      - AVM: rebuilt/21_WORKFLOW_AVM.md
+      - Document (Papyrus): rebuilt/22_WORKFLOW_DOCUMENT.md
+      - PID: rebuilt/23_WORKFLOW_PID.md
+      - Support ticket: rebuilt/24_WORKFLOW_SUPPORT_TICKET.md
+    - Permissions & rôles:
+      - Matrice rôle/permission: rebuilt/15_ROLE_TO_PERMISSION_MATRIX.md
+      - Permissions vue/module: rebuilt/16_MODULE_VIEW_PERMISSIONS.md
+      - Matrice statut/action: rebuilt/17_STATUS_ACTION_MATRIX.md
+      - Endpoint/owner_type: rebuilt/25_OWNER_TYPE_ENDPOINT_PERMISSION_MATRIX.md
+      - Routes/permission: rebuilt/30_ROUTE_PERMISSION_MATRIX.md
+      - Rôle/vue/permission: rebuilt/09_ROLE_VIEW_PERMISSION_MATRIX.md
+    - Modèle de données:
+      - Org/Asset audit: rebuilt/10_ORG_ASSET_MODEL_AUDIT.md
+      - Entity/BU/Asset: rebuilt/11_ENTITY_BU_ASSET_OPERATING_MODEL.md
+      - Composants polymorphes: rebuilt/12_REUSABLE_AND_POLYMORPHIC_COMPONENTS.md
+      - owner_types autorisés: rebuilt/14_ALLOWED_OWNER_TYPES_AND_POLYMORPHIC_SECURITY.md
+    - Plans d'exécution:
+      - Backlog d'exécution: rebuilt/18_EXECUTION_BACKLOG.md
+      - Workflow engine: rebuilt/19_WORKFLOW_ENGINE_AUDIT.md
+      - Resolvers home modules: rebuilt/26_MODULE_HOME_RESOLVERS.md
+      - Matrice objets workflow: rebuilt/27_WORKFLOW_DRIVEN_OBJECT_MATRIX.md
+      - Acceptance tickets: rebuilt/28_TICKET_ACCEPTANCE_AND_TESTS.md
+      - Plan file-level: rebuilt/29_FILE_LEVEL_IMPLEMENTATION_PLAN.md
+      - Dataset de test: rebuilt/31_REFERENCE_TEST_DATASET.md
+      - Gap modules: rebuilt/32_MODULE_GAP_MATRIX.md
+    - Imputations:
+      - Module cible: rebuilt/13_IMPUTATION_MODULE_TARGET.md
+    - Sécurité:
+      - Plan code: rebuilt/07_SECURITY_FIRST_CODE_PLAN.md
+      - Audit plateforme: rebuilt/06_EXPLICIT_PLATFORM_AUDIT.md
+      - Audit sécurité/i18n/multi-entité: rebuilt/38_PLATFORM_AUDIT_SECURITY_I18N_MULTI_ENTITY_MODULE_GATING.md
+    - PaxLog deep-dive:
+      - Plan weekend: rebuilt/05_PAXLOG_WEEKEND_PLAN.md
+      - Recette fonctionnelle: rebuilt/33_PAXLOG_FUNCTIONAL_RECIPE.md
+      - Audit couverture: rebuilt/34_PAXLOG_COVERAGE_AUDIT.md
+      - Handoff 2026-04-05: rebuilt/35_PAXLOG_HANDOFF_2026-04-05.md
+    - Papyrus deep-dive:
+      - Gap analysis & migration: rebuilt/36_PAPYRUS_GAP_ANALYSIS_AND_MIGRATION_PLAN.md
+      - Plan d'exécution 100%: rebuilt/37_PAPYRUS_100_PERCENT_EXECUTION_PLAN.md
+    - Analyse fonctionnelle profonde: rebuilt/08_DEEP_FUNCTIONAL_ANALYSIS.md
+
+  - Cahiers des charges:
+    - Index: check/CDC_INDEX.md
+    - Cahier fonctionnel:
+      - Core: check/CdCF_00_CORE.md
+      - Report Editor: check/CdCF_01_REPORT_EDITOR.md
+      - PID/PFD: check/CdCF_02_PID_PFD.md
+      - Dashboard: check/CdCF_03_DASHBOARD.md
+      - Asset Registry: check/CdCF_04_ASSET_REGISTRY.md
+      - Tiers: check/CdCF_05_TIERS.md
+      - IA/MCP: check/CdCF_06_AI_MCP.md
+      - Connecteurs: check/CdCF_07_CONNECTEURS.md
+    - Cahier des charges:
+      - Core: check/CDC_00_CORE.md
+      - Asset Registry: check/CDC_01_ASSET_REGISTRY.md
+      - Tiers: check/CDC_02_TIERS.md
+      - Projets: check/CDC_03_PROJETS.md
+      - Planner: check/CDC_04_PLANNER.md
+      - PaxLog: check/CDC_05_PAXLOG.md
+      - TravelWiz: check/CDC_06_TRAVELWIZ.md
+      - IA/MCP: check/CDC_07_IA_MCP.md
+      - Report Editor: check/CDC_08_REPORT_EDITOR.md
+      - Dashboard admin: check/CDC_09_DASHBOARD_ADMIN.md
+    - Cahier de définition fonctionnelle (legacy):
+      - Core: check/CDF_00_CORE.md
+      - Report Editor: check/CDF_01_REPORT_EDITOR.md
+      - PID/PFD: check/CDF_02_PID_PFD.md
+      - Dashboard: check/CDF_03_DASHBOARD.md
+      - Asset Registry: check/CDF_04_ASSET_REGISTRY.md
+      - Tiers: check/CDF_05_TIERS.md
+      - IA/MCP: check/CDF_06_AI_MCP.md
+
+  - Audits:
+    - "PaxLog / PackLog 2026-04": AUDIT_PAXLOG_PACKLOG_2026-04.md
+    - "PaxLog / PackLog / TravelWiz fonctionnel 2026-04-29": AUDIT_PAXLOG_PACKLOG_TRAVELWIZ_FONCTIONNEL_2026-04-29.md
+    - "TravelWiz / MOC 2026-04": AUDIT_TRAVELWIZ_MOC_2026-04.md
+    - "Tech debt 2026-04-10": rebuilt/39_TECH_DEBT_AUDIT_2026_04_10.md
+    - "Cohérence doc/code": check/14_DOC_CODE_COHERENCE_AUDIT.md
+    - "Backlog d'alignement doc/code": check/15_DOC_CODE_ALIGNMENT_BACKLOG.md
+    - "AUP gap analysis": check/19_AUP_GAP_ANALYSIS.md
+    - "Tech debt général": check/20_GENERAL_TECHDEBT_AUDIT.md
+    - "UI responsive": check/21_UI_RESPONSIVE_AUDIT.md
+    - "UI design": check/22_UI_DESIGN_AUDIT.md
+    - "Module report": check/02_MODULE_REPORT.md
+    - "Project (overview)": check/00_PROJECT.md
+    - "Core (overview)": check/01_CORE.md
+    - "Module PID/PFD": check/03_MODULE_PID_PFD.md
+    - "Module Dashboard": check/04_MODULE_DASHBOARD.md
+    - "Module Asset Registry": check/05_MODULE_ASSET_REGISTRY.md
+    - "Module Tiers": check/06_MODULE_TIERS.md
+    - "Module IA/MCP": check/07_MODULE_AI_MCP.md
+    - "Workflow ADS/Contact expliqué": check/16_ADS_CONTACT_WORKFLOW_EXPLAINED.md
+    - "Workflow AVM expliqué": check/17_AVM_WORKFLOW_EXPLAINED.md
+    - "State machine PaxLog/AVM/ADS/TravelWiz": check/18_PAXLOG_AVM_ADS_TRAVELWIZ_STATE_MACHINE.md
+    - "Decisions complémentaires": check/12_DECISIONS_COMPLEMENTAIRES.md
+    - "Bootstrap": check/11_BOOTSTRAP.md
+    - "Analyse fonctionnelle (legacy)": check/10_FUNCTIONAL_ANALYSIS.md
+    - "Module analysis (legacy)": MODULE_ANALYSIS.md
+    - "Overnight 2026-04-23": OVERNIGHT_2026-04-23.md
+    - "Legacy notice": LEGACY_NOTICE.md
+
+  - ADR:
+    - "001 — Form validation": adr/001-form-validation.md
+    - "002 — Monster files refactor": adr/002-monster-files-refactor.md
+    - "003 — KMZ import workflow": adr/003-kmz-import-workflow.md
+
+  - Référence:
+    - Settings: check/13_SETTINGS_REFERENCE.md
+    - Roadmap: check/08_ROADMAP.md
+    - Design system: check/09_DESIGN_SYSTEM.md

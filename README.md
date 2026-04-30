@@ -2,7 +2,7 @@
 
 ERP industriel modulaire — opérations, conformité, projets, logistique.
 
-**Production** : <https://app.opsflux.io> · **API** : <https://api.opsflux.io>
+**Production** : <https://app.opsflux.io> · **API** : <https://api.opsflux.io> · **Docs** : <https://docs.opsflux.io>
 
 ---
 

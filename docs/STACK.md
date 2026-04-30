@@ -49,6 +49,7 @@ voir [`DEPLOY_VPS.md`](DEPLOY_VPS.md).
 | `frontend`     | Build local (`apps/main/Dockerfile`) | 80 | React 18 · Vite · TailwindCSS — buildé en statique, servi par nginx |
 | `ext-paxlog`   | Build local (`apps/ext-paxlog/Dockerfile`) | 80 | Portail externe captain/passager (lien magique signé) |
 | `vitrine`      | Build local (`apps/vitrine/Dockerfile`) | 80 | Site marketing — `www.<domain>` |
+| `docs`         | Build local (`apps/docs/Dockerfile`) | 80 | Documentation MkDocs Material — `docs.<domain>` |
 | `drawio`       | `jgraph/drawio:29.6.7` (figé) | 8080 | Éditeur Draw.io self-hosted (PID/PFD + plans navires TravelWiz) |
 | `pgadmin`      | `dpage/pgadmin4:latest`       | 80 | UI DB superadmin |
 | `agent-worker` | Build local ou `ghcr.io/hmunyeku/opsflux-agent-worker:latest` (compose séparé) | — | Pool de workers Claude (auto-fix support) |
@@ -84,6 +85,7 @@ backup complet.
 | `ext.<DOMAIN>`      | ext-paxlog  | Portail captain (signed-link, sans auth complète) |
 | `drawio.<DOMAIN>`   | drawio      | Éditeur embarqué (chargé via iframe + window.open) |
 | `db.<DOMAIN>`       | pgadmin     | UI superadmin (à protéger par IP allowlist en prod) |
+| `docs.<DOMAIN>`     | docs        | Documentation MkDocs (publique) |
 | `www.<DOMAIN>`      | vitrine     | Site marketing |
 | `<DOMAIN>` (naked)  | vitrine     | Redirige 301 → `www.<DOMAIN>` |
 

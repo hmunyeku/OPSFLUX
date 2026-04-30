@@ -84,6 +84,7 @@ sont nécessaires pour que les certificats Let's Encrypt s'émettent.
 | A    | `ext.opsflux.io`    | `<IP du VPS>`   | Portail externe paxlog |
 | A    | `drawio.opsflux.io` | `<IP du VPS>`   | Éditeur Draw.io |
 | A    | `db.opsflux.io`     | `<IP du VPS>`   | pgAdmin (réservé superadmin) |
+| A    | `docs.opsflux.io`   | `<IP du VPS>`   | Documentation (MkDocs Material) |
 | A    | `www.opsflux.io`    | `<IP du VPS>`   | Site marketing (vitrine) |
 | A    | `opsflux.io` (apex) | `<IP du VPS>`   | Redirige → www. |
 
@@ -95,7 +96,7 @@ sont nécessaires pour que les certificats Let's Encrypt s'émettent.
 
 Vérifier que tout est propagé avant de continuer :
 ```bash
-for sub in app api mcp ext drawio db www; do
+for sub in app api mcp ext drawio db docs www; do
   echo -n "$sub.opsflux.io → "
   dig +short A "$sub.opsflux.io" | head -1
 done
@@ -267,7 +268,7 @@ API_URL=https://api.opsflux.io
 WEB_URL=https://www.opsflux.io
 API_BASE_URL=https://api.opsflux.io
 FRONTEND_URL=https://app.opsflux.io
-ALLOWED_HOSTS=api.opsflux.io,app.opsflux.io,db.opsflux.io,mcp.opsflux.io,ext.opsflux.io
+ALLOWED_HOSTS=api.opsflux.io,app.opsflux.io,db.opsflux.io,mcp.opsflux.io,ext.opsflux.io,docs.opsflux.io
 ALLOWED_ORIGINS=https://app.opsflux.io,https://ext.opsflux.io,https://api.opsflux.io
 ENVIRONMENT=production
 ```
@@ -866,7 +867,8 @@ docker compose ps
 # Endpoints HTTP
 for url in https://app.opsflux.io https://api.opsflux.io/api/health \
            https://drawio.opsflux.io https://ext.opsflux.io \
-           https://db.opsflux.io https://www.opsflux.io ; do
+           https://db.opsflux.io https://docs.opsflux.io \
+           https://www.opsflux.io ; do
   printf '%-40s ' "$url"
   curl -s -o /dev/null -w "HTTP %{http_code}\n" --max-time 10 "$url"
 done
@@ -877,7 +879,8 @@ Attendu :
 - `api.opsflux.io/api/health` → **200**
 - `drawio.opsflux.io` → **200**
 - `ext.opsflux.io` → **200** ou **400** (selon présence du token)
-- `db.opsflux.io` → **200** (login pgAdmin)
+- `db.opsflux.io` → **302** (redirect login pgAdmin)
+- `docs.opsflux.io` → **200**
 - `www.opsflux.io` → **200**
 
 Si **000** sur tous : Traefik n'écoute pas sur 443 → vérifier

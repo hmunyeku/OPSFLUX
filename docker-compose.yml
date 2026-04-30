@@ -191,6 +191,32 @@ services:
       - default
       - proxy
 
+  # ─── Docs portal (MkDocs Material → nginx) ──────────────────
+  # Build context = repo root because mkdocs.yml + docs/ live there.
+  # The Dockerfile is at apps/docs/Dockerfile and pulls those into a
+  # static site, then serves with nginx — same pattern as frontend /
+  # ext-paxlog / vitrine.
+  docs:
+    build:
+      context: .
+      dockerfile: apps/docs/Dockerfile
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-dokploy-network}"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-web.entrypoints=web"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-web.rule=Host(`docs.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-web.service=${STACK_NAME:-opsflux}-docs"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-websecure.entrypoints=websecure"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-websecure.rule=Host(`docs.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-websecure.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-websecure.service=${STACK_NAME:-opsflux}-docs"
+      - "traefik.http.services.${STACK_NAME:-opsflux}-docs.loadbalancer.server.port=80"
+    networks:
+      - default
+      - proxy
+
   # ─── Draw.io (self-hosted — module PID/PFD + TravelWiz deck plan) ─
   # Version pinned (was :latest) — the 29.6.10 build shipped a corrupt
   # js/stencils.min.js that crashed the editor with a SyntaxError on

@@ -37,7 +37,7 @@ workflows et les pièges sans noyer le lecteur.
 | **Tiers** | :material-check-circle: [Disponible](tiers.md) | [Spec](../../developer/modules-spec/TIERS.md) |
 | **Projets** | À venir | [Spec](../../developer/modules-spec/PROJETS.md) |
 | **Planner** | À venir | [Spec](../../developer/modules-spec/PLANNER.md) |
-| **Conformité** | À venir | [Spec](../../developer/modules-spec/CONFORMITE.md) |
+| **Conformité** | :material-check-circle: [Disponible](conformite.md) | [Spec](../../developer/modules-spec/CONFORMITE.md) |
 | **Papyrus** | À venir | [Spec](../../developer/modules-spec/PAPYRUS.md) |
 | **PID/PFD** | À venir | [Spec](../../developer/modules-spec/PID_PFD.md) |
 | **Asset Registry** | :material-check-circle: [Disponible](asset-registry.md) | [Spec](../../developer/modules-spec/ASSET_REGISTRY.md) |

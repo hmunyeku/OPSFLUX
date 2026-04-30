@@ -74,7 +74,7 @@ d'événements interne.
 | `projets` | Projets multi-niveaux (WBS, CPM, ressources) | À venir | [Spec](developer/modules-spec/PROJETS.md) |
 | `planner` | Planification opérationnelle (heatmap, gantt) | À venir | [Spec](developer/modules-spec/PLANNER.md) |
 | `packlog` | Cargo & emballage tracé QR | À venir | À venir |
-| `conformite` | Référentiel, règles, exemptions, fiches de poste | À venir | [Spec](developer/modules-spec/CONFORMITE.md) |
+| `conformite` | Référentiel, règles, exemptions, fiches de poste | [:material-check-circle:](enduser/modules/conformite.md) | [Spec](developer/modules-spec/CONFORMITE.md) |
 | `papyrus` | Documents structurés versionnés, templates, dispatch | À venir | [Spec](developer/modules-spec/PAPYRUS.md) |
 | `pid_pfd` | P&ID / PFD éditeur (xyflow + import) | À venir | [Spec](developer/modules-spec/PID_PFD.md) |
 | `asset_registry` | Hiérarchie assets O&G + civil | [:material-check-circle:](enduser/modules/asset-registry.md) | [Spec](developer/modules-spec/ASSET_REGISTRY.md) |

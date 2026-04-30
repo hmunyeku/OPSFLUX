@@ -135,7 +135,8 @@ nav:
       - TravelWiz: enduser/modules/travelwiz.md
       - Tiers: enduser/modules/tiers.md
       - Asset Registry: enduser/modules/asset-registry.md
-      # 10 modules à venir (template paxlog)
+      - Conformité: enduser/modules/conformite.md
+      # 9 modules à venir (template paxlog)
 
   - Développeur:
     - Architecture:

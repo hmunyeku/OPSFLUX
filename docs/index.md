@@ -13,79 +13,64 @@ les voyages affréteurs, les projets, la conformité réglementaire et les
 modifications opérationnelles d'organisations industrielles (oil & gas,
 maritime, énergie).
 
-[:material-rocket-launch: Déployer en production](DEPLOY_VPS.md){ .md-button .md-button--primary }
-[:material-cube-outline: Explorer les modules](modules/index.md){ .md-button }
-[:material-source-branch: Code sur GitHub](https://github.com/hmunyeku/OPSFLUX){ .md-button }
-
 ---
 
-## Pour qui est cette doc ?
+## Deux espaces de documentation
 
 <div class="grid cards" markdown>
 
--   :material-account-tie: **Décideur / nouveau venu**
+-   :material-account-hard-hat: **Espace Utilisateur**
 
     ---
 
-    Comprendre ce qu'OpsFlux résout, sa stack et l'ordre de grandeur
-    d'un déploiement.
+    **Libre d'accès.** Comprendre OpsFlux, déployer, utiliser chaque
+    module au quotidien.
 
-    [:octicons-arrow-right-24: Vue d'ensemble](README.md)
+    Pour : décideurs, utilisateurs opérationnels, intégrateurs,
+    administrateurs systèmes.
 
--   :material-account-hard-hat: **Utilisateur opérationnel**
+    [:octicons-arrow-right-24: Entrer dans l'espace utilisateur](enduser/getting-started/overview.md){ .md-button .md-button--primary }
 
-    ---
-
-    Saisir comment chaque module fonctionne au quotidien, avec
-    workflows, captures d'écran et pièges à éviter.
-
-    [:octicons-arrow-right-24: Modules](modules/index.md)
-
--   :material-server: **Ops / DevOps**
+-   :material-code-braces: **Espace Développeur**
 
     ---
 
-    Mettre OpsFlux en production sur n'importe quel host Docker, gérer
-    sauvegardes, mises à jour, recovery.
+    :material-lock: **Authentification requise** — réservé à l'équipe.
 
-    [:octicons-arrow-right-24: Guide VPS](DEPLOY_VPS.md)
+    Architecture, spécifications détaillées par module, workflows
+    bas-niveau, matrices de permissions, ADR, modèle de données.
 
--   :material-code-braces: **Développeur**
+    Pour : devs OpsFlux internes + contributeurs externes invités.
 
-    ---
-
-    Comprendre l'architecture, les patterns FastAPI/SQLAlchemy/React,
-    contribuer un module.
-
-    [:octicons-arrow-right-24: Spécifications](rebuilt/README.md)
+    [:octicons-arrow-right-24: Entrer dans l'espace développeur](developer/architecture/system-overview.md){ .md-button }
 
 </div>
 
 ---
 
-## Modules métier
+## Modules en un coup d'œil
 
-Quinze modules s'enregistrent au démarrage via le `ModuleRegistry`.
-Chacun est indépendant ; les interactions se font via le bus d'événements
+15 modules s'enregistrent au démarrage via le `ModuleRegistry`. Chacun
+est indépendant ; les interactions se font via le bus d'événements
 interne.
 
-| Slug | Domaine | Statut doc |
-|---|---|---|
-| `tiers` | Entreprises, contacts, identifiants légaux | [Spec](rebuilt/modules/TIERS.md) · doc utilisateur à venir |
-| `projets` | Projets multi-niveaux (WBS, CPM, ressources, pointage, MS Project-like) | [Spec](rebuilt/modules/PROJETS.md) · doc utilisateur à venir |
-| `planner` | Planification opérationnelle scénarisée (heatmap, conflits, gantt) | [Spec](rebuilt/modules/PLANNER.md) · doc utilisateur à venir |
-| `paxlog` | Mouvements de personnel (ADS, AVM, embarquement, conformité) | [Spec](rebuilt/modules/PAXLOG.md) · [Doc utilisateur](modules/paxlog.md) |
-| `travelwiz` | Voyages affréteurs, cargo manifests, captain portal | [Spec](rebuilt/modules/TRAVELWIZ.md) · doc utilisateur à venir |
-| `packlog` | Cargo & emballage tracé QR, scan flux | spec à venir · doc utilisateur à venir |
-| `conformite` | Référentiel, règles, exemptions, fiches de poste, matrice | [Spec](rebuilt/modules/CONFORMITE.md) · doc utilisateur à venir |
-| `papyrus` | Documents structurés versionnés, templates, formulaires, dispatch | [Spec](rebuilt/modules/PAPYRUS.md) · doc utilisateur à venir |
-| `pid_pfd` | P&ID / PFD éditeur (xyflow + import) | [Spec](rebuilt/modules/PID_PFD.md) · doc utilisateur à venir |
-| `asset_registry` | Hiérarchie assets O&G + civil (champs, sites, installations, équipements, pipelines) | [Spec](rebuilt/modules/ASSET_REGISTRY.md) · doc utilisateur à venir |
-| `imputations` | Comptes analytiques, taux de change historiques, OTP | [Spec](rebuilt/modules/IMPUTATIONS.md) · doc utilisateur à venir |
-| `workflow` | Moteur d'états (FSM générique pluggable sur tout module) | [Spec](rebuilt/modules/WORKFLOW.md) · doc utilisateur à venir |
-| `support` | Tickets, agent IA auto-fix avec workflow CI | [Spec](rebuilt/modules/SUPPORT.md) · doc utilisateur à venir |
-| `moc` | Management of Change | spec à venir · [Doc utilisateur](modules/MOC.md) |
-| `dashboard` | Hybride : onglets rôle + GridStack libre (core) | [Spec](rebuilt/modules/DASHBOARD.md) · doc utilisateur à venir |
+| Slug | Domaine | Doc utilisateur | Spec dev |
+|---|---|---|---|
+| `tiers` | Entreprises, contacts, identifiants légaux | À venir | [Spec](developer/modules-spec/TIERS.md) |
+| `projets` | Projets multi-niveaux (WBS, CPM, ressources) | À venir | [Spec](developer/modules-spec/PROJETS.md) |
+| `planner` | Planification opérationnelle (heatmap, conflits, gantt) | À venir | [Spec](developer/modules-spec/PLANNER.md) |
+| `paxlog` | Mouvements de personnel (ADS, AVM, conformité) | [:material-check-circle:](enduser/modules/paxlog.md) | [Spec](developer/modules-spec/PAXLOG.md) |
+| `travelwiz` | Voyages affréteurs, manifestes, captain portal | À venir | [Spec](developer/modules-spec/TRAVELWIZ.md) |
+| `packlog` | Cargo & emballage tracé QR | À venir | À venir |
+| `conformite` | Référentiel, règles, exemptions, fiches de poste | À venir | [Spec](developer/modules-spec/CONFORMITE.md) |
+| `papyrus` | Documents structurés versionnés, templates, dispatch | À venir | [Spec](developer/modules-spec/PAPYRUS.md) |
+| `pid_pfd` | P&ID / PFD éditeur (xyflow + import) | À venir | [Spec](developer/modules-spec/PID_PFD.md) |
+| `asset_registry` | Hiérarchie assets O&G + civil | À venir | [Spec](developer/modules-spec/ASSET_REGISTRY.md) |
+| `imputations` | Comptes analytiques, taux de change, OTP | À venir | [Spec](developer/modules-spec/IMPUTATIONS.md) |
+| `workflow` | Moteur d'états (FSM générique) | À venir | [Spec](developer/modules-spec/WORKFLOW.md) |
+| `support` | Tickets, agent IA auto-fix avec workflow CI | À venir | [Spec](developer/modules-spec/SUPPORT.md) |
+| `moc` | Management of Change | [:material-check-circle:](enduser/modules/MOC.md) | À venir |
+| `dashboard` | Hybride : onglets rôle + GridStack libre | À venir | [Spec](developer/modules-spec/DASHBOARD.md) |
 
 ---
 
@@ -97,12 +82,12 @@ interne.
 - **Infra** — Docker Compose · Traefik (v2/v3) · Let's Encrypt · S3 / local storage
 - **Déploiement** — vanilla `docker compose` ou n'importe quel control plane (Dokploy, Coolify, EasyPanel, Caprover, Portainer)
 
-[:material-vector-arrange-below: Architecture détaillée](STACK.md){ .md-button }
+[:material-vector-arrange-below: Architecture détaillée (utilisateur)](enduser/getting-started/stack.md){ .md-button }
 
 ---
 
-## Communauté & support
+## Liens rapides
 
-- :material-github: [Issues GitHub](https://github.com/hmunyeku/OPSFLUX/issues) — bugs, demandes
-- :material-book-open: [Spécifications complètes](rebuilt/README.md) — la "doc cible" architectes/devs
-- :material-history: [Audits & dette technique](check/14_DOC_CODE_COHERENCE_AUDIT.md) — état réel du code vs spec
+- :material-github: [Code source](https://github.com/hmunyeku/OPSFLUX)
+- :material-rocket-launch: [Guide de déploiement VPS](enduser/getting-started/deploy.md) (libre d'accès)
+- :material-bug: [Issues GitHub](https://github.com/hmunyeku/OPSFLUX/issues)

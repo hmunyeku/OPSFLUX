@@ -204,14 +204,28 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=${TRAEFIK_NETWORK:-dokploy-network}"
+      # Public router (everything BUT /developer/*) — no auth.
       - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-web.entrypoints=web"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-web.middlewares=redirect-to-https@file"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-web.rule=Host(`docs.${DOMAIN:-opsflux.io}`)"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-web.service=${STACK_NAME:-opsflux}-docs"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-websecure.entrypoints=websecure"
-      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-websecure.rule=Host(`docs.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-websecure.rule=Host(`docs.${DOMAIN:-opsflux.io}`) && !PathPrefix(`/developer`)"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-websecure.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-websecure.service=${STACK_NAME:-opsflux}-docs"
+      # Gated router (/developer/* only) — basicAuth via env DEV_DOCS_AUTH.
+      # Format: "user:bcrypt-hash" (generate with `htpasswd -nbB user pass`).
+      # Higher priority than the public router so the path match wins.
+      # Migration plan to OpsFlux SSO (forwardAuth) is documented in
+      # docs/enduser/getting-started/deploy.md §7.5.
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-dev.entrypoints=websecure"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-dev.rule=Host(`docs.${DOMAIN:-opsflux.io}`) && PathPrefix(`/developer`)"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-dev.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-dev.service=${STACK_NAME:-opsflux}-docs"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-dev.priority=100"
+      - "traefik.http.routers.${STACK_NAME:-opsflux}-docs-dev.middlewares=${STACK_NAME:-opsflux}-docs-dev-auth"
+      - "traefik.http.middlewares.${STACK_NAME:-opsflux}-docs-dev-auth.basicauth.users=${DEV_DOCS_AUTH:-developer:$$2y$$05$$xkXjVm8vKWgWv0vWyKK0Qe.5C5z7l8mF7m8l5lEeZGGQwBhVXSHtS}"
+      - "traefik.http.middlewares.${STACK_NAME:-opsflux}-docs-dev-auth.basicauth.realm=OpsFlux Developer Docs"
       - "traefik.http.services.${STACK_NAME:-opsflux}-docs.loadbalancer.server.port=80"
     networks:
       - default

@@ -8,11 +8,10 @@ edit_uri: edit/main/docs/
 docs_dir: docs
 
 # Validation policy
-# Strict mode aborts on broken anchors. Most legacy CDC_*.md and
-# check/*.md files have anchors that don't match their headings (the
-# old TOC was hand-written with accents that don't survive MkDocs's
-# slugify). We log warnings rather than abort — these get fixed module
-# by module as docs are migrated to the new template.
+# Many legacy specs in developer/* have hand-written anchors that don't
+# match MkDocs slugify (French accents). We log warnings rather than
+# abort — fixed module by module as docs are migrated to the canonical
+# template (the paxlog user-facing doc is the model).
 validation:
   omitted_files: warn
   absolute_links: warn
@@ -30,6 +29,7 @@ theme:
     - navigation.footer
     - navigation.indexes
     - navigation.tracking
+    - navigation.path
     - search.suggest
     - search.highlight
     - search.share
@@ -114,156 +114,84 @@ copyright: >
   &copy; OpsFlux. Usage interne — propriétaire.
 
 # Navigation
-# Hiérarchie pensée pour 3 publics :
-#   - Décideur / nouveau venu → Accueil + Démarrage rapide
-#   - User final / opérationnel → Modules
-#   - Dev / ops → Spécifications + Audits + ADR + Référence
+# Two top-level tabs reflecting two audiences :
+#   - "Utilisateur" → free, public access, served at /enduser/
+#   - "Développeur" → gated by Traefik basicAuth (see DEPLOY_VPS.md),
+#                     served at /developer/
+# A user without dev creds sees the Développeur tab in the nav but
+# clicking pages under it returns 401 until they authenticate.
 nav:
   - Accueil: index.md
 
-  - Démarrage rapide:
-    - Vue d'ensemble: README.md
-    - Stack technique: STACK.md
-    - Déployer sur un VPS: DEPLOY_VPS.md
+  - Utilisateur:
+    - Vue d'ensemble: enduser/getting-started/overview.md
+    - Démarrage:
+      - Stack technique: enduser/getting-started/stack.md
+      - Déployer sur un VPS: enduser/getting-started/deploy.md
+    - Modules:
+      - Vue d'ensemble: enduser/modules/index.md
+      - PaxLog: enduser/modules/paxlog.md
+      - MOC (Management of Change): enduser/modules/MOC.md
+      # 13 modules à venir (template paxlog)
 
-  - Modules:
-    - Vue d'ensemble: modules/index.md
-    - PaxLog: modules/paxlog.md
-    - MOC (Management of Change): modules/MOC.md
-    # Les autres modules suivront — voir docs/modules/index.md pour le statut
-
-  - Spécifications:
-    - "Index": rebuilt/README.md
-    - "00 — Vue système": rebuilt/00_SYSTEM_OVERVIEW.md
-    - "01 — Référence Core": rebuilt/01_CORE_REFERENCE.md
-    - "02 — Modèle d'exécution PDCA": rebuilt/02_PDCA_EXECUTION_MODEL.md
-    - "03 — Workflows cross-modules": rebuilt/03_CROSS_MODULE_WORKFLOWS.md
-    - "04 — Règles UI/UX": rebuilt/04_UI_UX_RULES.md
-    - Modules (specs détaillées):
-      - Asset Registry: rebuilt/modules/ASSET_REGISTRY.md
-      - Conformité: rebuilt/modules/CONFORMITE.md
-      - Dashboard: rebuilt/modules/DASHBOARD.md
-      - Imputations: rebuilt/modules/IMPUTATIONS.md
-      - Messaging: rebuilt/modules/MESSAGING.md
-      - Papyrus: rebuilt/modules/PAPYRUS.md
-      - PaxLog: rebuilt/modules/PAXLOG.md
-      - PID/PFD: rebuilt/modules/PID_PFD.md
-      - Planner: rebuilt/modules/PLANNER.md
-      - Projets: rebuilt/modules/PROJETS.md
-      - Report Editor: rebuilt/modules/REPORT_EDITOR.md
-      - Support: rebuilt/modules/SUPPORT.md
-      - Tiers: rebuilt/modules/TIERS.md
-      - TravelWiz: rebuilt/modules/TRAVELWIZ.md
-      - Workflow: rebuilt/modules/WORKFLOW.md
-    - Workflows par objet:
-      - ADS: rebuilt/20_WORKFLOW_ADS.md
-      - AVM: rebuilt/21_WORKFLOW_AVM.md
-      - Document (Papyrus): rebuilt/22_WORKFLOW_DOCUMENT.md
-      - PID: rebuilt/23_WORKFLOW_PID.md
-      - Support ticket: rebuilt/24_WORKFLOW_SUPPORT_TICKET.md
-    - Permissions & rôles:
-      - Matrice rôle/permission: rebuilt/15_ROLE_TO_PERMISSION_MATRIX.md
-      - Permissions vue/module: rebuilt/16_MODULE_VIEW_PERMISSIONS.md
-      - Matrice statut/action: rebuilt/17_STATUS_ACTION_MATRIX.md
-      - Endpoint/owner_type: rebuilt/25_OWNER_TYPE_ENDPOINT_PERMISSION_MATRIX.md
-      - Routes/permission: rebuilt/30_ROUTE_PERMISSION_MATRIX.md
-      - Rôle/vue/permission: rebuilt/09_ROLE_VIEW_PERMISSION_MATRIX.md
+  - Développeur:
+    - Architecture:
+      - Vue système: developer/architecture/system-overview.md
+      - Référence Core: developer/architecture/core-reference.md
+      - Modèle d'exécution PDCA: developer/architecture/pdca-execution.md
+      - Workflows cross-modules: developer/architecture/cross-module-workflows.md
+      - Règles UI/UX: developer/architecture/ui-ux-rules.md
+      - Resolvers home modules: developer/architecture/home-resolvers.md
+    - Spécifications modules:
+      - Asset Registry: developer/modules-spec/ASSET_REGISTRY.md
+      - Conformité: developer/modules-spec/CONFORMITE.md
+      - Dashboard: developer/modules-spec/DASHBOARD.md
+      - Imputations: developer/modules-spec/IMPUTATIONS.md
+      - Messaging: developer/modules-spec/MESSAGING.md
+      - Papyrus: developer/modules-spec/PAPYRUS.md
+      - PaxLog: developer/modules-spec/PAXLOG.md
+      - PID/PFD: developer/modules-spec/PID_PFD.md
+      - Planner: developer/modules-spec/PLANNER.md
+      - Projets: developer/modules-spec/PROJETS.md
+      - Report Editor: developer/modules-spec/REPORT_EDITOR.md
+      - Support: developer/modules-spec/SUPPORT.md
+      - Tiers: developer/modules-spec/TIERS.md
+      - TravelWiz: developer/modules-spec/TRAVELWIZ.md
+      - Workflow: developer/modules-spec/WORKFLOW.md
+    - Workflows:
+      - ADS: developer/workflows/ads.md
+      - AVM: developer/workflows/avm.md
+      - Document (Papyrus): developer/workflows/document.md
+      - PID: developer/workflows/pid.md
+      - Support ticket: developer/workflows/support-ticket.md
+      - Matrice objets workflow: developer/workflows/driven-objects.md
+    - Permissions:
+      - Matrice rôle/vue/permission: developer/permissions/role-view.md
+      - Matrice rôle → permission: developer/permissions/role-to-permission.md
+      - Permissions par module/vue: developer/permissions/module-view.md
+      - Matrice statut/action: developer/permissions/status-action.md
+      - Endpoint × owner_type: developer/permissions/endpoint-owner-type.md
+      - Routes/permission: developer/permissions/route-permission.md
     - Modèle de données:
-      - Org/Asset audit: rebuilt/10_ORG_ASSET_MODEL_AUDIT.md
-      - Entity/BU/Asset: rebuilt/11_ENTITY_BU_ASSET_OPERATING_MODEL.md
-      - Composants polymorphes: rebuilt/12_REUSABLE_AND_POLYMORPHIC_COMPONENTS.md
-      - owner_types autorisés: rebuilt/14_ALLOWED_OWNER_TYPES_AND_POLYMORPHIC_SECURITY.md
-    - Plans d'exécution:
-      - Backlog d'exécution: rebuilt/18_EXECUTION_BACKLOG.md
-      - Workflow engine: rebuilt/19_WORKFLOW_ENGINE_AUDIT.md
-      - Resolvers home modules: rebuilt/26_MODULE_HOME_RESOLVERS.md
-      - Matrice objets workflow: rebuilt/27_WORKFLOW_DRIVEN_OBJECT_MATRIX.md
-      - Acceptance tickets: rebuilt/28_TICKET_ACCEPTANCE_AND_TESTS.md
-      - Plan file-level: rebuilt/29_FILE_LEVEL_IMPLEMENTATION_PLAN.md
-      - Dataset de test: rebuilt/31_REFERENCE_TEST_DATASET.md
-      - Gap modules: rebuilt/32_MODULE_GAP_MATRIX.md
-    - Imputations:
-      - Module cible: rebuilt/13_IMPUTATION_MODULE_TARGET.md
-    - Sécurité:
-      - Plan code: rebuilt/07_SECURITY_FIRST_CODE_PLAN.md
-      - Audit plateforme: rebuilt/06_EXPLICIT_PLATFORM_AUDIT.md
-      - Audit sécurité/i18n/multi-entité: rebuilt/38_PLATFORM_AUDIT_SECURITY_I18N_MULTI_ENTITY_MODULE_GATING.md
-    - PaxLog deep-dive:
-      - Plan weekend: rebuilt/05_PAXLOG_WEEKEND_PLAN.md
-      - Recette fonctionnelle: rebuilt/33_PAXLOG_FUNCTIONAL_RECIPE.md
-      - Audit couverture: rebuilt/34_PAXLOG_COVERAGE_AUDIT.md
-      - Handoff 2026-04-05: rebuilt/35_PAXLOG_HANDOFF_2026-04-05.md
-    - Papyrus deep-dive:
-      - Gap analysis & migration: rebuilt/36_PAPYRUS_GAP_ANALYSIS_AND_MIGRATION_PLAN.md
-      - Plan d'exécution 100%: rebuilt/37_PAPYRUS_100_PERCENT_EXECUTION_PLAN.md
-    - Analyse fonctionnelle profonde: rebuilt/08_DEEP_FUNCTIONAL_ANALYSIS.md
-
-  - Cahiers des charges:
-    - Index: check/CDC_INDEX.md
-    - Cahier fonctionnel:
-      - Core: check/CdCF_00_CORE.md
-      - Report Editor: check/CdCF_01_REPORT_EDITOR.md
-      - PID/PFD: check/CdCF_02_PID_PFD.md
-      - Dashboard: check/CdCF_03_DASHBOARD.md
-      - Asset Registry: check/CdCF_04_ASSET_REGISTRY.md
-      - Tiers: check/CdCF_05_TIERS.md
-      - IA/MCP: check/CdCF_06_AI_MCP.md
-      - Connecteurs: check/CdCF_07_CONNECTEURS.md
-    - Cahier des charges:
-      - Core: check/CDC_00_CORE.md
-      - Asset Registry: check/CDC_01_ASSET_REGISTRY.md
-      - Tiers: check/CDC_02_TIERS.md
-      - Projets: check/CDC_03_PROJETS.md
-      - Planner: check/CDC_04_PLANNER.md
-      - PaxLog: check/CDC_05_PAXLOG.md
-      - TravelWiz: check/CDC_06_TRAVELWIZ.md
-      - IA/MCP: check/CDC_07_IA_MCP.md
-      - Report Editor: check/CDC_08_REPORT_EDITOR.md
-      - Dashboard admin: check/CDC_09_DASHBOARD_ADMIN.md
-    - Cahier de définition fonctionnelle (legacy):
-      - Core: check/CDF_00_CORE.md
-      - Report Editor: check/CDF_01_REPORT_EDITOR.md
-      - PID/PFD: check/CDF_02_PID_PFD.md
-      - Dashboard: check/CDF_03_DASHBOARD.md
-      - Asset Registry: check/CDF_04_ASSET_REGISTRY.md
-      - Tiers: check/CDF_05_TIERS.md
-      - IA/MCP: check/CDF_06_AI_MCP.md
-
-  - Audits:
-    - "PaxLog / PackLog 2026-04": AUDIT_PAXLOG_PACKLOG_2026-04.md
-    - "PaxLog / PackLog / TravelWiz fonctionnel 2026-04-29": AUDIT_PAXLOG_PACKLOG_TRAVELWIZ_FONCTIONNEL_2026-04-29.md
-    - "TravelWiz / MOC 2026-04": AUDIT_TRAVELWIZ_MOC_2026-04.md
-    - "Tech debt 2026-04-10": rebuilt/39_TECH_DEBT_AUDIT_2026_04_10.md
-    - "Cohérence doc/code": check/14_DOC_CODE_COHERENCE_AUDIT.md
-    - "Backlog d'alignement doc/code": check/15_DOC_CODE_ALIGNMENT_BACKLOG.md
-    - "AUP gap analysis": check/19_AUP_GAP_ANALYSIS.md
-    - "Tech debt général": check/20_GENERAL_TECHDEBT_AUDIT.md
-    - "UI responsive": check/21_UI_RESPONSIVE_AUDIT.md
-    - "UI design": check/22_UI_DESIGN_AUDIT.md
-    - "Module report": check/02_MODULE_REPORT.md
-    - "Project (overview)": check/00_PROJECT.md
-    - "Core (overview)": check/01_CORE.md
-    - "Module PID/PFD": check/03_MODULE_PID_PFD.md
-    - "Module Dashboard": check/04_MODULE_DASHBOARD.md
-    - "Module Asset Registry": check/05_MODULE_ASSET_REGISTRY.md
-    - "Module Tiers": check/06_MODULE_TIERS.md
-    - "Module IA/MCP": check/07_MODULE_AI_MCP.md
-    - "Workflow ADS/Contact expliqué": check/16_ADS_CONTACT_WORKFLOW_EXPLAINED.md
-    - "Workflow AVM expliqué": check/17_AVM_WORKFLOW_EXPLAINED.md
-    - "State machine PaxLog/AVM/ADS/TravelWiz": check/18_PAXLOG_AVM_ADS_TRAVELWIZ_STATE_MACHINE.md
-    - "Decisions complémentaires": check/12_DECISIONS_COMPLEMENTAIRES.md
-    - "Bootstrap": check/11_BOOTSTRAP.md
-    - "Analyse fonctionnelle (legacy)": check/10_FUNCTIONAL_ANALYSIS.md
-    - "Module analysis (legacy)": MODULE_ANALYSIS.md
-    - "Overnight 2026-04-23": OVERNIGHT_2026-04-23.md
-    - "Legacy notice": LEGACY_NOTICE.md
-
-  - ADR:
-    - "001 — Form validation": adr/001-form-validation.md
-    - "002 — Monster files refactor": adr/002-monster-files-refactor.md
-    - "003 — KMZ import workflow": adr/003-kmz-import-workflow.md
-
-  - Référence:
-    - Settings: check/13_SETTINGS_REFERENCE.md
-    - Roadmap: check/08_ROADMAP.md
-    - Design system: check/09_DESIGN_SYSTEM.md
+      - Org/Asset audit: developer/data-model/org-asset-model.md
+      - Entity / BU / Asset: developer/data-model/entity-bu-asset.md
+      - Composants polymorphes: developer/data-model/reusable-polymorphic.md
+      - Module Imputations cible: developer/data-model/imputation-target.md
+      - owner_types autorisés: developer/data-model/owner-types-security.md
+    - Explications:
+      - Workflow ADS contact: developer/explainers/ads-contact-workflow.md
+      - Workflow AVM: developer/explainers/avm-workflow.md
+      - State machine PaxLog: developer/explainers/pax-state-machine.md
+    - Qualité:
+      - Plan code sécurité: developer/quality/security-code-plan.md
+      - Analyse fonctionnelle profonde: developer/quality/deep-functional-analysis.md
+      - Acceptance tests: developer/quality/acceptance-tests.md
+      - Dataset de référence: developer/quality/test-dataset.md
+    - ADR:
+      - "001 — Form validation": developer/adr/001-form-validation.md
+      - "002 — Monster files refactor": developer/adr/002-monster-files-refactor.md
+      - "003 — KMZ import workflow": developer/adr/003-kmz-import-workflow.md
+    - Référence:
+      - Settings: developer/reference/settings.md
+      - Design system: developer/reference/design-system.md
+      - Roadmap: developer/reference/roadmap.md

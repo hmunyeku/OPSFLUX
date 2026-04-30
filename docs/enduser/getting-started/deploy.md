@@ -653,6 +653,104 @@ fréquentes :
    `acme: error` dans `docker logs traefik`. Souvent un token DNS qui
    n'a pas les permissions write sur la zone.
 
+### 7.5 — Documentation : protéger `/developer/*` sur `docs.<DOMAIN>`
+
+Le portail documentation `docs.<DOMAIN>` sert deux espaces :
+
+- `/enduser/*` — **public**, pas d'auth (cette doc)
+- `/developer/*` — **gated**, basicAuth Traefik (V1) → OpsFlux SSO (V2)
+
+#### V1 : basicAuth (en place)
+
+Le `docker-compose.yml` déclare deux routeurs Traefik sur le même Host :
+
+- Router public — rule `Host(`docs.<DOMAIN>`) && !PathPrefix(`/developer`)`
+- Router gated — rule `Host(`docs.<DOMAIN>`) && PathPrefix(`/developer`)`,
+  middleware `basicauth` avec credentials depuis `DEV_DOCS_AUTH`
+
+**Configurer les credentials** :
+
+```bash
+# Générer un hash bcrypt pour user "alice" / password "Pa$$w0rd"
+htpasswd -nbB alice 'Pa$$w0rd'
+# → alice:$2y$05$xkXjVm8vKWgWv0vWyKK0Qe...
+
+# Copier dans .env (DOUBLER les $ pour échapper l'interpolation Compose)
+DEV_DOCS_AUTH=alice:$$2y$$05$$xkXjVm8vKWgWv0vWyKK0Qe.5C5z7l8mF7m8l5lEeZGGQwBhVXSHtS
+```
+
+Plusieurs comptes possibles (séparés par `,`) :
+
+```bash
+DEV_DOCS_AUTH=alice:$$2y$$05$$...,bob:$$2y$$05$$...
+```
+
+Tester :
+```bash
+curl -I https://docs.opsflux.io/                          # → 200
+curl -I https://docs.opsflux.io/developer/                # → 401 (sans creds)
+curl -I -u alice:'Pa$$w0rd' https://docs.opsflux.io/developer/   # → 200
+```
+
+#### V2 : OpsFlux SSO (forwardAuth — planifié)
+
+L'auth basique est un placeholder. La cible est d'utiliser le SSO
+OpsFlux : un dev se connecte sur `app.opsflux.io` (idéalement via
+GitHub OAuth — voir §7.6) et son cookie/JWT est validé par Traefik via
+forwardAuth sur un endpoint backend `GET /api/v1/auth/me-cookie`.
+
+Pré-requis pour migrer :
+
+1. Créer l'endpoint backend `GET /api/v1/auth/me-cookie` qui :
+   - Accepte le JWT en cookie `opsflux_session` (domaine `.opsflux.io`)
+   - Retourne 200 si l'utilisateur est admin
+   - Retourne 401 sinon → Traefik redirige vers `app.opsflux.io/login`
+2. Remplacer le middleware `basicauth` par `forwardauth` dans
+   `docker-compose.yml` :
+   ```yaml
+   - "traefik.http.middlewares.opsflux-docs-dev-auth.forwardauth.address=https://api.${DOMAIN}/api/v1/auth/me-cookie"
+   - "traefik.http.middlewares.opsflux-docs-dev-auth.forwardauth.trustForwardHeader=true"
+   ```
+3. Configurer le cookie OpsFlux pour qu'il soit envoyé sur `docs.opsflux.io`
+   (domaine `.opsflux.io`).
+
+### 7.6 — GitHub OAuth (provider SSO)
+
+Le backend supporte les providers SSO `google_oauth`, `github_oauth`,
+`azure_ad`, `okta`, `keycloak` (cf. `SSO_PROVIDERS` dans
+[`app/api/routes/core/auth.py`](https://github.com/hmunyeku/OPSFLUX/blob/main/app/api/routes/core/auth.py)).
+
+**Configurer GitHub OAuth** (à faire après le premier boot) :
+
+1. **Créer une OAuth App GitHub** :
+   - <https://github.com/settings/developers> → `New OAuth App`
+   - Application name : `OpsFlux <ton-domaine>`
+   - Homepage URL : `https://app.opsflux.io`
+   - Authorization callback URL : `https://api.opsflux.io/api/v1/auth/sso/callback`
+   - Récupérer `Client ID` et générer un `Client Secret`
+
+2. **Côté OpsFlux** (Settings → Intégrations, ou via SQL direct) :
+
+   ```sql
+   -- À adapter avec ton entity_id
+   INSERT INTO settings (key, value, scope, scope_id) VALUES
+     ('integration.github_oauth.client_id',     '{"v":"<client-id>"}',     'entity', '<entity-id>'),
+     ('integration.github_oauth.client_secret', '{"v":"<client-secret>"}', 'entity', '<entity-id>'),
+     ('integration.github_oauth.scopes',        '{"v":"read:user user:email"}', 'entity', '<entity-id>')
+   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+   ```
+
+3. **Vérifier** : `GET /api/v1/auth/sso/providers` doit lister
+   `{"id":"github_oauth", "name":"GitHub", ...}`. Le bouton "Se
+   connecter avec GitHub" apparaît automatiquement sur la page de login.
+
+**Limitation à connaître** : si l'utilisateur GitHub a son email en
+**privé**, le `/user` endpoint retourne `email: null`. Le callback
+[handler](https://github.com/hmunyeku/OPSFLUX/blob/main/app/api/routes/core/auth.py)
+fallback sur `/user/emails` (scope `user:email`) et prend l'email
+**primary + verified**. Si l'utilisateur n'a aucun email vérifié,
+le SSO échoue avec `?sso_error=no_email`.
+
 ---
 
 ## 8. Premier boot — build + migrations + seed

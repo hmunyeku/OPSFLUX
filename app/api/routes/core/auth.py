@@ -917,6 +917,20 @@ SSO_PROVIDERS = {
         "default_scopes": "openid email profile",
         "icon": "google",
     },
+    "github_oauth": {
+        "name": "GitHub",
+        "settings_prefix": "integration.github_oauth",
+        "authorize_url": "https://github.com/login/oauth/authorize",
+        "token_url": "https://github.com/login/oauth/access_token",
+        "userinfo_url": "https://api.github.com/user",
+        # GitHub doesn't expose primary email in /user when it's set to
+        # private — `user:email` adds the /user/emails endpoint to the
+        # OAuth scope. We still call /user as the userinfo URL; the
+        # callback handler should make a second call to /user/emails
+        # when the primary email is missing from the userinfo response.
+        "default_scopes": "read:user user:email",
+        "icon": "github",
+    },
     "azure_ad": {
         "name": "Microsoft",
         "settings_prefix": "integration.azure",
@@ -1053,7 +1067,7 @@ async def list_sso_providers(
 
 @router.get("/sso/authorize")
 async def sso_authorize(
-    provider: str = Query(..., description="Provider ID: google_oauth, azure_ad, okta, keycloak"),
+    provider: str = Query(..., description="Provider ID: google_oauth, github_oauth, azure_ad, okta, keycloak"),
     db: AsyncSession = Depends(get_db),
 ):
     """Build OAuth2 authorization URL and return it. Frontend redirects the user."""
@@ -1201,20 +1215,51 @@ async def sso_callback(
         or userinfo.get("mail")  # Azure AD
         or userinfo.get("userPrincipalName")  # Azure AD fallback
     )
+
+    # GitHub: users with private email get null in /user. Fall back to
+    # /user/emails (requires the user:email scope in default_scopes) and
+    # pick the primary verified address.
+    if not email and provider_id == "github_oauth":
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                emails_resp = await client.get(
+                    "https://api.github.com/user/emails",
+                    headers={"Authorization": f"Bearer {access_token_sso}"},
+                )
+                if emails_resp.status_code == 200:
+                    emails = emails_resp.json() or []
+                    primary = next((e for e in emails if e.get("primary") and e.get("verified")), None)
+                    if primary:
+                        email = primary.get("email")
+        except Exception:
+            logger.exception("GitHub /user/emails fallback failed")
+
     if not email:
         return RedirectResponse(f"{settings.APP_URL}/login?sso_error=no_email")
 
     email = email.lower().strip()
+    # GitHub returns `name` as a single full-name string (or null) and
+    # `login` as the GitHub username. Split here to populate first/last.
+    github_name = userinfo.get("name") if provider_id == "github_oauth" else None
+    github_first, github_last = "", ""
+    if github_name:
+        parts = github_name.strip().split(" ", 1)
+        github_first = parts[0]
+        github_last = parts[1] if len(parts) > 1 else ""
+
     first_name = (
         userinfo.get("given_name")
         or userinfo.get("givenName")  # Azure AD
         or userinfo.get("first_name")
+        or github_first
+        or (userinfo.get("login") if provider_id == "github_oauth" else None)
         or email.split("@")[0].title()
     )
     last_name = (
         userinfo.get("family_name")
         or userinfo.get("surname")  # Azure AD
         or userinfo.get("last_name")
+        or github_last
         or ""
     )
     sso_id = (

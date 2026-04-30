@@ -650,10 +650,9 @@ fait souscrire **TravelWiz**, **Planner**, **Conformité** à des
 - `ads.completed` → Planner activity passe à `completed` si liée
 - `ads.cancelled` → Planner forecast recalculé
 
-> **Bug historique fixé** : [audit 2026-04-29 #1](../AUDIT_PAXLOG_PACKLOG_TRAVELWIZ_FONCTIONNEL_2026-04-29.md#1--p0--adsapproved-ne-déclenche-plus-le-manifest-travelwiz)
-> — la souscription `paxlog.ads.approved` ne matchait pas l'émission
-> `ads.approved`. Fix : double subscribe (commit
-> [`11a978c4`](https://github.com/hmunyeku/OPSFLUX/commit/11a978c4)).
+> **Bug historique fixé** : la souscription `paxlog.ads.approved` ne
+> matchait pas l'émission `ads.approved`. Fix : double subscribe
+> (commit [`11a978c4`](https://github.com/hmunyeku/OPSFLUX/commit/11a978c4)).
 
 ---
 
@@ -730,26 +729,14 @@ elle-même est dans un statut `pending_*`. Une fois l'ADS
 
 ## 10. Liens
 
-### Spécification & analyse
+### Spécification (zone Développeur — auth requise)
 
-- **Spec architecturale** : [`rebuilt/modules/PAXLOG.md`](../rebuilt/modules/PAXLOG.md)
-- **Recette fonctionnelle** : [`rebuilt/33_PAXLOG_FUNCTIONAL_RECIPE.md`](../rebuilt/33_PAXLOG_FUNCTIONAL_RECIPE.md)
-- **Audit couverture** : [`rebuilt/34_PAXLOG_COVERAGE_AUDIT.md`](../rebuilt/34_PAXLOG_COVERAGE_AUDIT.md)
-- **Analyse fonctionnelle** : [`check/CDC_05_PAXLOG.md`](../check/CDC_05_PAXLOG.md)
-
-### Workflows détaillés
-
-- [`rebuilt/20_WORKFLOW_ADS.md`](../rebuilt/20_WORKFLOW_ADS.md) — workflow ADS niveau métier
-- [`rebuilt/21_WORKFLOW_AVM.md`](../rebuilt/21_WORKFLOW_AVM.md) — workflow AVM
-- [`check/16_ADS_CONTACT_WORKFLOW_EXPLAINED.md`](../check/16_ADS_CONTACT_WORKFLOW_EXPLAINED.md) — workflow contact externe
-- [`check/17_AVM_WORKFLOW_EXPLAINED.md`](../check/17_AVM_WORKFLOW_EXPLAINED.md)
-- [`check/18_PAXLOG_AVM_ADS_TRAVELWIZ_STATE_MACHINE.md`](../check/18_PAXLOG_AVM_ADS_TRAVELWIZ_STATE_MACHINE.md) — état complet de la state machine cross-module
-
-### Audits
-
-- [`AUDIT_PAXLOG_PACKLOG_2026-04.md`](../AUDIT_PAXLOG_PACKLOG_2026-04.md)
-- [`AUDIT_PAXLOG_PACKLOG_TRAVELWIZ_FONCTIONNEL_2026-04-29.md`](../AUDIT_PAXLOG_PACKLOG_TRAVELWIZ_FONCTIONNEL_2026-04-29.md) — 12 bugs P0-P3, tous corrigés
-- [Spec dette technique](../rebuilt/39_TECH_DEBT_AUDIT_2026_04_10.md)
+- [Spec architecturale PaxLog](../../developer/modules-spec/PAXLOG.md)
+- [Workflow ADS](../../developer/workflows/ads.md) — niveau métier
+- [Workflow AVM](../../developer/workflows/avm.md)
+- [Explication workflow ADS contact externe](../../developer/explainers/ads-contact-workflow.md)
+- [Explication workflow AVM](../../developer/explainers/avm-workflow.md)
+- [State machine PaxLog/AVM/ADS/TravelWiz](../../developer/explainers/pax-state-machine.md)
 
 ### Code
 

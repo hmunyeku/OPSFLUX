@@ -132,7 +132,8 @@ nav:
       - Vue d'ensemble: enduser/modules/index.md
       - PaxLog: enduser/modules/paxlog.md
       - MOC (Management of Change): enduser/modules/MOC.md
-      # 13 modules à venir (template paxlog)
+      - TravelWiz: enduser/modules/travelwiz.md
+      # 12 modules à venir (template paxlog)
 
   - Développeur:
     - Architecture:

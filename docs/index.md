@@ -69,7 +69,7 @@ d'événements interne.
 |---|---|---|---|
 | `paxlog` | Mouvements de personnel (ADS, AVM, conformité) | [:material-check-circle:](enduser/modules/paxlog.md) | [Spec](developer/modules-spec/PAXLOG.md) |
 | `moc` | Management of Change | [:material-check-circle:](enduser/modules/MOC.md) | À venir |
-| `travelwiz` | Voyages affréteurs, manifestes, captain portal | À venir | [Spec](developer/modules-spec/TRAVELWIZ.md) |
+| `travelwiz` | Voyages affréteurs, manifestes, captain portal | [:material-check-circle:](enduser/modules/travelwiz.md) | [Spec](developer/modules-spec/TRAVELWIZ.md) |
 | `tiers` | Entreprises, contacts, identifiants légaux | À venir | [Spec](developer/modules-spec/TIERS.md) |
 | `projets` | Projets multi-niveaux (WBS, CPM, ressources) | À venir | [Spec](developer/modules-spec/PROJETS.md) |
 | `planner` | Planification opérationnelle (heatmap, gantt) | À venir | [Spec](developer/modules-spec/PLANNER.md) |

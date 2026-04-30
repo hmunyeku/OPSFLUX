@@ -32,7 +32,7 @@ workflows et les pièges sans noyer le lecteur.
 |---|---|---|
 | **PaxLog** | :material-check-circle: [Disponible](paxlog.md) | [Spec](../../developer/modules-spec/PAXLOG.md) |
 | **MOC** | :material-check-circle: [Disponible](MOC.md) | À venir |
-| **TravelWiz** | À venir | [Spec](../../developer/modules-spec/TRAVELWIZ.md) |
+| **TravelWiz** | :material-check-circle: [Disponible](travelwiz.md) | [Spec](../../developer/modules-spec/TRAVELWIZ.md) |
 | **PackLog** | À venir | À venir |
 | **Tiers** | À venir | [Spec](../../developer/modules-spec/TIERS.md) |
 | **Projets** | À venir | [Spec](../../developer/modules-spec/PROJETS.md) |

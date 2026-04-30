@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OpsFlux — Plateforme ERP pour les opérations industrielles</title>
-  <meta name="description" content="OpsFlux centralise PaxLog, TravelWiz, Conformité HSE, Projets, Asset Registry et Workflow dans une plateforme multi-tenant pour les opérateurs Oil &amp; Gas, maritime et énergie." />
+  <meta name="description" content="OpsFlux centralise vos opérations, votre conformité HSE, vos voyages affréteurs et vos projets industriels. SaaS ou auto-hébergé." />
   <meta name="theme-color" content="#0F172A" />
   <meta property="og:title" content="OpsFlux — Plateforme ERP opérations industrielles" />
   <meta property="og:description" content="Centralisez vos opérations, votre conformité HSE, vos voyages affréteurs et vos projets industriels dans une seule plateforme." />
@@ -31,10 +31,11 @@
       </a>
 
       <nav class="primary-nav" aria-label="Navigation principale">
+        <a href="#capabilities">Capacités</a>
         <a href="#modules">Modules</a>
         <a href="#industries">Industries</a>
         <a href="#tracker">Tracker</a>
-        <a href="#architecture">Architecture</a>
+        <a href="#deployment">Déploiement</a>
         <a href="https://docs.opsflux.io" target="_blank" rel="noopener">Docs</a>
       </nav>
 
@@ -53,153 +54,176 @@
   <main id="main">
     <!-- ─── Hero ──────────────────────────────────────────────────── -->
     <section class="hero">
-      <div class="hero-bg" aria-hidden="true"></div>
+      <div class="hero-bg" aria-hidden="true">
+        <span class="blob blob-1"></span>
+        <span class="blob blob-2"></span>
+        <span class="blob blob-3"></span>
+      </div>
       <div class="container hero-content">
-        <p class="eyebrow reveal">Plateforme ERP industrielle multi-tenant</p>
+        <p class="eyebrow reveal">Plateforme ERP industrielle</p>
         <h1 class="hero-title reveal" style="--delay:.05s">
-          Une seule plateforme<br>pour vos opérations<br>
-          <span class="accent">industrielles critiques.</span>
+          Pilotez vos opérations<br>
+          industrielles depuis<br>
+          <span class="accent">une seule plateforme.</span>
         </h1>
         <p class="hero-lede reveal" style="--delay:.10s">
-          OpsFlux centralise mouvement de personnel, voyages affréteurs,
-          conformité HSE, projets, assets et MOC dans une stack unifiée
-          pensée pour l'oil &amp; gas, le maritime et l'énergie.
+          OpsFlux réunit mouvement de personnel, voyages affréteurs,
+          conformité HSE, projets et MOC pour les opérateurs oil &amp; gas,
+          maritime et énergie.
         </p>
         <div class="hero-cta reveal" style="--delay:.15s">
           <a href="#contact" class="btn btn-primary btn-lg">Demander une démo</a>
-          <a href="#modules" class="btn btn-secondary btn-lg">
-            <span>Explorer les modules</span>
+          <a href="#capabilities" class="btn btn-secondary btn-lg">
+            <span>Découvrir</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
         </div>
-        <dl class="hero-stats reveal" style="--delay:.20s">
-          <div><dt>Modules</dt><dd>15</dd></div>
-          <div><dt>Conformité HSE</dt><dd>100%</dd></div>
-          <div><dt>Disponibilité</dt><dd>24/7</dd></div>
-          <div><dt>RGPD</dt><dd>Conforme</dd></div>
-        </dl>
+        <p class="hero-fineprint reveal" style="--delay:.20s">
+          Disponible en <strong>SaaS</strong> ou <strong>auto-hébergé</strong>. Démarrage en quelques jours.
+        </p>
+      </div>
+
+      <!-- Mock dashboard preview — pure CSS, no images -->
+      <div class="hero-preview reveal" style="--delay:.25s" aria-hidden="true">
+        <div class="mock-window">
+          <div class="mock-chrome">
+            <span class="mock-dot mock-dot-r"></span>
+            <span class="mock-dot mock-dot-y"></span>
+            <span class="mock-dot mock-dot-g"></span>
+            <span class="mock-url">app.opsflux.io / paxlog</span>
+          </div>
+          <div class="mock-body">
+            <aside class="mock-sidebar">
+              <div class="mock-logo"></div>
+              <div class="mock-nav-item active"></div>
+              <div class="mock-nav-item"></div>
+              <div class="mock-nav-item"></div>
+              <div class="mock-nav-item"></div>
+              <div class="mock-nav-item"></div>
+              <div class="mock-nav-item"></div>
+            </aside>
+            <main class="mock-main">
+              <div class="mock-header">
+                <div class="mock-title"></div>
+                <div class="mock-action"></div>
+              </div>
+              <div class="mock-stats">
+                <div class="mock-stat"><span class="bar bar-blue"></span></div>
+                <div class="mock-stat"><span class="bar bar-green"></span></div>
+                <div class="mock-stat"><span class="bar bar-yellow"></span></div>
+                <div class="mock-stat"><span class="bar bar-red"></span></div>
+              </div>
+              <div class="mock-table">
+                <div class="mock-row"><span class="mock-pill blue"></span><span class="mock-line"></span><span class="mock-tag green"></span></div>
+                <div class="mock-row"><span class="mock-pill blue"></span><span class="mock-line"></span><span class="mock-tag yellow"></span></div>
+                <div class="mock-row"><span class="mock-pill blue"></span><span class="mock-line"></span><span class="mock-tag green"></span></div>
+                <div class="mock-row"><span class="mock-pill blue"></span><span class="mock-line"></span><span class="mock-tag red"></span></div>
+                <div class="mock-row"><span class="mock-pill blue"></span><span class="mock-line"></span><span class="mock-tag green"></span></div>
+                <div class="mock-row"><span class="mock-pill blue"></span><span class="mock-line"></span><span class="mock-tag yellow"></span></div>
+              </div>
+            </main>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- ─── Industries ────────────────────────────────────────────── -->
-    <section class="section section-tight" id="industries">
+    <!-- ─── Trust bar / KPIs ──────────────────────────────────────── -->
+    <section class="trust-bar">
       <div class="container">
-        <header class="section-head">
-          <p class="eyebrow eyebrow-quiet">Pour qui</p>
-          <h2>Conçu pour les opérateurs industriels exigeants</h2>
-          <p class="lede">
-            Les défis terrain (sites isolés, conformité, traçabilité réglementaire,
-            multi-pays) sont au cœur du design produit.
-          </p>
-        </header>
-        <ul class="industries-row">
-          <li class="industry">
-            <span class="industry-icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-            </span>
-            <h3>Oil &amp; Gas</h3>
-            <p>Champs onshore, plateformes offshore, FPSO. Rotations, embarquement, conformité réglementaire.</p>
-          </li>
-          <li class="industry">
-            <span class="industry-icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l3.18-1.06a4 4 0 0 1 2.55 0L12 17l3.27-1.06a4 4 0 0 1 2.55 0L21 17M3 21l3.18-1.06a4 4 0 0 1 2.55 0L12 21l3.27-1.06a4 4 0 0 1 2.55 0L21 21M5 13L3 17M19 13l2 4M5 13c0-3 2-7 7-7s7 4 7 7"/></svg>
-            </span>
-            <h3>Maritime</h3>
-            <p>Affrètements, manifestes passagers, captain portal, suivi cargo public via QR code.</p>
-          </li>
-          <li class="industry">
-            <span class="industry-icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h2M22 12h-2M12 2v2M12 22v-2M5.6 5.6l1.4 1.4M16.95 16.95l1.45 1.45M5.6 18.4l1.4-1.4M16.95 7.05l1.45-1.45"/><circle cx="12" cy="12" r="4"/></svg>
-            </span>
-            <h3>Énergie</h3>
-            <p>Centrales, parcs solaires, fermes éoliennes. Maintenance préventive, asset registry, rapports.</p>
-          </li>
-          <li class="industry">
-            <span class="industry-icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20M3 22V11l4-3 5 4 4-3 5 5v8"/></svg>
-            </span>
-            <h3>Mining</h3>
-            <p>Sites isolés, cycles d'équipes, tonnage, blast permits, traçabilité matériel.</p>
-          </li>
-          <li class="industry">
-            <span class="industry-icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20M5 20V8h14v12M9 20v-8h6v8"/></svg>
-            </span>
-            <h3>Construction</h3>
-            <p>EPC offshore, lots multi-corps, sous-traitants, contrôles d'accès et habilitations.</p>
-          </li>
+        <ul class="trust-stats">
+          <li><dt>Modules métier</dt><dd>15</dd></li>
+          <li><dt>Conformité HSE</dt><dd>Continue</dd></li>
+          <li><dt>Disponibilité</dt><dd>24/7</dd></li>
+          <li><dt>RGPD</dt><dd>Conforme</dd></li>
+          <li><dt>Multi-tenant</dt><dd>Natif</dd></li>
         </ul>
       </div>
     </section>
 
     <!-- ─── Capabilities ──────────────────────────────────────────── -->
-    <section class="section section-grey" id="capabilities">
+    <section class="section section-spacious" id="capabilities">
       <div class="container">
         <header class="section-head">
-          <p class="eyebrow eyebrow-quiet">Capacités clés</p>
-          <h2>Tout ce qui rend une plateforme ERP réellement opérationnelle.</h2>
+          <p class="eyebrow eyebrow-quiet">Ce que vous pouvez faire</p>
+          <h2>Six chantiers métier, une seule plateforme.</h2>
           <p class="lede">
-            Pas de feature checklist marketing. Six piliers tirés de cas
-            d'usage réels chez les clients pilotes.
+            Les défis qui mobilisent vos équipes — habilitations, mouvement,
+            traçabilité — abordés avec un outil unique. Activez les modules
+            que vous utilisez, ignorez les autres.
           </p>
         </header>
+
         <div class="cap-grid">
-          <article class="cap reveal">
+          <article class="cap cap-feature reveal">
             <div class="cap-icon cap-icon-blue" aria-hidden="true">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
-            <h3>Conformité HSE temps réel</h3>
-            <p>Habilitations, formations, visites médicales, visas. Alertes pré-expiration, vérification automatique à la soumission d'une ADS.</p>
+            <h3>Conformité HSE en continu</h3>
+            <p>
+              Habilitations, formations, visites médicales, visas et passeports.
+              Alertes pré-expiration, vérification automatique avant chaque
+              mouvement, matrice de conformité par site et par métier.
+            </p>
+            <ul class="cap-bullets">
+              <li>Validation site par site</li>
+              <li>Tableau de bord conformité par individu</li>
+              <li>Audit-ready à tout moment</li>
+            </ul>
           </article>
+
           <article class="cap reveal" style="--delay:.05s">
             <div class="cap-icon cap-icon-green" aria-hidden="true">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
             </div>
             <h3>Mouvement de personnel</h3>
-            <p>ADS, AVM, embarquement scanné, rotations off/on. Internes et externes (sous-traitants), portails dédiés.</p>
+            <p>Internes et sous-traitants, ADS, embarquement scanné, rotations off/on, portails dédiés.</p>
           </article>
+
           <article class="cap reveal" style="--delay:.10s">
-            <div class="cap-icon cap-icon-orange" aria-hidden="true">
+            <div class="cap-icon cap-icon-yellow" aria-hidden="true">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20M5 20V4h14v16M9 8h2M9 12h2M13 8h2M13 12h2M9 16h6"/></svg>
             </div>
-            <h3>Asset Registry</h3>
-            <p>Hiérarchie champs → sites → installations → équipements. P&amp;ID/PFD éditables, KMZ import, cycle de vie complet.</p>
+            <h3>Registre des actifs</h3>
+            <p>Champs, sites, installations, équipements, pipelines. Schémas P&amp;ID/PFD éditables, cycle de vie complet.</p>
           </article>
+
           <article class="cap reveal" style="--delay:.15s">
-            <div class="cap-icon cap-icon-violet" aria-hidden="true">
+            <div class="cap-icon cap-icon-red" aria-hidden="true">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
             </div>
             <h3>Tableaux de bord</h3>
-            <p>Onglets par rôle + GridStack libre. Widgets drag-and-drop, KPIs temps réel, requêtes SQL, mode TV.</p>
+            <p>Onglets par rôle + grille libre. KPIs temps réel, requêtes personnalisées, mode TV pour salle de contrôle.</p>
           </article>
+
           <article class="cap reveal" style="--delay:.20s">
-            <div class="cap-icon cap-icon-red" aria-hidden="true">
+            <div class="cap-icon cap-icon-violet" aria-hidden="true">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
             </div>
-            <h3>Workflow Engine</h3>
-            <p>FSM générique pluggable sur tout objet. Éditeur visuel, transitions par rôle, signatures électroniques, audit complet.</p>
+            <h3>Workflows configurables</h3>
+            <p>Éditeur visuel, validations parallèles, signatures électroniques, journal d'audit complet.</p>
           </article>
+
           <article class="cap reveal" style="--delay:.25s">
             <div class="cap-icon cap-icon-cyan" aria-hidden="true">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             </div>
-            <h3>Multi-tenant + multi-entités</h3>
-            <p>Schémas Postgres par tenant, scoping par entity_id sur toutes les tables métier. SSO Google, Microsoft, GitHub, Okta, Keycloak.</p>
+            <h3>Sécurité &amp; rôles</h3>
+            <p>Multi-tenant strict, permissions granulaires, SSO Google, Microsoft, GitHub. Pas de fuite cross-tenant possible.</p>
           </article>
         </div>
       </div>
     </section>
 
     <!-- ─── Modules ───────────────────────────────────────────────── -->
-    <section class="section" id="modules">
+    <section class="section section-grey section-spacious" id="modules">
       <div class="container">
         <header class="section-head">
           <p class="eyebrow eyebrow-quiet">15 modules</p>
-          <h2>Une architecture modulaire, activable à la carte.</h2>
+          <h2>Activez ce dont vous avez besoin.<br>Le reste reste invisible.</h2>
           <p class="lede">
-            Chaque module est indépendant et s'enregistre au démarrage via
-            le ModuleRegistry. Les interactions cross-modules passent par
-            un bus d'événements interne — pas de couplage dur.
+            Chaque module est indépendant. Vous activez PaxLog seul, ou la
+            stack complète. Les modules qui se parlent entre eux le font
+            automatiquement, sans intervention.
           </p>
         </header>
 
@@ -222,19 +246,19 @@
           </a>
           <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
             <h4>Projets</h4>
-            <p>WBS, CPM, antécédents, ressources, pointage, pertes, MS Project-like.</p>
+            <p>WBS, planning, antécédents, ressources, pointage, suivi des pertes.</p>
           </a>
           <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
             <h4>Planner</h4>
-            <p>Planification scénarisée, heatmap POB, conflits, gantt.</p>
+            <p>Planification scénarisée, capacité POB, conflits, gantt.</p>
           </a>
           <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
             <h4>Asset Registry</h4>
-            <p>Champs, sites, installations, équipements, pipelines, GIS PostGIS.</p>
+            <p>Champs, sites, installations, équipements, pipelines.</p>
           </a>
           <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
             <h4>PID / PFD</h4>
-            <p>Éditeur xyflow, import KMZ, versioning, export PDF.</p>
+            <p>Éditeur de schémas, import KMZ, versioning, export PDF.</p>
           </a>
           <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
             <h4>Tiers</h4>
@@ -242,50 +266,79 @@
           </a>
           <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
             <h4>Papyrus</h4>
-            <p>Documents structurés versionnés, templates, formulaires, dispatch.</p>
+            <p>Documents structurés, templates, formulaires, dispatch.</p>
           </a>
           <a href="https://docs.opsflux.io/enduser/modules/MOC/" target="_blank" rel="noopener" class="module">
             <h4>MOC</h4>
-            <p>Management of Change : formulaire 9-signatures, FSM 12 états.</p>
+            <p>Management of Change : 9 signatures électroniques, 12 états.</p>
           </a>
           <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
             <h4>Imputations</h4>
-            <p>Comptes analytiques, taux de change historiques, OTP.</p>
+            <p>Comptes analytiques, taux de change, OTP.</p>
           </a>
           <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
             <h4>Workflow</h4>
-            <p>Moteur d'états FSM générique, pluggable sur tout module.</p>
+            <p>Moteur de workflow configurable, pluggable sur tout module.</p>
           </a>
           <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
             <h4>Support</h4>
-            <p>Tickets, agent IA auto-fix, workflow CI intégré.</p>
+            <p>Tickets, agent IA auto-fix, intégration CI.</p>
           </a>
           <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="module">
             <h4>Dashboard</h4>
-            <p>Onglets par rôle + GridStack libre, widgets, KPIs, mode TV.</p>
+            <p>Onglets par rôle + grille libre, widgets, KPIs, mode TV.</p>
           </a>
         </div>
       </div>
     </section>
 
+    <!-- ─── Industries ────────────────────────────────────────────── -->
+    <section class="section section-spacious" id="industries">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow eyebrow-quiet">Pour qui</p>
+          <h2>Conçu pour les opérateurs industriels exigeants.</h2>
+          <p class="lede">
+            Sites isolés, conformité, traçabilité réglementaire, multi-pays —
+            les défis qui définissent votre quotidien sont au cœur du produit.
+          </p>
+        </header>
+        <ul class="industries-row">
+          <li class="industry"><span class="industry-icon icon-blue" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          </span><h3>Oil &amp; Gas</h3><p>Champs onshore, offshore, FPSO. Rotations, embarquement, conformité.</p></li>
+          <li class="industry"><span class="industry-icon icon-green" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l3.18-1.06a4 4 0 0 1 2.55 0L12 17l3.27-1.06a4 4 0 0 1 2.55 0L21 17M3 21l3.18-1.06a4 4 0 0 1 2.55 0L12 21l3.27-1.06a4 4 0 0 1 2.55 0L21 21M5 13L3 17M19 13l2 4M5 13c0-3 2-7 7-7s7 4 7 7"/></svg>
+          </span><h3>Maritime</h3><p>Affrètements, manifestes, captain portal, suivi cargo public via QR.</p></li>
+          <li class="industry"><span class="industry-icon icon-yellow" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M2 12h2M22 12h-2M12 2v2M12 22v-2"/></svg>
+          </span><h3>Énergie</h3><p>Centrales, parcs solaires, fermes éoliennes. Maintenance, asset registry.</p></li>
+          <li class="industry"><span class="industry-icon icon-red" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20M3 22V11l4-3 5 4 4-3 5 5v8"/></svg>
+          </span><h3>Mining</h3><p>Sites isolés, cycles d'équipes, blast permits, traçabilité matériel.</p></li>
+          <li class="industry"><span class="industry-icon icon-violet" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20M5 20V8h14v12M9 20v-8h6v8"/></svg>
+          </span><h3>Construction</h3><p>EPC offshore, lots multi-corps, sous-traitants, accès contrôlés.</p></li>
+        </ul>
+      </div>
+    </section>
+
     <!-- ─── Tracker public ────────────────────────────────────────── -->
-    <section class="section section-dark" id="tracker">
+    <section class="section section-dark section-spacious" id="tracker">
       <div class="container">
         <header class="section-head section-head-dark">
-          <p class="eyebrow eyebrow-quiet">Suivi public TravelWiz</p>
-          <h2>Suivez une expédition avec son code de tracking.</h2>
+          <p class="eyebrow eyebrow-quiet">Tracker public TravelWiz</p>
+          <h2>Suivez une expédition avec son code.</h2>
           <p class="lede">
-            Consultez l'état, la destination, le voyage associé et l'historique
-            public d'un colis sans ouvrir l'application interne. Aucune donnée
-            sensible n'est exposée.
+            État, destination, voyage, historique. Sans connexion, sans
+            exposer la moindre donnée sensible.
           </p>
         </header>
 
         <div class="tracker" id="publicTracking">
           <form class="tracker-form" id="trackingForm" autocomplete="off">
             <label class="sr-only" for="trackingCode">Code de suivi</label>
-            <input type="text" id="trackingCode" name="trackingCode" spellcheck="false"
-                   placeholder="Ex. TW-CARGO-2026-00421" />
+            <input type="text" id="trackingCode" name="trackingCode" spellcheck="false" placeholder="Ex. TW-CARGO-2026-00421" />
             <button type="submit" class="btn btn-primary">Rechercher</button>
           </form>
           <p class="tracker-hint" id="trackingHint">Le suivi public n'expose que les informations opérationnelles utiles.</p>
@@ -299,14 +352,12 @@
               </div>
               <div class="status-chip" id="trackingStatusChip">-</div>
             </header>
-
             <ul class="tracker-summary">
               <li><span>Code</span><strong id="trackingCodeValue">-</strong></li>
               <li><span>Destination</span><strong id="trackingDestinationValue">-</strong></li>
               <li><span>Voyage</span><strong id="trackingVoyageValue">-</strong></li>
               <li><span>Dimensions</span><strong id="trackingDimensionsValue">-</strong></li>
             </ul>
-
             <div class="tracker-detail">
               <article class="tracker-panel">
                 <h4>Détail</h4>
@@ -329,99 +380,60 @@
       </div>
     </section>
 
-    <!-- ─── Architecture & sécurité ───────────────────────────────── -->
-    <section class="section" id="architecture">
+    <!-- ─── Deployment ────────────────────────────────────────────── -->
+    <section class="section section-spacious" id="deployment">
       <div class="container">
         <header class="section-head">
-          <p class="eyebrow eyebrow-quiet">Architecture &amp; sécurité</p>
-          <h2>Une stack open source moderne, conçue pour durer.</h2>
+          <p class="eyebrow eyebrow-quiet">Comment vous l'utilisez</p>
+          <h2>Deux modes — vous choisissez.</h2>
+          <p class="lede">
+            Selon vos contraintes de souveraineté des données, votre équipe
+            ops, votre budget. Le produit est strictement le même.
+          </p>
         </header>
 
-        <div class="pillar-grid">
-          <article class="pillar reveal">
-            <div class="pillar-num">01</div>
-            <h3>Multi-tenant strict</h3>
-            <p>
-              Schemas PostgreSQL par tenant, scoping <code>entity_id</code> sur
-              toutes les tables métier. Aucune fuite cross-tenant possible —
-              les middlewares forcent le filtre à chaque requête SQL.
+        <div class="deploy-grid">
+          <article class="deploy-card deploy-card-saas reveal">
+            <div class="deploy-badge">Recommandé pour démarrer</div>
+            <h3>OpsFlux SaaS</h3>
+            <p class="deploy-lede">
+              Hébergé par nos soins en Europe. Mises à jour incluses,
+              sauvegardes automatiques, support compris.
             </p>
+            <ul class="deploy-features">
+              <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Disponible en quelques jours</li>
+              <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Données hébergées en Europe</li>
+              <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Mises à jour transparentes</li>
+              <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Support et SLA inclus</li>
+              <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Conforme RGPD</li>
+            </ul>
+            <a href="#contact" class="btn btn-primary">Demander une démo</a>
           </article>
-          <article class="pillar reveal" style="--delay:.05s">
-            <div class="pillar-num">02</div>
-            <h3>Auth &amp; RBAC granulaire</h3>
-            <p>
-              SSO Google, Microsoft, GitHub, Okta, Keycloak. JWT + refresh.
-              Permissions hiérarchiques par module (~500), rôles
-              configurables, audit log complet.
-            </p>
-          </article>
-          <article class="pillar reveal" style="--delay:.10s">
-            <div class="pillar-num">03</div>
-            <h3>Stack technique</h3>
-            <p>
-              Python 3.12 / FastAPI / SQLAlchemy 2 async, PostgreSQL 16
-              (pgvector + PostGIS + ltree), Redis 7, React 18 / Vite /
-              TailwindCSS / shadcn-ui. Mobile React Native (Expo).
-            </p>
-          </article>
-          <article class="pillar reveal" style="--delay:.15s">
-            <div class="pillar-num">04</div>
-            <h3>Self-hostable</h3>
-            <p>
-              Docker Compose sur n'importe quel VPS — vanilla, Dokploy,
-              Coolify, EasyPanel, Caprover, Portainer. Traefik + Let's
-              Encrypt. Variables <code>DOMAIN</code>, <code>STACK_NAME</code>,
-              <code>CERT_RESOLVER</code>, <code>TRAEFIK_NETWORK</code>.
-            </p>
-          </article>
-        </div>
-      </div>
-    </section>
 
-    <!-- ─── How it works ──────────────────────────────────────────── -->
-    <section class="section section-grey" id="how">
-      <div class="container">
-        <header class="section-head">
-          <p class="eyebrow eyebrow-quiet">Comment démarrer</p>
-          <h2>Trois étapes pour mettre OpsFlux en production.</h2>
-        </header>
-        <ol class="steps">
-          <li class="step reveal">
-            <span class="step-num">1</span>
-            <h3>Configurez votre domaine</h3>
-            <p>
-              Pointez 8 sous-domaines (<code>app.</code>, <code>api.</code>,
-              <code>docs.</code>, <code>ext.</code>, <code>drawio.</code>,
-              <code>db.</code>, <code>www.</code>, apex) sur l'IP de votre
-              VPS. Ajoutez un wildcard si vous avez un cert.
+          <article class="deploy-card reveal" style="--delay:.05s">
+            <div class="deploy-badge deploy-badge-quiet">Souveraineté totale</div>
+            <h3>Auto-hébergé</h3>
+            <p class="deploy-lede">
+              Sur votre infrastructure, votre cloud privé, votre data center.
+              Open source, déployable partout.
             </p>
-          </li>
-          <li class="step reveal" style="--delay:.05s">
-            <span class="step-num">2</span>
-            <h3>Lancez Docker Compose</h3>
-            <p>
-              <code>cp .env.example .env</code>, complétez <code>POSTGRES_PASSWORD</code>,
-              <code>SECRET_KEY</code>, <code>JWT_SECRET_KEY</code>,
-              <code>ENCRYPTION_KEY</code>, puis <code>docker compose up -d</code>.
-              Migrations + seed automatiques au boot.
-            </p>
-          </li>
-          <li class="step reveal" style="--delay:.10s">
-            <span class="step-num">3</span>
-            <h3>Connectez-vous</h3>
-            <p>
-              Login admin via <code>FIRST_SUPERUSER</code>. Activez les modules,
-              configurez les SSO providers depuis Settings → Intégrations,
-              invitez vos premiers utilisateurs.
-            </p>
-          </li>
-        </ol>
-        <div class="how-cta">
-          <a href="https://docs.opsflux.io/enduser/getting-started/deploy/" target="_blank" rel="noopener" class="btn btn-secondary">Guide de déploiement complet
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </a>
+            <ul class="deploy-features">
+              <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Sur votre infrastructure</li>
+              <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Aucune donnée ne quitte votre périmètre</li>
+              <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Personnalisations illimitées</li>
+              <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Documentation complète + support</li>
+              <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Stack standard : Docker + base de données</li>
+            </ul>
+            <a href="https://docs.opsflux.io/enduser/getting-started/deploy/" target="_blank" rel="noopener" class="btn btn-secondary">Guide de déploiement
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+          </article>
         </div>
+
+        <p class="deploy-foot">
+          Les détails techniques (stack, prérequis serveur, mise à jour, sauvegarde)
+          sont décrits dans la <a href="https://docs.opsflux.io" target="_blank" rel="noopener">documentation</a>.
+        </p>
       </div>
     </section>
 
@@ -430,13 +442,13 @@
       <div class="container cta-inner">
         <div>
           <h2>Prêt à voir OpsFlux en action&nbsp;?</h2>
-          <p>Démo personnalisée 30 min. Réponse sous 48 h ouvrées.</p>
+          <p>Démo personnalisée 30 min — adaptée à votre contexte. Réponse sous 48 h ouvrées.</p>
         </div>
         <div class="cta-actions">
           <a href="mailto:contact@opsflux.io?subject=Demande%20de%20démo%20OpsFlux" class="btn btn-primary btn-lg">Demander une démo</a>
-          <a href="https://github.com/hmunyeku/OPSFLUX" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.91.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>
-            Voir le code source
+          <a href="https://docs.opsflux.io" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
+            <span>Lire la documentation</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
         </div>
       </div>
@@ -459,32 +471,32 @@
 
       <nav class="footer-nav" aria-label="Produit">
         <h4>Produit</h4>
-        <a href="#modules">Modules</a>
         <a href="#capabilities">Capacités</a>
+        <a href="#modules">Modules</a>
+        <a href="#industries">Industries</a>
+        <a href="#deployment">Déploiement</a>
         <a href="#tracker">Tracker public</a>
-        <a href="#architecture">Architecture</a>
       </nav>
 
       <nav class="footer-nav" aria-label="Documentation">
         <h4>Documentation</h4>
-        <a href="https://docs.opsflux.io/enduser/getting-started/overview/" target="_blank" rel="noopener">Vue d'ensemble</a>
-        <a href="https://docs.opsflux.io/enduser/getting-started/deploy/" target="_blank" rel="noopener">Guide de déploiement</a>
+        <a href="https://docs.opsflux.io/" target="_blank" rel="noopener">Vue d'ensemble</a>
+        <a href="https://docs.opsflux.io/enduser/getting-started/deploy/" target="_blank" rel="noopener">Guide d'installation</a>
         <a href="https://docs.opsflux.io/enduser/modules/paxlog/" target="_blank" rel="noopener">Doc PaxLog</a>
         <a href="https://docs.opsflux.io/" target="_blank" rel="noopener">Tout sur docs.opsflux.io</a>
       </nav>
 
       <nav class="footer-nav" aria-label="Plateforme">
-        <h4>Plateforme</h4>
+        <h4>Contact</h4>
         <a href="https://app.opsflux.io" target="_blank" rel="noopener">Application</a>
         <a href="https://app.opsflux.io/login" target="_blank" rel="noopener">Se connecter</a>
-        <a href="https://github.com/hmunyeku/OPSFLUX" target="_blank" rel="noopener">Code source</a>
         <a href="mailto:contact@opsflux.io">contact@opsflux.io</a>
       </nav>
     </div>
 
     <div class="container footer-bottom">
       <p>&copy; <span id="year"></span> OpsFlux. Tous droits réservés.</p>
-      <p class="muted">Plateforme propriétaire — usage interne et sous licence.</p>
+      <p class="muted">SaaS ou auto-hébergé — selon vos besoins.</p>
     </div>
   </footer>
 

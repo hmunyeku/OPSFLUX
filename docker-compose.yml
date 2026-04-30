@@ -1,22 +1,28 @@
 # =============================================================================
-# OpsFlux — Production Docker Compose (Dokploy)
+# OpsFlux — Production Docker Compose
 # =============================================================================
-# Dokploy creates .env from compose environment settings.
-# Domains & SSL managed by Dokploy's built-in Traefik.
+# Works with vanilla `docker compose up`, Dokploy, Coolify, EasyPanel,
+# Caprover, Portainer, Komodo and any other Docker control plane that
+# consumes a standard compose.yml. Assumes a Traefik (v2 or v3) reachable
+# on a shared Docker network — see TRAEFIK_NETWORK below.
 #
-# Three env vars steer routing:
-#   DOMAIN        → templates Host() rules. Defaults to opsflux.io.
-#   STACK_NAME    → namespaces every Traefik router/service/middleware
-#                   so multiple OpsFlux instances can coexist on the
-#                   same Traefik (e.g. prod + staging behind the same
-#                   proxy). Defaults to "opsflux".
-#                   Override to "opsflux-staging" / "opsflux-test" / etc.
-#   CERT_RESOLVER → name of the Traefik ACME cert resolver to use.
-#                   Defaults to "letsencrypt" (HTTP-01 per subdomain,
-#                   matches Dokploy + standalone Traefik §7.1 setup).
-#                   Set to "letsencrypt-dns" for DNS-01 wildcard.
-#                   See docs/DEPLOY_VPS.md §7.4 for the wildcard cert
-#                   setup (LE DNS-01 OR commercial wildcard upload).
+# Four env vars steer routing :
+#   DOMAIN          → templates Host() rules. Defaults to opsflux.io.
+#   STACK_NAME      → namespaces every Traefik router/service/middleware
+#                     so multiple OpsFlux instances can coexist behind
+#                     the same Traefik (prod + staging side-by-side).
+#                     Defaults to "opsflux".
+#   CERT_RESOLVER   → name of the Traefik ACME cert resolver to use.
+#                     Defaults to "letsencrypt" (HTTP-01 per subdomain).
+#                     Set to "letsencrypt-dns" for DNS-01 wildcard.
+#                     See docs/DEPLOY_VPS.md §7.4.
+#   TRAEFIK_NETWORK → name of the external Docker network shared with
+#                     Traefik. Defaults to "dokploy-network" (the name
+#                     Dokploy creates by default). Override to "proxy"
+#                     or whatever your platform uses ("coolify-proxy",
+#                     "caprover-overlay-network", etc.).
+#
+# All four are documented in .env.example and DEPLOY_VPS.md.
 
 services:
   # ─── PostgreSQL 16 + pgvector + PostGIS ──────────────────────
@@ -37,13 +43,13 @@ services:
       timeout: 5s
       retries: 5
     # The autonomous maintenance agent worker pool runs in its own
-    # Dokploy compose project (see `agent-worker/docker-compose.yml`)
-    # and needs raw Postgres access via the shared `dokploy-network`.
-    # Auth is still password-gated — this just lets the worker DNS-
-    # resolve the db container by its name.
+    # compose project (see `agent-worker/docker-compose.yml`) and needs
+    # raw Postgres access via the shared proxy network. Auth is still
+    # password-gated — this just lets the worker DNS-resolve the db
+    # container by its name across compose projects.
     networks:
       - default
-      - dokploy-network
+      - proxy
 
   # ─── Redis 7 ─────────────────────────────────────────────────
   redis:
@@ -85,7 +91,7 @@ services:
       "
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-dokploy-network}"
       - "traefik.http.services.${STACK_NAME:-opsflux}-api.loadbalancer.server.port=8000"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-api-web.entrypoints=web"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-api-web.rule=Host(`api.${DOMAIN:-opsflux.io}`)"
@@ -106,7 +112,7 @@ services:
       - "traefik.http.routers.${STACK_NAME:-opsflux}-mcp-websecure.service=${STACK_NAME:-opsflux}-api"
     networks:
       - default
-      - dokploy-network
+      - proxy
 
   # ─── Frontend React PWA (nginx) ─────────────────────────────
   frontend:
@@ -120,7 +126,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-dokploy-network}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-app-web.entrypoints=web"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-app-web.middlewares=redirect-to-https@file"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-app-web.rule=Host(`app.${DOMAIN:-opsflux.io}`)"
@@ -132,7 +138,7 @@ services:
       - "traefik.http.services.${STACK_NAME:-opsflux}-app.loadbalancer.server.port=80"
     networks:
       - default
-      - dokploy-network
+      - proxy
 
   # ─── Portail externe PaxLog (nginx) ─────────────────────────
   ext-paxlog:
@@ -144,7 +150,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-dokploy-network}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-ext-paxlog-web.entrypoints=web"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-ext-paxlog-web.middlewares=redirect-to-https@file"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-ext-paxlog-web.rule=Host(`ext.${DOMAIN:-opsflux.io}`)"
@@ -156,7 +162,7 @@ services:
       - "traefik.http.services.${STACK_NAME:-opsflux}-ext-paxlog.loadbalancer.server.port=80"
     networks:
       - default
-      - dokploy-network
+      - proxy
 
   # ─── Vitrine www.opsflux.io (marketing site) ────────────────
   vitrine:
@@ -183,7 +189,7 @@ services:
       - "traefik.http.middlewares.${STACK_NAME:-opsflux}-vitrine-www-redirect.redirectregex.permanent=true"
     networks:
       - default
-      - dokploy-network
+      - proxy
 
   # ─── Draw.io (self-hosted — module PID/PFD + TravelWiz deck plan) ─
   # Version pinned (was :latest) — the 29.6.10 build shipped a corrupt
@@ -197,7 +203,7 @@ services:
       DRAWIO_SELF_CONTAINED: "1"
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-dokploy-network}"
       - "traefik.http.services.${STACK_NAME:-opsflux}-drawio.loadbalancer.server.port=8080"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-drawio-web.entrypoints=web"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-drawio-web.rule=Host(`drawio.${DOMAIN:-opsflux.io}`)"
@@ -209,7 +215,7 @@ services:
       - "traefik.http.routers.${STACK_NAME:-opsflux}-drawio-websecure.service=${STACK_NAME:-opsflux}-drawio"
     networks:
       - default
-      - dokploy-network
+      - proxy
 
   # ─── pgAdmin 4 (DB management — superadmin only) ──
   pgadmin:
@@ -229,7 +235,7 @@ services:
       - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-dokploy-network}"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-pgadmin-web.entrypoints=web"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-pgadmin-web.rule=Host(`db.${DOMAIN:-opsflux.io}`)"
       - "traefik.http.routers.${STACK_NAME:-opsflux}-pgadmin-web.middlewares=redirect-to-https@file"
@@ -241,7 +247,7 @@ services:
       - "traefik.http.services.${STACK_NAME:-opsflux}-pgadmin.loadbalancer.server.port=80"
     networks:
       - default
-      - dokploy-network
+      - proxy
 
 volumes:
   pg_data:
@@ -249,7 +255,13 @@ volumes:
   pgadmin_data:
 
 networks:
-  dokploy-network:
+  # Proxy network shared with Traefik. The actual Docker network name
+  # comes from TRAEFIK_NETWORK (default: dokploy-network — what Dokploy
+  # creates by default; on Coolify use "coolify-proxy", on Caprover
+  # "captain-overlay-network", on a vanilla Traefik standalone use
+  # whatever you named it in your Traefik compose).
+  proxy:
+    name: ${TRAEFIK_NETWORK:-dokploy-network}
     external: true
 
 # The autonomous maintenance agent worker pool is a separate opt-in
@@ -258,6 +270,6 @@ networks:
 #   * Installs that don't want the AI agent don't build its image
 #   * Worker crashes during agent development can't take down the API
 #   * The worker pool can scale replicas independently
-# To deploy it, create a second Dokploy compose project pointing at
-# `./agent-worker/docker-compose.yml` in the same repo. Both share the
-# same Postgres via the `dokploy-network` external network.
+# To deploy it, point your control plane (or a second `docker compose`
+# project) at `./agent-worker/docker-compose.yml` in the same repo.
+# Both share the same Postgres via the proxy network above.

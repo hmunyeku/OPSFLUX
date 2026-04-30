@@ -1,9 +1,19 @@
 # Déployer OpsFlux sur un VPS — guide complet
 
 Guide pas-à-pas pour mettre OpsFlux en production sur un VPS générique
-(Hostinger, OVH, Hetzner, DigitalOcean, AWS Lightsail, …) avec **Docker
-Compose + Traefik**, sans Dokploy. Le déploiement Dokploy reste possible
-mais est traité comme un cas particulier (§14).
+(Hostinger, OVH, Hetzner, DigitalOcean, AWS Lightsail, Scaleway, …)
+avec **Docker Compose + Traefik**.
+
+Trois chemins selon ton préféré :
+
+- **Vanilla Docker Compose** (le plus de contrôle, le plus simple à
+  comprendre) — c'est le chemin principal de ce guide, §3 à §13.
+- **Avec un control plane** (Dokploy, Coolify, EasyPanel, Caprover,
+  Portainer, …) — §14 montre comment mapper le compose sur chaque
+  plateforme. Le compose lui-même est identique.
+- **PaaS géré** (Render, Railway, Fly.io, …) — pas couvert ici car
+  chacun a ses spécificités ; suivre leur doc native pour ingérer
+  un compose.
 
 > **Pré-requis lecteur** : familiarité Linux, DNS, Docker, Let's Encrypt.
 
@@ -26,7 +36,7 @@ Pour une vue d'ensemble de l'architecture, voir [`STACK.md`](STACK.md).
 11. [Sauvegardes](#11-sauvegardes)
 12. [Mises à jour](#12-mises-à-jour)
 13. [Recovery — situations classiques](#13-recovery--situations-classiques)
-14. [Cas particulier — déploiement Dokploy](#14-cas-particulier--déploiement-dokploy)
+14. [Déployer avec un control plane (Dokploy / Coolify / EasyPanel / Caprover / Portainer / …)](#14-déployer-avec-un-control-plane-dokploy--coolify--easypanel--caprover--portainer--)
 15. [Annexes](#15-annexes)
 
 ---
@@ -318,15 +328,24 @@ FIRST_ENTITY_CURRENCY=EUR
 ## 7. Mettre en place Traefik
 
 Le `docker-compose.yml` **n'embarque pas Traefik** — il l'attend sur
-un réseau Docker externe nommé `dokploy-network`. Deux options :
+un réseau Docker externe partagé. Le nom de ce réseau est paramétrable
+via `TRAEFIK_NETWORK` dans `.env` ; le défaut `dokploy-network`
+correspond à ce qu'install Dokploy. Pour les autres plateformes, voir
+le tableau §14.
 
-### 7.1 — Option A : Traefik standalone (recommandé hors Dokploy)
+Si tu n'utilises **pas** de control plane qui fournit Traefik (Dokploy /
+Coolify / EasyPanel / Caprover / …), il faut le monter à la main :
+deux options ci-dessous.
 
-Créer un compose Traefik dédié :
+### 7.1 — Option A : Traefik standalone (recommandé hors control plane)
+
+Créer un compose Traefik dédié. On nomme le réseau partagé `proxy`
+ici ; tu peux choisir n'importe quel nom — il faudra juste le mettre
+dans le `.env` OpsFlux via `TRAEFIK_NETWORK=<ce-nom>`.
 
 ```bash
 mkdir -p /opt/traefik && cd /opt/traefik
-mkdir letsencrypt
+mkdir letsencrypt dynamic
 touch letsencrypt/acme.json && chmod 600 letsencrypt/acme.json
 ```
 
@@ -341,7 +360,7 @@ services:
     command:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=dokploy-network"
+      - "--providers.docker.network=proxy"
       - "--providers.file.directory=/etc/traefik/dynamic"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
@@ -358,10 +377,10 @@ services:
       - ./letsencrypt:/letsencrypt
       - ./dynamic:/etc/traefik/dynamic:ro
     networks:
-      - dokploy-network
+      - proxy
 
 networks:
-  dokploy-network:
+  proxy:
     external: true
 ```
 
@@ -380,10 +399,15 @@ http:
 Créer le réseau partagé puis démarrer Traefik :
 
 ```bash
-docker network create dokploy-network
-mkdir -p /opt/traefik/dynamic
+docker network create proxy
 cd /opt/traefik && docker compose up -d
 docker logs -f traefik   # vérifier "Configuration loaded"
+```
+
+Et dans le `.env` OpsFlux :
+
+```ini
+TRAEFIK_NETWORK=proxy
 ```
 
 ### 7.2 — Option B : nginx-proxy + acme-companion
@@ -440,14 +464,27 @@ la config Traefik elle-même** — pas seulement le compose OpsFlux.
 Selon ton hébergement :
 
 - **Traefik standalone (§7.1)** → tu édites
-  `/opt/traefik/docker-compose.yml` + `/opt/traefik/dynamic/*.yml`. Plein
-  contrôle.
-- **Dokploy** → UI Dokploy → `Settings` → `Server` → `Traefik`. Permet
+  `/opt/traefik/docker-compose.yml` + `/opt/traefik/dynamic/*.yml`.
+  Plein contrôle.
+- **Dokploy** → UI → `Settings` → `Server` → `Traefik`. Permet
   d'ajouter des `--certificatesresolvers.*` au command et de monter des
-  fichiers dans `/etc/dokploy/traefik/dynamic/`. Ne pas oublier
-  `docker restart traefik` après modif.
+  fichiers dans `/etc/dokploy/traefik/dynamic/`. `docker restart traefik`
+  après modif.
+- **Coolify** → UI → `Server` → `Proxy` → onglet `Traefik` (ou
+  `Dynamic Configurations`). Coolify expose la config statique +
+  `/data/coolify/proxy/dynamic/`.
+- **EasyPanel** → UI → `Settings` → `Traefik`. Volumes Traefik dans
+  `/etc/easypanel/traefik/`.
+- **Caprover** → fichier `/captain/data/config-override/` côté serveur,
+  ou via la CLI Caprover. Caprover repackage Traefik dans une stack
+  Swarm — moins flexible, parfois plus simple de coller un Traefik à
+  côté en standalone (§7.1) et de le brancher dans le réseau Caprover.
+- **Portainer + Traefik** → édite directement le compose Traefik que
+  tu as déployé toi-même. Comme §7.1.
 - **PaaS géré** (Render, Railway, Fly.io, …) → ils gèrent leur propre
-  TLS, les scénarios ci-dessous ne s'appliquent pas. Suivre leur doc.
+  TLS de bout en bout, les scénarios ci-dessous ne s'appliquent pas.
+  Suivre leur doc native ; ils servent souvent un wildcard sur leur
+  propre domaine, et un cert dédié si tu rattaches un domaine custom.
 
 Le `docker-compose.yml` OpsFlux expose une variable **`CERT_RESOLVER`**
 (défaut : `letsencrypt`) qui suffit à basculer entre les modes.
@@ -672,7 +709,8 @@ Attendu :
 - `www.opsflux.io` → **200**
 
 Si **000** sur tous : Traefik n'écoute pas sur 443 → vérifier
-`docker logs traefik` et que `dokploy-network` existe.
+`docker logs traefik` et que le réseau partagé existe :
+`docker network ls | grep "${TRAEFIK_NETWORK:-dokploy-network}"`.
 
 Si **404** sur `app.` ou `api.` : le label Traefik n'est pas appliqué
 au conteneur → `docker inspect <container> | grep traefik` doit lister
@@ -870,7 +908,7 @@ le réseau Docker a disparu (typique après un redémarrage du démon).
 Recréer :
 
 ```bash
-docker network create dokploy-network
+docker network create "${TRAEFIK_NETWORK:-dokploy-network}"
 docker start traefik
 docker compose -f /opt/opsflux/docker-compose.yml up -d
 ```
@@ -946,19 +984,100 @@ Puis `systemctl restart docker`.
 
 ---
 
-## 14. Cas particulier — déploiement Dokploy
+## 14. Déployer avec un control plane (Dokploy / Coolify / EasyPanel / Caprover / Portainer / …)
 
-Si vous utilisez [Dokploy](https://dokploy.com) (ce qui est le cas pour
-l'instance hostée sur `app.opsflux.io`), Traefik est fourni
-automatiquement, ainsi que le réseau `dokploy-network` et la gestion
-ACME. Le flow change :
+Le compose OpsFlux ne dépend de rien de spécifique à un orchestrateur :
+il consomme un fichier `docker-compose.yml` standard. Tout control plane
+qui sait avaler ça peut le déployer. Ce qu'il te faut :
 
-1. Dans Dokploy → **Project** → **Compose** → New
-2. Source = ce repo GitHub
-3. Coller le contenu de `.env` dans **Environment** (pas de fichier
-   `.env` séparé — Dokploy l'injecte au runtime)
-4. Auto-deploy = activé sur la branche `main`
-5. Premier déploiement = **Deploy** → suivre les logs
+1. **Une instance Traefik (v2 ou v3)** déjà en place — la plupart des
+   control planes en fournissent une nativement.
+2. **Un réseau Docker partagé** entre Traefik et OpsFlux. Par défaut le
+   compose attend `dokploy-network` ; surcharger via la variable
+   `TRAEFIK_NETWORK` dans `.env` selon ta plateforme :
+
+   | Plateforme | `TRAEFIK_NETWORK=` |
+   |---|---|
+   | **Dokploy** | `dokploy-network` (défaut) |
+   | **Coolify** | `coolify` |
+   | **Caprover** | `captain-overlay-network` |
+   | **EasyPanel** | `easypanel` |
+   | **Portainer** + Traefik | dépend de comment tu as nommé le network Traefik |
+   | **Traefik standalone (§7.1)** | `proxy` (ou ce que tu as mis dans le compose Traefik) |
+   | **Vanilla docker compose, pas de Traefik** | tu dois en monter un d'abord — voir §7.1 |
+
+3. **Un cert resolver ACME** nommé `letsencrypt` côté Traefik (la plupart
+   des control planes le configurent par défaut). Si tu utilises un
+   nom différent ou un wildcard, voir §7.4.
+
+4. **Définir le `.env`** avec au minimum `POSTGRES_PASSWORD`, `SECRET_KEY`,
+   `JWT_SECRET_KEY`, `ENCRYPTION_KEY`, `DOMAIN` (cf. §6).
+
+### 14.0 — Recettes par plateforme (vue d'ensemble)
+
+#### Dokploy
+
+```
+Project → New Compose
+  Source         = GitHub (this repo)
+  Branch         = main
+  Compose path   = ./docker-compose.yml
+  Auto-deploy    = on
+  Environment    = paste your full .env content
+→ Deploy
+```
+Réseau : `dokploy-network` est créé automatiquement à l'install Dokploy.
+Traefik est inclus, ACME `letsencrypt` (HTTP-01) configuré par défaut.
+
+#### Coolify
+
+```
++ New Resource → Docker Compose
+  Source     = Public/Private Repository (this repo)
+  Branch     = main
+  Build Pack = Docker Compose
+  Compose    = docker-compose.yml
+  Network    = coolify (default), or create your own
+  Env Vars   = paste .env, set TRAEFIK_NETWORK=coolify
+→ Deploy
+```
+
+#### EasyPanel
+
+```
+Create Service → Compose
+  Source = Git → this repo
+  Compose path = docker-compose.yml
+  Env: TRAEFIK_NETWORK=easypanel + .env content
+→ Deploy
+```
+
+#### Caprover
+
+Pas idéal pour un compose multi-services comme celui-ci — Caprover
+préfère un service par "app". Mais possible via "One Click Apps" custom :
+
+```
+Apps → Add → One Click App → Custom YAML
+Paste docker-compose.yml content
+Set TRAEFIK_NETWORK=captain-overlay-network
+```
+
+#### Portainer
+
+```
+Stacks → Add stack
+  Build method = Repository
+  Compose path = docker-compose.yml
+  Env vars     = paste .env, set TRAEFIK_NETWORK=<ton-network-traefik>
+→ Deploy the stack
+```
+Tu dois avoir provisionné Traefik à part (Portainer ne l'embarque pas).
+
+#### Vanilla `docker compose` (pas de control plane)
+
+Voir §3 à §13 ci-dessus — c'est le chemin recommandé pour le contrôle
+total. `TRAEFIK_NETWORK=proxy` (ou le nom que tu as choisi en §7.1).
 
 ### 14.1 — Triggers via API Dokploy
 
@@ -1028,11 +1147,13 @@ ssh root@<vps> "docker volume rm \$(docker volume ls -q | grep <appName-prefix>)
 
 ### 14.3 — Conflit Traefik si vous déployez plusieurs instances OpsFlux
 
-⚠️ **Le `docker-compose.yml` actuel hardcode des noms de routers
-Traefik** (`opsflux-app-web`, `opsflux-api-web`, `opsflux-drawio-web`,
-`pgadmin-web`, `vitrine`, etc.). Si vous lancez **deux compose projects**
-qui partagent le même Traefik (cas classique sur Dokploy), les deux
-projects vont déclarer les mêmes router names → Traefik refuse :
+⚠️ **Quand deux compose projects OpsFlux partagent la même Traefik**
+(prod + staging sur le même VPS Dokploy/Coolify/EasyPanel/Caprover/…,
+ou n'importe quel setup multi-instance derrière un Traefik commun),
+ils peuvent se battre pour les mêmes noms de routers Traefik. Avant
+le fix `STACK_NAME`, le compose hardcodait des noms comme
+`opsflux-app-web`, `opsflux-api-web`, `pgadmin-web`, `vitrine`, etc.
+Deux compose les déclaraient en parallèle → Traefik refuse :
 
 ```
 ERR Router defined multiple times with different configurations
@@ -1092,19 +1213,41 @@ même setup, deux compose côte à côte sur le même Traefik :
    Traefik (Dokploy v0.21+ supporte plusieurs Traefik via le champ
    `serverId`). Pertinent si on veut aussi isoler les certs ACME.
 
-### 14.4 — Pièges Dokploy
+### 14.4 — Pièges spécifiques par plateforme
+
+#### Dokploy
 
 - **Ne JAMAIS lancer `docker run` en parallèle** d'un compose Dokploy
   pour le même service : Dokploy le supprime au prochain deploy.
   `scripts/deploy-vps.sh` documente ce piège historique.
-- Le redéploiement Dokploy supprime parfois le réseau Docker `dokploy-network`
-  et Traefik s'arrête avec `failed to set up container networking`.
-  Si vos endpoints retournent HTTP 000 après un deploy, vérifier :
-  `docker ps | grep traefik` — restart manuellement avec
-  `docker network create dokploy-network && docker start traefik`.
+- Le redéploiement Dokploy supprime parfois le réseau Docker
+  `dokploy-network` et Traefik s'arrête avec
+  `failed to set up container networking`. Si vos endpoints retournent
+  HTTP 000 après un deploy, vérifier : `docker ps | grep traefik` —
+  restart manuellement avec `docker network create dokploy-network && docker start traefik`.
 - `compose.delete` ne supprime PAS les volumes Docker associés. Faire
   un `docker volume ls | grep <appName>` puis `docker volume rm` à la
   main si vous voulez vraiment nettoyer.
+
+#### Coolify
+
+- Coolify renomme le réseau interne par projet (`coolify-<uuid>`). Le
+  réseau **partagé** avec Traefik s'appelle `coolify` par défaut. Bien
+  mettre `TRAEFIK_NETWORK=coolify` sinon les conteneurs OpsFlux
+  démarrent mais Traefik ne les voit pas.
+- Coolify v4 supporte les compose multi-services mais peut être tatillon
+  sur les `depends_on: condition: service_healthy`. Si un service
+  reste en `Pending`, vérifier dans la timeline Coolify quel
+  conteneur attend une healthcheck qui ne vient pas.
+
+#### EasyPanel / Caprover / Portainer
+
+- Pas de spécificités majeures, mais ces plateformes proxy souvent les
+  logs Traefik via leur propre stdout — utiliser leur UI pour les voir
+  plutôt que `docker logs traefik` direct.
+- Caprover en mode Swarm peut nécessiter un `mode: replicated` explicite
+  sur certains services. Ce compose ne le déclare pas (Caprover utilise
+  son défaut, ce qui marche pour 99% des cas).
 
 ---
 

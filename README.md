@@ -11,7 +11,8 @@ ERP industriel modulaire — opérations, conformité, projets, logistique.
 - **Backend** — Python 3.12 · FastAPI · SQLAlchemy 2 (async) · PostgreSQL 16 (pgvector + PostGIS) · Alembic
 - **Frontend web** — React 18 · TypeScript · Vite · TailwindCSS · React Query · React Router
 - **Mobile** — React Native (Expo) · branche [`mobile-standalone`](https://github.com/hmunyeku/OPSFLUX/tree/mobile-standalone)
-- **Infra** — Docker Compose · Dokploy (Traefik + Let's Encrypt) · Redis · Hostinger VPS
+- **Infra** — Docker Compose · Traefik (v2/v3) · Redis · Let's Encrypt
+- **Déploiement** — vanilla `docker compose` ou n'importe quel control plane (Dokploy, Coolify, EasyPanel, Caprover, Portainer, …). L'instance de référence tourne sur Hostinger VPS + Dokploy
 
 ## Modules
 
@@ -81,10 +82,17 @@ docker compose -f docker-compose.dev.yml up
 
 ## Déploiement
 
-**Sur un VPS générique** (Docker + Traefik, sans Dokploy) :
-voir le guide complet [`docs/DEPLOY_VPS.md`](docs/DEPLOY_VPS.md).
+Le `docker-compose.yml` est portable — il fonctionne avec :
 
-**Sur Dokploy** (instance OpsFlux actuelle) :
+- **Vanilla `docker compose`** sur un VPS générique (Docker + Traefik
+  standalone) — chemin recommandé pour le contrôle total.
+- **N'importe quel control plane** : Dokploy, Coolify, EasyPanel,
+  Caprover, Portainer. Quatre variables `.env` suffisent à l'adapter
+  (`DOMAIN`, `STACK_NAME`, `CERT_RESOLVER`, `TRAEFIK_NETWORK`).
+
+Le guide complet par plateforme est dans
+[`docs/DEPLOY_VPS.md`](docs/DEPLOY_VPS.md). L'instance de référence
+sur `app.opsflux.io` tourne sur Dokploy ; trigger redeploy via API :
 
 ```bash
 curl -X POST \

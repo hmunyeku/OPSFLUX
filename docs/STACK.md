@@ -32,7 +32,10 @@ voir [`DEPLOY_VPS.md`](DEPLOY_VPS.md).
 
 **Réseaux Docker** :
 - `default` (interne au projet compose) — backend ↔ db ↔ redis
-- `dokploy-network` (externe, partagé avec Traefik) — exposition publique
+- `proxy` (alias dans le compose ; **nom réel paramétrable** via
+  `TRAEFIK_NETWORK`, défaut `dokploy-network`) — réseau externe partagé
+  avec Traefik. Adapter selon la plateforme : `coolify`, `easypanel`,
+  `captain-overlay-network`, `proxy`, etc.
 
 ---
 

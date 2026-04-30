@@ -34,7 +34,6 @@
         <a href="#capabilities">Capacités</a>
         <a href="#modules">Modules</a>
         <a href="#industries">Industries</a>
-        <a href="#tracker">Tracker</a>
         <a href="#deployment">Déploiement</a>
         <a href="https://docs.opsflux.io" target="_blank" rel="noopener">Docs</a>
       </nav>
@@ -323,63 +322,6 @@
       </div>
     </section>
 
-    <!-- ─── Tracker public ────────────────────────────────────────── -->
-    <section class="section section-dark section-spacious" id="tracker">
-      <div class="container">
-        <header class="section-head section-head-dark">
-          <p class="eyebrow eyebrow-quiet">Tracker public TravelWiz</p>
-          <h2>Suivez une expédition avec son code.</h2>
-          <p class="lede">
-            État, destination, voyage, historique. Sans connexion, sans
-            exposer la moindre donnée sensible.
-          </p>
-        </header>
-
-        <div class="tracker" id="publicTracking">
-          <form class="tracker-form" id="trackingForm" autocomplete="off">
-            <label class="sr-only" for="trackingCode">Code de suivi</label>
-            <input type="text" id="trackingCode" name="trackingCode" spellcheck="false" placeholder="Ex. TW-CARGO-2026-00421" />
-            <button type="submit" class="btn btn-primary">Rechercher</button>
-          </form>
-          <p class="tracker-hint" id="trackingHint">Le suivi public n'expose que les informations opérationnelles utiles.</p>
-          <div class="tracker-feedback" id="trackingFeedback" hidden></div>
-
-          <section class="tracker-result" id="trackingResult" hidden aria-live="polite">
-            <header class="tracker-result-head">
-              <div>
-                <p class="tracker-result-label">Expédition</p>
-                <h3 id="trackingResultTitle">-</h3>
-              </div>
-              <div class="status-chip" id="trackingStatusChip">-</div>
-            </header>
-            <ul class="tracker-summary">
-              <li><span>Code</span><strong id="trackingCodeValue">-</strong></li>
-              <li><span>Destination</span><strong id="trackingDestinationValue">-</strong></li>
-              <li><span>Voyage</span><strong id="trackingVoyageValue">-</strong></li>
-              <li><span>Dimensions</span><strong id="trackingDimensionsValue">-</strong></li>
-            </ul>
-            <div class="tracker-detail">
-              <article class="tracker-panel">
-                <h4>Détail</h4>
-                <dl>
-                  <div><dt>Type</dt><dd id="trackingTypeValue">-</dd></div>
-                  <div><dt>Poids</dt><dd id="trackingWeightValue">-</dd></div>
-                  <div><dt>Expéditeur</dt><dd id="trackingSenderValue">-</dd></div>
-                  <div><dt>Destinataire</dt><dd id="trackingReceiverValue">-</dd></div>
-                  <div><dt>Dernière mise à jour</dt><dd id="trackingLastEventValue">-</dd></div>
-                  <div><dt>Réception</dt><dd id="trackingReceivedAtValue">-</dd></div>
-                </dl>
-              </article>
-              <article class="tracker-panel">
-                <h4>Historique public</h4>
-                <ol class="tracker-timeline" id="trackingTimeline"></ol>
-              </article>
-            </div>
-          </section>
-        </div>
-      </div>
-    </section>
-
     <!-- ─── Deployment ────────────────────────────────────────────── -->
     <section class="section section-spacious" id="deployment">
       <div class="container">
@@ -475,7 +417,6 @@
         <a href="#modules">Modules</a>
         <a href="#industries">Industries</a>
         <a href="#deployment">Déploiement</a>
-        <a href="#tracker">Tracker public</a>
       </nav>
 
       <nav class="footer-nav" aria-label="Documentation">

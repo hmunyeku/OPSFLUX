@@ -68,26 +68,25 @@ Toute autre branche est éphémère (PR / fix temporaire) et doit être supprim�
 ## Développement local
 
 ```bash
-# 1. Backend + DB + Redis
-cp .env.example .env
-docker compose up -d db redis
-docker compose up backend
+# 1. Configuration
+cp .env.example .env       # éditer SECRET_KEY, JWT_SECRET_KEY, POSTGRES_PASSWORD
 
-# 2. Frontend web
-cd apps/main
-npm install
-npm run dev
+# 2. Stack complète en local (mailhog inclus, pas de TLS)
+docker compose -f docker-compose.dev.yml up
 
-# 3. Migrations DB
-docker compose exec backend alembic upgrade head
+# Frontend : http://localhost:5173
+# Backend  : http://localhost:8000/docs
+# Mailhog  : http://localhost:8025
 ```
 
 ## Déploiement
 
+**Sur un VPS générique** (Docker + Traefik, sans Dokploy) :
+voir le guide complet [`docs/DEPLOY_VPS.md`](docs/DEPLOY_VPS.md).
+
+**Sur Dokploy** (instance OpsFlux actuelle) :
+
 ```bash
-# Trigger un deploy via Dokploy API (ne JAMAIS docker run --name X
-# en parallèle — Dokploy compose entre en conflit, cf
-# scripts/cleanup-branches.sh pour le contexte historique)
 curl -X POST \
   -H "x-api-key: $API_DOKPLOY" \
   -H "Content-Type: application/json" \
@@ -95,7 +94,9 @@ curl -X POST \
   "$API_DOKPLOY_URL/compose.deploy"
 ```
 
-Les migrations Alembic s'appliquent automatiquement au démarrage du conteneur backend (cf `Dockerfile`).
+Les migrations Alembic s'appliquent automatiquement au démarrage du
+conteneur backend. Le seed initial (entité + admin) tourne au premier
+boot — voir variables `FIRST_*` dans [`.env.example`](.env.example).
 
 ## Tests
 
@@ -112,9 +113,15 @@ cd apps/main && npm run build
 
 ## Documentation
 
-- [`docs/rebuilt/README.md`](docs/rebuilt/README.md) — architecture cible (source de vérité doc)
-- [`CLAUDE.md`](CLAUDE.md) — instructions pour les sessions Claude Code / Agent SDK
-- [`docs/check/`](docs/check/) — audits ponctuels, dette technique
+| Document | Pour qui / quoi |
+|---|---|
+| [`docs/STACK.md`](docs/STACK.md) | Architecture, services, volumes, sous-domaines, cycle de boot |
+| [`docs/DEPLOY_VPS.md`](docs/DEPLOY_VPS.md) | **Guide pas-à-pas pour déployer sur un VPS** (générique, pas seulement Dokploy) |
+| [`.env.example`](.env.example) | Référence canonique de toutes les variables d'environnement |
+| [`CLAUDE.md`](CLAUDE.md) | Instructions pour les sessions Claude Code / Agent SDK |
+| [`docs/check/00_PROJECT.md`](docs/check/00_PROJECT.md) | Cahier des charges fonctionnel |
+| [`docs/check/`](docs/check/) | Audits ponctuels, dette technique |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records |
 
 ## Licence
 

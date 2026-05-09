@@ -735,12 +735,12 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
           </div>
         </div>
 
-        {/* Tags — full width */}
-        <TagManager ownerType="tier" ownerId={tier.id} compact />
-
-        {/* 2-column layout on wide screens */}
-        <SectionColumns>
-          {/* ── Left column: Fiche entreprise + Coordonnees ── */}
+        {/* 2-col layout (Pajamas++ design pattern):
+            - Main wide column (1fr) → Identité + Coordonnées (heavy content)
+            - Sidebar 320px → Infos légales + Tags (compact reference data)
+            Stacks vertically on < lg. */}
+        <SectionColumns sidebar="right-320">
+          {/* ── Main column: Fiche entreprise + Coordonnees ── */}
           <div className="@container space-y-5">
             <FormSection title={t('tiers.ui.sections.identity')} collapsible defaultExpanded storageKey="tier-detail-sections">
               <DetailFieldGrid>
@@ -812,8 +812,15 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             </FormSection>
           </div>
 
-          {/* ── Right column: Infos legales ── */}
+          {/* ── Sidebar 320px: Infos légales + Tags ──
+              Pajamas++ design pattern: narrow right rail with reference
+              data (legal IDs, tags) that stays visible while the user
+              scrolls through the heavier main content. */}
           <div className="@container space-y-5">
+            <FormSection title={t('tiers.ui.sections.tags', 'Tags')} collapsible defaultExpanded storageKey="tier-detail-sections">
+              <TagManager ownerType="tier" ownerId={tier.id} compact />
+            </FormSection>
+
             <FormSection title={`${t('tiers.ui.sections.legal')} (${identifiers?.length ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-sections">
               <DetailFieldGrid>
                 <InlineEditableTags

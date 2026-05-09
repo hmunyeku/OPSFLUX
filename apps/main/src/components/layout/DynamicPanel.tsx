@@ -583,10 +583,26 @@ export function FormGrid({
 export function SectionColumns({
   children,
   className,
+  sidebar,
 }: {
   children: React.ReactNode
   className?: string
+  /** Layout mode:
+   *   - undefined (default): vertical stack (legacy behavior)
+   *   - 'right-320': CSS Grid 1fr/320px on ≥ lg viewports — main on
+   *     left, narrow sidebar on right (Pajamas++ design pattern).
+   *     Children are placed in source order: 1st = main, 2nd = sidebar.
+   *     Stacks vertically below the breakpoint.
+   */
+  sidebar?: 'right-320'
 }) {
+  if (sidebar === 'right-320') {
+    return (
+      <div className={cn('grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]', className)}>
+        {children}
+      </div>
+    )
+  }
   return (
     <div className={cn('space-y-3', className)}>
       {children}

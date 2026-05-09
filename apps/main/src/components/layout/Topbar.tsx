@@ -364,11 +364,10 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       <header
         role="banner"
         data-tour="topbar"
-        // Subtle gradient + backdrop-blur gives the topbar some depth
-        // against the noise-textured body. 1px gradient line at the
-        // bottom instead of a flat border for a softer horizon.
-        className="relative flex h-11 items-center bg-chrome/90 backdrop-blur-md px-2 sm:px-3 shrink-0 gap-1 sm:gap-2 supports-[backdrop-filter]:bg-chrome/80"
-        style={{ zIndex: 'var(--z-topbar)' }}
+        // `topbar-pp` (Pajamas++) supplies height, chrome bg, bottom border
+        // and z-index. Tailwind utilities here cover responsive padding/gaps
+        // only — Pajamas++ defaults already match the prior visual.
+        className="topbar-pp shrink-0 px-2 sm:px-3 gap-1 sm:gap-2"
       >
         <div
           aria-hidden="true"

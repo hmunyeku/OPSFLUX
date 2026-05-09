@@ -126,7 +126,7 @@ export function WidgetSettingsGroup({ config, onChange }: WidgetSettingsGroupPro
         ))}
         <button
           onClick={addChild}
-          className="gl-button-sm gl-button-outline items-center gap-1 w-full justify-center text-[10px]"
+          className="btn-sm btn-outline items-center gap-1 w-full justify-center text-[10px]"
         >
           <Plus size={10} />
           Ajouter un KPI

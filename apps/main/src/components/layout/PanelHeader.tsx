@@ -76,8 +76,8 @@ export function ToolbarButton({ icon: Icon, label, onClick, variant = 'default',
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'gl-button-sm',
-        variant === 'primary' ? 'gl-button-confirm' : 'gl-button-default',
+        'btn-sm',
+        variant === 'primary' ? 'btn-primary' : 'btn-secondary',
       )}
     >
       {Icon && <Icon size={14} />}

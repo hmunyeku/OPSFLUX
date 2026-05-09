@@ -207,7 +207,7 @@ export function ContactListSection({
             <button
               onClick={handleCreate}
               disabled={!form.first_name.trim() || !form.last_name.trim() || createContact.isPending}
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
             >
               {createContact.isPending ? <Loader2 size={11} className="animate-spin" /> : t('common.create')}
             </button>
@@ -511,7 +511,7 @@ export function ContactDetailPanel({
                   <button
                     onClick={handlePromote}
                     disabled={!contact.email || promoteContact.isPending}
-                    className="gl-button-sm gl-button-confirm"
+                    className="btn-sm btn-primary"
                   >
                     {promoteContact.isPending ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
                     {t('tiers.ui.promote_to_external_user')}
@@ -526,7 +526,7 @@ export function ContactDetailPanel({
                 {!contact.is_primary && (
                   <button
                     onClick={handleSetPrimary}
-                    className="gl-button-sm gl-button-ghost"
+                    className="btn-sm btn-tertiary"
                   >
                     <Star size={10} /> {t('tiers.ui.set_primary_contact')}
                   </button>

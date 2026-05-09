@@ -390,7 +390,7 @@ function EntityDetailPanel({ id }: { id: string }) {
               {entityUsers ? `${entityUsers.length} utilisateur(s)` : '...'}
             </span>
             <button
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
               onClick={() => setShowUserPicker(!showUserPicker)}
             >
               <UserPlus size={12} />
@@ -419,7 +419,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                     <button
                       key={user.id}
                       type="button"
-                      className="gl-button gl-button-default w-full flex text-left text-sm"
+                      className="btn btn-secondary w-full flex text-left text-sm"
                       onClick={() => handleAddUser(user.id)}
                     >
                       <UserPlus size={12} className="text-primary shrink-0" />
@@ -433,7 +433,7 @@ function EntityDetailPanel({ id }: { id: string }) {
               </div>
               <div className="p-1.5 border-t border-border/50 flex justify-end">
                 <button
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                   onClick={() => { setShowUserPicker(false); setUserSearch('') }}
                 >
                   <X size={12} /> Fermer
@@ -476,7 +476,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                   </span>
                   <button
                     type="button"
-                    className="gl-button gl-button-danger opacity-0 group-hover:opacity-100 dark:hover:bg-red-900/30 text-red-500"
+                    className="btn btn-danger opacity-0 group-hover:opacity-100 dark:hover:bg-red-900/30 text-red-500"
                     title={t('entities.remove_user')}
                     onClick={() => handleRemoveUser(user.user_id)}
                   >
@@ -579,7 +579,7 @@ export function EntitiesTab() {
               </p>
             </div>
             <button
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
               onClick={() => openDynamicPanel({ type: 'create', module: 'settings-entity' })}
             >
               <Plus size={12} />

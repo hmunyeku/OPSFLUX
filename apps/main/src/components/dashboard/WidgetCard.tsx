@@ -304,7 +304,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
           {/* Toolbar — readable at rest (60% opacity), full on
               hover. Icons bumped from 10px → 13px so they actually
               render inside their 20px button without needing the
-              user to hover to find them. Removed `.gl-button` on
+              user to hover to find them. Removed `.btn` on
               Download/Remove — its 32/40px target was being
               force-collapsed to 20px which was clipping the icon
               to invisibility. */}

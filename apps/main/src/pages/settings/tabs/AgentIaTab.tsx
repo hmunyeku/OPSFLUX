@@ -111,7 +111,7 @@ export function AgentIaTab() {
             {t('settings.agent_ia.subtitle', 'Résolution autonome de tickets via Claude Code/Codex — avec human-in-the-loop.')}
           </p>
         </div>
-        <button type="button" className="gl-button gl-button-sm gl-button-confirm" onClick={handleSave} disabled={update.isPending}>
+        <button type="button" className="btn btn-sm btn-primary" onClick={handleSave} disabled={update.isPending}>
           {update.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
           {t('common.save', 'Enregistrer')}
         </button>
@@ -207,7 +207,7 @@ export function AgentIaTab() {
               <>
                 <button
                   type="button"
-                  className="gl-button gl-button-sm gl-button-default"
+                  className="btn btn-sm btn-secondary"
                   onClick={handleSendDigestNow}
                   disabled={cantSend}
                   title={
@@ -279,7 +279,7 @@ export function AgentIaTab() {
                   <span className="text-destructive"><AlertTriangle size={10} className="inline" /> {t('settings.agent_ia.stat.cb_active', 'Circuit breaker actif')}</span>
                   <button
                     type="button"
-                    className="gl-button gl-button-xs gl-button-default ml-auto"
+                    className="btn btn-sm btn-secondary ml-auto"
                     onClick={handleResetCircuitBreaker}
                     disabled={resettingBreaker}
                     title={t('settings.agent_ia.tip.reset_cb', 'Ré-autorise les runs immédiatement. Action auditée.')}
@@ -309,7 +309,7 @@ export function AgentIaTab() {
       </Section>
 
       <div className="flex justify-end pt-4">
-        <button type="button" className="gl-button gl-button-sm gl-button-confirm" onClick={handleSave} disabled={update.isPending}>
+        <button type="button" className="btn btn-sm btn-primary" onClick={handleSave} disabled={update.isPending}>
           {update.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
           {t('common.save', 'Enregistrer')}
         </button>

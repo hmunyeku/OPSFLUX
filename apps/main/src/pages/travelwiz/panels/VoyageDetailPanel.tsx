@@ -91,7 +91,7 @@ function VoyageCargoOperationsSection({
       ) : (
         <div className="space-y-3">
           <div className="flex justify-end">
-            <button className="gl-button-sm gl-button-default text-xs" onClick={onOpenExport}>
+            <button className="btn-sm btn-secondary text-xs" onClick={onOpenExport}>
               Exporter le rapport
             </button>
           </div>

@@ -231,8 +231,8 @@ export function ImputationsPage() {
       {!isFullPanel && (
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <PanelHeader icon={TableProperties} title={t('imputations.page_title')} subtitle={t('imputations.page_description')}>
-            <button type="button" onClick={() => setMainTab('default')} className={`gl-button-sm ${mainTab === 'default' ? 'gl-button-confirm' : 'gl-button-default'}`}>{t('imputations.tab_default')}</button>
-            <button type="button" onClick={() => setMainTab('registry')} className={`gl-button-sm ${mainTab === 'registry' ? 'gl-button-confirm' : 'gl-button-default'}`}>{t('imputations.tab_registry')}</button>
+            <button type="button" onClick={() => setMainTab('default')} className={`btn-sm ${mainTab === 'default' ? 'btn-primary' : 'btn-secondary'}`}>{t('imputations.tab_default')}</button>
+            <button type="button" onClick={() => setMainTab('registry')} className={`btn-sm ${mainTab === 'registry' ? 'btn-primary' : 'btn-secondary'}`}>{t('imputations.tab_registry')}</button>
           </PanelHeader>
           <PanelContent scroll={false}>
             {mainTab === 'default' ? <DefaultTab /> : <RegistryTab />}

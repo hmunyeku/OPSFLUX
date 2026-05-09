@@ -233,7 +233,7 @@ export function CountrySelect({
             <button
               type="button"
               tabIndex={-1}
-              className="gl-button gl-button-default"
+              className="btn btn-secondary"
               onClick={handleClear}
             >
               <X size={12} />

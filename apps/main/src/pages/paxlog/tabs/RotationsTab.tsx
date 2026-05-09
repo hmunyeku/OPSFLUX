@@ -150,7 +150,7 @@ export function RotationsTab() {
       header: '',
       cell: ({ row }) => row.original.status === 'active' ? (
         <button
-          className="gl-button-sm gl-button-default text-xs"
+          className="btn-sm btn-secondary text-xs"
           onClick={(e) => { e.stopPropagation(); endCycle.mutate(row.original.id) }}
           disabled={endCycle.isPending}
         >

@@ -799,7 +799,7 @@ export function MOCDetailPanel({ id }: Props) {
                 canInviteValidator ? (
                   <button
                     type="button"
-                    className="gl-button gl-button-sm gl-button-default"
+                    className="btn btn-sm btn-secondary"
                     onClick={() => setInviteOpen((v) => !v)}
                   >
                     {inviteOpen
@@ -876,7 +876,7 @@ export function MOCDetailPanel({ id }: Props) {
                   <div className="flex justify-end">
                     <button
                       type="button"
-                      className="gl-button gl-button-sm gl-button-primary"
+                      className="btn btn-sm btn-primary"
                       disabled={!inviteUserId || inviteMutation.isPending}
                       onClick={submitInvite}
                     >

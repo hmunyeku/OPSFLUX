@@ -318,7 +318,7 @@ function GoutiProjectRow({
                 className={cn(
                   'text-[9px] px-1.5 py-0.5 rounded',
                   !included && 'opacity-40',
-                  taskMode === mode ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
+                  taskMode === mode ? 'btn-sm btn-primary' : 'btn-sm btn-secondary',
                 )}
               >
                 {mode === 'all' ? 'Toutes' : mode === 'some' ? 'Choix' : 'Aucune'}
@@ -538,7 +538,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
               </span>
             </div>
             <Dialog.Close asChild>
-              <button className="gl-button gl-button-default"><X size={14} /></button>
+              <button className="btn btn-secondary"><X size={14} /></button>
             </Dialog.Close>
           </div>
           <Dialog.Description className="sr-only">
@@ -639,7 +639,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                           onClick={() => toggleStatus(s.value)}
                           className={cn(
                             'text-[9px] px-1.5 py-0.5 rounded',
-                            active ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
+                            active ? 'btn-sm btn-primary' : 'btn-sm btn-secondary',
                           )}
                         >
                           {label} <span className="opacity-60">({s.count})</span>
@@ -665,7 +665,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                           onClick={() => toggleCriticality(c.value)}
                           className={cn(
                             'text-[9px] px-1.5 py-0.5 rounded',
-                            active ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
+                            active ? 'btn-sm btn-primary' : 'btn-sm btn-secondary',
                           )}
                         >
                           {c.value} <span className="opacity-60">({c.count})</span>
@@ -691,7 +691,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                           onClick={() => toggleCategory(cat.id)}
                           className={cn(
                             'text-[9px] px-1.5 py-0.5 rounded',
-                            active ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
+                            active ? 'btn-sm btn-primary' : 'btn-sm btn-secondary',
                           )}
                         >
                           {cat.name}
@@ -722,7 +722,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                     <button
                       onClick={handleSaveAsAdminDefault}
                       disabled={setDefaultFilters.isPending}
-                      className="w-full gl-button-sm gl-button-primary disabled:opacity-50"
+                      className="w-full btn-sm btn-primary disabled:opacity-50"
                     >
                       {setDefaultFilters.isPending
                         ? <Loader2 size={9} className="animate-spin inline" />
@@ -792,7 +792,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
             <div className="flex items-center gap-2">
               <button
                 onClick={onClose}
-                className="gl-button gl-button-sm gl-button-default"
+                className="btn btn-sm btn-secondary"
               >
                 Annuler
               </button>
@@ -873,7 +873,7 @@ export function GoutiSyncToolbar() {
           type="button"
           onClick={handleMainClick}
           disabled={syncSelected.isPending}
-          className="gl-button gl-button-default text-orange-700"
+          className="btn btn-secondary text-orange-700"
           title={hasSelection
             ? `Forcer la synchronisation (${status.project_count} importés · dernière : ${lastSyncLabel})`
             : 'Ouvrir l\'assistant d\'import Gouti'}

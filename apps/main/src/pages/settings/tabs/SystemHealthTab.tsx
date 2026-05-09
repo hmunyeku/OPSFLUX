@@ -160,7 +160,7 @@ export function SystemHealthTab() {
           )}
         </div>
         <button
-          className="gl-button-sm gl-button-default items-center gap-1.5"
+          className="btn-sm btn-secondary items-center gap-1.5"
           onClick={handleRefresh}
         >
           <RefreshCw size={13} />

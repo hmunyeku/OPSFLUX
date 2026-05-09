@@ -147,7 +147,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
     <div className="border border-primary/30 rounded-md bg-primary/5 p-3 space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-primary">Nouvelle tâche</span>
-        <button onClick={onClose} className="gl-button gl-button-default"><X size={12} /></button>
+        <button onClick={onClose} className="btn btn-secondary"><X size={12} /></button>
       </div>
 
       <input
@@ -199,8 +199,8 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
       </div>
 
       <div className="flex justify-end gap-1.5 pt-1">
-        <button onClick={onClose} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
-        <button onClick={handleSubmit} disabled={createTask.isPending || !form.title.trim()} className="gl-button-sm gl-button-confirm">
+        <button onClick={onClose} className="btn-sm btn-secondary">{t('common.cancel')}</button>
+        <button onClick={handleSubmit} disabled={createTask.isPending || !form.title.trim()} className="btn-sm btn-primary">
           {createTask.isPending ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
           Créer
         </button>
@@ -349,7 +349,7 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
             <button
               onClick={handleCreate}
               disabled={!depForm.to_task_id || createDep.isPending}
-              className="gl-button-sm gl-button-confirm text-[10px]"
+              className="btn-sm btn-primary text-[10px]"
             >
               {createDep.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Ajouter'}
             </button>
@@ -427,7 +427,7 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
         <button
           onClick={handleAdd}
           disabled={!newName.trim() || createD.isPending}
-          className="gl-button gl-button-confirm text-primary"
+          className="btn btn-primary text-primary"
         >
           {createD.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />}
         </button>
@@ -501,7 +501,7 @@ function TaskActionsSection({ task, projectId }: { task: ProjectTask; projectId:
         <button
           onClick={handleAdd}
           disabled={!newTitle.trim() || createA.isPending}
-          className="gl-button gl-button-confirm text-primary"
+          className="btn btn-primary text-primary"
         >
           {createA.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />}
         </button>
@@ -845,7 +845,7 @@ function TaskRow({
         {/* Actions */}
         {confirmDelete ? (
           <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-            <button onClick={handleDelete} className="gl-button gl-button-danger text-red-500"><Check size={10} /></button>
+            <button onClick={handleDelete} className="btn btn-danger text-red-500"><Check size={10} /></button>
             <button onClick={() => setConfirmDelete(false)} className="p-0.5 rounded hover:bg-muted text-muted-foreground"><X size={10} /></button>
           </div>
         ) : (
@@ -1034,7 +1034,7 @@ function MilestoneQuickAdd({ projectId }: { projectId: string }) {
         onChange={(e) => setDueDate(e.target.value)}
         className={`${panelInputClass} w-[110px] text-xs`}
       />
-      <button onClick={handleSubmit} disabled={createMs.isPending || !name.trim()} className="gl-button gl-button-confirm text-primary">
+      <button onClick={handleSubmit} disabled={createMs.isPending || !name.trim()} className="btn btn-primary text-primary">
         {createMs.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
       </button>
       <button onClick={() => { setOpen(false); setName(''); setDueDate('') }} className="p-1 rounded hover:bg-muted text-muted-foreground">

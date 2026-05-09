@@ -806,7 +806,7 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
                       </div>
                     </div>
                     <div className="flex items-center gap-2 mb-2">
-                      <button onClick={handleSyncSelectAllNew} className="gl-button-sm gl-button-default">
+                      <button onClick={handleSyncSelectAllNew} className="btn-sm btn-secondary">
                         {t('import.sync.select_all_new')}
                       </button>
                       <span className="text-xs text-muted-foreground">{syncSelectedEmails.size} selected</span>
@@ -937,45 +937,45 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
                 <div>
                   {syncStep > 0 && syncStep < 3 && (
                     <button onClick={() => setSyncStep(s => Math.max(0, s - 1) as 0 | 1 | 2 | 3)}
-                      className="gl-button-sm gl-button-default">
+                      className="btn-sm btn-secondary">
                       <ChevronLeft size={12} /> {t('import.previous')}
                     </button>
                   )}
                   {syncStep === 0 && (
                     <button onClick={() => { setImportSource(null); setSelectedProvider(null) }}
-                      className="gl-button-sm gl-button-default">
+                      className="btn-sm btn-secondary">
                       <ChevronLeft size={12} /> {t('import.previous')}
                     </button>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   {syncStep < 3 && (
-                    <button onClick={handleClose} className="gl-button-sm gl-button-default">{t('import.cancel')}</button>
+                    <button onClick={handleClose} className="btn-sm btn-secondary">{t('import.cancel')}</button>
                   )}
                   {syncStep === 0 && (
                     <button onClick={handleSyncFetchPreview}
                       disabled={!selectedProvider || syncPreviewMut.isPending || !(syncProviders ?? []).find(p => p.id === selectedProvider)?.configured}
-                      className="gl-button-sm gl-button-confirm">
+                      className="btn-sm btn-primary">
                       {syncPreviewMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
                       {syncPreviewMut.isPending ? t('import.sync.fetching') : t('import.sync.fetch_users')}
                     </button>
                   )}
                   {syncStep === 1 && (
                     <button onClick={() => setSyncStep(2)} disabled={syncSelectedEmails.size === 0}
-                      className="gl-button-sm gl-button-confirm">
+                      className="btn-sm btn-primary">
                       {t('import.next')} <ChevronRight size={12} />
                     </button>
                   )}
                   {syncStep === 2 && (
                     <button onClick={handleSyncExecute} disabled={syncSelectedEmails.size === 0 || syncExecuteMut.isPending}
-                      className="gl-button-sm gl-button-confirm">
+                      className="btn-sm btn-primary">
                       {syncExecuteMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
                       {t('import.import_button')}
                     </button>
                   )}
                   {syncStep === 3 && (
                     <button onClick={handleClose}
-                      className="gl-button-sm gl-button-confirm">
+                      className="btn-sm btn-primary">
                       {t('import.finish')}
                     </button>
                   )}
@@ -1010,7 +1010,7 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
               </div>
               {/* Source selection footer */}
               <div className="flex items-center justify-end px-6 py-3 border-t shrink-0">
-                <button onClick={handleClose} className="gl-button-sm gl-button-default">{t('import.cancel')}</button>
+                <button onClick={handleClose} className="btn-sm btn-secondary">{t('import.cancel')}</button>
               </div>
             </>
           ) : (
@@ -1116,35 +1116,35 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
                 <div>
                   {step === 0 && supportsExternalSync && (
                     <button onClick={() => setImportSource(null)}
-                      className="gl-button-sm gl-button-default">
+                      className="btn-sm btn-secondary">
                       <ChevronLeft size={12} /> {t('import.previous')}
                     </button>
                   )}
                   {step > 0 && step < 3 && (
-                    <button onClick={goBack} className="gl-button-sm gl-button-default">
+                    <button onClick={goBack} className="btn-sm btn-secondary">
                       <ChevronLeft size={12} /> {t('import.previous')}
                     </button>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   {step < 3 && (
-                    <button onClick={handleClose} className="gl-button-sm gl-button-default">{t('import.cancel')}</button>
+                    <button onClick={handleClose} className="btn-sm btn-secondary">{t('import.cancel')}</button>
                   )}
                   {step < 2 && (
                     <button onClick={goNext} disabled={!canGoNext}
-                      className="gl-button-sm gl-button-confirm">
+                      className="btn-sm btn-primary">
                       {t('import.next')} <ChevronRight size={12} />
                     </button>
                   )}
                   {step === 2 && (
                     <button onClick={goNext} disabled={!previewResult || validateMut.isPending}
-                      className="gl-button-sm gl-button-confirm">
+                      className="btn-sm btn-primary">
                       {t('import.import_button')} <Upload size={12} />
                     </button>
                   )}
                   {step === 3 && (
                     <button onClick={handleClose}
-                      className="gl-button-sm gl-button-confirm">
+                      className="btn-sm btn-primary">
                       {t('import.finish')}
                     </button>
                   )}
@@ -1179,7 +1179,7 @@ function StepUpload({ parsedFile, encoding, autoImportMapping, isAutoImporting, 
             <p className="text-green-600/80 mt-0.5">{t('import.template_match_msg')}</p>
           </div>
           <button onClick={onAutoImport} disabled={isAutoImporting}
-            className="gl-button-sm gl-button-confirm text-white">
+            className="btn-sm btn-primary text-white">
             {isAutoImporting ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
             {t('import.import_now')}
           </button>
@@ -1258,7 +1258,7 @@ function StepMapping({ allHeaders, targetFields, columnMapping, transforms, conf
       {/* Action bar */}
       <div className="flex items-center gap-2 flex-wrap">
         <button onClick={onAutoDetect} disabled={isAutoDetecting}
-          className="gl-button-sm gl-button-default">
+          className="btn-sm btn-secondary">
           {isAutoDetecting ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
           {t('import.auto_detect')}
         </button>
@@ -1269,11 +1269,11 @@ function StepMapping({ allHeaders, targetFields, columnMapping, transforms, conf
             {savedMappings.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         )}
-        <button onClick={onAddVirtual} className="gl-button-sm gl-button-default"
+        <button onClick={onAddVirtual} className="btn-sm btn-secondary"
           title={t('import.add_computed_column')}>
           <Plus size={12} /> <Calculator size={12} /> {t('import.add_computed_column')}
         </button>
-        <button onClick={onToggleSaveMapping} className="gl-button-sm gl-button-default ml-auto">
+        <button onClick={onToggleSaveMapping} className="btn-sm btn-secondary ml-auto">
           <Save size={12} /> {t('import.save_mapping')}
         </button>
       </div>
@@ -1291,7 +1291,7 @@ function StepMapping({ allHeaders, targetFields, columnMapping, transforms, conf
               className="w-full text-xs border rounded px-2 py-1 bg-background" />
           </div>
           <button onClick={onSaveMapping} disabled={!mappingName.trim() || isSaving}
-            className="gl-button-sm gl-button-confirm">
+            className="btn-sm btn-primary">
             {isSaving ? <Loader2 size={12} className="animate-spin" /> : t('common.save')}
           </button>
         </div>
@@ -1400,7 +1400,7 @@ function StepMapping({ allHeaders, targetFields, columnMapping, transforms, conf
           </div>
           {dedupFields.length > 0 && (
             <button onClick={onApplyDedup}
-              className="gl-button-sm gl-button-confirm">
+              className="btn-sm btn-primary">
               <Trash2 size={10} /> {t('import.dedup_title')}
             </button>
           )}
@@ -1770,7 +1770,7 @@ function StepReport({ importResult, isExecuting, onDownloadErrors, t }: {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">{t('import.error_details')}</p>
-            <button onClick={onDownloadErrors} className="gl-button gl-button-default">
+            <button onClick={onDownloadErrors} className="btn btn-secondary">
               <Download size={10} /> {t('import.download_errors')}
             </button>
           </div>

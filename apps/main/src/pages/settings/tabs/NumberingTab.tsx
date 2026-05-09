@@ -695,7 +695,7 @@ function PatternRow({
               />
               <div className="flex items-center gap-1">
                 <button
-                  className="gl-button gl-button-sm gl-button-default w-7 flex"
+                  className="btn btn-sm btn-secondary w-7 flex"
                   onClick={handlePreview}
                   title={t('settings.numbering.preview')}
                 >
@@ -704,7 +704,7 @@ function PatternRow({
                 {isDirty && (
                   <>
                     <button
-                      className="gl-button gl-button-sm gl-button-default w-7 flex"
+                      className="btn btn-sm btn-secondary w-7 flex"
                       onClick={handleReset}
                       title={t('settings.numbering.reset')}
                     >
@@ -712,8 +712,8 @@ function PatternRow({
                     </button>
                     <button
                       className={cn(
-                        'gl-button-sm',
-                        validation.valid ? 'gl-button-primary' : 'gl-button-default cursor-not-allowed',
+                        'btn-sm',
+                        validation.valid ? 'btn-primary' : 'btn-secondary cursor-not-allowed',
                       )}
                       onClick={() => mutation.mutate()}
                       disabled={mutation.isPending || !validation.valid}

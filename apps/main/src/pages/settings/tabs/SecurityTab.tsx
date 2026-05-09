@@ -99,11 +99,11 @@ function PasswordSection() {
       </div>
 
       <div className="flex items-center gap-3 mt-6">
-        <button className="gl-button gl-button-confirm" disabled={!canSubmit} onClick={handleSubmit}>
+        <button className="btn btn-primary" disabled={!canSubmit} onClick={handleSubmit}>
           {changePassword.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
           Changer le mot de passe
         </button>
-        <button className="gl-button gl-button-default" onClick={handleCancel}>{t('common.cancel')}</button>
+        <button className="btn btn-secondary" onClick={handleCancel}>{t('common.cancel')}</button>
       </div>
     </>
   )
@@ -213,11 +213,11 @@ function MFASection() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button className="gl-button gl-button-default" onClick={() => { setShowRegenerate(true); setShowDisable(false) }}>
+            <button className="btn btn-secondary" onClick={() => { setShowRegenerate(true); setShowDisable(false) }}>
               <RefreshCw size={14} className="mr-1.5" />
               Régénérer les codes de secours
             </button>
-            <button className="gl-button gl-button-danger" onClick={() => { setShowDisable(true); setShowRegenerate(false) }}>
+            <button className="btn btn-danger" onClick={() => { setShowDisable(true); setShowRegenerate(false) }}>
               <ShieldOff size={14} className="mr-1.5" />
               Désactiver le 2FA
             </button>
@@ -232,11 +232,11 @@ function MFASection() {
                 <input type="password" className="gl-form-input" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} placeholder={t('settings.entrez_votre_mot_de_passe')} autoComplete="current-password" />
               </div>
               <div className="flex gap-2">
-                <button className="gl-button gl-button-danger" disabled={!disablePassword || disableMutation.isPending} onClick={handleDisable}>
+                <button className="btn btn-danger" disabled={!disablePassword || disableMutation.isPending} onClick={handleDisable}>
                   {disableMutation.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
                   Désactiver
                 </button>
-                <button className="gl-button gl-button-default" onClick={() => { setShowDisable(false); setDisablePassword('') }}>{t('common.cancel')}</button>
+                <button className="btn btn-secondary" onClick={() => { setShowDisable(false); setDisablePassword('') }}>{t('common.cancel')}</button>
               </div>
             </div>
           )}
@@ -251,11 +251,11 @@ function MFASection() {
                 <input type="password" className="gl-form-input" value={regenPassword} onChange={(e) => setRegenPassword(e.target.value)} placeholder={t('settings.entrez_votre_mot_de_passe')} autoComplete="current-password" />
               </div>
               <div className="flex gap-2">
-                <button className="gl-button gl-button-confirm" disabled={!regenPassword || regenerateMutation.isPending} onClick={handleRegenerate}>
+                <button className="btn btn-primary" disabled={!regenPassword || regenerateMutation.isPending} onClick={handleRegenerate}>
                   {regenerateMutation.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
                   Régénérer
                 </button>
-                <button className="gl-button gl-button-default" onClick={() => { setShowRegenerate(false); setRegenPassword('') }}>{t('common.cancel')}</button>
+                <button className="btn btn-secondary" onClick={() => { setShowRegenerate(false); setRegenPassword('') }}>{t('common.cancel')}</button>
               </div>
             </div>
           )}
@@ -303,7 +303,7 @@ function MFASection() {
                 />
               </div>
               <button
-                className="gl-button gl-button-confirm"
+                className="btn btn-primary"
                 disabled={verifyCode.length !== 6 || verifySetupMutation.isPending}
                 onClick={handleVerifySetup}
               >
@@ -313,7 +313,7 @@ function MFASection() {
             </div>
           </div>
 
-          <button className="gl-button gl-button-default" onClick={() => setSetupData(null)}>
+          <button className="btn btn-secondary" onClick={() => setSetupData(null)}>
             Annuler
           </button>
         </div>
@@ -346,12 +346,12 @@ function MFASection() {
           </div>
 
           <div className="flex gap-2">
-            <button className="gl-button gl-button-default" onClick={copyBackupCodes}>
+            <button className="btn btn-secondary" onClick={copyBackupCodes}>
               {copiedCodes ? <Check size={14} className="mr-1.5 text-green-600" /> : <Copy size={14} className="mr-1.5" />}
               {copiedCodes ? 'Copié' : 'Copier les codes'}
             </button>
             <button
-              className="gl-button gl-button-default"
+              className="btn btn-secondary"
               onClick={() => {
                 const text = backupCodes.join('\n')
                 const blob = new Blob([text], { type: 'text/plain' })
@@ -368,7 +368,7 @@ function MFASection() {
           </div>
 
           <button
-            className="gl-button gl-button-confirm"
+            className="btn btn-primary"
             onClick={() => setBackupCodes(null)}
           >
             J'ai sauvegardé mes codes
@@ -389,7 +389,7 @@ function MFASection() {
             </div>
           </div>
 
-          <button className="gl-button gl-button-confirm" onClick={handleStartSetup} disabled={setupMutation.isPending}>
+          <button className="btn btn-primary" onClick={handleStartSetup} disabled={setupMutation.isPending}>
             {setupMutation.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
             <ShieldCheck size={14} className="mr-1.5" />
             Activer l'authentification à deux facteurs

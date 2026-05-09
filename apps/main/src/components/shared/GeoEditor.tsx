@@ -815,7 +815,7 @@ export function GeoEditor({
               type="button"
               onClick={handleSearch}
               disabled={searching || !searchQuery.trim()}
-              className="gl-button-sm gl-button-confirm shrink-0"
+              className="btn-sm btn-primary shrink-0"
             >
               {searching ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
             </button>
@@ -827,7 +827,7 @@ export function GeoEditor({
                 <button
                   key={i}
                   type="button"
-                  className="gl-button gl-button-default w-full text-left text-sm last:border-0 flex items-start"
+                  className="btn btn-secondary w-full text-left text-sm last:border-0 flex items-start"
                   onClick={() => handleSelectResult(r)}
                 >
                   <MapPin size={12} className="text-primary shrink-0 mt-0.5" />
@@ -853,8 +853,8 @@ export function GeoEditor({
               type="button"
               onClick={startDrawing}
               className={cn(
-                'gl-button-sm',
-                drawMode === 'draw' ? 'gl-button-confirm' : 'gl-button-default',
+                'btn-sm',
+                drawMode === 'draw' ? 'btn-primary' : 'btn-secondary',
               )}
             >
               <Pencil size={12} />
@@ -867,8 +867,8 @@ export function GeoEditor({
               type="button"
               onClick={startEditing}
               className={cn(
-                'gl-button-sm',
-                drawMode === 'edit' ? 'gl-button-confirm' : 'gl-button-default',
+                'btn-sm',
+                drawMode === 'edit' ? 'btn-primary' : 'btn-secondary',
               )}
             >
               <MousePointer2 size={12} />
@@ -880,7 +880,7 @@ export function GeoEditor({
             <button
               type="button"
               onClick={handleClearAll}
-              className="gl-button-sm gl-button-danger"
+              className="btn-sm btn-danger"
             >
               <Trash2 size={12} />
               <span className="text-xs">{t('geo.clear_all')}</span>
@@ -893,7 +893,7 @@ export function GeoEditor({
           <button
             type="button"
             onClick={() => setShowImport(true)}
-            className="gl-button-sm gl-button-default"
+            className="btn-sm btn-secondary"
             title={t('geo.import_coords')}
           >
             <Upload size={12} />
@@ -905,7 +905,7 @@ export function GeoEditor({
               <button
                 type="button"
                 onClick={handleCopyGeoJSON}
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 title={t('geo.copy_geojson')}
               >
                 <Copy size={12} />
@@ -914,7 +914,7 @@ export function GeoEditor({
               <button
                 type="button"
                 onClick={handleCopyCoordList}
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 title={t('geo.export_coords')}
               >
                 <Download size={12} />
@@ -996,7 +996,7 @@ export function GeoEditor({
               <button
                 type="button"
                 onClick={() => setCoordFormat(coordFormat === 'dd' ? 'dms' : 'dd')}
-                className="gl-button-sm gl-button-default text-[10px]"
+                className="btn-sm btn-secondary text-[10px]"
                 title={coordFormat === 'dd' ? t('geo.dms') : t('geo.decimal_degrees')}
               >
                 {coordFormat === 'dd' ? t('geo.decimal_degrees') : t('geo.dms')}
@@ -1007,7 +1007,7 @@ export function GeoEditor({
                 <button
                   type="button"
                   onClick={() => setSnapEnabled(!snapEnabled)}
-                  className={cn('gl-button-sm', snapEnabled ? 'gl-button-confirm' : 'gl-button-default')}
+                  className={cn('btn-sm', snapEnabled ? 'btn-primary' : 'btn-secondary')}
                   title={t('geo.snap_to_grid')}
                 >
                   {snapEnabled ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}
@@ -1160,14 +1160,14 @@ export function GeoEditor({
                     type="button"
                     onClick={handleManualAdd}
                     disabled={!manualLat || !manualLng}
-                    className="gl-button-sm gl-button-confirm"
+                    className="btn-sm btn-primary"
                   >
                     <Plus size={12} />
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowManualAdd(false)}
-                    className="gl-button-sm gl-button-default"
+                    className="btn-sm btn-secondary"
                   >
                     <X size={12} />
                   </button>
@@ -1176,7 +1176,7 @@ export function GeoEditor({
                 <button
                   type="button"
                   onClick={() => setShowManualAdd(true)}
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                 >
                   <Plus size={12} />
                   <span className="text-xs">{t('geo.add_point')}</span>
@@ -1217,13 +1217,13 @@ export function GeoEditor({
               />
             </div>
             <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
-              <button onClick={() => setShowImport(false)} className="gl-button-sm gl-button-default">
+              <button onClick={() => setShowImport(false)} className="btn-sm btn-secondary">
                 {t('common.cancel')}
               </button>
               <button
                 onClick={handleImport}
                 disabled={!importText.trim()}
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
               >
                 {t('geo.import_coords')}
               </button>

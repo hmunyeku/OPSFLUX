@@ -124,7 +124,7 @@ export function AccessTokensTab() {
       header: '',
       cell: ({ row }) => isActive(row.original) ? (
         <button
-          className="gl-button-sm gl-button-danger"
+          className="btn-sm btn-danger"
           onClick={(e) => { e.stopPropagation(); handleRevoke(row.original.id) }}
           disabled={revokeToken.isPending}
         >
@@ -145,7 +145,7 @@ export function AccessTokensTab() {
     >
       <div className="flex justify-end mb-4">
         <button
-          className="gl-button gl-button-confirm"
+          className="btn btn-primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'settings-token' })}
         >
           <Plus size={14} />

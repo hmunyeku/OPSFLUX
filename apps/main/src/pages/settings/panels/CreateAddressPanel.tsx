@@ -223,7 +223,7 @@ function CreateAddressInner() {
               type="button"
               onClick={handleGeolocate}
               disabled={geoLoading}
-              className="gl-button gl-button-sm gl-button-confirm text-primary"
+              className="btn btn-sm btn-primary text-primary"
             >
               {geoLoading ? <Loader2 size={12} className="animate-spin" /> : <LocateFixed size={12} />}
               Ma position

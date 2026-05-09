@@ -532,7 +532,7 @@ function PIDDetailPanel({ id }: { id: string }) {
               <button
                 onClick={handleAcquireLock}
                 disabled={acquireLock.isPending}
-                className="gl-button-sm gl-button-default mt-2"
+                className="btn-sm btn-secondary mt-2"
               >
                 {acquireLock.isPending ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -1426,7 +1426,7 @@ function CreatePIDPanel() {
           </div>
         </FormSection>
         <div className="p-3 border-t border-border">
-          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createPID.isPending}>
+          <button className="btn btn-primary w-full" onClick={handleSubmit} disabled={createPID.isPending}>
             {createPID.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <FilePlus2 size={12} className="mr-2" />}
             Créer le PID
           </button>
@@ -1555,7 +1555,7 @@ function CreateEquipmentPanel() {
         </FormSection>
 
         <div className="p-3 border-t border-border">
-          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createEquipment.isPending}>
+          <button className="btn btn-primary w-full" onClick={handleSubmit} disabled={createEquipment.isPending}>
             {createEquipment.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
             Creer l'equipement
           </button>
@@ -1807,7 +1807,7 @@ function CreateProcessLinePanel() {
         </FormSection>
 
         <div className="p-3 border-t border-border">
-          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createLine.isPending}>
+          <button className="btn btn-primary w-full" onClick={handleSubmit} disabled={createLine.isPending}>
             {createLine.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
             Creer la ligne
           </button>
@@ -1914,7 +1914,7 @@ function CreateDCSTagPanel() {
         </FormSection>
 
         <div className="p-3 border-t border-border">
-          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createTag.isPending}>
+          <button className="btn btn-primary w-full" onClick={handleSubmit} disabled={createTag.isPending}>
             {createTag.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
             Creer le tag DCS
           </button>

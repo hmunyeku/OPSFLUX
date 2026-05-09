@@ -66,7 +66,7 @@ export function VerificationScenariosTab() {
         </div>
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-confirm"
+          className="btn btn-sm btn-primary"
           onClick={() => setCreating(true)}
         >
           <Plus size={12} /> {t('settings.scenarios.new', 'Nouveau scénario')}
@@ -157,7 +157,7 @@ function ScenarioRow({
       <div className="flex items-center gap-1 shrink-0">
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-default"
+          className="btn btn-sm btn-secondary"
           onClick={onEdit}
           title={t('common.edit', 'Éditer')}
         >
@@ -165,7 +165,7 @@ function ScenarioRow({
         </button>
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-default text-destructive"
+          className="btn btn-sm btn-secondary text-destructive"
           onClick={onDelete}
           title={t('common.delete', 'Supprimer')}
         >
@@ -329,10 +329,10 @@ function ScenarioForm({
         />
       </div>
       <div className="flex justify-end gap-2">
-        <button type="button" className="gl-button gl-button-sm gl-button-default" onClick={onClose}>
+        <button type="button" className="btn btn-sm btn-secondary" onClick={onClose}>
           <X size={12} /> {t('common.cancel', 'Annuler')}
         </button>
-        <button type="submit" className="gl-button gl-button-sm gl-button-confirm" disabled={busy}>
+        <button type="submit" className="btn btn-sm btn-primary" disabled={busy}>
           {busy ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
           {mode === 'create' ? t('common.create', 'Créer') : t('common.save', 'Enregistrer')}
         </button>

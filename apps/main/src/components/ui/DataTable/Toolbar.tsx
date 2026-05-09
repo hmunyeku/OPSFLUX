@@ -737,7 +737,7 @@ export function DataTableToolbar({
                           ? { type: 'closed' }
                           : { type: 'action', id: '_batch' }
                       )}
-                      className="gl-button-sm gl-button-confirm items-center gap-1 text-[11px] px-2 py-0.5"
+                      className="btn-sm btn-primary items-center gap-1 text-[11px] px-2 py-0.5"
                     >
                       Actions <ChevronDown size={10} />
                     </button>
@@ -1086,7 +1086,7 @@ function DateRangeValuePicker({ filter, operator, currentValue, onApply, onClear
         <button
           type="button"
           onClick={apply}
-          className="gl-button-sm bg-primary text-primary-foreground hover:bg-primary/90 h-6 px-2 text-[11px]"
+          className="btn-sm bg-primary text-primary-foreground hover:bg-primary/90 h-6 px-2 text-[11px]"
         >
           Appliquer
         </button>

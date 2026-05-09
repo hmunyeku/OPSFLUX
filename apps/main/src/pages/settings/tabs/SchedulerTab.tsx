@@ -309,7 +309,7 @@ export function SchedulerTab() {
           </div>
           <button
             onClick={() => qc.invalidateQueries({ queryKey: ['admin-scheduler-jobs'] })}
-            className="gl-button-sm gl-button-default"
+            className="btn-sm btn-secondary"
           >
             <RefreshCw size={12} /> Rafraîchir
           </button>
@@ -388,17 +388,17 @@ export function SchedulerTab() {
                             <button
                               onClick={() => runJob.mutate(job.id)}
                               disabled={isRunning}
-                              className="gl-button-sm gl-button-confirm"
+                              className="btn-sm btn-primary"
                               title={t('settings.executer_maintenant')}
                             >
                               {isRunning ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
                             </button>
                             {job.paused ? (
-                              <button onClick={() => resumeJob.mutate(job.id)} className="gl-button-sm gl-button-default" title="Reprendre">
+                              <button onClick={() => resumeJob.mutate(job.id)} className="btn-sm btn-secondary" title="Reprendre">
                                 <RotateCcw size={11} />
                               </button>
                             ) : (
-                              <button onClick={() => pauseJob.mutate(job.id)} className="gl-button-sm gl-button-default" title="Mettre en pause">
+                              <button onClick={() => pauseJob.mutate(job.id)} className="btn-sm btn-secondary" title="Mettre en pause">
                                 <Pause size={11} />
                               </button>
                             )}

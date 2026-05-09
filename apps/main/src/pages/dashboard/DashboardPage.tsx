@@ -330,7 +330,7 @@ export function DashboardPage() {
           {canCustomize && !isBuiltin && !editMode && (
             <button
               onClick={() => setEditMode(true)}
-              className="gl-button-sm gl-button-default"
+              className="btn-sm btn-secondary"
             >
               <Settings2 className="h-3.5 w-3.5" />
               {t('dashboard.edit_dashboard')}
@@ -349,7 +349,7 @@ export function DashboardPage() {
               <button
                 onClick={() => editorRef.current?.redo()}
                 disabled={!editorRef.current?.canRedo}
-                className="gl-button-sm gl-button-ghost"
+                className="btn-sm btn-tertiary"
                 title="Refaire (Ctrl+Y)"
               >
                 <Redo2 className="h-3.5 w-3.5" />
@@ -363,7 +363,7 @@ export function DashboardPage() {
                 editorRef.current?.flushSave()
                 setEditMode(false)
               }}
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
             >
               <Check className="h-3.5 w-3.5" />
               {t('dashboard.save_dashboard')}
@@ -375,7 +375,7 @@ export function DashboardPage() {
                 editorRef.current?.discardChanges()
                 setEditMode(false)
               }}
-              className="gl-button-sm gl-button-default"
+              className="btn-sm btn-secondary"
             >
               <X className="h-3.5 w-3.5" />
               {t('common.cancel')}

@@ -111,7 +111,7 @@ export function ResetPasswordPage() {
               </p>
               <Link
                 to={ROUTES.login}
-                className="gl-button gl-button-confirm inline-flex items-center gap-1.5 h-9 px-4"
+                className="btn btn-primary inline-flex items-center gap-1.5 h-9 px-4"
               >
                 <ArrowLeft size={12} />
                 {t('auth.login_button')}
@@ -196,7 +196,7 @@ export function ResetPasswordPage() {
                 <button
                   type="submit"
                   disabled={loading || !passwordValid || !passwordsMatch}
-                  className="gl-button gl-button-confirm w-full h-9"
+                  className="btn btn-primary w-full h-9"
                 >
                   {loading ? (
                     <Loader2 size={14} className="mx-auto animate-spin" />

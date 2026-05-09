@@ -99,10 +99,10 @@ function BackendCard({ backend, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: st
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Endpoint</p>
         <div className="flex items-center gap-2">
           <code className="text-xs break-all flex-1">{endpointUrl}</code>
-          <button className="gl-button gl-button-default" onClick={() => navigator.clipboard.writeText(endpointUrl)}>
+          <button className="btn btn-secondary" onClick={() => navigator.clipboard.writeText(endpointUrl)}>
             <Copy size={14} />
           </button>
-          <a className="gl-button gl-button-default" href={endpointUrl} target="_blank" rel="noreferrer">
+          <a className="btn btn-secondary" href={endpointUrl} target="_blank" rel="noreferrer">
             <ExternalLink size={14} />
           </a>
         </div>
@@ -240,7 +240,7 @@ export function UserMcpTab() {
               onChange={(e) => setExpiresInDays(e.target.value)}
               placeholder="Jours"
             />
-            <button className="gl-button gl-button-confirm" onClick={handleCreate} disabled={createToken.isPending}>
+            <button className="btn btn-primary" onClick={handleCreate} disabled={createToken.isPending}>
               {createToken.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               Créer
             </button>
@@ -278,7 +278,7 @@ export function UserMcpTab() {
                   <div className="flex items-center gap-2 shrink-0">
                     {!token.revoked && (
                       <button
-                        className="gl-button gl-button-default"
+                        className="btn btn-secondary"
                         onClick={() => revokeToken.mutate(token.id)}
                         title={t('settings.revoquer_le_token')}
                       >
@@ -286,7 +286,7 @@ export function UserMcpTab() {
                       </button>
                     )}
                     <button
-                      className="gl-button gl-button-danger"
+                      className="btn btn-danger"
                       onClick={() => deleteToken.mutate(token.id)}
                       title={t('settings.supprimer_le_token')}
                     >

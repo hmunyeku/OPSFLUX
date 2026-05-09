@@ -105,7 +105,7 @@ function CreateAppInner() {
                   <code className="flex-1 text-xs font-mono bg-background p-2 rounded border border-border break-all select-all">
                     {createdApp.client_id}
                   </code>
-                  <button onClick={() => handleCopy('client_id', createdApp.client_id)} className="gl-button-sm gl-button-default shrink-0">
+                  <button onClick={() => handleCopy('client_id', createdApp.client_id)} className="btn-sm btn-secondary shrink-0">
                     {copiedField === 'client_id' ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
                   </button>
                 </div>
@@ -121,7 +121,7 @@ function CreateAppInner() {
                     <code className="flex-1 text-xs font-mono bg-background p-2 rounded border border-border break-all select-all">
                       {createdApp.client_secret}
                     </code>
-                    <button onClick={() => handleCopy('client_secret', createdApp.client_secret!)} className="gl-button-sm gl-button-default shrink-0">
+                    <button onClick={() => handleCopy('client_secret', createdApp.client_secret!)} className="btn-sm btn-secondary shrink-0">
                       {copiedField === 'client_secret' ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
                     </button>
                   </div>

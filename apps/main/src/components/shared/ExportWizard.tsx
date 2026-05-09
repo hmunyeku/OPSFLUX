@@ -457,7 +457,7 @@ export function ExportWizard({
               <Dialog.Title className="text-sm font-semibold">{t('export.wizard_title')}</Dialog.Title>
             </div>
             <Dialog.Close asChild>
-              <button className="gl-button gl-button-default"><X size={16} /></button>
+              <button className="btn btn-secondary"><X size={16} /></button>
             </Dialog.Close>
           </div>
 
@@ -1064,7 +1064,7 @@ export function ExportWizard({
               {canPrev && (
                 <button
                   onClick={() => setStep((step - 1) as Step)}
-                  className="gl-button-sm gl-button-default items-center gap-1"
+                  className="btn-sm btn-secondary items-center gap-1"
                 >
                   <ChevronLeft size={12} />
                   {t('common.back')}
@@ -1075,7 +1075,7 @@ export function ExportWizard({
             <div className="flex items-center gap-2">
               <button
                 onClick={handleClose}
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
               >
                 {t('common.cancel')}
               </button>
@@ -1083,7 +1083,7 @@ export function ExportWizard({
               {canNext && (
                 <button
                   onClick={() => setStep((step + 1) as Step)}
-                  className="gl-button-sm gl-button-confirm items-center gap-1"
+                  className="btn-sm btn-primary items-center gap-1"
                 >
                   {t('common.next')}
                   <ChevronRight size={12} />
@@ -1094,7 +1094,7 @@ export function ExportWizard({
                 <button
                   onClick={handleExport}
                   disabled={exporting || enabledColumns.length === 0}
-                  className="gl-button-sm gl-button-confirm items-center gap-1"
+                  className="btn-sm btn-primary items-center gap-1"
                 >
                   {exporting ? (
                     <>

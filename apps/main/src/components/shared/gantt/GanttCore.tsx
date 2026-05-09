@@ -1047,7 +1047,7 @@ export function GanttCore(props: GanttCoreProps) {
               <button onClick={onUndo} disabled={!onUndo} className="p-1 rounded hover:bg-muted disabled:opacity-30" title={t('common.undo')}>
                 <Undo2 className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
-              <button onClick={onRedo} disabled={!onRedo} className="gl-button gl-button-default" title="Refaire (Ctrl+Y)">
+              <button onClick={onRedo} disabled={!onRedo} className="btn btn-secondary" title="Refaire (Ctrl+Y)">
                 <Redo2 className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </div>
@@ -1205,7 +1205,7 @@ export function GanttCore(props: GanttCoreProps) {
                         const endEl = parent?.querySelector('input[data-range-end]') as HTMLInputElement | null
                         applyCustomRange(startEl?.value ?? '', endEl?.value ?? '')
                       }}
-                      className="gl-button-sm bg-primary text-primary-foreground hover:bg-primary/90 h-6 px-2 text-[10px]"
+                      className="btn-sm bg-primary text-primary-foreground hover:bg-primary/90 h-6 px-2 text-[10px]"
                     >
                       Appliquer
                     </button>
@@ -1246,7 +1246,7 @@ export function GanttCore(props: GanttCoreProps) {
                   <button
                     onClick={exportPNG}
                     disabled={exporting !== null}
-                    className="gl-button gl-button-default w-full flex text-left"
+                    className="btn btn-secondary w-full flex text-left"
                   >
                     <FileImage className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>Image PNG</span>
@@ -1255,7 +1255,7 @@ export function GanttCore(props: GanttCoreProps) {
                     <button
                       onClick={exportPDF}
                       disabled={exporting !== null}
-                      className="gl-button gl-button-default w-full flex text-left"
+                      className="btn btn-secondary w-full flex text-left"
                     >
                       <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                       <span>PDF A3 paysage</span>

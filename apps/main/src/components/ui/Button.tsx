@@ -1,7 +1,7 @@
 /**
  * Button — Phase 2A
  *
- * Pajamas++ button. Drop-in replacement for gl-button across the app.
+ * Pajamas++ button. Drop-in replacement for btn across the app.
  *
  * Usage:
  *   <Button variant="primary">Save</Button>
@@ -17,7 +17,7 @@
  *   - aria-pressed is forwarded for toggle buttons
  *   - icon-only buttons MUST pass aria-label (use <IconButton/> for type-safety)
  *
- * Migration mapping for gl-button:
+ * Migration mapping for btn:
  *   variant="confirm"  category="primary"   → variant="primary"
  *   variant="default"  category="primary"   → variant="secondary"
  *   variant="default"  category="secondary" → variant="secondary"

@@ -562,7 +562,7 @@ export function CreateProjectPanel() {
                       type="button"
                       onClick={addTaskDraft}
                       disabled={!taskDraftTitle.trim()}
-                      className="gl-button-sm gl-button-confirm inline-flex items-center gap-1 disabled:opacity-50"
+                      className="btn-sm btn-primary inline-flex items-center gap-1 disabled:opacity-50"
                     >
                       <Plus size={12} /> {t('common.add', 'Ajouter')}
                     </button>

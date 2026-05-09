@@ -93,8 +93,8 @@ export function ValidationRow({
               <button
                 type="button"
                 disabled={disabled}
-                className={`gl-button gl-button-sm ${
-                  entry?.approved === true ? 'gl-button-confirm' : 'gl-button-default'
+                className={`btn btn-sm ${
+                  entry?.approved === true ? 'btn-primary' : 'btn-secondary'
                 }`}
                 onClick={() => onChange({ approved: true })}
               >
@@ -103,8 +103,8 @@ export function ValidationRow({
               <button
                 type="button"
                 disabled={disabled}
-                className={`gl-button gl-button-sm ${
-                  entry?.approved === false ? 'gl-button-danger' : 'gl-button-default'
+                className={`btn btn-sm ${
+                  entry?.approved === false ? 'btn-danger' : 'btn-secondary'
                 }`}
                 onClick={() => onChange({ approved: false })}
               >
@@ -279,7 +279,7 @@ export function ProductionValidationTab({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="gl-button gl-button-sm gl-button-primary"
+              className="btn btn-sm btn-primary"
               disabled={disabled || validated === null}
               onClick={() =>
                 onSubmit({
@@ -294,7 +294,7 @@ export function ProductionValidationTab({
             </button>
             <button
               type="button"
-              className="gl-button gl-button-sm gl-button-default"
+              className="btn btn-sm btn-secondary"
               onClick={() => setReturnOpen((v) => !v)}
               disabled={disabled}
             >
@@ -316,14 +316,14 @@ export function ProductionValidationTab({
               <div className="flex justify-end gap-1">
                 <button
                   type="button"
-                  className="gl-button gl-button-sm gl-button-default"
+                  className="btn btn-sm btn-secondary"
                   onClick={() => setReturnOpen(false)}
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   type="button"
-                  className="gl-button gl-button-sm gl-button-danger"
+                  className="btn btn-sm btn-danger"
                   disabled={returnReason.trim().length < 3}
                   onClick={async () => {
                     await onReturn(returnReason.trim())
@@ -522,7 +522,7 @@ export function DirectorAccordBlock({
       <div className="flex flex-wrap items-center gap-1.5">
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-primary"
+          className="btn btn-sm btn-primary"
           disabled={disabled}
           onClick={() => onAccord(actor, true, draftComment.trim() || null, draftSig)}
         >
@@ -530,7 +530,7 @@ export function DirectorAccordBlock({
         </button>
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-danger"
+          className="btn btn-sm btn-danger"
           disabled={disabled}
           onClick={() => onAccord(actor, false, draftComment.trim() || null, draftSig)}
         >
@@ -538,7 +538,7 @@ export function DirectorAccordBlock({
         </button>
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-default"
+          className="btn btn-sm btn-secondary"
           onClick={() => setReturnOpen((v) => !v)}
           disabled={disabled}
         >
@@ -558,14 +558,14 @@ export function DirectorAccordBlock({
           <div className="flex justify-end gap-1">
             <button
               type="button"
-              className="gl-button gl-button-sm gl-button-default"
+              className="btn btn-sm btn-secondary"
               onClick={() => setReturnOpen(false)}
             >
               {t('common.cancel')}
             </button>
             <button
               type="button"
-              className="gl-button gl-button-sm gl-button-danger"
+              className="btn btn-sm btn-danger"
               disabled={returnReasonDraft.trim().length < 3}
               onClick={async () => {
                 await onReturn(returnReasonDraft.trim())

@@ -337,7 +337,7 @@ export function SearchablePicker<T extends { id: string }>({
               {items.map((item) => (
                 <button
                   key={item.id}
-                  className="gl-button gl-button-sm gl-button-default w-full text-left"
+                  className="btn btn-sm btn-secondary w-full text-left"
                   onClick={() => { onSelect(item); setOpen(false) }}
                 >
                   {renderItem(item)}

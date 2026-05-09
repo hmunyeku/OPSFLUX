@@ -200,7 +200,7 @@ export function PapyrusFormRunner({
                 <div className="text-xs font-medium text-muted-foreground">{field.label}</div>
                 <button
                   type="button"
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                   disabled={readOnly}
                   onClick={() => {
                     const emptyRow = Object.fromEntries((field.columns ?? []).map((column) => [column.key, '']))
@@ -223,7 +223,7 @@ export function PapyrusFormRunner({
                       <div className="text-xs font-medium text-muted-foreground">{t('papyrus.structured_form.row', { index: rowIndex + 1 })}</div>
                       <button
                         type="button"
-                        className="gl-button-sm gl-button-danger"
+                        className="btn-sm btn-danger"
                         disabled={readOnly}
                         onClick={() => setFieldValue(field.id, rows.filter((_, index) => index !== rowIndex))}
                       >
@@ -333,7 +333,7 @@ export function PapyrusFormRunner({
       <div className="flex justify-end">
         <button
           type="button"
-          className="gl-button-sm gl-button-confirm"
+          className="btn-sm btn-primary"
           disabled={readOnly || isSaving}
           onClick={() => onSave(draft)}
         >

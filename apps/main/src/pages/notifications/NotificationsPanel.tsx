@@ -417,7 +417,7 @@ export function NotificationsPanel() {
                                   navigate(n.link!)
                                   closeDynamicPanel()
                                 }}
-                                className="gl-button-sm gl-button-confirm inline-flex items-center gap-1.5 text-[11px]"
+                                className="btn-sm btn-primary inline-flex items-center gap-1.5 text-[11px]"
                               >
                                 <ExternalLink size={11} />
                                 {t('notifications.open', 'Ouvrir')}
@@ -430,7 +430,7 @@ export function NotificationsPanel() {
                                 archive.mutate(n.id)
                               }}
                               disabled={archive.isPending}
-                              className="gl-button-sm gl-button-default inline-flex items-center gap-1.5 text-[11px]"
+                              className="btn-sm btn-secondary inline-flex items-center gap-1.5 text-[11px]"
                             >
                               <Trash2 size={11} />
                               {t('notifications.archive', 'Archiver')}

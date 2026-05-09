@@ -175,8 +175,8 @@ export function ExternalRefManager({ ownerType, ownerId, compact }: ExternalRefM
             />
           </div>
           <div className="flex items-center justify-end gap-2">
-            <button onClick={() => { setShowForm(false); setCode(''); setLabel('') }} className="gl-button-sm gl-button-default">Annuler</button>
-            <button onClick={handleCreate} disabled={!code.trim() || createRef.isPending} className="gl-button-sm gl-button-confirm">
+            <button onClick={() => { setShowForm(false); setCode(''); setLabel('') }} className="btn-sm btn-secondary">Annuler</button>
+            <button onClick={handleCreate} disabled={!code.trim() || createRef.isPending} className="btn-sm btn-primary">
               {createRef.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
             </button>
           </div>

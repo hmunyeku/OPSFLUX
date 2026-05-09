@@ -489,7 +489,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   {Object.entries(cargoWorkflowLabels).filter(([k]) => k !== cargo.workflow_status).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
                 {isDelivered && (
-                  <button className="gl-button-sm gl-button-default text-[11px] inline-flex items-center gap-1 h-6" onClick={handleReturn} disabled={initiateReturn.isPending}>
+                  <button className="btn-sm btn-secondary text-[11px] inline-flex items-center gap-1 h-6" onClick={handleReturn} disabled={initiateReturn.isPending}>
                     <Undo2 size={9} /> Retour
                   </button>
                 )}
@@ -742,7 +742,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   <div className="flex gap-2 items-end">
                     <div className="flex-1">
                       <p className="text-[10px] text-muted-foreground mb-1">Recherche par description</p>
-                      <button className="gl-button-sm gl-button-default text-xs inline-flex items-center gap-1" onClick={() => { if (cargo.description) sapMatch.mutate(cargo.description) }} disabled={sapMatch.isPending || !cargo.description}>
+                      <button className="btn-sm btn-secondary text-xs inline-flex items-center gap-1" onClick={() => { if (cargo.description) sapMatch.mutate(cargo.description) }} disabled={sapMatch.isPending || !cargo.description}>
                         {sapMatch.isPending ? <Loader2 size={10} className="animate-spin" /> : <Search size={10} />}
                         Rechercher SAP
                       </button>

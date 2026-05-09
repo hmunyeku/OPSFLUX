@@ -370,11 +370,11 @@ function TourSpotlight({
           </button>
           <div className="flex gap-2">
             {step > 0 && (
-              <button onClick={onPrev} className="gl-button-sm gl-button-default text-[10px]">
+              <button onClick={onPrev} className="btn-sm btn-secondary text-[10px]">
                 Précédent
               </button>
             )}
-            <button onClick={onNext} className="gl-button-sm gl-button-confirm text-[10px] flex items-center gap-1">
+            <button onClick={onNext} className="btn-sm btn-primary text-[10px] flex items-center gap-1">
               {isLast ? <><CheckCircle2 size={10} /> Terminer</> : <><ArrowRight size={10} /> Suivant</>}
             </button>
           </div>
@@ -521,7 +521,7 @@ export function AssistantPanel() {
           <span className="text-[10px] text-muted-foreground truncate hidden sm:inline">· {HELP_CONTENT[currentModule]?.title || currentModule}</span>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          {/* Icon buttons — use plain classes instead of .gl-button. The
+          {/* Icon buttons — use plain classes instead of .btn. The
               button class ships with text-button padding and a min-h that
               collapses inside a 24×24 square, erasing the icon. */}
           <button
@@ -805,7 +805,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
                         <button
                           key={`${i}-${actionIndex}-${action.target}`}
                           onClick={() => runAssistantAction(action)}
-                          className="gl-button-sm gl-button-secondary inline-flex items-center gap-1"
+                          className="btn-sm btn-secondary inline-flex items-center gap-1"
                         >
                           {action.type === 'confirm-write' ? <CheckCircle2 size={12} /> : <ArrowRight size={12} />}
                           {action.label}
@@ -874,7 +874,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
           <button
             onClick={sendMessage}
             disabled={!input.trim() || streaming}
-            className="gl-button-sm gl-button-confirm h-9 w-9 flex items-center justify-center shrink-0"
+            className="btn-sm btn-primary h-9 w-9 flex items-center justify-center shrink-0"
           >
             {streaming ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           </button>
@@ -1114,13 +1114,13 @@ function ToursTab({ currentModule }: { currentModule: string }) {
                   <p className="text-[10px] text-muted-foreground/60 mt-1">{tour.steps.length} étapes</p>
                 </div>
                 {isActive ? (
-                  <button onClick={closeTour} className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1 text-red-500">
+                  <button onClick={closeTour} className="btn-sm btn-secondary shrink-0 flex items-center gap-1 text-red-500">
                     <StopCircle size={10} /> Arreter
                   </button>
                 ) : (
                   <button
                     onClick={() => startTour(tour)}
-                    className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1"
+                    className="btn-sm btn-secondary shrink-0 flex items-center gap-1"
                   >
                     <Play size={10} /> {isCompleted ? 'Revoir' : 'Démarrer'}
                   </button>
@@ -1378,19 +1378,19 @@ function TicketTab() {
 
       {/* Media buttons — screenshot, screen-recording, file attach */}
       <div className="flex items-center gap-1.5">
-        <button onClick={captureScreenshot} disabled={capturing || recording} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
+        <button onClick={captureScreenshot} disabled={capturing || recording} className="btn-sm btn-secondary flex-1 justify-center text-[10px]">
           {capturing ? <Loader2 size={10} className="animate-spin" /> : <Camera size={10} />} Photo
         </button>
         {recording ? (
-          <button onClick={stopRecording} className="gl-button-sm gl-button-danger flex-1 justify-center text-[10px] animate-pulse">
+          <button onClick={stopRecording} className="btn-sm btn-danger flex-1 justify-center text-[10px] animate-pulse">
             <Square size={10} /> Stop {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
           </button>
         ) : (
-          <button onClick={startRecording} disabled={capturing} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
+          <button onClick={startRecording} disabled={capturing} className="btn-sm btn-secondary flex-1 justify-center text-[10px]">
             <Video size={10} /> Vidéo
           </button>
         )}
-        <button onClick={() => fileRef.current?.click()} disabled={recording} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
+        <button onClick={() => fileRef.current?.click()} disabled={recording} className="btn-sm btn-secondary flex-1 justify-center text-[10px]">
           <Paperclip size={10} /> Fichier
         </button>
         <input ref={fileRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx" className="hidden" onChange={handleFileAttach} />
@@ -1436,7 +1436,7 @@ function TicketTab() {
               && (form.description || '').replace(/<[^>]+>/g, '').trim().length < 20)
           || createTicket.isPending
         }
-        className="gl-button-sm gl-button-confirm w-full justify-center"
+        className="btn-sm btn-primary w-full justify-center"
       >
         {createTicket.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
         Envoyer le ticket

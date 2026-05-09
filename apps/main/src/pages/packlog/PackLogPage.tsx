@@ -577,7 +577,7 @@ function CatalogTab() {
               className="gl-form-input"
               placeholder={t('packlog.catalog.smart_search.placeholder')}
             />
-            <button className="gl-button-sm gl-button-default" onClick={() => sapQuery.trim() && sapMatch.mutate(sapQuery.trim())} disabled={sapMatch.isPending}>
+            <button className="btn-sm btn-secondary" onClick={() => sapQuery.trim() && sapMatch.mutate(sapQuery.trim())} disabled={sapMatch.isPending}>
               {sapMatch.isPending ? '...' : <Search size={12} />}
             </button>
           </div>
@@ -804,7 +804,7 @@ function TrackingTab() {
                 placeholder={t('packlog.tracking.scan.placeholder')}
                 autoFocus
               />
-              <button className="gl-button-sm gl-button-default" onClick={handleScanSubmit}>
+              <button className="btn-sm btn-secondary" onClick={handleScanSubmit}>
                 {t('packlog.tracking.scan.action')}
               </button>
             </div>
@@ -823,16 +823,16 @@ function TrackingTab() {
                   <span className="chip shrink-0">{cargoStatusLabels[quickTarget.status] ?? quickTarget.status}</span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-1.5">
-                  <button className="gl-button-sm gl-button-confirm" onClick={() => handleQuickStatus('received')} disabled={receiveCargo.isPending || isCargoReceivedLike(quickTarget)}>
+                  <button className="btn-sm btn-primary" onClick={() => handleQuickStatus('received')} disabled={receiveCargo.isPending || isCargoReceivedLike(quickTarget)}>
                     {t('packlog.tracking.actions.receive')}
                   </button>
-                  <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: quickTarget.id, meta: { subtype: 'cargo' } })}>
+                  <button className="btn-sm btn-secondary" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: quickTarget.id, meta: { subtype: 'cargo' } })}>
                     {t('packlog.tracking.actions.open')}
                   </button>
-                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('damaged')} disabled={updateCargoStatus.isPending || isCargoReceivedLike(quickTarget)}>
+                  <button className="btn-sm btn-secondary" onClick={() => handleQuickStatus('damaged')} disabled={updateCargoStatus.isPending || isCargoReceivedLike(quickTarget)}>
                     {t('packlog.tracking.actions.damaged')}
                   </button>
-                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('missing')} disabled={updateCargoStatus.isPending || isCargoReceivedLike(quickTarget)}>
+                  <button className="btn-sm btn-secondary" onClick={() => handleQuickStatus('missing')} disabled={updateCargoStatus.isPending || isCargoReceivedLike(quickTarget)}>
                     {t('packlog.tracking.actions.missing')}
                   </button>
                 </div>
@@ -921,16 +921,16 @@ function TrackingTab() {
                             </div>
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span className="chip">{cargoStatusLabels[item.status] ?? item.status}</span>
-                              <button className="gl-button-sm gl-button-confirm" onClick={() => handleManifestQuickStatus(item, 'received')} disabled={pendingCargoId === item.id}>
+                              <button className="btn-sm btn-primary" onClick={() => handleManifestQuickStatus(item, 'received')} disabled={pendingCargoId === item.id}>
                                 {t('packlog.tracking.actions.receive')}
                               </button>
-                              <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'damaged')} disabled={pendingCargoId === item.id}>
+                              <button className="btn-sm btn-secondary" onClick={() => handleManifestQuickStatus(item, 'damaged')} disabled={pendingCargoId === item.id}>
                                 {t('packlog.tracking.actions.damaged')}
                               </button>
-                              <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'missing')} disabled={pendingCargoId === item.id}>
+                              <button className="btn-sm btn-secondary" onClick={() => handleManifestQuickStatus(item, 'missing')} disabled={pendingCargoId === item.id}>
                                 {t('packlog.tracking.actions.missing')}
                               </button>
-                              <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}>
+                              <button className="btn-sm btn-secondary" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}>
                                 {t('packlog.tracking.actions.open')}
                               </button>
                             </div>

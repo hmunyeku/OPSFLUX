@@ -148,13 +148,13 @@ export function AgentRunReviewPanel({
           <a
             href={run.github_pr_url!}
             target="_blank" rel="noopener noreferrer"
-            className="gl-button gl-button-sm gl-button-default"
+            className="btn btn-sm btn-secondary"
           >
             <ExternalLink size={11} /> {t('support.review.view_pr', 'Voir la PR sur GitHub')}
           </a>
           <button
             type="button"
-            className="gl-button gl-button-sm gl-button-confirm"
+            className="btn btn-sm btn-primary"
             onClick={() => onMerge(run)}
             disabled={isMerging || isRejecting}
           >
@@ -163,7 +163,7 @@ export function AgentRunReviewPanel({
           </button>
           <button
             type="button"
-            className="gl-button gl-button-sm gl-button-default text-destructive"
+            className="btn btn-sm btn-secondary text-destructive"
             onClick={() => onReject(run)}
             disabled={isMerging || isRejecting}
           >
@@ -173,7 +173,7 @@ export function AgentRunReviewPanel({
           {canRetryCi && (
             <button
               type="button"
-              className="gl-button gl-button-sm gl-button-default"
+              className="btn btn-sm btn-secondary"
               disabled={retryCi.isPending || isMerging || isRejecting}
               onClick={() => {
                 retryCi.mutate(run.id, {

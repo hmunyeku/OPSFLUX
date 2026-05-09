@@ -122,17 +122,17 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
       headerRight={
         <div className="flex items-center gap-1">
           <span className="text-[10px] text-muted-foreground tabular-nums mr-1">{currentIdx + 1}/{items.length}</span>
-          <button onClick={() => goTo(currentIdx - 1)} disabled={currentIdx <= 0} className="gl-button-sm gl-button-default disabled:opacity-30">
+          <button onClick={() => goTo(currentIdx - 1)} disabled={currentIdx <= 0} className="btn-sm btn-secondary disabled:opacity-30">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
-          <button onClick={() => goTo(currentIdx + 1)} disabled={currentIdx >= items.length - 1} className="gl-button-sm gl-button-default disabled:opacity-30">
+          <button onClick={() => goTo(currentIdx + 1)} disabled={currentIdx >= items.length - 1} className="btn-sm btn-secondary disabled:opacity-30">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
           </button>
           <div className="w-px h-4 bg-border/60 mx-1" />
-          <button onClick={handleVerify} disabled={verifyRecord.isPending || ((item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0))} className="gl-button-sm gl-button-confirm disabled:opacity-50 disabled:cursor-not-allowed">
+          <button onClick={handleVerify} disabled={verifyRecord.isPending || ((item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0))} className="btn-sm btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
             {verifyRecord.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Vérifier
           </button>
-          <button onClick={() => setShowReject(true)} className="gl-button-sm gl-button-danger">
+          <button onClick={() => setShowReject(true)} className="btn-sm btn-danger">
             <X size={11} /> Rejeter
           </button>
         </div>
@@ -177,8 +177,8 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
               autoFocus
             />
             <div className="flex items-center gap-2 justify-end">
-              <button onClick={() => { setShowReject(false); setRejectReason('') }} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
-              <button onClick={handleReject} disabled={!rejectReason.trim() || verifyRecord.isPending} className="gl-button-sm gl-button-danger">
+              <button onClick={() => { setShowReject(false); setRejectReason('') }} className="btn-sm btn-secondary">{t('common.cancel')}</button>
+              <button onClick={handleReject} disabled={!rejectReason.trim() || verifyRecord.isPending} className="btn-sm btn-danger">
                 {verifyRecord.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer le rejet'}
               </button>
             </div>

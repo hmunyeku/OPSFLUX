@@ -98,7 +98,7 @@ export function VectorDeckPlanTab({ vectorId }: { vectorId: string }) {
         {canEdit && (
           <button
             type="button"
-            className="gl-button-sm gl-button-confirm"
+            className="btn-sm btn-primary"
             onClick={openEditor}
             title={t('travelwiz.vector.deck_plan.open_in_window', 'Ouvrir dans une fenêtre')}
           >

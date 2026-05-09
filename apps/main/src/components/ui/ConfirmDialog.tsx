@@ -122,17 +122,17 @@ const variantConfig: Record<ConfirmVariant, {
   default: {
     icon: HelpCircle,
     iconClass: 'text-primary',
-    btnClass: 'gl-button-sm gl-button-confirm',
+    btnClass: 'btn-sm btn-primary',
   },
   danger: {
     icon: Trash2,
     iconClass: 'text-destructive',
-    btnClass: 'gl-button-sm bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    btnClass: 'btn-sm bg-destructive text-destructive-foreground hover:bg-destructive/90',
   },
   warning: {
     icon: AlertTriangle,
     iconClass: 'text-yellow-600 dark:text-yellow-400',
-    btnClass: 'gl-button-sm bg-yellow-600 text-white hover:bg-yellow-700',
+    btnClass: 'btn-sm bg-yellow-600 text-white hover:bg-yellow-700',
   },
 }
 
@@ -197,7 +197,7 @@ export function ConfirmDialog({
         {/* Actions — cancel is hidden when cancelLabel is empty (info dialog) */}
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border/60 bg-gradient-to-b from-transparent to-muted/30 rounded-b-2xl">
           {cancelLabel && (
-            <button onClick={onCancel} className="gl-button-sm gl-button-default">
+            <button onClick={onCancel} className="btn-sm btn-secondary">
               {cancelLabel}
             </button>
           )}
@@ -284,8 +284,8 @@ export function PromptProvider({ children }: { children: React.ReactNode }) {
               />
             </div>
             <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/30 rounded-b-xl">
-              <button onClick={handleCancel} className="gl-button-sm gl-button-default">{state.options.cancelLabel || 'Annuler'}</button>
-              <button onClick={handleConfirm} className="gl-button-sm gl-button-confirm">{state.options.confirmLabel || 'Confirmer'}</button>
+              <button onClick={handleCancel} className="btn-sm btn-secondary">{state.options.cancelLabel || 'Annuler'}</button>
+              <button onClick={handleConfirm} className="btn-sm btn-primary">{state.options.confirmLabel || 'Confirmer'}</button>
             </div>
           </div>
         </div>

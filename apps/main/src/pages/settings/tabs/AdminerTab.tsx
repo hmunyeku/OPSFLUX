@@ -212,7 +212,7 @@ export function AdminerTab() {
           href="https://db.opsflux.io"
           target="_blank"
           rel="noopener noreferrer"
-          className="gl-button-sm gl-button-confirm items-center gap-1.5"
+          className="btn-sm btn-primary items-center gap-1.5"
         >
           <Database size={11} />
           Ouvrir pgAdmin
@@ -238,7 +238,7 @@ export function AdminerTab() {
             <button
               onClick={runQuery}
               disabled={isRunning || !query.trim()}
-              className="gl-button-sm gl-button-confirm disabled:cursor-not-allowed"
+              className="btn-sm btn-primary disabled:cursor-not-allowed"
             >
               {isRunning ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -252,7 +252,7 @@ export function AdminerTab() {
                 setQuery('')
                 setResult(null)
               }}
-              className="gl-button-sm gl-button-default"
+              className="btn-sm btn-secondary"
             >
               <Trash2 size={12} />
               Effacer
@@ -268,7 +268,7 @@ export function AdminerTab() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowMaxRowsDropdown(!showMaxRowsDropdown)}
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
               >
                 <Table2 size={11} />
                 {maxRows} lignes max
@@ -349,7 +349,7 @@ export function AdminerTab() {
                     ].join('\n')
                     copyToClipboard(tsv, 'results')
                   }}
-                  className="gl-button gl-button-default"
+                  className="btn btn-secondary"
                 >
                   {copied === 'results' ? (
                     <Check size={10} className="text-green-500" />
@@ -444,7 +444,7 @@ export function AdminerTab() {
                 setResult(null)
                 textareaRef.current?.focus()
               }}
-              className="gl-button-sm gl-button-default text-left group"
+              className="btn-sm btn-secondary text-left group"
             >
               <Database size={11} className="text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
               <span className="text-foreground truncate">{label}</span>

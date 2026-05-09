@@ -142,7 +142,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
             <button
               onClick={handleCreate}
               disabled={!content.trim() || createNote.isPending}
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
             >
               {createNote.isPending ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -181,13 +181,13 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                 autoFocus
               />
               <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-border/40">
-                <button onClick={() => setEditingId(null)} className="gl-button-sm gl-button-default">
+                <button onClick={() => setEditingId(null)} className="btn-sm btn-secondary">
                   Annuler
                 </button>
                 <button
                   onClick={() => handleUpdate(note.id)}
                   disabled={!editContent.trim() || updateNote.isPending}
-                  className="gl-button-sm gl-button-confirm"
+                  className="btn-sm btn-primary"
                 >
                   {updateNote.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
                 </button>
@@ -242,14 +242,14 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
               {isOwner && (
                 <div className="flex items-center gap-1 shrink-0">
                   <button
-                    className="gl-button-sm gl-button-default"
+                    className="btn-sm btn-secondary"
                     onClick={() => handleTogglePin(note)}
                     title={note.pinned ? 'Désépingler' : 'Épingler'}
                   >
                     <Pin size={12} className={note.pinned ? 'text-primary' : ''} />
                   </button>
                   <button
-                    className="gl-button-sm gl-button-default"
+                    className="btn-sm btn-secondary"
                     onClick={() => { setEditingId(note.id); setEditContent(note.content) }}
                     title="Modifier"
                   >
@@ -257,16 +257,16 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                   </button>
                   {isConfirming ? (
                     <div className="flex items-center gap-1">
-                      <button className="gl-button-sm gl-button-danger" onClick={() => handleDelete(note.id)}>
+                      <button className="btn-sm btn-danger" onClick={() => handleDelete(note.id)}>
                         Oui
                       </button>
-                      <button className="gl-button-sm gl-button-default" onClick={() => setConfirmDeleteId(null)}>
+                      <button className="btn-sm btn-secondary" onClick={() => setConfirmDeleteId(null)}>
                         Non
                       </button>
                     </div>
                   ) : (
                     <button
-                      className="gl-button-sm gl-button-danger"
+                      className="btn-sm btn-danger"
                       onClick={() => setConfirmDeleteId(note.id)}
                       title="Supprimer"
                     >

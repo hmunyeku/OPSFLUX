@@ -181,7 +181,7 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
         <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wide">{t('common.imputations')}</h3>
         {editable && !showForm && (
           <button
-            className="gl-button gl-button-confirm h-5 w-5 flex text-primary opacity-0 group-hover:opacity-100"
+            className="btn btn-primary h-5 w-5 flex text-primary opacity-0 group-hover:opacity-100"
             onClick={() => setShowForm(true)}
             title={t('settings.imputation_manager.add')}
           >
@@ -229,9 +229,9 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
                 </div>
               </div>
               <div className="flex items-center gap-2 justify-end">
-                <button className="gl-button-sm" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
+                <button className="btn-sm" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
                 <button
-                  className="gl-button-sm gl-button-confirm"
+                  className="btn-sm btn-primary"
                   disabled={(!form.imputation_reference_id && !form.project_id && !form.cost_center_id) || createImputation.isPending}
                   onClick={handleAdd}
                 >
@@ -311,7 +311,7 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
                           {updateImputation.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
                         </button>
                         <button
-                          className="gl-button gl-button-default"
+                          className="btn btn-secondary"
                           onClick={cancelEdit}
                         >
                           <X size={11} />
@@ -320,13 +320,13 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
                     ) : (
                       <>
                         <button
-                          className="gl-button gl-button-default"
+                          className="btn btn-secondary"
                           onClick={() => startEdit(imp)}
                         >
                           <Pencil size={11} />
                         </button>
                         <button
-                          className="gl-button gl-button-danger"
+                          className="btn btn-danger"
                           onClick={() => handleDelete(imp.id)}
                         >
                           <Trash2 size={11} />

@@ -260,8 +260,8 @@ export default function DictionaryTab() {
         </div>
       </div>
       <div className="flex justify-end gap-2">
-        <button onClick={handleCancel} className="gl-button-sm gl-button-default items-center gap-1"><X size={12} /> Annuler</button>
-        <button onClick={handleSave} disabled={createEntry.isPending || updateEntry.isPending} className="gl-button-sm gl-button-confirm items-center gap-1">
+        <button onClick={handleCancel} className="btn-sm btn-secondary items-center gap-1"><X size={12} /> Annuler</button>
+        <button onClick={handleSave} disabled={createEntry.isPending || updateEntry.isPending} className="btn-sm btn-primary items-center gap-1">
           {(createEntry.isPending || updateEntry.isPending) ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Enregistrer
         </button>
       </div>
@@ -306,7 +306,7 @@ export default function DictionaryTab() {
             <button
               onClick={handleAdd}
               disabled={showForm}
-              className="gl-button-sm gl-button-confirm items-center gap-1"
+              className="btn-sm btn-primary items-center gap-1"
             >
               <Plus size={12} /> Ajouter
             </button>
@@ -359,8 +359,8 @@ export default function DictionaryTab() {
                   ) : deletingId === entry.id ? (
                     <div className="flex items-center gap-2 p-3 bg-destructive/10">
                       <span className="text-xs text-destructive flex-1">Supprimer &quot;{entry.label}&quot; ?</span>
-                      <button onClick={() => setDeletingId(null)} className="gl-button-sm gl-button-default text-xs">Non</button>
-                      <button onClick={() => { deleteEntry.mutate(entry.id); setDeletingId(null) }} className="gl-button-sm gl-button-danger text-xs">Oui</button>
+                      <button onClick={() => setDeletingId(null)} className="btn-sm btn-secondary text-xs">Non</button>
+                      <button onClick={() => { deleteEntry.mutate(entry.id); setDeletingId(null) }} className="btn-sm btn-danger text-xs">Oui</button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-3 py-2.5 px-3 hover:bg-accent/30 group transition-colors">

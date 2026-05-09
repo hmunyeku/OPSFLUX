@@ -461,11 +461,11 @@ function CreateRoleForm({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <div className="flex items-center gap-2 mt-3">
-        <button onClick={handleSubmit} disabled={createMut.isPending || !code || !name} className="gl-button-sm gl-button-confirm text-[11px]">
+        <button onClick={handleSubmit} disabled={createMut.isPending || !code || !name} className="btn-sm btn-primary text-[11px]">
           {createMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
           Créer
         </button>
-        <button onClick={onClose} className="gl-button-sm gl-button-default text-[11px]">
+        <button onClick={onClose} className="btn-sm btn-secondary text-[11px]">
           <X size={11} /> Annuler
         </button>
       </div>
@@ -725,8 +725,8 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
       {hasPendingChanges && (
         <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
           <span className="text-xs text-amber-600 dark:text-amber-400 flex-1">Modifications non sauvegardées</span>
-          <button onClick={() => setPendingPerms(null)} className="gl-button-sm gl-button-default text-[11px]">{t('common.cancel')}</button>
-          <button onClick={savePermissions} disabled={setPermsMut.isPending} className="gl-button-sm gl-button-confirm text-[11px]">
+          <button onClick={() => setPendingPerms(null)} className="btn-sm btn-secondary text-[11px]">{t('common.cancel')}</button>
+          <button onClick={savePermissions} disabled={setPermsMut.isPending} className="btn-sm btn-primary text-[11px]">
             {setPermsMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
             Sauvegarder
           </button>
@@ -1126,7 +1126,7 @@ export function CreateGroupForm({ onClose }: { onClose: () => void }) {
                   key={r.code}
                   type="button"
                   onClick={() => toggleRole(r.code)}
-                  className={isSelected ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
+                  className={isSelected ? 'btn-sm btn-primary' : 'btn-sm btn-secondary'}
                 >
                   {r.name}
                 </button>
@@ -1139,11 +1139,11 @@ export function CreateGroupForm({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <div className="flex items-center gap-2 mt-3">
-        <button onClick={handleSubmit} disabled={createMut.isPending || !name || selectedRoleCodes.length === 0} className="gl-button-sm gl-button-confirm text-[11px]">
+        <button onClick={handleSubmit} disabled={createMut.isPending || !name || selectedRoleCodes.length === 0} className="btn-sm btn-primary text-[11px]">
           {createMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
           Créer
         </button>
-        <button onClick={onClose} className="gl-button-sm gl-button-default text-[11px]">
+        <button onClick={onClose} className="btn-sm btn-secondary text-[11px]">
           <X size={11} /> Annuler
         </button>
       </div>
@@ -1376,10 +1376,10 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
 
   const panelActions = hasPendingChanges ? (
     <div className="flex items-center gap-2">
-      <button onClick={() => setPendingOverrides(null)} className="gl-button-sm gl-button-default text-[11px]">
+      <button onClick={() => setPendingOverrides(null)} className="btn-sm btn-secondary text-[11px]">
         Annuler
       </button>
-      <button onClick={savePermissions} disabled={setGroupOverridesMut.isPending} className="gl-button-sm gl-button-confirm text-[11px]">
+      <button onClick={savePermissions} disabled={setGroupOverridesMut.isPending} className="btn-sm btn-primary text-[11px]">
         {setGroupOverridesMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
         Sauvegarder
       </button>
@@ -1389,7 +1389,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
       <button
         onClick={toggleActive}
         disabled={updateMut.isPending}
-        className={cn('gl-button-sm text-[11px]', group.active ? 'gl-button-default' : 'gl-button-confirm')}
+        className={cn('btn-sm text-[11px]', group.active ? 'btn-secondary' : 'btn-primary')}
       >
         {group.active ? 'Désactiver' : 'Activer'}
       </button>
@@ -1503,7 +1503,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
           <div className="mb-3">
             <button
               onClick={() => setShowAddUser(!showAddUser)}
-              className="gl-button-sm gl-button-confirm text-[11px]"
+              className="btn-sm btn-primary text-[11px]"
             >
               <UserPlus size={11} /> Ajouter un membre
             </button>

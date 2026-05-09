@@ -177,7 +177,7 @@ function ChildLink({ icon: Icon, label, count, isLoading, onClick, iconColor }: 
     <button
       type="button"
       onClick={onClick}
-      className="gl-button gl-button-sm gl-button-default flex w-full group"
+      className="btn btn-sm btn-secondary flex w-full group"
     >
       <Icon size={14} className={iconColor} />
       <span className="text-foreground font-medium">{label}</span>

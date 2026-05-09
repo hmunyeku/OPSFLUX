@@ -168,7 +168,7 @@ export function PickupTab() {
 
             {roundDetail.status === 'in_progress' && (
               <button
-                className="gl-button-sm gl-button-confirm w-full text-xs"
+                className="btn-sm btn-primary w-full text-xs"
                 onClick={() => closeRound.mutate(roundDetail.id)}
                 disabled={closeRound.isPending}
               >

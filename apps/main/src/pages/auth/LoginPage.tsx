@@ -347,7 +347,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || serverStatus === 'offline'}
-                className="gl-button gl-button-confirm w-full h-9"
+                className="btn btn-primary w-full h-9"
               >
                 {loading ? <Loader2 size={14} className="mx-auto animate-spin" /> : t('auth.login_button')}
               </button>
@@ -375,9 +375,9 @@ export function LoginPage() {
                       type="button"
                       onClick={() => handleSsoLogin(provider.id)}
                       disabled={ssoLoading === provider.id}
-                      className="gl-button gl-button-default w-full h-9 items-center justify-center gap-2"
+                      className="btn btn-secondary w-full h-9 items-center justify-center gap-2"
                     >
-                      {/* Shine sweep on hover — same effect as gl-button-premium */}
+                      {/* Shine sweep on hover — same effect as btn-premium */}
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 motion-reduce:hidden"
@@ -408,7 +408,7 @@ export function LoginPage() {
                 type="button"
                 onClick={handleBackToLogin}
                 aria-label={t('common.back') as string}
-                className="gl-button gl-button-default"
+                className="btn btn-secondary"
               >
                 <ArrowLeft size={14} />
               </button>
@@ -451,7 +451,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={mfaLoading || mfaCode.length < 6}
-                className="gl-button gl-button-confirm w-full h-9"
+                className="btn btn-primary w-full h-9"
               >
                 {mfaLoading ? (
                   <Loader2 size={14} className="mx-auto animate-spin" />

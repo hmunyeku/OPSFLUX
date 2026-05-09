@@ -136,7 +136,7 @@ export function DelegationsTab() {
                     <button
                       key={candidate.id}
                       type="button"
-                      // Custom outlined button — gl-button's fixed
+                      // Custom outlined button — btn's fixed
                       // height clipped the 2-line (name + email)
                       // content. Auto-height keeps rows visually
                       // separated in the dropdown.
@@ -223,7 +223,7 @@ export function DelegationsTab() {
         </div>
 
         <div className="mt-4 flex justify-end">
-          <button onClick={submit} disabled={createDelegation.isPending} className="gl-button-primary">
+          <button onClick={submit} disabled={createDelegation.isPending} className="btn-primary">
             {t('settings.delegations.create_action')}
           </button>
         </div>
@@ -243,7 +243,7 @@ export function DelegationsTab() {
               </div>
               <button
                 onClick={() => deleteDelegation.mutate(item.id)}
-                className="gl-button-secondary"
+                className="btn-secondary"
                 disabled={deleteDelegation.isPending}
               >
                 {t('common.delete')}
@@ -274,7 +274,7 @@ export function DelegationsTab() {
                 </div>
                 <button
                   onClick={() => setActingContext(contextKey)}
-                  className={actingContext === contextKey ? 'gl-button-primary' : 'gl-button-secondary'}
+                  className={actingContext === contextKey ? 'btn-primary' : 'btn-secondary'}
                 >
                   {actingContext === contextKey ? t('settings.delegations.active_context') : t('settings.delegations.activate_context')}
                 </button>
@@ -298,7 +298,7 @@ export function DelegationsTab() {
                 <span>
                   {t('settings.delegations.current_simulation')}: <strong>{currentContext.target_user.first_name} {currentContext.target_user.last_name}</strong>
                 </span>
-                <button onClick={() => setActingContext('own')} className="gl-button-secondary">
+                <button onClick={() => setActingContext('own')} className="btn-secondary">
                   {t('settings.delegations.back_to_self')}
                 </button>
               </div>

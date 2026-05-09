@@ -107,7 +107,7 @@ function CreateTokenInner() {
               <code className="flex-1 text-xs font-mono bg-background p-2 rounded border border-border break-all select-all">
                 {createdToken}
               </code>
-              <button onClick={handleCopy} className="gl-button-sm gl-button-default shrink-0" title="Copier">
+              <button onClick={handleCopy} className="btn-sm btn-secondary shrink-0" title="Copier">
                 {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
               </button>
             </div>

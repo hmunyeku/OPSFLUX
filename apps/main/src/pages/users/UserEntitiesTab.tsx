@@ -94,7 +94,7 @@ export function UserEntitiesTab({ userId }: { userId: string }) {
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-foreground">Ajouter à une entité</span>
             <button
-              className="gl-button gl-button-default"
+              className="btn btn-secondary"
               onClick={() => { setShowPicker(false); setPickerSearch('') }}
             >
               <X size={14} />
@@ -117,7 +117,7 @@ export function UserEntitiesTab({ userId }: { userId: string }) {
               filteredAvailable.map((entity) => (
                 <button
                   key={entity.id}
-                  className="gl-button gl-button-default w-full flex text-left group"
+                  className="btn btn-secondary w-full flex text-left group"
                   onClick={() => handleAssign(entity.id)}
                   disabled={assignToEntity.isPending}
                 >
@@ -134,7 +134,7 @@ export function UserEntitiesTab({ userId }: { userId: string }) {
         </div>
       ) : (
         <button
-          className="gl-button-sm gl-button-default flex items-center gap-1.5"
+          className="btn-sm btn-secondary flex items-center gap-1.5"
           onClick={() => setShowPicker(true)}
         >
           <Plus size={12} /> Ajouter à une entité
@@ -163,7 +163,7 @@ export function UserEntitiesTab({ userId }: { userId: string }) {
                 </div>
               </div>
               <button
-                className="gl-button gl-button-danger"
+                className="btn btn-danger"
                 title="Retirer de cette entité"
                 onClick={() => handleRemove(entity.entity_id, entity.entity_name)}
               >
@@ -205,7 +205,7 @@ export function UserEntitiesTab({ userId }: { userId: string }) {
           <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Entreprises liées</span>
           {!showTierPicker && (
             <button
-              className="gl-button-sm gl-button-default flex items-center gap-1"
+              className="btn-sm btn-secondary flex items-center gap-1"
               onClick={() => setShowTierPicker(true)}
             >
               <Plus size={12} /> Lier une entreprise
@@ -218,7 +218,7 @@ export function UserEntitiesTab({ userId }: { userId: string }) {
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-foreground">Rechercher une entreprise</span>
               <button
-                className="gl-button gl-button-default"
+                className="btn btn-secondary"
                 onClick={() => { setShowTierPicker(false); setTierSearch('') }}
               >
                 <X size={14} />
@@ -242,7 +242,7 @@ export function UserEntitiesTab({ userId }: { userId: string }) {
                 return available.slice(0, 20).map((tier) => (
                   <button
                     key={tier.id}
-                    className="gl-button gl-button-default w-full flex text-left group"
+                    className="btn btn-secondary w-full flex text-left group"
                     onClick={async () => {
                       await linkToTier.mutateAsync({ userId, tierId: tier.id })
                       setShowTierPicker(false)
@@ -279,7 +279,7 @@ export function UserEntitiesTab({ userId }: { userId: string }) {
                   </div>
                 </div>
                 <button
-                  className="gl-button gl-button-danger"
+                  className="btn btn-danger"
                   title="Retirer le lien"
                   onClick={async () => {
                     const ok = await confirm({

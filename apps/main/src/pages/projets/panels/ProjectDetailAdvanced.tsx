@@ -192,7 +192,7 @@ export function WbsSection({ projectId }: { projectId: string }) {
             <button
               onClick={handleCreate}
               disabled={!form.code.trim() || !form.name.trim() || createNode.isPending}
-              className="gl-button-sm gl-button-confirm text-[10px]"
+              className="btn-sm btn-primary text-[10px]"
             >
               {createNode.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Créer'}
             </button>
@@ -670,7 +670,7 @@ export function PlanningRevisionsSection({ projectId }: { projectId: string }) {
             <button
               onClick={handleCreate}
               disabled={!revName.trim() || createRev.isPending}
-              className="gl-button-sm gl-button-confirm text-[10px]"
+              className="btn-sm btn-primary text-[10px]"
             >
               {createRev.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Créer'}
             </button>

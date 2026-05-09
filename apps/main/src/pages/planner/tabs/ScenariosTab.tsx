@@ -142,7 +142,7 @@ export function ScenariosTab({
         ))}
         <button
           onClick={() => setShowCreate(true)}
-          className="ml-auto gl-button-sm gl-button-confirm flex items-center gap-1"
+          className="ml-auto btn-sm btn-primary flex items-center gap-1"
         >
           <Plus size={12} /> Nouveau scénario
         </button>
@@ -162,7 +162,7 @@ export function ScenariosTab({
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/50">
             <FlaskConical size={32} strokeWidth={1.5} />
             <span className="text-sm">{t('planner.scenarios.empty', 'Aucun scénario')}</span>
-            <button onClick={() => setShowCreate(true)} className="gl-button gl-button-default inline-flex items-center gap-1.5 text-xs mt-1">
+            <button onClick={() => setShowCreate(true)} className="btn btn-secondary inline-flex items-center gap-1.5 text-xs mt-1">
               <Plus size={12} /> {t('planner.scenarios.new', 'Nouveau scénario')}
             </button>
           </div>
@@ -221,7 +221,7 @@ export function ScenariosTab({
                     ) : (
                       <button
                         onClick={(e) => { e.stopPropagation(); onActivateScenario?.(sid) }}
-                        className="gl-button-sm gl-button-ghost opacity-0 group-hover:opacity-100"
+                        className="btn-sm btn-tertiary opacity-0 group-hover:opacity-100"
                         title="Activer ce scénario"
                       >
                         <Play size={9} className="inline mr-0.5" />Activer
@@ -289,9 +289,9 @@ export function ScenariosTab({
               />
             </div>
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowCreate(false)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setShowCreate(false)}>{t('common.cancel')}</button>
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={handleCreate}
                 disabled={!createTitle.trim() || createScenario.isPending}
               >

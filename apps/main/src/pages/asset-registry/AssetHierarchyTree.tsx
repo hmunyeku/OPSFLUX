@@ -82,7 +82,7 @@ function InstallationNode({
   return (
     <button
       type="button"
-      className="gl-button gl-button-sm gl-button-default group flex w-full text-left"
+      className="btn btn-sm btn-secondary group flex w-full text-left"
       onClick={() => onSelect('ar-installation', inst.id)}
     >
       <Factory size={14} className="text-orange-500 shrink-0" />
@@ -130,7 +130,7 @@ function SiteNode({
       <div className="flex items-center">
         <button
           type="button"
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
           onClick={() => setExpanded((p) => !p)}
           disabled={!hasChildren}
         >
@@ -142,7 +142,7 @@ function SiteNode({
         </button>
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-default group flex flex-1 text-left"
+          className="btn btn-sm btn-secondary group flex flex-1 text-left"
           onClick={() => onSelect('ar-site', site.id)}
         >
           <Landmark size={14} className="text-blue-500 shrink-0" />
@@ -197,7 +197,7 @@ function FieldNode({
       <div className="flex items-center">
         <button
           type="button"
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
           onClick={() => setExpanded((p) => !p)}
           disabled={!hasChildren}
         >
@@ -209,7 +209,7 @@ function FieldNode({
         </button>
         <button
           type="button"
-          className="gl-button gl-button-default group flex flex-1 text-left text-sm"
+          className="btn btn-secondary group flex flex-1 text-left text-sm"
           onClick={() => onSelect('ar-field', field.id)}
         >
           <MapPin size={14} className="text-emerald-600 shrink-0" />

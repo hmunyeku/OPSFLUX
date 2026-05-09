@@ -426,13 +426,13 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           </div>
 
           <div className="flex justify-end gap-1.5">
-            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="gl-button gl-button-default">
+            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="btn btn-secondary">
               Annuler
             </button>
             <button
               onClick={handleSubmit}
               disabled={(!editingId && !form.compliance_type_id) || createRecord.isPending || updateRecord.isPending}
-              className="gl-button gl-button-confirm"
+              className="btn btn-primary"
             >
               {(createRecord.isPending || updateRecord.isPending) ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
               {editingId ? 'Enregistrer' : 'Créer'}

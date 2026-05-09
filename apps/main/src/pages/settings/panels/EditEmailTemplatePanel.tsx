@@ -651,11 +651,11 @@ function EditPanel({ templateId }: { templateId: string }) {
                 </select>
               </DynamicPanelField>
               <div className="flex gap-2">
-                <button onClick={saveMetadata} disabled={updateTemplateMutation.isPending} className="gl-button-sm gl-button-confirm">
+                <button onClick={saveMetadata} disabled={updateTemplateMutation.isPending} className="btn-sm btn-primary">
                   {updateTemplateMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
                   Enregistrer
                 </button>
-                <button onClick={() => setShowMetadataEdit(false)} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
+                <button onClick={() => setShowMetadataEdit(false)} className="btn-sm btn-secondary">{t('common.cancel')}</button>
               </div>
             </div>
           )}
@@ -731,7 +731,7 @@ function EditPanel({ templateId }: { templateId: string }) {
           {template.versions.length === 0 && !showNewVersion && (
             <div className="px-3 py-6 text-center">
               <p className="text-xs text-muted-foreground mb-2">{t('settings.aucune_version_creez_en_une_pour_commenc')}</p>
-              <button onClick={() => setShowNewVersion(true)} className="gl-button-sm gl-button-confirm">
+              <button onClick={() => setShowNewVersion(true)} className="btn-sm btn-primary">
                 <Plus size={12} /> Créer une version
               </button>
             </div>
@@ -835,12 +835,12 @@ function EditPanel({ templateId }: { templateId: string }) {
                 <button
                   onClick={handleCreateVersion}
                   disabled={!newSubject.trim() || !newBody.trim() || createVersionMutation.isPending}
-                  className="gl-button-sm gl-button-confirm"
+                  className="btn-sm btn-primary"
                 >
                   {createVersionMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                   Créer la version
                 </button>
-                <button onClick={() => setShowNewVersion(false)} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
+                <button onClick={() => setShowNewVersion(false)} className="btn-sm btn-secondary">{t('common.cancel')}</button>
               </div>
             </div>
           </div>
@@ -1024,12 +1024,12 @@ function VersionEditor({
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
             >
               {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
               Enregistrer les modifications
             </button>
-            <button onClick={handleReset} className="gl-button-sm gl-button-default">
+            <button onClick={handleReset} className="btn-sm btn-secondary">
               Annuler
             </button>
           </div>

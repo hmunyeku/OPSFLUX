@@ -213,8 +213,8 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
             {EMAIL_LABELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
           </select>
           <div className="flex items-center justify-end gap-2">
-            <button onClick={() => { setShowForm(false); setEmail('') }} className="gl-button-sm gl-button-default">Annuler</button>
-            <button onClick={handleCreate} disabled={!email.trim() || createEmail.isPending} className="gl-button-sm gl-button-confirm">
+            <button onClick={() => { setShowForm(false); setEmail('') }} className="btn-sm btn-secondary">Annuler</button>
+            <button onClick={handleCreate} disabled={!email.trim() || createEmail.isPending} className="btn-sm btn-primary">
               {createEmail.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
             </button>
           </div>
@@ -265,10 +265,10 @@ function InlineEmailEditor({
       <select value={editLabel} onChange={(e) => setEditLabel(e.target.value)} className="text-[10px] px-1 py-0.5 rounded border border-border/60 bg-card">
         {labelOptions.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
       </select>
-      <button onClick={handleSave} disabled={isSaving} className="gl-button gl-button-confirm text-green-600">
+      <button onClick={handleSave} disabled={isSaving} className="btn btn-primary text-green-600">
         {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
       </button>
-      <button onClick={onCancel} className="gl-button gl-button-default">
+      <button onClick={onCancel} className="btn btn-secondary">
         <X size={10} />
       </button>
     </div>

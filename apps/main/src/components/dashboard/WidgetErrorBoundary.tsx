@@ -64,7 +64,7 @@ export class WidgetErrorBoundary extends Component<Props, State> {
         <button
           type="button"
           onClick={this.reset}
-          className="gl-button gl-button-sm gl-button-default w-fit text-[11px] mt-auto"
+          className="btn btn-sm btn-secondary w-fit text-[11px] mt-auto"
         >
           <RefreshCw size={10} /> Réessayer
         </button>

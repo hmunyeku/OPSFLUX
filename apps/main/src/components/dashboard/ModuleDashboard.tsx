@@ -144,7 +144,7 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
       <div className={cn('rounded-lg border border-dashed border-border p-6 text-center', className)}>
         <p className="text-sm text-muted-foreground mb-3">{t('dashboard.no_module_dashboard')}</p>
         <button onClick={handleCreateModuleTab} disabled={createTab.isPending}
-          className="gl-button-sm gl-button-confirm">
+          className="btn-sm btn-primary">
           <Plus className="h-3.5 w-3.5" />
           {t('dashboard.create_module_dashboard', { module: title || module })}
         </button>

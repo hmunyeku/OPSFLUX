@@ -146,7 +146,7 @@ export function DrawioEditor({
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-background shrink-0">
         <button
-          className="gl-button-sm gl-button-confirm"
+          className="btn-sm btn-primary"
           onClick={handleSave}
           disabled={!isReady || isSaving}
           title="Sauvegarder"
@@ -155,7 +155,7 @@ export function DrawioEditor({
           <span>{t('common.save')}</span>
         </button>
         <button
-          className="gl-button-sm gl-button-default"
+          className="btn-sm btn-secondary"
           onClick={handleExportSvg}
           disabled={!isReady}
           title="Exporter SVG"
@@ -164,7 +164,7 @@ export function DrawioEditor({
           <span>Exporter SVG</span>
         </button>
         <button
-          className="gl-button-sm gl-button-default"
+          className="btn-sm btn-secondary"
           onClick={handleExportPdf}
           disabled={!isReady}
           title="Exporter PDF"
@@ -180,7 +180,7 @@ export function DrawioEditor({
           </span>
         )}
         {onClose && (
-          <button className="gl-button-sm gl-button-default" onClick={onClose} title="Fermer">
+          <button className="btn-sm btn-secondary" onClick={onClose} title="Fermer">
             <X size={12} />
             <span>{t('common.close')}</span>
           </button>

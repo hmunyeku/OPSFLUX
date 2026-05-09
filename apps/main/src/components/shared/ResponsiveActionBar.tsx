@@ -271,10 +271,10 @@ export function ResponsiveActionBar({
 
   const buttonClass = (variant: ActionItem['variant']) =>
     cn(
-      'gl-button-sm',
-      variant === 'primary' && 'gl-button-confirm',
-      variant === 'danger' && 'gl-button-danger',
-      (!variant || variant === 'default') && 'gl-button-default',
+      'btn-sm',
+      variant === 'primary' && 'btn-primary',
+      variant === 'danger' && 'btn-danger',
+      (!variant || variant === 'default') && 'btn-secondary',
     )
 
   return (
@@ -333,7 +333,7 @@ export function ResponsiveActionBar({
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="gl-button-sm gl-button-default !px-1.5"
+            className="btn-sm btn-secondary !px-1.5"
             aria-label="Plus d'actions"
             aria-haspopup="menu"
             aria-expanded={menuOpen}

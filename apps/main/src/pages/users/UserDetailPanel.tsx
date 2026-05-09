@@ -402,14 +402,14 @@ export function UserDetailPanel({ id }: { id: string }) {
             {showAvatarMenu && (
               <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
                 <button
-                  className="gl-button gl-button-sm gl-button-default w-full text-left flex"
+                  className="btn btn-sm btn-secondary w-full text-left flex"
                   onClick={() => { avatarInputRef.current?.click() }}
                 >
                   <Upload size={12} className="text-muted-foreground" />
                   Charger depuis le PC
                 </button>
                 <button
-                  className="gl-button gl-button-sm gl-button-default w-full text-left flex"
+                  className="btn btn-sm btn-secondary w-full text-left flex"
                   onClick={() => { setShowUrlInput(true); setShowAvatarMenu(false) }}
                 >
                   <Link2 size={12} className="text-muted-foreground" />
@@ -431,10 +431,10 @@ export function UserDetailPanel({ id }: { id: string }) {
                   onKeyDown={e => e.key === 'Enter' && handleAvatarFromURL()}
                   autoFocus
                 />
-                <button className="gl-button-sm gl-button-confirm" onClick={handleAvatarFromURL} disabled={setAvatarFromURL.isPending}>
+                <button className="btn-sm btn-primary" onClick={handleAvatarFromURL} disabled={setAvatarFromURL.isPending}>
                   {setAvatarFromURL.isPending ? <Loader2 size={12} className="animate-spin" /> : 'OK'}
                 </button>
-                <button className="gl-button-sm gl-button-default" onClick={() => { setShowUrlInput(false); setAvatarUrl('') }}>
+                <button className="btn-sm btn-secondary" onClick={() => { setShowUrlInput(false); setAvatarUrl('') }}>
                   ✕
                 </button>
               </div>
@@ -915,7 +915,7 @@ export function UserDetailPanel({ id }: { id: string }) {
                 <div className="space-y-3">
                   <div>
                     <button
-                      className="gl-button-sm gl-button-confirm flex items-center gap-1.5"
+                      className="btn-sm btn-primary flex items-center gap-1.5"
                       onClick={handlePasswordReset}
                       disabled={sendPasswordReset.isPending}
                     >
@@ -934,7 +934,7 @@ export function UserDetailPanel({ id }: { id: string }) {
                   {(isLocked || user.failed_login_count > 0) && (
                     <div>
                       <button
-                        className="gl-button-sm gl-button-default flex items-center gap-1.5"
+                        className="btn-sm btn-secondary flex items-center gap-1.5"
                         onClick={handleUnlockAccount}
                         disabled={updateUser.isPending}
                       >
@@ -953,7 +953,7 @@ export function UserDetailPanel({ id }: { id: string }) {
 
                   <div>
                     <button
-                      className="gl-button-sm gl-button-danger flex items-center gap-1.5"
+                      className="btn-sm btn-danger flex items-center gap-1.5"
                       onClick={handleRevokeSessions}
                       disabled={revokeAllSessions.isPending}
                     >

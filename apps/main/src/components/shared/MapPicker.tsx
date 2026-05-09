@@ -309,7 +309,7 @@ export function MapPicker({
               type="button"
               onClick={handleSearch}
               disabled={searching || !searchQuery.trim()}
-              className="gl-button-sm gl-button-confirm shrink-0"
+              className="btn-sm btn-primary shrink-0"
             >
               {searching ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
               Chercher
@@ -323,7 +323,7 @@ export function MapPicker({
                 <button
                   key={i}
                   type="button"
-                  className="gl-button gl-button-default w-full text-left text-sm last:border-0 flex items-start"
+                  className="btn btn-secondary w-full text-left text-sm last:border-0 flex items-start"
                   onClick={() => handleSelectResult(r)}
                 >
                   <MapPin size={12} className="text-primary shrink-0 mt-0.5" />
@@ -400,7 +400,7 @@ export function MapPickerModal({
             <MapPin size={16} className="text-primary" />
             <h3 className="text-sm font-semibold text-foreground">{t('shared.choisir_sur_la_carte')}</h3>
           </div>
-          <button onClick={onClose} className="gl-button gl-button-default">
+          <button onClick={onClose} className="btn btn-secondary">
             <X size={16} />
           </button>
         </div>
@@ -425,7 +425,7 @@ export function MapPickerModal({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="gl-button-sm gl-button-default">
+            <button onClick={onClose} className="btn-sm btn-secondary">
               Annuler
             </button>
             <button
@@ -436,7 +436,7 @@ export function MapPickerModal({
                 }
               }}
               disabled={!tempPos}
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
             >
               Valider
             </button>

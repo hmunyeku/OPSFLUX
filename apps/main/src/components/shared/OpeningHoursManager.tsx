@@ -226,8 +226,8 @@ export function OpeningHoursManager({ ownerType, ownerId, compact }: OpeningHour
             </div>
           )}
           <div className="flex items-center justify-end gap-2">
-            <button onClick={() => setShowForm(false)} className="gl-button-sm gl-button-default">Annuler</button>
-            <button onClick={handleCreate} disabled={createHour.isPending} className="gl-button-sm gl-button-confirm">
+            <button onClick={() => setShowForm(false)} className="btn-sm btn-secondary">Annuler</button>
+            <button onClick={handleCreate} disabled={createHour.isPending} className="btn-sm btn-primary">
               {createHour.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
             </button>
           </div>
@@ -303,10 +303,10 @@ function InlineHourEditor({
           />
         </>
       )}
-      <button onClick={handleSave} disabled={isSaving} className="gl-button gl-button-confirm text-green-600">
+      <button onClick={handleSave} disabled={isSaving} className="btn btn-primary text-green-600">
         {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
       </button>
-      <button onClick={onCancel} className="gl-button gl-button-default">
+      <button onClick={onCancel} className="btn btn-secondary">
         <X size={10} />
       </button>
     </div>

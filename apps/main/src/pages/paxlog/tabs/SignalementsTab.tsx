@@ -93,7 +93,7 @@ export function SignalementsTab() {
       header: '',
       cell: ({ row }) => !row.original.resolved_at ? (
         <button
-          className="gl-button-sm gl-button-default text-xs"
+          className="btn-sm btn-secondary text-xs"
           onClick={(e) => { e.stopPropagation(); resolveIncident.mutate({ id: row.original.id, payload: {} }) }}
           disabled={resolveIncident.isPending}
         >

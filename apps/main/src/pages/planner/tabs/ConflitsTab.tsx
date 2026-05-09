@@ -602,14 +602,14 @@ export function ConflitsTab() {
                   <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-default text-xs"
+                      className="btn-sm btn-secondary text-xs"
                       onClick={() => setRequestDecisionModal(signal)}
                     >
                       {t('planner.revision_signals.request_decision')}
                     </button>
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-default text-xs"
+                      className="btn-sm btn-secondary text-xs"
                       onClick={() => setExpandedRevisionSignalId((prev) => prev === signal.id ? null : signal.id)}
                     >
                       {expandedRevisionSignalId === signal.id
@@ -626,7 +626,7 @@ export function ConflitsTab() {
                     )}
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-default text-xs"
+                      className="btn-sm btn-secondary text-xs"
                       onClick={() => acknowledgeRevisionSignal.mutate(signal.id)}
                       disabled={acknowledgeRevisionSignal.isPending}
                     >
@@ -747,7 +747,7 @@ export function ConflitsTab() {
                   <div className="mt-2 flex items-center gap-2">
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-confirm text-xs"
+                      className="btn-sm btn-primary text-xs"
                       onClick={() => {
                         setRespondDecisionModal(item)
                         setRespondDecisionMode('accepted')
@@ -762,7 +762,7 @@ export function ConflitsTab() {
                     </button>
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-default text-xs"
+                      className="btn-sm btn-secondary text-xs"
                       onClick={() => {
                         setRespondDecisionModal(item)
                         setRespondDecisionMode('counter_proposed')
@@ -833,7 +833,7 @@ export function ConflitsTab() {
                     <div className="mt-2 flex items-center gap-2">
                       <button
                         type="button"
-                        className="gl-button-sm gl-button-confirm text-xs"
+                        className="btn-sm btn-primary text-xs"
                         onClick={() => acceptCounterRevision.mutate(item.id, {
                           onSuccess: () => toast({ title: t('planner.revision_requests.counter_accepted_success'), variant: 'success' }),
                           onError: (err) => toast({ title: extractApiError(err) ?? t('common.error'), variant: 'error' }),
@@ -851,7 +851,7 @@ export function ConflitsTab() {
                       <div className="mt-2 flex items-center gap-2">
                         <button
                           type="button"
-                          className="gl-button-sm gl-button-default text-xs"
+                          className="btn-sm btn-secondary text-xs"
                           onClick={() => { setForceReasonModal(item); setForceReasonText('') }}
                           disabled={!isOverdue || forceRevisionDecisionRequest.isPending}
                           title={!isOverdue && dueAt ? `Disponible le ${formatDateShort(dueAt.toISOString())}` : undefined}
@@ -1109,14 +1109,14 @@ export function ConflitsTab() {
             </div>
             <div className="flex items-center gap-2 justify-end">
               <button
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 onClick={() => setBulkResolveOpen(false)}
                 disabled={bulkResolveConflicts.isPending}
               >
                 {t('common.cancel')}
               </button>
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={handleBulkResolve}
                 disabled={!bulkResolution || bulkResolveConflicts.isPending}
               >
@@ -1200,9 +1200,9 @@ export function ConflitsTab() {
               </select>
             </div>
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setRequestDecisionModal(null)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setRequestDecisionModal(null)}>{t('common.cancel')}</button>
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={handleRequestDecision}
                 disabled={requestRevisionDecision.isPending}
               >
@@ -1228,9 +1228,9 @@ export function ConflitsTab() {
               />
             </div>
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setForceReasonModal(null)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setForceReasonModal(null)}>{t('common.cancel')}</button>
               <button
-                className="gl-button-sm gl-button-danger text-xs"
+                className="btn-sm btn-danger text-xs"
                 disabled={forceRevisionDecisionRequest.isPending}
                 onClick={() => {
                   forceRevisionDecisionRequest.mutate(
@@ -1321,9 +1321,9 @@ export function ConflitsTab() {
               </>
             )}
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setRespondDecisionModal(null)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setRespondDecisionModal(null)}>{t('common.cancel')}</button>
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={handleRespondDecision}
                 disabled={respondRevisionDecisionRequest.isPending}
               >

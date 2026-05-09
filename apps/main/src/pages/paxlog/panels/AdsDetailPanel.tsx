@@ -660,11 +660,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
               onChange={(e) => setRejectReason(e.target.value)}
             />
             <div className="flex items-center gap-2">
-              <button className="gl-button-sm gl-button-danger" disabled={rejectAds.isPending} onClick={handleReject}>
+              <button className="btn-sm btn-danger" disabled={rejectAds.isPending} onClick={handleReject}>
                 {rejectAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <ThumbsDown size={12} />}
                 {t('paxlog.confirm_reject')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowRejectForm(false)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setShowRejectForm(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -679,11 +679,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
               onChange={(e) => setReviewReason(e.target.value)}
             />
             <div className="flex items-center gap-2">
-              <button className="gl-button-sm gl-button-default" disabled={requestReviewAds.isPending || !reviewReason.trim()} onClick={handleRequestReview}>
+              <button className="btn-sm btn-secondary" disabled={requestReviewAds.isPending || !reviewReason.trim()} onClick={handleRequestReview}>
                 {requestReviewAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                 {t('paxlog.ads_detail.request_review.confirm')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowReviewForm(false)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setShowReviewForm(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -720,14 +720,14 @@ export function AdsDetailPanel({ id }: { id: string }) {
             </div>
             <div className="flex items-center gap-2">
               <button
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 disabled={requestAdsStayChange.isPending || !stayChangeReason.trim()}
                 onClick={handleRequestStayChange}
               >
                 {requestAdsStayChange.isPending ? <Loader2 size={12} className="animate-spin" /> : <Clock size={12} />}
                 {t('paxlog.ads_detail.stay_change.confirm')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowStayChangeForm(false)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setShowStayChangeForm(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -742,11 +742,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
               onChange={(e) => setManualDepartureReason(e.target.value)}
             />
             <div className="flex items-center gap-2">
-              <button className="gl-button-sm gl-button-default" disabled={manualDepartureAds.isPending || !manualDepartureReason.trim()} onClick={handleManualDeparture}>
+              <button className="btn-sm btn-secondary" disabled={manualDepartureAds.isPending || !manualDepartureReason.trim()} onClick={handleManualDeparture}>
                 {manualDepartureAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <LogOut size={12} />}
                 {t('paxlog.ads_detail.manual_departure.confirm')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => { setShowManualDepartureForm(false); setManualDepartureReason('') }}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => { setShowManualDepartureForm(false); setManualDepartureReason('') }}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -761,11 +761,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
               onChange={(e) => setResubmitReason(e.target.value)}
             />
             <div className="flex items-center gap-2">
-              <button className="gl-button-sm gl-button-confirm" disabled={resubmitAds.isPending || !resubmitReason.trim()} onClick={handleResubmit}>
+              <button className="btn-sm btn-primary" disabled={resubmitAds.isPending || !resubmitReason.trim()} onClick={handleResubmit}>
                 {resubmitAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                 {t('paxlog.ads_detail.resubmit.confirm')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowResubmitForm(false)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setShowResubmitForm(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -1094,7 +1094,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
           defaultExpanded
           headerExtra={ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update') ? (
             <button
-              className="gl-button gl-button-confirm h-5 w-5 flex text-primary"
+              className="btn btn-primary h-5 w-5 flex text-primary"
               onClick={() => setShowPaxPicker(true)}
               title={t('paxlog.ads_detail.actions.add_passenger')}
             >
@@ -1265,7 +1265,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       )}
                       {(ap.user_id || ap.contact_id) && hasPermission('paxlog.ads.update') && (
                         <button
-                          className="gl-button gl-button-danger"
+                          className="btn btn-danger"
                           onClick={() => removePax.mutate({ adsId: id, entryId: ap.id })}
                           title={t('paxlog.ads_detail.actions.remove_passenger')}
                         >
@@ -1342,11 +1342,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
                         onChange={(e) => setPaxRejectReason(e.target.value)}
                       />
                       <div className="flex items-center gap-2">
-                        <button className="gl-button-sm gl-button-danger" disabled={decideAdsPax.isPending} onClick={handleRejectPassenger}>
+                        <button className="btn-sm btn-danger" disabled={decideAdsPax.isPending} onClick={handleRejectPassenger}>
                           {t('common.reject')}
                         </button>
                         <button
-                          className="gl-button-sm gl-button-secondary"
+                          className="btn-sm btn-secondary"
                           onClick={() => {
                             setPaxRejectEntryId(null)
                             setPaxRejectReason('')

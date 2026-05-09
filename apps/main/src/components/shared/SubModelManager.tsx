@@ -309,13 +309,13 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
             <p className="text-xs text-red-600 dark:text-red-400 px-1">{saveError}</p>
           )}
           <div className="flex items-center gap-2 justify-end">
-            <button onClick={handleCancel} className="gl-button-sm gl-button-default items-center gap-1">
+            <button onClick={handleCancel} className="btn-sm btn-secondary items-center gap-1">
               <X size={12} /> Annuler
             </button>
             <button
               onClick={handleSave}
               disabled={createPending}
-              className="gl-button-sm gl-button-confirm items-center gap-1"
+              className="btn-sm btn-primary items-center gap-1"
             >
               {createPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               Enregistrer
@@ -358,10 +358,10 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
                     ))}
                   </div>
                   <div className="flex items-center gap-2 justify-end">
-                    <button onClick={handleCancel} className="gl-button-sm gl-button-default items-center gap-1">
+                    <button onClick={handleCancel} className="btn-sm btn-secondary items-center gap-1">
                       <X size={12} /> Annuler
                     </button>
-                    <button onClick={handleSave} className="gl-button-sm gl-button-confirm items-center gap-1">
+                    <button onClick={handleSave} className="btn-sm btn-primary items-center gap-1">
                       <Check size={12} /> Enregistrer
                     </button>
                   </div>
@@ -369,8 +369,8 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
               ) : deletingId === item.id ? (
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
                   <span className="text-xs text-destructive flex-1">{t('common.confirm_delete_title')}</span>
-                  <button onClick={() => setDeletingId(null)} className="gl-button-sm gl-button-default text-xs">Non</button>
-                  <button onClick={() => handleConfirmDelete(item.id)} className="gl-button-sm gl-button-danger text-xs">Oui</button>
+                  <button onClick={() => setDeletingId(null)} className="btn-sm btn-secondary text-xs">Non</button>
+                  <button onClick={() => handleConfirmDelete(item.id)} className="btn-sm btn-danger text-xs">Oui</button>
                 </div>
               ) : (
                 <div

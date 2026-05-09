@@ -204,7 +204,7 @@ export function DynamicPanelShell({
           {onClose && (
             <button
               onClick={onClose}
-              className="gl-button-sm gl-button-default h-6 w-6 !p-0 shrink-0"
+              className="btn-sm btn-secondary h-6 w-6 !p-0 shrink-0"
               aria-label="Fermer"
             >
               <X size={14} />
@@ -292,7 +292,7 @@ export function DynamicPanelShell({
   }, [width])
 
   // Shared button style for header controls
-  const hdrBtn = 'gl-button-sm gl-button-default flex h-6 w-6 !p-0 shrink-0'
+  const hdrBtn = 'btn-sm btn-secondary flex h-6 w-6 !p-0 shrink-0'
   const navBtn = 'h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0'
 
   // ── When inside a floating panel, skip all shell chrome ──
@@ -901,10 +901,10 @@ export function PanelActionButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'gl-button-sm',
-        variant === 'primary' && 'gl-button-confirm',
-        variant === 'danger' && 'gl-button-danger',
-        variant === 'default' && 'gl-button-default',
+        'btn-sm',
+        variant === 'primary' && 'btn-primary',
+        variant === 'danger' && 'btn-danger',
+        variant === 'default' && 'btn-secondary',
       )}
     >
       {icon}
@@ -963,10 +963,10 @@ export function DangerConfirmButton({
       onClick={handleClick}
       disabled={disabled}
       className={cn(
-        'gl-button-sm transition-all duration-200',
+        'btn-sm transition-all duration-200',
         confirming
           ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse'
-          : 'gl-button-danger',
+          : 'btn-danger',
       )}
     >
       {icon}

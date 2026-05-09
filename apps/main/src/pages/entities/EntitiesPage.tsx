@@ -540,7 +540,7 @@ function EntityDetailPanel({ id }: { id: string }) {
       cell: ({ row }: { row: { original: EntityUser } }) => (
         <button
           type="button"
-          className="gl-button gl-button-danger dark:hover:bg-red-900/30 text-red-500 opacity-0 group-hover:opacity-100"
+          className="btn btn-danger dark:hover:bg-red-900/30 text-red-500 opacity-0 group-hover:opacity-100"
           title={t('common.remove')}
           onClick={(e) => { e.stopPropagation(); handleRemoveUser(row.original.user_id) }}
         >
@@ -627,10 +627,10 @@ function EntityDetailPanel({ id }: { id: string }) {
                     if (e.key === 'Escape') setLogoEditing(false)
                   }}
                 />
-                <button className="gl-button-sm gl-button-confirm" onClick={() => { save('logo_url', logoInput || null); setLogoEditing(false) }}>
+                <button className="btn-sm btn-primary" onClick={() => { save('logo_url', logoInput || null); setLogoEditing(false) }}>
                   <Check size={10} />
                 </button>
-                <button className="gl-button-sm gl-button-default" onClick={() => setLogoEditing(false)}>
+                <button className="btn-sm btn-secondary" onClick={() => setLogoEditing(false)}>
                   <X size={10} />
                 </button>
               </div>
@@ -788,7 +788,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                 {entityUsers ? `${entityUsers.length} utilisateur(s)` : '...'}
               </span>
               {canUpdate && (
-                <button className="gl-button-sm gl-button-confirm" onClick={() => setShowUserPicker(!showUserPicker)}>
+                <button className="btn-sm btn-primary" onClick={() => setShowUserPicker(!showUserPicker)}>
                   <UserPlus size={12} /> Ajouter
                 </button>
               )}
@@ -814,7 +814,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                       <button
                         key={user.id}
                         type="button"
-                        className="gl-button gl-button-default w-full flex text-left text-sm"
+                        className="btn btn-secondary w-full flex text-left text-sm"
                         onClick={() => handleAddUser(user.id)}
                       >
                         <UserPlus size={12} className="text-primary shrink-0" />
@@ -825,7 +825,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                   )}
                 </div>
                 <div className="p-1.5 border-t border-border/50 flex justify-end">
-                  <button className="gl-button-sm gl-button-default" onClick={() => { setShowUserPicker(false); setUserSearch('') }}>
+                  <button className="btn-sm btn-secondary" onClick={() => { setShowUserPicker(false); setUserSearch('') }}>
                     <X size={12} /> Fermer
                   </button>
                 </div>

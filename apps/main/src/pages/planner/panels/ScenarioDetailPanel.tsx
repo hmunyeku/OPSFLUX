@@ -296,8 +296,8 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                 <textarea className={cn(panelInputClass, 'min-h-[60px]')} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
               </DynamicPanelField>
               <div className="col-span-full flex gap-2 justify-end">
-                <button className="gl-button-sm gl-button-default" onClick={() => setEditing(false)}>{t('common.cancel')}</button>
-                <button className="gl-button-sm gl-button-confirm" onClick={handleSave} disabled={!editForm.title.trim() || updateScenario.isPending}>
+                <button className="btn-sm btn-secondary" onClick={() => setEditing(false)}>{t('common.cancel')}</button>
+                <button className="btn-sm btn-primary" onClick={handleSave} disabled={!editForm.title.trim() || updateScenario.isPending}>
                   {updateScenario.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
                 </button>
               </div>
@@ -403,8 +403,8 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
-                <button className="gl-button-sm gl-button-default text-xs" onClick={() => setShowAddActivity(false)}>{t('common.cancel')}</button>
-                <button className="gl-button-sm gl-button-confirm text-xs" onClick={handleAddScenarioActivity} disabled={addScenarioActivity.isPending}>
+                <button className="btn-sm btn-secondary text-xs" onClick={() => setShowAddActivity(false)}>{t('common.cancel')}</button>
+                <button className="btn-sm btn-primary text-xs" onClick={handleAddScenarioActivity} disabled={addScenarioActivity.isPending}>
                   {addScenarioActivity.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.add', 'Ajouter')}
                 </button>
               </div>
@@ -441,7 +441,7 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                   </div>
                   {!isPromoted && !isArchived && (
                     <button
-                      className="gl-button gl-button-danger opacity-0 group-hover:opacity-100"
+                      className="btn btn-danger opacity-0 group-hover:opacity-100"
                       title={t('planner.scenario.remove_activity', 'Retirer du scénario')}
                       onClick={() => handleRemoveScenarioActivity(act.id as string)}
                     >

@@ -124,7 +124,7 @@ export function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={loading || !email}
-                  className="gl-button gl-button-confirm w-full h-9"
+                  className="btn btn-primary w-full h-9"
                 >
                   {loading ? (
                     <Loader2 size={14} className="mx-auto animate-spin" />

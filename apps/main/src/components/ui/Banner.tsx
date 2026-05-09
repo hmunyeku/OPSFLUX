@@ -229,7 +229,7 @@ export function Banner({
                 type="button"
                 onClick={action.onClick}
                 className={cn(
-                  'gl-button-sm rounded-md font-medium',
+                  'btn-sm rounded-md font-medium',
                   config.btnClass,
                 )}
               >
@@ -241,7 +241,7 @@ export function Banner({
                 type="button"
                 onClick={secondaryAction.onClick}
                 className={cn(
-                  'gl-button-sm gl-button-default',
+                  'btn-sm btn-secondary',
                   compact ? 'text-xs' : '',
                 )}
               >

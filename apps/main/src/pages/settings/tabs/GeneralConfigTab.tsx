@@ -341,7 +341,7 @@ function EmailLogoUpload({
 
       {/* Upload button */}
       <button
-        className="gl-button-sm gl-button-default items-center gap-1.5"
+        className="btn-sm btn-secondary items-center gap-1.5"
         onClick={() => fileRef.current?.click()}
         disabled={uploadMutation.isPending}
       >
@@ -453,7 +453,7 @@ function CartographySection({
         <button
           type="button"
           onClick={() => setShowMap(true)}
-          className="gl-button-sm gl-button-default"
+          className="btn-sm btn-secondary"
         >
           <MapPin size={12} />
           Choisir sur la carte
@@ -461,7 +461,7 @@ function CartographySection({
         <button
           type="button"
           onClick={handleGeolocate}
-          className="gl-button-sm gl-button-default"
+          className="btn-sm btn-secondary"
           title={t('settings.utiliser_ma_position')}
         >
           <Crosshair size={12} />
@@ -472,7 +472,7 @@ function CartographySection({
       {/* Save button */}
       <div className="flex items-center gap-3">
         <button
-          className="gl-button gl-button-confirm"
+          className="btn btn-primary"
           onClick={handleSave}
           disabled={!dirty}
         >

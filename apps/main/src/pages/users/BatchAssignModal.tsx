@@ -97,7 +97,7 @@ export function BatchAssignModal({
             )
           })}
         </div>
-        <button onClick={onClose} className="gl-button-sm gl-button-default w-full text-xs">{t('common.cancel')}</button>
+        <button onClick={onClose} className="btn-sm btn-secondary w-full text-xs">{t('common.cancel')}</button>
       </div>
     </div>
   )

@@ -190,7 +190,7 @@ function PageSizeSection() {
               key={size}
               type="button"
               onClick={() => handleChange(size)}
-              className={pageSize === size && !showCustom ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
+              className={pageSize === size && !showCustom ? 'btn-sm btn-primary' : 'btn-sm btn-secondary'}
             >
               {size}
             </button>
@@ -209,9 +209,9 @@ function PageSizeSection() {
                 className="gl-form-input w-20 h-8 text-sm text-center"
                 autoFocus
               />
-              <button onClick={handleCustomSubmit} className="gl-button-sm gl-button-confirm h-8 px-2">OK</button>
+              <button onClick={handleCustomSubmit} className="btn-sm btn-primary h-8 px-2">OK</button>
               {PAGE_SIZE_OPTIONS.includes(pageSize) && (
-                <button onClick={() => setShowCustom(false)} className="gl-button-sm gl-button-default h-8 px-2">
+                <button onClick={() => setShowCustom(false)} className="btn-sm btn-secondary h-8 px-2">
                   <X size={11} />
                 </button>
               )}
@@ -220,7 +220,7 @@ function PageSizeSection() {
             <button
               type="button"
               onClick={() => setShowCustom(true)}
-              className="gl-button gl-button-default border-dashed"
+              className="btn btn-secondary border-dashed"
             >
               Autre...
             </button>
@@ -320,7 +320,7 @@ function UIScaleSection() {
         <button
           type="button"
           onClick={handleReset}
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
         >
           {t('settings.ui_scale_reset')} ({DEFAULT_SCALE}%)
         </button>

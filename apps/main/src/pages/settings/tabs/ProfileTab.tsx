@@ -99,7 +99,7 @@ function DictCombobox({ value, options, onChange, placeholder }: {
           <div className="overflow-y-auto max-h-40">
             <button
               type="button"
-              className="gl-button gl-button-default w-full text-left text-sm"
+              className="btn btn-secondary w-full text-left text-sm"
               onClick={() => { onChange(''); setOpen(false); setSearch('') }}
             >
               — Aucun —
@@ -855,7 +855,7 @@ export function ProfileTab() {
               <p className="text-xs text-muted-foreground mt-0.5">{t('settings.demander_un_export_de_vos_donnees_person')}</p>
             </div>
             <button
-              className="gl-button-sm gl-button-default shrink-0"
+              className="btn-sm btn-secondary shrink-0"
               onClick={async () => {
                 try {
                   await api.post('/api/v1/gdpr/request-export')
@@ -891,14 +891,14 @@ export function ProfileTab() {
                       <button
                         type="button"
                         onClick={() => handleDownloadGdprExport(item.filename)}
-                        className="gl-button-sm gl-button-default"
+                        className="btn-sm btn-secondary"
                       >
                         <Download size={12} /> Télécharger
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteGdprExport(item.filename)}
-                        className="gl-button-sm gl-button-default text-red-600 hover:text-red-700"
+                        className="btn-sm btn-secondary text-red-600 hover:text-red-700"
                         title={t('settings.supprimer_cet_export')}
                       >
                         <Trash2 size={12} />
@@ -917,7 +917,7 @@ export function ProfileTab() {
               <p className="text-xs text-muted-foreground mt-0.5">{t('settings.anonymiser_definitivement_votre_compte_e')}</p>
             </div>
             <button
-              className="gl-button-sm bg-red-600 text-white hover:bg-red-700 shrink-0"
+              className="btn-sm bg-red-600 text-white hover:bg-red-700 shrink-0"
               onClick={async () => {
                 const confirmation = prompt("Tapez 'SUPPRIMER MON COMPTE' pour confirmer :")
                 if (confirmation !== 'SUPPRIMER MON COMPTE') return
@@ -938,8 +938,8 @@ export function ProfileTab() {
       {isDirty && (
         <div className="sticky bottom-0 z-30 -mx-6 px-6 py-3 bg-card/95 backdrop-blur border-t border-border shadow-lg flex items-center gap-3">
           <div className="flex-1 text-xs text-muted-foreground">{t('settings.modifications_non_enregistrees')}</div>
-          <button className="gl-button-sm gl-button-default" onClick={handleCancel}>Annuler</button>
-          <button className="gl-button-sm gl-button-confirm" onClick={handleSubmit} disabled={updateProfile.isPending}>
+          <button className="btn-sm btn-secondary" onClick={handleCancel}>Annuler</button>
+          <button className="btn-sm btn-primary" onClick={handleSubmit} disabled={updateProfile.isPending}>
             {updateProfile.isPending && <Loader2 size={12} className="animate-spin mr-1" />}
             Enregistrer
           </button>
@@ -1101,7 +1101,7 @@ function LinkedSSOAccounts() {
                 </div>
                 {unlinkingId === l.id ? (
                   <div className="flex items-center gap-1 shrink-0 text-xs">
-                    <button onClick={() => handleUnlink(l.id)} className="gl-button gl-button-danger bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Oui</button>
+                    <button onClick={() => handleUnlink(l.id)} className="btn btn-danger bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Oui</button>
                     <button onClick={() => setUnlinkingId(null)} className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400">Non</button>
                   </div>
                 ) : (
@@ -1127,7 +1127,7 @@ function LinkedSSOAccounts() {
               <button
                 key={a.id}
                 onClick={() => handleLink(a.id)}
-                className="gl-button gl-button-default"
+                className="btn btn-secondary"
               >
                 <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">{meta.icon}</span>
                 Lier {meta.name}

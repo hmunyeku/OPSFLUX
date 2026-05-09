@@ -237,7 +237,7 @@ function IdleView({ onGenerate }: { onGenerate: () => void }) {
       </div>
       <button
         onClick={onGenerate}
-        className="gl-button-sm gl-button-confirm shrink-0 sm:ml-4"
+        className="btn-sm btn-primary shrink-0 sm:ml-4"
       >
         Générer un code
       </button>
@@ -303,7 +303,7 @@ function WaitingView({
 
         <button
           onClick={onCancel}
-          className="gl-button-sm gl-button-default text-xs items-center gap-1.5"
+          className="btn-sm btn-secondary text-xs items-center gap-1.5"
         >
           <X size={14} />
           Annuler
@@ -338,7 +338,7 @@ function ConsumedView({
           Votre app mobile est maintenant authentifiée depuis {deviceLabel}.
         </div>
       </div>
-      <button onClick={onDone} className="gl-button-sm gl-button-default text-xs">
+      <button onClick={onDone} className="btn-sm btn-secondary text-xs">
         OK
       </button>
     </div>
@@ -357,10 +357,10 @@ function ExpiredView({ onRetry, onCancel }: { onRetry: () => void; onCancel: () 
         </div>
       </div>
       <div className="flex gap-2 shrink-0">
-        <button onClick={onCancel} className="gl-button-sm gl-button-default text-xs">
+        <button onClick={onCancel} className="btn-sm btn-secondary text-xs">
           Fermer
         </button>
-        <button onClick={onRetry} className="gl-button-sm gl-button-confirm text-xs">
+        <button onClick={onRetry} className="btn-sm btn-primary text-xs">
           Nouveau code
         </button>
       </div>

@@ -138,7 +138,7 @@ export function SessionsTab() {
           <button
             onClick={(e) => { e.stopPropagation(); handleRevoke(row.original.id) }}
             disabled={revokeSession.isPending}
-            className="gl-button-sm gl-button-danger"
+            className="btn-sm btn-danger"
           >
             Révoquer
           </button>
@@ -179,7 +179,7 @@ export function SessionsTab() {
 
         {otherSessions.length > 0 && (
           <button
-            className="gl-button gl-button-danger"
+            className="btn btn-danger"
             onClick={handleRevokeAll}
             disabled={revokeAll.isPending}
           >

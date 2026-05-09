@@ -343,7 +343,7 @@ export function CargoPackageElementsSection({
                     />
                   </DynamicPanelField>
                   <div className="flex items-end">
-                    <button className="gl-button-sm gl-button-default text-xs" onClick={() => void onSubmitReturn(element)} disabled={savingReturn || draft.quantity_returned < 0}>
+                    <button className="btn-sm btn-secondary text-xs" onClick={() => void onSubmitReturn(element)} disabled={savingReturn || draft.quantity_returned < 0}>
                       {savingReturn ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer retour'}
                     </button>
                   </div>
@@ -367,7 +367,7 @@ export function CargoPackageElementsSection({
                     {hasReturn ? `Statut cargo actuel: ${cargoStatusLabels[cargoStatus] ?? cargoStatus}` : 'Déclare d’abord une quantité retournée avant le dispatch base.'}
                   </div>
                   <div className="flex items-end">
-                    <button className="gl-button-sm gl-button-primary text-xs" onClick={() => void onSubmitDisposition(element)} disabled={savingDisposition || !hasReturn}>
+                    <button className="btn-sm btn-primary text-xs" onClick={() => void onSubmitDisposition(element)} disabled={savingDisposition || !hasReturn}>
                       {savingDisposition ? <Loader2 size={12} className="animate-spin" /> : 'Appliquer disposition'}
                     </button>
                   </div>
@@ -479,7 +479,7 @@ export function CargoBackReturnSection({
             )}
           </div>
           <div className="flex justify-end">
-            <button className="gl-button-sm gl-button-default text-xs" onClick={() => void onSubmit()} disabled={isSubmitting}>
+            <button className="btn-sm btn-secondary text-xs" onClick={() => void onSubmit()} disabled={isSubmitting}>
               {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Initier le back cargo'}
             </button>
           </div>

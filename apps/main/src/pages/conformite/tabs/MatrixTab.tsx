@@ -234,7 +234,7 @@ export function MatrixTab() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="gl-button gl-button-sm gl-button-default"
+              className="btn btn-sm btn-secondary"
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
             >
@@ -243,7 +243,7 @@ export function MatrixTab() {
             <span className="tabular-nums">Page {page} / {totalPages}</span>
             <button
               type="button"
-              className="gl-button gl-button-sm gl-button-default"
+              className="btn btn-sm btn-secondary"
               disabled={page >= totalPages}
               onClick={() => setPage(page + 1)}
             >

@@ -121,7 +121,7 @@ export function HeavyConnectorsSection() {
                 </div>
                 <button
                   type="button"
-                  className="gl-button gl-button-sm gl-button-confirm shrink-0"
+                  className="btn btn-sm btn-primary shrink-0"
                   onClick={() => setCreatingType(type)}
                 >
                   <Plus size={12} />
@@ -215,7 +215,7 @@ function ConnectorRow({
         <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
-            className="gl-button gl-button-sm gl-button-default"
+            className="btn btn-sm btn-secondary"
             onClick={onTest}
             disabled={isTesting}
             title="Tester la connexion"
@@ -224,7 +224,7 @@ function ConnectorRow({
           </button>
           <button
             type="button"
-            className="gl-button gl-button-sm gl-button-default"
+            className="btn btn-sm btn-secondary"
             onClick={isEditing ? onStopEdit : onStartEdit}
             title={isEditing ? 'Fermer' : 'Éditer'}
           >
@@ -232,7 +232,7 @@ function ConnectorRow({
           </button>
           <button
             type="button"
-            className="gl-button gl-button-sm gl-button-default text-destructive"
+            className="btn btn-sm btn-secondary text-destructive"
             onClick={onDelete}
             title="Supprimer"
           >
@@ -359,8 +359,8 @@ function ConnectorForm({
         <AgentRunnerFields config={config} setConfig={setConfig} credentials={credentials} setCredentials={setCredentials} isEdit={mode === 'edit'} preview={initial?.credentials_preview} />
       )}
       <div className="flex justify-end gap-2">
-        <button type="button" className="gl-button gl-button-sm gl-button-default" onClick={onClose}>Annuler</button>
-        <button type="submit" className="gl-button gl-button-sm gl-button-confirm" disabled={busy}>
+        <button type="button" className="btn btn-sm btn-secondary" onClick={onClose}>Annuler</button>
+        <button type="submit" className="btn btn-sm btn-primary" disabled={busy}>
           {busy ? <Loader2 size={12} className="animate-spin" /> : mode === 'create' ? 'Créer' : 'Enregistrer'}
         </button>
       </div>

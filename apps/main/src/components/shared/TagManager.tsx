@@ -376,12 +376,12 @@ function InlineTagEditor({
         <button
           onClick={handleSave}
           disabled={!editName.trim() || isSaving}
-          className="gl-button gl-button-confirm dark:hover:bg-green-900/30 text-green-600"
+          className="btn btn-primary dark:hover:bg-green-900/30 text-green-600"
           title="Valider"
         >
           {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
         </button>
-        <button onClick={onCancel} className="gl-button gl-button-default" title="Annuler">
+        <button onClick={onCancel} className="btn btn-secondary" title="Annuler">
           <X size={10} />
         </button>
       </div>
@@ -553,13 +553,13 @@ function TagForm({
       </div>
 
       <div className="flex items-center justify-end gap-2">
-        <button onClick={onCancel} className="gl-button-sm gl-button-default">
+        <button onClick={onCancel} className="btn-sm btn-secondary">
           Annuler
         </button>
         <button
           onClick={onSubmit}
           disabled={!name.trim() || isPending}
-          className="gl-button-sm gl-button-confirm"
+          className="btn-sm btn-primary"
         >
           {isPending ? <Loader2 size={12} className="animate-spin" /> : submitLabel}
         </button>

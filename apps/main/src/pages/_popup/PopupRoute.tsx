@@ -140,7 +140,7 @@ export function PopupRoute() {
         <button
           type="button"
           onClick={() => window.close()}
-          className="gl-button gl-button-default mt-2"
+          className="btn btn-secondary mt-2"
         >
           {t('common.close', 'Fermer')}
         </button>

@@ -94,12 +94,12 @@ const PID_TYPE_LABELS: Record<string, string> = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'gl-badge-neutral',
-  in_review: 'gl-badge-warning',
-  approved: 'gl-badge-success',
-  issued: 'gl-badge-info',
-  superseded: 'gl-badge-warning',
-  cancelled: 'gl-badge-danger',
+  draft: '',
+  in_review: 'chip-warn',
+  approved: 'chip-success',
+  issued: 'chip-info',
+  superseded: 'chip-warn',
+  cancelled: 'chip-danger',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -264,7 +264,7 @@ const TABS: { id: PidPfdTab; label: string; icon: typeof FileText }[] = [
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={cn('gl-badge', STATUS_COLORS[status] || 'gl-badge-neutral')}>
+    <span className={cn('chip', STATUS_COLORS[status] || '')}>
       {STATUS_LABELS[status] || status}
     </span>
   )
@@ -487,7 +487,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow
                   label="Type"
                   value={
-                    <span className="gl-badge gl-badge-info">
+                    <span className="chip chip-info">
                       {PID_TYPE_LABELS[doc.pid_type] || doc.pid_type}
                     </span>
                   }
@@ -588,7 +588,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-medium text-foreground">{rev.revision_code}</span>
-                      <span className="gl-badge gl-badge-neutral">{rev.change_type}</span>
+                      <span className="chip">{rev.change_type}</span>
                     </div>
                     {rev.change_description && (
                       <p className="text-muted-foreground mt-0.5">{rev.change_description}</p>
@@ -663,7 +663,7 @@ function DashboardTab() {
             const count = statusCounts[opt.value] ?? 0
             return (
               <div key={opt.value} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
-                <span className={cn('gl-badge', STATUS_COLORS[opt.value] || 'gl-badge-neutral')}>
+                <span className={cn('chip', STATUS_COLORS[opt.value] || '')}>
                   {opt.label}
                 </span>
                 <span className="font-semibold tabular-nums text-foreground">{count}</span>
@@ -686,7 +686,7 @@ function DashboardTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-foreground truncate">{doc.number}</span>
-                    <span className="gl-badge gl-badge-info text-[10px]">
+                    <span className="chip chip-info text-[10px]">
                       {PID_TYPE_LABELS[doc.pid_type] || doc.pid_type}
                     </span>
                   </div>
@@ -780,7 +780,7 @@ function LibraryTab() {
                 <p className="text-[10px] text-muted-foreground truncate">{item.category}{item.subcategory ? ` / ${item.subcategory}` : ''}</p>
               </div>
               {item.equipment_type_mapping && (
-                <span className="gl-badge gl-badge-neutral text-[10px]">{item.equipment_type_mapping}</span>
+                <span className="chip text-[10px]">{item.equipment_type_mapping}</span>
               )}
             </div>
           ))}
@@ -918,7 +918,7 @@ export function PidPfdPage() {
       header: t('pid_pfd.columns.type'),
       size: 110,
       cell: ({ row }) => (
-        <span className="gl-badge gl-badge-info">
+        <span className="chip chip-info">
           {PID_TYPE_LABELS[row.original.pid_type] || row.original.pid_type}
         </span>
       ),
@@ -976,7 +976,7 @@ export function PidPfdPage() {
       header: t('pid_pfd.columns.type'),
       size: 110,
       cell: ({ row }) => (
-        <span className="gl-badge gl-badge-neutral">
+        <span className="chip">
           {EQUIPMENT_TYPE_OPTIONS.find((o) => o.value === row.original.equipment_type)?.label || row.original.equipment_type}
         </span>
       ),
@@ -1044,7 +1044,7 @@ export function PidPfdPage() {
       cell: ({ row }) => {
         const ins = row.original.insulation_type
         if (!ins || ins === 'none') return <span className="text-muted-foreground/40">--</span>
-        return <span className="gl-badge gl-badge-neutral text-[10px]">{ins}{row.original.insulation_thickness_mm ? ` ${row.original.insulation_thickness_mm}mm` : ''}</span>
+        return <span className="chip text-[10px]">{ins}{row.original.insulation_thickness_mm ? ` ${row.original.insulation_thickness_mm}mm` : ''}</span>
       },
     },
   ], [])
@@ -1065,7 +1065,7 @@ export function PidPfdPage() {
       accessorKey: 'tag_type',
       header: t('pid_pfd.columns.type'),
       size: 80,
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.tag_type}</span>,
+      cell: ({ row }) => <span className="chip">{row.original.tag_type}</span>,
     },
     {
       accessorKey: 'area',
@@ -1665,7 +1665,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
               label="Phase"
               value={
                 equip.fluid_phase
-                  ? <span className="gl-badge gl-badge-neutral">{FLUID_PHASE_OPTIONS.find((o) => o.value === equip.fluid_phase)?.label || equip.fluid_phase}</span>
+                  ? <span className="chip">{FLUID_PHASE_OPTIONS.find((o) => o.value === equip.fluid_phase)?.label || equip.fluid_phase}</span>
                   : '--'
               }
             />

@@ -38,16 +38,16 @@ function countryCodeToName(code: string): string {
 }
 
 const LABEL_BADGE_STYLES: Record<string, string> = {
-  home: 'gl-badge-success',
-  office: 'gl-badge-info',
-  site: 'gl-badge-info',
-  headquarters: 'gl-badge-success',
-  pickup: 'gl-badge-warning',
-  postal: 'gl-badge-neutral',
-  billing: 'gl-badge-neutral',
-  delivery: 'gl-badge-warning',
-  temporary: 'gl-badge-neutral',
-  other: 'gl-badge-neutral',
+  home: 'chip-success',
+  office: 'chip-info',
+  site: 'chip-info',
+  headquarters: 'chip-success',
+  pickup: 'chip-warn',
+  postal: '',
+  billing: '',
+  delivery: 'chip-warn',
+  temporary: '',
+  other: '',
 }
 
 const FALLBACK_LABEL_OPTIONS = [
@@ -61,7 +61,7 @@ const FALLBACK_LABEL_OPTIONS = [
 
 function getLabelBadge(label: string, dictLabels?: Record<string, string>) {
   const displayText = dictLabels?.[label] ?? label
-  const badgeClass = LABEL_BADGE_STYLES[label] ?? 'gl-badge-neutral'
+  const badgeClass = LABEL_BADGE_STYLES[label] ?? ''
   return { text: displayText, className: badgeClass }
 }
 
@@ -420,7 +420,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
                 {/* Header: badges */}
                 <div className="flex items-center gap-2 mb-3">
                   <MapPin size={16} className="text-muted-foreground shrink-0" />
-                  <span className={`gl-badge ${badge.className}`}>{badge.text}</span>
+                  <span className={`chip ${badge.className}`}>{badge.text}</span>
                   {addr.is_default && (
                     <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-primary/10 text-primary">
                       <Star size={9} /> Par défaut

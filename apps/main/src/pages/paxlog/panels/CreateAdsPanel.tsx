@@ -312,8 +312,8 @@ function AdsInner() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span
                       className={cn(
-                        'gl-badge text-[9px]',
-                        p.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral',
+                        'chip text-[9px]',
+                        p.pax_type === 'internal' ? 'chip-info' : '',
                       )}
                     >
                       {p.pax_type === 'internal'

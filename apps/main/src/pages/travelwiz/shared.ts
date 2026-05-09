@@ -35,14 +35,14 @@ export const VOYAGE_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const VOYAGE_STATUS_BADGES: Record<string, string> = {
-  planned: 'gl-badge-neutral',
-  confirmed: 'gl-badge-info',
-  boarding: 'gl-badge-warning',
-  departed: 'gl-badge-warning',
-  arrived: 'gl-badge-success',
-  closed: 'gl-badge-success',
-  cancelled: 'gl-badge-danger',
-  delayed: 'gl-badge-danger',
+  planned: '',
+  confirmed: 'chip-info',
+  boarding: 'chip-warn',
+  departed: 'chip-warn',
+  arrived: 'chip-success',
+  closed: 'chip-success',
+  cancelled: 'chip-danger',
+  delayed: 'chip-danger',
 }
 
 // ── Manifest status ───────────────────────────────────────────
@@ -56,26 +56,26 @@ export const MANIFEST_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const MANIFEST_STATUS_BADGES: Record<string, string> = {
-  draft: 'gl-badge-neutral',
-  pending_validation: 'gl-badge-warning',
-  validated: 'gl-badge-success',
-  requires_review: 'gl-badge-danger',
-  closed: 'gl-badge-success',
+  draft: '',
+  pending_validation: 'chip-warn',
+  validated: 'chip-success',
+  requires_review: 'chip-danger',
+  closed: 'chip-success',
 }
 
 // ── Vector type ───────────────────────────────────────────────
 
 export const VECTOR_TYPE_MAP: Record<string, { label: string; badge: string; icon: typeof Plane }> = {
-  helicopter:        { label: 'Hélicoptère',   badge: 'gl-badge-info', icon: Plane },
-  boat:              { label: 'Bateau',        badge: 'gl-badge-success', icon: Ship },
-  surfer:            { label: 'Surfer',        badge: 'gl-badge-info', icon: Ship },
-  bus:               { label: 'Bus',           badge: 'gl-badge-warning', icon: Truck },
-  '4x4':             { label: '4x4',           badge: 'gl-badge-neutral', icon: Truck },
-  commercial_flight: { label: 'Vol commercial', badge: 'gl-badge-warning', icon: Plane },
-  barge:             { label: 'Barge',         badge: 'gl-badge-info', icon: Anchor },
-  tug:               { label: 'Remorqueur',    badge: 'gl-badge-neutral', icon: Anchor },
-  ship:              { label: 'Navire',        badge: 'gl-badge-success', icon: Ship },
-  vehicle:           { label: 'Véhicule',      badge: 'gl-badge-neutral', icon: Truck },
+  helicopter:        { label: 'Hélicoptère',   badge: 'chip-info', icon: Plane },
+  boat:              { label: 'Bateau',        badge: 'chip-success', icon: Ship },
+  surfer:            { label: 'Surfer',        badge: 'chip-info', icon: Ship },
+  bus:               { label: 'Bus',           badge: 'chip-warn', icon: Truck },
+  '4x4':             { label: '4x4',           badge: '', icon: Truck },
+  commercial_flight: { label: 'Vol commercial', badge: 'chip-warn', icon: Plane },
+  barge:             { label: 'Barge',         badge: 'chip-info', icon: Anchor },
+  tug:               { label: 'Remorqueur',    badge: '', icon: Anchor },
+  ship:              { label: 'Navire',        badge: 'chip-success', icon: Ship },
+  vehicle:           { label: 'Véhicule',      badge: '', icon: Truck },
 }
 
 // ── Cargo status ──────────────────────────────────────────────
@@ -99,21 +99,21 @@ export const CARGO_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const CARGO_STATUS_BADGES: Record<string, string> = {
-  registered: 'gl-badge-neutral',
-  ready: 'gl-badge-info',
-  ready_for_loading: 'gl-badge-info',
-  loaded: 'gl-badge-warning',
-  in_transit: 'gl-badge-warning',
-  delivered: 'gl-badge-success',
-  delivered_intermediate: 'gl-badge-info',
-  delivered_final: 'gl-badge-success',
-  return_declared: 'gl-badge-warning',
-  return_in_transit: 'gl-badge-warning',
-  returned: 'gl-badge-success',
-  reintegrated: 'gl-badge-success',
-  scrapped: 'gl-badge-danger',
-  damaged: 'gl-badge-danger',
-  missing: 'gl-badge-danger',
+  registered: '',
+  ready: 'chip-info',
+  ready_for_loading: 'chip-info',
+  loaded: 'chip-warn',
+  in_transit: 'chip-warn',
+  delivered: 'chip-success',
+  delivered_intermediate: 'chip-info',
+  delivered_final: 'chip-success',
+  return_declared: 'chip-warn',
+  return_in_transit: 'chip-warn',
+  returned: 'chip-success',
+  reintegrated: 'chip-success',
+  scrapped: 'chip-danger',
+  damaged: 'chip-danger',
+  missing: 'chip-danger',
 }
 
 // ── Pickup status ─────────────────────────────────────────────
@@ -126,18 +126,18 @@ export const PICKUP_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const PICKUP_STATUS_BADGES: Record<string, string> = {
-  planned: 'gl-badge-neutral',
-  in_progress: 'gl-badge-warning',
-  completed: 'gl-badge-success',
-  cancelled: 'gl-badge-danger',
+  planned: '',
+  in_progress: 'chip-warn',
+  completed: 'chip-success',
+  cancelled: 'chip-danger',
 }
 
 // ── Weather / flight status ──────────────────────────────────
 
 export const FLIGHT_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  green: { label: 'Vol autorise', badge: 'gl-badge-success' },
-  amber: { label: 'Vol restreint', badge: 'gl-badge-warning' },
-  red:   { label: 'Vol interdit',  badge: 'gl-badge-danger' },
+  green: { label: 'Vol autorise', badge: 'chip-success' },
+  amber: { label: 'Vol restreint', badge: 'chip-warn' },
+  red:   { label: 'Vol interdit',  badge: 'chip-danger' },
 }
 
 // ── Helpers ───────────────────────────────────────────────────

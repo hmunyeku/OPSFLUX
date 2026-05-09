@@ -114,8 +114,8 @@ export function ValidationRow({
           )}
           {readOnly && entry?.approved != null && (
             <span
-              className={`gl-badge ${
-                entry.approved ? 'gl-badge-success' : 'gl-badge-danger'
+              className={`chip ${
+                entry.approved ? 'chip-success' : 'chip-danger'
               }`}
             >
               {entry.approved ? t('moc.approved') : t('moc.rejected')}

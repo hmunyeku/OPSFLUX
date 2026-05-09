@@ -310,7 +310,7 @@ export function CargoPackageElementsSection({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-medium text-foreground">{element.description}</p>
-                      <span className="gl-badge gl-badge-neutral">{packageReturnStatusLabels[element.return_status] ?? element.return_status}</span>
+                      <span className="chip">{packageReturnStatusLabels[element.return_status] ?? element.return_status}</span>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Expédié: {element.quantity}

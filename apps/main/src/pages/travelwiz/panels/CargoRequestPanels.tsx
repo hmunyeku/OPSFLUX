@@ -101,8 +101,8 @@ export function CreateCargoRequestPanel() {
           <div className="space-y-5">
             <div className="space-y-3 rounded-xl border border-border/70 bg-card p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="gl-badge gl-badge-info">{t('common.draft')}</span>
-                <span className={cn('gl-badge', readinessScore >= 100 ? 'gl-badge-success' : 'gl-badge-warning')}>
+                <span className="chip chip-info">{t('common.draft')}</span>
+                <span className={cn('chip', readinessScore >= 100 ? 'chip-success' : 'chip-warn')}>
                   {readinessScore >= 100 ? 'Prête pour saisie colis' : 'Préparation dossier'}
                 </span>
               </div>
@@ -378,7 +378,7 @@ export function CreateCargoPanel() {
             {selectedRequest && (
               <div className="mt-3 rounded-xl border border-border/60 bg-muted/20 p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="gl-badge gl-badge-info">Hérité de la demande</span>
+                  <span className="chip chip-info">Hérité de la demande</span>
                   <span className="text-xs font-medium text-foreground">{selectedRequest.request_code} — {selectedRequest.title}</span>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-4">
@@ -577,13 +577,13 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
   const blockedCount = requestCargo.filter((cargo) => ['damaged', 'missing'].includes(cargo.status)).length
   const assignedCount = requestCargo.filter((cargo) => Boolean(cargo.manifest_id)).length
   const requestStatusBadges: Record<string, string> = {
-    draft: 'gl-badge-neutral',
-    submitted: 'gl-badge-warning',
-    approved: 'gl-badge-info',
-    assigned: 'gl-badge-info',
-    in_progress: 'gl-badge-info',
-    closed: 'gl-badge-success',
-    cancelled: 'gl-badge-danger',
+    draft: '',
+    submitted: 'chip-warn',
+    approved: 'chip-info',
+    assigned: 'chip-info',
+    in_progress: 'chip-info',
+    closed: 'chip-success',
+    cancelled: 'chip-danger',
   }
   const completionRatio = Math.max(
     0,
@@ -789,13 +789,13 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
           <>
             <div className="space-y-3 rounded-xl border border-border/70 bg-card p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className={cn('gl-badge', requestStatusBadges[cargoRequest.status] ?? 'gl-badge-neutral')}>
+                <span className={cn('chip', requestStatusBadges[cargoRequest.status] ?? '')}>
                   {requestStatusLabels[cargoRequest.status] ?? cargoRequest.status}
                 </span>
-                <span className={cn('gl-badge', cargoRequest.is_ready_for_submission ? 'gl-badge-success' : 'gl-badge-warning')}>
+                <span className={cn('chip', cargoRequest.is_ready_for_submission ? 'chip-success' : 'chip-warn')}>
                   {cargoRequest.is_ready_for_submission ? 'Prête à soumettre' : 'À compléter'}
                 </span>
-                {loadingOptions?.length ? <span className="gl-badge gl-badge-info">{loadingOptions.length} option(s) de chargement</span> : null}
+                {loadingOptions?.length ? <span className="chip chip-info">{loadingOptions.length} option(s) de chargement</span> : null}
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Demande d'expédition</p>
@@ -958,7 +958,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                           {option.compatible_zones.length > 0 && (
                             <div className="mt-1 flex flex-wrap gap-1">
                               {option.compatible_zones.map((zone) => (
-                                <span key={zone.zone_id} className="gl-badge gl-badge-neutral">
+                                <span key={zone.zone_id} className="chip">
                                   {zone.zone_name}
                                   {zone.surface_m2 != null ? ` · ${zone.surface_m2.toLocaleString(numLocale())} m²` : ''}
                                 </span>
@@ -977,7 +977,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                          <span className={cn('gl-badge', option.can_load ? 'gl-badge-success' : 'gl-badge-warning')}>
+                          <span className={cn('chip', option.can_load ? 'chip-success' : 'chip-warn')}>
                             {option.can_load ? 'Chargeable' : 'Bloqué'}
                           </span>
                           <PanelActionButton

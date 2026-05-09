@@ -73,7 +73,7 @@ export function RotationsTab() {
       header: t('common.status'),
       size: 90,
       cell: ({ row }) => (
-        <span className={cn('gl-badge', row.original.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+        <span className={cn('chip', row.original.active ? 'chip-success' : '')}>
           {row.original.active ? 'Actif' : 'Inactif'}
         </span>
       ),

@@ -238,7 +238,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
       <span className="font-medium text-foreground truncate flex-1" title={otherActivityTitle || otherActivityId}>
         {otherActivityTitle || otherActivityId.slice(0, 8) + '…'}
       </span>
-      <span className="gl-badge gl-badge-neutral text-[10px]" title={t('planner.dependency.type_tooltip', 'Type de dépendance')}>{dep.dependency_type}</span>
+      <span className="chip text-[10px]" title={t('planner.dependency.type_tooltip', 'Type de dépendance')}>{dep.dependency_type}</span>
       {lagDisplay && (
         <span className="text-muted-foreground text-[10px] tabular-nums" title={t('planner.dependency.lag_tooltip', 'Délai (lag)')}>{lagDisplay}</span>
       )}
@@ -725,7 +725,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
 
   const typeEntry = ACTIVITY_TYPE_META[tp]
   const priorityEntry = { label: priorityLabels[activity.priority] ?? activity.priority, cls: PRIORITY_CLASS_MAP[activity.priority] || 'text-muted-foreground' }
-  const statusEntry = { label: activityStatusLabels[st] ?? st, badge: ACTIVITY_STATUS_BADGES[st] || 'gl-badge-neutral' }
+  const statusEntry = { label: activityStatusLabels[st] ?? st, badge: ACTIVITY_STATUS_BADGES[st] || '' }
 
   return (
     <DynamicPanelShell
@@ -951,7 +951,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       <ReadOnlyRow
                         label="Type"
                         value={
-                          <span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>
+                          <span className={cn('chip inline-flex items-center gap-1', typeEntry?.badge || '')}>
                             {activityTypeLabels[tp] || tp}
                           </span>
                         }
@@ -961,7 +961,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       <ReadOnlyRow
                         label="Statut"
                         value={
-                          <span className={cn('gl-badge', statusEntry?.badge || 'gl-badge-neutral')}>
+                          <span className={cn('chip', statusEntry?.badge || '')}>
                             {statusEntry?.label || st}
                           </span>
                         }

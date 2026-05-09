@@ -161,7 +161,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Immatriculation" value={<span className="font-mono">{vector.registration}</span>} />
                     <ReadOnlyRow label={t('common.name_field')} value={vector.name} />
-                    <ReadOnlyRow label={t('common.type_field')} value={<span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>{typeEntry?.label || vector.type}</span>} />
+                    <ReadOnlyRow label={t('common.type_field')} value={<span className={cn('chip inline-flex items-center gap-1', typeEntry?.badge || '')}>{typeEntry?.label || vector.type}</span>} />
                     <ReadOnlyRow label="Mode" value={modeLabels[vector.mode] || vector.mode} />
                     <ReadOnlyRow label="Base d'attache" value={vector.home_base_name ?? '—'} />
                     <ReadOnlyRow label={t('common.active')} value={vector.active ? 'Oui' : 'Non'} />
@@ -221,7 +221,7 @@ export function VectorDetailPanel({ id }: { id: string }) {
                           <p className="text-sm font-medium text-foreground truncate">{zone.name}</p>
                           <p className="text-xs text-muted-foreground">{zone.zone_type}{zone.capacity ? ` • Capacite: ${zone.capacity}` : ''}</p>
                         </div>
-                        <span className={cn('gl-badge', zone.active ? 'gl-badge-success' : 'gl-badge-neutral')}>{zone.active ? 'Actif' : 'Inactif'}</span>
+                        <span className={cn('chip', zone.active ? 'chip-success' : '')}>{zone.active ? 'Actif' : 'Inactif'}</span>
                       </div>
                     ))}
                   </div>

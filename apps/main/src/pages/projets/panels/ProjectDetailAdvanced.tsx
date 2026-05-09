@@ -718,7 +718,7 @@ export function SubProjectsSection({ projectId }: { projectId: string }) {
           <FolderKanban size={11} className="text-primary shrink-0" />
           <span className="font-medium">{child.code}</span>
           <span className="text-muted-foreground truncate flex-1">{child.name}</span>
-          <span className={cn('gl-badge', child.status === 'active' ? 'gl-badge-success' : 'gl-badge-neutral')}>
+          <span className={cn('chip', child.status === 'active' ? 'chip-success' : '')}>
             {projectStatusLabels[child.status] ?? child.status}
           </span>
           <span className="text-[10px] text-muted-foreground tabular-nums">{child.progress}%</span>

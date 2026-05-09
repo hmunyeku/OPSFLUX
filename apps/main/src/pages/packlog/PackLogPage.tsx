@@ -281,7 +281,7 @@ function RequestsTab() {
     { id: 'sender', header: t('packlog.requests.columns.sender'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.sender_name ?? '—'}</span> },
     { id: 'destination', header: t('packlog.requests.columns.destination'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.destination_name ?? row.original.receiver_name ?? '—'}</span> },
     { id: 'cargo_count', header: t('packlog.requests.columns.cargo_count'), cell: ({ row }) => <span className="text-xs text-foreground">{row.original.cargo_count}</span> },
-    { id: 'status', header: t('packlog.requests.columns.status'), cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{requestStatusLabels[row.original.status] ?? row.original.status}</span> },
+    { id: 'status', header: t('packlog.requests.columns.status'), cell: ({ row }) => <span className="chip">{requestStatusLabels[row.original.status] ?? row.original.status}</span> },
     { id: 'readiness', header: t('packlog.requests.columns.readiness'), cell: ({ row }) => <span className={row.original.is_ready_for_submission ? 'text-emerald-600 text-xs font-medium' : 'text-amber-600 text-xs font-medium'}>{row.original.is_ready_for_submission ? t('packlog.requests.readiness.ready') : t('packlog.requests.readiness.pending')}</span> },
     { id: 'created_at', header: t('packlog.requests.columns.created_at'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at, locale)}</span> },
   ], [locale, requestStatusLabels, t])
@@ -424,7 +424,7 @@ function CargoTab() {
     { id: 'request', header: t('packlog.cargo.columns.request'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.request_code ?? '—'}</span> },
     { id: 'destination', header: t('packlog.cargo.columns.destination'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.destination_name ?? row.original.receiver_name ?? '—'}</span> },
     { id: 'weight', header: t('packlog.cargo.columns.weight'), cell: ({ row }) => <span className="text-xs text-foreground">{row.original.weight_kg.toLocaleString(locale)} kg</span> },
-    { id: 'status', header: t('packlog.cargo.columns.status'), cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[row.original.status] ?? row.original.status}</span> },
+    { id: 'status', header: t('packlog.cargo.columns.status'), cell: ({ row }) => <span className="chip">{cargoStatusLabels[row.original.status] ?? row.original.status}</span> },
     { id: 'created_at', header: t('packlog.cargo.columns.created_at'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at, locale)}</span> },
   ], [cargoStatusLabels, locale, t])
 
@@ -759,7 +759,7 @@ function TrackingTab() {
   const columns = useMemo<ColumnDef<CargoItem, unknown>[]>(() => [
     { accessorKey: 'tracking_code', header: t('packlog.tracking.columns.tracking'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.tracking_code}</span> },
     { id: 'description', header: t('packlog.tracking.columns.cargo'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.designation || row.original.description}</span> },
-    { id: 'status', header: t('packlog.tracking.columns.status'), cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[row.original.status] ?? row.original.status}</span> },
+    { id: 'status', header: t('packlog.tracking.columns.status'), cell: ({ row }) => <span className="chip">{cargoStatusLabels[row.original.status] ?? row.original.status}</span> },
     { id: 'voyage', header: t('packlog.tracking.columns.voyage'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.voyage_code ?? '—'}</span> },
     { id: 'received_at', header: t('packlog.tracking.columns.last_event'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateTimeShort(row.original.received_at ?? row.original.created_at, locale)}</span> },
   ], [cargoStatusLabels, locale, t])
@@ -820,7 +820,7 @@ function TrackingTab() {
                       {quickTarget.request_code ?? t('packlog.tracking.scan.no_request')} · {quickTarget.destination_name ?? quickTarget.receiver_name ?? t('packlog.tracking.scan.no_destination')}
                     </p>
                   </div>
-                  <span className="gl-badge gl-badge-neutral shrink-0">{cargoStatusLabels[quickTarget.status] ?? quickTarget.status}</span>
+                  <span className="chip shrink-0">{cargoStatusLabels[quickTarget.status] ?? quickTarget.status}</span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-1.5">
                   <button className="gl-button-sm gl-button-confirm" onClick={() => handleQuickStatus('received')} disabled={receiveCargo.isPending || isCargoReceivedLike(quickTarget)}>
@@ -857,7 +857,7 @@ function TrackingTab() {
                         <p className="font-mono text-[11px] text-foreground truncate">{item.tracking_code}</p>
                         <p className="mt-0.5 text-xs font-medium text-foreground truncate">{item.designation || item.description}</p>
                       </div>
-                      <span className="gl-badge gl-badge-neutral shrink-0 text-[10px]">{cargoStatusLabels[item.status] ?? item.status}</span>
+                      <span className="chip shrink-0 text-[10px]">{cargoStatusLabels[item.status] ?? item.status}</span>
                     </button>
                   ))
                 ) : (
@@ -910,7 +910,7 @@ function TrackingTab() {
                             {t('packlog.tracking.manifests.summary', { voyage: group.items[0]?.voyage_code ?? '—', received: receivedCount, total: group.items.length, pending: group.actionableItems.length })}
                           </p>
                         </div>
-                        <span className="gl-badge gl-badge-neutral shrink-0">{group.manifest?.status ?? 'draft'}</span>
+                        <span className="chip shrink-0">{group.manifest?.status ?? 'draft'}</span>
                       </div>
                       <div className="divide-y divide-border/50">
                         {group.actionableItems.slice(0, 8).map((item) => (
@@ -920,7 +920,7 @@ function TrackingTab() {
                               <p className="truncate text-sm text-foreground">{item.designation || item.description}</p>
                             </div>
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[item.status] ?? item.status}</span>
+                              <span className="chip">{cargoStatusLabels[item.status] ?? item.status}</span>
                               <button className="gl-button-sm gl-button-confirm" onClick={() => handleManifestQuickStatus(item, 'received')} disabled={pendingCargoId === item.id}>
                                 {t('packlog.tracking.actions.receive')}
                               </button>

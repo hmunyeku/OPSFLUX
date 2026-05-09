@@ -8,7 +8,7 @@ import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 
 export function StatusBadge({ status, labels, badges }: { status: string; labels: Record<string, string>; badges: Record<string, string> }) {
   return (
-    <span className={cn('gl-badge', badges[status] || 'gl-badge-neutral')}>
+    <span className={cn('chip', badges[status] || '')}>
       {labels[status] || status.replace(/_/g, ' ')}
     </span>
   )

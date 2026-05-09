@@ -129,8 +129,8 @@ function CreateCargoRequestInner() {
           <div className="space-y-5">
             <div className="space-y-3 rounded-xl border border-border/70 bg-card p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="gl-badge gl-badge-info">{t('common.draft')}</span>
-                <span className={cn('gl-badge', readinessScore >= 100 ? 'gl-badge-success' : 'gl-badge-warning')}>
+                <span className="chip chip-info">{t('common.draft')}</span>
+                <span className={cn('chip', readinessScore >= 100 ? 'chip-success' : 'chip-warn')}>
                   {readinessScore >= 100 ? 'Prête pour saisie colis' : 'Préparation dossier'}
                 </span>
               </div>
@@ -399,7 +399,7 @@ function CreateCargoInner() {
                 {selectedRequest && (
                   <div className="mt-3 rounded-xl border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="gl-badge gl-badge-info">Hérité de la demande</span>
+                      <span className="chip chip-info">Hérité de la demande</span>
                       <span className="text-xs font-medium text-foreground">{selectedRequest.request_code} — {selectedRequest.title}</span>
                     </div>
                     <div className="mt-3 grid gap-3 md:grid-cols-4">

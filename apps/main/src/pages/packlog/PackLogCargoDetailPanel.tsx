@@ -99,21 +99,21 @@ const CARGO_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 const CARGO_STATUS_BADGES: Record<string, string> = {
-  registered: 'gl-badge-neutral',
-  ready: 'gl-badge-info',
-  ready_for_loading: 'gl-badge-info',
-  loaded: 'gl-badge-warning',
-  in_transit: 'gl-badge-warning',
-  delivered: 'gl-badge-success',
-  delivered_intermediate: 'gl-badge-success',
-  delivered_final: 'gl-badge-success',
-  return_declared: 'gl-badge-warning',
-  return_in_transit: 'gl-badge-warning',
-  returned: 'gl-badge-success',
-  reintegrated: 'gl-badge-success',
-  scrapped: 'gl-badge-danger',
-  damaged: 'gl-badge-danger',
-  missing: 'gl-badge-danger',
+  registered: '',
+  ready: 'chip-info',
+  ready_for_loading: 'chip-info',
+  loaded: 'chip-warn',
+  in_transit: 'chip-warn',
+  delivered: 'chip-success',
+  delivered_intermediate: 'chip-success',
+  delivered_final: 'chip-success',
+  return_declared: 'chip-warn',
+  return_in_transit: 'chip-warn',
+  returned: 'chip-success',
+  reintegrated: 'chip-success',
+  scrapped: 'chip-danger',
+  damaged: 'chip-danger',
+  missing: 'chip-danger',
 }
 
 function StatusBadge({
@@ -125,7 +125,7 @@ function StatusBadge({
   labels: Record<string, string>
   badges: Record<string, string>
 }) {
-  return <span className={cn('gl-badge', badges[status] ?? 'gl-badge-neutral')}>{labels[status] ?? status}</span>
+  return <span className={cn('chip', badges[status] ?? '')}>{labels[status] ?? status}</span>
 }
 
 function buildStatusOptions(labels: Record<string, string>, values: string[]) {
@@ -459,7 +459,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <StatusBadge status={cargo.status} labels={cargoStatusLabels} badges={CARGO_STATUS_BADGES} />
-              <span className="gl-badge gl-badge-neutral text-[10px]">{cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status}</span>
+              <span className="chip text-[10px]">{cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status}</span>
               {cargo.hazmat_validated && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-destructive font-medium">
                   <AlertTriangle size={10} />HAZMAT

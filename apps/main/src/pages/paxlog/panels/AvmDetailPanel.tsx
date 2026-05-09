@@ -476,7 +476,7 @@ export function AvmDetailPanel({ id }: { id?: string }) {
                   <p className="font-medium text-foreground">{t('paxlog.avm_detail.fields.global_documents')}</p>
                   <div className="flex flex-wrap gap-2">
                     {avm.global_attachments_config.map((item) => (
-                      <span key={item} className="gl-badge gl-badge-neutral">{item}</span>
+                      <span key={item} className="chip">{item}</span>
                     ))}
                   </div>
                 </div>
@@ -486,7 +486,7 @@ export function AvmDetailPanel({ id }: { id?: string }) {
                   <p className="font-medium text-foreground">{t('paxlog.avm_detail.fields.per_pax_documents')}</p>
                   <div className="flex flex-wrap gap-2">
                     {avm.per_pax_attachments_config.map((item) => (
-                      <span key={item} className="gl-badge gl-badge-neutral">{item}</span>
+                      <span key={item} className="chip">{item}</span>
                     ))}
                   </div>
                 </div>
@@ -656,7 +656,7 @@ export function AvmDetailPanel({ id }: { id?: string }) {
                         <p className="font-medium text-foreground">{item.pax_name || '—'}</p>
                         {item.company_name && <p className="text-muted-foreground">{item.company_name}</p>}
                       </div>
-                      <span className="gl-badge gl-badge-neutral">{visaStatusLabels[item.status] || item.status}</span>
+                      <span className="chip">{visaStatusLabels[item.status] || item.status}</span>
                     </div>
                     <div className="grid gap-2 text-[11px] text-muted-foreground sm:grid-cols-3">
                       <div>{t('paxlog.avm_detail.followups.visa_type')}: {item.visa_type || '—'}</div>
@@ -746,7 +746,7 @@ export function AvmDetailPanel({ id }: { id?: string }) {
                         <p className="font-medium text-foreground">{item.pax_name || '—'}</p>
                         {item.company_name && <p className="text-muted-foreground">{item.company_name}</p>}
                       </div>
-                      <span className="gl-badge gl-badge-neutral">{allowanceStatusLabels[item.status] || item.status}</span>
+                      <span className="chip">{allowanceStatusLabels[item.status] || item.status}</span>
                     </div>
                     <div className="grid gap-2 text-[11px] text-muted-foreground sm:grid-cols-3">
                       <div>{t('paxlog.avm_detail.followups.amount')}: {item.amount != null ? `${item.amount} ${item.currency || ''}`.trim() : '—'}</div>

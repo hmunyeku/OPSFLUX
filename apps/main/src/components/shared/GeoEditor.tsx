@@ -938,7 +938,7 @@ export function GeoEditor({
 
         {/* Geo type badge */}
         <div className="absolute top-2 right-2 z-[500]">
-          <span className="gl-badge gl-badge-info text-[10px]">
+          <span className="chip chip-info text-[10px]">
             {t(`geo.${geoType}`)}
           </span>
         </div>
@@ -953,7 +953,7 @@ export function GeoEditor({
         {/* Draw mode indicator */}
         {drawMode !== 'idle' && (
           <div className="absolute bottom-2 right-2 z-[500]">
-            <span className={cn('gl-badge text-[10px]', drawMode === 'draw' ? 'gl-badge-warning' : 'gl-badge-info')}>
+            <span className={cn('chip text-[10px]', drawMode === 'draw' ? 'chip-warn' : 'chip-info')}>
               {drawMode === 'draw' ? t('geo.draw') : t('geo.edit')}
             </span>
           </div>
@@ -964,19 +964,19 @@ export function GeoEditor({
       {measurements && (
         <div className="flex items-center gap-2 flex-wrap">
           {measurements.distance !== undefined && (
-            <span className="gl-badge gl-badge-info text-xs flex items-center gap-1">
+            <span className="chip chip-info text-xs flex items-center gap-1">
               <Ruler size={10} />
               {t('geo.total_distance')}: {formatDistance(measurements.distance)}
             </span>
           )}
           {measurements.perimeter !== undefined && (
-            <span className="gl-badge gl-badge-info text-xs flex items-center gap-1">
+            <span className="chip chip-info text-xs flex items-center gap-1">
               <Ruler size={10} />
               {t('geo.perimeter')}: {formatDistance(measurements.perimeter)}
             </span>
           )}
           {measurements.area !== undefined && (
-            <span className="gl-badge gl-badge-success text-xs">
+            <span className="chip chip-success text-xs">
               {t('geo.area')}: {formatArea(measurements.area)}
             </span>
           )}

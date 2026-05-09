@@ -374,7 +374,7 @@ export default function DictionaryTab() {
                       <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-center">{entry.sort_order}</span>
                       <button
                         onClick={() => handleToggleActive(entry)}
-                        className={cn('gl-badge text-[9px]', entry.active ? 'gl-badge-success' : 'gl-badge-neutral')}
+                        className={cn('chip text-[9px]', entry.active ? 'chip-success' : '')}
                       >
                         {entry.active ? 'Actif' : 'Inactif'}
                       </button>

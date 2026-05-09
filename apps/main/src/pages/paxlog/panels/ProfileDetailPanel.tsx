@@ -93,7 +93,7 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
       <PanelContentLayout>
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={profile.active ? 'active' : 'inactive'} />
-          <span className={cn('gl-badge', profile.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+          <span className={cn('chip', profile.pax_type === 'internal' ? 'chip-info' : '')}>
             {paxTypeLabels[profile.pax_type] || profile.pax_type}
           </span>
         </div>
@@ -208,7 +208,7 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className={cn('gl-badge', (record.attachment_count ?? 0) > 0 ? 'gl-badge-success' : 'gl-badge-warning')}>
+                          <span className={cn('chip', (record.attachment_count ?? 0) > 0 ? 'chip-success' : 'chip-warn')}>
                             {(record.attachment_count ?? 0) > 0
                               ? t('paxlog.profile_panel.proof_present', { count: record.attachment_count ?? 0 })
                               : t('paxlog.profile_panel.proof_missing')}

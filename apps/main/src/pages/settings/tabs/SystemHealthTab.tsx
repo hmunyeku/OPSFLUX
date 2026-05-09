@@ -93,8 +93,8 @@ function StatusCard({
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-foreground">{title}</h4>
             <span className={cn(
-              'gl-badge text-[10px]',
-              status === 'ok' ? 'gl-badge-success' : status === 'error' ? 'gl-badge-danger' : 'gl-badge-neutral',
+              'chip text-[10px]',
+              status === 'ok' ? 'chip-success' : status === 'error' ? 'chip-danger' : '',
             )}>
               {statusLabel}
             </span>
@@ -147,8 +147,8 @@ export function SystemHealthTab() {
         <div className="flex items-center gap-2">
           {data && (
             <span className={cn(
-              'gl-badge',
-              data.status === 'healthy' ? 'gl-badge-success' : 'gl-badge-danger',
+              'chip',
+              data.status === 'healthy' ? 'chip-success' : 'chip-danger',
             )}>
               {data.status === 'healthy' ? t('settings.system_health.healthy') : t('settings.system_health.degraded')}
             </span>

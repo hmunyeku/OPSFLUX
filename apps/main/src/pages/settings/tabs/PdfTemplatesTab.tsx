@@ -272,7 +272,7 @@ function PdfTemplateGrid({
             </span>
 
             {/* Page format */}
-            <span className="gl-badge gl-badge-info">
+            <span className="chip chip-info">
               {PAGE_SIZE_LABELS[t.page_size] ?? t.page_size} {t.orientation === 'landscape' ? '↔' : '↕'}
             </span>
 
@@ -287,7 +287,7 @@ function PdfTemplateGrid({
                 </span>
               ))
             ) : (
-              <span className="gl-badge gl-badge-warning">
+              <span className="chip chip-warn">
                 Aucune version
               </span>
             )}

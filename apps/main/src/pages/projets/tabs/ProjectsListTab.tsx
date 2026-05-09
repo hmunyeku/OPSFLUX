@@ -100,8 +100,8 @@ export function ProjectsListView() {
       accessorKey: 'status', header: t('projets.columns.status'), size: 100,
       cell: ({ row }) => {
         const s = row.original.status
-        const cls = s === 'active' ? 'gl-badge-success' : s === 'completed' ? 'gl-badge-info' : s === 'on_hold' || s === 'cancelled' ? 'gl-badge-danger' : 'gl-badge-neutral'
-        return <span className={cn('gl-badge', cls)}>{projectStatusLabels[s] ?? s}</span>
+        const cls = s === 'active' ? 'chip-success' : s === 'completed' ? 'chip-info' : s === 'on_hold' || s === 'cancelled' ? 'chip-danger' : ''
+        return <span className={cn('chip', cls)}>{projectStatusLabels[s] ?? s}</span>
       },
     },
     { accessorKey: 'weather', header: t('projets.columns.weather'), size: 60, cell: ({ row }) => <WeatherIcon weather={row.original.weather} /> },
@@ -120,8 +120,8 @@ export function ProjectsListView() {
       accessorKey: 'priority', header: t('projets.columns.priority'), size: 80,
       cell: ({ row }) => {
         const p = row.original.priority
-        const cls = p === 'critical' ? 'gl-badge-danger' : p === 'high' ? 'gl-badge-warning' : 'gl-badge-neutral'
-        return <span className={cn('gl-badge', cls)}>{projectPriorityLabels[p] ?? p}</span>
+        const cls = p === 'critical' ? 'chip-danger' : p === 'high' ? 'chip-warn' : ''
+        return <span className={cn('chip', cls)}>{projectPriorityLabels[p] ?? p}</span>
       },
     },
     { accessorKey: 'manager_name', header: t('projets.columns.assignee'), size: 140, cell: ({ row }) => row.original.manager_id

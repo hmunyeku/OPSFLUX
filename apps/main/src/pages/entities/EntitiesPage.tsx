@@ -304,7 +304,7 @@ function useEntityPageColumns() {
         const groups = getValue() as string[]
         return groups.length > 0 ? (
           <div className="flex flex-wrap gap-1">
-            {groups.map((g) => <span key={g} className="gl-badge gl-badge-neutral text-[9px]">{g}</span>)}
+            {groups.map((g) => <span key={g} className="chip text-[9px]">{g}</span>)}
           </div>
         ) : <span className="text-muted-foreground text-xs">—</span>
       },
@@ -642,7 +642,7 @@ function EntityDetailPanel({ id }: { id: string }) {
             )}
             <div className="flex items-center gap-2 mt-1">
               <span className="font-mono text-xs text-muted-foreground">{entity.code}</span>
-              <span className={cn('gl-badge text-[9px]', entity.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+              <span className={cn('chip text-[9px]', entity.active ? 'chip-success' : '')}>
                 {entity.active ? 'Active' : 'Archivée'}
               </span>
               {entity.country && (

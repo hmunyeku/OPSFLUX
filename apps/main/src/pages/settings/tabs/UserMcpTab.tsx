@@ -89,7 +89,7 @@ function BackendCard({ backend, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: st
           <div className="flex items-center gap-2 flex-wrap">
             <Plug size={14} className="text-muted-foreground" />
             <span className="text-sm font-semibold text-foreground">{backend.name}</span>
-            {backend.slug === 'opsflux' && <span className="gl-badge gl-badge-info">{t('imputations.tab_default')}</span>}
+            {backend.slug === 'opsflux' && <span className="chip chip-info">{t('imputations.tab_default')}</span>}
           </div>
           <p className="text-xs text-muted-foreground mt-1">{backend.description || backend.slug}</p>
         </div>
@@ -113,7 +113,7 @@ function BackendCard({ backend, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: st
           <div className="flex items-center gap-2">
             <Wrench size={14} className="text-muted-foreground" />
             <span className="text-sm font-medium text-foreground">Outils disponibles</span>
-            <span className="gl-badge gl-badge-neutral">
+            <span className="chip">
               {isLoading ? '…' : (data?.tools.length ?? 0)}
             </span>
           </div>
@@ -267,7 +267,7 @@ export function UserMcpTab() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <Key size={14} className="text-muted-foreground" />
                       <span className="text-sm font-semibold text-foreground">{token.name}</span>
-                      <span className={`gl-badge ${token.revoked || expiry.expired ? 'gl-badge-neutral' : expiry.warn ? 'gl-badge-warning' : 'gl-badge-success'}`}>
+                      <span className={`chip ${token.revoked || expiry.expired ? '' : expiry.warn ? 'chip-warn' : 'chip-success'}`}>
                         {token.revoked ? 'Révoqué' : expiry.text}
                       </span>
                     </div>

@@ -1406,7 +1406,7 @@ export function InlineEditableTags({
         )}
       >
         <span className="flex-1 min-w-0">
-          <span className="gl-badge gl-badge-neutral">{displayLabel}</span>
+          <span className="chip">{displayLabel}</span>
         </span>
         {!disabled && <Pencil size={11} className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/70 transition-colors" />}
       </span>

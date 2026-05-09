@@ -467,7 +467,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
               label="Phase"
               value={
                 equip.fluid_phase
-                  ? <span className="gl-badge gl-badge-neutral">{FLUID_PHASE_OPTIONS.find((o) => o.value === equip.fluid_phase)?.label || equip.fluid_phase}</span>
+                  ? <span className="chip">{FLUID_PHASE_OPTIONS.find((o) => o.value === equip.fluid_phase)?.label || equip.fluid_phase}</span>
                   : '--'
               }
             />

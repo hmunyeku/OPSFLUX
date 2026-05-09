@@ -864,7 +864,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                             </div>
                           </div>
                           {version.is_published && (
-                            <span className="gl-badge gl-badge-success">
+                            <span className="chip chip-success">
                               {t('common.publish')}
                             </span>
                           )}
@@ -952,7 +952,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                 </span>
               </div>
               {!isCreatingVersion && selectedVersion?.is_published && (
-                <span className="gl-badge gl-badge-success">
+                <span className="chip chip-success">
                   {t('common.publish')}
                 </span>
               )}

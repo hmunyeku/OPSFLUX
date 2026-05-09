@@ -79,7 +79,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
         <PanelContentLayout>
           <FormSection title={t('common.information')}>
             <DetailFieldGrid>
-              <ReadOnlyRow label="Catégorie" value={<span className="gl-badge gl-badge-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
+              <ReadOnlyRow label="Catégorie" value={<span className="chip chip-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
               <ReadOnlyRow label={t('common.code_field')} value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
               <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
               <ReadOnlyRow label="Validité" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />

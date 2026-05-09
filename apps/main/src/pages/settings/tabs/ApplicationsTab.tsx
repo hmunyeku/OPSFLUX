@@ -96,7 +96,7 @@ export function ApplicationsTab() {
                       {app.confidential ? 'Confidentielle' : 'Publique'}
                     </span>
                     {app.scopes.map((s) => (
-                      <span key={s} className="gl-badge gl-badge-neutral">{s}</span>
+                      <span key={s} className="chip">{s}</span>
                     ))}
                   </div>
 
@@ -146,7 +146,7 @@ export function ApplicationsTab() {
                   {/* Scopes */}
                   <div className="flex flex-wrap gap-1 mb-3">
                     {auth.scopes.map((s) => (
-                      <span key={s} className="gl-badge gl-badge-neutral">{s}</span>
+                      <span key={s} className="chip">{s}</span>
                     ))}
                   </div>
 

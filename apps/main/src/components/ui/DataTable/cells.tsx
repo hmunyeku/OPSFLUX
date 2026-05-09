@@ -53,15 +53,15 @@ interface BadgeCellProps {
 }
 
 const BADGE_VARIANTS: Record<string, string> = {
-  success: 'gl-badge-success',
-  danger: 'gl-badge-danger',
-  warning: 'gl-badge-warning',
-  info: 'gl-badge-info',
-  neutral: 'gl-badge-neutral',
+  success: 'chip-success',
+  danger: 'chip-danger',
+  warning: 'chip-warn',
+  info: 'chip-info',
+  neutral: '',
 }
 
 export function BadgeCell({ value, variant = 'neutral' }: BadgeCellProps) {
-  return <span className={cn('gl-badge', BADGE_VARIANTS[variant])}>{value}</span>
+  return <span className={cn('chip', BADGE_VARIANTS[variant])}>{value}</span>
 }
 
 // ── Date Cell ──────────────────────────────────────────────
@@ -86,7 +86,7 @@ export function DateCell({ value, relative }: DateCellProps) {
 // ── Boolean Cell ───────────────────────────────────────────
 export function BooleanCell({ value, trueLabel = 'Oui', falseLabel = 'Non' }: { value: boolean; trueLabel?: string; falseLabel?: string }) {
   return (
-    <span className={cn('gl-badge', value ? 'gl-badge-success' : 'gl-badge-neutral')}>
+    <span className={cn('chip', value ? 'chip-success' : '')}>
       {value ? trueLabel : falseLabel}
     </span>
   )

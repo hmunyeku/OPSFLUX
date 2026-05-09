@@ -542,7 +542,7 @@ export function ExportWizard({
                         )}
                       >
                         <span className="flex-1">{opt.label}</span>
-                        <span className="gl-badge text-[10px]">{opt.count.toLocaleString()}</span>
+                        <span className="chip text-[10px]">{opt.count.toLocaleString()}</span>
                       </button>
                     ))}
                   </div>
@@ -1019,7 +1019,7 @@ export function ExportWizard({
                   <span className="text-muted-foreground/60">
                     ~{formatBytes(estimatedSize)}
                   </span>
-                  <span className="gl-badge text-[10px]">{format.toUpperCase()}</span>
+                  <span className="chip text-[10px]">{format.toUpperCase()}</span>
                 </div>
 
                 {/* Preview table */}

@@ -79,7 +79,7 @@ function SecretField({
 // ── Integration status badge ──
 function StatusBadge({ configured }: { configured: boolean }) {
   return (
-    <span className={`gl-badge ${configured ? 'gl-badge-success' : 'gl-badge-neutral'}`}>
+    <span className={`chip ${configured ? 'chip-success' : ''}`}>
       {configured ? 'Configuré' : 'Non configuré'}
     </span>
   )

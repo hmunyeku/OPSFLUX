@@ -769,7 +769,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                           )}
                         </div>
                         {childPending && (
-                          <span className="gl-badge gl-badge-warning text-[10px] shrink-0">
+                          <span className="chip chip-warn text-[10px] shrink-0">
                             à réviser
                           </span>
                         )}
@@ -831,7 +831,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                               <span className="text-sm font-medium text-foreground truncate flex-1">
                                 {predTask?.title || dep.from_task_id.slice(0, 8)}
                               </span>
-                              <span className="gl-badge gl-badge-info text-[9px] shrink-0 font-mono">
+                              <span className="chip chip-info text-[9px] shrink-0 font-mono">
                                 {dep.dependency_type}
                                 {typeof dep.lag_days === 'number' && dep.lag_days !== 0 && (
                                   <span className="ml-0.5">{dep.lag_days >= 0 ? '+' : ''}{dep.lag_days}j</span>
@@ -868,7 +868,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                               <span className="text-sm font-medium text-foreground truncate flex-1">
                                 {succTask?.title || dep.to_task_id.slice(0, 8)}
                               </span>
-                              <span className="gl-badge gl-badge-info text-[9px] shrink-0 font-mono">
+                              <span className="chip chip-info text-[9px] shrink-0 font-mono">
                                 {dep.dependency_type}
                                 {typeof dep.lag_days === 'number' && dep.lag_days !== 0 && (
                                   <span className="ml-0.5">{dep.lag_days >= 0 ? '+' : ''}{dep.lag_days}j</span>

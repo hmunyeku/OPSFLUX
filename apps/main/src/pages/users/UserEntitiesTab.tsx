@@ -182,7 +182,7 @@ export function UserEntitiesTab({ userId }: { userId: string }) {
                     <button
                       key={g.group_id}
                       onClick={() => useUIStore.getState().openDynamicPanel({ type: 'detail', module: 'groups', id: g.group_id })}
-                      className="inline-flex items-center gap-1 gl-badge gl-badge-neutral text-[10px] cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
+                      className="inline-flex items-center gap-1 chip text-[10px] cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
                       title={`Groupe: ${g.group_name} | Rôles: ${g.role_names.join(', ') || g.role_codes.join(', ')}`}
                     >
                       <KeyRound size={9} className="shrink-0" />
@@ -274,8 +274,8 @@ export function UserEntitiesTab({ userId }: { userId: string }) {
                   <CrossModuleLink module="tiers" id={link.tier_id} label={link.tier_name} showIcon={false} className="text-sm font-medium truncate block" />
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-mono text-muted-foreground">{link.tier_code}</span>
-                    {link.tier_type && <span className="gl-badge gl-badge-neutral text-[9px]">{link.tier_type}</span>}
-                    <span className="gl-badge gl-badge-info text-[9px]">{link.role}</span>
+                    {link.tier_type && <span className="chip text-[9px]">{link.tier_type}</span>}
+                    <span className="chip chip-info text-[9px]">{link.role}</span>
                   </div>
                 </div>
                 <button

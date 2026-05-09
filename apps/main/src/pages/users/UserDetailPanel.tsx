@@ -445,18 +445,18 @@ export function UserDetailPanel({ id }: { id: string }) {
             <p className="text-sm text-muted-foreground truncate">{user.email}</p>
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               {isLocked ? (
-                <span className="gl-badge gl-badge-warning"><Lock size={9} className="mr-0.5" />Verrouillé</span>
+                <span className="chip chip-warn"><Lock size={9} className="mr-0.5" />Verrouillé</span>
               ) : isExpired ? (
-                <span className="gl-badge gl-badge-neutral"><AlertTriangle size={9} className="mr-0.5" />Expiré</span>
+                <span className="chip"><AlertTriangle size={9} className="mr-0.5" />Expiré</span>
               ) : (
-                <span className={cn('gl-badge', user.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                <span className={cn('chip', user.active ? 'chip-success' : '')}>
                   {user.active ? 'Actif' : 'Archivé'}
                 </span>
               )}
               {user.mfa_enabled && (
-                <span className="gl-badge gl-badge-info text-[10px]"><ShieldCheck size={9} className="mr-0.5" />MFA</span>
+                <span className="chip chip-info text-[10px]"><ShieldCheck size={9} className="mr-0.5" />MFA</span>
               )}
-              <span className="gl-badge gl-badge-neutral text-[10px]">{AUTH_TYPE_LABELS[user.auth_type] ?? user.auth_type}</span>
+              <span className="chip text-[10px]">{AUTH_TYPE_LABELS[user.auth_type] ?? user.auth_type}</span>
               <span className="text-xs text-muted-foreground uppercase font-medium">{user.language}</span>
             </div>
             {/* Profile completeness bar */}
@@ -546,7 +546,7 @@ export function UserDetailPanel({ id }: { id: string }) {
                     <ReadOnlyRow
                       label={t('users.external_identity_type')}
                       value={
-                        <span className="gl-badge gl-badge-info text-[10px]">
+                        <span className="chip chip-info text-[10px]">
                           {t('users.external_identity_external_user')}
                         </span>
                       }
@@ -656,7 +656,7 @@ export function UserDetailPanel({ id }: { id: string }) {
                       <button
                         key={roleName}
                         onClick={() => openDynamicPanel({ type: 'detail', module: 'roles', id: roleName })}
-                        className="gl-badge gl-badge-info text-xs cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
+                        className="chip chip-info text-xs cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
                       >
                         {roleName}
                       </button>
@@ -675,7 +675,7 @@ export function UserDetailPanel({ id }: { id: string }) {
                       <button
                         key={group.group_id}
                         onClick={() => openDynamicPanel({ type: 'detail', module: 'groups', id: group.group_id })}
-                        className="gl-badge gl-badge-neutral text-xs cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
+                        className="chip text-xs cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
                       >
                         {group.group_name} ({group.role_names.join(', ') || group.role_codes.join(', ')})
                       </button>
@@ -813,7 +813,7 @@ export function UserDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow
                   label="Type"
                   value={
-                    <span className="gl-badge gl-badge-neutral text-[10px]">
+                    <span className="chip text-[10px]">
                       {AUTH_TYPE_LABELS[user.auth_type] ?? user.auth_type}
                     </span>
                   }
@@ -822,8 +822,8 @@ export function UserDetailPanel({ id }: { id: string }) {
                   label="MFA (TOTP)"
                   value={
                     user.mfa_enabled
-                      ? <span className="gl-badge gl-badge-success text-[10px]"><ShieldCheck size={9} className="mr-0.5" />Activé</span>
-                      : <span className="gl-badge gl-badge-neutral text-[10px]">{t('common.disabled')}</span>
+                      ? <span className="chip chip-success text-[10px]"><ShieldCheck size={9} className="mr-0.5" />Activé</span>
+                      : <span className="chip text-[10px]">{t('common.disabled')}</span>
                   }
                 />
                 <ReadOnlyRow
@@ -838,7 +838,7 @@ export function UserDetailPanel({ id }: { id: string }) {
                   <div className="space-y-1.5">
                     {(ssoProviders as { id: string; provider: string; email: string | null; linked_at: string }[]).map((sso) => (
                       <div key={sso.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-accent/50 group">
-                        <span className="gl-badge gl-badge-info text-[10px]">{sso.provider}</span>
+                        <span className="chip chip-info text-[10px]">{sso.provider}</span>
                         <span className="text-xs text-muted-foreground flex-1 truncate">{sso.email || '—'}</span>
                         <span className="text-[10px] text-muted-foreground">{formatDate(sso.linked_at)}</span>
                         <button

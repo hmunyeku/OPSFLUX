@@ -242,7 +242,7 @@ function TemplateList({
                 </span>
               ))
             ) : (
-              <span className="gl-badge gl-badge-warning">
+              <span className="chip chip-warn">
                 Aucune version
               </span>
             )}

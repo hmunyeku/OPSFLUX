@@ -105,10 +105,10 @@ export function ScenariosTab({
   }
 
   const STATUS_BADGE: Record<string, string> = {
-    draft: 'gl-badge-neutral',
-    validated: 'gl-badge-info',
-    promoted: 'gl-badge-success',
-    archived: 'gl-badge-warning',
+    draft: '',
+    validated: 'chip-info',
+    promoted: 'chip-success',
+    archived: 'chip-warn',
   }
   const STATUS_LABEL: Record<string, string> = {
     draft: 'Brouillon',
@@ -191,11 +191,11 @@ export function ScenariosTab({
                         </span>
                       )}
                       <span className="text-sm font-medium text-foreground truncate">{s.title as string}</span>
-                      <span className={cn('gl-badge text-[10px]', STATUS_BADGE[s.status as string] || 'gl-badge-neutral')}>
+                      <span className={cn('chip text-[10px]', STATUS_BADGE[s.status as string] || '')}>
                         {STATUS_LABEL[s.status as string] || s.status as string}
                       </span>
                       {isActive && (
-                        <span className="gl-badge text-[10px] gl-badge-warning">Vue active</span>
+                        <span className="chip text-[10px] chip-warn">Vue active</span>
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">

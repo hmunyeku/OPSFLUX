@@ -111,7 +111,7 @@ export function ValidatorHomeTab({
                       <p className="truncate text-sm font-semibold text-foreground">{group.label}</p>
                       {group.helper && <p className="text-[11px] text-muted-foreground">{group.helper}</p>}
                     </div>
-                    <span className="gl-badge gl-badge-info">{t('paxlog.validator.group_count', { count: group.items.length })}</span>
+                    <span className="chip chip-info">{t('paxlog.validator.group_count', { count: group.items.length })}</span>
                   </div>
                   <div className="space-y-2">
                     {group.items.map((item) => (
@@ -183,16 +183,16 @@ export function ValidatorHomeTab({
                             )}
                             <div className="mt-1 flex flex-wrap gap-1">
                               {(item.blocked_pax_count ?? 0) > 0 && (
-                                <span className="gl-badge gl-badge-danger">{t('paxlog.validator.badges.compliance_blocked', { count: item.blocked_pax_count })}</span>
+                                <span className="chip chip-danger">{t('paxlog.validator.badges.compliance_blocked', { count: item.blocked_pax_count })}</span>
                               )}
                               {(item.linked_project_count ?? 0) > 1 && (
-                                <span className="gl-badge gl-badge-warning">{t('paxlog.validator.badges.multi_project', { count: item.linked_project_count })}</span>
+                                <span className="chip chip-warn">{t('paxlog.validator.badges.multi_project', { count: item.linked_project_count })}</span>
                               )}
                               {(item.stay_program_count ?? 0) > 0 && (
-                                <span className="gl-badge gl-badge-info">{t('paxlog.validator.badges.stay_program', { count: item.stay_program_count })}</span>
+                                <span className="chip chip-info">{t('paxlog.validator.badges.stay_program', { count: item.stay_program_count })}</span>
                               )}
                               {item.remaining_capacity !== null && item.remaining_capacity <= 0 && (
-                                <span className="gl-badge gl-badge-warning">{t('paxlog.validator.badges.capacity_full')}</span>
+                                <span className="chip chip-warn">{t('paxlog.validator.badges.capacity_full')}</span>
                               )}
                             </div>
                             {item.planner_activity_title && (

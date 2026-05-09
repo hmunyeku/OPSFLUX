@@ -201,9 +201,9 @@ export function ConformitePage() {
   const typeColumns = useMemo<ColumnDef<ComplianceType, unknown>[]>(() => [
     { accessorKey: 'code', header: t('conformite.columns.code'), size: 100, cell: ({ row }) => <span className="font-medium">{row.original.code}</span> },
     { accessorKey: 'name', header: t('conformite.columns.name'), cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
-    { accessorKey: 'category', header: t('conformite.columns.category'), size: 120, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{categoryLabels[row.original.category] ?? row.original.category}</span> },
+    { accessorKey: 'category', header: t('conformite.columns.category'), size: 120, cell: ({ row }) => <span className="chip">{categoryLabels[row.original.category] ?? row.original.category}</span> },
     { accessorKey: 'validity_days', header: t('conformite.columns.validity'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.validity_days ? `${row.original.validity_days}j` : 'Permanent'}</span> },
-    { accessorKey: 'is_mandatory', header: t('conformite.columns.mandatory'), size: 90, cell: ({ row }) => row.original.is_mandatory ? <span className="gl-badge gl-badge-warning">Oui</span> : <span className="text-muted-foreground/40">--</span> },
+    { accessorKey: 'is_mandatory', header: t('conformite.columns.mandatory'), size: 90, cell: ({ row }) => row.original.is_mandatory ? <span className="chip chip-warn">Oui</span> : <span className="text-muted-foreground/40">--</span> },
   ], [categoryLabels, t])
 
   const recordColumns = useMemo<ColumnDef<ComplianceRecord, unknown>[]>(() => [
@@ -211,11 +211,11 @@ export function ConformitePage() {
     // que le vérificateur identifie immédiatement à qui appartient la ligne.
     { accessorKey: 'owner_type', header: t('conformite.columns.owner'), size: 200, cell: ({ row }) => <ComplianceOwnerCell ownerType={row.original.owner_type} ownerId={row.original.owner_id} /> },
     { accessorKey: 'type_name', header: t('conformite.columns.type'), size: 180, cell: ({ row }) => <span className="text-foreground font-medium">{row.original.type_name || '--'}</span> },
-    { accessorKey: 'type_category', header: t('conformite.columns.category'), size: 110, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.type_category || '--'}</span> },
+    { accessorKey: 'type_category', header: t('conformite.columns.category'), size: 110, cell: ({ row }) => <span className="chip">{row.original.type_category || '--'}</span> },
     { accessorKey: 'status', header: t('conformite.columns.status'), size: 100, cell: ({ row }) => {
       const s = row.original.status
-      const cls = s === 'valid' ? 'gl-badge-success' : s === 'expired' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
-      return <span className={cn('gl-badge', cls)}>{statusLabels[s] ?? s}</span>
+      const cls = s === 'valid' ? 'chip-success' : s === 'expired' ? 'chip-danger' : s === 'pending' ? 'chip-warn' : ''
+      return <span className={cn('chip', cls)}>{statusLabels[s] ?? s}</span>
     }},
     { accessorKey: 'expires_at', header: t('conformite.columns.expiration'), size: 110, cell: ({ row }) => row.original.expires_at ? <span className="text-muted-foreground text-xs">{formatDate(row.original.expires_at)}</span> : <span className="text-muted-foreground/40">--</span> },
     { accessorKey: 'issuer', header: t('conformite.columns.issuer'), size: 120, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.issuer || '--'}</span> },
@@ -226,8 +226,8 @@ export function ConformitePage() {
     { accessorKey: 'owner_name', header: t('conformite.columns.owner'), size: 150, cell: ({ row }) => <span className="text-foreground text-xs">{row.original.owner_name || '--'}</span> },
     { accessorKey: 'status', header: t('conformite.columns.status'), size: 100, cell: ({ row }) => {
       const s = row.original.status
-      const cls = s === 'approved' ? 'gl-badge-success' : s === 'rejected' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
-      return <span className={cn('gl-badge', cls)}>{exemptionStatusLabels[s] ?? s}</span>
+      const cls = s === 'approved' ? 'chip-success' : s === 'rejected' ? 'chip-danger' : s === 'pending' ? 'chip-warn' : ''
+      return <span className={cn('chip', cls)}>{exemptionStatusLabels[s] ?? s}</span>
     }},
     { accessorKey: 'reason', header: t('conformite.columns.reason'), cell: ({ row }) => <span className="text-muted-foreground text-xs truncate max-w-[200px] block">{row.original.reason}</span> },
     { accessorKey: 'start_date', header: t('conformite.columns.start_date'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{formatDate(row.original.start_date)}</span> },

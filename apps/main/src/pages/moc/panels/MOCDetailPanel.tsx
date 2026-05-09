@@ -439,14 +439,14 @@ export function MOCDetailPanel({ id }: Props) {
           {t('moc.fields.status')}
         </span>
         <span
-          className={`gl-badge gl-badge-${MOC_STATUS_COLOURS[moc.status]}`}
+          className={`chip chip-${MOC_STATUS_COLOURS[moc.status]}`}
           title={statusLabels[moc.status] ?? MOC_STATUS_LABELS[moc.status]}
         >
           {statusLabels[moc.status] ?? MOC_STATUS_LABELS[moc.status]}
         </span>
         {moc.priority && (
           <span
-            className={`gl-badge gl-badge-${
+            className={`chip chip-${
               moc.priority === '1'
                 ? 'danger'
                 : moc.priority === '2'

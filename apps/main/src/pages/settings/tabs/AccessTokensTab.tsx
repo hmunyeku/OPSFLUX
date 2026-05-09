@@ -61,9 +61,9 @@ export function AccessTokensTab() {
   }
 
   const getStatusClass = (token: typeof tokens[0]) => {
-    if (token.revoked) return 'gl-badge-neutral'
-    if (token.expires_at && new Date(token.expires_at) <= new Date()) return 'gl-badge-neutral'
-    return 'gl-badge-success'
+    if (token.revoked) return ''
+    if (token.expires_at && new Date(token.expires_at) <= new Date()) return ''
+    return 'chip-success'
   }
 
   type Token = typeof tokens[0]
@@ -84,7 +84,7 @@ export function AccessTokensTab() {
       id: 'status',
       header: t('settings.columns.tokens.status'),
       cell: ({ row }) => (
-        <span className={`gl-badge ${getStatusClass(row.original)}`}>
+        <span className={`chip ${getStatusClass(row.original)}`}>
           {getStatusLabel(row.original)}
         </span>
       ),
@@ -96,7 +96,7 @@ export function AccessTokensTab() {
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
           {row.original.scopes.map((scope: string) => (
-            <span key={scope} className="gl-badge gl-badge-neutral">{scope}</span>
+            <span key={scope} className="chip">{scope}</span>
           ))}
         </div>
       ),

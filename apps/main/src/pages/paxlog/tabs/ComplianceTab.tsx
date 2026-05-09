@@ -103,7 +103,7 @@ export function ComplianceTab() {
           contractors_only: t('paxlog.compliance_tab.scope_values.contractors_only'),
           permanent_staff_only: t('paxlog.compliance_tab.scope_values.permanent_staff_only'),
         }
-        return <span className="gl-badge gl-badge-neutral">{labels[row.original.scope] || row.original.scope}</span>
+        return <span className="chip">{labels[row.original.scope] || row.original.scope}</span>
       },
       size: 120,
     },
@@ -118,7 +118,7 @@ export function ComplianceTab() {
     {
       accessorKey: 'defined_by',
       header: t('paxlog.compliance_tab.defined_by'),
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.defined_by === 'hse_central' ? t('paxlog.compliance_tab.defined_by_values.hse_central') : t('paxlog.compliance_tab.defined_by_values.site')}</span>,
+      cell: ({ row }) => <span className="chip">{row.original.defined_by === 'hse_central' ? t('paxlog.compliance_tab.defined_by_values.hse_central') : t('paxlog.compliance_tab.defined_by_values.site')}</span>,
       size: 100,
     },
   ], [credTypeMap, t])

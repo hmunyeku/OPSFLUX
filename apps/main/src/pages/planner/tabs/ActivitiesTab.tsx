@@ -255,7 +255,7 @@ export function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
         const meta = ACTIVITY_TYPE_META[row.original.type]
         const TIcon = meta?.icon || ListTodo
         return (
-          <span className={cn('gl-badge inline-flex items-center gap-1', meta?.badge || 'gl-badge-neutral')}>
+          <span className={cn('chip inline-flex items-center gap-1', meta?.badge || '')}>
             <TIcon size={10} />
             {activityTypeLabels[row.original.type] || row.original.type}
           </span>

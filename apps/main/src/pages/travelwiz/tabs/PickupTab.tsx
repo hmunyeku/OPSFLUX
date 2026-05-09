@@ -147,8 +147,8 @@ export function PickupTab() {
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-foreground">{stop.sequence}. {stop.location_name}</span>
                     <span className={cn(
-                      'gl-badge text-[10px]',
-                      stop.status === 'departed' ? 'gl-badge-success' : stop.status === 'arrived' ? 'gl-badge-warning' : 'gl-badge-neutral',
+                      'chip text-[10px]',
+                      stop.status === 'departed' ? 'chip-success' : stop.status === 'arrived' ? 'chip-warn' : '',
                     )}>
                       {stop.status}
                     </span>

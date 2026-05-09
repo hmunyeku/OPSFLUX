@@ -284,8 +284,8 @@ export function SpreadsheetView() {
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         const p = row.original.priority
-        const cls = p === 'critical' ? 'gl-badge-danger' : p === 'high' ? 'gl-badge-warning' : 'gl-badge-neutral'
-        return <span className={cn('gl-badge', cls)}>{projectPriorityLabels[p] ?? p}</span>
+        const cls = p === 'critical' ? 'chip-danger' : p === 'high' ? 'chip-warn' : ''
+        return <span className={cn('chip', cls)}>{projectPriorityLabels[p] ?? p}</span>
       },
     },
     {

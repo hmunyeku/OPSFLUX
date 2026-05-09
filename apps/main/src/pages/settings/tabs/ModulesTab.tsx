@@ -54,12 +54,12 @@ export function ModulesTab() {
                   </div>
                 </div>
                 {module.is_protected ? (
-                  <span className="gl-badge gl-badge-warning">
+                  <span className="chip chip-warn">
                     <ShieldAlert className="h-3 w-3" />
                     Protégé
                   </span>
                 ) : module.enabled ? (
-                  <span className="gl-badge gl-badge-success">
+                  <span className="chip chip-success">
                     <Sparkles className="h-3 w-3" />
                     Disponible
                   </span>

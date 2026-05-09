@@ -216,13 +216,13 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                       {formatDate(note.created_at)}
                     </span>
                     {note.visibility === 'private' && (
-                      <span className="gl-badge gl-badge-neutral flex items-center gap-0.5">
+                      <span className="chip flex items-center gap-0.5">
                         <Lock size={8} />
                         Privé
                       </span>
                     )}
                     {note.pinned && (
-                      <span className="gl-badge gl-badge-info flex items-center gap-0.5">
+                      <span className="chip chip-info flex items-center gap-0.5">
                         <Pin size={8} />
                         Épinglé
                       </span>

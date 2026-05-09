@@ -361,8 +361,8 @@ export function ConflitsTab() {
         return (
           <span
             className={cn(
-              'gl-badge inline-flex items-center gap-1',
-              isPriority ? 'gl-badge-purple' : 'gl-badge-warning',
+              'chip inline-flex items-center gap-1',
+              isPriority ? 'chip-purple' : 'chip-warn',
             )}
             title={isPriority ? 'Conflit de priorité' : `Pic POB +${c.max_overflow}`}
           >
@@ -445,7 +445,7 @@ export function ConflitsTab() {
         const s = row.original.status
         if (s === 'partial') {
           return (
-            <span className="gl-badge gl-badge-warning" title={t('planner.cluster.partial_tooltip', 'Cluster partiellement résolu')}>
+            <span className="chip chip-warn" title={t('planner.cluster.partial_tooltip', 'Cluster partiellement résolu')}>
               Partiel
             </span>
           )
@@ -572,7 +572,7 @@ export function ConflitsTab() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="gl-badge gl-badge-info">{revisionSignals.length}</span>
+              <span className="chip chip-info">{revisionSignals.length}</span>
               {showSignals ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </div>
           </button>
@@ -706,7 +706,7 @@ export function ConflitsTab() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {incomingRevisionRequests.length > 0 && (
-                <span className="gl-badge gl-badge-warning">{incomingRevisionRequests.length}</span>
+                <span className="chip chip-warn">{incomingRevisionRequests.length}</span>
               )}
               {showRequests ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </div>
@@ -719,7 +719,7 @@ export function ConflitsTab() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('planner.revision_requests.incoming_title')}</p>
                 <p className="text-xs text-muted-foreground">{t('planner.revision_requests.incoming_description')}</p>
               </div>
-              <span className="gl-badge gl-badge-info">{incomingRevisionRequests.length}</span>
+              <span className="chip chip-info">{incomingRevisionRequests.length}</span>
             </div>
             <div className="space-y-2">
               {incomingRevisionRequestsLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
@@ -787,7 +787,7 @@ export function ConflitsTab() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('planner.revision_requests.outgoing_title')}</p>
                 <p className="text-xs text-muted-foreground">{t('planner.revision_requests.outgoing_description')}</p>
               </div>
-              <span className="gl-badge gl-badge-info">{outgoingRevisionRequests.length}</span>
+              <span className="chip chip-info">{outgoingRevisionRequests.length}</span>
             </div>
             <div className="space-y-2">
               {outgoingRevisionRequestsLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
@@ -804,7 +804,7 @@ export function ConflitsTab() {
                         {item.due_at ? ` · ${t('planner.revision_requests.due_at')} ${formatDateShort(item.due_at)}` : ''}
                       </p>
                     </div>
-                    <span className="gl-badge gl-badge-default">{t(`planner.revision_requests.status_${item.status}`)}</span>
+                    <span className="chip">{t(`planner.revision_requests.status_${item.status}`)}</span>
                   </div>
                   {(item.response_note || item.forced_reason) && (
                     <p className="mt-1 text-xs text-muted-foreground">{item.response_note || item.forced_reason}</p>

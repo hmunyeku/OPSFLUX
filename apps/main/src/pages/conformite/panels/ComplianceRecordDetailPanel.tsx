@@ -137,12 +137,12 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
 
   const statusClass =
     record.status === 'valid'
-      ? 'gl-badge-success'
+      ? 'chip-success'
       : record.status === 'expired'
-        ? 'gl-badge-danger'
+        ? 'chip-danger'
         : record.status === 'pending'
-          ? 'gl-badge-warning'
-          : 'gl-badge-neutral'
+          ? 'chip-warn'
+          : ''
 
   return (
     <DynamicPanelShell
@@ -167,7 +167,7 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
           <FormSection title={t('conformite.records.sections.general')}>
             <DetailFieldGrid>
               <ReadOnlyRow label={t('conformite.records.fields.type')} value={record.type_name || '—'} />
-              <ReadOnlyRow label={t('conformite.records.fields.status')} value={<span className={cn('gl-badge', statusClass)}>{statusLabels[record.status] ?? record.status}</span>} />
+              <ReadOnlyRow label={t('conformite.records.fields.status')} value={<span className={cn('chip', statusClass)}>{statusLabels[record.status] ?? record.status}</span>} />
               <ReadOnlyRow label={t('common.created_at')} value={record.created_at ? formatDate(record.created_at) : '—'} />
             </DetailFieldGrid>
           </FormSection>

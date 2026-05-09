@@ -75,7 +75,7 @@ export function AvmTab({ openDetail, requesterOnly = false, validatorOnly = fals
     {
       accessorKey: 'mission_type',
       header: t('common.type'),
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{missionTypeLabels[row.original.mission_type] || row.original.mission_type}</span>,
+      cell: ({ row }) => <span className="chip">{missionTypeLabels[row.original.mission_type] || row.original.mission_type}</span>,
       size: 110,
     },
     {

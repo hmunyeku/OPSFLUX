@@ -246,7 +246,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
       accessorKey: 'module',
       header: t('settings.columns.rbac_roles.module'),
       cell: ({ row }) => row.original.module ? (
-        <span className="gl-badge gl-badge-neutral text-[10px]">{row.original.module}</span>
+        <span className="chip text-[10px]">{row.original.module}</span>
       ) : (
         <span className="text-[10px] text-muted-foreground italic">Global</span>
       ),
@@ -263,7 +263,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
       accessorKey: 'permission_count',
       header: t('settings.columns.rbac_roles.permissions'),
       cell: ({ row }) => (
-        <span className="gl-badge gl-badge-neutral text-[10px]">
+        <span className="chip text-[10px]">
           <Lock size={9} className="mr-0.5" />{row.original.permission_count}
         </span>
       ),
@@ -273,7 +273,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
       accessorKey: 'group_count',
       header: t('settings.columns.rbac_roles.groups'),
       cell: ({ row }) => (
-        <span className="gl-badge gl-badge-neutral text-[10px]">
+        <span className="chip text-[10px]">
           <Users size={9} className="mr-0.5" />{row.original.group_count}
         </span>
       ),
@@ -283,7 +283,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
       accessorKey: 'user_count',
       header: t('settings.columns.rbac_roles.users'),
       cell: ({ row }) => (
-        <span className="gl-badge gl-badge-neutral text-[10px]">
+        <span className="chip text-[10px]">
           <Users size={9} className="mr-0.5" />{row.original.user_count ?? 0}
         </span>
       ),
@@ -647,7 +647,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
             )}
             <DetailFieldGrid>
               <ReadOnlyRow label={t('common.code_field')} value={<span className="font-mono text-foreground">{role.code}</span>} />
-              <ReadOnlyRow label="Module" value={<span className="gl-badge gl-badge-neutral">{role.module || 'core'}</span>} />
+              <ReadOnlyRow label="Module" value={<span className="chip">{role.module || 'core'}</span>} />
               <ReadOnlyRow label="Permissions" value={`${permCount} permission(s)`} />
               <ReadOnlyRow label="Groupes" value={`${role.group_count ?? 0} groupe(s)`} />
               <ReadOnlyRow label="Utilisateurs" value={`${role.user_count ?? 0} utilisateur(s)`} />
@@ -668,10 +668,10 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
                   <Users size={12} className="text-muted-foreground shrink-0" />
                   <span className="font-medium text-foreground truncate hover:text-primary transition-colors">{g.name}</span>
                   {g.asset_scope_name && (
-                    <span className="gl-badge gl-badge-neutral text-[9px] shrink-0">{g.asset_scope_name}</span>
+                    <span className="chip text-[9px] shrink-0">{g.asset_scope_name}</span>
                   )}
                   <span className="text-muted-foreground ml-auto shrink-0">{g.member_count} mbr</span>
-                  {!g.active && <span className="gl-badge gl-badge-neutral text-[9px]">{t('common.inactive')}</span>}
+                  {!g.active && <span className="chip text-[9px]">{t('common.inactive')}</span>}
                   <ChevronRight size={10} className="text-muted-foreground shrink-0" />
                 </button>
               ))}
@@ -858,7 +858,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
                 e.stopPropagation()
                 useUIStore.getState().openDynamicPanel({ type: 'detail', module: 'roles', id: code })
               }}
-              className="gl-badge gl-badge-info text-[10px] cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
+              className="chip chip-info text-[10px] cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
             >
               {row.original.role_names[i] || code}
             </button>
@@ -877,7 +877,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
       id: 'scope',
       header: t('settings.columns.rbac_groups.scope'),
       cell: ({ row }) => row.original.asset_scope_name ? (
-        <span className="gl-badge gl-badge-neutral text-[10px]">{row.original.asset_scope_name}</span>
+        <span className="chip text-[10px]">{row.original.asset_scope_name}</span>
       ) : (
         <span className="text-[10px] text-muted-foreground italic">Global</span>
       ),
@@ -1450,7 +1450,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
                         <button
                           key={code}
                           onClick={() => useUIStore.getState().openDynamicPanel({ type: 'detail', module: 'roles', id: code })}
-                          className="gl-badge gl-badge-info cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
+                          className="chip chip-info cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
                         >
                           {group.role_names[i] || code}
                         </button>
@@ -1472,15 +1472,15 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
               <ReadOnlyRow
                 label="Scope asset"
                 value={group.asset_scope_name
-                  ? <span className="gl-badge gl-badge-neutral">{group.asset_scope_name}</span>
+                  ? <span className="chip">{group.asset_scope_name}</span>
                   : <span className="text-muted-foreground italic">Global (toute l'entité)</span>
                 }
               />
               <ReadOnlyRow
                 label="Statut"
                 value={group.active
-                  ? <span className="gl-badge gl-badge-success">{t('common.active')}</span>
-                  : <span className="gl-badge gl-badge-neutral">{t('common.inactive')}</span>
+                  ? <span className="chip chip-success">{t('common.active')}</span>
+                  : <span className="chip">{t('common.inactive')}</span>
                 }
               />
               <ReadOnlyRow

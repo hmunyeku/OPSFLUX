@@ -236,8 +236,8 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
             <p className="text-xs text-muted-foreground">Capitaine: {captainName}</p>
           </div>
           <span className={cn(
-            'gl-badge text-xs',
-            (voyage.status as string) === 'departed' ? 'gl-badge-warning' : (voyage.status as string) === 'arrived' ? 'gl-badge-success' : 'gl-badge-info',
+            'chip text-xs',
+            (voyage.status as string) === 'departed' ? 'chip-warn' : (voyage.status as string) === 'arrived' ? 'chip-success' : 'chip-info',
           )}>
             {voyage.status}
           </span>

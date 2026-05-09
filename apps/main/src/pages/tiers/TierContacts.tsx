@@ -644,7 +644,7 @@ export function useContactColumns() {
       header: t('tiers.ui.primary_contact'),
       size: 80,
       cell: ({ row }) => row.original.is_primary
-        ? <span className="gl-badge gl-badge-info">{t('common.yes')}</span>
+        ? <span className="chip chip-info">{t('common.yes')}</span>
         : <span className="text-muted-foreground/40">--</span>,
     },
     {

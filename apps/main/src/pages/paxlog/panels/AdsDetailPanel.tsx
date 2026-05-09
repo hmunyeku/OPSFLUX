@@ -773,12 +773,12 @@ export function AdsDetailPanel({ id }: { id: string }) {
         {/* Status badges */}
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={ads.status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} />
-          <span className={cn('gl-badge', ads.type === 'team' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+          <span className={cn('chip', ads.type === 'team' ? 'chip-info' : '')}>
             {ads.type === 'individual' ? t('paxlog.create_ads.type.individual') : t('paxlog.create_ads.type.team')}
           </span>
-          {ads.cross_company_flag && <span className="gl-badge gl-badge-warning">{t('paxlog.ads_detail.cross_company')}</span>}
+          {ads.cross_company_flag && <span className="chip chip-warn">{t('paxlog.ads_detail.cross_company')}</span>}
           {ads.is_round_trip_no_overnight && (
-            <span className="gl-badge gl-badge-info" title={t('paxlog.ads_detail.round_trip_no_overnight_hint', "Visite d'une journée — comptée dans le forecast PAX du jour uniquement")}>
+            <span className="chip chip-info" title={t('paxlog.ads_detail.round_trip_no_overnight_hint', "Visite d'une journée — comptée dans le forecast PAX du jour uniquement")}>
               {t('paxlog.ads_detail.round_trip_no_overnight', 'A/R sans nuitée')}
             </span>
           )}
@@ -1074,7 +1074,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                   <p className="font-medium">{t('paxlog.ads_detail.operational_impact.stay_change_types')}</p>
                   <div className="flex flex-wrap gap-2">
                     {latestStayChangeKinds.map((kind) => (
-                      <span key={kind} className="gl-badge gl-badge-neutral">
+                      <span key={kind} className="chip">
                         {getStayChangeKindLabel(kind)}
                       </span>
                     ))}
@@ -1154,7 +1154,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                               </p>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <span className={cn('gl-badge text-[9px]', (c.pax_type || c.type) === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+                              <span className={cn('chip text-[9px]', (c.pax_type || c.type) === 'internal' ? 'chip-info' : '')}>
                                 {(c.pax_type || c.type) === 'internal' ? t('paxlog.ads_detail.passenger_type.internal') : t('paxlog.ads_detail.passenger_type.external')}
                               </span>
                               {alreadyAdded ? (
@@ -1238,7 +1238,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                     <div className="flex items-center gap-2 shrink-0">
                       {ap.compliant === true && <CheckCircle2 size={13} className="text-green-600" />}
                       {ap.compliant === false && <XCircle size={13} className="text-red-500" />}
-                      <span className={cn('gl-badge', ap.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+                      <span className={cn('chip', ap.pax_type === 'internal' ? 'chip-info' : '')}>
                         {ap.pax_type === 'internal' ? t('paxlog.ads_detail.passenger_type.internal') : t('paxlog.ads_detail.passenger_type.external')}
                       </span>
                       <StatusBadge status={ap.status} />
@@ -1279,7 +1279,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       {(complianceSummary.verification_sequence ?? complianceSummary.covered_layers ?? []).length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {(complianceSummary.verification_sequence ?? complianceSummary.covered_layers ?? []).map((layer) => (
-                            <span key={`${ap.id}-${layer}`} className="gl-badge gl-badge-neutral">
+                            <span key={`${ap.id}-${layer}`} className="chip">
                               {layer === 'site_requirements'
                                 ? t('paxlog.ads_detail.compliance.layers.site_requirements')
                                 : layer === 'job_profile'
@@ -1488,10 +1488,10 @@ export function AdsDetailPanel({ id }: { id: string }) {
                         </div>
                         <div className="flex items-center gap-2">
                           <StatusBadge status={program.status} map={{
-                            draft: { labelKey: 'paxlog.status.ads.draft', badge: 'gl-badge-neutral' },
-                            submitted: { labelKey: 'paxlog.status.ads.submitted', badge: 'gl-badge-info' },
-                            approved: { labelKey: 'paxlog.status.ads.approved', badge: 'gl-badge-success' },
-                            rejected: { labelKey: 'paxlog.status.ads.rejected', badge: 'gl-badge-danger' },
+                            draft: { labelKey: 'paxlog.status.ads.draft', badge: '' },
+                            submitted: { labelKey: 'paxlog.status.ads.submitted', badge: 'chip-info' },
+                            approved: { labelKey: 'paxlog.status.ads.approved', badge: 'chip-success' },
+                            rejected: { labelKey: 'paxlog.status.ads.rejected', badge: 'chip-danger' },
                           }} />
                           {program.status === 'draft' && canManageStayPrograms && (
                             <PanelActionButton onClick={() => submitStayProgram.mutate(program.id)} disabled={submitStayProgram.isPending}>

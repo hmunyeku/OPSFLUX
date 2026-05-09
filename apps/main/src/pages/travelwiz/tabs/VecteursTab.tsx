@@ -61,7 +61,7 @@ export function VecteursTab() {
         const vt = VECTOR_TYPE_MAP[row.original.type]
         const VIcon = vt?.icon || Ship
         return (
-          <span className={cn('gl-badge inline-flex items-center gap-1', vt?.badge || 'gl-badge-neutral')}>
+          <span className={cn('chip inline-flex items-center gap-1', vt?.badge || '')}>
             <VIcon size={10} />
             {vt?.label || row.original.type}
           </span>

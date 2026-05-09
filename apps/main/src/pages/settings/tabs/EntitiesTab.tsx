@@ -353,7 +353,7 @@ function EntityDetailPanel({ id }: { id: string }) {
             <h3 className="text-base font-semibold text-foreground truncate">{entity.name}</h3>
             <p className="text-sm text-muted-foreground font-mono">{entity.code}</p>
             <div className="flex items-center gap-2 mt-1.5">
-              <span className={cn('gl-badge', entity.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+              <span className={cn('chip', entity.active ? 'chip-success' : '')}>
                 {entity.active ? 'Active' : 'Archivée'}
               </span>
               {entity.country && (
@@ -471,7 +471,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                       </span>
                     )}
                   </div>
-                  <span className={cn('gl-badge text-[9px]', user.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                  <span className={cn('chip text-[9px]', user.active ? 'chip-success' : '')}>
                     {user.active ? 'Actif' : 'Inactif'}
                   </span>
                   <button

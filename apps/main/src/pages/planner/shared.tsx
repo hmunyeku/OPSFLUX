@@ -68,13 +68,13 @@ export const ACTIVITY_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const ACTIVITY_STATUS_BADGES: Record<string, string> = {
-  draft: 'gl-badge-neutral',
-  submitted: 'gl-badge-info',
-  validated: 'gl-badge-success',
-  rejected: 'gl-badge-danger',
-  in_progress: 'gl-badge-warning',
-  completed: 'gl-badge-success',
-  cancelled: 'gl-badge-neutral',
+  draft: '',
+  submitted: 'chip-info',
+  validated: 'chip-success',
+  rejected: 'chip-danger',
+  in_progress: 'chip-warn',
+  completed: 'chip-success',
+  cancelled: '',
 }
 
 export const ACTIVITY_TYPE_LABELS_FALLBACK: Record<string, string> = {
@@ -89,14 +89,14 @@ export const ACTIVITY_TYPE_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const ACTIVITY_TYPE_META: Record<string, { badge: string; icon: typeof Wrench }> = {
-  project: { badge: 'gl-badge-info', icon: ListTodo },
-  workover: { badge: 'gl-badge-warning', icon: Wrench },
-  drilling: { badge: 'gl-badge-danger', icon: Drill },
-  integrity: { badge: 'gl-badge-success', icon: Shield },
-  maintenance: { badge: 'gl-badge-warning', icon: HardHat },
-  permanent_ops: { badge: 'gl-badge-neutral', icon: Gauge },
-  inspection: { badge: 'gl-badge-info', icon: Eye },
-  event: { badge: 'gl-badge-neutral', icon: Calendar },
+  project: { badge: 'chip-info', icon: ListTodo },
+  workover: { badge: 'chip-warn', icon: Wrench },
+  drilling: { badge: 'chip-danger', icon: Drill },
+  integrity: { badge: 'chip-success', icon: Shield },
+  maintenance: { badge: 'chip-warn', icon: HardHat },
+  permanent_ops: { badge: '', icon: Gauge },
+  inspection: { badge: 'chip-info', icon: Eye },
+  event: { badge: '', icon: Calendar },
 }
 
 export const PRIORITY_LABELS_FALLBACK: Record<string, string> = {
@@ -130,9 +130,9 @@ export const CONFLICT_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const CONFLICT_STATUS_BADGES: Record<string, string> = {
-  open: 'gl-badge-danger',
-  resolved: 'gl-badge-success',
-  deferred: 'gl-badge-warning',
+  open: 'chip-danger',
+  resolved: 'chip-success',
+  deferred: 'chip-warn',
 }
 
 export const RESOLUTION_LABELS_FALLBACK: Record<string, string> = {
@@ -411,7 +411,7 @@ export function repairTimelineRange(
 
 export function StatusBadge({ status, labels, badges }: { status: string; labels: Record<string, string>; badges: Record<string, string> }) {
   return (
-    <span className={cn('gl-badge', badges[status] || 'gl-badge-neutral')}>
+    <span className={cn('chip', badges[status] || '')}>
       {labels[status] || status.replace(/_/g, ' ')}
     </span>
   )

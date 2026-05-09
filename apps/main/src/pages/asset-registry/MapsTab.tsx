@@ -266,7 +266,7 @@ export function MapsTab() {
                     {info.attribute_keys && info.attribute_keys.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {info.attribute_keys.slice(0, 6).map(k => (
-                          <span key={k} className="gl-badge gl-badge-neutral text-[10px]">{k}</span>
+                          <span key={k} className="chip text-[10px]">{k}</span>
                         ))}
                         {info.attribute_keys.length > 6 && (
                           <span className="text-[10px] text-muted-foreground">+{info.attribute_keys.length - 6}</span>
@@ -364,7 +364,7 @@ export function MapsTab() {
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {report.warnings.map((w, i) => (
                     <div key={i} className="text-[11px] flex items-start gap-2 py-1">
-                      <span className="gl-badge gl-badge-warning shrink-0">{w.kind}</span>
+                      <span className="chip chip-warn shrink-0">{w.kind}</span>
                       <span className="font-mono text-muted-foreground">{w.name}</span>
                       <span className="text-muted-foreground">— {w.reason}</span>
                     </div>

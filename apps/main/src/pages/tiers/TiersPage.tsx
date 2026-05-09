@@ -677,10 +677,20 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
   }
 
   // -- Company View --
+  // Title swap (Pajamas++ design pattern): name as primary title,
+  // code+type+country as subtitle metadata. Matches the design canvas
+  // where 'Perenco S.A.' is the large title and 'PRC-001 · Affréteur ·
+  // Gabon' is the subline.
+  const tierSubtitle = [
+    tier.code,
+    tier.type ? (tierTypeOptions.find(o => o.value === tier.type)?.label || tier.type) : null,
+    tier.country ? (countryLabels[tier.country] || tier.country) : null,
+  ].filter(Boolean).join(' · ')
+
   return (
     <DynamicPanelShell
-      title={tier.code}
-      subtitle={tier.name}
+      title={tier.name}
+      subtitle={tierSubtitle}
       icon={<Building2 size={14} className="text-primary" />}
       actionItems={tierActionItems}
       onActionConfirm={confirm}
@@ -690,15 +700,41 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
         onTabChange={(id) => setDetailTab(id as typeof detailTab)}
         items={[
           { id: 'fiche', label: 'Fiche', icon: Building2 },
-          { id: 'contacts', label: 'Contacts', icon: Users },
+          { id: 'contacts', label: 'Contacts', icon: Users, badge: contactList.length || undefined },
           { id: 'conformite', label: 'Conformite', icon: Shield },
-          { id: 'projets', label: 'Projets', icon: FolderKanban },
-          { id: 'documents', label: 'Documents', icon: Paperclip },
+          { id: 'projets', label: 'Projets', icon: FolderKanban, badge: relatedProjects?.items?.length || undefined },
+          { id: 'documents', label: 'Documents', icon: Paperclip, badge: attachments?.length || undefined },
         ]}
       />
 
       {detailTab === 'fiche' && (
       <PanelContentLayout>
+        {/* KPI strip — Pajamas++ design pattern (top-of-detail metrics).
+            Sources counts from already-fetched queries; hooks into the
+            .kpi-pp class loaded by Phase 2C (cards-pp.css). */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="kpi-pp">
+            <span className="kpi-pp-label">Projets actifs</span>
+            <span className="kpi-pp-value">{relatedProjects?.items?.length ?? 0}</span>
+            <span className="kpi-pp-meta">avec ce tiers</span>
+          </div>
+          <div className="kpi-pp">
+            <span className="kpi-pp-label">Contacts</span>
+            <span className="kpi-pp-value">{contactList.length}</span>
+            <span className="kpi-pp-meta">employés actifs</span>
+          </div>
+          <div className="kpi-pp">
+            <span className="kpi-pp-label">Identifiants</span>
+            <span className="kpi-pp-value">{identifiers?.length ?? 0}</span>
+            <span className="kpi-pp-meta">SIRET, NIU, RCCM…</span>
+          </div>
+          <div className="kpi-pp">
+            <span className="kpi-pp-label">Documents</span>
+            <span className="kpi-pp-value">{attachments?.length ?? 0}</span>
+            <span className="kpi-pp-meta">fichiers attachés</span>
+          </div>
+        </div>
+
         {/* Tags — full width */}
         <TagManager ownerType="tier" ownerId={tier.id} compact />
 

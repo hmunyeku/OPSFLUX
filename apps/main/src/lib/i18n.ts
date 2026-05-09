@@ -141,9 +141,16 @@ i18n
 
 export async function loadServerTranslations(): Promise<void> {
   const lang = i18n.language || 'fr'
+  // i18next reports the full locale (e.g. "fr-FR") but our bundled
+  // resources are keyed by the short code ("fr"). Comparing
+  // `lang === 'fr'` would mis-pick the English bundle for any French
+  // user with a regional locale, so every key missing from the server
+  // catalog (e.g. common.cancel) would silently fall back to English.
+  // Use the short code to choose the bundled fallback.
+  const shortLang = lang.split('-')[0].toLowerCase()
   const serverCatalog = await fetchServerCatalog(lang)
   if (serverCatalog && Object.keys(serverCatalog).length > 0) {
-    const bundled = lang === 'fr' ? fr : en
+    const bundled = shortLang === 'fr' ? fr : en
     const merged = mergeTranslations(bundled as Record<string, unknown>, serverCatalog)
     i18n.addResourceBundle(lang, 'translation', merged, true, true)
   }
@@ -156,7 +163,11 @@ loadServerTranslations().catch(() => {})
 i18n.on('languageChanged', (lang) => {
   fetchServerCatalog(lang).then((catalog) => {
     if (catalog && Object.keys(catalog).length > 0) {
-      const bundled = lang === 'fr' ? fr : (lang === 'en' ? en : {})
+      // Same short-code matching as loadServerTranslations — see comment
+      // there. lang may be "fr-FR" / "en-US" but bundled resources are
+      // keyed "fr" / "en".
+      const shortLang = lang.split('-')[0].toLowerCase()
+      const bundled = shortLang === 'fr' ? fr : (shortLang === 'en' ? en : {})
       const merged = mergeTranslations(bundled as Record<string, unknown>, catalog)
       i18n.addResourceBundle(lang, 'translation', merged, true, true)
     }

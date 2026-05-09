@@ -17,7 +17,22 @@
    States: hover, active, disabled, focus-visible, aria-busy, aria-pressed.
    ========================================================================== */
 
-.btn {
+/* Base styles applied to .btn AND every variant/size class so call sites
+   can use either `class="btn btn-primary"` (canonical) OR `class="btn-primary"`
+   (shorthand) without losing layout/border/cursor/etc. The bulk migration
+   from gl-button mostly produces the shorthand form, so this grouped
+   selector keeps everything visually intact without forcing a second pass. */
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-tertiary,
+.btn-danger,
+.btn-danger-tertiary,
+.btn-link,
+.btn-icon,
+.btn-sm,
+.btn-md,
+.btn-lg {
   /* layout */
   display: inline-flex;
   align-items: center;
@@ -50,13 +65,27 @@
     box-shadow 80ms ease;
 }
 
-.btn:focus-visible {
+.btn:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-tertiary:focus-visible,
+.btn-danger:focus-visible,
+.btn-danger-tertiary:focus-visible,
+.btn-link:focus-visible,
+.btn-icon:focus-visible {
   outline: 2px solid var(--primary, hsl(217 75% 44%));
   outline-offset: 2px;
 }
 
 .btn[disabled],
-.btn[aria-disabled="true"] {
+.btn[aria-disabled="true"],
+.btn-primary[disabled],
+.btn-secondary[disabled],
+.btn-tertiary[disabled],
+.btn-danger[disabled],
+.btn-danger-tertiary[disabled],
+.btn-link[disabled],
+.btn-icon[disabled] {
   opacity: 0.55;
   cursor: not-allowed;
   pointer-events: none;

@@ -826,8 +826,8 @@
     }
   },
   "tiers": {
-    "title": "Entreprises",
-    "create": "Nouvelle entreprise",
+    "title": "Tiers",
+    "create": "Nouveau tiers",
     "contacts": "Contacts",
     "subtitle": "Référentiel des entreprises et contacts",
     "total": "entreprises",

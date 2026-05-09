@@ -291,3 +291,30 @@
 .dark .chip-danger    { background: hsl(0 65% 14%);   color: hsl(0 65% 72%);   border-color: hsl(0 65% 26%); }
 .dark .chip-info      { background: hsl(217 75% 14%); color: hsl(217 75% 72%); border-color: hsl(217 75% 26%); }
 .dark .chip-highlight { background: hsl(24 92% 14%);  color: hsl(24 92% 72%);  border-color: hsl(24 92% 26%); }
+
+/* Status dot — design-pattern matching. Auto-prefix every status chip
+   with a coloured dot so badges read "● Actif" instead of "Actif"
+   without touching any call site. Only on semantic variants — neutral
+   chips (e.g. type/tag chips) stay clean. */
+.chip-success::before,
+.chip-warn::before,
+.chip-danger::before,
+.chip-info::before,
+.chip-highlight::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.chip-success::before  { background: hsl(152 50% 38%); }
+.chip-warn::before     { background: hsl(32 88% 48%); }
+.chip-danger::before   { background: hsl(0 65% 52%); }
+.chip-info::before     { background: hsl(200 75% 42%); }
+.chip-highlight::before{ background: hsl(24 92% 52%); }
+.dark .chip-success::before  { background: hsl(152 50% 52%); }
+.dark .chip-warn::before     { background: hsl(32 90% 58%); }
+.dark .chip-danger::before   { background: hsl(0 65% 60%); }
+.dark .chip-info::before     { background: hsl(200 75% 60%); }
+.dark .chip-highlight::before{ background: hsl(24 88% 62%); }

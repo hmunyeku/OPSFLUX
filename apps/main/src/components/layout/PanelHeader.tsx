@@ -9,11 +9,15 @@ import type { LucideIcon } from 'lucide-react'
 interface PanelHeaderProps {
   icon?: LucideIcon
   title: string
+  /** Inline element rendered right after the title — typically a count
+      or status badge (Pajamas++ design pattern: "Tiers 248"). Wrapped
+      with a muted color + tabular nums so it reads as metadata. */
+  titleSuffix?: React.ReactNode
   subtitle?: string
   children?: React.ReactNode
 }
 
-export function PanelHeader({ icon: Icon, title, subtitle, children }: PanelHeaderProps) {
+export function PanelHeader({ icon: Icon, title, titleSuffix, subtitle, children }: PanelHeaderProps) {
   return (
     <div className="flex h-10 items-center justify-between border-b border-border bg-background px-4 shrink-0">
       <div className="flex items-center gap-2.5 min-w-0">
@@ -28,7 +32,12 @@ export function PanelHeader({ icon: Icon, title, subtitle, children }: PanelHead
         {/* Display font (Archivo) for page titles — gives the header
             a bit of character vs. all-Inter body. Wide letter shapes
             read well at 14px even with the grotesk weight. */}
-        <h1 className="text-sm font-semibold text-foreground truncate font-display tracking-tight">{title}</h1>
+        <h1 className="text-sm font-semibold text-foreground truncate font-display tracking-tight">
+          {title}
+          {titleSuffix !== undefined && (
+            <span className="ml-2 text-muted-foreground font-normal tabular-nums">{titleSuffix}</span>
+          )}
+        </h1>
         {subtitle && (
           <>
             <span className="text-muted-foreground/60 text-xs">·</span>

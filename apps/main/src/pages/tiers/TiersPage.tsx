@@ -1376,7 +1376,16 @@ export function TiersPage() {
     <div className="flex h-full">
       {/* -- Static Panel (list) -- hidden when dynamic panel is in full mode -- */}
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <PanelHeader icon={Building2} title={t('tiers.title')} subtitle={t('tiers.subtitle')}>
+        <PanelHeader
+          icon={Building2}
+          title={t('tiers.title')}
+          titleSuffix={
+            activeTab === 'entreprises' ? tiersData?.total ?? null
+            : activeTab === 'contacts' ? contactsData?.total ?? null
+            : null
+          }
+          subtitle={t('tiers.subtitle')}
+        >
           {activeTab === 'entreprises' && (
             <ToolbarButton icon={Plus} label={t('tiers.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'tiers' })} />
           )}

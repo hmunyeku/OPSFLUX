@@ -319,7 +319,11 @@ export function DynamicPanelShell({
             previous two horizontal bars (h-9 nav + h-10 header = 76px)
             into a single h-11 row so the chrome eats less vertical
             real-estate. Layout from left to right:
-              [Back btn] | [icon] [title/subtitle] | [pager] [tools] */}
+              [Back btn] | [icon] [title/subtitle] | [actions] | [pager] [tools]
+            Actions are inlined here on desktop (≥ sm) — Pajamas++ pattern.
+            The previous standalone strip below the header was visually
+            disconnected and ate vertical real estate. Mobile keeps the
+            sticky-bottom action bar (rendered after the content). */}
         <div className="flex items-center gap-3 h-11 border-b border-border px-4 shrink-0 bg-background-subtle/50">
           <button
             onClick={() => {
@@ -341,8 +345,15 @@ export function DynamicPanelShell({
             {subtitle && <p className="text-[11px] text-muted-foreground truncate leading-tight">{subtitle}</p>}
           </div>
 
+          {/* Inline actions — desktop only (mobile uses sticky bottom bar) */}
+          {actionsNode && (
+            <div className="hidden sm:flex items-center gap-1.5 shrink-0 min-w-0 pl-2 border-l border-border/60">
+              {actionsNode}
+            </div>
+          )}
+
           {canNavigate && (
-            <div className="flex items-center gap-0.5 shrink-0">
+            <div className="flex items-center gap-0.5 shrink-0 pl-2 border-l border-border/60">
               <span className="text-xs text-muted-foreground mr-1 tabular-nums hidden sm:inline">
                 {currentIndex + 1} / {navItems.length}
               </span>
@@ -376,20 +387,6 @@ export function DynamicPanelShell({
             </button>
           </div>
         </div>
-
-        {/* Actions toolbar
-            Desktop: rendered as a slim row UNDER the header (existing
-            behaviour preserved by `hidden sm:flex`).
-            Mobile: hidden here — instead the same actions are rendered
-            as a sticky bottom bar BELOW the scroll area so users don't
-            have to scroll a long form to reach the Save / Cancel
-            buttons. Both layouts share the same `actionsNode` so the
-            button labels stay consistent. */}
-        {actionsNode && (
-          <div className="hidden sm:flex items-center justify-end gap-2 border-b border-border px-4 py-1.5 shrink-0 bg-background-subtle min-w-0">
-            {actionsNode}
-          </div>
-        )}
 
         {/* Content — full-width scroll container; the inner
             `PanelContentLayout` (used by detail panels) handles its own
@@ -754,13 +751,15 @@ export function FormSection({
   return (
     <fieldset
       className={cn(
-        // Very discreet card — border so light it almost reads as a hairline
-        // separator. Hover-on-section shows a slightly stronger border to
-        // signal interactivity (collapse/expand). April 2026 design v2.
-        'border border-border/20 hover:border-border/40 rounded-lg bg-card/20 transition-colors px-3 py-2',
+        // Pajamas++ section card — subtle but visible chrome so each
+        // section reads as its own grouped surface (May 2026 design v2).
+        // Previous border-border/20 + bg-card/20 made sections look
+        // unbordered on white, defeating the visual grouping. Bumped to
+        // 60% border + full card bg + soft shadow for proper card feel.
+        'border border-border/60 hover:border-border rounded-lg bg-card shadow-sm transition-colors px-4 py-3',
         // Slightly more bottom padding when content is shown.
-        collapsible && expanded && 'pb-3 space-y-1.5',
-        !collapsible && 'pb-3 space-y-1.5',
+        collapsible && expanded && 'pb-4 space-y-2',
+        !collapsible && 'pb-4 space-y-2',
         className,
       )}
     >

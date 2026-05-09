@@ -73,7 +73,7 @@
 .btn-danger-tertiary:focus-visible,
 .btn-link:focus-visible,
 .btn-icon:focus-visible {
-  outline: 2px solid var(--primary, hsl(217 75% 44%));
+  outline: 2px solid hsl(var(--ring, 217 75% 44%));
   outline-offset: 2px;
 }
 
@@ -98,16 +98,19 @@
 
 /* ── Variants ──────────────────────────────────────────────────────────── */
 
-/* Primary — confirmatory action, max 1 per surface */
+/* Primary — confirmatory action, max 1 per surface.
+   Tokens in index.css store HSL components (no hsl() wrapper), so all
+   var(--xxx) references must be wrapped in hsl(...) to produce a
+   valid color value. */
 .btn-primary {
-  background: var(--primary, hsl(217 75% 44%));
-  color: white;
-  border-color: hsl(217 78% 38%);
+  background: hsl(var(--primary, 217 75% 44%));
+  color: hsl(var(--primary-foreground, 0 0% 100%));
+  border-color: hsl(var(--primary-hover, 217 78% 38%));
   box-shadow:
     inset 0 1px 0 hsl(0 0% 100% / 0.15),
     0 1px 0 hsl(220 30% 12% / 0.06);
 }
-.btn-primary:hover:not([disabled])  { background: hsl(217 78% 38%); }
+.btn-primary:hover:not([disabled])  { background: hsl(var(--primary-hover, 217 78% 38%)); }
 .btn-primary:active:not([disabled]) {
   background: hsl(217 78% 32%);
   box-shadow: inset 0 1px 2px hsl(220 30% 12% / 0.15);
@@ -115,37 +118,37 @@
 
 /* Secondary — default for most actions, looks like a chrome button */
 .btn-secondary {
-  background: var(--bg, white);
-  color: var(--fg, hsl(220 18% 11%));
-  border-color: hsl(220 12% 80%);
+  background: hsl(var(--background, 0 0% 100%));
+  color: hsl(var(--foreground, 220 18% 11%));
+  border-color: hsl(var(--border, 220 14% 90%));
   box-shadow: 0 1px 0 hsl(220 30% 12% / 0.04);
 }
 .btn-secondary:hover:not([disabled]) {
-  background: hsl(220 14% 96%);
-  border-color: hsl(220 12% 70%);
+  background: hsl(var(--chrome-hover, 220 14% 91.5%));
+  border-color: hsl(var(--border-strong, 220 12% 80%));
 }
 .btn-secondary:active:not([disabled]) {
-  background: hsl(220 14% 92%);
+  background: hsl(var(--chrome-active, 220 14% 87%));
   box-shadow: inset 0 1px 2px hsl(220 30% 12% / 0.08);
 }
 
 /* Tertiary — ghost button. Use for low-emphasis actions, toolbars, dropdowns */
 .btn-tertiary {
   background: transparent;
-  color: var(--fg, hsl(220 18% 11%));
+  color: hsl(var(--foreground, 220 18% 11%));
   border-color: transparent;
 }
-.btn-tertiary:hover:not([disabled])  { background: hsl(220 14% 92%); }
-.btn-tertiary:active:not([disabled]) { background: hsl(220 14% 88%); }
+.btn-tertiary:hover:not([disabled])  { background: hsl(var(--chrome-hover, 220 14% 91.5%)); }
+.btn-tertiary:active:not([disabled]) { background: hsl(var(--chrome-active, 220 14% 87%)); }
 .btn-tertiary[aria-pressed="true"] {
-  background: hsl(220 14% 88%);
-  color: var(--fg);
+  background: hsl(var(--chrome-active, 220 14% 87%));
+  color: hsl(var(--foreground, 220 18% 11%));
 }
 
 /* Danger — destructive primary */
 .btn-danger {
-  background: var(--danger, hsl(0 65% 52%));
-  color: white;
+  background: hsl(var(--destructive, 0 65% 52%));
+  color: hsl(var(--destructive-foreground, 0 0% 100%));
   border-color: hsl(0 65% 42%);
   box-shadow:
     inset 0 1px 0 hsl(0 0% 100% / 0.15),
@@ -157,7 +160,7 @@
 /* Danger-tertiary — for "Delete" in menus, low-emphasis destructive */
 .btn-danger-tertiary {
   background: transparent;
-  color: var(--danger, hsl(0 65% 52%));
+  color: hsl(var(--destructive, 0 65% 52%));
   border-color: transparent;
 }
 .btn-danger-tertiary:hover:not([disabled])  { background: hsl(0 65% 95%); }
@@ -166,7 +169,7 @@
 /* Link — visually a hyperlink, semantically a button. Use sparingly */
 .btn-link {
   background: transparent;
-  color: var(--primary, hsl(217 75% 44%));
+  color: hsl(var(--primary, 217 75% 44%));
   border: 0;
   height: auto;
   padding: 0;

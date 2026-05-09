@@ -29,8 +29,8 @@
   border-collapse: separate;
   border-spacing: 0;
   font-size: 13px;
-  color: var(--fg, hsl(220 18% 11%));
-  background: var(--bg, white);
+  color: hsl(var(--foreground, 220 18% 11%));
+  background: hsl(var(--background, 0 0% 100%));
 }
 
 .tbl-pp thead th {
@@ -41,16 +41,16 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--muted, hsl(220 8% 46%));
+  color: hsl(var(--muted-foreground, 220 8% 46%));
   background: hsl(220 14% 97%);
-  border-bottom: 1px solid var(--border, hsl(220 14% 90%));
+  border-bottom: 1px solid hsl(var(--border, 220 14% 90%));
   white-space: nowrap;
   user-select: none;
 }
 
 .tbl-pp tbody td {
   padding: 0 12px;
-  border-bottom: 1px solid var(--border, hsl(220 14% 90%));
+  border-bottom: 1px solid hsl(var(--border, 220 14% 90%));
   vertical-align: middle;
   height: 36px; /* cozy default — overridden by data-density */
 }
@@ -77,13 +77,13 @@
 
 /* bordered */
 .tbl-pp[data-bordered] {
-  border: 1px solid var(--border, hsl(220 14% 90%));
+  border: 1px solid hsl(var(--border, 220 14% 90%));
   border-radius: 6px;
   overflow: hidden;
 }
 .tbl-pp[data-bordered] thead th + th,
 .tbl-pp[data-bordered] tbody td + td {
-  border-left: 1px solid var(--border, hsl(220 14% 90%));
+  border-left: 1px solid hsl(var(--border, 220 14% 90%));
 }
 
 /* zebra */
@@ -103,7 +103,7 @@
   cursor: pointer;
   padding-right: 28px;
 }
-.tbl-pp th[data-sortable]:hover { color: var(--fg); background: hsl(220 14% 94%); }
+.tbl-pp th[data-sortable]:hover { color: hsl(var(--foreground)); background: hsl(220 14% 94%); }
 .tbl-pp th[data-sortable]::after {
   content: '';
   position: absolute;
@@ -117,8 +117,8 @@
   opacity: 0.3;
   transition: opacity 80ms, rotate 80ms;
 }
-.tbl-pp th[aria-sort="ascending"]::after  { rotate: -135deg; opacity: 1; color: var(--primary, hsl(217 75% 44%)); }
-.tbl-pp th[aria-sort="descending"]::after { rotate: 45deg;   opacity: 1; color: var(--primary, hsl(217 75% 44%)); }
+.tbl-pp th[aria-sort="ascending"]::after  { rotate: -135deg; opacity: 1; color: hsl(var(--primary, 217 75% 44%)); }
+.tbl-pp th[aria-sort="descending"]::after { rotate: 45deg;   opacity: 1; color: hsl(var(--primary, 217 75% 44%)); }
 
 /* checkbox column — first column, no padding excess */
 .tbl-pp th:first-child:has(input[type="checkbox"]),
@@ -150,7 +150,7 @@
 .tbl-cell-mono {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 12px;
-  color: var(--muted, hsl(220 8% 46%));
+  color: hsl(var(--muted-foreground, 220 8% 46%));
 }
 
 /* loading skeleton rows */
@@ -184,7 +184,7 @@
 .tbl-empty {
   padding: 40px 20px !important;
   text-align: center;
-  color: var(--muted, hsl(220 8% 46%));
+  color: hsl(var(--muted-foreground, 220 8% 46%));
   font-size: 13px;
   height: auto !important;
   background: hsl(30 15% 99%);
@@ -193,7 +193,7 @@
   display: block;
   font-size: 14px;
   font-weight: 600;
-  color: var(--fg, hsl(220 18% 11%));
+  color: hsl(var(--foreground, 220 18% 11%));
   margin-bottom: 4px;
 }
 
@@ -201,17 +201,17 @@
 .tbl-pp tfoot td {
   padding: 10px 12px;
   background: hsl(220 14% 98%);
-  border-top: 1px solid var(--border, hsl(220 14% 90%));
+  border-top: 1px solid hsl(var(--border, 220 14% 90%));
   font-size: 12px;
-  color: var(--muted, hsl(220 8% 46%));
+  color: hsl(var(--muted-foreground, 220 8% 46%));
 }
 
 /* scroll container helper — wrap your <table> in this for sticky-header + h-scroll */
 .tbl-pp-scroll {
   overflow: auto;
-  border: 1px solid var(--border, hsl(220 14% 90%));
+  border: 1px solid hsl(var(--border, 220 14% 90%));
   border-radius: 6px;
-  background: var(--bg, white);
+  background: hsl(var(--background, 0 0% 100%));
 }
 .tbl-pp-scroll > .tbl-pp { border: 0; }
 

@@ -340,14 +340,23 @@ export function DynamicPanelShell({
           <div className="w-px h-5 bg-border/60 shrink-0" />
 
           {icon && <span className="shrink-0">{icon}</span>}
-          <div className="flex-1 min-w-0">
+          {/* Title region: capped so the action bar gets a real budget.
+              Without max-w the flex-1 title grows to fill all remaining
+              space, leaving the ResponsiveActionBar with ~0 measured
+              budget — which collapses every label to icon-only. Cap at
+              ~50% of the row so actions always have ≥ 200-300px to render
+              labelled buttons. min-w-0 still lets it truncate. */}
+          <div className="flex-1 min-w-0 max-w-[50%]">
             <h2 className="text-sm font-semibold text-foreground truncate leading-tight">{title}</h2>
             {subtitle && <p className="text-[11px] text-muted-foreground truncate leading-tight">{subtitle}</p>}
           </div>
 
-          {/* Inline actions — desktop only (mobile uses sticky bottom bar) */}
+          {/* Inline actions — desktop only (mobile uses sticky bottom bar).
+              flex-1 lets the bar take all remaining horizontal space so the
+              ResponsiveActionBar can keep labels visible (its own measure
+              logic will collapse to icon-only only when truly out of room). */}
           {actionsNode && (
-            <div className="hidden sm:flex items-center gap-1.5 shrink-0 min-w-0 pl-2 border-l border-border/60">
+            <div className="hidden sm:flex items-center gap-1.5 flex-1 min-w-0 pl-2 border-l border-border/60">
               {actionsNode}
             </div>
           )}
@@ -751,12 +760,17 @@ export function FormSection({
   return (
     <fieldset
       className={cn(
-        // Pajamas++ section card — subtle but visible chrome so each
-        // section reads as its own grouped surface (May 2026 design v2).
-        // Previous border-border/20 + bg-card/20 made sections look
-        // unbordered on white, defeating the visual grouping. Bumped to
-        // 60% border + full card bg + soft shadow for proper card feel.
-        'border border-border/60 hover:border-border rounded-lg bg-card shadow-sm transition-colors px-4 py-3',
+        // Pajamas++ section card — visible but restrained chrome so
+        // each section reads as its own grouped surface without making
+        // a form-heavy panel feel like a card explosion (May 2026
+        // design v2). Earlier attempts at "discreet"
+        // (border-border/20 + bg-card/20, or border-border/60 +
+        // shadow-sm) disappeared on white-on-cream because --card and
+        // --background are nearly identical (#FFF vs #FCFAF6).
+        // Solution: full-opacity border + ring shadow at low opacity
+        // (the ring reads as a 1px outline rather than a drop shadow,
+        // so 5+ sections stack cleanly).
+        'border border-border rounded-lg bg-card shadow-[0_1px_3px_rgba(20,30,55,0.06)] transition-colors px-5 py-4',
         // Slightly more bottom padding when content is shown.
         collapsible && expanded && 'pb-4 space-y-2',
         !collapsible && 'pb-4 space-y-2',

@@ -1,0 +1,257 @@
+/* ==========================================================================
+   tables-pp.css — Phase 2B
+   --------------------------------------------------------------------------
+   Pajamas++ data tables. Utility classes you apply to a plain <table>.
+   No React component required — just structure your table HTML naturally.
+
+   Surface:
+     .tbl-pp                          base table reset + ERP density
+     .tbl-pp[data-density="compact"]  28px rows
+     .tbl-pp[data-density="cozy"]     36px rows  (default)
+     .tbl-pp[data-density="comfy"]    44px rows
+     .tbl-pp[data-bordered]           full border around + between cells
+     .tbl-pp[data-zebra]              alternating row tints
+     .tbl-pp[data-sticky-header]      thead stays put on scroll
+
+     th[data-sortable]                shows sort affordance
+     th[aria-sort="ascending|descending"]  active sort indicator
+
+     .tbl-cell-num                    right-aligned, tabular-nums
+     .tbl-cell-actions                right-aligned, no wrap, padding-right tight
+     .tbl-cell-truncate               ellipsis with title fallback
+     tr[data-selected]                row selection tint
+     tr[data-state="loading"]         skeleton rows
+     .tbl-empty                       full-width empty state cell wrapper
+   ========================================================================== */
+
+.tbl-pp {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  color: var(--fg, hsl(220 18% 11%));
+  background: var(--bg, white);
+}
+
+.tbl-pp thead th {
+  position: relative;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, hsl(220 8% 46%));
+  background: hsl(220 14% 97%);
+  border-bottom: 1px solid var(--border, hsl(220 14% 90%));
+  white-space: nowrap;
+  user-select: none;
+}
+
+.tbl-pp tbody td {
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border, hsl(220 14% 90%));
+  vertical-align: middle;
+  height: 36px; /* cozy default — overridden by data-density */
+}
+
+.tbl-pp tbody tr:last-child td { border-bottom: 0; }
+
+/* hover */
+.tbl-pp tbody tr {
+  transition: background-color 60ms ease;
+}
+.tbl-pp tbody tr:hover { background: hsl(220 14% 96%); cursor: default; }
+.tbl-pp tbody tr[data-clickable]:hover { cursor: pointer; }
+
+/* selection */
+.tbl-pp tbody tr[data-selected] {
+  background: hsl(217 75% 96%);
+}
+.tbl-pp tbody tr[data-selected]:hover { background: hsl(217 75% 93%); }
+
+/* density */
+.tbl-pp[data-density="compact"] tbody td { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.tbl-pp[data-density="compact"] thead th  { padding: 6px 10px; }
+.tbl-pp[data-density="comfy"]   tbody td  { height: 44px; }
+
+/* bordered */
+.tbl-pp[data-bordered] {
+  border: 1px solid var(--border, hsl(220 14% 90%));
+  border-radius: 6px;
+  overflow: hidden;
+}
+.tbl-pp[data-bordered] thead th + th,
+.tbl-pp[data-bordered] tbody td + td {
+  border-left: 1px solid var(--border, hsl(220 14% 90%));
+}
+
+/* zebra */
+.tbl-pp[data-zebra] tbody tr:nth-child(odd) td { background: hsl(220 14% 98.5%); }
+.tbl-pp[data-zebra] tbody tr:hover td          { background: hsl(220 14% 96%); }
+.tbl-pp[data-zebra] tbody tr[data-selected] td { background: hsl(217 75% 96%); }
+
+/* sticky header — needs a scroll container around the table */
+.tbl-pp[data-sticky-header] thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* sortable headers */
+.tbl-pp th[data-sortable] {
+  cursor: pointer;
+  padding-right: 28px;
+}
+.tbl-pp th[data-sortable]:hover { color: var(--fg); background: hsl(220 14% 94%); }
+.tbl-pp th[data-sortable]::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px; height: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  rotate: -135deg;
+  opacity: 0.3;
+  transition: opacity 80ms, rotate 80ms;
+}
+.tbl-pp th[aria-sort="ascending"]::after  { rotate: -135deg; opacity: 1; color: var(--primary, hsl(217 75% 44%)); }
+.tbl-pp th[aria-sort="descending"]::after { rotate: 45deg;   opacity: 1; color: var(--primary, hsl(217 75% 44%)); }
+
+/* checkbox column — first column, no padding excess */
+.tbl-pp th:first-child:has(input[type="checkbox"]),
+.tbl-pp td:first-child:has(input[type="checkbox"]) {
+  width: 36px;
+  padding-left: 12px;
+  padding-right: 0;
+  text-align: center;
+}
+
+/* cell helpers */
+.tbl-cell-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+.tbl-cell-actions {
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+  padding-right: 8px !important;
+}
+.tbl-cell-truncate {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tbl-cell-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--muted, hsl(220 8% 46%));
+}
+
+/* loading skeleton rows */
+.tbl-pp tr[data-state="loading"] td {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+.tbl-pp tr[data-state="loading"] td::before {
+  content: '';
+  position: absolute;
+  left: 12px; right: 12px;
+  top: 50%; transform: translateY(-50%);
+  height: 9px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    hsl(220 14% 92%) 0%,
+    hsl(220 14% 96%) 50%,
+    hsl(220 14% 92%) 100%
+  );
+  background-size: 200% 100%;
+  animation: tbl-pp-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes tbl-pp-shimmer {
+  0%   { background-position: -100% 0; }
+  100% { background-position:  100% 0; }
+}
+
+/* empty state */
+.tbl-empty {
+  padding: 40px 20px !important;
+  text-align: center;
+  color: var(--muted, hsl(220 8% 46%));
+  font-size: 13px;
+  height: auto !important;
+  background: hsl(30 15% 99%);
+}
+.tbl-empty strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg, hsl(220 18% 11%));
+  margin-bottom: 4px;
+}
+
+/* footer / pagination row — no hover, no border */
+.tbl-pp tfoot td {
+  padding: 10px 12px;
+  background: hsl(220 14% 98%);
+  border-top: 1px solid var(--border, hsl(220 14% 90%));
+  font-size: 12px;
+  color: var(--muted, hsl(220 8% 46%));
+}
+
+/* scroll container helper — wrap your <table> in this for sticky-header + h-scroll */
+.tbl-pp-scroll {
+  overflow: auto;
+  border: 1px solid var(--border, hsl(220 14% 90%));
+  border-radius: 6px;
+  background: var(--bg, white);
+}
+.tbl-pp-scroll > .tbl-pp { border: 0; }
+
+/* ── Dark mode ─────────────────────────────────────────────────────────── */
+.dark .tbl-pp {
+  background: hsl(220 13% 11%);
+  color: hsl(220 14% 92%);
+}
+.dark .tbl-pp thead th {
+  background: hsl(220 13% 14%);
+  color: hsl(220 8% 60%);
+  border-bottom-color: hsl(220 12% 22%);
+}
+.dark .tbl-pp tbody td { border-bottom-color: hsl(220 12% 18%); }
+.dark .tbl-pp tbody tr:hover { background: hsl(220 13% 16%); }
+.dark .tbl-pp tbody tr[data-selected] { background: hsl(217 75% 18%); }
+.dark .tbl-pp tbody tr[data-selected]:hover { background: hsl(217 75% 22%); }
+.dark .tbl-pp[data-zebra] tbody tr:nth-child(odd) td { background: hsl(220 13% 13%); }
+.dark .tbl-pp[data-zebra] tbody tr:hover td          { background: hsl(220 13% 16%); }
+.dark .tbl-pp[data-bordered],
+.dark .tbl-pp-scroll {
+  border-color: hsl(220 12% 22%);
+}
+.dark .tbl-pp[data-bordered] thead th + th,
+.dark .tbl-pp[data-bordered] tbody td + td {
+  border-left-color: hsl(220 12% 22%);
+}
+.dark .tbl-pp th[data-sortable]:hover { background: hsl(220 13% 18%); }
+.dark .tbl-empty { background: hsl(220 13% 12%); }
+.dark .tbl-empty strong { color: hsl(220 14% 92%); }
+.dark .tbl-pp tfoot td {
+  background: hsl(220 13% 13%);
+  border-top-color: hsl(220 12% 22%);
+}
+.dark .tbl-pp tr[data-state="loading"] td::before {
+  background: linear-gradient(
+    90deg,
+    hsl(220 13% 18%) 0%,
+    hsl(220 13% 22%) 50%,
+    hsl(220 13% 18%) 100%
+  );
+  background-size: 200% 100%;
+}

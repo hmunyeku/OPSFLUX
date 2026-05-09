@@ -1238,12 +1238,16 @@ export function TiersPage() {
   }, [])
 
   // ── Entreprises columns ──
+  // Order matches the Pajamas++ design canvas:
+  //   CODE · NOM · TYPE · PAYS · SIRET · INDUSTRIE · STATUT · CRÉÉ LE
+  // (TAGS would sit between SIRET and STATUT but requires a polymorphic
+  // bulk fetch — added in a follow-up commit.)
   const tierColumns = useMemo<ColumnDef<Tier, unknown>[]>(() => [
     {
       accessorKey: 'code',
       header: t('common.code'),
-      size: 100,
-      cell: ({ row }) => <span className="font-medium text-foreground">{row.original.code}</span>,
+      size: 110,
+      cell: ({ row }) => <span className="font-mono text-[11px] text-foreground">{row.original.code}</span>,
     },
     {
       accessorKey: 'name',
@@ -1265,6 +1269,22 @@ export function TiersPage() {
         <span className="chip">
           {tierTypeLabels[row.original.type] ?? row.original.type}
         </span>
+      ) : <span className="text-muted-foreground">--</span>,
+    },
+    {
+      accessorKey: 'country',
+      header: t('common.country', 'Pays'),
+      size: 70,
+      cell: ({ row }) => row.original.country ? (
+        <span className="font-mono text-[11px] uppercase text-muted-foreground">{row.original.country}</span>
+      ) : <span className="text-muted-foreground">--</span>,
+    },
+    {
+      accessorKey: 'registration_number',
+      header: 'SIRET',
+      size: 130,
+      cell: ({ row }) => row.original.registration_number ? (
+        <span className="font-mono text-[11px] text-muted-foreground">{row.original.registration_number}</span>
       ) : <span className="text-muted-foreground">--</span>,
     },
     {

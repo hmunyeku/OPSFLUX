@@ -41,6 +41,7 @@ import { DetachedPanelsPortal, renderRegisteredPanel } from './DetachedPanelRend
 // from the topbar Bell on any page.
 import '@/pages/notifications/NotificationsPanelRegister'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
+import { useShellMode, useApplyShellMode } from '@/hooks/useShellMode'
 import { HelpProvider, HelpPanel } from './HelpSystem'
 import { AssistantPanel } from './AssistantPanel'
 import { installConsoleIntercept } from '@/lib/consoleCapture'
@@ -97,6 +98,14 @@ const GLOBAL_PANEL_MODULES = new Set(['notifications'])
 
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation()
+  // Resolve current module from the first URL segment. Drives the
+  // Atlas/Operator shell-mode (Phase 1C). Routes outside MODULE_DEFAULTS
+  // (home, settings root, etc.) silently fall back to 'atlas'.
+  const moduleSlug = location.pathname.split('/').filter(Boolean)[0]
+  const { mode: shellMode } = useShellMode(moduleSlug)
+  const shellRootRef = useRef<HTMLDivElement>(null)
+  useApplyShellMode(shellMode, shellRootRef)
+
   const {
     sidebarExpanded,
     setSidebarExpanded,
@@ -211,7 +220,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       refresh / route change into a protected area). Disabled by
       prefers-reduced-motion via the `motion-safe:` Tailwind prefix.
     */}
-    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+    <div ref={shellRootRef} className="flex h-dvh flex-col overflow-hidden bg-background">
       {/* ── Zone 1: Topbar ── */}
       <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2 motion-safe:duration-300">
         <Topbar onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />

@@ -38,6 +38,7 @@ import { QuickCreateModal } from '@/components/layout/QuickCreateModal'
 import { TopbarSearchSuggestions } from '@/components/layout/TopbarSearchSuggestions'
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { ShellModeToggle } from '@/components/shell/ShellModeToggle'
 import { ROUTES } from '@/lib/routes'
 
 interface TopbarProps {
@@ -416,6 +417,13 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
           <div className="mx-1 h-4 w-px bg-border hidden lg:block" />
           <EntitySwitcher />
+        </div>
+
+        {/* ── Shell-mode toggle (Phase 1C) — Atlas / Operator per module.
+             Renders nothing for routes outside MODULE_DEFAULTS (home,
+             settings root, etc.). Hidden on < lg to keep mobile clean. ── */}
+        <div className="hidden lg:flex shrink-0">
+          <ShellModeToggle moduleSlug={pathname.split('/').filter(Boolean)[0]} />
         </div>
 
         {/* ── Center: Contextual search input (hidden on < sm to free space) ── */}

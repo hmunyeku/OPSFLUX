@@ -480,7 +480,7 @@ function CreateTierPanel() {
                 <button
                   type="button"
                   onClick={addContactDraft}
-                  className="gl-button-sm gl-button-confirm inline-flex items-center gap-1"
+                  className="btn btn-primary btn-sm inline-flex items-center gap-1"
                 >
                   <Plus size={12} /> {t('common.add', 'Ajouter')}
                 </button>
@@ -726,7 +726,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                 <ReadOnlyRow
                   label={t('common.status')}
                   value={
-                    <span className={cn('gl-badge', tier.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                    <span className={cn('chip', tier.active && 'chip-success')}>
                       {tier.active ? t('common.active') : t('common.archived')}
                     </span>
                   }
@@ -830,7 +830,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             <span className="flex items-center gap-2">
               {t('tiers.ui.blocking_section')}
               {tier.is_blocked && (
-                <span className="gl-badge gl-badge-danger text-[10px]">
+                <span className="chip chip-danger text-[10px]">
                   <ShieldBan size={10} className="mr-0.5" />{t('tiers.ui.blocked')}
                 </span>
               )}
@@ -847,14 +847,14 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
               {tier.is_blocked ? (
                 <button
                   onClick={() => setShowBlockForm(!showBlockForm)}
-                  className="gl-button-sm gl-button-default"
+                  className="btn btn-secondary btn-sm"
                 >
                   <ShieldCheck size={12} />{t('tiers.ui.unblock')}
                 </button>
               ) : (
                 <button
                   onClick={() => setShowBlockForm(!showBlockForm)}
-                  className="gl-button-sm gl-button-danger"
+                  className="btn btn-danger btn-sm"
                 >
                   <ShieldBan size={12} />{t('tiers.ui.block')}
                 </button>
@@ -895,7 +895,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                       { onSuccess: () => { setShowBlockForm(false); setBlockReason('') } }
                     )
                   }}
-                  className="gl-button-sm gl-button-confirm"
+                  className="btn btn-primary btn-sm"
                 >
                   {tier.is_blocked ? t('tiers.ui.unblock') : t('tiers.ui.block')}
                 </button>
@@ -918,7 +918,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                       <span className={cn('font-medium', b.action === 'block' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400')}>
                         {b.action === 'block' ? t('tiers.ui.blocked') : t('tiers.ui.unblocked')}
                       </span>
-                      <span className="gl-badge gl-badge-neutral text-[9px]">{b.block_type}</span>
+                      <span className="chip text-[9px]">{b.block_type}</span>
                     </div>
                     <p className="text-muted-foreground truncate">{b.reason}</p>
                     <p className="text-[10px] text-muted-foreground/60">
@@ -979,7 +979,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                           { onSuccess: () => { setShowRefForm(false); setRefCode('') } }
                         )
                       }}
-                      className="gl-button-sm gl-button-confirm"
+                      className="btn btn-primary btn-sm"
                     >
                       {createExternalRef.isPending ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
                       {t('common.add')}
@@ -996,7 +996,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                 <div key={ref.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors group">
                   <div className="flex items-center gap-2 min-w-0">
                     <Link2 size={11} className="text-muted-foreground shrink-0" />
-                    <span className="gl-badge gl-badge-neutral text-[10px] shrink-0">{ref.system}</span>
+                    <span className="chip text-[10px] shrink-0">{ref.system}</span>
                     <span className="text-sm font-mono text-foreground truncate">{ref.code}</span>
                     {ref.label && <span className="text-[10px] text-muted-foreground truncate">({ref.label})</span>}
                   </div>
@@ -1035,7 +1035,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
               {relatedProjects.items.map((p) => (
                 <div key={p.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors">
                   <CrossModuleLink module="projets" id={p.id} label={`${p.code} — ${p.name}`} mode="navigate" />
-                  <span className={cn('gl-badge text-[10px]', p.status === 'active' ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                  <span className={cn('chip text-[10px]', p.status === 'active' && 'chip-success')}>
                     {p.status}
                   </span>
                 </div>
@@ -1262,7 +1262,7 @@ export function TiersPage() {
       header: t('common.type'),
       size: 110,
       cell: ({ row }) => row.original.type ? (
-        <span className="gl-badge gl-badge-neutral">
+        <span className="chip">
           {tierTypeLabels[row.original.type] ?? row.original.type}
         </span>
       ) : <span className="text-muted-foreground">--</span>,
@@ -1315,11 +1315,11 @@ export function TiersPage() {
       size: 110,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <span className={cn('gl-badge', row.original.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+          <span className={cn('chip', row.original.active && 'chip-success')}>
             {row.original.active ? t('common.active') : t('common.archived')}
           </span>
           {row.original.is_blocked && (
-            <span className="gl-badge gl-badge-danger text-[9px]">
+            <span className="chip chip-danger text-[9px]">
               <ShieldBan size={9} className="mr-0.5" />{t('tiers.ui.blocked')}
             </span>
           )}

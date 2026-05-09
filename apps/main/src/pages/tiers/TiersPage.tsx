@@ -714,24 +714,24 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             .kpi-pp class loaded by Phase 2C (cards-pp.css). */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <div className="kpi-pp">
-            <span className="kpi-pp-label">Projets actifs</span>
-            <span className="kpi-pp-value">{relatedProjects?.items?.length ?? 0}</span>
-            <span className="kpi-pp-meta">avec ce tiers</span>
+            <span className="kpi-pp__label">Projets actifs</span>
+            <span className="kpi-pp__value">{relatedProjects?.items?.length ?? 0}</span>
+            <span className="kpi-pp__caption">avec ce tiers</span>
           </div>
           <div className="kpi-pp">
-            <span className="kpi-pp-label">Contacts</span>
-            <span className="kpi-pp-value">{contactList.length}</span>
-            <span className="kpi-pp-meta">employés actifs</span>
+            <span className="kpi-pp__label">Contacts</span>
+            <span className="kpi-pp__value">{contactList.length}</span>
+            <span className="kpi-pp__caption">employés actifs</span>
           </div>
           <div className="kpi-pp">
-            <span className="kpi-pp-label">Identifiants</span>
-            <span className="kpi-pp-value">{identifiers?.length ?? 0}</span>
-            <span className="kpi-pp-meta">SIRET, NIU, RCCM…</span>
+            <span className="kpi-pp__label">Identifiants</span>
+            <span className="kpi-pp__value">{identifiers?.length ?? 0}</span>
+            <span className="kpi-pp__caption">SIRET, NIU, RCCM…</span>
           </div>
           <div className="kpi-pp">
-            <span className="kpi-pp-label">Documents</span>
-            <span className="kpi-pp-value">{attachments?.length ?? 0}</span>
-            <span className="kpi-pp-meta">fichiers attachés</span>
+            <span className="kpi-pp__label">Documents</span>
+            <span className="kpi-pp__value">{attachments?.length ?? 0}</span>
+            <span className="kpi-pp__caption">fichiers attachés</span>
           </div>
         </div>
 

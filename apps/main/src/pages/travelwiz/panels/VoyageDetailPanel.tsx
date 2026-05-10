@@ -5,7 +5,7 @@ import i18n from '@/lib/i18n'
 const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import {
   Plane, Package, FileText, Users, MapPin, Weight,
-  Loader2, Trash2, CheckCircle2,
+  Loader2, Trash2, CheckCircle2, Plus, X,
   Info, BookOpen, Paperclip,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -31,6 +31,8 @@ import {
   useVoyagePaxManifestPdf,
   useVoyageCargoManifestPdf,
   useVoyageStops,
+  useCreateVoyageStop,
+  useDeleteVoyageStop,
   useVoyageManifests,
   useVoyageCapacity,
   useVoyageEvents,
@@ -189,6 +191,8 @@ export function VoyageDetailPanel({ id }: { id: string }) {
   const canDelete = hasPermission('travelwiz.voyage.delete')
   const closeTrip = useCloseTrip()
   const { data: stops } = useVoyageStops(id)
+  const createStop = useCreateVoyageStop()
+  const deleteStop = useDeleteVoyageStop()
   const { data: manifests } = useVoyageManifests(id)
   const { data: capacity } = useVoyageCapacity(id)
   const { data: events } = useVoyageEvents(id)
@@ -209,6 +213,51 @@ export function VoyageDetailPanel({ id }: { id: string }) {
   const [cargoReportExportOpen, setCargoReportExportOpen] = useState(false)
   const [editForm, setEditForm] = useState<VoyageUpdate>({})
   const [detailTab, setDetailTab] = useState<'informations' | 'manifestes' | 'cargo' | 'journal' | 'documents'>('informations')
+
+  // SUP-0033 fix: inline form pour ajouter une étape (= destination ou
+  // escale intermédiaire) directement depuis la fiche voyage. Avant, il
+  // fallait passer par une autre UI (ou pas d'UI du tout) — la fiche
+  // affichait juste 'D —' et personne ne savait quoi faire.
+  const [addStopOpen, setAddStopOpen] = useState(false)
+  const [stopAssetId, setStopAssetId] = useState<string | null>(null)
+  const [stopArrivalAt, setStopArrivalAt] = useState<string>('')
+
+  const handleAddStop = useCallback(async () => {
+    if (!stopAssetId) {
+      toast({ title: 'Sélectionnez un site/installation pour la destination', variant: 'warning' })
+      return
+    }
+    try {
+      const nextOrder = (stops?.length ?? 0) + 1
+      await createStop.mutateAsync({
+        voyageId: id,
+        payload: {
+          asset_id: stopAssetId,
+          stop_order: nextOrder,
+          scheduled_arrival: stopArrivalAt ? new Date(stopArrivalAt).toISOString() : null,
+        },
+      })
+      toast({ title: 'Étape ajoutée à la route', variant: 'success' })
+      setAddStopOpen(false)
+      setStopAssetId(null)
+      setStopArrivalAt('')
+    } catch (err) {
+      toast({
+        title: 'Impossible d’ajouter l’étape',
+        description: (err as Error).message,
+        variant: 'error',
+      })
+    }
+  }, [stopAssetId, stopArrivalAt, stops, createStop, id, toast])
+
+  const handleDeleteStop = useCallback(async (stopId: string) => {
+    try {
+      await deleteStop.mutateAsync({ voyageId: id, stopId })
+      toast({ title: 'Étape supprimée', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'Suppression impossible', description: (err as Error).message, variant: 'error' })
+    }
+  }, [deleteStop, id, toast])
 
   const startEdit = useCallback(() => {
     if (!voyage) return
@@ -432,25 +481,104 @@ export function VoyageDetailPanel({ id }: { id: string }) {
                 </DetailFieldGrid>
               </FormSection>
 
-              <FormSection title={`Route (${(stops?.length ?? 0) + 2} points)`} collapsible defaultExpanded>
+              <FormSection title={`Route (${(stops?.length ?? 0) + 1} point${(stops?.length ?? 0) + 1 > 1 ? 's' : ''})`} collapsible defaultExpanded>
                 <div className="space-y-1.5">
+                  {/* Origin (toujours présent — vient de departure_base) */}
                   <div className="flex items-center gap-2 p-1.5 rounded bg-primary/5 border border-primary/10">
                     <div className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">O</div>
                     <span className="text-xs font-medium text-foreground">{departureLabel}</span>
                     <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(voyage.scheduled_departure)}</span>
                   </div>
-                  {stops?.map((stop, idx) => (
-                    <div key={stop.id} className="flex items-center gap-2 p-1.5 rounded border border-border/60">
-                      <div className="w-5 h-5 rounded-full bg-muted text-muted-foreground text-[10px] font-bold flex items-center justify-center shrink-0">{idx + 1}</div>
-                      <span className="text-xs text-foreground">{stop.location}</span>
-                      <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(stop.arrival_at)}</span>
+                  {/* Étapes/destinations (VoyageStops) — éditables individuellement */}
+                  {stops?.map((stop, idx) => {
+                    const isLast = idx === (stops.length - 1)
+                    return (
+                      <div key={stop.id} className={cn(
+                        'flex items-center gap-2 p-1.5 rounded border group',
+                        isLast ? 'bg-green-500/5 border-green-500/20' : 'bg-muted/40 border-border/60',
+                      )}>
+                        <div className={cn(
+                          'w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0',
+                          isLast ? 'bg-green-500/20 text-green-600' : 'bg-muted text-muted-foreground',
+                        )}>{isLast ? 'D' : (idx + 1)}</div>
+                        <span className="text-xs font-medium text-foreground flex-1 min-w-0 truncate">{stop.asset_name ?? stop.location ?? '—'}</span>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">{stop.scheduled_arrival ? formatDateTime(stop.scheduled_arrival) : '—'}</span>
+                        {canUpdate && voyage.status !== 'closed' && voyage.status !== 'cancelled' && (
+                          <button
+                            onClick={() => handleDeleteStop(stop.id)}
+                            className="p-0.5 rounded hover:bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            title="Retirer cette étape de la route"
+                          >
+                            <X size={11} />
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {/* Si pas de destination encore définie, afficher un placeholder
+                      explicite (au lieu de juste "—"). */}
+                  {(stops?.length ?? 0) === 0 && (
+                    <div className="flex items-center gap-2 p-1.5 rounded border border-dashed border-border bg-background/50 text-muted-foreground italic">
+                      <div className="w-5 h-5 rounded-full bg-muted/30 text-muted-foreground/60 text-[10px] font-bold flex items-center justify-center shrink-0">?</div>
+                      <span className="text-xs flex-1">Pas de destination définie</span>
                     </div>
-                  ))}
-                  <div className="flex items-center gap-2 p-1.5 rounded bg-green-500/5 border border-green-500/10">
-                    <div className="w-5 h-5 rounded-full bg-green-500/20 text-green-600 text-[10px] font-bold flex items-center justify-center shrink-0">D</div>
-                    <span className="text-xs font-medium text-foreground">{destinationLabel}</span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(voyage.scheduled_arrival)}</span>
-                  </div>
+                  )}
+                  {/* SUP-0033 fix: bouton Ajouter une étape directement sur la
+                      fiche. Bastien attendait pouvoir mettre la destination
+                      dès la création — au moins maintenant on peut l'ajouter
+                      après en 2 clics depuis la fiche détail. */}
+                  {canUpdate && voyage.status !== 'closed' && voyage.status !== 'cancelled' && (
+                    !addStopOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => setAddStopOpen(true)}
+                        className="btn-sm btn-secondary w-full justify-center mt-1.5"
+                      >
+                        <Plus size={12} /> Ajouter une étape ({(stops?.length ?? 0) === 0 ? 'destination' : 'escale'})
+                      </button>
+                    ) : (
+                      <div className="rounded-md border border-primary/40 bg-primary/[0.03] p-2.5 space-y-2 mt-1.5">
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                          <Plus size={12} /> Nouvelle étape #{(stops?.length ?? 0) + 1}
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Site / installation</label>
+                          <AssetPicker
+                            value={stopAssetId}
+                            onChange={(v) => setStopAssetId(v)}
+                            placeholder="Sélectionner la destination..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Arrivée prévue (optionnel)</label>
+                          <input
+                            type="datetime-local"
+                            value={stopArrivalAt}
+                            onChange={(e) => setStopArrivalAt(e.target.value)}
+                            className={panelInputClass}
+                          />
+                        </div>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => { setAddStopOpen(false); setStopAssetId(null); setStopArrivalAt('') }}
+                            className="btn-sm btn-secondary"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleAddStop}
+                            disabled={!stopAssetId || createStop.isPending}
+                            className="btn-sm btn-primary"
+                          >
+                            {createStop.isPending ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+                            Ajouter
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  )}
                 </div>
               </FormSection>
             </>

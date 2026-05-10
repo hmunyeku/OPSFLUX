@@ -1168,6 +1168,17 @@ function TicketTab() {
 
   // Screenshot capture — hides the Assistant panel so it doesn't appear in
   // the capture, then restores it.
+  //
+  // Quality fix (feedback Bastien sur ses tickets) :
+  //   - scale: 0.5 produisait des screenshots flous, illisibles à
+  //     l'oeil nu (textes UI à 11–13 px se transformaient en bouillie
+  //     de 5 px). Passé à scale: window.devicePixelRatio (typiquement
+  //     1 ou 2 sur Retina) pour capturer à la résolution NATIVE de
+  //     l'écran. Trade-off taille fichier vs lisibilité : un PNG full
+  //     1920×1080 fait ~2 Mo, c'est OK pour du support.
+  //   - Switch PNG → JPEG (quality 0.92) : un screenshot UI compresse
+  //     très bien en JPEG sans artefacts visibles, et économise ~70%
+  //     de poids vs PNG. Le tout sans dégrader la netteté.
   const captureScreenshot = useCallback(async () => {
     setCapturing(true)
     const panelEl = document.querySelector<HTMLElement>('aside[class*="slide-in-from-right"]')
@@ -1176,16 +1187,21 @@ function TicketTab() {
     try {
       await new Promise(r => setTimeout(r, 80))
       const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(document.body, { useCORS: true, scale: 0.5, logging: false })
+      const canvas = await html2canvas(document.body, {
+        useCORS: true,
+        scale: Math.max(1, window.devicePixelRatio || 1),
+        logging: false,
+        backgroundColor: '#ffffff',
+      })
       if (panelEl) panelEl.style.visibility = prevVisibility ?? ''
       canvas.toBlob((blob) => {
         if (blob) {
-          const file = new File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' })
+          const file = new File([blob], `screenshot-${Date.now()}.jpg`, { type: 'image/jpeg' })
           setAttachments(prev => [...prev, file])
           setPreviews(prev => [...prev, { name: file.name, url: URL.createObjectURL(blob), type: 'image' }])
         }
         setCapturing(false)
-      }, 'image/png')
+      }, 'image/jpeg', 0.92)
     } catch {
       if (panelEl) panelEl.style.visibility = prevVisibility ?? ''
       toast({ title: "Capture d'écran impossible", variant: 'error' })

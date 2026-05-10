@@ -2210,7 +2210,7 @@ def _user_to_pax_read(u: User, company_name: str | None = None) -> PaxProfileRea
 def _contact_to_pax_read(
     c: TierContact,
     company_name: str | None = None,
-    entity_id: PyUUID | None = None,
+    entity_id: UUID | None = None,
 ) -> PaxProfileRead:
     """Build a PaxProfileRead from a TierContact row.
 

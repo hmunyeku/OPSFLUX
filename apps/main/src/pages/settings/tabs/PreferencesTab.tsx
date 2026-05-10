@@ -51,24 +51,6 @@ export function PreferencesTab() {
 
   return (
     <>
-      <CollapsibleSection
-        id="ui-scale"
-        title={t('settings.ui_scale')}
-        description={t('settings.ui_scale_description')}
-        storageKey="settings.preferences.collapse"
-      >
-        <UIScaleSection />
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        id="datatable"
-        title={t('settings.tableaux_de_donnees')}
-        description={t('settings.nombre_de_lignes_par_page_dans_les_table')}
-        storageKey="settings.preferences.collapse"
-      >
-        <PageSizeSection />
-      </CollapsibleSection>
-
       <CollapsibleSection id="theme" title="Mode" description="Choisissez un mode d'affichage." storageKey="settings.preferences.collapse">
         <div className="mt-2 space-y-2">
           {themes.map(({ value, label, icon: Icon }) => (
@@ -98,8 +80,8 @@ export function PreferencesTab() {
 
       <CollapsibleSection
         id="datatable"
-        title="Tableaux de données"
-        description="Nombre de lignes par page dans les tableaux."
+        title={t('settings.tableaux_de_donnees')}
+        description={t('settings.nombre_de_lignes_par_page_dans_les_table')}
         storageKey="settings.preferences.collapse"
       >
         <PageSizeSection />

@@ -248,6 +248,7 @@
     "archive": "Archiver",
     "undo": "Annuler (Ctrl+Z)",
     "no_data": "Aucune donnée",
+    "no_data_available": "Aucune donnée à afficher",
     "no_data_description": "Aucune donnée à afficher.",
     "search_placeholder": "Rechercher...",
     "loading_diagram": "Chargement du diagramme...",
@@ -1817,7 +1818,23 @@
     "afficher_les_vecteurs_de_transport": "Afficher les vecteurs de transport",
     "supporte_le_markdown_titres_listes_gras": "Supporte le Markdown (titres, listes, gras, italique)",
     "description_du_widget": "Description du widget...",
-    "couleur_de_fond": "Couleur de fond"
+    "couleur_de_fond": "Couleur de fond",
+    "empty": {
+      "chart_title": "Aucune donnée à afficher",
+      "chart_hint": "Les données apparaîtront ici dès qu'elles seront disponibles",
+      "table_title": "Aucune entrée",
+      "table_hint": "Aucune ligne ne correspond aux filtres actuels",
+      "map_title": "Aucune position",
+      "map_hint": "Aucun point géolocalisé pour le moment",
+      "text_title": "Aucun contenu",
+      "quick_access_title": "Aucun raccourci configuré",
+      "quick_access_hint": "Configurez les raccourcis dans les paramètres du widget",
+      "group_title": "Aucun KPI configuré",
+      "group_hint": "Ajoutez des KPIs enfants dans les paramètres du widget",
+      "gantt_title": "Aucune activité planifiée",
+      "kpi_calm": "Tout est calme",
+      "type_unknown": "Type de widget inconnu"
+    }
   },
   "workflow": {
     "title": "Workflows",

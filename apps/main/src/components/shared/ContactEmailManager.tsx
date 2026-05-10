@@ -98,7 +98,12 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
       )}
 
       {!isLoading && emails.length > 0 && (
-        <div className="space-y-1">
+        // SUP-0019 fix-3: ajouter min-w-0 sur le wrapper pour garantir
+        // que le flex enfant peut tronquer son email — sans cela le
+        // container prend la largeur du contenu (longue chaîne email)
+        // et le truncate ne kick jamais en, ce qui laisse l'email
+        // déborder par-dessus son label.
+        <div className="space-y-1 min-w-0">
           {emails.map((ce) => {
             if (editingId === ce.id) {
               return (

@@ -64,12 +64,16 @@ const EMPTY_CONTACT_FORM: TierContactCreate = {
 // Local copy — same one lives in TiersPage. Duplicated to keep
 // this file free of circular imports.
 function SubSectionLabel({ icon: Icon, label, count }: { icon: React.ElementType; label: string; count: number }) {
+  // Bastien feedback: section "Coordonnées de l'employé" trop touffue
+  // (3 sub-sections x 12px de padding = 36px de blanc en plus). Réduit
+  // pt-2 pb-1 → pt-3 pb-1.5 sur la 1ère pour donner de l'air sans
+  // entasser le tout, mais tighter entre items dans une section.
   return (
-    <div className="flex items-center gap-1.5 pt-2 pb-1">
+    <div className="flex items-center gap-1.5 pt-3 pb-1.5 first:pt-0">
       <Icon size={11} className="text-muted-foreground" />
-      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
       {count > 0 && (
-        <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-1.5 py-px font-semibold">{count}</span>
+        <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-1.5 py-px font-semibold tabular-nums">{count}</span>
       )}
     </div>
   )

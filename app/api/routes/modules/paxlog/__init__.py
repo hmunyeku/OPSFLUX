@@ -2208,7 +2208,17 @@ def _user_to_pax_read(u: User, company_name: str | None = None) -> PaxProfileRea
 
 
 def _contact_to_pax_read(c: TierContact, company_name: str | None = None) -> PaxProfileRead:
-    """Build a PaxProfileRead from a TierContact row."""
+    """Build a PaxProfileRead from a TierContact row.
+
+    Bug fix (SUP-0029): the previous code accessed `c.linked_user.email`
+    and `c.linked_user.active`, but TierContact has no `linked_user`
+    attribute — the relationship is called `promoted_user`. This
+    triggered an AttributeError → 500 every time a "contact"-source
+    PAX profile was opened. The model already exposes
+    `linked_user_email` / `linked_user_active` properties that read
+    `promoted_user` via instance state (and return None safely when
+    the relationship isn't loaded), so just use those.
+    """
     return PaxProfileRead(
         id=c.id,
         pax_source="contact",
@@ -2225,8 +2235,8 @@ def _contact_to_pax_read(c: TierContact, company_name: str | None = None) -> Pax
         photo_url=c.photo_url,
         email=c.email,
         linked_user_id=c.linked_user_id,
-        linked_user_email=c.linked_user.email if c.linked_user else None,
-        linked_user_active=c.linked_user.active if c.linked_user else None,
+        linked_user_email=c.linked_user_email,
+        linked_user_active=c.linked_user_active,
         active=c.active,
         created_at=c.created_at,
         updated_at=c.updated_at,

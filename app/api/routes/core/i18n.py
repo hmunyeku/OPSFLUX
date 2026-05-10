@@ -255,7 +255,7 @@ async def admin_upsert_message(
         updated_by=current_user.id,
     )
     stmt = stmt.on_conflict_do_update(
-        index_elements=["key", "language_code"],
+        index_elements=["key", "language_code", "namespace"],
         set_={
             "value": stmt.excluded.value,
             "notes": stmt.excluded.notes,
@@ -386,7 +386,7 @@ async def admin_bulk_upsert(
             updated_by=current_user.id,
         )
         stmt = stmt.on_conflict_do_update(
-            index_elements=["key", "language_code"],
+            index_elements=["key", "language_code", "namespace"],
             set_={
                 "value": stmt.excluded.value,
                 "notes": stmt.excluded.notes,

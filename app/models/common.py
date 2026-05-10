@@ -2666,7 +2666,7 @@ class I18nMessage(TimestampMixin, Base):
     """
     __tablename__ = "i18n_messages"
     __table_args__ = (
-        Index("uq_i18n_message", "key", "language_code", unique=True),
+        Index("uq_i18n_message", "key", "language_code", "namespace", unique=True),
         Index("ix_i18n_message_namespace_lang", "namespace", "language_code"),
     )
 

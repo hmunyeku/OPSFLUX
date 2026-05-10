@@ -349,12 +349,20 @@ function SitesTab() {
     {
       accessorKey: 'site_type',
       header: t('common.type'),
-      cell: ({ row }) => <span className="chip">{row.original.site_type.replace(/_/g, ' ')}</span>,
+      // SUP-0002 fix: site_type peut être null pour des sites importés
+      // sans type défini. L'ancien code faisait .replace() direct ce qui
+      // crashait silencieusement la cellule (null.replace TypeError) →
+      // colonne TYPE vide pour ces rows. Affiche un dash explicite.
+      cell: ({ row }) => row.original.site_type
+        ? <span className="chip">{String(row.original.site_type).replace(/_/g, ' ')}</span>
+        : <span className="text-muted-foreground/40">—</span>,
     },
     {
       accessorKey: 'environment',
       header: t('assets.environment'),
-      cell: ({ row }) => <span className="chip chip-info">{row.original.environment}</span>,
+      cell: ({ row }) => row.original.environment
+        ? <span className="chip chip-info">{row.original.environment}</span>
+        : <span className="text-muted-foreground/40">—</span>,
     },
     {
       accessorKey: 'country',

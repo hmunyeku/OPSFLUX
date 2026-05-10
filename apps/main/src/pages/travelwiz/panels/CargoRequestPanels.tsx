@@ -7,6 +7,7 @@ import {
   FileText, Package, Plus, Loader2, MapPin, Pencil, Save,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { describeError } from '@/lib/errors'
 import {
   DynamicPanelShell, PanelContentLayout, FormSection, FormGrid, DynamicPanelField,
   PanelActionButton, DetailFieldGrid, ReadOnlyRow, SectionColumns,
@@ -310,7 +311,14 @@ export function CreateCargoPanel() {
       const createdCargo = await createCargo.mutateAsync(form)
       toast({ title: t('travelwiz.toast.parcel_created'), description: t('travelwiz.toast.parcel_created_description'), variant: 'success' })
       openDynamicPanel({ type: 'detail', module: panelModule, id: createdCargo.id, meta: { subtype: 'cargo' } })
-    } catch { toast({ title: t('travelwiz.toast.parcel_creation_error'), variant: 'error' }) }
+    } catch (err) {
+      // SUP-0018: surface backend error via describeError au lieu d'un toast générique.
+      toast({
+        title: t('travelwiz.toast.parcel_creation_error'),
+        description: describeError(err, t),
+        variant: 'error',
+      })
+    }
   }
 
   const createCargoActions = useMemo<ActionItem[]>(() => [

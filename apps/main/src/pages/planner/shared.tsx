@@ -44,7 +44,16 @@ export const PLANNER_CONFLICT_STATUS_VALUES = ['open', 'resolved', 'deferred'] a
 export const PLANNER_RESOLUTION_VALUES = ['approve_both', 'reschedule', 'reduce_pax', 'cancel', 'deferred'] as const
 export const PLANNER_DEP_TYPE_VALUES = ['FS', 'SS', 'FF', 'SF'] as const
 
-/** Extract a human error message from an axios error (FastAPI detail). */
+/** Extract a human error message from an axios error (FastAPI detail).
+ *
+ * SUP-0010 / SUP-0012 fix: l'ancienne version retournait undefined pour
+ * les erreurs structurées (StructuredHTTPException avec
+ * detail.code+message), parce qu'elle ne testait que `typeof detail
+ * === 'string'` et `Array.isArray(detail)`. Ajout du cas object pour
+ * matcher le détail structuré { code, message, params } et préférer
+ * le message backend (déjà en français côté backend pour les codes
+ * récents). Pour une localisation plus propre, les call sites peuvent
+ * utiliser describeError(err, t) à la place. */
 export function extractApiError(err: unknown): string | undefined {
   if (!err || typeof err !== 'object') return undefined
   const e = err as { response?: { data?: { detail?: unknown } }; message?: string }
@@ -53,6 +62,11 @@ export function extractApiError(err: unknown): string | undefined {
   if (Array.isArray(detail) && detail.length > 0) {
     // Pydantic validation errors
     return detail.map((d) => (typeof d === 'object' && d && 'msg' in d ? (d as { msg: string }).msg : String(d))).join(' · ')
+  }
+  if (detail && typeof detail === 'object') {
+    const d = detail as { code?: string; message?: string }
+    if (d.message) return d.message
+    if (d.code) return d.code
   }
   return e.message
 }

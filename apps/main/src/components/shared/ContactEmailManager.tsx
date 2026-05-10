@@ -133,7 +133,12 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                 <span className="text-[10px] font-medium text-muted-foreground uppercase w-16 shrink-0">
                   {EMAIL_LABELS.find((l) => l.value === ce.label)?.label ?? ce.label}
                 </span>
-                <span className="text-foreground text-xs truncate">
+                {/* SUP-0019 fix: l'email ne shrinkait pas — `truncate` seul
+                    sans `min-w-0` dans un flex container laisse l'email
+                    pousser ses voisins (étoile + chip Vérifier) qui finissent
+                    par se superposer. Ajout de flex-1 + min-w-0 pour qu'il
+                    soit le premier à céder de la largeur. */}
+                <span className="text-foreground text-xs truncate flex-1 min-w-0" title={ce.email}>
                   {ce.email}
                 </span>
                 {ce.is_default && (

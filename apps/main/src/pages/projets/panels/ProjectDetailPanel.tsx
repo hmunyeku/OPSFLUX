@@ -22,6 +22,7 @@ import { TabBar } from '@/components/ui/Tabs'
 import { Info, Paperclip, LayoutList, BarChart3, Search, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
+import { describeError } from '@/lib/errors'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
 import {
   DynamicPanelShell,
@@ -3074,7 +3075,15 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
   const handleSave = useCallback((field: string, value: string | number | null) => {
     updateProject.mutate({ id, payload: normalizeNames({ [field]: value }) }, {
-      onError: () => toast({ title: t('common.error'), variant: 'error' }),
+      // SUP-0011 fix: l'erreur générique 'Erreur' n'aidait pas Bastien à
+      // comprendre pourquoi son update budget échouait. describeError
+      // surface le code structuré (e.g. PERMISSION_DENIED_PROJECT_UPDATE,
+      // PROJECT_NOT_FOUND, validation Pydantic).
+      onError: (err) => toast({
+        title: t('common.error'),
+        description: describeError(err, t),
+        variant: 'error',
+      }),
     })
   }, [id, updateProject, toast, t])
 

@@ -771,8 +771,21 @@ function KPIWidget({
         </span>
       )}
 
-      {/* ── Middle: sparkline fills available space, capped at 128px ── */}
-      {sparklineData && sparklineData.length > 1 && (
+      {/* ── Middle: sparkline fills available space, capped at 128px ──
+          Si value=0 ET pas de details (cas des widgets "Alertes critiques"
+          quand il n'y a aucune alerte, etc.), on évite le sparkline flat
+          qui prend de la place pour rien et on affiche un état vide
+          élégant à la place — checkmark + message rassurant. */}
+      {numValue === 0 && !hasDetails && (rawSparkline === null || (rawSparkline?.every?.(v => v === 0) ?? false)) ? (
+        <div className="flex-1 min-h-0 flex items-center justify-center text-center px-2 py-1">
+          <div className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600/70 dark:text-emerald-400/70">
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l3.5 3.5L13 5" />
+            </svg>
+            <span>Tout est calme</span>
+          </div>
+        </div>
+      ) : sparklineData && sparklineData.length > 1 && (
         <div className="flex-1 min-h-0 max-h-28 py-1">
           <KPISparkline data={sparklineData} color={sparklineColor} />
         </div>

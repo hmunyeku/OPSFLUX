@@ -81,7 +81,19 @@
     "revision_signal_not_found": "Signal de révision introuvable.",
     "start_date_end_date_required_submit": "Les dates de début et de fin sont obligatoires pour soumettre.",
     "another_user_already_exists_email_use": "Un autre utilisateur utilise déjà cette adresse email.",
-    "ai_provider_not_configured_set_api": "Aucun fournisseur d'IA configuré. Configurez la clé API dans les paramètres."
+    "ai_provider_not_configured_set_api": "Aucun fournisseur d'IA configuré. Configurez la clé API dans les paramètres.",
+    "inactive_contacts_cannot_promoted": "Les contacts inactifs ne peuvent pas être promus en utilisateur. Réactivez le contact d'abord.",
+    "contact_email_required_promotion": "L'email du contact est obligatoire pour pouvoir le promouvoir en utilisateur.",
+    "contact_already_linked_user": "Ce contact est déjà lié à un utilisateur.",
+    "pax_user_not_found": "Utilisateur PAX introuvable.",
+    "pax_contact_not_found": "Contact PAX introuvable.",
+    "pax_source_must_user_contact": "Le pax_source doit être 'user' ou 'contact'.",
+    "ticket_not_found": "Ticket introuvable.",
+    "tier_not_found": "Tiers introuvable.",
+    "vector_not_found": "Vecteur introuvable.",
+    "voyage_not_found": "Voyage introuvable.",
+    "destination_required": "La destination est obligatoire.",
+    "origin_required": "L'origine est obligatoire."
   },
   "popup": {
     "load_error_title": "Impossible de charger le panneau",

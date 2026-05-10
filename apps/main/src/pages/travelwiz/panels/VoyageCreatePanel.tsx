@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plane } from 'lucide-react'
+import { describeError } from '@/lib/errors'
 import { DynamicPanelShell, PanelContentLayout, FormGrid, DynamicPanelField, panelInputClass, type ActionItem } from '@/components/layout/DynamicPanel'
 import {
   SmartFormProvider,
@@ -52,7 +53,15 @@ function CreateVoyageInner() {
       await createVoyage.mutateAsync(form)
       toast({ title: t('travelwiz.toast.voyage_created'), variant: 'success' })
       closeDynamicPanel()
-    } catch { toast({ title: t('travelwiz.toast.voyage_creation_error'), variant: 'error' }) }
+    } catch (err) {
+      // SUP-0033: Bastien voyait juste "erreur de création" sans contexte.
+      // describeError surface le code d'erreur backend en français.
+      toast({
+        title: t('travelwiz.toast.voyage_creation_error'),
+        description: describeError(err, t),
+        variant: 'error',
+      })
+    }
   }
 
   const createVoyageActions = useMemo<ActionItem[]>(() => [
@@ -119,6 +128,16 @@ function CreateVoyageInner() {
             </FormGrid>
             <p className="text-xs text-muted-foreground">
               La périodicité régulière se configure sur une rotation. Un voyage créé ici est une occurrence planifiée, éventuellement rattachée à une rotation existante.
+            </p>
+            {/* SUP-0033: Bastien attendait un champ "destination" au moment
+                de la création, mais le modèle Voyage n'a pas de
+                destination directe — les destinations sont des étapes
+                (VoyageStops) ajoutées après création. Surfacer cette
+                contrainte explicitement pour éviter la frustration. */}
+            <p className="text-xs text-muted-foreground rounded-md bg-info/5 border border-info/20 px-2.5 py-1.5">
+              <strong className="font-medium text-foreground">Destinations :</strong>{' '}
+              à ajouter après création comme étapes du voyage (depuis le détail du voyage → onglet Étapes).
+              Un voyage peut avoir plusieurs arrêts/destinations dans l'ordre de sa rotation.
             </p>
           </SmartFormSection>
           <SmartFormSection id="t_common_schedule_hours" title={t('common.schedule_hours')} level="essential" help={{ description: t('common.schedule_hours') }}>

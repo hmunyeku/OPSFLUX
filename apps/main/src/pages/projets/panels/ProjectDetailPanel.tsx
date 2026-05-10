@@ -19,7 +19,7 @@ import {
   Minimize2,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
-import { Info, Paperclip, LayoutList, BarChart3, Search } from 'lucide-react'
+import { Info, Paperclip, LayoutList, BarChart3, Search, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
@@ -3359,14 +3359,14 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <DetailFieldGrid>
                 {isProjectFieldEditable(project, 'name', capabilities)
                   ? <InlineEditableRow label="Nom" value={project.name} onSave={(v) => handleSave('name', v)} />
-                  : <ReadOnlyRow label={t('common.name_field')} value={<span className="text-sm text-foreground">{project.name}</span>} />}
+                  : <ReadOnlyRow label={t('common.name_field')} value={<span className="inline-flex items-center gap-1.5 text-sm text-foreground"><Lock size={11} className="text-muted-foreground/60" />{project.name}<span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 ml-1">Gouti</span></span>} />}
                 <ReadOnlyRow label={t('common.code_field')} value={<span className="text-sm font-mono font-medium text-foreground">{project.code || '—'}</span>} />
                 {isProjectFieldEditable(project, 'status', capabilities)
                   ? <InlineEditableTags label="Statut" value={project.status} options={projectStatusOptions} onSave={(v) => handleSave('status', v)} />
-                  : <ReadOnlyRow label={t('common.status')} value={<span className="text-sm">{projectStatusLabels[project.status] || project.status}</span>} />}
+                  : <ReadOnlyRow label={t('common.status')} value={<span className="inline-flex items-center gap-1.5 text-sm" title="Statut piloté par Gouti — modifiable uniquement côté Gouti, sera resynchronisé à la prochaine importation."><Lock size={11} className="text-muted-foreground/60" />{projectStatusLabels[project.status] || project.status}<span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 ml-1">Gouti</span></span>} />}
                 {isProjectFieldEditable(project, 'priority', capabilities)
                   ? <InlineEditableTags label="Priorité" value={project.priority} options={projectPriorityOptions} onSave={(v) => handleSave('priority', v)} />
-                  : <ReadOnlyRow label={t('common.priority_field')} value={<span className="text-sm">{projectPriorityLabels[project.priority] || project.priority}</span>} />}
+                  : <ReadOnlyRow label={t('common.priority_field')} value={<span className="inline-flex items-center gap-1.5 text-sm" title="Priorité pilotée par Gouti — modifiable uniquement côté Gouti."><Lock size={11} className="text-muted-foreground/60" />{projectPriorityLabels[project.priority] || project.priority}<span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 ml-1">Gouti</span></span>} />}
                 <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
                 <InlineEditableTags
                   label="Tendance"

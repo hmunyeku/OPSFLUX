@@ -48,6 +48,7 @@ import { usePhones, useContactEmails, useAddresses, useNotes, useAttachments } f
 import { useDictionaryOptions, useDictionaryLabels } from '@/hooks/useDictionary'
 import { usePermission } from '@/hooks/usePermission'
 import { normalizeNames } from '@/lib/normalize'
+import { describeError } from '@/lib/errors'
 import { validateTierContactForm } from '@/lib/formValidation'
 import type { TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
 
@@ -370,8 +371,17 @@ export function ContactDetailPanel({
         payload: { language: 'fr', send_invitation: true },
       })
       toast({ title: t('tiers.ui.contact_promoted'), variant: 'success' })
-    } catch {
-      toast({ title: t('tiers.ui.contact_promote_error'), variant: 'error' })
+    } catch (err) {
+      // SUP-0030: surface backend error code (e.g. INACTIVE_CONTACTS_CANNOT_PROMOTED,
+      // CONTACT_EMAIL_REQUIRED_PROMOTION, CONTACT_ALREADY_LINKED_USER,
+      // ANOTHER_USER_ALREADY_EXISTS_EMAIL_USE) instead of a generic
+      // "erreur lors de la promotion" — Bastien hit the wall without
+      // any clue why. describeError → t('errors.<code>') → French message.
+      toast({
+        title: t('tiers.ui.contact_promote_error'),
+        description: describeError(err, t),
+        variant: 'error',
+      })
     }
   }, [tierId, contactId, promoteContact, toast, t])
 

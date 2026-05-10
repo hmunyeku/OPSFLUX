@@ -5163,7 +5163,48 @@
     "activite_soutenue_cette_semaine_avec_pro": "Activite soutenue cette semaine avec progression conforme au plan.",
     "1_reserve_en_cours_de_traitement": "1 reserve en cours de traitement",
     "rafraichir": "Rafraîchir",
-    "detail_de_l_apos_entree_d_apos_audit": "Détail de l&apos;entrée d&apos;audit"
+    "detail_de_l_apos_entree_d_apos_audit": "Détail de l&apos;entrée d&apos;audit",
+    "maintenance": {
+      "demo": {
+        "title": "Données de démonstration",
+        "description": "Génère un jeu de données réaliste (secteur pétrole/gaz, Cameroun) pour tester l'application. Codes suffixés d'un identifiant aléatoire — ré-exécutable sans collision.",
+        "hint": "Sociétés (PERENCO, TOTAL, SNH, CDR, Schlumberger…), contacts (noms français/camerounais), projets oil & gas avec tâches Gantt, sites onshore/offshore, comptes utilisateurs de test.",
+        "tiers": "Sociétés (Tiers)",
+        "contacts": "Contacts (employés des sociétés)",
+        "projects": "Projets (avec tâches)",
+        "sites": "Sites (champs et installations)",
+        "users": "Comptes utilisateurs de test",
+        "users_hint": "Crée des comptes 'demo-XXXX-NN@opsflux.io' avec mot de passe DemoXXXX!2026.",
+        "total": "Total à générer : {{count}} enregistrements",
+        "generate": "Générer"
+      },
+      "reset": {
+        "title": "Réinitialisation des données",
+        "description": "Vide les données opérationnelles de l'entité par domaine. Conserve obligatoirement les utilisateurs, RBAC, paramètres, dictionnaires, traductions, MCP, types de fichiers, modèles PDF et types de conformité.",
+        "warning_title": "Action irréversible",
+        "warning_body": "La suppression est immédiate et définitive (pas de corbeille). Les domaines cochés sont vidés pour l'entité courante uniquement — les autres entités ne sont pas affectées.",
+        "scopes": "Domaines à vider",
+        "select_all": "Tout sélectionner",
+        "deselect_all": "Tout désélectionner",
+        "tables": "tables",
+        "purge": "Vidanger"
+      },
+      "modal": {
+        "title": "Confirmer la réinitialisation",
+        "body": "Vous allez vider {{count}} domaine(s) sur l'entité courante. Cette action est irréversible.",
+        "type_phrase": "Pour confirmer, saisissez :",
+        "confirm": "Vidanger maintenant"
+      },
+      "toast": {
+        "demo_generated": "Données de démonstration générées",
+        "demo_nothing": "Aucune donnée générée",
+        "demo_error": "Échec de la génération",
+        "reset_done": "Réinitialisation terminée",
+        "reset_summary": "{{count}} enregistrements supprimés sur {{scopes}} domaines",
+        "reset_error": "Échec de la réinitialisation",
+        "select_scope": "Sélectionnez au moins un domaine"
+      }
+    }
   },
   "help_system": {
     "contextual": "Aide contextuelle",
@@ -5945,5 +5986,135 @@
     "les_fichiers_seront_uploades_dans_le_dos": "Les fichiers seront uploadés dans le dossier courant",
     "nouveau_dossier": "Nouveau dossier",
     "supprimer_la_selection": "Supprimer la sélection"
+  },
+  "onboarding": {
+    "title": "Configuration guidée",
+    "step_label": "Étape {{current}} / {{total}}",
+    "cta": {
+      "title": "Configuration guidée — première mise en route",
+      "subtitle": "En 7 étapes, on configure votre profil, votre entité, vos premiers utilisateurs, vos modules, un partenaire et un site.",
+      "button": "Démarrer l'assistant"
+    },
+    "nav": {
+      "previous": "Précédent",
+      "next": "Suivant",
+      "skip": "Passer",
+      "finish": "Terminé"
+    },
+    "already": {
+      "title": "Vous êtes déjà bien configuré",
+      "desc": "Votre entité contient déjà des partenaires, des utilisateurs et des sites. Vous pouvez ignorer cette configuration guidée.",
+      "dismiss": "Compris, fermer"
+    },
+    "step1": {
+      "title": "Votre profil",
+      "subtitle": "Renseignez votre nom et votre photo. C'est ce que vos collègues verront.",
+      "first_name": "Prénom",
+      "first_name_ph": "Marie",
+      "last_name": "Nom",
+      "last_name_ph": "Dupont",
+      "email": "Email",
+      "email_help": "L'email sert à vous connecter — il ne peut pas être modifié ici.",
+      "language": "Langue",
+      "avatar_upload": "Téléverser une photo",
+      "avatar_saved": "Photo de profil mise à jour",
+      "save": "Enregistrer le profil",
+      "saved": "Profil enregistré",
+      "error_required": "Prénom et nom sont obligatoires."
+    },
+    "step2": {
+      "title": "Votre entité",
+      "subtitle": "Quelques infos sur votre organisation : nom officiel, adresse, devise et fuseau horaire.",
+      "name": "Nom de l'entité",
+      "name_ph": "Acme Énergie SA",
+      "address": "Adresse",
+      "address_ph": "12 rue de la République",
+      "city": "Ville",
+      "country": "Pays",
+      "country_ph": "France",
+      "currency": "Devise par défaut",
+      "timezone": "Fuseau horaire",
+      "save": "Enregistrer l'entité",
+      "saved": "Entité enregistrée",
+      "error_required": "Le nom de l'entité est obligatoire.",
+      "error_no_entity": "Aucune entité courante détectée."
+    },
+    "step3": {
+      "title": "Premiers utilisateurs",
+      "subtitle": "Invitez au moins un coéquipier. Ils recevront un email pour définir leur mot de passe.",
+      "empty": "Cliquez sur « Ajouter une ligne » pour inviter votre premier coéquipier.",
+      "first_name": "Prénom",
+      "last_name": "Nom",
+      "email": "Email",
+      "add_row": "Ajouter une ligne",
+      "invite": "Envoyer les invitations",
+      "row_created": "Compte créé",
+      "hint": "Vous pourrez ajouter ou retirer des utilisateurs à tout moment depuis l'écran « Utilisateurs ».",
+      "error_empty": "Aucun utilisateur valide à créer.",
+      "error_invalid_email": "Email invalide",
+      "created": "{{count}} utilisateur(s) créé(s)",
+      "partial_fail": "{{count}} échec(s) — voir les détails dans la console"
+    },
+    "step4": {
+      "title": "Modules à activer",
+      "subtitle": "Cochez les modules métier dont votre équipe va se servir. Vous pourrez les activer/désactiver plus tard.",
+      "protected": "protégé",
+      "depends": "Dépend de",
+      "missing": "Manque",
+      "apply": "Appliquer",
+      "saved": "Modules à jour",
+      "no_change": "Aucun changement à appliquer.",
+      "applied": "{{count}} module(s) mis à jour",
+      "partial_fail": "{{count}} échec(s)"
+    },
+    "step5": {
+      "title": "Premier partenaire (Tier)",
+      "subtitle": "Créez votre premier partenaire métier : client, fournisseur, sous-traitant…",
+      "name": "Nom du partenaire",
+      "name_ph": "Total Énergies",
+      "type": "Type",
+      "tier_type_customer": "Client",
+      "tier_type_supplier": "Fournisseur",
+      "tier_type_partner": "Partenaire",
+      "tier_type_subcontractor": "Sous-traitant",
+      "tier_type_other": "Autre",
+      "email": "Email de contact",
+      "email_help": "Optionnel.",
+      "email_ph": "contact@partenaire.com",
+      "create": "Créer le partenaire",
+      "created_short": "Créé",
+      "created": "Partenaire créé",
+      "saved": "Partenaire enregistré",
+      "error_required": "Le nom du partenaire est obligatoire."
+    },
+    "step6": {
+      "title": "Premier site / installation",
+      "subtitle": "Créez votre premier site opérationnel. Vous pourrez détailler la hiérarchie complète depuis le module Assets.",
+      "name": "Nom du site",
+      "name_ph": "Plateforme Bonny East",
+      "site_type": "Type",
+      "site_type_onshore": "Onshore",
+      "site_type_offshore_fixed": "Offshore fixe",
+      "site_type_offshore_floating": "Offshore flottant",
+      "site_type_subsea": "Sous-marin",
+      "site_type_terminal": "Terminal",
+      "site_type_pipeline": "Pipeline",
+      "country": "Pays",
+      "country_ph": "Nigeria",
+      "create": "Créer le site",
+      "created_short": "Créé",
+      "created": "Site créé",
+      "saved": "Site enregistré",
+      "hint": "Un « Field » parent est créé automatiquement avec des valeurs par défaut — modifiable plus tard.",
+      "error_required": "Nom et pays sont obligatoires."
+    },
+    "recap": {
+      "title": "Configuration récapitulative",
+      "subtitle": "{{done}} étapes sur {{total}} validées. Cliquez sur « Terminé » pour fermer l'assistant.",
+      "skipped": "Passé",
+      "users_count": "{{count}} utilisateur(s) invité(s)",
+      "modules_count": "{{count}} module(s) sélectionné(s)",
+      "note": "Vous pouvez ré-ouvrir cet assistant à tout moment depuis l'onglet Aide du panneau d'assistance."
+    }
   }
 }

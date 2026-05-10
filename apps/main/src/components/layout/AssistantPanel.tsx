@@ -63,6 +63,7 @@ import mermaid from 'mermaid'
 import { safeLocal } from '@/lib/safeStorage'
 import { buildConsoleLogFile, consoleLogBuffer } from '@/lib/consoleCapture'
 import { RichTextField } from '@/components/shared/RichTextField'
+import { OnboardingWizard, isOnboardingDismissed } from '@/components/onboarding/OnboardingWizard'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -462,6 +463,24 @@ export function AssistantPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── Onboarding wizard state ──
+  // The wizard lives at panel level so it can be auto-opened on first
+  // login (independent of whether the panel itself is open) and shared
+  // across tabs (HelpTab CTA). We persist the "already dismissed" flag
+  // in localStorage via isOnboardingDismissed/markOnboardingDismissed —
+  // user-preferences would be slower (round-trip) for a flag we read at
+  // mount time.
+  const [wizardOpen, setWizardOpen] = useState(false)
+  useEffect(() => {
+    if (isOnboardingDismissed()) return
+    // Defer slightly so we don't fight the welcome-tour auto-launch on
+    // truly fresh sessions; the tour opens immediately, then the wizard
+    // surfaces a moment later — but we only show the wizard if the user
+    // hasn't dismissed it yet.
+    const timer = setTimeout(() => setWizardOpen(true), 1200)
+    return () => clearTimeout(timer)
+  }, [])
+
   const cyclePanelMode = useCallback(() => {
     const next = panelMode === 'docked' ? 'floating' : panelMode === 'floating' ? 'compact' : 'docked'
     setPref('assistantPanelMode', next)
@@ -488,14 +507,20 @@ export function AssistantPanel() {
     }
   }, [tabs, activeTab])
 
-  if (!aiPanelOpen) return null
+  // The wizard renders independently of the panel chrome so it can show
+  // up on first login even when aiPanelOpen is false.
+  const wizardElement = <OnboardingWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+
+  if (!aiPanelOpen) return wizardElement
 
   const modeIcon = panelMode === 'docked' ? PanelRight : panelMode === 'floating' ? Maximize2 : Minimize2
   const modeLabel = panelMode === 'docked' ? 'Docké (clic: flottant)' : panelMode === 'floating' ? 'Flottant (clic: compact)' : 'Compact (clic: docké)'
   const ModeIcon = modeIcon
 
   return (
-    <aside
+    <>
+      {wizardElement}
+      <aside
       className={cn(
         'flex flex-col bg-background/95 backdrop-blur-sm border-border shadow-lg',
         'animate-in slide-in-from-right duration-200',
@@ -563,11 +588,12 @@ export function AssistantPanel() {
       {/* ── Tab content ── */}
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         {activeTab === 'chat' && <ChatTab currentModule={currentModule} />}
-        {activeTab === 'help' && <HelpTab currentModule={currentModule} />}
+        {activeTab === 'help' && <HelpTab currentModule={currentModule} onOpenWizard={() => setWizardOpen(true)} />}
         {activeTab === 'tours' && <ToursTab currentModule={currentModule} />}
         {activeTab === 'ticket' && <TicketTab />}
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }
 
@@ -888,12 +914,33 @@ function ChatTab({ currentModule }: { currentModule: string }) {
 // TAB 2: CONTEXTUAL HELP
 // ═══════════════════════════════════════════════════════════════
 
-function HelpTab({ currentModule }: { currentModule: string }) {
+function HelpTab({ currentModule, onOpenWizard }: { currentModule: string; onOpenWizard: () => void }) {
   const { t } = useTranslation()
   const help = HELP_CONTENT[currentModule]
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+      {/* Onboarding wizard CTA — always visible at the top of the Help tab. */}
+      <div className="rounded-lg border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-3.5">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+            <Sparkles size={16} className="text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-semibold text-foreground">{t('onboarding.cta.title')}</h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{t('onboarding.cta.subtitle')}</p>
+            <button
+              onClick={onOpenWizard}
+              className="btn btn-sm btn-primary mt-2.5"
+            >
+              <Sparkles size={11} />
+              {t('onboarding.cta.button')}
+              <ArrowRight size={11} />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {!help ? (
         <div className="text-sm text-muted-foreground">{t('assistant.help.none')}</div>
       ) : (

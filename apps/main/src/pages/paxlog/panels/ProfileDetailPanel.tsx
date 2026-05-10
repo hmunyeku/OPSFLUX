@@ -8,7 +8,7 @@ import { normalizeNames } from '@/lib/normalize'
 import type { CredentialType, PaxCredential, PaxSitePresence } from '@/services/paxlogService'
 import { DynamicPanelShell, PanelActionButton, FormSection, PanelContentLayout, DangerConfirmButton, InlineEditableRow, ReadOnlyRow, SectionColumns } from '@/components/layout/DynamicPanel'
 import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
-import { Users, Plus, User, ArrowLeft, Trash2, Building2, Info } from 'lucide-react'
+import { Users, Plus, User, ArrowLeft, Trash2, Building2, Info, FileCheck2, Shield as ShieldIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
@@ -168,7 +168,15 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
           <div className="@container space-y-5">
             <FormSection title={t('paxlog.profile_panel.credentials_title', { count: credentials?.length || 0 })}>
               {!credentials || credentials.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.no_certification')}</p>
+                // Empty state ameliore (Bastien feedback): pictogramme + hint
+                // au lieu d'un texte gris italique perdu
+                <div className="flex flex-col items-center justify-center py-4 px-3 rounded-md border border-dashed border-border/60 bg-muted/30">
+                  <div className="h-8 w-8 rounded-full bg-muted/60 flex items-center justify-center mb-2">
+                    <FileCheck2 className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">{t('paxlog.no_certification')}</p>
+                  <p className="text-[10px] text-muted-foreground/70 text-center mt-0.5">{t('paxlog.profile_panel.credentials_empty_hint', 'Les certifications apparaissent ici une fois ajoutées')}</p>
+                </div>
               ) : (
                 <div className="space-y-1">
                   {credentials.map((cred: PaxCredential) => (
@@ -189,7 +197,12 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
 
             <FormSection title={t('paxlog.profile_panel.compliance_records_title', { count: complianceRecords.length })}>
               {complianceRecords.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.profile_panel.compliance_records_empty')}</p>
+                <div className="flex flex-col items-center justify-center py-4 px-3 rounded-md border border-dashed border-border/60 bg-muted/30">
+                  <div className="h-8 w-8 rounded-full bg-muted/60 flex items-center justify-center mb-2">
+                    <ShieldIcon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">{t('paxlog.profile_panel.compliance_records_empty')}</p>
+                </div>
               ) : (
                 <div className="space-y-1">
                   {complianceRecords.slice(0, 8).map((record) => (

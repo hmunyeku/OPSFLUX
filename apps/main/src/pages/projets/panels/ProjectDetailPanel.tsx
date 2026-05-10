@@ -3457,7 +3457,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
             {/* Calcul d'avancement — pondération du % d'avancement à partir des tâches */}
             <FormSection
-              title={`Calcul d'avancement (${project.progress}%)`}
+              title={`Calcul d'avancement (${project.progress ?? 0}%)`}
               collapsible
               defaultExpanded={false}
               storageKey="project-detail-progress-method"

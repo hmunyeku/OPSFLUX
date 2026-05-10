@@ -487,7 +487,11 @@ function InstallationsTab() {
     {
       accessorKey: 'installation_type',
       header: t('common.type'),
-      cell: ({ row }) => <span className="chip text-[10px]">{row.original.installation_type.replace(/_/g, ' ')}</span>,
+      // Defensive null-check (cf SUP-0002): un installation_type null
+      // crashait silencieusement la cellule via .replace().
+      cell: ({ row }) => row.original.installation_type
+        ? <span className="chip text-[10px]">{String(row.original.installation_type).replace(/_/g, ' ')}</span>
+        : <span className="text-muted-foreground/40">—</span>,
     },
     {
       accessorKey: 'environment',
@@ -637,7 +641,9 @@ function EquipmentTab() {
     {
       accessorKey: 'equipment_class',
       header: t('assets.equipment_class'),
-      cell: ({ row }) => <span className="chip text-[10px]">{row.original.equipment_class.replace(/_/g, ' ')}</span>,
+      cell: ({ row }) => row.original.equipment_class
+        ? <span className="chip text-[10px]">{String(row.original.equipment_class).replace(/_/g, ' ')}</span>
+        : <span className="text-muted-foreground/40">—</span>,
     },
     {
       accessorKey: 'manufacturer',
@@ -766,7 +772,9 @@ function PipelinesTab() {
     {
       accessorKey: 'service',
       header: t('assets.service'),
-      cell: ({ row }) => <span className="chip chip-info text-[10px]">{row.original.service.replace(/_/g, ' ')}</span>,
+      cell: ({ row }) => row.original.service
+        ? <span className="chip chip-info text-[10px]">{String(row.original.service).replace(/_/g, ' ')}</span>
+        : <span className="text-muted-foreground/40">—</span>,
     },
     {
       accessorKey: 'nominal_diameter_in',

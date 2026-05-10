@@ -130,14 +130,20 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                 title={t('projets.double_cliquez_pour_modifier')}
               >
                 <Mail size={12} className="text-muted-foreground shrink-0" />
-                <span className="text-[10px] font-medium text-muted-foreground uppercase w-16 shrink-0">
+                {/* SUP-0019 (re-fix): le label avait `w-16` (64px) ce qui
+                    laissait "PROFESSIONNEL" (≈ 80px) déborder par-dessus
+                    l'email du sibling. La capture de Bastien montrait
+                    "PROFESSION{NEL@xxx.com" avec le label superposant
+                    visuellement le début de l'email.
+                    Solution: enlever la largeur fixe — laisser le label
+                    occuper sa largeur naturelle et juste shrink-0 pour
+                    qu'il ne se réduise pas. */}
+                <span className="text-[10px] font-medium text-muted-foreground uppercase shrink-0">
                   {EMAIL_LABELS.find((l) => l.value === ce.label)?.label ?? ce.label}
                 </span>
-                {/* SUP-0019 fix: l'email ne shrinkait pas — `truncate` seul
-                    sans `min-w-0` dans un flex container laisse l'email
-                    pousser ses voisins (étoile + chip Vérifier) qui finissent
-                    par se superposer. Ajout de flex-1 + min-w-0 pour qu'il
-                    soit le premier à céder de la largeur. */}
+                {/* L'email garde flex-1 + min-w-0 + truncate pour absorber
+                    toute la largeur restante et tronquer si trop long
+                    (avec title pour révéler la valeur entière au hover). */}
                 <span className="text-foreground text-xs truncate flex-1 min-w-0" title={ce.email}>
                   {ce.email}
                 </span>

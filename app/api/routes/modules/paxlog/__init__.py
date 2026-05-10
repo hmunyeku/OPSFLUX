@@ -2207,22 +2207,33 @@ def _user_to_pax_read(u: User, company_name: str | None = None) -> PaxProfileRea
     )
 
 
-def _contact_to_pax_read(c: TierContact, company_name: str | None = None) -> PaxProfileRead:
+def _contact_to_pax_read(
+    c: TierContact,
+    company_name: str | None = None,
+    entity_id: PyUUID | None = None,
+) -> PaxProfileRead:
     """Build a PaxProfileRead from a TierContact row.
 
-    Bug fix (SUP-0029): the previous code accessed `c.linked_user.email`
-    and `c.linked_user.active`, but TierContact has no `linked_user`
-    attribute — the relationship is called `promoted_user`. This
-    triggered an AttributeError → 500 every time a "contact"-source
-    PAX profile was opened. The model already exposes
-    `linked_user_email` / `linked_user_active` properties that read
-    `promoted_user` via instance state (and return None safely when
-    the relationship isn't loaded), so just use those.
+    Bug fix (SUP-0029) — there were TWO compounding bugs that gave a 500:
+
+      1. Previous code accessed `c.linked_user.email` and
+         `c.linked_user.active`, but TierContact has no `linked_user`
+         attribute — the relationship is called `promoted_user`.
+         AttributeError. Fix : use the @property `linked_user_email` /
+         `linked_user_active` that already wrap `promoted_user` safely.
+
+      2. After fixing #1, the call still 500'd because we passed
+         `entity_id=None` to the PaxProfileRead schema where it's
+         declared `entity_id: UUID` (not Optional). Pydantic
+         ValidationError → 500. TierContact doesn't have its own
+         entity_id but its parent Tier does — pass it through from
+         the resolver, which already joins on Tier and can read
+         Tier.entity_id at no extra cost.
     """
     return PaxProfileRead(
         id=c.id,
         pax_source="contact",
-        entity_id=None,
+        entity_id=entity_id,
         pax_type="external",
         first_name=c.first_name,
         last_name=c.last_name,
@@ -2250,10 +2261,16 @@ async def _resolve_pax_identity(
     *,
     entity_id: UUID | None = None,
     current_user: User | None = None,
-) -> tuple[User | TierContact, str | None]:
+) -> tuple[User | TierContact, str | None, UUID | None]:
     """Resolve a PAX entity (User or TierContact) by id and source.
 
-    Returns (entity, company_name) or raises 404.
+    Returns (entity, company_name, resolved_entity_id) or raises 404.
+
+    `resolved_entity_id` is `User.default_entity_id` for "user" source
+    and `Tier.entity_id` for "contact" source — needed because
+    `PaxProfileRead.entity_id` is non-Optional and TierContact doesn't
+    have its own entity_id (it inherits from its parent tier). See
+    SUP-0029 for the original 500 root cause.
     """
     if pax_source == "user":
         query = select(User).where(User.id == profile_id)
@@ -2273,10 +2290,14 @@ async def _resolve_pax_identity(
                 code="PAX_USER_NOT_FOUND",
                 message="PAX user not found",
             )
-        return entity, None
+        return entity, None, entity.default_entity_id
     elif pax_source == "contact":
         query = (
-            select(TierContact, Tier.name.label("company_name"))
+            select(
+                TierContact,
+                Tier.name.label("company_name"),
+                Tier.entity_id.label("tier_entity_id"),
+            )
             .outerjoin(Tier, Tier.id == TierContact.tier_id)
             .where(TierContact.id == profile_id)
         )
@@ -2292,7 +2313,7 @@ async def _resolve_pax_identity(
             )
         if current_user is not None and entity_id is not None and row[0].tier_id:
             await _assert_external_tier_access(db, current_user, entity_id, row[0].tier_id)
-        return row[0], row[1]
+        return row[0], row[1], row[2]
     else:
         raise StructuredHTTPException(
             400,
@@ -2501,7 +2522,9 @@ async def create_profile(
         details={"name": f"{body.first_name} {body.last_name}", "type": "external"},
     )
     await db.commit()
-    return _contact_to_pax_read(contact, company_name)
+    # SUP-0029: pass entity_id from the create request — the new contact
+    # belongs to a tier in this entity, so it shares its entity_id.
+    return _contact_to_pax_read(contact, company_name, entity_id=entity_id)
 
 
 @router.post("/profiles/check-duplicates")
@@ -2617,7 +2640,7 @@ async def get_profile(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a PAX profile by ID. Use pax_source=user or pax_source=contact."""
-    entity, company_name = await _resolve_pax_identity(
+    entity, company_name, resolved_entity_id = await _resolve_pax_identity(
         db,
         profile_id,
         pax_source,
@@ -2626,7 +2649,7 @@ async def get_profile(
     )
     if pax_source == "user":
         return _user_to_pax_read(entity, company_name)  # type: ignore[arg-type]
-    return _contact_to_pax_read(entity, company_name)  # type: ignore[arg-type]
+    return _contact_to_pax_read(entity, company_name, entity_id=resolved_entity_id)  # type: ignore[arg-type]
 
 
 @router.get("/profiles/{profile_id}/site-presence-history", response_model=list[PaxSitePresenceRead])
@@ -2717,7 +2740,7 @@ async def update_profile(
     db: AsyncSession = Depends(get_db),
 ):
     """Update PAX-specific fields on a User or TierContact."""
-    entity, company_name = await _resolve_pax_identity(
+    entity, company_name, resolved_entity_id = await _resolve_pax_identity(
         db,
         profile_id,
         pax_source,
@@ -2743,7 +2766,7 @@ async def update_profile(
 
     if pax_source == "user":
         return _user_to_pax_read(entity, company_name)  # type: ignore[arg-type]
-    return _contact_to_pax_read(entity, company_name)  # type: ignore[arg-type]
+    return _contact_to_pax_read(entity, company_name, entity_id=resolved_entity_id)  # type: ignore[arg-type]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

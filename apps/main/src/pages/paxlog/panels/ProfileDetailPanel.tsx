@@ -8,7 +8,7 @@ import { normalizeNames } from '@/lib/normalize'
 import type { CredentialType, PaxCredential, PaxSitePresence } from '@/services/paxlogService'
 import { DynamicPanelShell, PanelActionButton, FormSection, PanelContentLayout, DangerConfirmButton, InlineEditableRow, ReadOnlyRow, SectionColumns } from '@/components/layout/DynamicPanel'
 import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
-import { Users, Plus, User, ArrowLeft, Trash2, Building2, Info, FileCheck2, Shield as ShieldIcon } from 'lucide-react'
+import { Users, Plus, User, ArrowLeft, Trash2, Building2, Info, Shield as ShieldIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
@@ -166,42 +166,39 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
           </div>
 
           <div className="@container space-y-5">
-            <FormSection title={t('paxlog.profile_panel.credentials_title', { count: credentials?.length || 0 })}>
-              {!credentials || credentials.length === 0 ? (
-                // Empty state ameliore (Bastien feedback): pictogramme + hint
-                // au lieu d'un texte gris italique perdu
-                <div className="flex flex-col items-center justify-center py-4 px-3 rounded-md border border-dashed border-border/60 bg-muted/30">
-                  <div className="h-8 w-8 rounded-full bg-muted/60 flex items-center justify-center mb-2">
-                    <FileCheck2 className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center">{t('paxlog.no_certification')}</p>
-                  <p className="text-[10px] text-muted-foreground/70 text-center mt-0.5">{t('paxlog.profile_panel.credentials_empty_hint', 'Les certifications apparaissent ici une fois ajoutées')}</p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {credentials.map((cred: PaxCredential) => (
-                    <div key={cred.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-accent/50 text-xs">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate">{credTypeMap[cred.credential_type_id]?.name || t('paxlog.credentials')}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {t('paxlog.profile_panel.credential_obtained', { date: formatDate(cred.obtained_date) })}
-                          {cred.expiry_date && ` — ${t('paxlog.profile_panel.credential_expires', { date: formatDate(cred.expiry_date) })}`}
-                        </p>
-                      </div>
-                      <StatusBadge status={cred.status} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </FormSection>
-
-            <FormSection title={t('paxlog.profile_panel.compliance_records_title', { count: complianceRecords.length })}>
+            {/* Conformité (canonical) — placed FIRST with the "Ajouter" CTA inline
+                in the section header. Previously the CTA was buried in a separate
+                collapsible "reference_evidence" section at the bottom, which made
+                the action invisible. Bastien feedback: "encore touffu" — too many
+                similar lists. Fix = single canonical source + prominent action. */}
+            <FormSection
+              title={t('paxlog.profile_panel.compliance_records_title', { count: complianceRecords.length })}
+              headerExtra={
+                <PanelActionButton
+                  onClick={() => openDynamicPanel({
+                    type: 'create',
+                    module: 'conformite',
+                    meta: {
+                      subtype: 'record',
+                      prefill_owner_type: profileOwnerType,
+                      prefill_owner_id: profileOwnerId,
+                      prefill_owner_label: `${profile.first_name} ${profile.last_name}`,
+                    },
+                  })}
+                >
+                  <Plus size={12} /> {t('paxlog.profile_panel.add_compliance_record')}
+                </PanelActionButton>
+              }
+            >
               {complianceRecords.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-4 px-3 rounded-md border border-dashed border-border/60 bg-muted/30">
                   <div className="h-8 w-8 rounded-full bg-muted/60 flex items-center justify-center mb-2">
                     <ShieldIcon className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <p className="text-xs text-muted-foreground text-center">{t('paxlog.profile_panel.compliance_records_empty')}</p>
+                  <p className="text-[10px] text-muted-foreground/70 text-center mt-1 max-w-[280px]">
+                    {t('paxlog.profile_panel.reference_evidence_help')}
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -235,6 +232,32 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
               )}
             </FormSection>
 
+            {/* PaxCredentials (legacy) — only rendered if items exist. Empty state
+                pour un modele legacy = bruit visuel pur. Quand des items existent,
+                on affiche un hint discret pour rediriger vers la section Conformite. */}
+            {credentials && credentials.length > 0 && (
+              <FormSection title={t('paxlog.profile_panel.credentials_title', { count: credentials.length })}>
+                <div className="px-2 py-1.5 mb-1.5 rounded bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-[10px] flex items-start gap-1.5">
+                  <Info size={11} className="shrink-0 mt-px" />
+                  <span>{t('paxlog.profile_panel.credentials_legacy_hint', 'Donnees historiques. Pour les nouveaux documents, utilisez la section Conformite ci-dessus.')}</span>
+                </div>
+                <div className="space-y-1">
+                  {credentials.map((cred: PaxCredential) => (
+                    <div key={cred.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-accent/50 text-xs">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{credTypeMap[cred.credential_type_id]?.name || t('paxlog.credentials')}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {t('paxlog.profile_panel.credential_obtained', { date: formatDate(cred.obtained_date) })}
+                          {cred.expiry_date && ` — ${t('paxlog.profile_panel.credential_expires', { date: formatDate(cred.expiry_date) })}`}
+                        </p>
+                      </div>
+                      <StatusBadge status={cred.status} />
+                    </div>
+                  ))}
+                </div>
+              </FormSection>
+            )}
+
             <FormSection title={t('paxlog.profile_panel.site_presence_title', { count: sitePresenceHistory?.length || 0 })}>
               {!sitePresenceHistory || sitePresenceHistory.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.profile_panel.site_presence_empty')}</p>
@@ -267,30 +290,13 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
           </div>
         </SectionColumns>
 
-        <FormSection title={t('paxlog.profile_panel.sections.reference_evidence')} collapsible defaultExpanded={false}>
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">
-              {t('paxlog.profile_panel.reference_evidence_help')}
-            </p>
-            <div>
-              <PanelActionButton
-                onClick={() => openDynamicPanel({
-                  type: 'create',
-                  module: 'conformite',
-                  meta: {
-                    subtype: 'record',
-                    prefill_owner_type: profileOwnerType,
-                    prefill_owner_id: profileOwnerId,
-                    prefill_owner_label: `${profile.first_name} ${profile.last_name}`,
-                  },
-                })}
-              >
-                <Plus size={12} /> {t('paxlog.profile_panel.add_compliance_record')}
-              </PanelActionButton>
-            </div>
-            <AttachmentManager ownerType={profileOwnerType} ownerId={profileOwnerId} compact />
-          </div>
-        </FormSection>
+        {/* Section 'reference_evidence' supprimee:
+           - Le CTA 'Ajouter un enregistrement de conformite' est maintenant
+             dans le headerExtra de la section Conformite (canonique) en haut.
+           - Le help text est inline dans l'empty state de la section Conformite.
+           - L'AttachmentManager etait IDENTIQUE a celui de profile-tags-notes
+             ci-dessous (memes props ownerType+ownerId+compact). Doublon UI pur.
+           Resultat: -1 section collapsible, -1 doublon, +1 CTA visible. */}
 
         <CollapsibleSection id="profile-tags-notes" title={t('paxlog.ads_detail.sections.tags_notes_files')}>
           <div className="space-y-3 p-3">

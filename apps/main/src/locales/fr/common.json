@@ -2960,6 +2960,7 @@
       "external_contact_profile": "Profil contact externe",
       "external_contact_promoted": "Profil contact externe promu en utilisateur externe",
       "credentials_title": "Certifications ({{count}})",
+      "credentials_legacy_hint": "Données historiques. Pour les nouveaux documents, utilisez la section Conformité ci-dessus.",
       "compliance_records_title": "Enregistrements de conformité ({{count}})",
       "compliance_records_empty": "Aucun enregistrement de conformité.",
       "credential_obtained": "Obtenu : {{date}}",

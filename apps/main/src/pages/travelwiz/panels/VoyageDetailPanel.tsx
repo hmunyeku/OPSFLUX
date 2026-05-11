@@ -7,6 +7,8 @@ import {
   Plane, Package, FileText, Users, MapPin, Weight,
   Loader2, Trash2, CheckCircle2, Plus, X,
   Info, BookOpen, Paperclip,
+  ChevronDown, ChevronUp, ArrowUp, ArrowDown,
+  TrendingUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TabBar } from '@/components/ui/Tabs'
@@ -32,6 +34,7 @@ import {
   useVoyageCargoManifestPdf,
   useVoyageStops,
   useCreateVoyageStop,
+  useUpdateVoyageStop,
   useDeleteVoyageStop,
   useVoyageManifests,
   useVoyageCapacity,
@@ -42,7 +45,7 @@ import {
   useRotations,
 } from '@/hooks/useTravelWiz'
 import { usePermission } from '@/hooks/usePermission'
-import type { VoyageUpdate } from '@/types/api'
+import type { VoyageStop, VoyageUpdate } from '@/types/api'
 import {
   VOYAGE_STATUS_LABELS_FALLBACK, VOYAGE_STATUS_BADGES,
   MANIFEST_STATUS_LABELS_FALLBACK, MANIFEST_STATUS_BADGES,
@@ -192,6 +195,7 @@ export function VoyageDetailPanel({ id }: { id: string }) {
   const closeTrip = useCloseTrip()
   const { data: stops } = useVoyageStops(id)
   const createStop = useCreateVoyageStop()
+  const updateStop = useUpdateVoyageStop()
   const deleteStop = useDeleteVoyageStop()
   const { data: manifests } = useVoyageManifests(id)
   const { data: capacity } = useVoyageCapacity(id)
@@ -221,6 +225,48 @@ export function VoyageDetailPanel({ id }: { id: string }) {
   const [addStopOpen, setAddStopOpen] = useState(false)
   const [stopAssetId, setStopAssetId] = useState<string | null>(null)
   const [stopArrivalAt, setStopArrivalAt] = useState<string>('')
+  const [stopDepartureAt, setStopDepartureAt] = useState<string>('')
+  // Champs PAX/cargo optionnels à la création — ils peuvent rester
+  // vides, on remplit plus tard via l'inline editor par étape.
+  const [stopPaxBoarded, setStopPaxBoarded] = useState<string>('')
+  const [stopPaxDisembarked, setStopPaxDisembarked] = useState<string>('')
+  const [stopCargoLoaded, setStopCargoLoaded] = useState<string>('')
+  const [stopCargoUnloaded, setStopCargoUnloaded] = useState<string>('')
+  const [stopNotes, setStopNotes] = useState<string>('')
+
+  // Inline editor par étape : on tracke l'ID de l'étape en cours
+  // d'édition + un brouillon local (pas mutation directe du cache
+  // react-query). À la sauvegarde on appelle updateStop puis on ferme.
+  const [editingStopId, setEditingStopId] = useState<string | null>(null)
+  const [stopDraft, setStopDraft] = useState<{
+    scheduled_arrival: string
+    scheduled_departure: string
+    pax_boarded: string
+    pax_disembarked: string
+    cargo_loaded: string
+    cargo_unloaded: string
+    notes: string
+  }>({
+    scheduled_arrival: '',
+    scheduled_departure: '',
+    pax_boarded: '',
+    pax_disembarked: '',
+    cargo_loaded: '',
+    cargo_unloaded: '',
+    notes: '',
+  })
+
+  const resetAddStopForm = useCallback(() => {
+    setAddStopOpen(false)
+    setStopAssetId(null)
+    setStopArrivalAt('')
+    setStopDepartureAt('')
+    setStopPaxBoarded('')
+    setStopPaxDisembarked('')
+    setStopCargoLoaded('')
+    setStopCargoUnloaded('')
+    setStopNotes('')
+  }, [])
 
   const handleAddStop = useCallback(async () => {
     if (!stopAssetId) {
@@ -229,18 +275,34 @@ export function VoyageDetailPanel({ id }: { id: string }) {
     }
     try {
       const nextOrder = (stops?.length ?? 0) + 1
+      // Helpers: vide → null (le backend traite null comme "non
+      // renseigné"). On envoie un number positif ou null, jamais NaN.
+      const toIntOrNull = (s: string): number | null => {
+        if (!s.trim()) return null
+        const n = parseInt(s, 10)
+        return Number.isFinite(n) && n >= 0 ? n : null
+      }
+      const toFloatOrNull = (s: string): number | null => {
+        if (!s.trim()) return null
+        const n = parseFloat(s.replace(',', '.'))
+        return Number.isFinite(n) && n >= 0 ? n : null
+      }
       await createStop.mutateAsync({
         voyageId: id,
         payload: {
           asset_id: stopAssetId,
           stop_order: nextOrder,
           scheduled_arrival: stopArrivalAt ? new Date(stopArrivalAt).toISOString() : null,
+          scheduled_departure: stopDepartureAt ? new Date(stopDepartureAt).toISOString() : null,
+          pax_boarded_count: toIntOrNull(stopPaxBoarded),
+          pax_disembarked_count: toIntOrNull(stopPaxDisembarked),
+          cargo_loaded_kg: toFloatOrNull(stopCargoLoaded),
+          cargo_unloaded_kg: toFloatOrNull(stopCargoUnloaded),
+          notes: stopNotes.trim() || null,
         },
       })
       toast({ title: 'Étape ajoutée à la route', variant: 'success' })
-      setAddStopOpen(false)
-      setStopAssetId(null)
-      setStopArrivalAt('')
+      resetAddStopForm()
     } catch (err) {
       toast({
         title: 'Impossible d’ajouter l’étape',
@@ -248,7 +310,73 @@ export function VoyageDetailPanel({ id }: { id: string }) {
         variant: 'error',
       })
     }
-  }, [stopAssetId, stopArrivalAt, stops, createStop, id, toast])
+  }, [
+    stopAssetId, stopArrivalAt, stopDepartureAt,
+    stopPaxBoarded, stopPaxDisembarked, stopCargoLoaded, stopCargoUnloaded,
+    stopNotes, stops, createStop, id, toast, resetAddStopForm,
+  ])
+
+  const openStopEditor = useCallback((stop: VoyageStop) => {
+    // Pré-remplit le brouillon avec les valeurs courantes. Les
+    // datetime-local n'acceptent que YYYY-MM-DDTHH:mm — on tronque l'ISO.
+    const toLocal = (iso: string | null | undefined): string => {
+      if (!iso) return ''
+      // ISO arrive en UTC ou avec TZ — on garde la même heure d'affichage
+      // que le reste de l'UI (Date locale du navigateur).
+      const d = new Date(iso)
+      if (Number.isNaN(d.getTime())) return ''
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    }
+    setEditingStopId(stop.id)
+    setStopDraft({
+      scheduled_arrival: toLocal(stop.scheduled_arrival),
+      scheduled_departure: toLocal(stop.scheduled_departure),
+      pax_boarded: String(stop.pax_boarded_count ?? 0),
+      pax_disembarked: String(stop.pax_disembarked_count ?? 0),
+      cargo_loaded: String(stop.cargo_loaded_kg ?? 0),
+      cargo_unloaded: String(stop.cargo_unloaded_kg ?? 0),
+      notes: stop.notes ?? '',
+    })
+  }, [])
+
+  const handleSaveStopEdit = useCallback(async (stopId: string) => {
+    const toIntOr0 = (s: string): number => {
+      const n = parseInt(s, 10)
+      return Number.isFinite(n) && n >= 0 ? n : 0
+    }
+    const toFloatOr0 = (s: string): number => {
+      const n = parseFloat((s || '').replace(',', '.'))
+      return Number.isFinite(n) && n >= 0 ? n : 0
+    }
+    try {
+      await updateStop.mutateAsync({
+        voyageId: id,
+        stopId,
+        payload: {
+          scheduled_arrival: stopDraft.scheduled_arrival
+            ? new Date(stopDraft.scheduled_arrival).toISOString()
+            : null,
+          scheduled_departure: stopDraft.scheduled_departure
+            ? new Date(stopDraft.scheduled_departure).toISOString()
+            : null,
+          pax_boarded_count: toIntOr0(stopDraft.pax_boarded),
+          pax_disembarked_count: toIntOr0(stopDraft.pax_disembarked),
+          cargo_loaded_kg: toFloatOr0(stopDraft.cargo_loaded),
+          cargo_unloaded_kg: toFloatOr0(stopDraft.cargo_unloaded),
+          notes: stopDraft.notes.trim() || null,
+        },
+      })
+      toast({ title: 'Étape mise à jour', variant: 'success' })
+      setEditingStopId(null)
+    } catch (err) {
+      toast({
+        title: 'Mise à jour impossible',
+        description: (err as Error).message,
+        variant: 'error',
+      })
+    }
+  }, [id, stopDraft, updateStop, toast])
 
   const handleDeleteStop = useCallback(async (stopId: string) => {
     try {
@@ -313,6 +441,49 @@ export function VoyageDetailPanel({ id }: { id: string }) {
     if (!manifests) return { confirmed: 0, standby: 0, noShow: 0 }
     return { confirmed: voyage?.pax_count ?? 0, standby: 0, noShow: 0 }
   }, [manifests, voyage])
+
+  // Occupation cumulée du vecteur au pic — on parcourt les étapes
+  // dans l'ordre, on additionne pax_boarded à la base puis on retire
+  // pax_disembarked à chaque escale ; on garde le max atteint à
+  // n'importe quel moment du voyage. Idem côté cargo (kg).
+  // Le départ initial (base) embarque la somme des PAX qui descendront
+  // à des escales intermédiaires + ceux à destination finale, donc on
+  // utilise plutôt la lecture explicite des embarks par étape (la
+  // base de départ n'embarque pas — c'est l'étape 1 qui peut commencer
+  // à embarquer si on le souhaite, ou bien c'est représenté
+  // implicitement). Vu que les PAX board logiquement à la base, on
+  // additionne pax_boarded sans soustraire avant le premier stop.
+  const occupancyAnalysis = useMemo(() => {
+    if (!stops || stops.length === 0) {
+      return { peakPax: 0, peakCargoKg: 0, totalBoarded: 0, totalDisembarked: 0 }
+    }
+    const ordered = [...stops].sort((a, b) => a.stop_order - b.stop_order)
+    let runningPax = 0
+    let runningCargo = 0
+    let peakPax = 0
+    let peakCargo = 0
+    let totalBoarded = 0
+    let totalDisembarked = 0
+    for (const s of ordered) {
+      // Convention : à chaque escale on embarque d'abord (peak avant
+      // débarquement), puis on débarque. C'est la lecture la plus
+      // conservative côté capacité — si le vecteur passe par 50 PAX
+      // entre deux escales, on l'indique.
+      const boarded = s.pax_boarded_count ?? 0
+      const disembarked = s.pax_disembarked_count ?? 0
+      const loaded = s.cargo_loaded_kg ?? 0
+      const unloaded = s.cargo_unloaded_kg ?? 0
+      runningPax += boarded
+      runningCargo += loaded
+      totalBoarded += boarded
+      if (runningPax > peakPax) peakPax = runningPax
+      if (runningCargo > peakCargo) peakCargo = runningCargo
+      runningPax = Math.max(0, runningPax - disembarked)
+      runningCargo = Math.max(0, runningCargo - unloaded)
+      totalDisembarked += disembarked
+    }
+    return { peakPax, peakCargoKg: peakCargo, totalBoarded, totalDisembarked }
+  }, [stops])
 
   const cargoReportExportRows = useMemo(() => (
     cargoOperationsReport?.items.map((item) => ({
@@ -482,6 +653,27 @@ export function VoyageDetailPanel({ id }: { id: string }) {
               </FormSection>
 
               <FormSection title={`Route (${(stops?.length ?? 0) + 1} point${(stops?.length ?? 0) + 1 > 1 ? 's' : ''})`} collapsible defaultExpanded>
+                {/* Indicateur d'occupation calculée à partir des flux
+                    pax_boarded/pax_disembarked par étape. Affiché
+                    uniquement quand au moins une étape a des chiffres
+                    saisis (sinon c'est juste "0 PAX" pas très utile). */}
+                {(occupancyAnalysis.totalBoarded > 0 || occupancyAnalysis.peakCargoKg > 0) && (
+                  <div className="mb-2 flex items-center gap-2 rounded-md border border-primary/20 bg-primary/[0.04] px-2.5 py-1.5">
+                    <TrendingUp size={12} className="text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Occupation max au pic</p>
+                      <p className="text-xs font-semibold text-foreground tabular-nums">
+                        {occupancyAnalysis.peakPax} PAX
+                        {occupancyAnalysis.peakCargoKg > 0 && (
+                          <span className="text-muted-foreground font-normal"> · {occupancyAnalysis.peakCargoKg.toLocaleString(numLocale())} kg de cargo</span>
+                        )}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                      Total : {occupancyAnalysis.totalBoarded} ↑ / {occupancyAnalysis.totalDisembarked} ↓
+                    </span>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   {/* Origin (toujours présent — vient de departure_base) */}
                   <div className="flex items-center gap-2 p-1.5 rounded bg-primary/5 border border-primary/10">
@@ -492,25 +684,215 @@ export function VoyageDetailPanel({ id }: { id: string }) {
                   {/* Étapes/destinations (VoyageStops) — éditables individuellement */}
                   {stops?.map((stop, idx) => {
                     const isLast = idx === (stops.length - 1)
+                    const isEditing = editingStopId === stop.id
+                    const hasFlow =
+                      (stop.pax_boarded_count ?? 0) > 0 ||
+                      (stop.pax_disembarked_count ?? 0) > 0 ||
+                      (stop.cargo_loaded_kg ?? 0) > 0 ||
+                      (stop.cargo_unloaded_kg ?? 0) > 0
                     return (
-                      <div key={stop.id} className={cn(
-                        'flex items-center gap-2 p-1.5 rounded border group',
-                        isLast ? 'bg-green-500/5 border-green-500/20' : 'bg-muted/40 border-border/60',
-                      )}>
+                      <div key={stop.id} className="space-y-1">
                         <div className={cn(
-                          'w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0',
-                          isLast ? 'bg-green-500/20 text-green-600' : 'bg-muted text-muted-foreground',
-                        )}>{isLast ? 'D' : (idx + 1)}</div>
-                        <span className="text-xs font-medium text-foreground flex-1 min-w-0 truncate">{stop.asset_name ?? stop.location ?? '—'}</span>
-                        <span className="text-[10px] text-muted-foreground tabular-nums">{stop.scheduled_arrival ? formatDateTime(stop.scheduled_arrival) : '—'}</span>
-                        {canUpdate && voyage.status !== 'closed' && voyage.status !== 'cancelled' && (
+                          'flex items-center gap-2 p-1.5 rounded border group transition-colors',
+                          isLast ? 'bg-green-500/5 border-green-500/20' : 'bg-muted/40 border-border/60',
+                          isEditing && 'ring-1 ring-primary/40 bg-primary/[0.03]',
+                        )}>
+                          <div className={cn(
+                            'w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0',
+                            isLast ? 'bg-green-500/20 text-green-600' : 'bg-muted text-muted-foreground',
+                          )}>{isLast ? 'D' : (idx + 1)}</div>
                           <button
-                            onClick={() => handleDeleteStop(stop.id)}
-                            className="p-0.5 rounded hover:bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                            title="Retirer cette étape de la route"
+                            type="button"
+                            onClick={() => {
+                              if (!canUpdate || voyage.status === 'closed' || voyage.status === 'cancelled') return
+                              if (isEditing) setEditingStopId(null)
+                              else openStopEditor(stop)
+                            }}
+                            disabled={!canUpdate || voyage.status === 'closed' || voyage.status === 'cancelled'}
+                            className="text-xs font-medium text-foreground flex-1 min-w-0 truncate text-left hover:underline disabled:hover:no-underline disabled:cursor-default"
+                            title={canUpdate ? 'Modifier les flux PAX/cargo' : undefined}
                           >
-                            <X size={11} />
+                            {stop.asset_name ?? stop.location ?? '—'}
                           </button>
+                          {/* Badges PAX/cargo — affichés seulement si > 0 pour
+                              ne pas saturer la ligne. */}
+                          {(stop.pax_boarded_count ?? 0) > 0 && (
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold tabular-nums"
+                              title={`${stop.pax_boarded_count} PAX embarquent à cette étape`}
+                            >
+                              <ArrowUp size={9} />{stop.pax_boarded_count}
+                            </span>
+                          )}
+                          {(stop.pax_disembarked_count ?? 0) > 0 && (
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-semibold tabular-nums"
+                              title={`${stop.pax_disembarked_count} PAX descendent à cette étape`}
+                            >
+                              <ArrowDown size={9} />{stop.pax_disembarked_count}
+                            </span>
+                          )}
+                          {(stop.cargo_loaded_kg ?? 0) > 0 && (
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold tabular-nums"
+                              title={`${stop.cargo_loaded_kg} kg chargés ici`}
+                            >
+                              <Weight size={9} /><ArrowUp size={8} />{Math.round(stop.cargo_loaded_kg)}
+                            </span>
+                          )}
+                          {(stop.cargo_unloaded_kg ?? 0) > 0 && (
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-semibold tabular-nums"
+                              title={`${stop.cargo_unloaded_kg} kg déchargés ici`}
+                            >
+                              <Weight size={9} /><ArrowDown size={8} />{Math.round(stop.cargo_unloaded_kg)}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{stop.scheduled_arrival ? formatDateTime(stop.scheduled_arrival) : '—'}</span>
+                          {canUpdate && voyage.status !== 'closed' && voyage.status !== 'cancelled' && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  if (isEditing) setEditingStopId(null)
+                                  else openStopEditor(stop)
+                                }}
+                                className={cn(
+                                  'p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-opacity shrink-0',
+                                  isEditing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                                )}
+                                title={isEditing ? 'Fermer l’édition' : 'Modifier flux PAX/cargo'}
+                              >
+                                {isEditing ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteStop(stop.id)}
+                                className="p-0.5 rounded hover:bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                title="Retirer cette étape de la route"
+                              >
+                                <X size={11} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                        {/* Notes inline (lecture seule sur la carte —
+                            édition dans l'éditeur ci-dessous). */}
+                        {!isEditing && stop.notes && (
+                          <p className="ml-7 text-[11px] text-muted-foreground italic line-clamp-2">{stop.notes}</p>
+                        )}
+                        {/* Inline editor — flux PAX/cargo + horaires +
+                            notes pour cette étape. */}
+                        {isEditing && (
+                          <div className="ml-7 rounded-md border border-primary/30 bg-primary/[0.02] p-2.5 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Arrivée prévue</label>
+                                <input
+                                  type="datetime-local"
+                                  value={stopDraft.scheduled_arrival}
+                                  onChange={(e) => setStopDraft({ ...stopDraft, scheduled_arrival: e.target.value })}
+                                  className={panelInputClass}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Départ prévu</label>
+                                <input
+                                  type="datetime-local"
+                                  value={stopDraft.scheduled_departure}
+                                  onChange={(e) => setStopDraft({ ...stopDraft, scheduled_departure: e.target.value })}
+                                  className={panelInputClass}
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-emerald-600 font-medium">
+                                  <ArrowUp size={9} /> PAX embarquent
+                                </label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={stopDraft.pax_boarded}
+                                  onChange={(e) => setStopDraft({ ...stopDraft, pax_boarded: e.target.value })}
+                                  className={panelInputClass}
+                                />
+                              </div>
+                              <div>
+                                <label className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-medium">
+                                  <ArrowDown size={9} /> PAX descendent
+                                </label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={stopDraft.pax_disembarked}
+                                  onChange={(e) => setStopDraft({ ...stopDraft, pax_disembarked: e.target.value })}
+                                  className={panelInputClass}
+                                />
+                              </div>
+                              <div>
+                                <label className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-emerald-600 font-medium">
+                                  <Weight size={9} /><ArrowUp size={9} /> Cargo chargé (kg)
+                                </label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  value={stopDraft.cargo_loaded}
+                                  onChange={(e) => setStopDraft({ ...stopDraft, cargo_loaded: e.target.value })}
+                                  className={panelInputClass}
+                                />
+                              </div>
+                              <div>
+                                <label className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-medium">
+                                  <Weight size={9} /><ArrowDown size={9} /> Cargo déchargé (kg)
+                                </label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  value={stopDraft.cargo_unloaded}
+                                  onChange={(e) => setStopDraft({ ...stopDraft, cargo_unloaded: e.target.value })}
+                                  className={panelInputClass}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Notes (optionnel)</label>
+                              <textarea
+                                value={stopDraft.notes}
+                                onChange={(e) => setStopDraft({ ...stopDraft, notes: e.target.value })}
+                                rows={2}
+                                className={panelInputClass}
+                                placeholder="Contact local, raison de l’escale, instructions…"
+                              />
+                            </div>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingStopId(null)}
+                                className="btn-sm btn-secondary"
+                              >
+                                Annuler
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveStopEdit(stop.id)}
+                                disabled={updateStop.isPending}
+                                className="btn-sm btn-primary"
+                              >
+                                {updateStop.isPending ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                                Enregistrer
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {/* Hint visuel quand aucun flux n'est saisi
+                            mais qu'on a édit le stop — incite à
+                            remplir. (Optionnel mais utile pour
+                            l'onboarding de cette feature.) */}
+                        {!isEditing && !hasFlow && canUpdate && voyage.status !== 'closed' && voyage.status !== 'cancelled' && (
+                          <p className="ml-7 text-[10px] text-muted-foreground/70">
+                            Pas de flux PAX/cargo saisi — cliquez sur le nom de l’étape pour ajouter.
+                          </p>
                         )}
                       </div>
                     )
@@ -549,19 +931,101 @@ export function VoyageDetailPanel({ id }: { id: string }) {
                             placeholder="Sélectionner la destination..."
                           />
                         </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Arrivée prévue (optionnel)</label>
+                            <input
+                              type="datetime-local"
+                              value={stopArrivalAt}
+                              onChange={(e) => setStopArrivalAt(e.target.value)}
+                              className={panelInputClass}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Départ prévu (optionnel)</label>
+                            <input
+                              type="datetime-local"
+                              value={stopDepartureAt}
+                              onChange={(e) => setStopDepartureAt(e.target.value)}
+                              className={panelInputClass}
+                            />
+                          </div>
+                        </div>
+                        {/* Champs PAX/cargo optionnels — la plupart du
+                            temps on les remplit après via l'inline
+                            editor par étape, mais quand on connaît
+                            déjà les chiffres à la création autant les
+                            saisir tout de suite. */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-emerald-600 font-medium">
+                              <ArrowUp size={9} /> PAX embarquent (optionnel)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={stopPaxBoarded}
+                              onChange={(e) => setStopPaxBoarded(e.target.value)}
+                              className={panelInputClass}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-medium">
+                              <ArrowDown size={9} /> PAX descendent (optionnel)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={stopPaxDisembarked}
+                              onChange={(e) => setStopPaxDisembarked(e.target.value)}
+                              className={panelInputClass}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-emerald-600 font-medium">
+                              <Weight size={9} /><ArrowUp size={9} /> Cargo chargé kg (optionnel)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.1"
+                              value={stopCargoLoaded}
+                              onChange={(e) => setStopCargoLoaded(e.target.value)}
+                              className={panelInputClass}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-medium">
+                              <Weight size={9} /><ArrowDown size={9} /> Cargo déchargé kg (optionnel)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.1"
+                              value={stopCargoUnloaded}
+                              onChange={(e) => setStopCargoUnloaded(e.target.value)}
+                              className={panelInputClass}
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
                         <div>
-                          <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Arrivée prévue (optionnel)</label>
-                          <input
-                            type="datetime-local"
-                            value={stopArrivalAt}
-                            onChange={(e) => setStopArrivalAt(e.target.value)}
+                          <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Notes (optionnel)</label>
+                          <textarea
+                            value={stopNotes}
+                            onChange={(e) => setStopNotes(e.target.value)}
+                            rows={2}
                             className={panelInputClass}
+                            placeholder="Contact local, raison de l’escale, instructions…"
                           />
                         </div>
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={() => { setAddStopOpen(false); setStopAssetId(null); setStopArrivalAt('') }}
+                            onClick={resetAddStopForm}
                             className="btn-sm btn-secondary"
                           >
                             Annuler

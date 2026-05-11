@@ -246,13 +246,29 @@ class VoyageStopCreate(BaseModel):
     asset_id: UUID
     stop_order: int = Field(..., ge=1)
     scheduled_arrival: datetime | None = None
+    scheduled_departure: datetime | None = None
+    # Flux PAX/cargo par étape — optionnel à la création (la plupart du
+    # temps on ajoute juste l'étape d'abord puis on remplit les chiffres
+    # plus tard).
+    pax_boarded_count: int | None = Field(default=None, ge=0)
+    pax_disembarked_count: int | None = Field(default=None, ge=0)
+    cargo_loaded_kg: float | None = Field(default=None, ge=0)
+    cargo_unloaded_kg: float | None = Field(default=None, ge=0)
+    notes: str | None = None
 
 
 class VoyageStopUpdate(BaseModel):
     asset_id: UUID | None = None
     stop_order: int | None = None
     scheduled_arrival: datetime | None = None
+    scheduled_departure: datetime | None = None
     actual_arrival: datetime | None = None
+    actual_departure: datetime | None = None
+    pax_boarded_count: int | None = Field(default=None, ge=0)
+    pax_disembarked_count: int | None = Field(default=None, ge=0)
+    cargo_loaded_kg: float | None = Field(default=None, ge=0)
+    cargo_unloaded_kg: float | None = Field(default=None, ge=0)
+    notes: str | None = None
     active: bool | None = None
 
 
@@ -262,7 +278,14 @@ class VoyageStopRead(OpsFluxSchema):
     asset_id: UUID
     stop_order: int
     scheduled_arrival: datetime | None = None
+    scheduled_departure: datetime | None = None
     actual_arrival: datetime | None = None
+    actual_departure: datetime | None = None
+    pax_boarded_count: int = 0
+    pax_disembarked_count: int = 0
+    cargo_loaded_kg: float = 0.0
+    cargo_unloaded_kg: float = 0.0
+    notes: str | None = None
     active: bool
     # Enriched
     asset_name: str | None = None

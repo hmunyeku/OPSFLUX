@@ -2072,7 +2072,17 @@ export interface VoyageStop {
   asset_name?: string | null
   stop_order: number
   scheduled_arrival?: string | null
+  scheduled_departure?: string | null
   actual_arrival?: string | null
+  actual_departure?: string | null
+  // Flux PAX/cargo par étape : ces compteurs représentent ce qui
+  // se passe À CETTE escale. L'occupation cumulée du vecteur après
+  // l'étape N est Σ(pax_boarded[1..N]) − Σ(pax_disembarked[1..N]).
+  pax_boarded_count: number
+  pax_disembarked_count: number
+  cargo_loaded_kg: number
+  cargo_unloaded_kg: number
+  notes?: string | null
   active: boolean
   /** @deprecated — use asset_name. Kept for legacy display code. */
   location?: string
@@ -2084,13 +2094,26 @@ export interface VoyageStopCreate {
   asset_id: string
   stop_order: number
   scheduled_arrival?: string | null
+  scheduled_departure?: string | null
+  pax_boarded_count?: number | null
+  pax_disembarked_count?: number | null
+  cargo_loaded_kg?: number | null
+  cargo_unloaded_kg?: number | null
+  notes?: string | null
 }
 
 export interface VoyageStopUpdate {
   asset_id?: string
   stop_order?: number
   scheduled_arrival?: string | null
+  scheduled_departure?: string | null
   actual_arrival?: string | null
+  actual_departure?: string | null
+  pax_boarded_count?: number | null
+  pax_disembarked_count?: number | null
+  cargo_loaded_kg?: number | null
+  cargo_unloaded_kg?: number | null
+  notes?: string | null
   active?: boolean
 }
 

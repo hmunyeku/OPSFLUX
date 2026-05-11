@@ -39,11 +39,16 @@ function CreateTransferInner() {
   const prefillFromTierId = (dynamicPanel?.meta?.from_tier_id as string | undefined) ?? ''
   const { toast } = useToast()
 
-  // Fetch all tiers for dropdowns
-  const { data: tiersData } = useTiers({ page_size: 500 })
+  // Fetch all tiers for dropdowns.
+  // SUP-0038 followup (Bastien): la limite 500 etait invisible et le user voyait
+  // sa liste tronquee silencieusement quand >500 tiers. On la pousse au plafond
+  // backend (1000) en attendant le refactor vers un picker server-search.
+  // TODO: migrer vers CompanyPicker + nouveau JobPositionPicker (server-side
+  // typeahead via EntityPickerBase etendu) pour supprimer cette borne dure.
+  const { data: tiersData } = useTiers({ page_size: 1000 })
 
   // Fetch job positions for the new job position selector (SUP-0038)
-  const { data: jobPositionsData } = useJobPositions({ page_size: 500 })
+  const { data: jobPositionsData } = useJobPositions({ page_size: 1000 })
 
   const [selectedContactTierId, setSelectedContactTierId] = useState<string>(prefillFromTierId)
 
@@ -203,10 +208,16 @@ function CreateTransferInner() {
             </DynamicPanelField>
           </SmartFormSection>
 
+          {/* SUP-0038 followup: 'level=recommended' n'existe pas dans le type
+              SmartFormSectionLevel ('essential' | 'advanced'). 'advanced' est
+              le bon level pour une section optionnelle qui se cache en mode
+              simple — c'est la semantique attendue pour le changement de poste,
+              qui ne sert que si on veut modifier le job position pendant le
+              transfert. */}
           <SmartFormSection
             id="job_position"
             title={t('conformite.transfers.new_job_position')}
-            level="recommended"
+            level="advanced"
             help={{ description: t('conformite.transfers.new_job_position_help') }}
           >
             <DynamicPanelField label={t('conformite.transfers.new_job_position_label')}>

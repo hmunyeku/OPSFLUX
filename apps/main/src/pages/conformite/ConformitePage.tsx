@@ -61,6 +61,7 @@ import { CreateRulePanel } from './panels/CreateRulePanel'
 import { EditRulePanel } from './panels/EditRulePanel'
 import { VerificationDetailPanel } from './panels/VerificationDetailPanel'
 import { CreateTransferPanel } from './panels/CreateTransferPanel'
+import { TransferDetailPanel } from './panels/TransferDetailPanel'
 
 // Tabs
 import { VerificationsTab } from './tabs/VerificationsTab'
@@ -395,6 +396,10 @@ export function ConformitePage() {
             isLoading={transfersLoading}
             pagination={transfersPagination}
             onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
+            // Bastien signalement (mai 2026): clic sur une ligne ne faisait rien.
+            // L'onRowClick manquait alors que les autres onglets l'ont. Ajoute +
+            // composant TransferDetailPanel cree.
+            onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'conformite', id: row.id, meta: { subtype: 'transfer' } })}
             emptyIcon={GitBranch}
             emptyTitle={t('conformite.no_transfer')}
             columnResizing
@@ -447,6 +452,7 @@ export function ConformitePage() {
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'edit' && dynamicPanel.meta?.subtype === 'rule' && <EditRulePanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'verification' && <VerificationDetailPanel id={dynamicPanel.id} recordType={dynamicPanel.meta?.record_type as string || ''} />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'transfer' && <CreateTransferPanel />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'transfer' && <TransferDetailPanel id={dynamicPanel.id} />}
     </div>
   )
 }
@@ -464,5 +470,6 @@ registerPanelRenderer('conformite', (view) => {
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'exemption') return <ExemptionDetailPanel id={view.id} />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'verification') return <VerificationDetailPanel id={view.id} recordType={view.meta?.record_type as string || ''} />
   if (view.type === 'create' && view.meta?.subtype === 'transfer') return <CreateTransferPanel />
+  if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'transfer') return <TransferDetailPanel id={view.id} />
   return null
 })

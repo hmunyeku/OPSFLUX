@@ -13,7 +13,7 @@ import { PanelHeader, ToolbarButton } from '@/components/layout/PanelHeader'
 import { PageNavBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { useUIStore } from '@/stores/uiStore'
-import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
+import { registerPanelRenderer, renderRegisteredPanel } from '@/components/layout/DetachedPanelRenderer'
 import { usePermission } from '@/hooks/usePermission'
 
 import { ALL_TABS } from './shared'
@@ -148,6 +148,17 @@ export function PaxLogPage() {
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'profile' && <ProfileDetailPanel id={dynamicPanel.id} paxSource={(dynamicPanel.meta?.pax_source as 'user' | 'contact') || 'user'} adsId={dynamicPanel.meta?.from_ads_id as string | undefined} />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'ads' && <AdsDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'avm' && <AvmDetailPanel id={dynamicPanel.id} />}
+
+      {/* SUP-0037: slot de fallback pour les panels d'autres modules.
+          Quand on ouvre par exemple "Ajouter un enregistrement de conformite"
+          depuis une fiche profil PAX, openDynamicPanel positionne le panel
+          en mode 'conformite' — mais les renders inline ci-dessus ne matchent
+          que 'paxlog'. Sans ce slot, le panel disparait silencieusement et
+          l'utilisateur retombe sur le tableau. On delegue ici au registry
+          (rempli par ConformitePage et autres pages au chargement de leur
+          chunk). Le chunk conformite est pre-charge par ProfileDetailPanel
+          pour garantir que le renderer soit pret au clic. */}
+      {dynamicPanel && dynamicPanel.module !== 'paxlog' && renderRegisteredPanel(dynamicPanel)}
     </div>
   )
 }

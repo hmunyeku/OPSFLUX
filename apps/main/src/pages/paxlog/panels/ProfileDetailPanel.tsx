@@ -3,7 +3,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { usePaxProfile, useUpdatePaxProfile, usePaxCredentials, usePaxProfileSitePresenceHistory, useCredentialTypes } from '@/hooks/usePaxlog'
 import { useComplianceRecords } from '@/hooks/useConformite'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { normalizeNames } from '@/lib/normalize'
 import type { CredentialType, PaxCredential, PaxSitePresence } from '@/services/paxlogService'
 import { DynamicPanelShell, PanelActionButton, FormSection, PanelContentLayout, DangerConfirmButton, InlineEditableRow, ReadOnlyRow, SectionColumns } from '@/components/layout/DynamicPanel'
@@ -32,6 +32,18 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
   const handleSave = useCallback((field: string, value: string) => {
     updateProfile.mutate({ id, payload: normalizeNames({ [field]: value }) })
   }, [id, updateProfile])
+
+  // SUP-0037: pre-load le module conformite des qu'on ouvre une fiche profil.
+  // L'utilisateur peut cliquer sur 'Ajouter un enregistrement de conformite'
+  // (CTA dans le header de la section Conformite ci-dessous), qui appelle
+  // openDynamicPanel({module: 'conformite', ...}). Sans pre-load, le chunk
+  // conformite n'est charge que quand l'utilisateur visite /conformite,
+  // donc le renderer registry n'est pas pret -> le panel ne s'affiche pas
+  // et l'utilisateur retombe sur la liste sans message d'erreur.
+  // Cf. PaxLogPage.tsx pour le slot de fallback qui rend le panel via registry.
+  useEffect(() => {
+    import('@/pages/conformite/ConformitePage').catch(() => { /* preload best-effort */ })
+  }, [])
 
   const credTypeMap = useMemo(() => {
     const m: Record<string, CredentialType> = {}

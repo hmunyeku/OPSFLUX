@@ -5,7 +5,7 @@ SUP-0038 followup (Bastien, 2026-05-11):
 > a fixe la limite a 500 qui a empeche l'agent de faire un travail complet.
 
 L'agent de triage de tickets (OpsFlux Maintenance Agent) lit
-``support_agent_configs.max_lines_modified_per_run`` pour:
+``support_agent_config.max_lines_modified_per_run`` pour:
 1. Auto-limiter son scope dans MISSION.md (mission_builder.py:59)
 2. Rejeter les PRs depassant le budget (gate_line_budget)
 
@@ -39,7 +39,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     # Change the column-level default for new tenants.
     op.alter_column(
-        "support_agent_configs",
+        "support_agent_config",
         "max_lines_modified_per_run",
         server_default="2000",
     )
@@ -47,19 +47,19 @@ def upgrade() -> None:
     # touch ONLY rows still at 500 — if an admin explicitly set 100 or
     # 1500, we keep their value intact.
     op.execute(
-        "UPDATE support_agent_configs SET max_lines_modified_per_run = 2000 "
+        "UPDATE support_agent_config SET max_lines_modified_per_run = 2000 "
         "WHERE max_lines_modified_per_run = 500"
     )
 
 
 def downgrade() -> None:
     op.alter_column(
-        "support_agent_configs",
+        "support_agent_config",
         "max_lines_modified_per_run",
         server_default="500",
     )
     # Symmetric rollback: only revert rows still at 2000 (the new default).
     op.execute(
-        "UPDATE support_agent_configs SET max_lines_modified_per_run = 500 "
+        "UPDATE support_agent_config SET max_lines_modified_per_run = 500 "
         "WHERE max_lines_modified_per_run = 2000"
     )

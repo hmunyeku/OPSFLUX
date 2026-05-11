@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, case, select, func as sqla_func, literal, any_, or_
+from sqlalchemy import and_, case, select, func as sqla_func, literal, any_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_module_enabled, require_permission
@@ -1162,6 +1162,39 @@ async def delete_job_position(
 # ── Employee Transfers ───────────────────────────────────────────────────
 
 
+async def _invalidate_compliance_on_transfer(db: AsyncSession, contact_id: UUID) -> None:
+    """
+    SUP-0038: Invalidate existing compliance records when an employee is transferred.
+
+    When an employee changes tier (company) or job position, their compliance
+    requirements may change (different HSE certifications, different contextual rules).
+    We mark existing compliance records as inactive to force re-verification in the new context.
+
+    This ensures:
+    1. Old compliance records from previous context don't count as valid
+    2. New compliance checks reflect the current tier/job requirements
+    3. Compliance officers must re-verify/re-issue documents for the new context
+
+    Note: We mark records as active=False rather than deleting them to preserve audit trail.
+    """
+    await db.execute(
+        update(ComplianceRecord)
+        .where(
+            ComplianceRecord.owner_type == "tier_contact",
+            ComplianceRecord.owner_id == contact_id,
+            ComplianceRecord.active == True,
+        )
+        .values(active=False)
+    )
+    # Emit event for audit trail (optional, if event system is enabled)
+    await emit_event(
+        event_type="compliance.invalidated_on_transfer",
+        entity_type="tier_contact",
+        entity_id=contact_id,
+        data={"reason": "Employee transfer - context changed"},
+    )
+
+
 @router.get("/transfers", response_model=PaginatedResponse[TierContactTransferRead], dependencies=[require_permission("conformite.transfer.read")])
 async def list_transfers(
     contact_id: UUID | None = None,
@@ -1227,7 +1260,11 @@ async def create_transfer(
     _: None = require_permission("conformite.transfer.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a transfer record and update the contact's tier_id."""
+    """Create a transfer record and update the contact's tier_id (and optionally job_position_id).
+
+    SUP-0038: Also invalidates existing compliance records and triggers re-verification
+    in the new context (new tier + new job position if provided).
+    """
     # Validate contact exists AND belongs to the caller's entity (via parent tier)
     contact_row = await db.execute(
         select(TierContact)
@@ -1255,6 +1292,24 @@ async def create_transfer(
             code="TIER_NOT_FOUND",
             message="Tier not found",
         )
+
+    # Validate new job position if provided (SUP-0038)
+    if body.new_job_position_id:
+        jp_check = await db.execute(
+            select(JobPosition).where(
+                JobPosition.id == body.new_job_position_id,
+                JobPosition.entity_id == entity_id,
+                JobPosition.active == True,
+            )
+        )
+        new_job_position = jp_check.scalar_one_or_none()
+        if not new_job_position:
+            raise StructuredHTTPException(
+                404,
+                code="JOB_POSITION_NOT_FOUND",
+                message="Job position not found",
+            )
+
     await _assert_external_owner_access(
         db,
         current_user,
@@ -1281,16 +1336,26 @@ async def create_transfer(
     # Actually move the contact to the new tier
     contact.tier_id = body.to_tier_id
 
+    # Update job position if provided (SUP-0038)
+    if body.new_job_position_id:
+        contact.job_position_id = body.new_job_position_id
+
+    # SUP-0038: Invalidate existing compliance records when context changes
+    # (tier or job position changed → compliance requirements may differ)
+    await _invalidate_compliance_on_transfer(db, contact.id)
+
     await db.commit()
     await db.refresh(transfer)
 
     # Enrich response
     from_tier = await db.get(Tier, transfer.from_tier_id)
     to_tier = await db.get(Tier, transfer.to_tier_id)
+    new_job_pos = await db.get(JobPosition, transfer.new_job_position_id) if transfer.new_job_position_id else None
     d = {c.key: getattr(transfer, c.key) for c in transfer.__table__.columns}
     d["contact_name"] = f"{contact.first_name} {contact.last_name}"
     d["from_tier_name"] = from_tier.name if from_tier else None
     d["to_tier_name"] = to_tier.name if to_tier else None
+    d["new_job_position_name"] = new_job_pos.name if new_job_pos else None
     return d
 
 

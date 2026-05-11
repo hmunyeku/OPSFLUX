@@ -1635,11 +1635,13 @@ class TierContactTransferRead(OpsFluxSchema):
     to_tier_id: UUID
     transfer_date: datetime
     reason: str | None = None
+    new_job_position_id: UUID | None = None
     transferred_by: UUID
     created_at: datetime
     contact_name: str | None = None
     from_tier_name: str | None = None
     to_tier_name: str | None = None
+    new_job_position_name: str | None = None
 
 
 class TierContactTransferCreate(BaseModel):
@@ -1648,6 +1650,7 @@ class TierContactTransferCreate(BaseModel):
     to_tier_id: UUID
     transfer_date: datetime
     reason: str | None = None
+    new_job_position_id: UUID | None = None
 
 
 # ─── Projects / Projets ─────────────────────────────────────────────────────

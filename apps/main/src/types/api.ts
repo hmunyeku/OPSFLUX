@@ -1254,6 +1254,7 @@ export interface TierContactTransferCreate {
   to_tier_id: string
   transfer_date: string
   reason?: string | null
+  new_job_position_id?: string | null
 }
 
 // ── Projects / Projets ───────────────────────────────────────

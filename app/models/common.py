@@ -1603,11 +1603,13 @@ class TierContactTransfer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     to_tier_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id"), nullable=False)
     transfer_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     reason: Mapped[str | None] = mapped_column(Text)
+    new_job_position_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("job_positions.id"), nullable=True)
     transferred_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     contact: Mapped["TierContact"] = relationship(foreign_keys=[contact_id])
     from_tier: Mapped["Tier"] = relationship(foreign_keys=[from_tier_id])
     to_tier: Mapped["Tier"] = relationship(foreign_keys=[to_tier_id])
+    new_job_position: Mapped["JobPosition | None"] = relationship(foreign_keys=[new_job_position_id])
     actor: Mapped["User"] = relationship(foreign_keys=[transferred_by])
 
 

@@ -195,14 +195,11 @@ function DefinitionCard({
           <h3 className="text-[13px] font-semibold text-foreground truncate">{def.name}</h3>
           <div className="flex items-center gap-1 shrink-0">
             <span className={cn(
-              'inline-flex items-center gap-0.5 rounded-sm px-1.5 py-0.5 text-[10px] font-medium leading-none',
-              def.status === 'published'
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                : def.status === 'draft'
-                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                  : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+              'chip',
+              def.status === 'published' && 'chip-success',
+              def.status === 'draft' && 'chip-warn',
             )}>
-              {def.status === 'published' ? <Play size={8} /> : def.status === 'draft' ? <Pause size={8} /> : <Archive size={8} />}
+              {def.status === 'published' ? <Play size={10} /> : def.status === 'draft' ? <Pause size={10} /> : <Archive size={10} />}
               {t(`workflow.${def.status}`)}
             </span>
             <span className="text-[10px] text-muted-foreground leading-none">v{def.version}</span>

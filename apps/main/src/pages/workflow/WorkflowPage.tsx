@@ -420,19 +420,16 @@ function WorkflowEditorInner({
           <h2 className="text-sm font-semibold text-foreground truncate">{definition.name}</h2>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={cn(
-              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
-              definition.status === 'published'
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                : definition.status === 'draft'
-                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                  : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+              'chip',
+              definition.status === 'published' && 'chip-success',
+              definition.status === 'draft' && 'chip-warn',
             )}>
-              {definition.status === 'published' ? <Play size={9} /> : definition.status === 'draft' ? <Pause size={9} /> : <Archive size={9} />}
+              {definition.status === 'published' ? <Play size={10} /> : definition.status === 'draft' ? <Pause size={10} /> : <Archive size={10} />}
               {t(`workflow.${definition.status}`)}
             </span>
             <span className="text-[10px] text-muted-foreground">v{definition.version}</span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 text-[10px] font-medium">
-              <Tag size={8} />
+            <span className="chip chip-info">
+              <Tag size={10} />
               {entityTypeLabel(definition.entity_type)}
             </span>
           </div>
@@ -509,10 +506,10 @@ function WorkflowEditorInner({
           <div className="w-px h-5 bg-border" />
 
           {structureLocked && (
-            <div className="hidden lg:flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+            <span className="chip chip-warn hidden lg:inline-flex">
               <Shield size={11} />
               {t('workflow.structure_locked')}
-            </div>
+            </span>
           )}
 
           {/* Clone */}

@@ -199,31 +199,34 @@ function ArborescenceTreeNode({
 // -- Badges -------------------------------------------------------------------
 
 function StatusBadge({ status }: { status: string }) {
-  const colorMap: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-    in_review: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    approved: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-    published: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    obsolete: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-    archived: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+  // Mapping vers les variantes Pajamas++ .chip-* du design system
+  // (au lieu de classes bg-*/text-* inline, qui faisaient des chips
+  //  visuellement decales du reste de l'app).
+  const chipVariant: Record<string, string> = {
+    draft: '',                  // neutral
+    in_review: 'chip-warn',
+    approved: 'chip-success',
+    published: 'chip-info',
+    obsolete: 'chip-danger',
+    archived: '',               // neutral
   }
   const label = STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status
   return (
-    <span className={cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', colorMap[status] || 'bg-gray-100 text-gray-700')}>
+    <span className={cn('chip', chipVariant[status])}>
       {label}
     </span>
   )
 }
 
 function ClassificationBadge({ classification }: { classification: string }) {
-  const colorMap: Record<string, string> = {
-    INT: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-    CONF: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-    REST: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-    PUB: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  const chipVariant: Record<string, string> = {
+    INT: '',                    // neutral interne
+    CONF: 'chip-highlight',     // orange — confidentiel
+    REST: 'chip-danger',        // restreint
+    PUB: 'chip-success',        // public
   }
   return (
-    <span className={cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', colorMap[classification] || 'bg-gray-100 text-gray-600')}>
+    <span className={cn('chip', chipVariant[classification])}>
       {classification}
     </span>
   )
@@ -1945,9 +1948,9 @@ export function ReportEditorPage() {
                         <td className="px-3 py-2 text-muted-foreground text-xs tabular-nums">{tpl.field_count}</td>
                         <td className="px-3 py-2">
                           {tpl.is_active ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Actif</span>
+                            <span className="chip chip-success">Actif</span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>
+                            <span className="chip">Inactif</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-muted-foreground text-xs tabular-nums">{formatDate(tpl.created_at)}</td>
@@ -2003,9 +2006,9 @@ export function ReportEditorPage() {
                           <td className="px-3 py-2 text-muted-foreground text-xs font-mono">{dt.nomenclature_pattern}</td>
                           <td className="px-3 py-2">
                             {dt.is_active ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Actif</span>
+                              <span className="chip chip-success">Actif</span>
                             ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>
+                              <span className="chip">Inactif</span>
                             )}
                           </td>
                         </tr>

@@ -216,7 +216,10 @@ function PhoneCountryCombobox({ value, onChange, compact }: PhoneCountryCombobox
       {open && (
         <ul
           ref={listRef}
-          className="absolute z-50 mt-1 w-64 max-h-56 overflow-auto rounded-lg border border-border bg-popover shadow-md py-1"
+          // SUP-0026: meme refonte que CountrySelect — 224px etait trop court
+          // pour ~200 indicatifs telephoniques. min(60vh, 420px) montre
+          // ~16 options sans scroll inutile.
+          className="absolute z-50 mt-1 w-64 max-h-[min(60vh,420px)] overflow-auto rounded-lg border border-border bg-popover shadow-md py-1"
         >
           {filtered.length === 0 && (
             <li className="px-3 py-2 text-xs text-muted-foreground text-center">

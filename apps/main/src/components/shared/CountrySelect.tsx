@@ -250,7 +250,11 @@ export function CountrySelect({
       {open && (
         <ul
           ref={listRef}
-          className="absolute z-50 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-border bg-popover shadow-md py-1"
+          // SUP-0026: dropdown agrandi (224px -> min(60vh, 420px)) — ~200 pays
+          // dans la liste, l'ancien max-h-56 montrait ~8 options et obligeait
+          // a scroller longuement. Le min() avec 60vh evite que la dropdown
+          // depasse l'ecran sur les petits viewports.
+          className="absolute z-50 mt-1 w-full max-h-[min(60vh,420px)] overflow-auto rounded-lg border border-border bg-popover shadow-md py-1"
         >
           {filtered.length === 0 && (
             <li className="px-3 py-2 text-xs text-muted-foreground text-center">

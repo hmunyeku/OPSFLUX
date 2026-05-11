@@ -822,7 +822,7 @@ export function GeoEditor({
           </div>
 
           {showResults && searchResults.length > 0 && (
-            <div className="absolute z-[1000] top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+            <div className="absolute z-[1000] top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-[min(60vh,420px)] overflow-y-auto">
               {searchResults.map((r, i) => (
                 <button
                   key={i}

@@ -4,7 +4,7 @@ import i18n from '@/lib/i18n'
 
 const numLocale = (): string => (i18n.language === 'en' ? 'en-US' : 'fr-FR')
 import {
-  FileText, Package, Plus, Loader2, MapPin, Pencil, Save,
+  FileText, Package, Plus, Loader2, MapPin, Pencil, Save, CheckCircle2, Circle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { describeError } from '@/lib/errors'
@@ -128,9 +128,9 @@ export function CreateCargoRequestPanel() {
               <div className="grid gap-2 md:grid-cols-2">
                 {readinessChecklist.map((item) => (
                   <div key={item.label} className="flex items-center gap-2 text-xs">
-                    <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
-                      {item.done ? '✓' : '•'}
-                    </span>
+                    {item.done
+                      ? <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      : <Circle size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />}
                     <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
                   </div>
                 ))}
@@ -847,9 +847,9 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   { label: 'Au moins un colis rattaché', done: requestCargo.length > 0 },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center gap-2 text-xs">
-                    <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
-                      {item.done ? '✓' : '•'}
-                    </span>
+                    {item.done
+                      ? <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      : <Circle size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />}
                     <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
                   </div>
                 ))}

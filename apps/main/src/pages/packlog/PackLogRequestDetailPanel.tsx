@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
+  Circle,
   FileText,
   Loader2,
   MapPin,
@@ -550,16 +551,9 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                     { label: 'Au moins un colis', done: requestCargo.length > 0 },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center gap-2 py-1 text-xs">
-                      <span
-                        className={cn(
-                          'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold',
-                          item.done
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'
-                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400',
-                        )}
-                      >
-                        {item.done ? '✓' : '!'}
-                      </span>
+                      {item.done
+                        ? <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        : <Circle size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />}
                       <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>
                         {item.label}
                       </span>

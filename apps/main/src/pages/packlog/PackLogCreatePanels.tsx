@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Loader2, MapPin, Package } from 'lucide-react'
+import { FileText, Loader2, MapPin, Package, CheckCircle2, Circle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
@@ -155,9 +155,9 @@ function CreateCargoRequestInner() {
               <div className="grid gap-2 md:grid-cols-2">
                 {readinessChecklist.map((item) => (
                   <div key={item.label} className="flex items-center gap-2 text-xs">
-                    <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
-                      {item.done ? '✓' : '•'}
-                    </span>
+                    {item.done
+                      ? <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      : <Circle size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />}
                     <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
                   </div>
                 ))}

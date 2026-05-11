@@ -234,10 +234,7 @@ function TemplateList({
 
             {t.active_languages.length > 0 ? (
               t.active_languages.map((lang) => (
-                <span
-                  key={lang}
-                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                >
+                <span key={lang} className="chip chip-success">
                   {LANG_LABELS[lang] ?? lang}
                 </span>
               ))

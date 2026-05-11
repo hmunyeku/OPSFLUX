@@ -106,21 +106,21 @@ export function EmailsTab() {
                           <p className="text-sm font-medium text-foreground truncate">{email.email}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
                             {email.verified ? (
-                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                <Check size={9} /> Vérifié
+                              <span className="chip chip-success">
+                                <Check size={10} /> Vérifié
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                              <span className="chip chip-warn">
                                 En attente
                               </span>
                             )}
                             {email.is_primary && (
-                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-primary/10 text-primary">
-                                <Star size={9} /> Principal
+                              <span className="chip chip-highlight">
+                                <Star size={10} /> Principal
                               </span>
                             )}
                             {email.is_notification && (
-                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                              <span className="chip chip-info">
                                 Notifications
                               </span>
                             )}

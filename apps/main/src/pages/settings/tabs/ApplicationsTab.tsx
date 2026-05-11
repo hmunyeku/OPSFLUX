@@ -88,11 +88,7 @@ export function ApplicationsTab() {
 
                   {/* Badges */}
                   <div className="flex flex-wrap gap-1 mb-3">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      app.confidential
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                    }`}>
+                    <span className={`chip ${app.confidential ? 'chip-info' : 'chip-warn'}`}>
                       {app.confidential ? 'Confidentielle' : 'Publique'}
                     </span>
                     {app.scopes.map((s) => (

@@ -263,8 +263,19 @@ class SupportAgentConfig(Base):
     circuit_breaker_cooldown_hours: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="24"
     )
+    # Plafond du nombre de lignes ajoutees+supprimees par PR. Lue par
+    # gate_line_budget() pour rejeter les PRs trop volumineux et passee
+    # a l'agent via MISSION.md (cf. mission_builder.py) pour qu'il
+    # auto-limite son scope.
+    # SUP-0038 followup (Bastien, 2026-05-11): le default 500 etait trop
+    # restrictif — l'agent rognait silencieusement les ameliorations UX
+    # (cf. PR #11 qui annonce "hors scope pour respecter la limite de
+    # 500 lignes"). Bump a 2000 pour permettre des PRs substantielles
+    # tout en gardant un garde-fou anti-runaway. Pour passer outre (e.g.
+    # refactor majeur), ajuster le setting dans Parametres > Agent IA >
+    # Budgets & securite > Lignes max/run.
     max_lines_modified_per_run: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default="500"
+        Integer, nullable=False, server_default="2000"
     )
     forbidden_path_patterns: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="'[]'")
 

@@ -56,7 +56,12 @@ def build_mission_md(
         config.forbidden_path_patterns if config and config.forbidden_path_patterns
         else _DEFAULT_FORBIDDEN_PATHS
     )
-    max_lines = config.max_lines_modified_per_run if config else 500
+    # Fallback aligne avec le server_default du modele (cf. SUP-0038
+    # followup): 500 etait trop bas et l'agent skippait des ameliorations
+    # UX legitimes pour rester sous budget. 2000 permet des PRs
+    # substantielles. La valeur effective vient du setting tenant
+    # (admin-configurable dans Parametres > Agent IA > Lignes max/run).
+    max_lines = config.max_lines_modified_per_run if config else 2000
 
     comments_md = ""
     if recent_comments:

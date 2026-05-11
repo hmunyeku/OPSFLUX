@@ -2698,6 +2698,7 @@
       "external_contact_promoted": "External contact profile promoted to external user",
       "credentials_title": "Credentials ({{count}})",
       "credentials_legacy_hint": "Historical data. For new documents, use the Compliance section above.",
+      "transfer_contact": "Transfer",
       "compliance_records_title": "Compliance records ({{count}})",
       "compliance_records_empty": "No compliance record.",
       "credential_obtained": "Obtained: {{date}}",

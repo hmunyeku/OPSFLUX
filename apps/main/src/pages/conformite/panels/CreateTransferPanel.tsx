@@ -31,19 +31,25 @@ function CreateTransferInner() {
   const { t } = useTranslation()
   const createTransfer = useCreateTransfer()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  // SUP-0024: lit le meta pre-fill pose par ProfileDetailPanel (PaxLog)
+  // quand l'utilisateur clique 'Transferer' depuis la fiche d'un employe.
+  // Permet d'eviter le double-clic 'choisir entreprise source -> choisir contact'.
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const prefillContactId = (dynamicPanel?.meta?.contact_id as string | undefined) ?? ''
+  const prefillFromTierId = (dynamicPanel?.meta?.from_tier_id as string | undefined) ?? ''
   const { toast } = useToast()
 
   // Fetch all tiers for dropdowns
   const { data: tiersData } = useTiers({ page_size: 500 })
 
-  const [selectedContactTierId, setSelectedContactTierId] = useState<string>('')
+  const [selectedContactTierId, setSelectedContactTierId] = useState<string>(prefillFromTierId)
 
   // Fetch contacts for the selected tier
   const { data: contactsData } = useTierContacts(selectedContactTierId || undefined)
 
   const [form, setForm] = useState<TierContactTransferCreate>({
-    contact_id: '',
-    from_tier_id: '',
+    contact_id: prefillContactId,
+    from_tier_id: prefillFromTierId,
     to_tier_id: '',
     transfer_date: new Date().toISOString().split('T')[0],
     reason: null,

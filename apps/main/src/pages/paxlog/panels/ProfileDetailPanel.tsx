@@ -8,8 +8,9 @@ import { normalizeNames } from '@/lib/normalize'
 import type { CredentialType, PaxCredential, PaxSitePresence } from '@/services/paxlogService'
 import { DynamicPanelShell, PanelActionButton, FormSection, PanelContentLayout, DangerConfirmButton, InlineEditableRow, ReadOnlyRow, SectionColumns } from '@/components/layout/DynamicPanel'
 import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
-import { Users, Plus, User, ArrowLeft, Trash2, Building2, Info, Shield as ShieldIcon } from 'lucide-react'
+import { Users, Plus, User, ArrowLeft, Trash2, Building2, Info, GitBranch, Shield as ShieldIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { usePermission } from '@/hooks/usePermission'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
@@ -19,6 +20,7 @@ import { formatDate, StatusBadge } from '../shared'
 
 export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSource: 'user' | 'contact'; adsId?: string }) {
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: profile, isLoading, isError, error } = usePaxProfile(id, paxSource)
@@ -90,6 +92,28 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
               onClick={() => openDynamicPanel({ type: 'detail', module: 'paxlog', id: adsId, meta: { subtype: 'ads' } })}
             >
               <ArrowLeft size={12} /> {t('paxlog.profile_panel.back_to_ads')}
+            </PanelActionButton>
+          )}
+          {/* SUP-0024: bouton 'Transferer' accessible directement depuis la
+              fiche profil (avant l'utilisateur devait aller dans Conformite
+              > Transferts et re-selectionner l'employe). Visible uniquement
+              pour les contacts externes lies a une entreprise (le transfert
+              n'a pas de sens pour les users internes Perenco). Le pre-fill
+              contact_id+from_tier_id est consomme par CreateTransferPanel. */}
+          {profile.pax_source === 'contact' && profile.company_id && hasPermission('conformite.transfer.create') && (
+            <PanelActionButton
+              onClick={() => openDynamicPanel({
+                type: 'create',
+                module: 'conformite',
+                meta: {
+                  subtype: 'transfer',
+                  contact_id: profile.entity_id,
+                  from_tier_id: profile.company_id,
+                  contact_label: `${profile.first_name} ${profile.last_name}`,
+                },
+              })}
+            >
+              <GitBranch size={12} /> {t('paxlog.profile_panel.transfer_contact', 'Transferer')}
             </PanelActionButton>
           )}
           <DangerConfirmButton

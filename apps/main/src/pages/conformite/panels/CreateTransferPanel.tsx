@@ -49,12 +49,15 @@ function CreateTransferInner() {
     reason: null,
   })
 
-  // When a contact is selected, auto-populate from_tier_id with the contact's current tier
+  // When a contact is selected, auto-populate from_tier_id with the contact's current tier.
+  // Note (post-merge fix): useTierContacts returns `TierContact[]` directly now,
+  // pas une envelope { items: [...] }. Le code venait d'une version anterieure
+  // de l'API et plantait au build TS apres merge visual -> main.
   useEffect(() => {
-    if (form.contact_id && contactsData?.items) {
-      const selectedContact = contactsData.items.find((c) => c.id === form.contact_id)
+    if (form.contact_id && Array.isArray(contactsData)) {
+      const selectedContact = contactsData.find((c) => c.id === form.contact_id)
       if (selectedContact && selectedContact.tier_id) {
-        setForm((prev) => ({ ...prev, from_tier_id: selectedContact.tier_id }))
+        setForm((prev) => ({ ...prev, from_tier_id: selectedContact.tier_id! }))
       }
     }
   }, [form.contact_id, contactsData])
@@ -99,7 +102,7 @@ function CreateTransferInner() {
   ], [t, closeDynamicPanel, createTransfer.isPending])
 
   const tiers = tiersData?.items ?? []
-  const contacts = contactsData?.items ?? []
+  const contacts = Array.isArray(contactsData) ? contactsData : []
 
   return (
     <DynamicPanelShell

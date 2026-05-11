@@ -1,3 +1,9 @@
+# Backend Dockerfile — Python 3.12 slim + uvicorn.
+# Force-rebuild marker (SUP-0038 followup, 2026-05-11 16:40): backend
+# container has been stuck on a stale image after the last few deploys
+# (Dokploy was doing 'docker compose up -d' without --build because no
+# Dockerfile change was detected). This touch ensures the next deploy
+# re-builds the image with the up-to-date Python code.
 FROM python:3.12-slim AS base
 
 WORKDIR /opt/opsflux

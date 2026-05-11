@@ -1,4 +1,5 @@
 import { User } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUsers } from '@/hooks/useUsers'
 import type { UserRead } from '@/types/api'
@@ -14,6 +15,8 @@ interface UserPickerProps {
   clearable?: boolean
 }
 
+const PAGE_SIZE = 100
+
 export function UserPicker({
   value,
   onChange,
@@ -24,8 +27,18 @@ export function UserPicker({
   clearable = true,
 }: UserPickerProps) {
   const { t } = useTranslation()
-  const { data, isLoading } = useUsers({ page: 1, page_size: 200, active: true })
+  // Server-side search (cf. SUP-0038 followup): avant page_size:200 en bulk,
+  // silently tronque. Maintenant search debounced.
+  const [search, setSearch] = useState('')
+  const { data, isLoading } = useUsers({
+    page: 1,
+    page_size: PAGE_SIZE,
+    active: true,
+    search: search.trim() || undefined,
+  })
   const items = data?.items ?? []
+  const total = data?.total ?? items.length
+  const truncated = !search.trim() && total > PAGE_SIZE
 
   return (
     <EntityPickerBase
@@ -40,6 +53,8 @@ export function UserPicker({
       placeholder={placeholder || t('users.select_user', 'Sélectionner un utilisateur...')}
       icon={User}
       recentKey="opsflux:user-picker:recent"
+      onSearchChange={setSearch}
+      truncated={truncated}
       toItem={(item) => ({
         id: item.id,
         label: `${item.first_name} ${item.last_name}`.trim() || item.email,

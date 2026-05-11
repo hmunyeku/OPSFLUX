@@ -10,9 +10,14 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { safeLocal } from '@/lib/safeStorage'
 import { useTranslation } from 'react-i18next'
-import { Search, FolderKanban, Loader2, X, Clock, Star, ChevronDown } from 'lucide-react'
+import { AlertTriangle, Search, FolderKanban, Loader2, X, Clock, Star, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useProjects } from '@/hooks/useProjets'
+
+// Server-side search: 100 par page suffit pour la majorite des tenants; au-dela
+// l'utilisateur passe par la recherche (debounced 300ms). Cf. SUP-0038 followup.
+const PAGE_SIZE = 100
 
 // ── Recency tracking (localStorage) ──────────────────────────
 const RECENT_KEY = 'opsflux:project-picker:recent'
@@ -96,13 +101,22 @@ export function ProjectPicker({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Fetch all projects (lightweight list)
-  const { data, isLoading } = useProjects({ page_size: 200, asset_id: assetId || undefined })
+  // Server-side search via React Query (debounced 300ms). Avant: page_size:200
+  // en bulk, silently tronque a 200. Maintenant: query key inclut search,
+  // re-fetch automatique a chaque changement.
+  const debouncedSearch = useDebounce(search, 300)
+  const { data, isLoading } = useProjects({
+    page_size: PAGE_SIZE,
+    asset_id: assetId || undefined,
+    search: debouncedSearch.trim() || undefined,
+  })
+  const totalProjects = (data as any)?.total ?? 0
   const projects = useMemo(() => {
     const items = (data as any)?.items ?? data ?? []
     if (filterStatus?.length) return items.filter((p: any) => filterStatus.includes(p.status))
     return items
   }, [data, filterStatus])
+  const truncated = !debouncedSearch.trim() && totalProjects > PAGE_SIZE
 
   // Find selected project
   const selectedProject = useMemo(
@@ -110,16 +124,19 @@ export function ProjectPicker({
     [projects, value],
   )
 
-  // Filter by search
+  // Le filtrage est maintenant server-side via useProjects({search}). On
+  // garde une passe client-side pendant que le debounce attend, pour
+  // l'instant-feedback dans la dropdown — sans ca on verrait la liste pre-
+  // debounce pendant 300ms.
   const filtered = useMemo(() => {
-    if (!search.trim()) return projects
+    if (!search.trim() || search === debouncedSearch) return projects
     const q = search.toLowerCase()
     return projects.filter((p: any) =>
       p.name?.toLowerCase().includes(q) ||
       p.code?.toLowerCase().includes(q) ||
       p.status?.toLowerCase().includes(q)
     )
-  }, [projects, search])
+  }, [projects, search, debouncedSearch])
 
   // Recent projects
   const recentProjects = useMemo(() => {
@@ -214,6 +231,13 @@ export function ProjectPicker({
               </button>
             )}
           </div>
+
+          {truncated && !search && (
+            <div className="flex items-start gap-1.5 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-[10px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+              <AlertTriangle size={11} className="mt-0.5 shrink-0" />
+              <span>{t('common.picker_truncated', 'Liste tronquée — utilisez la recherche pour trouver un projet précis.')}</span>
+            </div>
+          )}
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto py-1">

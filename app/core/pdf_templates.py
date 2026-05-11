@@ -3536,8 +3536,7 @@ DEFAULT_PDF_TEMPLATES[10]["default_versions"]["en"]["body_html"] = _CARGO_LABEL_
 # Les zones texte riches passent par le filtre `| safe` ; le service doit
 # convertir le markdown source en HTML avant d'injecter les variables.
 
-_MOC_REPORT_BODY_FR = r"""\
-<!DOCTYPE html>
+_MOC_REPORT_BODY_FR = r"""<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="utf-8"/>

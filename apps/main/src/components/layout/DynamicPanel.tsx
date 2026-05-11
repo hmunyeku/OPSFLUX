@@ -1199,7 +1199,12 @@ export function InlineEditableSelect({
         )}
       >
         <span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere]">
-          {displayValue || value || <span className="text-muted-foreground/60">—</span>}
+          {/* Bastien (mai 2026): le Site Detail panel affichait le UUID brut
+              du champ parent au lieu de son nom. Cause: displayValue n'etait
+              pas passe par le caller -> fallback sur value (qui est le UUID
+              pour les selects pointant vers une entite). Fix a la source:
+              auto-lookup le label dans options quand displayValue absent. */}
+          {displayValue || options.find((o) => o.value === value)?.label || value || <span className="text-muted-foreground/60">—</span>}
         </span>
         {!disabled && <Pencil size={11} className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/70 transition-colors" />}
       </span>

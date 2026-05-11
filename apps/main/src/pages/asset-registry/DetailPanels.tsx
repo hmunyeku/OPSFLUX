@@ -468,7 +468,19 @@ export function SiteDetailPanel({ id }: { id: string }) {
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={site.status} />} />
               }
               {canUpdate
-                ? <InlineEditableSelect label={t('assets.field_parent')} value={site.field_id} options={fieldOptions} onSave={(v) => handleSave('field_id', v)} />
+                ? <InlineEditableSelect
+                    label={t('assets.field_parent')}
+                    value={site.field_id}
+                    /* Bastien (mai 2026): le UUID du field parent s'affichait
+                       brut a la place de "CODE — Nom". Le composant a un
+                       fallback auto-lookup dans options, mais on passe aussi
+                       explicitement displayValue pour les cas ou les options
+                       ne sont pas encore chargees (parentField fetch en
+                       parallele est plus rapide que la liste complete). */
+                    displayValue={parentField ? `${parentField.code} — ${parentField.name}` : undefined}
+                    options={fieldOptions}
+                    onSave={(v) => handleSave('field_id', v)}
+                  />
                 : <ReadOnlyRow label={t('assets.field_parent')} value={
                     <CrossModuleLink module="ar-field" id={site.field_id} label={parentField ? `${parentField.code} — ${parentField.name}` : '...'} />
                   } />
@@ -707,7 +719,15 @@ export function InstallationDetailPanel({ id }: { id: string }) {
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={inst.status} />} />
               }
               {canUpdate
-                ? <InlineEditableSelect label={t('assets.site_parent')} value={inst.site_id} options={siteOptions} onSave={(v) => handleSave('site_id', v)} />
+                ? <InlineEditableSelect
+                    label={t('assets.site_parent')}
+                    value={inst.site_id}
+                    /* Idem fix Site Detail Panel: passe displayValue pour
+                       eviter l'affichage UUID brut quand sitesData pas charge. */
+                    displayValue={parentSite ? `${parentSite.code} — ${parentSite.name}` : undefined}
+                    options={siteOptions}
+                    onSave={(v) => handleSave('site_id', v)}
+                  />
                 : <ReadOnlyRow label={t('assets.site_parent')} value={
                     <CrossModuleLink module="ar-site" id={inst.site_id} label={parentSite ? `${parentSite.code} — ${parentSite.name}` : '...'} />
                   } />

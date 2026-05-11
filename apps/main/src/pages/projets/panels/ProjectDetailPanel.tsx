@@ -3170,11 +3170,19 @@ export function ProjectDetailPanel({ id }: { id: string }) {
     >
       <TabBar
         items={[
+          // SUP-0007 (Bastien): "position de la liste des taches pas tres intuitive,
+          // mettre a la suite des autres". L'ordre des onglets est maintenant aligne
+          // sur le cycle de vie d'un projet :
+          //   1) Vue agregee (Metriques)
+          //   2) Identite (Fiche)
+          //   3) Plan de bataille (Planification + Planner)
+          //   4) Execution (Taches)  <- avant en 3e position, maintenant 5e
+          //   5) Historique / Documents (artefacts)
           { id: 'metriques', label: 'Métriques', icon: Target },
           { id: 'fiche', label: 'Fiche', icon: Info },
-          { id: 'taches', label: `Tâches (${tasks?.length ?? 0})`, icon: ListTodo },
           { id: 'planification', label: 'Planification', icon: BarChart3 },
           { id: 'planner', label: 'Planner', icon: CalendarClock },
+          { id: 'taches', label: `Tâches (${tasks?.length ?? 0})`, icon: ListTodo },
           // Renamed Activité -> Historique to lift the confusion with
           // the Planner module (this tab is the audit log / changelog).
           { id: 'historique', label: 'Historique', icon: LayoutList },

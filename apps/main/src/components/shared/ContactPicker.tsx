@@ -1,4 +1,5 @@
 import { Contact } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAllTierContacts, useTierContacts } from '@/hooks/useTiers'
 import type { TierContact, TierContactWithTier } from '@/types/api'
@@ -21,6 +22,10 @@ function isGlobalContact(item: ContactLike): item is TierContactWithTier {
   return 'tier_name' in item
 }
 
+// Taille de page pour le mode global (search server-side). En mode scope-tier
+// (tierId set), on charge tous les contacts du tier — generalement <100.
+const GLOBAL_PAGE_SIZE = 100
+
 export function ContactPicker({
   value,
   onChange,
@@ -32,10 +37,22 @@ export function ContactPicker({
   tierId,
 }: ContactPickerProps) {
   const { t } = useTranslation()
+  // Server-side search via debounce (cf. SUP-0038 followup): avant on
+  // chargeait jusqu'a 200 contacts en bulk, tronques au-dela. Maintenant
+  // le user tape, le picker re-fetch ?search=q.
+  const [search, setSearch] = useState('')
   const scopedQuery = useTierContacts(tierId || undefined)
-  const globalQuery = useAllTierContacts({ page: 1, page_size: 200, tier_id: tierId || undefined })
+  const globalQuery = useAllTierContacts({
+    page: 1,
+    page_size: GLOBAL_PAGE_SIZE,
+    tier_id: tierId || undefined,
+    search: search.trim() || undefined,
+  })
   const items: ContactLike[] = tierId ? (scopedQuery.data ?? []) : (globalQuery.data?.items ?? [])
   const isLoading = tierId ? scopedQuery.isLoading : globalQuery.isLoading
+  // Banner 'liste tronquee' uniquement en mode global et sans recherche.
+  const globalTotal = globalQuery.data?.total ?? 0
+  const truncated = !tierId && !search.trim() && globalTotal > GLOBAL_PAGE_SIZE
 
   return (
     <EntityPickerBase
@@ -50,6 +67,8 @@ export function ContactPicker({
       placeholder={placeholder || t('tiers.select_contact', 'Sélectionner un contact...')}
       icon={Contact}
       recentKey="opsflux:contact-picker:recent"
+      onSearchChange={!tierId ? setSearch : undefined}
+      truncated={truncated}
       toItem={(item) => ({
         id: item.id,
         label: `${item.first_name} ${item.last_name}`.trim(),

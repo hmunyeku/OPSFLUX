@@ -35,6 +35,7 @@ import { NoteManager } from '@/components/shared/NoteManager'
 import { useTransfers } from '@/hooks/useConformite'
 import { useComplianceRecords } from '@/hooks/useConformite'
 import { usePaxProfile } from '@/hooks/usePaxlog'
+import { useUser } from '@/hooks/useUsers'
 import { formatDate, formatDateTime } from '@/lib/i18n'
 
 type Tab = 'detail' | 'profile' | 'compliance' | 'timeline' | 'documents'
@@ -212,7 +213,7 @@ export function TransferDetailPanel({ id }: { id: string }) {
               />
               <ReadOnlyRow
                 label={t('conformite.transfers.transferred_by', 'Enregistré par')}
-                value={<span className="text-xs text-muted-foreground font-mono">{transfer.transferred_by || '—'}</span>}
+                value={<TransferredByValue userId={transfer.transferred_by} />}
               />
             </DetailFieldGrid>
           </FormSection>
@@ -349,6 +350,30 @@ export function TransferDetailPanel({ id }: { id: string }) {
         </PanelContentLayout>
       )}
     </DynamicPanelShell>
+  )
+}
+
+// ── Sous-composant: rendre le user 'transferred_by' avec nom + lien ──
+// Avant on affichait le UUID brut, Bastien (mai 2026): "enregistré par,
+// je vois un uid au lieu du lien objet". Resolution via useUser + lien
+// CrossModule vers le module users pour drill-down sur la fiche.
+function TransferredByValue({ userId }: { userId: string }) {
+  const { data: user, isLoading } = useUser(userId)
+  if (!userId) return <span className="text-xs text-muted-foreground">—</span>
+  if (isLoading) {
+    return <span className="text-xs text-muted-foreground/60 tabular-nums">{userId.slice(0, 8)}…</span>
+  }
+  if (!user) {
+    // Fallback: utilisateur supprime ou inaccessible — on affiche le
+    // UUID tronque pour qu'on puisse au moins le rechercher manuellement.
+    return <span className="text-xs text-muted-foreground font-mono" title={userId}>{userId.slice(0, 8)}…</span>
+  }
+  const fullName = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || user.email || userId
+  return (
+    <span className="inline-flex items-center gap-1.5 text-sm">
+      <User size={11} className="text-muted-foreground" />
+      <CrossModuleLink module="users" id={userId} label={fullName} showIcon={false} />
+    </span>
   )
 }
 

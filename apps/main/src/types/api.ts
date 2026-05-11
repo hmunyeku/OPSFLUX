@@ -1246,6 +1246,10 @@ export interface TierContactTransfer {
   contact_name?: string | null
   from_tier_name?: string | null
   to_tier_name?: string | null
+  // SUP-0038: poste optionnel change pendant le transfert. Migration 161
+  // ajoute la colonne, backend la renvoie depuis cette version.
+  new_job_position_id?: string | null
+  new_job_position_name?: string | null
 }
 
 export interface TierContactTransferCreate {

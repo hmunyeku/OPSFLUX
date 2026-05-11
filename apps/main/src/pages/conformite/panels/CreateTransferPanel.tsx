@@ -14,7 +14,7 @@ import {
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
-import { useCreateTransfer } from '@/hooks/useConformite'
+import { useCreateTransfer, useJobPositions } from '@/hooks/useConformite'
 import { useTiers, useTierContacts } from '@/hooks/useTiers'
 import type { TierContactTransferCreate } from '@/types/api'
 
@@ -42,6 +42,9 @@ function CreateTransferInner() {
   // Fetch all tiers for dropdowns
   const { data: tiersData } = useTiers({ page_size: 500 })
 
+  // Fetch job positions for the new job position selector (SUP-0038)
+  const { data: jobPositionsData } = useJobPositions({ page_size: 500 })
+
   const [selectedContactTierId, setSelectedContactTierId] = useState<string>(prefillFromTierId)
 
   // Fetch contacts for the selected tier
@@ -53,6 +56,7 @@ function CreateTransferInner() {
     to_tier_id: '',
     transfer_date: new Date().toISOString().split('T')[0],
     reason: null,
+    new_job_position_id: null,
   })
 
   // When a contact is selected, auto-populate from_tier_id with the contact's current tier.
@@ -109,6 +113,7 @@ function CreateTransferInner() {
 
   const tiers = tiersData?.items ?? []
   const contacts = Array.isArray(contactsData) ? contactsData : []
+  const jobPositions = jobPositionsData?.items ?? []
 
   return (
     <DynamicPanelShell
@@ -194,6 +199,28 @@ function CreateTransferInner() {
                       {tier.name} ({tier.code})
                     </option>
                   ))}
+              </select>
+            </DynamicPanelField>
+          </SmartFormSection>
+
+          <SmartFormSection
+            id="job_position"
+            title={t('conformite.transfers.new_job_position')}
+            level="recommended"
+            help={{ description: t('conformite.transfers.new_job_position_help') }}
+          >
+            <DynamicPanelField label={t('conformite.transfers.new_job_position_label')}>
+              <select
+                value={form.new_job_position_id ?? ''}
+                onChange={(e) => setForm({ ...form, new_job_position_id: e.target.value || null })}
+                className={panelInputClass}
+              >
+                <option value="">-- {t('conformite.transfers.keep_current_position')} --</option>
+                {jobPositions.map((jp) => (
+                  <option key={jp.id} value={jp.id}>
+                    {jp.name} ({jp.code}){jp.department ? ` - ${jp.department}` : ''}
+                  </option>
+                ))}
               </select>
             </DynamicPanelField>
           </SmartFormSection>

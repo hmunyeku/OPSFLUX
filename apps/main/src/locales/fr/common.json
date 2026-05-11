@@ -1357,6 +1357,10 @@
       "select_employee_help": "Choisissez l'employé à transférer",
       "destination": "Destination",
       "destination_help": "Entreprise vers laquelle l'employé sera transféré",
+      "new_job_position": "Nouveau poste (optionnel)",
+      "new_job_position_help": "Vous pouvez changer le poste de l'employé lors du transfert. Cela actualisera ses référentiels de conformité selon les exigences du nouveau poste.",
+      "new_job_position_label": "Nouveau poste",
+      "keep_current_position": "Conserver le poste actuel",
       "details": "Détails du transfert",
       "details_help": "Informations complémentaires sur le transfert",
       "reason_placeholder": "Ex: Changement de contrat, réorganisation..."

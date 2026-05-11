@@ -168,6 +168,10 @@ export function AdsDetailPanel({ id }: { id: string }) {
 
   const compliantPaxCount = (adsPax ?? []).filter((entry) => entry.compliant === true).length
   const nonCompliantPaxCount = (adsPax ?? []).filter((entry) => entry.compliant === false).length
+  // SUP-0035: ajout du compte des PAX en attente de verification (compliant === null/undefined).
+  // Avant: stats affichaient 0/0 avec 6 passagers -> impossible de savoir si le contole etait
+  // en cours ou si tout etait OK. Maintenant on differencie explicitement "verifie OK" vs "a verifier".
+  const pendingPaxCount = (adsPax ?? []).filter((entry) => entry.compliant !== true && entry.compliant !== false).length
   const approvedProjectIds = new Set(
     (adsEvents ?? [])
       .filter((event) => event.event_type === 'project_review_approved')
@@ -837,14 +841,25 @@ export function AdsDetailPanel({ id }: { id: string }) {
                 <span className="text-base font-bold tabular-nums font-display text-foreground">{adsPax?.length ?? 0}</span>
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.passengers')}</span>
               </div>
+              {/* SUP-0035: stats lisibles meme quand tous les PAX sont en attente.
+                  Avant on voyait "0 conformes / 0 ecarts" avec 6 passagers,
+                  ce qui semblait dire qu'il n'y avait rien a verifier.
+                  Maintenant on affiche les ratios "X/Y" et un cadran
+                  "a verifier" quand des PAX sont en attente. */}
               <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-border/60 bg-card">
-                <span className="text-base font-bold tabular-nums font-display text-emerald-600">{compliantPaxCount}</span>
+                <span className="text-base font-bold tabular-nums font-display text-emerald-600">{compliantPaxCount}<span className="text-muted-foreground/60 font-normal text-sm">/{adsPax?.length ?? 0}</span></span>
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.compliant_pax')}</span>
               </div>
               <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-border/60 bg-card">
-                <span className={cn('text-base font-bold tabular-nums font-display', nonCompliantPaxCount > 0 ? 'text-amber-600' : 'text-foreground')}>{nonCompliantPaxCount}</span>
+                <span className={cn('text-base font-bold tabular-nums font-display', nonCompliantPaxCount > 0 ? 'text-rose-600' : 'text-foreground')}>{nonCompliantPaxCount}</span>
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.compliance_gaps')}</span>
               </div>
+              {pendingPaxCount > 0 && (
+                <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-amber-400/40 bg-amber-50/30 dark:bg-amber-950/20">
+                  <span className="text-base font-bold tabular-nums font-display text-amber-600">{pendingPaxCount}</span>
+                  <span className="text-[11px] uppercase tracking-wide text-amber-700 dark:text-amber-400">{t('paxlog.ads_detail.kpis.pax_to_verify', 'a verifier')}</span>
+                </div>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">{adsNextAction}</p>
           </div>
@@ -1232,8 +1247,13 @@ export function AdsDetailPanel({ id }: { id: string }) {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {/* Compliance status — chip explicite avec tooltip
-                          (Bastien feedback: ne comprenait pas ce que
-                          'compliant' voulait dire à côté de chip Ext.). */}
+                          (Bastien feedback initial: ne comprenait pas ce que
+                          'compliant' voulait dire à côté de chip Ext.).
+                          SUP-0035: 3e etat 'A verifier' ajoute quand le
+                          backend n'a pas encore evalue le PAX (compliant=null).
+                          Sans ce 3e cas, l'absence de chip semblait dire
+                          'on ne sait rien' alors que c'est en realite
+                          'pas encore controle'. */}
                       {ap.compliant === true && (
                         <span
                           className="chip chip-success inline-flex items-center gap-1"
@@ -1248,6 +1268,14 @@ export function AdsDetailPanel({ id }: { id: string }) {
                           title="Au moins un pré-requis de conformité n'est pas satisfait : certifications expirées, profil incomplet, ou règles site non remplies. Voir l'onglet Conformité pour le détail."
                         >
                           <XCircle size={11} /> Non conforme
+                        </span>
+                      )}
+                      {ap.compliant !== true && ap.compliant !== false && (
+                        <span
+                          className="chip chip-warn inline-flex items-center gap-1"
+                          title="Le controle de conformite pour ce PAX n'a pas encore ete realise. Aucune decision possible tant que la verification n'est pas faite."
+                        >
+                          <Clock size={11} /> A verifier
                         </span>
                       )}
                       <span className={cn('chip', ap.pax_type === 'internal' ? 'chip-info' : '')}>
@@ -1288,19 +1316,14 @@ export function AdsDetailPanel({ id }: { id: string }) {
                   </div>
                   {complianceSummary && (
                     <div className="mt-2 space-y-1.5">
-                      {(complianceSummary.verification_sequence ?? complianceSummary.covered_layers ?? []).length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {(complianceSummary.verification_sequence ?? complianceSummary.covered_layers ?? []).map((layer) => (
-                            <span key={`${ap.id}-${layer}`} className="chip">
-                              {layer === 'site_requirements'
-                                ? t('paxlog.ads_detail.compliance.layers.site_requirements')
-                                : layer === 'job_profile'
-                                  ? t('paxlog.ads_detail.compliance.layers.job_profile')
-                                  : t('paxlog.ads_detail.compliance.layers.self_declaration')}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {/* SUP-0035: chips de 'couches de verification' (Regles site /
+                          Profil-habilitations / Auto-declarations) supprimees ici.
+                          Avant: 3 chips gris par passager qui n'avaient pas de semantique
+                          de statut -> confusion ("impossible de distinguer ce qui est
+                          conforme de ce qui ne l'est pas"). Les couches checkees sont
+                          deja resumees par le chip principal (Conforme/Non conforme/
+                          A verifier) en header. Le detail par-couche reste accessible
+                          dans l'onglet Conformite quand il existe. */}
                       {/* Spec §3.6: BLOCKING issues (red) — pax cannot be approved */}
                       {blockingResults.length > 0 && (
                         <div className="rounded-md border border-red-400/60 bg-red-50/80 px-2 py-1.5 text-[11px] text-red-900 dark:border-red-700 dark:bg-red-950/30 dark:text-red-200">
@@ -1337,12 +1360,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
                           </div>
                         </div>
                       )}
-                      {blockingResults.length === 0 && nonBlockingResults.length === 0 && complianceSummary.compliant === true && (
-                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 size={11} />
-                          {t('paxlog.ads_detail.compliance.compliant')}
-                        </p>
-                      )}
+                      {/* SUP-0035: message "Conformite OK pour le site selectionne" supprime.
+                          Redondant avec le chip "Conforme" deja visible dans le header du
+                          passager. Repete par passager, il polluait visuellement la lecture
+                          et semblait contredire le statut global "pending compliance" quand
+                          certains PAX etaient verifies et d'autres pas encore. */}
                     </div>
                   )}
                   {paxRejectEntryId === ap.id && (

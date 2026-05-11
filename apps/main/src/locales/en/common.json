@@ -2362,7 +2362,8 @@
       "kpis": {
         "passengers": "Passengers",
         "compliant_pax": "Compliant PAX",
-        "compliance_gaps": "Compliance gaps"
+        "compliance_gaps": "Compliance gaps",
+        "pax_to_verify": "To verify"
       },
       "sections": {
         "visit_transport": "Visit & transport",

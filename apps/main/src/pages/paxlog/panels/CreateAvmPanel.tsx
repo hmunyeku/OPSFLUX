@@ -13,7 +13,7 @@ import {
   SmartFormInlineHelpDrawer,
   useSmartForm,
 } from '@/components/layout/SmartForm'
-import { Briefcase, Loader2, Plus } from 'lucide-react'
+import { Briefcase, Loader2, Plus, CheckCircle2, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { AssetPicker } from '@/components/shared/AssetPicker'
@@ -173,9 +173,9 @@ function CreateAvmInner() {
             <div className="grid gap-2 sm:grid-cols-2">
               {avmChecklist.map((item) => (
                 <div key={item.label} className="flex items-center gap-2 text-xs">
-                  <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300')}>
-                    {item.done ? '✓' : '•'}
-                  </span>
+                  {item.done
+                    ? <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    : <Circle size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />}
                   <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
                 </div>
               ))}

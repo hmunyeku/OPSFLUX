@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react'
 import type { MissionPreparationTaskUpdate, MissionVisaFollowupUpdate, MissionAllowanceRequestUpdate, MissionNoticeModifyRequest, MissionProgramRead } from '@/services/paxlogService'
 import { DynamicPanelShell, PanelActionButton, FormGrid, FormSection, DynamicPanelField, PanelContentLayout, panelInputClass, ReadOnlyRow } from '@/components/layout/DynamicPanel'
 import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
-import { Briefcase, Loader2, Download, Send, CheckCircle2, FileCheck2, XCircle, RefreshCw, X, Link2, Info, ClipboardCheck, Users, BookOpen } from 'lucide-react'
+import { Briefcase, Loader2, Download, Send, CheckCircle2, Circle, FileCheck2, XCircle, RefreshCw, X, Link2, Info, ClipboardCheck, Users, BookOpen } from 'lucide-react'
 import { PanelContent } from '@/components/layout/PanelHeader'
 import { TabBar } from '@/components/ui/Tabs'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -338,9 +338,9 @@ export function AvmDetailPanel({ id }: { id?: string }) {
             <div className="grid gap-2 sm:grid-cols-2">
               {avmReadinessChecklist.map((item) => (
                 <div key={item.label} className="flex items-center gap-2 text-xs">
-                  <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300')}>
-                    {item.done ? '✓' : '•'}
-                  </span>
+                  {item.done
+                    ? <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    : <Circle size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />}
                   <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
                 </div>
               ))}

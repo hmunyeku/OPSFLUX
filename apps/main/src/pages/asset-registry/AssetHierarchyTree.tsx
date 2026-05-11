@@ -72,6 +72,72 @@ function siteMatchesSearch(site: HierarchySiteNode, query: string): boolean {
 
 // ── Installation Node ────────────────────────────────────────
 
+// ── Row container — one clickable surface, chevron as inline icon-button ──
+// Bastien (mai 2026): "on a encore des cadres partout comme des boutons,
+// on devrait avoir un design plus intelligent". L'ancienne structure
+// utilisait 2 <button btn-secondary> cote-a-cote (chevron + contenu) ->
+// 2 cadres pleins visibles avec borders/bg, hover split sur la moitie
+// du row. Plus du tout 'tree row'.
+// Nouveau pattern: une seule row div clickable (transparent base + hover
+// subtil), chevron en button miniature inline avec stopPropagation pour
+// pas declencher la selection du row au toggle expand.
+function TreeRow({
+  hasChildren,
+  expanded,
+  onToggle,
+  onSelect,
+  className,
+  children,
+}: {
+  hasChildren: boolean
+  expanded: boolean
+  onToggle?: () => void
+  onSelect: () => void
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
+      }}
+      className={cn(
+        'group flex items-center gap-1.5 px-1.5 py-1 rounded-md cursor-pointer',
+        'hover:bg-accent/50 transition-colors',
+        'focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/40',
+        className,
+      )}
+    >
+      {/* Chevron column — toujours present pour aligner les freres,
+          mais invisible quand pas de children. */}
+      {hasChildren && onToggle ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggle()
+          }}
+          className="shrink-0 p-0.5 rounded hover:bg-accent text-muted-foreground transition-colors"
+          aria-label={expanded ? 'Replier' : 'Deplier'}
+        >
+          {expanded
+            ? <ChevronDown size={14} />
+            : <ChevronRight size={14} />}
+        </button>
+      ) : (
+        <span className="shrink-0 inline-block w-[22px]" aria-hidden />
+      )}
+      {children}
+    </div>
+  )
+}
+
 function InstallationNode({
   inst,
   onSelect,
@@ -80,14 +146,14 @@ function InstallationNode({
   onSelect: (module: string, id: string) => void
 }) {
   return (
-    <button
-      type="button"
-      className="btn btn-sm btn-secondary group flex w-full text-left !justify-start"
-      onClick={() => onSelect('ar-installation', inst.id)}
+    <TreeRow
+      hasChildren={false}
+      expanded={false}
+      onSelect={() => onSelect('ar-installation', inst.id)}
     >
       <Factory size={14} className="text-orange-500 shrink-0" />
-      <span className="font-mono text-[11px] text-muted-foreground">{inst.code}</span>
-      <span className="truncate text-foreground">{inst.name}</span>
+      <span className="font-mono text-[11px] text-muted-foreground shrink-0">{inst.code}</span>
+      <span className="truncate text-sm text-foreground">{inst.name}</span>
       <StatusDot status={inst.status} />
       {inst.equipment_count > 0 && (
         <span className="ml-auto shrink-0 chip text-[9px] flex items-center gap-0.5">
@@ -95,7 +161,7 @@ function InstallationNode({
           {inst.equipment_count}
         </span>
       )}
-    </button>
+    </TreeRow>
   )
 }
 
@@ -127,35 +193,22 @@ function SiteNode({
 
   return (
     <div>
-      <div className="flex items-center">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => setExpanded((p) => !p)}
-          disabled={!hasChildren}
-        >
-          {hasChildren ? (
-            isExpanded ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />
-          ) : (
-            <span className="w-3.5" />
-          )}
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-secondary group flex flex-1 text-left !justify-start"
-          onClick={() => onSelect('ar-site', site.id)}
-        >
-          <Landmark size={14} className="text-blue-500 shrink-0" />
-          <span className="font-mono text-[11px] text-muted-foreground">{site.code}</span>
-          <span className="truncate text-foreground">{site.name}</span>
-          <StatusDot status={site.status} />
-          {site.installation_count > 0 && (
-            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-              {site.installation_count} inst.
-            </span>
-          )}
-        </button>
-      </div>
+      <TreeRow
+        hasChildren={hasChildren}
+        expanded={isExpanded}
+        onToggle={() => setExpanded((p) => !p)}
+        onSelect={() => onSelect('ar-site', site.id)}
+      >
+        <Landmark size={14} className="text-blue-500 shrink-0" />
+        <span className="font-mono text-[11px] text-muted-foreground shrink-0">{site.code}</span>
+        <span className="truncate text-sm text-foreground">{site.name}</span>
+        <StatusDot status={site.status} />
+        {site.installation_count > 0 && (
+          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+            {site.installation_count} inst.
+          </span>
+        )}
+      </TreeRow>
 
       {isExpanded && hasChildren && (
         <div className="ml-5 pl-3 border-l border-border/60">
@@ -194,35 +247,22 @@ function FieldNode({
 
   return (
     <div className="mb-1">
-      <div className="flex items-center">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => setExpanded((p) => !p)}
-          disabled={!hasChildren}
-        >
-          {hasChildren ? (
-            isExpanded ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />
-          ) : (
-            <span className="w-3.5" />
-          )}
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary group flex flex-1 text-left text-sm !justify-start"
-          onClick={() => onSelect('ar-field', field.id)}
-        >
-          <MapPin size={14} className="text-emerald-600 shrink-0" />
-          <span className="font-mono text-[11px] text-muted-foreground">{field.code}</span>
-          <span className="truncate text-foreground">{field.name}</span>
-          <StatusDot status={field.status} />
-          {field.site_count > 0 && (
-            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-              {field.site_count} sites
-            </span>
-          )}
-        </button>
-      </div>
+      <TreeRow
+        hasChildren={hasChildren}
+        expanded={isExpanded}
+        onToggle={() => setExpanded((p) => !p)}
+        onSelect={() => onSelect('ar-field', field.id)}
+      >
+        <MapPin size={14} className="text-emerald-600 shrink-0" />
+        <span className="font-mono text-[11px] text-muted-foreground shrink-0">{field.code}</span>
+        <span className="truncate text-sm text-foreground">{field.name}</span>
+        <StatusDot status={field.status} />
+        {field.site_count > 0 && (
+          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+            {field.site_count} sites
+          </span>
+        )}
+      </TreeRow>
 
       {isExpanded && hasChildren && (
         <div className="ml-5 pl-3 border-l border-border/60">

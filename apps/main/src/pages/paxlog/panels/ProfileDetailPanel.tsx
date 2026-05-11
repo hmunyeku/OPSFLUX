@@ -107,7 +107,13 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
                 module: 'conformite',
                 meta: {
                   subtype: 'transfer',
-                  contact_id: profile.entity_id,
+                  // SUP-0024 prefill fix: pour pax_source='contact', le contact_id
+                  // utilise par useTierContacts (et donc par la dropdown employe de
+                  // CreateTransferPanel) est profile.id — pas profile.entity_id.
+                  // entity_id pointe vers un autre uuid interne (potentiellement le
+                  // user lie quand promu) qui ne match aucun TierContact.id, donc
+                  // la dropdown reste vide.
+                  contact_id: profile.id,
                   from_tier_id: profile.company_id,
                   contact_label: `${profile.first_name} ${profile.last_name}`,
                 },

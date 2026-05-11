@@ -196,16 +196,42 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
     }
   }
 
-  // Silence "declared but never used" — helpers kept for future
-  // inline-edit re-wire.
-  void startEdit
-  void handleSave
-
   const actionItems = useMemo<ActionItem[]>(() => {
-    // OpsFlux pattern: no "Modifier" button — inline edit on
-    // permissioned fields only. Kept the domain actions (add cargo,
-    // print LT) that can't be expressed inline.
+    // SUP-0034 (Bastien): le pattern 'inline-edit' avait ete amorce mais
+    // jamais finalise -> 'startEdit' et 'handleSave' etaient suppresses
+    // via 'void' et le formulaire d'edition (visible si editing=true)
+    // n'etait jamais accessible. Resultat: une fois la demande creee, plus
+    // moyen de la remplir/modifier ("impossible de remplir le dossier
+    // colis, une fois valide").
+    // Fix: bouton "Modifier" qui rebascule sur le formulaire d'edition
+    // existant (lignes 341-471), avec bouton "Enregistrer" / "Annuler"
+    // une fois en mode edition.
+    if (editing) {
+      return [
+        {
+          id: 'cancel-edit',
+          label: t('common.cancel'),
+          priority: 40,
+          onClick: () => setEditing(false),
+        },
+        {
+          id: 'save-edit',
+          label: t('common.save'),
+          variant: 'primary',
+          priority: 100,
+          loading: updateCargoRequest.isPending,
+          disabled: updateCargoRequest.isPending,
+          onClick: handleSave,
+        },
+      ]
+    }
     return [
+      {
+        id: 'edit-request',
+        label: t('common.edit'),
+        priority: 80,
+        onClick: startEdit,
+      },
       {
         id: 'add-colis',
         label: 'Ajouter un colis',
@@ -233,7 +259,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
         onClick: handlePrintLt,
       },
     ]
-  }, [panelModule, id, cargoRequest, downloadCargoRequestLtPdf.isPending, handlePrintLt])
+  }, [editing, t, updateCargoRequest.isPending, handleSave, startEdit, panelModule, id, cargoRequest, downloadCargoRequestLtPdf.isPending, handlePrintLt])
 
   if (isLoading || !cargoRequest) {
     return (

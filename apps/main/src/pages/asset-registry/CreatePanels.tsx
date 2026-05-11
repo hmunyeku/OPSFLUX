@@ -19,6 +19,9 @@ import {
   useSmartForm,
 } from '@/components/layout/SmartForm'
 import { CountrySelect } from '@/components/shared/CountrySelect'
+import { FieldPicker } from '@/components/shared/FieldPicker'
+import { SitePicker } from '@/components/shared/SitePicker'
+import { InstallationPicker } from '@/components/shared/InstallationPicker'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
@@ -28,9 +31,6 @@ import {
   useCreateInstallation,
   useCreateEquipment,
   useCreatePipeline,
-  useFields,
-  useSites,
-  useInstallations,
   useDecks,
 } from '@/hooks/useAssetRegistry'
 import type {
@@ -369,7 +369,7 @@ function CreateSiteInner() {
   const createSite = useCreateSite()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
-  const { data: fieldsData } = useFields({ page: 1, page_size: 500 })
+  // FieldPicker = server-side typeahead (cf. SUP-0038 followup), plus de bulk fetch.
 
   const dictEnv = useDictionaryOptions('environment_type')
   const dictSiteType = useDictionaryOptions('site_type')
@@ -427,10 +427,11 @@ function CreateSiteInner() {
         <SmartFormSection id="t_assets_identity_2" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.field')} required>
-              <select required value={form.field_id || ''} onChange={(e) => set({ field_id: e.target.value })} className={panelInputClass}>
-                <option value="">{t('common.select')}...</option>
-                {(fieldsData?.items ?? []).map((f) => <option key={f.id} value={f.id}>{f.code} — {f.name}</option>)}
-              </select>
+              <FieldPicker
+                value={form.field_id || null}
+                onChange={(id) => set({ field_id: id ?? '' })}
+                clearable={false}
+              />
             </DynamicPanelField>
             <DynamicPanelField label={t('common.code')} required>
               <input type="text" required maxLength={30} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="SITE-MLF" />
@@ -597,7 +598,7 @@ function CreateInstallationInner() {
   const createInstallation = useCreateInstallation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
-  const { data: sitesData } = useSites({ page: 1, page_size: 500 })
+  // SitePicker = server-side typeahead (cf. SUP-0038 followup).
 
   const dictEnv = useDictionaryOptions('environment_type')
   const dictInstType = useDictionaryOptions('installation_type')
@@ -656,10 +657,11 @@ function CreateInstallationInner() {
         <SmartFormSection id="t_assets_identity_3" title={t('assets.identity')} level="essential" help={{ description: t('assets.identity') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.site')} required>
-              <select required value={form.site_id || ''} onChange={(e) => set({ site_id: e.target.value })} className={panelInputClass}>
-                <option value="">{t('common.select')}...</option>
-                {(sitesData?.items ?? []).map((s) => <option key={s.id} value={s.id}>{s.code} — {s.name}</option>)}
-              </select>
+              <SitePicker
+                value={form.site_id || null}
+                onChange={(id) => set({ site_id: id ?? '' })}
+                clearable={false}
+              />
             </DynamicPanelField>
             <DynamicPanelField label={t('common.code')} required>
               <input type="text" required maxLength={30} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="SITE-P1" />
@@ -828,7 +830,7 @@ function CreateEquipmentInner() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
-  const { data: installationsData } = useInstallations({ page: 1, page_size: 500 })
+  // InstallationPicker = server-side typeahead (cf. SUP-0038 followup).
 
   const dictClass = useDictionaryOptions('equipment_class')
   const dictCriticality = useDictionaryOptions('criticality')
@@ -928,10 +930,10 @@ function CreateEquipmentInner() {
         <SmartFormSection id="t_common_location_4" title={t('common.location')} level="essential" collapsible help={{ description: t('common.location') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.installation')}>
-              <select value={form.installation_id || ''} onChange={(e) => set({ installation_id: e.target.value || undefined, deck_id: undefined })} className={panelInputClass}>
-                <option value="">{t('common.select')}...</option>
-                {(installationsData?.items ?? []).map((i) => <option key={i.id} value={i.id}>{i.code} — {i.name}</option>)}
-              </select>
+              <InstallationPicker
+                value={form.installation_id || null}
+                onChange={(id) => set({ installation_id: id || undefined, deck_id: undefined })}
+              />
             </DynamicPanelField>
             <DynamicPanelField label="Deck">
               <select value={form.deck_id || ''} onChange={(e) => set({ deck_id: e.target.value || undefined })} className={panelInputClass} disabled={!form.installation_id}>
@@ -1110,7 +1112,7 @@ function CreatePipelineInner() {
   const createPipeline = useCreatePipeline()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
-  const { data: installationsData } = useInstallations({ page: 1, page_size: 500 })
+  // InstallationPicker = server-side typeahead (cf. SUP-0038 followup).
 
   const dictService = useDictionaryOptions('pipeline_service')
   const serviceOptions = dictService.length > 0 ? dictService : SERVICE_FALLBACK
@@ -1199,16 +1201,18 @@ function CreatePipelineInner() {
         <SmartFormSection id="t_assets_routing" title={t('assets.routing')} level="essential" help={{ description: t('assets.routing') }}>
           <FormGrid>
             <DynamicPanelField label={t('assets.from_installation')} required>
-              <select required value={form.from_installation_id || ''} onChange={(e) => set({ from_installation_id: e.target.value })} className={panelInputClass}>
-                <option value="">{t('common.select')}...</option>
-                {(installationsData?.items ?? []).map((i) => <option key={i.id} value={i.id}>{i.code} — {i.name}</option>)}
-              </select>
+              <InstallationPicker
+                value={form.from_installation_id || null}
+                onChange={(id) => set({ from_installation_id: id ?? '' })}
+                clearable={false}
+              />
             </DynamicPanelField>
             <DynamicPanelField label={t('assets.to_installation')} required>
-              <select required value={form.to_installation_id || ''} onChange={(e) => set({ to_installation_id: e.target.value })} className={panelInputClass}>
-                <option value="">{t('common.select')}...</option>
-                {(installationsData?.items ?? []).map((i) => <option key={i.id} value={i.id}>{i.code} — {i.name}</option>)}
-              </select>
+              <InstallationPicker
+                value={form.to_installation_id || null}
+                onChange={(id) => set({ to_installation_id: id ?? '' })}
+                clearable={false}
+              />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>

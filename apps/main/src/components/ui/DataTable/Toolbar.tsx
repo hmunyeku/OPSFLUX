@@ -899,7 +899,10 @@ export function DataTableToolbar({
           </div>
         )}
 
-        {/* Import */}
+        {/* Import — SUP-0028: bouton avec label visible (le 'Importer' textuel)
+            ameliore la discoverability d'une feature pourtant cle (les utilisateurs
+            ne voyaient pas l'icone Upload 21x21 perdue a cote de l'export).
+            Le label reste compact (text-[11px]) pour ne pas alourdir la toolbar. */}
         {(importExport?.importCsv || importExport?.importWizardTarget) && (
           <div className="relative shrink-0">
             <button
@@ -915,10 +918,11 @@ export function DataTableToolbar({
                   )
                 }
               }}
-              className="p-1 rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              title={importExport?.importWizardTarget ? "Assistant d'import" : 'Importer'}
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              title={importExport?.importWizardTarget ? 'Importer une liste (CSV / Excel)' : 'Importer'}
             >
               <Upload size={13} />
+              <span className="text-[11px] font-medium hidden sm:inline">Importer</span>
             </button>
             {!importExport?.importWizardTarget && dropdown.type === 'action' && dropdown.id === '_import' && (
               <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] max-w-[calc(100vw-1.5rem)] max-h-[min(65vh,30rem)] overflow-y-auto rounded-md border bg-popover shadow-lg py-1">

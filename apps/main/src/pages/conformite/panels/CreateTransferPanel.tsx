@@ -15,7 +15,8 @@ import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useCreateTransfer, useJobPositions } from '@/hooks/useConformite'
-import { useTiers, useTierContacts } from '@/hooks/useTiers'
+import { useTierContacts } from '@/hooks/useTiers'
+import { CompanyPicker } from '@/components/shared/CompanyPicker'
 import type { TierContactTransferCreate } from '@/types/api'
 
 export function CreateTransferPanel() {
@@ -39,17 +40,15 @@ function CreateTransferInner() {
   const prefillFromTierId = (dynamicPanel?.meta?.from_tier_id as string | undefined) ?? ''
   const { toast } = useToast()
 
-  // Fetch all tiers + job positions for dropdowns.
-  // SUP-0038 followup (Bastien): la limite 500 hardcodee etait invisible et le
-  // user voyait sa liste tronquee silencieusement quand son tenant avait >500
-  // tiers. On demande maintenant la valeur admin-configurable max (par defaut
-  // 10000) — le backend rejette avec 400 si l'admin a configure un plafond
-  // plus bas via le setting 'datatable.max_page_size'.
-  // TODO: migrer vers CompanyPicker + nouveau JobPositionPicker (server-side
-  // typeahead via EntityPickerBase etendu) pour supprimer le besoin de fetch
-  // bulk — c'est la vraie solution pour les tenants a tres gros catalogue.
-  const { data: tiersData } = useTiers({ page_size: 10000 })
-  const { data: jobPositionsData } = useJobPositions({ page_size: 10000 })
+  // Source + destination tier sont maintenant gerees par CompanyPicker
+  // (server-side typeahead via EntityPickerBase) — plus de bulk-fetch des
+  // tiers. Cf. SUP-0038 followup: avant on chargeait jusqu'a 500/1000/10000
+  // tiers en une fois, tronques silencieusement au-dela. Maintenant le user
+  // tape, le picker fetch ?search=q debounced 300ms.
+  // Job positions: encore en bulk pour l'instant (typiquement <100 par tenant).
+  // TODO: si un tenant arrive a >100 job positions, migrer aussi vers un
+  // JobPositionPicker base sur EntityPickerBase.
+  const { data: jobPositionsData } = useJobPositions({ page_size: 100 })
 
   const [selectedContactTierId, setSelectedContactTierId] = useState<string>(prefillFromTierId)
 
@@ -117,7 +116,6 @@ function CreateTransferInner() {
     },
   ], [t, closeDynamicPanel, createTransfer.isPending])
 
-  const tiers = tiersData?.items ?? []
   const contacts = Array.isArray(contactsData) ? contactsData : []
   const jobPositions = jobPositionsData?.items ?? []
 
@@ -141,22 +139,17 @@ function CreateTransferInner() {
             help={{ description: t('conformite.transfers.select_tier_help') }}
           >
             <DynamicPanelField label={t('conformite.transfers.source_company')} required>
-              <select
-                required
-                value={selectedContactTierId}
-                onChange={(e) => {
-                  setSelectedContactTierId(e.target.value)
-                  setForm({ ...form, contact_id: '', from_tier_id: e.target.value })
+              {/* CompanyPicker = server-side typeahead. Avant on tronquait
+                  silencieusement a 500 tiers via un <select> bulk. */}
+              <CompanyPicker
+                value={selectedContactTierId || null}
+                onChange={(id) => {
+                  const v = id ?? ''
+                  setSelectedContactTierId(v)
+                  setForm({ ...form, contact_id: '', from_tier_id: v })
                 }}
-                className={panelInputClass}
-              >
-                <option value="">-- {t('common.select')} --</option>
-                {tiers.map((tier) => (
-                  <option key={tier.id} value={tier.id}>
-                    {tier.name} ({tier.code})
-                  </option>
-                ))}
-              </select>
+                clearable={false}
+              />
             </DynamicPanelField>
           </SmartFormSection>
 
@@ -191,21 +184,13 @@ function CreateTransferInner() {
             help={{ description: t('conformite.transfers.destination_help') }}
           >
             <DynamicPanelField label={t('conformite.columns.to')} required>
-              <select
-                required
-                value={form.to_tier_id}
-                onChange={(e) => setForm({ ...form, to_tier_id: e.target.value })}
-                className={panelInputClass}
-              >
-                <option value="">-- {t('common.select')} --</option>
-                {tiers
-                  .filter((tier) => tier.id !== form.from_tier_id)
-                  .map((tier) => (
-                    <option key={tier.id} value={tier.id}>
-                      {tier.name} ({tier.code})
-                    </option>
-                  ))}
-              </select>
+              {/* Server-side typeahead. La validation 'destination != source'
+                  est faite dans handleSubmit (toast d'erreur si meme tier). */}
+              <CompanyPicker
+                value={form.to_tier_id || null}
+                onChange={(id) => setForm({ ...form, to_tier_id: id ?? '' })}
+                clearable={false}
+              />
             </DynamicPanelField>
           </SmartFormSection>
 

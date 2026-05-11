@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { safeLocal } from '@/lib/safeStorage'
 import { useTranslation } from 'react-i18next'
+import { useDebounce } from '@/hooks/useDebounce'
 import type { LucideIcon } from 'lucide-react'
-import { ChevronDown, Clock, Loader2, Search, Star, X } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Clock, Loader2, Search, Star, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type PickerItem = {
@@ -27,6 +28,20 @@ interface EntityPickerBaseProps<T> {
   icon: LucideIcon
   recentKey: string
   toItem: (item: T) => PickerItem
+  // ── Server-side search (optional) ──────────────────────────
+  // When set, the picker forwards the debounced search query to the
+  // parent so it can re-fetch matching items from the API. Without it,
+  // the picker only filters the already-loaded `items` client-side
+  // (legacy behavior — capped by the parent's hardcoded page_size).
+  //
+  // SUP-0038 followup (Bastien, May 2026): added to eliminate the need
+  // for hardcoded ``page_size: 500`` in callers; tenants with thousands
+  // of tiers / job positions get the same UX as small tenants.
+  onSearchChange?: (query: string) => void
+  // When true, displays a small banner inside the dropdown explaining
+  // that not all results are loaded — set this when the caller knows
+  // the returned page hit its size limit.
+  truncated?: boolean
 }
 
 const MAX_RECENT = 6
@@ -75,12 +90,22 @@ export function EntityPickerBase<T>({
   icon: Icon,
   recentKey,
   toItem,
+  onSearchChange,
+  truncated,
 }: EntityPickerBaseProps<T>) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Server-side search: debounce the input value and notify the parent
+  // when it changes. Parent decides whether to refetch (e.g. via React
+  // Query with `search` as part of the query key).
+  const debouncedSearch = useDebounce(search, 300)
+  useEffect(() => {
+    if (onSearchChange) onSearchChange(debouncedSearch)
+  }, [debouncedSearch, onSearchChange])
 
   const normalizedItems = useMemo(() => items.map((item) => ({ raw: item, view: toItem(item) })), [items, toItem])
   const selected = useMemo(() => normalizedItems.find((item) => item.view.id === value), [normalizedItems, value])
@@ -177,6 +202,17 @@ export function EntityPickerBase<T>({
               </button>
             )}
           </div>
+
+          {/* SUP-0038 followup: avise l'utilisateur quand la liste est tronquee
+              (caller a hit son page_size limit). Le parent active ce banner via
+              la prop `truncated`. Sans search query, l'invite a chercher est
+              le bon UX — la liste n'est pas exhaustive. */}
+          {truncated && !search && (
+            <div className="flex items-start gap-1.5 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-[10px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+              <AlertTriangle size={11} className="mt-0.5 shrink-0" />
+              <span>{t('common.picker_truncated', 'Liste tronquée — utilisez la recherche pour trouver une entrée précise.')}</span>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto py-1">
             {isLoading ? (

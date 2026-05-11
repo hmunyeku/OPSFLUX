@@ -62,6 +62,31 @@ export const SEVERITY_COLOR_MAP: Record<string, string> = {
   permanent_ban: 'chip-danger',
 }
 
+// SUP-0035 followup (Bastien): le tag 'compliant' sur l'onglet Passagers
+// portait a confusion ("sa signification reste floue"). C'est en realite
+// le STATUT WORKFLOW du PAX dans l'AdS (intermediate state apres pre-check),
+// distinct du flag booleen 'compliant' (resultat de verification).
+// Labels explicites + badges colores pour lever l'ambiguite.
+export const ADS_PAX_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  pending_check: 'En attente de contrôle',
+  compliant: 'Vérifié conformité',         // intermediate: passed compliance step
+  blocked: 'Bloqué',
+  approved: 'Approuvé',
+  waitlisted: 'Liste d\'attente',
+  rejected: 'Rejeté',
+  no_show: 'No-show',
+}
+
+export const ADS_PAX_STATUS_BADGES: Record<string, string> = {
+  pending_check: 'chip-warn',
+  compliant: 'chip-info',         // intermediate -> info (blue) not success
+  blocked: 'chip-danger',
+  approved: 'chip-success',
+  waitlisted: 'chip-warn',
+  rejected: 'chip-danger',
+  no_show: '',
+}
+
 export const ROTATION_STATUS_LABELS_FALLBACK: Record<string, string> = {
   active: 'Actif',
   paused: 'Suspendu',

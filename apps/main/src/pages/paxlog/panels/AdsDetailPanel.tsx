@@ -23,7 +23,7 @@ import { AdsExternalLinksAudit } from '@/pages/paxlog/components/AdsExternalLink
 import { TagManager } from '@/components/shared/TagManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { NoteManager } from '@/components/shared/NoteManager'
-import { ADS_STATUS_LABELS_FALLBACK, ADS_STATUS_BADGES, formatDate, formatDateTime, StatusBadge, AllowedCompaniesPicker, buildExternalRecipientOptions } from '../shared'
+import { ADS_STATUS_LABELS_FALLBACK, ADS_STATUS_BADGES, ADS_PAX_STATUS_LABELS_FALLBACK, ADS_PAX_STATUS_BADGES, formatDate, formatDateTime, StatusBadge, AllowedCompaniesPicker, buildExternalRecipientOptions } from '../shared'
 import type { AllowedCompanySelection } from '../shared'
 
 export function AdsDetailPanel({ id }: { id: string }) {
@@ -1281,7 +1281,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       <span className={cn('chip', ap.pax_type === 'internal' ? 'chip-info' : '')}>
                         {ap.pax_type === 'internal' ? t('paxlog.ads_detail.passenger_type.internal') : t('paxlog.ads_detail.passenger_type.external')}
                       </span>
-                      <StatusBadge status={ap.status} />
+                      {/* SUP-0035 followup: labels + badges explicites pour le statut
+                          workflow du PAX dans l'AdS (compliant -> 'Verifie conformite'
+                          au lieu du litteral 'compliant' qui faisait doublon avec le
+                          chip de conformite). */}
+                      <StatusBadge status={ap.status} labels={ADS_PAX_STATUS_LABELS_FALLBACK} badges={ADS_PAX_STATUS_BADGES} />
                       {canApprove && !['approved', 'rejected', 'no_show'].includes(ap.status) && (
                         <>
                           <button

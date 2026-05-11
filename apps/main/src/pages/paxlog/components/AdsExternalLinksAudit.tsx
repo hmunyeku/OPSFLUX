@@ -24,11 +24,11 @@ export function AdsExternalLinksAudit({ externalLinks, formatDateTime, getExtern
         {externalLinks.map((link) => (
           <div key={link.id} className="rounded-lg border border-border/70 bg-background p-3 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={cn('gl-badge', link.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+              <span className={cn('chip', link.active ? 'chip-success' : '')}>
                 {link.active ? t('paxlog.ads_detail.external_link.active') : t('paxlog.ads_detail.external_link.inactive')}
               </span>
               {link.anomaly_count > 0 && (
-                <span className="gl-badge gl-badge-danger">
+                <span className="chip chip-danger">
                   {t('paxlog.ads_detail.external_link.anomalies', { count: link.anomaly_count })}
                 </span>
               )}
@@ -70,7 +70,7 @@ export function AdsExternalLinksAudit({ externalLinks, formatDateTime, getExtern
                 <p className="text-xs font-medium text-foreground">{t('paxlog.ads_detail.external_link.anomaly_breakdown')}</p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(link.anomaly_actions).map(([action, count]) => (
-                    <span key={action} className="gl-badge gl-badge-danger">
+                    <span key={action} className="chip chip-danger">
                       {getExternalLinkEventLabel(action)}: {count}
                     </span>
                   ))}

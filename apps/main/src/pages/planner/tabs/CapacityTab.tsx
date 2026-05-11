@@ -647,7 +647,7 @@ export function CapacityTab({
 
           {assetId && (
             <button
-              className="gl-button-sm gl-button-default inline-flex items-center gap-1 shrink-0"
+              className="btn-sm btn-secondary inline-flex items-center gap-1 shrink-0"
               onClick={() => setShowCapModal(true)}
               title={t('planner.edit_capacity', 'Modifier capacité')}
             >
@@ -678,7 +678,7 @@ export function CapacityTab({
             <div className="flex items-center gap-1 sm:ml-auto">
               <button
                 type="button"
-                className="gl-button-sm gl-button-default inline-flex items-center"
+                className="btn-sm btn-secondary inline-flex items-center"
                 onClick={() => shiftRange(-1)}
                 aria-label={t('planner.capacity.previous_period')}
               >
@@ -686,14 +686,14 @@ export function CapacityTab({
               </button>
               <button
                 type="button"
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 onClick={goToday}
               >
                 {t('planner.capacity.today')}
               </button>
               <button
                 type="button"
-                className="gl-button-sm gl-button-default inline-flex items-center"
+                className="btn-sm btn-secondary inline-flex items-center"
                 onClick={() => shiftRange(1)}
                 aria-label={t('planner.capacity.next_period')}
               >
@@ -1002,7 +1002,7 @@ export function CapacityTab({
             </div>
             <div className="flex items-center gap-2 justify-end pt-2 border-t border-border">
               <button
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 onClick={() => setDrillDown(null)}
               >
                 {t('common.close', 'Fermer')}
@@ -1066,13 +1066,13 @@ export function CapacityTab({
             </div>
             <div className="flex items-center gap-2 justify-end">
               <button
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 onClick={() => setShowCapModal(false)}
               >
                 {t('common.cancel')}
               </button>
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={handleCreateCapacity}
                 disabled={!capForm.reason || createAssetCapacity.isPending}
               >

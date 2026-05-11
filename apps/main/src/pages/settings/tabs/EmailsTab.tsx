@@ -132,7 +132,7 @@ export function EmailsTab() {
                       <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/30">
                         {!email.is_primary && email.verified && (
                           <button
-                            className="gl-button-sm gl-button-default"
+                            className="btn-sm btn-secondary"
                             onClick={() => handleSetPrimary(email.id)}
                             disabled={setPrimary.isPending}
                           >
@@ -141,7 +141,7 @@ export function EmailsTab() {
                         )}
                         {!email.verified && (
                           <button
-                            className="gl-button-sm gl-button-default"
+                            className="btn-sm btn-secondary"
                             onClick={() => handleResendVerification(email.id)}
                             disabled={resendVerification.isPending}
                           >
@@ -150,7 +150,7 @@ export function EmailsTab() {
                         )}
                         {!email.is_primary && (
                           <button
-                            className="gl-button-sm gl-button-danger ml-auto"
+                            className="btn-sm btn-danger ml-auto"
                             onClick={() => handleRemove(email.id)}
                             disabled={removeEmail.isPending}
                           >
@@ -179,7 +179,7 @@ export function EmailsTab() {
             />
           </div>
           <button
-            className="gl-button gl-button-confirm"
+            className="btn btn-primary"
             disabled={!newEmail.trim() || addEmail.isPending}
             onClick={handleAddEmail}
           >

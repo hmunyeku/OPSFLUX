@@ -30,18 +30,18 @@ import type {
 // ── Status badge (same pattern as page / detail panels) ──────
 
 const STATUS_COLORS: Record<string, string> = {
-  OPERATIONAL: 'gl-badge-success',
-  STANDBY: 'gl-badge-warning',
-  UNDER_CONSTRUCTION: 'gl-badge-info',
-  SUSPENDED: 'gl-badge-neutral',
-  DECOMMISSIONED: 'gl-badge-danger',
-  ABANDONED: 'gl-badge-danger',
+  OPERATIONAL: 'chip-success',
+  STANDBY: 'chip-warn',
+  UNDER_CONSTRUCTION: 'chip-info',
+  SUSPENDED: '',
+  DECOMMISSIONED: 'chip-danger',
+  ABANDONED: 'chip-danger',
 }
 
 function StatusDot({ status }: { status: string }) {
-  const cls = STATUS_COLORS[status] || 'gl-badge-neutral'
+  const cls = STATUS_COLORS[status] || ''
   return (
-    <span className={cn('gl-badge text-[9px] leading-none px-1.5 py-0.5', cls)}>
+    <span className={cn('chip text-[9px] leading-none px-1.5 py-0.5', cls)}>
       {status.replace(/_/g, ' ')}
     </span>
   )
@@ -82,7 +82,7 @@ function InstallationNode({
   return (
     <button
       type="button"
-      className="gl-button gl-button-sm gl-button-default group flex w-full text-left"
+      className="btn btn-sm btn-secondary group flex w-full text-left"
       onClick={() => onSelect('ar-installation', inst.id)}
     >
       <Factory size={14} className="text-orange-500 shrink-0" />
@@ -90,7 +90,7 @@ function InstallationNode({
       <span className="truncate text-foreground">{inst.name}</span>
       <StatusDot status={inst.status} />
       {inst.equipment_count > 0 && (
-        <span className="ml-auto shrink-0 gl-badge gl-badge-neutral text-[9px] flex items-center gap-0.5">
+        <span className="ml-auto shrink-0 chip text-[9px] flex items-center gap-0.5">
           <Wrench size={10} />
           {inst.equipment_count}
         </span>
@@ -130,7 +130,7 @@ function SiteNode({
       <div className="flex items-center">
         <button
           type="button"
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
           onClick={() => setExpanded((p) => !p)}
           disabled={!hasChildren}
         >
@@ -142,7 +142,7 @@ function SiteNode({
         </button>
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-default group flex flex-1 text-left"
+          className="btn btn-sm btn-secondary group flex flex-1 text-left"
           onClick={() => onSelect('ar-site', site.id)}
         >
           <Landmark size={14} className="text-blue-500 shrink-0" />
@@ -197,7 +197,7 @@ function FieldNode({
       <div className="flex items-center">
         <button
           type="button"
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
           onClick={() => setExpanded((p) => !p)}
           disabled={!hasChildren}
         >
@@ -209,7 +209,7 @@ function FieldNode({
         </button>
         <button
           type="button"
-          className="gl-button gl-button-default group flex flex-1 text-left text-sm"
+          className="btn btn-secondary group flex flex-1 text-left text-sm"
           onClick={() => onSelect('ar-field', field.id)}
         >
           <MapPin size={14} className="text-emerald-600 shrink-0" />

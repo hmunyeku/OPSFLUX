@@ -51,24 +51,6 @@ export function PreferencesTab() {
 
   return (
     <>
-      <CollapsibleSection
-        id="ui-scale"
-        title={t('settings.ui_scale')}
-        description={t('settings.ui_scale_description')}
-        storageKey="settings.preferences.collapse"
-      >
-        <UIScaleSection />
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        id="datatable"
-        title={t('settings.tableaux_de_donnees')}
-        description={t('settings.nombre_de_lignes_par_page_dans_les_table')}
-        storageKey="settings.preferences.collapse"
-      >
-        <PageSizeSection />
-      </CollapsibleSection>
-
       <CollapsibleSection id="theme" title="Mode" description="Choisissez un mode d'affichage." storageKey="settings.preferences.collapse">
         <div className="mt-2 space-y-2">
           {themes.map(({ value, label, icon: Icon }) => (
@@ -98,8 +80,8 @@ export function PreferencesTab() {
 
       <CollapsibleSection
         id="datatable"
-        title="Tableaux de données"
-        description="Nombre de lignes par page dans les tableaux."
+        title={t('settings.tableaux_de_donnees')}
+        description={t('settings.nombre_de_lignes_par_page_dans_les_table')}
         storageKey="settings.preferences.collapse"
       >
         <PageSizeSection />
@@ -190,7 +172,7 @@ function PageSizeSection() {
               key={size}
               type="button"
               onClick={() => handleChange(size)}
-              className={pageSize === size && !showCustom ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
+              className={pageSize === size && !showCustom ? 'btn-sm btn-primary' : 'btn-sm btn-secondary'}
             >
               {size}
             </button>
@@ -209,9 +191,9 @@ function PageSizeSection() {
                 className="gl-form-input w-20 h-8 text-sm text-center"
                 autoFocus
               />
-              <button onClick={handleCustomSubmit} className="gl-button-sm gl-button-confirm h-8 px-2">OK</button>
+              <button onClick={handleCustomSubmit} className="btn-sm btn-primary h-8 px-2">OK</button>
               {PAGE_SIZE_OPTIONS.includes(pageSize) && (
-                <button onClick={() => setShowCustom(false)} className="gl-button-sm gl-button-default h-8 px-2">
+                <button onClick={() => setShowCustom(false)} className="btn-sm btn-secondary h-8 px-2">
                   <X size={11} />
                 </button>
               )}
@@ -220,7 +202,7 @@ function PageSizeSection() {
             <button
               type="button"
               onClick={() => setShowCustom(true)}
-              className="gl-button gl-button-default border-dashed"
+              className="btn btn-secondary border-dashed"
             >
               Autre...
             </button>
@@ -320,7 +302,7 @@ function UIScaleSection() {
         <button
           type="button"
           onClick={handleReset}
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
         >
           {t('settings.ui_scale_reset')} ({DEFAULT_SCALE}%)
         </button>

@@ -90,7 +90,7 @@ export function ExternalRefManager({ ownerType, ownerId, compact }: ExternalRefM
                 className="flex items-center gap-2 text-sm group px-1 py-1 rounded hover:bg-accent/50 transition-colors"
               >
                 <Link2 size={11} className="text-muted-foreground shrink-0" />
-                <span className="gl-badge gl-badge-neutral text-[10px] shrink-0">{ref.system}</span>
+                <span className="chip text-[10px] shrink-0">{ref.system}</span>
                 <span className="text-xs font-mono text-foreground truncate">{ref.code}</span>
                 {ref.label && (
                   <span className="text-[10px] text-muted-foreground truncate">({ref.label})</span>
@@ -175,8 +175,8 @@ export function ExternalRefManager({ ownerType, ownerId, compact }: ExternalRefM
             />
           </div>
           <div className="flex items-center justify-end gap-2">
-            <button onClick={() => { setShowForm(false); setCode(''); setLabel('') }} className="gl-button-sm gl-button-default">Annuler</button>
-            <button onClick={handleCreate} disabled={!code.trim() || createRef.isPending} className="gl-button-sm gl-button-confirm">
+            <button onClick={() => { setShowForm(false); setCode(''); setLabel('') }} className="btn-sm btn-secondary">Annuler</button>
+            <button onClick={handleCreate} disabled={!code.trim() || createRef.isPending} className="btn-sm btn-primary">
               {createRef.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
             </button>
           </div>

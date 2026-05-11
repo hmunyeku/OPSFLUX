@@ -11,6 +11,7 @@
  *   columns: number (2-6, default 4)
  */
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard, Users, Building2, MapPin, FolderKanban, Ship, Package,
   Shield, ClipboardList, FileText, Settings, Bookmark, Star,
@@ -40,13 +41,22 @@ interface QuickAccessWidgetProps {
 
 export function QuickAccessWidget({ config }: QuickAccessWidgetProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const items = (config.items as QuickAccessItem[]) || []
   const columns = Math.min(6, Math.max(2, (config.columns as number) || 4))
 
   if (items.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-        Configurez les raccourcis dans les paramètres du widget
+      <div
+        className="flex flex-col items-center justify-center h-full gap-1.5 text-center select-none"
+        role="status"
+        aria-live="polite"
+      >
+        <Zap className="h-7 w-7 text-muted-foreground/30" aria-hidden="true" />
+        <p className="text-xs text-muted-foreground/70 font-medium">{t('dashboard.empty.quick_access_title')}</p>
+        <p className="text-[10.5px] text-muted-foreground/50 max-w-[220px] leading-snug">
+          {t('dashboard.empty.quick_access_hint')}
+        </p>
       </div>
     )
   }

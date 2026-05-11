@@ -98,12 +98,12 @@ import { formatDate } from '@/lib/i18n'
 
 // Duplicated from DetailPanels.tsx to keep this file self-contained.
 const STATUS_COLORS: Record<string, string> = {
-  OPERATIONAL: 'gl-badge-success',
-  STANDBY: 'gl-badge-warning',
-  UNDER_CONSTRUCTION: 'gl-badge-info',
-  SUSPENDED: 'gl-badge-neutral',
-  DECOMMISSIONED: 'gl-badge-danger',
-  ABANDONED: 'gl-badge-danger',
+  OPERATIONAL: 'chip-success',
+  STANDBY: 'chip-warn',
+  UNDER_CONSTRUCTION: 'chip-info',
+  SUSPENDED: '',
+  DECOMMISSIONED: 'chip-danger',
+  ABANDONED: 'chip-danger',
 }
 const STATUS_OPTIONS_FALLBACK = [
   { value: 'OPERATIONAL', label: 'Opérationnel' },
@@ -116,8 +116,8 @@ const STATUS_OPTIONS_FALLBACK = [
 
 function StatusBadge({ status }: { status: string | null | undefined }) {
   if (!status) return null
-  const cls = STATUS_COLORS[status] ?? 'gl-badge-neutral'
-  return <span className={cn('gl-badge', cls)}>{status}</span>
+  const cls = STATUS_COLORS[status] ?? ''
+  return <span className={cn('chip', cls)}>{status}</span>
 }
 
 function useArStatusOptions() {
@@ -272,7 +272,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('common.tag_field')} value={<span className="font-mono font-semibold">{equip.tag_number}</span>} />
               {canUpdate
                 ? <InlineEditableRow label={t('assets.equipment_class')} value={equip.equipment_class || ''} onSave={(v) => handleSave('equipment_class', v || null)} />
-                : <ReadOnlyRow label={t('assets.equipment_class')} value={equip.equipment_class ? <span className="gl-badge gl-badge-neutral">{equip.equipment_class.replace(/_/g, ' ')}</span> : '—'} />
+                : <ReadOnlyRow label={t('assets.equipment_class')} value={equip.equipment_class ? <span className="chip">{equip.equipment_class.replace(/_/g, ' ')}</span> : '—'} />
               }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={equip.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
@@ -290,7 +290,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
                 ? <InlineEditableSelect label={t('assets.criticality')} value={equip.criticality || ''} options={CRITICALITY_OPTIONS} onSave={(v) => handleSave('criticality', v || null)} />
                 : <ReadOnlyRow label={t('assets.criticality')} value={
                     equip.criticality
-                      ? <span className={cn('gl-badge', equip.criticality === 'A' ? 'gl-badge-danger' : equip.criticality === 'B' ? 'gl-badge-warning' : 'gl-badge-neutral')}>{equip.criticality}</span>
+                      ? <span className={cn('chip', equip.criticality === 'A' ? 'chip-danger' : equip.criticality === 'B' ? 'chip-warn' : '')}>{equip.criticality}</span>
                       : '—'
                   } />
               }
@@ -563,7 +563,7 @@ export function PipelineDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label="ID Pipeline" value={<span className="font-mono font-semibold">{pipe.pipeline_id}</span>} />
               {canUpdate
                 ? <InlineEditableSelect label={t('assets.service')} value={pipe.service} options={pipelineServiceOptions} onSave={(v) => handleSave('service', v)} />
-                : <ReadOnlyRow label={t('assets.service')} value={pipe.service ? <span className="gl-badge gl-badge-info">{pipe.service.replace(/_/g, ' ')}</span> : '—'} />
+                : <ReadOnlyRow label={t('assets.service')} value={pipe.service ? <span className="chip chip-info">{pipe.service.replace(/_/g, ' ')}</span> : '—'} />
               }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={pipe.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />

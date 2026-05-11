@@ -91,10 +91,10 @@ function InlineEditableTextarea({
         />
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
           <span className="text-[10px] text-muted-foreground mr-auto">{'⌘'}+Entrée pour valider · Esc pour annuler</span>
-          <button onClick={cancel} className="gl-button-sm gl-button-ghost">
+          <button onClick={cancel} className="btn-sm btn-tertiary">
             <X size={12} /> Annuler
           </button>
-          <button onClick={commit} className="gl-button-sm gl-button-confirm">
+          <button onClick={commit} className="btn-sm btn-primary">
             <Check size={12} /> Enregistrer
           </button>
         </div>
@@ -728,7 +728,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                     },
                   )}
                   disabled={resolveBreakdown.isPending}
-                  className="gl-button-sm gl-button-default shrink-0"
+                  className="btn-sm btn-secondary shrink-0"
                 >
                   {resolveBreakdown.isPending ? 'Enregistrement…' : "J'ai mis à jour"}
                 </button>
@@ -769,7 +769,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                           )}
                         </div>
                         {childPending && (
-                          <span className="gl-badge gl-badge-warning text-[10px] shrink-0">
+                          <span className="chip chip-warn text-[10px] shrink-0">
                             à réviser
                           </span>
                         )}
@@ -824,14 +824,14 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                             <button
                               key={dep.id}
                               type="button"
-                              className="gl-button gl-button-default group w-full text-left flex hover:border-primary/30"
+                              className="btn btn-secondary group w-full text-left flex hover:border-primary/30"
                               onClick={() => predTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: predTask.id, meta: { projectId } })}
                             >
                               <Link2 size={12} className="text-muted-foreground shrink-0" />
                               <span className="text-sm font-medium text-foreground truncate flex-1">
                                 {predTask?.title || dep.from_task_id.slice(0, 8)}
                               </span>
-                              <span className="gl-badge gl-badge-info text-[9px] shrink-0 font-mono">
+                              <span className="chip chip-info text-[9px] shrink-0 font-mono">
                                 {dep.dependency_type}
                                 {typeof dep.lag_days === 'number' && dep.lag_days !== 0 && (
                                   <span className="ml-0.5">{dep.lag_days >= 0 ? '+' : ''}{dep.lag_days}j</span>
@@ -861,14 +861,14 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                             <button
                               key={dep.id}
                               type="button"
-                              className="gl-button gl-button-default group w-full text-left flex hover:border-primary/30"
+                              className="btn btn-secondary group w-full text-left flex hover:border-primary/30"
                               onClick={() => succTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: succTask.id, meta: { projectId } })}
                             >
                               <Link2 size={12} className="text-muted-foreground shrink-0" />
                               <span className="text-sm font-medium text-foreground truncate flex-1">
                                 {succTask?.title || dep.to_task_id.slice(0, 8)}
                               </span>
-                              <span className="gl-badge gl-badge-info text-[9px] shrink-0 font-mono">
+                              <span className="chip chip-info text-[9px] shrink-0 font-mono">
                                 {dep.dependency_type}
                                 {typeof dep.lag_days === 'number' && dep.lag_days !== 0 && (
                                   <span className="ml-0.5">{dep.lag_days >= 0 ? '+' : ''}{dep.lag_days}j</span>
@@ -914,7 +914,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                           <div className="mt-2 flex items-center gap-2">
                             <button
                               type="button"
-                              className="gl-button-sm gl-button-confirm text-xs"
+                              className="btn-sm btn-primary text-xs"
                               onClick={() => handleRespondRevision(request, 'accepted')}
                               disabled={respondRevisionDecisionRequest.isPending}
                             >
@@ -922,7 +922,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                             </button>
                             <button
                               type="button"
-                              className="gl-button-sm gl-button-default text-xs"
+                              className="btn-sm btn-secondary text-xs"
                               onClick={() => handleRespondRevision(request, 'counter_proposed')}
                               disabled={respondRevisionDecisionRequest.isPending}
                             >
@@ -966,7 +966,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                                       <button
                                         key={child.id}
                                         type="button"
-                                        className="gl-button gl-button-default text-[11px]"
+                                        className="btn btn-secondary text-[11px]"
                                         onClick={() => openDynamicPanel({ type: 'task-detail', module: 'projets', id: child.id, meta: { projectId } })}
                                       >
                                         {child.code || child.title}
@@ -1049,7 +1049,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 <button
                   onClick={handleAddComment}
                   disabled={!commentText.trim() || createComment.isPending}
-                  className="gl-button-sm gl-button-confirm"
+                  className="btn-sm btn-primary"
                 >
                   <Send size={11} />
                   Envoyer

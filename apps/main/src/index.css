@@ -23,21 +23,21 @@
 @layer base {
   :root {
     /* ── Surfaces ──────────────────────────────────────── */
-    --background: 0 0% 100%;
-    --background-subtle: 0 0% 98.4%;
-    --background-muted: 220 13% 95.5%;
-    --foreground: 220 15% 13%;
+    --background: 30 20% 99%;
+    --background-subtle: 30 15% 97.5%;
+    --background-muted: 220 12% 95%;
+    --foreground: 220 18% 11%;
 
     /* Application chrome (sidebar + topbar) — Pajamas gray-10 */
-    --chrome: 220 13% 95.5%;
-    --chrome-hover: 220 13% 91%;
-    --chrome-active: 220 13% 87%;
+    --chrome: 220 14% 95.5%;
+    --chrome-hover: 220 14% 91.5%;
+    --chrome-active: 220 14% 87%;
 
     /* ── Brand — GitLab Pajamas blue-500 ───────────────── */
-    --primary: 217 73% 46%;
+    --primary: 217 75% 44%;
     --primary-foreground: 0 0% 100%;
-    --primary-light: 217 73% 95%;
-    --primary-hover: 217 73% 40%;
+    --primary-light: 217 73% 95.5%;
+    --primary-hover: 217 78% 38%;
 
     --secondary: 220 13% 95.5%;
     --secondary-foreground: 220 15% 13%;
@@ -55,20 +55,21 @@
          reaching for purple-/violet- when it wants a non-primary
          standout colour. Hue is amber-orange, non-clashing with
          primary blue. */
-    --highlight: 24 95% 55%;
+    --highlight: 24 92% 52%;
     --highlight-foreground: 0 0% 100%;
 
     /* ── Semantic status ───────────────────────────────── */
-    --destructive: 0 68% 55%;
+    --destructive: 0 65% 52%;
     --destructive-foreground: 0 0% 100%;
-    --warning: 33 90% 50%;
-    --success: 152 56% 40%;
+    --warning: 32 88% 48%;
+    --success: 152 50% 38%;
+    --info: 200 75% 42%;
 
     /* ── Structure ─────────────────────────────────────── */
-    --border: 220 13% 89%;
-    --border-strong: 220 10% 78%;
-    --input: 220 13% 89%;
-    --ring: 217 73% 46%;
+    --border: 220 14% 90%;
+    --border-strong: 220 12% 80%;
+    --input: 220 14% 90%;
+    --ring: 217 75% 44%;
 
     --card: 0 0% 100%;
     --card-foreground: 220 15% 13%;
@@ -80,6 +81,12 @@
     --radius-md: 0.375rem;
     --radius-lg: 0.5rem;
     --radius: 0.5rem;
+    --radius-data: 0.25rem;
+
+    /* ── Elevation — Pajamas++ NEW tokens ────────────── */
+    --elev-1: 0 1px 0 hsl(220 14% 88%), 0 1px 2px hsl(220 30% 12% / 0.04);
+    --elev-2: 0 1px 0 hsl(220 14% 88%), 0 4px 12px hsl(220 30% 12% / 0.07);
+    --elev-3: 0 4px 24px hsl(220 30% 12% / 0.12), 0 1px 4px hsl(220 30% 12% / 0.06);
 
     /* ── Layout constants ──────────────────────────────── */
     --topbar-height: 2.75rem;
@@ -109,19 +116,19 @@
   }
 
   .dark {
-    --background: 222 28% 7%;
-    --background-subtle: 222 28% 10%;
-    --background-muted: 222 20% 15%;
-    --foreground: 210 20% 93%;
+    --background: 222 28% 7.5%;
+    --background-subtle: 222 26% 10%;
+    --background-muted: 222 22% 14%;
+    --foreground: 220 18% 94%;
 
-    --chrome: 222 28% 10%;
+    --chrome: 222 28% 9.5%;
     --chrome-hover: 222 20% 15%;
     --chrome-active: 222 20% 19%;
 
-    --primary: 217 73% 62%;
+    --primary: 217 80% 65%;
     --primary-foreground: 222 28% 7%;
-    --primary-light: 217 73% 15%;
-    --primary-hover: 217 73% 68%;
+    --primary-light: 217 60% 17%;
+    --primary-hover: 217 80% 72%;
 
     --secondary: 222 20% 15%;
     --secondary-foreground: 210 20% 93%;
@@ -134,23 +141,28 @@
 
     /* Dark mode — slightly softer amber so it doesn't scream against
        the dark surface. Same hue, lower saturation + luminance. */
-    --highlight: 24 85% 60%;
+    --highlight: 24 88% 62%;
     --highlight-foreground: 222 28% 7%;
 
-    --destructive: 0 55% 48%;
+    --destructive: 0 65% 60%;
     --destructive-foreground: 210 20% 93%;
-    --warning: 33 90% 50%;
-    --success: 152 56% 40%;
+    --warning: 32 90% 58%;
+    --success: 152 50% 52%;
+    --info: 200 75% 60%;
 
-    --border: 222 20% 18%;
-    --border-strong: 222 15% 28%;
-    --input: 222 20% 18%;
-    --ring: 217 73% 62%;
+    --border: 222 18% 17%;
+    --border-strong: 222 14% 26%;
+    --input: 222 18% 17%;
+    --ring: 217 80% 65%;
 
     --card: 222 28% 10%;
     --card-foreground: 210 20% 93%;
     --popover: 222 28% 10%;
     --popover-foreground: 210 20% 93%;
+
+    --elev-1: 0 1px 0 hsl(222 18% 14%), 0 1px 2px hsl(0 0% 0% / 0.4);
+    --elev-2: 0 1px 0 hsl(222 18% 14%), 0 4px 12px hsl(0 0% 0% / 0.5);
+    --elev-3: 0 4px 24px hsl(0 0% 0% / 0.55), 0 1px 4px hsl(0 0% 0% / 0.4);
   }
 }
 

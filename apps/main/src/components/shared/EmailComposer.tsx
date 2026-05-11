@@ -308,7 +308,7 @@ export function EmailComposer({
             type="button"
             onClick={() => !sending && onClose()}
             disabled={sending}
-            className="gl-button gl-button-default"
+            className="btn btn-secondary"
           >
             {t('common.cancel', 'Annuler')}
           </button>
@@ -316,7 +316,7 @@ export function EmailComposer({
             type="button"
             onClick={handleSend}
             disabled={!canSend}
-            className="gl-button gl-button-primary inline-flex items-center gap-1.5"
+            className="btn btn-primary inline-flex items-center gap-1.5"
             title={
               recipients.length === 0
                 ? t('common.add_at_least_one_recipient', 'Ajoutez au moins un destinataire')

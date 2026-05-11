@@ -19,9 +19,10 @@ import {
   Minimize2,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
-import { Info, Paperclip, LayoutList, BarChart3, Search } from 'lucide-react'
+import { Info, Paperclip, LayoutList, BarChart3, Search, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
+import { describeError } from '@/lib/errors'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
 import {
   DynamicPanelShell,
@@ -147,7 +148,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
     <div className="border border-primary/30 rounded-md bg-primary/5 p-3 space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-primary">Nouvelle tâche</span>
-        <button onClick={onClose} className="gl-button gl-button-default"><X size={12} /></button>
+        <button onClick={onClose} className="btn btn-secondary"><X size={12} /></button>
       </div>
 
       <input
@@ -199,8 +200,8 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
       </div>
 
       <div className="flex justify-end gap-1.5 pt-1">
-        <button onClick={onClose} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
-        <button onClick={handleSubmit} disabled={createTask.isPending || !form.title.trim()} className="gl-button-sm gl-button-confirm">
+        <button onClick={onClose} className="btn-sm btn-secondary">{t('common.cancel')}</button>
+        <button onClick={handleSubmit} disabled={createTask.isPending || !form.title.trim()} className="btn-sm btn-primary">
           {createTask.isPending ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
           Créer
         </button>
@@ -349,7 +350,7 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
             <button
               onClick={handleCreate}
               disabled={!depForm.to_task_id || createDep.isPending}
-              className="gl-button-sm gl-button-confirm text-[10px]"
+              className="btn-sm btn-primary text-[10px]"
             >
               {createDep.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Ajouter'}
             </button>
@@ -427,7 +428,7 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
         <button
           onClick={handleAdd}
           disabled={!newName.trim() || createD.isPending}
-          className="gl-button gl-button-confirm text-primary"
+          className="btn btn-primary text-primary"
         >
           {createD.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />}
         </button>
@@ -501,7 +502,7 @@ function TaskActionsSection({ task, projectId }: { task: ProjectTask; projectId:
         <button
           onClick={handleAdd}
           disabled={!newTitle.trim() || createA.isPending}
-          className="gl-button gl-button-confirm text-primary"
+          className="btn btn-primary text-primary"
         >
           {createA.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />}
         </button>
@@ -845,7 +846,7 @@ function TaskRow({
         {/* Actions */}
         {confirmDelete ? (
           <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-            <button onClick={handleDelete} className="gl-button gl-button-danger text-red-500"><Check size={10} /></button>
+            <button onClick={handleDelete} className="btn btn-danger text-red-500"><Check size={10} /></button>
             <button onClick={() => setConfirmDelete(false)} className="p-0.5 rounded hover:bg-muted text-muted-foreground"><X size={10} /></button>
           </div>
         ) : (
@@ -1034,7 +1035,7 @@ function MilestoneQuickAdd({ projectId }: { projectId: string }) {
         onChange={(e) => setDueDate(e.target.value)}
         className={`${panelInputClass} w-[110px] text-xs`}
       />
-      <button onClick={handleSubmit} disabled={createMs.isPending || !name.trim()} className="gl-button gl-button-confirm text-primary">
+      <button onClick={handleSubmit} disabled={createMs.isPending || !name.trim()} className="btn btn-primary text-primary">
         {createMs.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
       </button>
       <button onClick={() => { setOpen(false); setName(''); setDueDate('') }} className="p-1 rounded hover:bg-muted text-muted-foreground">
@@ -3074,7 +3075,15 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
   const handleSave = useCallback((field: string, value: string | number | null) => {
     updateProject.mutate({ id, payload: normalizeNames({ [field]: value }) }, {
-      onError: () => toast({ title: t('common.error'), variant: 'error' }),
+      // SUP-0011 fix: l'erreur générique 'Erreur' n'aidait pas Bastien à
+      // comprendre pourquoi son update budget échouait. describeError
+      // surface le code structuré (e.g. PERMISSION_DENIED_PROJECT_UPDATE,
+      // PROJECT_NOT_FOUND, validation Pydantic).
+      onError: (err) => toast({
+        title: t('common.error'),
+        description: describeError(err, t),
+        variant: 'error',
+      }),
     })
   }, [id, updateProject, toast, t])
 
@@ -3359,14 +3368,14 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <DetailFieldGrid>
                 {isProjectFieldEditable(project, 'name', capabilities)
                   ? <InlineEditableRow label="Nom" value={project.name} onSave={(v) => handleSave('name', v)} />
-                  : <ReadOnlyRow label={t('common.name_field')} value={<span className="text-sm text-foreground">{project.name}</span>} />}
+                  : <ReadOnlyRow label={t('common.name_field')} value={<span className="inline-flex items-center gap-1.5 text-sm text-foreground"><Lock size={11} className="text-muted-foreground/60" />{project.name}<span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 ml-1">Gouti</span></span>} />}
                 <ReadOnlyRow label={t('common.code_field')} value={<span className="text-sm font-mono font-medium text-foreground">{project.code || '—'}</span>} />
                 {isProjectFieldEditable(project, 'status', capabilities)
                   ? <InlineEditableTags label="Statut" value={project.status} options={projectStatusOptions} onSave={(v) => handleSave('status', v)} />
-                  : <ReadOnlyRow label={t('common.status')} value={<span className="text-sm">{projectStatusLabels[project.status] || project.status}</span>} />}
+                  : <ReadOnlyRow label={t('common.status')} value={<span className="inline-flex items-center gap-1.5 text-sm" title="Statut piloté par Gouti — modifiable uniquement côté Gouti, sera resynchronisé à la prochaine importation."><Lock size={11} className="text-muted-foreground/60" />{projectStatusLabels[project.status] || project.status}<span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 ml-1">Gouti</span></span>} />}
                 {isProjectFieldEditable(project, 'priority', capabilities)
                   ? <InlineEditableTags label="Priorité" value={project.priority} options={projectPriorityOptions} onSave={(v) => handleSave('priority', v)} />
-                  : <ReadOnlyRow label={t('common.priority_field')} value={<span className="text-sm">{projectPriorityLabels[project.priority] || project.priority}</span>} />}
+                  : <ReadOnlyRow label={t('common.priority_field')} value={<span className="inline-flex items-center gap-1.5 text-sm" title="Priorité pilotée par Gouti — modifiable uniquement côté Gouti."><Lock size={11} className="text-muted-foreground/60" />{projectPriorityLabels[project.priority] || project.priority}<span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 ml-1">Gouti</span></span>} />}
                 <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
                 <InlineEditableTags
                   label="Tendance"
@@ -3448,7 +3457,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
             {/* Calcul d'avancement — pondération du % d'avancement à partir des tâches */}
             <FormSection
-              title={`Calcul d'avancement (${project.progress}%)`}
+              title={`Calcul d'avancement (${project.progress ?? 0}%)`}
               collapsible
               defaultExpanded={false}
               storageKey="project-detail-progress-method"

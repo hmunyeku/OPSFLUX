@@ -299,14 +299,14 @@ function InlineRichTextRow({
       <div className="flex gap-2 justify-end">
         <button
           type="button"
-          className="gl-button-sm gl-button-default"
+          className="btn-sm btn-secondary"
           onClick={() => { setDraft(value); setEditing(false) }}
         >
           Annuler
         </button>
         <button
           type="button"
-          className="gl-button-sm gl-button-confirm"
+          className="btn-sm btn-primary"
           onClick={() => { onSave(draft); setEditing(false) }}
         >
           Enregistrer
@@ -536,7 +536,7 @@ function TicketDetailPanel({ id }: { id: string }) {
                   </label>
                 )}
                 <button
-                  className="gl-button-sm gl-button-confirm ml-auto"
+                  className="btn-sm btn-primary ml-auto"
                   onClick={handleAddComment}
                   disabled={!commentText.trim() || addComment.isPending}
                 >
@@ -652,7 +652,7 @@ function TicketTodoList({ ticketId }: { ticketId: string }) {
           placeholder="Ajouter une tâche..."
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
         />
-        <button onClick={handleAdd} disabled={!newTitle.trim()} className="gl-button-sm gl-button-confirm">
+        <button onClick={handleAdd} disabled={!newTitle.trim()} className="btn-sm btn-primary">
           <Plus size={12} />
         </button>
       </div>

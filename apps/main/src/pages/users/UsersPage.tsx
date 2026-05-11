@@ -108,7 +108,7 @@ const getUserColumns = (t: (key: string) => string): ColumnDef<UserRead, unknown
     header: t('users.columns.auth'),
     cell: ({ getValue }) => {
       const v = getValue() as string
-      return <span className="gl-badge gl-badge-neutral text-[10px]">{AUTH_TYPE_LABELS[v] ?? v}</span>
+      return <span className="chip text-[10px]">{AUTH_TYPE_LABELS[v] ?? v}</span>
     },
     size: 120,
     meta: { filterType: 'select' as const, filterOptions: [{ value: 'email_password', label: 'Email / Mot de passe' }, { value: 'sso', label: 'SSO' }, { value: 'both', label: 'Email + SSO' }] },
@@ -119,8 +119,8 @@ const getUserColumns = (t: (key: string) => string): ColumnDef<UserRead, unknown
     accessorFn: (row) => row.mfa_enabled,
     cell: ({ row }) => (
       row.original.mfa_enabled
-        ? <span className="gl-badge gl-badge-success text-[10px]"><ShieldCheck size={9} className="mr-0.5" />Actif</span>
-        : <span className="gl-badge gl-badge-neutral text-[10px]">{t('common.inactive')}</span>
+        ? <span className="chip chip-success text-[10px]"><ShieldCheck size={9} className="mr-0.5" />Actif</span>
+        : <span className="chip text-[10px]">{t('common.inactive')}</span>
     ),
     size: 80,
   },
@@ -383,11 +383,11 @@ function UserCard({ row: user, selected, onSelect, onClick }: CardRendererProps<
       </div>
 
       <div className="flex items-center justify-center gap-1.5 mt-3 flex-wrap">
-        <span className={cn('gl-badge', user.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+        <span className={cn('chip', user.active ? 'chip-success' : '')}>
           {user.active ? 'Actif' : 'Archivé'}
         </span>
         {user.mfa_enabled && (
-          <span className="gl-badge gl-badge-info text-[10px]"><ShieldCheck size={9} className="mr-0.5" />MFA</span>
+          <span className="chip chip-info text-[10px]"><ShieldCheck size={9} className="mr-0.5" />MFA</span>
         )}
         <span className="text-xs text-muted-foreground uppercase font-medium">{user.language}</span>
       </div>

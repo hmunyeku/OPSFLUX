@@ -122,13 +122,13 @@ export function FilePreviewPanel({ item, onClose, onDownload, onRename, onDelete
       <div className="flex flex-col h-full">
         {/* Actions — top position per design system */}
         <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border shrink-0">
-          <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="gl-button-sm gl-button-confirm flex-1 justify-center" onClick={(e) => e.stopPropagation()}>
+          <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="btn-sm btn-primary flex-1 justify-center" onClick={(e) => e.stopPropagation()}>
             <Download size={11} /> Télécharger
           </a>
-          <button onClick={() => onRename(item)} className="gl-button-sm gl-button-default">
+          <button onClick={() => onRename(item)} className="btn-sm btn-secondary">
             <Pencil size={11} />
           </button>
-          <button onClick={() => onDelete(item)} className="gl-button-sm gl-button-danger">
+          <button onClick={() => onDelete(item)} className="btn-sm btn-danger">
             <Trash2 size={11} />
           </button>
         </div>

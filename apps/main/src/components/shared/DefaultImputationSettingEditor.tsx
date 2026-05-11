@@ -170,7 +170,7 @@ export function DefaultImputationSettingEditor({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="gl-button-sm gl-button-confirm"
+          className="btn-sm btn-primary"
           disabled={!isDirty || saveSetting.isPending}
           onClick={handleSave}
         >
@@ -179,7 +179,7 @@ export function DefaultImputationSettingEditor({
         </button>
         <button
           type="button"
-          className="gl-button-sm gl-button-default"
+          className="btn-sm btn-secondary"
           disabled={saveSetting.isPending}
           onClick={handleReset}
         >

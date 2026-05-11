@@ -105,10 +105,10 @@ export function ScenariosTab({
   }
 
   const STATUS_BADGE: Record<string, string> = {
-    draft: 'gl-badge-neutral',
-    validated: 'gl-badge-info',
-    promoted: 'gl-badge-success',
-    archived: 'gl-badge-warning',
+    draft: '',
+    validated: 'chip-info',
+    promoted: 'chip-success',
+    archived: 'chip-warn',
   }
   const STATUS_LABEL: Record<string, string> = {
     draft: 'Brouillon',
@@ -142,7 +142,7 @@ export function ScenariosTab({
         ))}
         <button
           onClick={() => setShowCreate(true)}
-          className="ml-auto gl-button-sm gl-button-confirm flex items-center gap-1"
+          className="ml-auto btn-sm btn-primary flex items-center gap-1"
         >
           <Plus size={12} /> Nouveau scénario
         </button>
@@ -162,7 +162,7 @@ export function ScenariosTab({
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/50">
             <FlaskConical size={32} strokeWidth={1.5} />
             <span className="text-sm">{t('planner.scenarios.empty', 'Aucun scénario')}</span>
-            <button onClick={() => setShowCreate(true)} className="gl-button gl-button-default inline-flex items-center gap-1.5 text-xs mt-1">
+            <button onClick={() => setShowCreate(true)} className="btn btn-secondary inline-flex items-center gap-1.5 text-xs mt-1">
               <Plus size={12} /> {t('planner.scenarios.new', 'Nouveau scénario')}
             </button>
           </div>
@@ -191,11 +191,11 @@ export function ScenariosTab({
                         </span>
                       )}
                       <span className="text-sm font-medium text-foreground truncate">{s.title as string}</span>
-                      <span className={cn('gl-badge text-[10px]', STATUS_BADGE[s.status as string] || 'gl-badge-neutral')}>
+                      <span className={cn('chip text-[10px]', STATUS_BADGE[s.status as string] || '')}>
                         {STATUS_LABEL[s.status as string] || s.status as string}
                       </span>
                       {isActive && (
-                        <span className="gl-badge text-[10px] gl-badge-warning">Vue active</span>
+                        <span className="chip text-[10px] chip-warn">Vue active</span>
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
@@ -221,7 +221,7 @@ export function ScenariosTab({
                     ) : (
                       <button
                         onClick={(e) => { e.stopPropagation(); onActivateScenario?.(sid) }}
-                        className="gl-button-sm gl-button-ghost opacity-0 group-hover:opacity-100"
+                        className="btn-sm btn-tertiary opacity-0 group-hover:opacity-100"
                         title="Activer ce scénario"
                       >
                         <Play size={9} className="inline mr-0.5" />Activer
@@ -289,9 +289,9 @@ export function ScenariosTab({
               />
             </div>
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowCreate(false)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setShowCreate(false)}>{t('common.cancel')}</button>
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={handleCreate}
                 disabled={!createTitle.trim() || createScenario.isPending}
               >

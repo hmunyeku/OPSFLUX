@@ -6,6 +6,7 @@ import {
   DynamicPanelShell,
   FormSection,
   InlineEditableRow,
+  InlineEditableSelect,
   ReadOnlyRow,
   PanelContentLayout,
   DetailFieldGrid,
@@ -31,8 +32,21 @@ export function TypeDetailPanel({ id }: { id: string }) {
   const { categoryLabels } = useConformiteDictionaryState()
   const [detailTab, setDetailTab] = useState<'fiche' | 'documents'>('fiche')
 
-  const handleSave = useCallback((field: string, value: string) => {
+  const handleSave = useCallback((field: string, value: string | boolean | number | null) => {
     updateType.mutate({ id, payload: normalizeNames({ [field]: value }) })
+  }, [id, updateType])
+
+  // Coerce the inline-select string value back to bool for the
+  // `is_mandatory` field — InlineEditableSelect only emits strings.
+  const handleSaveBool = useCallback((field: string, value: string) => {
+    updateType.mutate({ id, payload: normalizeNames({ [field]: value === 'true' }) })
+  }, [id, updateType])
+
+  // Validity (number of days) — same coercion to int. Null when emptied.
+  const handleSaveValidity = useCallback((value: string) => {
+    const trimmed = (value || '').trim()
+    const n = trimmed === '' ? null : Number(trimmed)
+    updateType.mutate({ id, payload: normalizeNames({ validity_days: n }) })
   }, [id, updateType])
 
   const handleDelete = useCallback(async () => {
@@ -79,11 +93,29 @@ export function TypeDetailPanel({ id }: { id: string }) {
         <PanelContentLayout>
           <FormSection title={t('common.information')}>
             <DetailFieldGrid>
-              <ReadOnlyRow label="Catégorie" value={<span className="gl-badge gl-badge-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
+              <ReadOnlyRow label="Catégorie" value={<span className="chip chip-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
               <ReadOnlyRow label={t('common.code_field')} value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
               <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
-              <ReadOnlyRow label="Validité" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />
-              <ReadOnlyRow label="Obligatoire" value={ct.is_mandatory ? 'Oui' : 'Non'} />
+              {/* SUP-0025 fix: Validité et Obligatoire étaient en lecture seule.
+                  Ces champs sont métier-importants — un référentiel mal configuré
+                  bloque toute la chaîne de conformité — donc rendre éditable
+                  in-place via InlineEditableRow / InlineEditableSelect. */}
+              <InlineEditableRow
+                label="Validité (jours)"
+                value={ct.validity_days != null ? String(ct.validity_days) : ''}
+                displayValue={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'}
+                onSave={handleSaveValidity}
+              />
+              <InlineEditableSelect
+                label="Obligatoire"
+                value={ct.is_mandatory ? 'true' : 'false'}
+                displayValue={ct.is_mandatory ? 'Oui' : 'Non'}
+                options={[
+                  { value: 'true', label: 'Oui' },
+                  { value: 'false', label: 'Non' },
+                ]}
+                onSave={(v) => handleSaveBool('is_mandatory', v)}
+              />
             </DetailFieldGrid>
           </FormSection>
           <FormSection title={t('common.description')}>

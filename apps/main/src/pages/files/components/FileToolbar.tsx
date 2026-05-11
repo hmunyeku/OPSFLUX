@@ -81,10 +81,10 @@ export function FileToolbar({
       <div className="h-5 w-px bg-border" />
 
       {/* Actions */}
-      <button onClick={onRefresh} className="gl-button gl-button-default" title={t('files.toolbar.refresh')}>
+      <button onClick={onRefresh} className="btn btn-secondary" title={t('files.toolbar.refresh')}>
         <RefreshCw size={13} />
       </button>
-      <button onClick={onCreateFolder} className="gl-button gl-button-default" title={t('files.nouveau_dossier')}>
+      <button onClick={onCreateFolder} className="btn btn-secondary" title={t('files.nouveau_dossier')}>
         <FolderPlus size={13} />
       </button>
       <label className="p-1.5 rounded hover:bg-accent text-muted-foreground cursor-pointer" title={t('files.toolbar.upload')}>
@@ -97,7 +97,7 @@ export function FileToolbar({
         <>
           <div className="h-5 w-px bg-border" />
           <span className="text-[10px] text-primary font-medium">{t('files.toolbar.selected_count', { count: selectedCount })}</span>
-          <button onClick={onBatchDelete} className="gl-button-sm gl-button-danger" title={t('files.supprimer_la_selection')}>
+          <button onClick={onBatchDelete} className="btn-sm btn-danger" title={t('files.supprimer_la_selection')}>
             <Trash2 size={11} /> {t('files.toast.delete_confirm_label')}
           </button>
         </>

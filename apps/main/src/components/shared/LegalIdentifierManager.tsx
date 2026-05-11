@@ -274,8 +274,8 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
           />
-          <button onClick={() => { setShowForm(false); resetForm() }} className="gl-button-sm gl-button-default">Annuler</button>
-          <button onClick={handleCreate} disabled={!value.trim() || createIdent.isPending} className="gl-button-sm gl-button-confirm">
+          <button onClick={() => { setShowForm(false); resetForm() }} className="btn-sm btn-secondary">Annuler</button>
+          <button onClick={handleCreate} disabled={!value.trim() || createIdent.isPending} className="btn-sm btn-primary">
             {createIdent.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
           </button>
         </div>
@@ -360,10 +360,10 @@ function InlineIdentifierEditor({
           className="flex-1 px-1 py-0.5 text-[10px] rounded border border-border/60 bg-card focus:outline-none"
           placeholder="Expiration (YYYY-MM-DD)"
         />
-        <button onClick={handleSave} disabled={isSaving} className="gl-button gl-button-confirm text-green-600">
+        <button onClick={handleSave} disabled={isSaving} className="btn btn-primary text-green-600">
           {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
         </button>
-        <button onClick={onCancel} className="gl-button gl-button-default">
+        <button onClick={onCancel} className="btn btn-secondary">
           <X size={10} />
         </button>
       </div>

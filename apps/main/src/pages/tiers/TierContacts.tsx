@@ -48,6 +48,7 @@ import { usePhones, useContactEmails, useAddresses, useNotes, useAttachments } f
 import { useDictionaryOptions, useDictionaryLabels } from '@/hooks/useDictionary'
 import { usePermission } from '@/hooks/usePermission'
 import { normalizeNames } from '@/lib/normalize'
+import { describeError } from '@/lib/errors'
 import { validateTierContactForm } from '@/lib/formValidation'
 import type { TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
 
@@ -63,12 +64,16 @@ const EMPTY_CONTACT_FORM: TierContactCreate = {
 // Local copy — same one lives in TiersPage. Duplicated to keep
 // this file free of circular imports.
 function SubSectionLabel({ icon: Icon, label, count }: { icon: React.ElementType; label: string; count: number }) {
+  // Bastien feedback: section "Coordonnées de l'employé" trop touffue
+  // (3 sub-sections x 12px de padding = 36px de blanc en plus). Réduit
+  // pt-2 pb-1 → pt-3 pb-1.5 sur la 1ère pour donner de l'air sans
+  // entasser le tout, mais tighter entre items dans une section.
   return (
-    <div className="flex items-center gap-1.5 pt-2 pb-1">
+    <div className="flex items-center gap-1.5 pt-3 pb-1.5 first:pt-0">
       <Icon size={11} className="text-muted-foreground" />
-      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
       {count > 0 && (
-        <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-1.5 py-px font-semibold">{count}</span>
+        <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-1.5 py-px font-semibold tabular-nums">{count}</span>
       )}
     </div>
   )
@@ -207,7 +212,7 @@ export function ContactListSection({
             <button
               onClick={handleCreate}
               disabled={!form.first_name.trim() || !form.last_name.trim() || createContact.isPending}
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
             >
               {createContact.isPending ? <Loader2 size={11} className="animate-spin" /> : t('common.create')}
             </button>
@@ -370,8 +375,17 @@ export function ContactDetailPanel({
         payload: { language: 'fr', send_invitation: true },
       })
       toast({ title: t('tiers.ui.contact_promoted'), variant: 'success' })
-    } catch {
-      toast({ title: t('tiers.ui.contact_promote_error'), variant: 'error' })
+    } catch (err) {
+      // SUP-0030: surface backend error code (e.g. INACTIVE_CONTACTS_CANNOT_PROMOTED,
+      // CONTACT_EMAIL_REQUIRED_PROMOTION, CONTACT_ALREADY_LINKED_USER,
+      // ANOTHER_USER_ALREADY_EXISTS_EMAIL_USE) instead of a generic
+      // "erreur lors de la promotion" — Bastien hit the wall without
+      // any clue why. describeError → t('errors.<code>') → French message.
+      toast({
+        title: t('tiers.ui.contact_promote_error'),
+        description: describeError(err, t),
+        variant: 'error',
+      })
     }
   }, [tierId, contactId, promoteContact, toast, t])
 
@@ -511,7 +525,7 @@ export function ContactDetailPanel({
                   <button
                     onClick={handlePromote}
                     disabled={!contact.email || promoteContact.isPending}
-                    className="gl-button-sm gl-button-confirm"
+                    className="btn-sm btn-primary"
                   >
                     {promoteContact.isPending ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
                     {t('tiers.ui.promote_to_external_user')}
@@ -526,7 +540,7 @@ export function ContactDetailPanel({
                 {!contact.is_primary && (
                   <button
                     onClick={handleSetPrimary}
-                    className="gl-button-sm gl-button-ghost"
+                    className="btn-sm btn-tertiary"
                   >
                     <Star size={10} /> {t('tiers.ui.set_primary_contact')}
                   </button>
@@ -644,7 +658,7 @@ export function useContactColumns() {
       header: t('tiers.ui.primary_contact'),
       size: 80,
       cell: ({ row }) => row.original.is_primary
-        ? <span className="gl-badge gl-badge-info">{t('common.yes')}</span>
+        ? <span className="chip chip-info">{t('common.yes')}</span>
         : <span className="text-muted-foreground/40">--</span>,
     },
     {

@@ -60,7 +60,7 @@ export function ProfilesTab({ openDetail }: { openDetail: (id: string, meta?: Re
       accessorKey: 'pax_type',
       header: t('common.type'),
       cell: ({ row }) => (
-        <span className={cn('gl-badge', row.original.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+        <span className={cn('chip', row.original.pax_type === 'internal' ? 'chip-info' : '')}>
           {paxTypeLabels[row.original.pax_type] || row.original.pax_type}
         </span>
       ),

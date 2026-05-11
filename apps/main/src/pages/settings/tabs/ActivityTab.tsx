@@ -222,21 +222,21 @@ export function ActivityTab() {
               </span>
               <div className="flex items-center gap-1.5">
                 <button
-                  className="gl-button-sm gl-button-default text-xs"
+                  className="btn-sm btn-secondary text-xs"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
                   ← Précédent
                 </button>
                 <button
-                  className="gl-button-sm gl-button-default text-xs"
+                  className="btn-sm btn-secondary text-xs"
                   disabled={!hasMore}
                   onClick={() => setPage((p) => p + 1)}
                 >
                   Suivant →
                 </button>
                 <button
-                  className="gl-button-sm gl-button-default ml-1"
+                  className="btn-sm btn-secondary ml-1"
                   onClick={() => setPage(1)}
                   title={t('settings.rafraichir')}
                 >

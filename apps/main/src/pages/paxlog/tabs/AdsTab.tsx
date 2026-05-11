@@ -94,7 +94,7 @@ export function AdsTab({ openDetail, requesterOnly = false, validatorOnly = fals
       accessorKey: 'type',
       header: t('common.type'),
       cell: ({ row }) => (
-        <span className={cn('gl-badge', row.original.type === 'team' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+        <span className={cn('chip', row.original.type === 'team' ? 'chip-info' : '')}>
           {row.original.type === 'individual' ? t('paxlog.create_ads.type.individual') : t('paxlog.create_ads.type.team')}
         </span>
       ),
@@ -116,7 +116,7 @@ export function AdsTab({ openDetail, requesterOnly = false, validatorOnly = fals
       accessorKey: 'visit_category',
       header: t('paxlog.visit_category'),
       cell: ({ row }) => (
-        <span className="gl-badge gl-badge-neutral">
+        <span className="chip">
           {visitCategoryLabels[row.original.visit_category] || row.original.visit_category}
         </span>
       ),

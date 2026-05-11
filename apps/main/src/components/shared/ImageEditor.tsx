@@ -367,13 +367,13 @@ export function ImageEditor({
 
           {/* Save / Cancel */}
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="gl-button-sm gl-button-default">
+            <button onClick={onClose} className="btn-sm btn-secondary">
               Annuler
             </button>
             <button
               onClick={handleSave}
               disabled={saving || !loaded}
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
             >
               {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               <span className="ml-1">Appliquer</span>

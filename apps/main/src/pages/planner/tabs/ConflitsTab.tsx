@@ -361,8 +361,8 @@ export function ConflitsTab() {
         return (
           <span
             className={cn(
-              'gl-badge inline-flex items-center gap-1',
-              isPriority ? 'gl-badge-purple' : 'gl-badge-warning',
+              'chip inline-flex items-center gap-1',
+              isPriority ? 'chip-purple' : 'chip-warn',
             )}
             title={isPriority ? 'Conflit de priorité' : `Pic POB +${c.max_overflow}`}
           >
@@ -445,7 +445,7 @@ export function ConflitsTab() {
         const s = row.original.status
         if (s === 'partial') {
           return (
-            <span className="gl-badge gl-badge-warning" title={t('planner.cluster.partial_tooltip', 'Cluster partiellement résolu')}>
+            <span className="chip chip-warn" title={t('planner.cluster.partial_tooltip', 'Cluster partiellement résolu')}>
               Partiel
             </span>
           )
@@ -572,7 +572,7 @@ export function ConflitsTab() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="gl-badge gl-badge-info">{revisionSignals.length}</span>
+              <span className="chip chip-info">{revisionSignals.length}</span>
               {showSignals ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </div>
           </button>
@@ -602,14 +602,14 @@ export function ConflitsTab() {
                   <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-default text-xs"
+                      className="btn-sm btn-secondary text-xs"
                       onClick={() => setRequestDecisionModal(signal)}
                     >
                       {t('planner.revision_signals.request_decision')}
                     </button>
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-default text-xs"
+                      className="btn-sm btn-secondary text-xs"
                       onClick={() => setExpandedRevisionSignalId((prev) => prev === signal.id ? null : signal.id)}
                     >
                       {expandedRevisionSignalId === signal.id
@@ -626,7 +626,7 @@ export function ConflitsTab() {
                     )}
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-default text-xs"
+                      className="btn-sm btn-secondary text-xs"
                       onClick={() => acknowledgeRevisionSignal.mutate(signal.id)}
                       disabled={acknowledgeRevisionSignal.isPending}
                     >
@@ -706,7 +706,7 @@ export function ConflitsTab() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {incomingRevisionRequests.length > 0 && (
-                <span className="gl-badge gl-badge-warning">{incomingRevisionRequests.length}</span>
+                <span className="chip chip-warn">{incomingRevisionRequests.length}</span>
               )}
               {showRequests ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </div>
@@ -719,7 +719,7 @@ export function ConflitsTab() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('planner.revision_requests.incoming_title')}</p>
                 <p className="text-xs text-muted-foreground">{t('planner.revision_requests.incoming_description')}</p>
               </div>
-              <span className="gl-badge gl-badge-info">{incomingRevisionRequests.length}</span>
+              <span className="chip chip-info">{incomingRevisionRequests.length}</span>
             </div>
             <div className="space-y-2">
               {incomingRevisionRequestsLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
@@ -747,7 +747,7 @@ export function ConflitsTab() {
                   <div className="mt-2 flex items-center gap-2">
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-confirm text-xs"
+                      className="btn-sm btn-primary text-xs"
                       onClick={() => {
                         setRespondDecisionModal(item)
                         setRespondDecisionMode('accepted')
@@ -762,7 +762,7 @@ export function ConflitsTab() {
                     </button>
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-default text-xs"
+                      className="btn-sm btn-secondary text-xs"
                       onClick={() => {
                         setRespondDecisionModal(item)
                         setRespondDecisionMode('counter_proposed')
@@ -787,7 +787,7 @@ export function ConflitsTab() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('planner.revision_requests.outgoing_title')}</p>
                 <p className="text-xs text-muted-foreground">{t('planner.revision_requests.outgoing_description')}</p>
               </div>
-              <span className="gl-badge gl-badge-info">{outgoingRevisionRequests.length}</span>
+              <span className="chip chip-info">{outgoingRevisionRequests.length}</span>
             </div>
             <div className="space-y-2">
               {outgoingRevisionRequestsLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
@@ -804,7 +804,7 @@ export function ConflitsTab() {
                         {item.due_at ? ` · ${t('planner.revision_requests.due_at')} ${formatDateShort(item.due_at)}` : ''}
                       </p>
                     </div>
-                    <span className="gl-badge gl-badge-default">{t(`planner.revision_requests.status_${item.status}`)}</span>
+                    <span className="chip">{t(`planner.revision_requests.status_${item.status}`)}</span>
                   </div>
                   {(item.response_note || item.forced_reason) && (
                     <p className="mt-1 text-xs text-muted-foreground">{item.response_note || item.forced_reason}</p>
@@ -833,7 +833,7 @@ export function ConflitsTab() {
                     <div className="mt-2 flex items-center gap-2">
                       <button
                         type="button"
-                        className="gl-button-sm gl-button-confirm text-xs"
+                        className="btn-sm btn-primary text-xs"
                         onClick={() => acceptCounterRevision.mutate(item.id, {
                           onSuccess: () => toast({ title: t('planner.revision_requests.counter_accepted_success'), variant: 'success' }),
                           onError: (err) => toast({ title: extractApiError(err) ?? t('common.error'), variant: 'error' }),
@@ -851,7 +851,7 @@ export function ConflitsTab() {
                       <div className="mt-2 flex items-center gap-2">
                         <button
                           type="button"
-                          className="gl-button-sm gl-button-default text-xs"
+                          className="btn-sm btn-secondary text-xs"
                           onClick={() => { setForceReasonModal(item); setForceReasonText('') }}
                           disabled={!isOverdue || forceRevisionDecisionRequest.isPending}
                           title={!isOverdue && dueAt ? `Disponible le ${formatDateShort(dueAt.toISOString())}` : undefined}
@@ -1109,14 +1109,14 @@ export function ConflitsTab() {
             </div>
             <div className="flex items-center gap-2 justify-end">
               <button
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 onClick={() => setBulkResolveOpen(false)}
                 disabled={bulkResolveConflicts.isPending}
               >
                 {t('common.cancel')}
               </button>
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={handleBulkResolve}
                 disabled={!bulkResolution || bulkResolveConflicts.isPending}
               >
@@ -1200,9 +1200,9 @@ export function ConflitsTab() {
               </select>
             </div>
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setRequestDecisionModal(null)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setRequestDecisionModal(null)}>{t('common.cancel')}</button>
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={handleRequestDecision}
                 disabled={requestRevisionDecision.isPending}
               >
@@ -1228,9 +1228,9 @@ export function ConflitsTab() {
               />
             </div>
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setForceReasonModal(null)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setForceReasonModal(null)}>{t('common.cancel')}</button>
               <button
-                className="gl-button-sm gl-button-danger text-xs"
+                className="btn-sm btn-danger text-xs"
                 disabled={forceRevisionDecisionRequest.isPending}
                 onClick={() => {
                   forceRevisionDecisionRequest.mutate(
@@ -1321,9 +1321,9 @@ export function ConflitsTab() {
               </>
             )}
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setRespondDecisionModal(null)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setRespondDecisionModal(null)}>{t('common.cancel')}</button>
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={handleRespondDecision}
                 disabled={respondRevisionDecisionRequest.isPending}
               >

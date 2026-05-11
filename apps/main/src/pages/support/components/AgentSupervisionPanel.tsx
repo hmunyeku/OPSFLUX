@@ -176,8 +176,8 @@ export function AgentSupervisionPanel() {
               key={d}
               onClick={() => setWindowDays(d)}
               className={cn(
-                'gl-button-sm',
-                windowDays === d ? 'gl-button-primary' : 'gl-button-default',
+                'btn-sm',
+                windowDays === d ? 'btn-primary' : 'btn-secondary',
               )}
             >
               {d}j
@@ -186,7 +186,7 @@ export function AgentSupervisionPanel() {
         </div>
         <button
           onClick={() => { void qc.invalidateQueries({ queryKey: ['agent-supervision'] }); void refetch() }}
-          className="gl-button-sm gl-button-default"
+          className="btn-sm btn-secondary"
           title={t('common.refresh', 'Rafraîchir')}
         >
           <RotateCw size={12} />

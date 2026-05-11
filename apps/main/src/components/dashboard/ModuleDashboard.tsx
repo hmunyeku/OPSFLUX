@@ -144,7 +144,7 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
       <div className={cn('rounded-lg border border-dashed border-border p-6 text-center', className)}>
         <p className="text-sm text-muted-foreground mb-3">{t('dashboard.no_module_dashboard')}</p>
         <button onClick={handleCreateModuleTab} disabled={createTab.isPending}
-          className="gl-button-sm gl-button-confirm">
+          className="btn-sm btn-primary">
           <Plus className="h-3.5 w-3.5" />
           {t('dashboard.create_module_dashboard', { module: title || module })}
         </button>
@@ -163,8 +163,13 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
     : null
 
   // ── Render ──
+  // Bug fix Bastien: certains modules (Support en premier) plaçaient
+  // <ModuleDashboard /> sans wrapper scrollable. Le contenu débordait
+  // sous le viewport sans scrollbar. Fix global ici: overflow-y-auto
+  // + min-h-0 + flex-1 pour que TOUS les modules héritent du bon
+  // comportement de scroll, quel que soit leur layout parent.
   const content = (
-    <div className={cn('flex flex-col flex-1 min-h-0 relative', className)}>
+    <div className={cn('flex flex-col flex-1 min-h-0 overflow-y-auto relative', className)}>
       {/* Legacy floating toolbar — only when no portal target was
           requested. Pages that opt into the new tab-bar slot will see
           {portalledToolbar} render the toolbar inside the slot div. */}

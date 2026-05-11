@@ -136,7 +136,7 @@ export function RotationsTab() {
         }
         return (
           <div className="min-w-0">
-            <span className="gl-badge gl-badge-danger text-[11px]">
+            <span className="chip chip-danger text-[11px]">
               {t('paxlog.rotations_tab.compliance.blocked', { count })}
             </span>
             {preview[0] && <div className="text-[11px] text-muted-foreground truncate mt-1">{preview[0]}</div>}
@@ -150,7 +150,7 @@ export function RotationsTab() {
       header: '',
       cell: ({ row }) => row.original.status === 'active' ? (
         <button
-          className="gl-button-sm gl-button-default text-xs"
+          className="btn-sm btn-secondary text-xs"
           onClick={(e) => { e.stopPropagation(); endCycle.mutate(row.original.id) }}
           disabled={endCycle.isPending}
         >

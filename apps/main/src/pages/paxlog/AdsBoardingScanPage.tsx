@@ -167,7 +167,7 @@ export function AdsBoardingScanPage() {
                                 type="button"
                                 onClick={() => updatePassenger.mutate({ passengerId: passenger.id, payload: { boarding_status: 'pending' } })}
                                 disabled={updatePassenger.isPending}
-                                className="gl-button-sm gl-button-default"
+                                className="btn-sm btn-secondary"
                               >
                                 Attente
                               </button>
@@ -175,7 +175,7 @@ export function AdsBoardingScanPage() {
                                 type="button"
                                 onClick={() => updatePassenger.mutate({ passengerId: passenger.id, payload: { boarding_status: 'no_show' } })}
                                 disabled={updatePassenger.isPending}
-                                className="gl-button-sm gl-button-danger border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
+                                className="btn-sm btn-danger border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
                               >
                                 No-show
                               </button>
@@ -183,7 +183,7 @@ export function AdsBoardingScanPage() {
                                 type="button"
                                 onClick={() => updatePassenger.mutate({ passengerId: passenger.id, payload: { boarding_status: 'boarded' } })}
                                 disabled={updatePassenger.isPending}
-                                className="gl-button-sm gl-button-confirm border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
+                                className="btn-sm btn-primary border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
                               >
                                 Embarqué
                               </button>

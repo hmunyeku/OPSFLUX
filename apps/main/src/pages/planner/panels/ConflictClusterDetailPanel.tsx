@@ -496,7 +496,7 @@ export function ConflictClusterDetailPanel() {
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('planner.columns.status')}</div>
               <div>
                 {cluster.status === 'partial' ? (
-                  <span className="gl-badge gl-badge-warning">Partiel</span>
+                  <span className="chip chip-warn">Partiel</span>
                 ) : (
                   <StatusBadge
                     status={cluster.status}

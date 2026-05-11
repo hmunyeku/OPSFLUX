@@ -208,7 +208,7 @@ export function SignatureSlot({
       {draft && draft !== value && (
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-primary"
+          className="btn btn-sm btn-primary"
           onClick={async () => {
             if (draft) await onSave(draft)
           }}

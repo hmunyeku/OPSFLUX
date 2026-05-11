@@ -176,7 +176,7 @@ function AuditDetailModal({ entry, onClose }: { entry: AuditLogEntry; onClose: (
             <ScrollText size={16} className="text-primary" />
             <h3 className="text-sm font-semibold">{t('settings.detail_de_l_apos_entree_d_apos_audit')}</h3>
           </div>
-          <button onClick={onClose} className="gl-button gl-button-default"><X size={14} /></button>
+          <button onClick={onClose} className="btn btn-secondary"><X size={14} /></button>
         </div>
 
         {/* Content */}
@@ -340,7 +340,7 @@ export function AuditTab() {
 
         {/* Export CSV */}
         <button
-          className="gl-button-sm gl-button-confirm items-center gap-1.5"
+          className="btn-sm btn-primary items-center gap-1.5"
           onClick={handleExport}
           disabled={!data?.items?.length}
         >

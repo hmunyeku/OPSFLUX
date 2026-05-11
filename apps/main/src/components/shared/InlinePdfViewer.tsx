@@ -95,7 +95,7 @@ export function InlinePdfViewer({ url, title, downloadName, onClose, className }
               <button
                 type="button"
                 onClick={handleOpenTab}
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 title="Ouvrir dans un nouvel onglet"
               >
                 <ExternalLink size={12} />
@@ -103,7 +103,7 @@ export function InlinePdfViewer({ url, title, downloadName, onClose, className }
               <button
                 type="button"
                 onClick={handleDownload}
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 title="Télécharger"
               >
                 <Download size={12} /> Télécharger
@@ -113,7 +113,7 @@ export function InlinePdfViewer({ url, title, downloadName, onClose, className }
           <button
             type="button"
             onClick={onClose}
-            className="gl-button-sm gl-button-default !w-7 !p-0 flex items-center justify-center"
+            className="btn-sm btn-secondary !w-7 !p-0 flex items-center justify-center"
             aria-label="Fermer"
           >
             <X size={13} />

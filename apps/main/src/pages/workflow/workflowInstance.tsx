@@ -106,7 +106,7 @@ export function InstanceDetailPanel({
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-card">
-          <button onClick={onBack} className="gl-button gl-button-default">
+          <button onClick={onBack} className="btn btn-secondary">
             <ArrowLeft size={16} />
           </button>
           <span className="text-sm text-muted-foreground">{t('workflow.instance_not_found')}</span>
@@ -118,7 +118,7 @@ export function InstanceDetailPanel({
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-card shrink-0">
-        <button onClick={onBack} className="gl-button gl-button-default">
+        <button onClick={onBack} className="btn btn-secondary">
           <ArrowLeft size={16} />
         </button>
         <div className="flex-1 min-w-0">
@@ -187,7 +187,7 @@ export function InstanceDetailPanel({
                         <button
                           onClick={() => handleTransition(target)}
                           disabled={transitionMut.isPending}
-                          className="gl-button-sm gl-button-confirm w-full text-[10px]"
+                          className="btn-sm btn-primary w-full text-[10px]"
                         >
                           {transitionMut.isPending
                             ? <Loader2 size={10} className="animate-spin" />

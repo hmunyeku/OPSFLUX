@@ -54,7 +54,7 @@ export function DashboardTab() {
             {Object.entries(adsStatusCounts).map(([status, count]) => {
               return (
                 <div key={status} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-background">
-                  <span className={cn('gl-badge', ADS_STATUS_BADGES[status] || 'gl-badge-neutral')}>{adsStatusLabels[status] ?? status}</span>
+                  <span className={cn('chip', ADS_STATUS_BADGES[status] || '')}>{adsStatusLabels[status] ?? status}</span>
                   <span className="text-sm font-semibold tabular-nums">{count}</span>
                 </div>
               )

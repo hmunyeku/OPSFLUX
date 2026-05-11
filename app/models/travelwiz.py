@@ -187,6 +187,22 @@ class VoyageStop(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     stop_order: Mapped[int] = mapped_column(Integer, nullable=False)
     scheduled_arrival: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     actual_arrival: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Quand le vecteur repart de cette étape — utile quand un stop a une
+    # durée non négligeable (loading/unloading, escale technique…) et que
+    # la prochaine étape doit calculer son arrivée à partir du départ
+    # d'ici plutôt que de l'arrivée. NULL = identique à scheduled_arrival
+    # (passage rapide sans temps d'escale modélisé).
+    scheduled_departure: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    actual_departure: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Flux PAX/cargo par étape — permet de modéliser correctement un
+    # voyage qui passe par A→B→C→D→E avec des PAX qui montent/descendent
+    # à chaque point. L'occupation cumulée du vecteur à un instant donné
+    # est la somme(boarded) - somme(disembarked) sur les étapes ≤ position.
+    pax_boarded_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    pax_disembarked_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cargo_loaded_kg: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    cargo_unloaded_kg: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     voyage: Mapped["Voyage"] = relationship(back_populates="stops")

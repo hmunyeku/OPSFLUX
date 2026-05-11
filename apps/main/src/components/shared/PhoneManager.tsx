@@ -497,8 +497,8 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
           <select className="gl-form-select text-xs w-[110px]" value={label} onChange={(e) => setLabel(e.target.value)}>
             {PHONE_LABELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
           </select>
-          <button onClick={() => { setShowForm(false); setNumber('') }} className="gl-button-sm gl-button-default">Annuler</button>
-          <button onClick={handleCreate} disabled={!number.trim() || createPhone.isPending} className="gl-button-sm gl-button-confirm">
+          <button onClick={() => { setShowForm(false); setNumber('') }} className="btn-sm btn-secondary">Annuler</button>
+          <button onClick={handleCreate} disabled={!number.trim() || createPhone.isPending} className="btn-sm btn-primary">
             {createPhone.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
           </button>
         </div>
@@ -556,10 +556,10 @@ function InlinePhoneEditor({
       <select value={editLabel} onChange={(e) => setEditLabel(e.target.value)} className="text-[10px] px-1 py-0.5 rounded border border-border/60 bg-card">
         {labelOptions.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
       </select>
-      <button onClick={handleSave} disabled={isSaving} className="gl-button gl-button-confirm text-green-600">
+      <button onClick={handleSave} disabled={isSaving} className="btn btn-primary text-green-600">
         {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
       </button>
-      <button onClick={onCancel} className="gl-button gl-button-default">
+      <button onClick={onCancel} className="btn btn-secondary">
         <X size={10} />
       </button>
     </div>

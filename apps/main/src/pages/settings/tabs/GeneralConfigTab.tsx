@@ -243,12 +243,13 @@ export function GeneralConfigTab() {
         </div>
       </CollapsibleSection>
 
-      {/* ── Emails ── */}
+      {/* ── Emails ── (dernière section depuis la suppression du doublon Cartographie) */}
       <CollapsibleSection
         id="emails-config"
         title="Emails"
         description="Personnalisation de l'apparence des emails envoyés par OpsFlux."
         storageKey="settings.general-config.collapse"
+        showSeparator={false}
       >
         <div className="mt-2 space-y-0">
           <SettingRow label="Logo email" description="Logo affiché dans l'en-tête des emails envoyés par OpsFlux.">
@@ -284,16 +285,8 @@ export function GeneralConfigTab() {
         </div>
       </CollapsibleSection>
 
-      {/* ── Cartographie ── (niche: only for tenants using map features) */}
-      <CollapsibleSection
-        id="cartographie"
-        title="Cartographie"
-        description={t('settings.position_par_defaut_de_la_carte_cliquez')}
-        storageKey="settings.general-config.collapse"
-        showSeparator={false}
-      >
-        <CartographySection settings={s} save={save} />
-      </CollapsibleSection>
+      {/* La section Cartographie ci-dessus est l'unique source.
+          Avant: doublon "Cartographie" rendu 2x. Supprimé. */}
     </>
   )
 }
@@ -341,7 +334,7 @@ function EmailLogoUpload({
 
       {/* Upload button */}
       <button
-        className="gl-button-sm gl-button-default items-center gap-1.5"
+        className="btn-sm btn-secondary items-center gap-1.5"
         onClick={() => fileRef.current?.click()}
         disabled={uploadMutation.isPending}
       >
@@ -453,7 +446,7 @@ function CartographySection({
         <button
           type="button"
           onClick={() => setShowMap(true)}
-          className="gl-button-sm gl-button-default"
+          className="btn-sm btn-secondary"
         >
           <MapPin size={12} />
           Choisir sur la carte
@@ -461,7 +454,7 @@ function CartographySection({
         <button
           type="button"
           onClick={handleGeolocate}
-          className="gl-button-sm gl-button-default"
+          className="btn-sm btn-secondary"
           title={t('settings.utiliser_ma_position')}
         >
           <Crosshair size={12} />
@@ -472,7 +465,7 @@ function CartographySection({
       {/* Save button */}
       <div className="flex items-center gap-3">
         <button
-          className="gl-button gl-button-confirm"
+          className="btn btn-primary"
           onClick={handleSave}
           disabled={!dirty}
         >

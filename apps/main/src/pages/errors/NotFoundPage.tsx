@@ -41,10 +41,10 @@ export function NotFoundPage() {
           {t('errors.not_found.description', { defaultValue: 'L\'URL que vous avez suivie n\'existe pas ou plus. Retournez à l\'accueil ou revenez à la page précédente.' })}
         </p>
         <div className="mt-6 flex items-center justify-center gap-2">
-          <button onClick={() => navigate(-1)} className="gl-button-sm gl-button-default">
+          <button onClick={() => navigate(-1)} className="btn-sm btn-secondary">
             <ArrowLeft size={13} /> {t('common.back', { defaultValue: 'Retour' })}
           </button>
-          <button onClick={() => navigate('/home')} className="gl-button-sm gl-button-confirm">
+          <button onClick={() => navigate('/home')} className="btn-sm btn-primary">
             <Home size={13} /> {t('nav.home', { defaultValue: 'Accueil' })}
           </button>
         </div>

@@ -46,12 +46,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 const CATEGORY_ORDER = ['formation', 'certification', 'habilitation', 'audit', 'epi']
 
 const STATUS_STYLES: Record<string, string> = {
-  valid: 'gl-badge-success',
-  expired: 'gl-badge-danger',
-  pending: 'gl-badge-warning',
-  rejected: 'gl-badge-danger',
-  missing: 'gl-badge-neutral',
-  exempted: 'gl-badge-info',
+  valid: 'chip-success',
+  expired: 'chip-danger',
+  pending: 'chip-warn',
+  rejected: 'chip-danger',
+  missing: '',
+  exempted: 'chip-info',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -270,7 +270,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                 ? <AlertTriangle size={10} className="text-red-500 shrink-0" />
                 : <X size={10} className="text-muted-foreground shrink-0" />}
               <span className="flex-1 truncate">{String(detail.type_name || '?')}</span>
-              <span className={cn('gl-badge text-[9px]', STATUS_STYLES[String(detail.status)] || 'gl-badge-neutral')}>
+              <span className={cn('chip text-[9px]', STATUS_STYLES[String(detail.status)] || '')}>
                 {String(detail.status) === 'missing' ? 'Manquant' : STATUS_LABELS[String(detail.status)] || String(detail.status)}
               </span>
               <Plus size={10} className="text-primary shrink-0" />
@@ -286,7 +286,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             <div key={i} className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded bg-blue-500/5 border border-blue-500/20 text-left">
               <ShieldCheck size={10} className="text-blue-500 shrink-0" />
               <span className="flex-1 truncate">{String(detail.type_name || '?')}</span>
-              <span className="gl-badge gl-badge-info text-[9px]">{t('shared.exempte')}</span>
+              <span className="chip chip-info text-[9px]">{t('shared.exempte')}</span>
             </div>
           ))}
         </div>
@@ -315,7 +315,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                         className="group flex items-center gap-2 px-2.5 py-1.5 text-xs border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer"
                         onClick={() => setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id)}
                       >
-                        <span className={cn('gl-badge text-[9px] shrink-0', STATUS_STYLES[rec.status] || 'gl-badge-neutral')}>
+                        <span className={cn('chip text-[9px] shrink-0', STATUS_STYLES[rec.status] || '')}>
                           {STATUS_LABELS[rec.status] || rec.status}
                         </span>
                         <span className="flex-1 truncate font-medium">{rec.type_name || rec.compliance_type_id}</span>
@@ -426,13 +426,13 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           </div>
 
           <div className="flex justify-end gap-1.5">
-            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="gl-button gl-button-default">
+            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="btn btn-secondary">
               Annuler
             </button>
             <button
               onClick={handleSubmit}
               disabled={(!editingId && !form.compliance_type_id) || createRecord.isPending || updateRecord.isPending}
-              className="gl-button gl-button-confirm"
+              className="btn btn-primary"
             >
               {(createRecord.isPending || updateRecord.isPending) ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
               {editingId ? 'Enregistrer' : 'Créer'}

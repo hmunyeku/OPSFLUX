@@ -223,49 +223,52 @@ export function ProjectInsightsBar({
   const hasPlanning = !!(startISO && plannedEndISO)
 
   // ── Geometry (adaptive) ──────────────────────────────────────
+  // Compact mode (Bastien feedback ce matin) : la hauteur précédente
+  // (~290px avec budget+planning) prenait trop de place pour 2 barres.
+  // Réduit barres 30→20, gaps 22/36/50 → 14/24/32. Hauteur cible ≈ 180px.
   const W = width
   const trackX = 116
   const trackW = W - trackX - 24
   const trackRight = trackX + trackW
-  const framePad = 6
+  const framePad = 4
   const frameTop = framePad
-  const budgetLabelTopY = frameTop + 18
-  const budgetLabelBotY = frameTop + 36
-  const budgetBarY = frameTop + 58
-  const budgetBarH = 30
+  const budgetLabelTopY = frameTop + 14
+  const budgetLabelBotY = frameTop + 28
+  const budgetBarY = frameTop + 42
+  const budgetBarH = 20
   const budgetBarBot = budgetBarY + budgetBarH
 
   let plannedLabelTopY = 0, plannedLabelBotY = 0
   let planBarY = 0, planBarH = 0, planBarBot = 0
   let planLabelTopY = 0, planLabelBotY = 0
-  let dateBandY = 0, H = 120
+  let dateBandY = 0, H = 90
 
   if (hasBudget && hasPlanning) {
-    plannedLabelTopY = budgetBarBot + 22
-    plannedLabelBotY = budgetBarBot + 36
-    planBarY = budgetBarBot + 50
-    planBarH = 30
+    plannedLabelTopY = budgetBarBot + 14
+    plannedLabelBotY = budgetBarBot + 26
+    planBarY = budgetBarBot + 32
+    planBarH = 20
     planBarBot = planBarY + planBarH
-    planLabelTopY = planBarBot + 34
-    planLabelBotY = planBarBot + 50
-    dateBandY = planLabelBotY + 24
-    H = dateBandY + 8
+    planLabelTopY = planBarBot + 20
+    planLabelBotY = planBarBot + 32
+    dateBandY = planLabelBotY + 16
+    H = dateBandY + 6
   } else if (hasBudget && !hasPlanning) {
-    dateBandY = budgetBarBot + 30
-    H = dateBandY + 8
+    dateBandY = budgetBarBot + 22
+    H = dateBandY + 6
   } else if (!hasBudget && hasPlanning) {
-    plannedLabelTopY = frameTop + 16
-    plannedLabelBotY = frameTop + 32
-    planBarY = frameTop + 52
-    planBarH = 30
+    plannedLabelTopY = frameTop + 12
+    plannedLabelBotY = frameTop + 24
+    planBarY = frameTop + 36
+    planBarH = 20
     planBarBot = planBarY + planBarH
-    planLabelTopY = planBarBot + 34
-    planLabelBotY = planBarBot + 50
-    dateBandY = planLabelBotY + 24
-    H = dateBandY + 8
+    planLabelTopY = planBarBot + 20
+    planLabelBotY = planBarBot + 32
+    dateBandY = planLabelBotY + 16
+    H = dateBandY + 6
   }
-  const dashTopY = frameTop + 8
-  const dashBotY = dateBandY > 0 ? dateBandY - 18 : 0
+  const dashTopY = frameTop + 6
+  const dashBotY = dateBandY > 0 ? dateBandY - 14 : 0
 
   // ── Theme ────────────────────────────────────────────────────
   const COL = {

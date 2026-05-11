@@ -269,10 +269,10 @@ function WorkflowActions({ docId }: { docId: string }) {
             onClick={() => handleTransition(t.to_state, t.comment_required)}
             disabled={transition.isPending}
             className={cn(
-              'gl-button-sm',
+              'btn-sm',
               t.to_state.includes('reject') || t.to_state === 'draft'
-                ? 'gl-button-danger'
-                : 'gl-button-confirm',
+                ? 'btn-danger'
+                : 'btn-primary',
             )}
           >
             {transition.isPending ? <Loader2 size={12} className="animate-spin" /> : null}
@@ -307,14 +307,14 @@ function WorkflowActions({ docId }: { docId: string }) {
                 )
               }}
               disabled={!comment.trim() || transition.isPending}
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
             >
               {transition.isPending ? <Loader2 size={12} className="animate-spin" /> : null}
               <span>Confirmer</span>
             </button>
             <button
               onClick={() => { setCommentFor(null); setComment('') }}
-              className="gl-button-sm gl-button-default"
+              className="btn-sm btn-secondary"
             >
               <span>Annuler</span>
             </button>
@@ -861,7 +861,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
               />
               <div className="flex items-center gap-2">
                 <button
-                  className="gl-button-sm gl-button-confirm"
+                  className="btn-sm btn-primary"
                   onClick={handleCreateRevision}
                   disabled={createRevision.isPending}
                 >
@@ -869,7 +869,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   <span>Creer revision</span>
                 </button>
                 <button
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                   onClick={() => setShowEditor(false)}
                 >
                   <span>{t('papyrus.fermer_l_apos_editeur')}</span>
@@ -878,7 +878,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
             </div>
           ) : (
             <button
-              className="gl-button-sm gl-button-default"
+              className="btn-sm btn-secondary"
               onClick={() => setShowEditor(true)}
             >
               <PenTool size={12} />
@@ -976,7 +976,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="gl-button-sm gl-button-confirm"
+                  className="btn-sm btn-primary"
                   onClick={handleCreatePapyrusForm}
                   disabled={createPapyrusForm.isPending}
                 >
@@ -985,7 +985,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 </button>
                 <button
                   type="button"
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                   onClick={handleImportEpiCollect}
                   disabled={importPapyrusEpiCollect.isPending || !epicollectImportJson.trim()}
                 >
@@ -1035,7 +1035,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                   onClick={handleGenerateExternalFormLink}
                   disabled={createPapyrusExternalLink.isPending}
                 >
@@ -1044,7 +1044,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 </button>
                 <button
                   type="button"
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                   onClick={handleExportEpiCollect}
                   disabled={exportPapyrusEpiCollect.isPending}
                 >
@@ -1168,7 +1168,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={handleSaveSchedule}
                 disabled={updatePapyrusSchedule.isPending}
               >
@@ -1177,7 +1177,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
               </button>
               <button
                 type="button"
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 onClick={handleRunDispatchNow}
                 disabled={runPapyrusDispatchNow.isPending}
               >
@@ -1228,7 +1228,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                     <button
                       onClick={handleSubmit}
                       disabled={submitDocument.isPending}
-                      className="gl-button-sm gl-button-confirm"
+                      className="btn-sm btn-primary"
                     >
                       {submitDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
                       <span>Soumettre</span>
@@ -1238,7 +1238,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                     <button
                       onClick={handleApprove}
                       disabled={approveDocument.isPending}
-                      className="gl-button-sm gl-button-confirm"
+                      className="btn-sm btn-primary"
                     >
                       {approveDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
                       <span>Approuver</span>
@@ -1247,7 +1247,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   {workflowActions.canReject && canApproveDoc && !showRejectInput && (
                     <button
                       onClick={() => setShowRejectInput(true)}
-                      className="gl-button-sm gl-button-danger"
+                      className="btn-sm btn-danger"
                     >
                       <XCircle size={12} />
                       <span>Rejeter</span>
@@ -1257,7 +1257,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                     <button
                       onClick={handlePublish}
                       disabled={publishDocument.isPending}
-                      className="gl-button-sm gl-button-confirm"
+                      className="btn-sm btn-primary"
                     >
                       {publishDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
                       <span>Publier</span>
@@ -1267,7 +1267,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                     <button
                       onClick={handleArchive}
                       disabled={archiveDocument.isPending}
-                      className="gl-button-sm gl-button-default"
+                      className="btn-sm btn-secondary"
                     >
                       {archiveDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
                       <span>Archiver</span>
@@ -1290,12 +1290,12 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       <button
                         onClick={handleReject}
                         disabled={rejectDocument.isPending}
-                        className="gl-button-sm gl-button-danger"
+                        className="btn-sm btn-danger"
                       >
                         {rejectDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
                         <span>{t('paxlog.confirm_reject')}</span>
                       </button>
-                      <button onClick={() => { setShowRejectInput(false); setRejectReason('') }} className="gl-button-sm gl-button-default">
+                      <button onClick={() => { setShowRejectInput(false); setRejectReason('') }} className="btn-sm btn-secondary">
                         <span>Annuler</span>
                       </button>
                     </div>
@@ -1306,18 +1306,18 @@ function DocumentDetailPanel({ id }: { id: string }) {
 
             {/* Export & Share */}
             <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-              <button onClick={handleExportPdf} className="gl-button-sm gl-button-default">
+              <button onClick={handleExportPdf} className="btn-sm btn-secondary">
                 <Download size={12} />
                 <span>PDF</span>
               </button>
-              <button onClick={handleExportDocx} className="gl-button-sm gl-button-default">
+              <button onClick={handleExportDocx} className="btn-sm btn-secondary">
                 <Download size={12} />
                 <span>DOCX</span>
               </button>
               <button
                 onClick={handleShareLink}
                 disabled={createShareLink.isPending}
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
               >
                 {createShareLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
                 <span>{t('papyrus.lien_de_partage')}</span>
@@ -1342,8 +1342,8 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   <button
                     type="button"
                     className={cn(
-                      'gl-button-sm',
-                      selectedRevisions.length === 2 ? 'gl-button-confirm' : 'gl-button-default opacity-50 cursor-not-allowed',
+                      'btn-sm',
+                      selectedRevisions.length === 2 ? 'btn-primary' : 'btn-secondary opacity-50 cursor-not-allowed',
                     )}
                     disabled={selectedRevisions.length !== 2}
                     onClick={() => setShowDiff(true)}
@@ -1747,7 +1747,7 @@ export function ReportEditorPage() {
                       </div>
                       <button
                         type="button"
-                        className="gl-button-sm gl-button-confirm"
+                        className="btn-sm btn-primary"
                         disabled={!canAdminPapyrus || instantiatePapyrusPreset.isPending}
                         onClick={() => handleInstantiatePreset(preset.key)}
                       >

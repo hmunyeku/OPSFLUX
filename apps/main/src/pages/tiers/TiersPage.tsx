@@ -480,7 +480,7 @@ function CreateTierPanel() {
                 <button
                   type="button"
                   onClick={addContactDraft}
-                  className="gl-button-sm gl-button-confirm inline-flex items-center gap-1"
+                  className="btn btn-primary btn-sm inline-flex items-center gap-1"
                 >
                   <Plus size={12} /> {t('common.add', 'Ajouter')}
                 </button>
@@ -677,10 +677,20 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
   }
 
   // -- Company View --
+  // Title swap (Pajamas++ design pattern): name as primary title,
+  // code+type+country as subtitle metadata. Matches the design canvas
+  // where 'Perenco S.A.' is the large title and 'PRC-001 · Affréteur ·
+  // Gabon' is the subline.
+  const tierSubtitle = [
+    tier.code,
+    tier.type ? (tierTypeOptions.find(o => o.value === tier.type)?.label || tier.type) : null,
+    tier.country ? (countryLabels[tier.country] || tier.country) : null,
+  ].filter(Boolean).join(' · ')
+
   return (
     <DynamicPanelShell
-      title={tier.code}
-      subtitle={tier.name}
+      title={tier.name}
+      subtitle={tierSubtitle}
       icon={<Building2 size={14} className="text-primary" />}
       actionItems={tierActionItems}
       onActionConfirm={confirm}
@@ -690,21 +700,47 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
         onTabChange={(id) => setDetailTab(id as typeof detailTab)}
         items={[
           { id: 'fiche', label: 'Fiche', icon: Building2 },
-          { id: 'contacts', label: 'Contacts', icon: Users },
+          { id: 'contacts', label: 'Contacts', icon: Users, badge: contactList.length || undefined },
           { id: 'conformite', label: 'Conformite', icon: Shield },
-          { id: 'projets', label: 'Projets', icon: FolderKanban },
-          { id: 'documents', label: 'Documents', icon: Paperclip },
+          { id: 'projets', label: 'Projets', icon: FolderKanban, badge: relatedProjects?.items?.length || undefined },
+          { id: 'documents', label: 'Documents', icon: Paperclip, badge: attachments?.length || undefined },
         ]}
       />
 
       {detailTab === 'fiche' && (
       <PanelContentLayout>
-        {/* Tags — full width */}
-        <TagManager ownerType="tier" ownerId={tier.id} compact />
+        {/* KPI strip — Pajamas++ design pattern (top-of-detail metrics).
+            Sources counts from already-fetched queries; hooks into the
+            .kpi-pp class loaded by Phase 2C (cards-pp.css). */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="kpi-pp">
+            <span className="kpi-pp__label">Projets actifs</span>
+            <span className="kpi-pp__value">{relatedProjects?.items?.length ?? 0}</span>
+            <span className="kpi-pp__caption">avec ce tiers</span>
+          </div>
+          <div className="kpi-pp">
+            <span className="kpi-pp__label">Contacts</span>
+            <span className="kpi-pp__value">{contactList.length}</span>
+            <span className="kpi-pp__caption">employés actifs</span>
+          </div>
+          <div className="kpi-pp">
+            <span className="kpi-pp__label">Identifiants</span>
+            <span className="kpi-pp__value">{identifiers?.length ?? 0}</span>
+            <span className="kpi-pp__caption">SIRET, NIU, RCCM…</span>
+          </div>
+          <div className="kpi-pp">
+            <span className="kpi-pp__label">Documents</span>
+            <span className="kpi-pp__value">{attachments?.length ?? 0}</span>
+            <span className="kpi-pp__caption">fichiers attachés</span>
+          </div>
+        </div>
 
-        {/* 2-column layout on wide screens */}
-        <SectionColumns>
-          {/* ── Left column: Fiche entreprise + Coordonnees ── */}
+        {/* 2-col layout (Pajamas++ design pattern):
+            - Main wide column (1fr) → Identité + Coordonnées (heavy content)
+            - Sidebar 320px → Infos légales + Tags (compact reference data)
+            Stacks vertically on < lg. */}
+        <SectionColumns sidebar="right-320">
+          {/* ── Main column: Fiche entreprise + Coordonnees ── */}
           <div className="@container space-y-5">
             <FormSection title={t('tiers.ui.sections.identity')} collapsible defaultExpanded storageKey="tier-detail-sections">
               <DetailFieldGrid>
@@ -726,7 +762,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                 <ReadOnlyRow
                   label={t('common.status')}
                   value={
-                    <span className={cn('gl-badge', tier.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                    <span className={cn('chip', tier.active && 'chip-success')}>
                       {tier.active ? t('common.active') : t('common.archived')}
                     </span>
                   }
@@ -776,8 +812,15 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             </FormSection>
           </div>
 
-          {/* ── Right column: Infos legales ── */}
+          {/* ── Sidebar 320px: Infos légales + Tags ──
+              Pajamas++ design pattern: narrow right rail with reference
+              data (legal IDs, tags) that stays visible while the user
+              scrolls through the heavier main content. */}
           <div className="@container space-y-5">
+            <FormSection title={t('tiers.ui.sections.tags', 'Tags')} collapsible defaultExpanded storageKey="tier-detail-sections">
+              <TagManager ownerType="tier" ownerId={tier.id} compact />
+            </FormSection>
+
             <FormSection title={`${t('tiers.ui.sections.legal')} (${identifiers?.length ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-sections">
               <DetailFieldGrid>
                 <InlineEditableTags
@@ -830,7 +873,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             <span className="flex items-center gap-2">
               {t('tiers.ui.blocking_section')}
               {tier.is_blocked && (
-                <span className="gl-badge gl-badge-danger text-[10px]">
+                <span className="chip chip-danger text-[10px]">
                   <ShieldBan size={10} className="mr-0.5" />{t('tiers.ui.blocked')}
                 </span>
               )}
@@ -847,14 +890,14 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
               {tier.is_blocked ? (
                 <button
                   onClick={() => setShowBlockForm(!showBlockForm)}
-                  className="gl-button-sm gl-button-default"
+                  className="btn btn-secondary btn-sm"
                 >
                   <ShieldCheck size={12} />{t('tiers.ui.unblock')}
                 </button>
               ) : (
                 <button
                   onClick={() => setShowBlockForm(!showBlockForm)}
-                  className="gl-button-sm gl-button-danger"
+                  className="btn btn-danger btn-sm"
                 >
                   <ShieldBan size={12} />{t('tiers.ui.block')}
                 </button>
@@ -895,7 +938,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                       { onSuccess: () => { setShowBlockForm(false); setBlockReason('') } }
                     )
                   }}
-                  className="gl-button-sm gl-button-confirm"
+                  className="btn btn-primary btn-sm"
                 >
                   {tier.is_blocked ? t('tiers.ui.unblock') : t('tiers.ui.block')}
                 </button>
@@ -918,7 +961,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                       <span className={cn('font-medium', b.action === 'block' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400')}>
                         {b.action === 'block' ? t('tiers.ui.blocked') : t('tiers.ui.unblocked')}
                       </span>
-                      <span className="gl-badge gl-badge-neutral text-[9px]">{b.block_type}</span>
+                      <span className="chip text-[9px]">{b.block_type}</span>
                     </div>
                     <p className="text-muted-foreground truncate">{b.reason}</p>
                     <p className="text-[10px] text-muted-foreground/60">
@@ -979,7 +1022,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                           { onSuccess: () => { setShowRefForm(false); setRefCode('') } }
                         )
                       }}
-                      className="gl-button-sm gl-button-confirm"
+                      className="btn btn-primary btn-sm"
                     >
                       {createExternalRef.isPending ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
                       {t('common.add')}
@@ -996,7 +1039,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                 <div key={ref.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors group">
                   <div className="flex items-center gap-2 min-w-0">
                     <Link2 size={11} className="text-muted-foreground shrink-0" />
-                    <span className="gl-badge gl-badge-neutral text-[10px] shrink-0">{ref.system}</span>
+                    <span className="chip text-[10px] shrink-0">{ref.system}</span>
                     <span className="text-sm font-mono text-foreground truncate">{ref.code}</span>
                     {ref.label && <span className="text-[10px] text-muted-foreground truncate">({ref.label})</span>}
                   </div>
@@ -1035,7 +1078,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
               {relatedProjects.items.map((p) => (
                 <div key={p.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors">
                   <CrossModuleLink module="projets" id={p.id} label={`${p.code} — ${p.name}`} mode="navigate" />
-                  <span className={cn('gl-badge text-[10px]', p.status === 'active' ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                  <span className={cn('chip text-[10px]', p.status === 'active' && 'chip-success')}>
                     {p.status}
                   </span>
                 </div>
@@ -1238,12 +1281,16 @@ export function TiersPage() {
   }, [])
 
   // ── Entreprises columns ──
+  // Order matches the Pajamas++ design canvas:
+  //   CODE · NOM · TYPE · PAYS · SIRET · INDUSTRIE · STATUT · CRÉÉ LE
+  // (TAGS would sit between SIRET and STATUT but requires a polymorphic
+  // bulk fetch — added in a follow-up commit.)
   const tierColumns = useMemo<ColumnDef<Tier, unknown>[]>(() => [
     {
       accessorKey: 'code',
       header: t('common.code'),
-      size: 100,
-      cell: ({ row }) => <span className="font-medium text-foreground">{row.original.code}</span>,
+      size: 110,
+      cell: ({ row }) => <span className="font-mono text-[11px] text-foreground">{row.original.code}</span>,
     },
     {
       accessorKey: 'name',
@@ -1262,9 +1309,25 @@ export function TiersPage() {
       header: t('common.type'),
       size: 110,
       cell: ({ row }) => row.original.type ? (
-        <span className="gl-badge gl-badge-neutral">
+        <span className="chip">
           {tierTypeLabels[row.original.type] ?? row.original.type}
         </span>
+      ) : <span className="text-muted-foreground">--</span>,
+    },
+    {
+      accessorKey: 'country',
+      header: t('common.country', 'Pays'),
+      size: 70,
+      cell: ({ row }) => row.original.country ? (
+        <span className="font-mono text-[11px] uppercase text-muted-foreground">{row.original.country}</span>
+      ) : <span className="text-muted-foreground">--</span>,
+    },
+    {
+      accessorKey: 'registration_number',
+      header: 'SIRET',
+      size: 130,
+      cell: ({ row }) => row.original.registration_number ? (
+        <span className="font-mono text-[11px] text-muted-foreground">{row.original.registration_number}</span>
       ) : <span className="text-muted-foreground">--</span>,
     },
     {
@@ -1315,11 +1378,11 @@ export function TiersPage() {
       size: 110,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <span className={cn('gl-badge', row.original.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+          <span className={cn('chip', row.original.active && 'chip-success')}>
             {row.original.active ? t('common.active') : t('common.archived')}
           </span>
           {row.original.is_blocked && (
-            <span className="gl-badge gl-badge-danger text-[9px]">
+            <span className="chip chip-danger text-[9px]">
               <ShieldBan size={9} className="mr-0.5" />{t('tiers.ui.blocked')}
             </span>
           )}
@@ -1376,7 +1439,16 @@ export function TiersPage() {
     <div className="flex h-full">
       {/* -- Static Panel (list) -- hidden when dynamic panel is in full mode -- */}
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <PanelHeader icon={Building2} title={t('tiers.title')} subtitle={t('tiers.subtitle')}>
+        <PanelHeader
+          icon={Building2}
+          title={t('tiers.title')}
+          titleSuffix={
+            activeTab === 'entreprises' ? tiersData?.total ?? null
+            : activeTab === 'contacts' ? contactsData?.total ?? null
+            : null
+          }
+          subtitle={t('tiers.subtitle')}
+        >
           {activeTab === 'entreprises' && (
             <ToolbarButton icon={Plus} label={t('tiers.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'tiers' })} />
           )}

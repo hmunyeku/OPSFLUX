@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { useCreateAds, usePaxCandidates } from '@/hooks/usePaxlog'
 import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { DynamicPanelShell, PanelActionButton, PanelContentLayout, FormGrid, DynamicPanelField, TagSelector, panelInputClass } from '@/components/layout/DynamicPanel'
@@ -18,13 +18,16 @@ import {
 import { ClipboardList, Loader2, Plus, Search, Trash2, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { ActivityPicker } from '@/components/shared/ActivityPicker'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { ImputationManager } from '@/components/shared/ImputationManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { UserPicker } from '@/components/shared/UserPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { useActivity } from '@/hooks/usePlanner'
 import { useStagingRef } from '@/hooks/useStagingRef'
+import { useToast } from '@/components/ui/Toast'
 import type { PaxCandidate } from '@/services/paxlogService'
 import { AllowedCompaniesPicker } from '../shared'
 import type { AllowedCompanySelection } from '../shared'
@@ -96,6 +99,7 @@ function AdsInner() {
     start_date: string
     end_date: string
     project_id: string
+    planner_activity_id: string
     outbound_transport_mode: string
     return_transport_mode: string
     is_round_trip_no_overnight: boolean
@@ -108,10 +112,59 @@ function AdsInner() {
     start_date: '',
     end_date: '',
     project_id: '',
+    planner_activity_id: '',
     outbound_transport_mode: '',
     return_transport_mode: '',
     is_round_trip_no_overnight: false,
   })
+
+  const { toast: pxToast } = useToast()
+  // Auto-fill depuis activite choisie (Bastien feedback):
+  // une fois qu'on selectionne une activite planner, on recupere
+  // asset_id, project_id, dates, et on remplit le form pour eviter
+  // a l'utilisateur de re-saisir des infos deja connues.
+  const { data: selectedActivity } = useActivity(form.planner_activity_id || undefined)
+  const handleSelectActivity = (id: string | null) => {
+    setForm((f) => ({ ...f, planner_activity_id: id || '' }))
+  }
+  // Quand l'activite est chargee, propose le pre-remplissage des
+  // champs vides du form (on ne stomp PAS les champs deja saisis).
+  useEffect(() => {
+    if (!selectedActivity) return
+    setForm((f) => {
+      const next = { ...f }
+      let filled = 0
+      if (selectedActivity.asset_id && !f.site_entry_asset_id) {
+        next.site_entry_asset_id = selectedActivity.asset_id
+        filled++
+      }
+      if (selectedActivity.project_id && !f.project_id) {
+        next.project_id = selectedActivity.project_id
+        filled++
+      }
+      if (selectedActivity.start_date && !f.start_date) {
+        next.start_date = selectedActivity.start_date.split('T')[0]
+        filled++
+      }
+      if (selectedActivity.end_date && !f.end_date) {
+        next.end_date = selectedActivity.end_date.split('T')[0]
+        filled++
+      }
+      if (selectedActivity.title && !f.visit_purpose) {
+        next.visit_purpose = `Activité Planner: ${selectedActivity.title}`
+        filled++
+      }
+      if (filled > 0) {
+        pxToast({
+          title: 'Activité liée',
+          description: `${filled} champ${filled > 1 ? 's' : ''} pré-rempli${filled > 1 ? 's' : ''} (site, dates, projet, motif). PAX max activité : ${selectedActivity.pax_quota ?? '—'}.`,
+          variant: 'success',
+        })
+      }
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedActivity?.id])
 
   // Minimal pre-flight — used to enable/disable the Create button.
   // The 4 gates match the backend's required fields; displayed as a
@@ -133,6 +186,7 @@ function AdsInner() {
       ...form,
       requester_id: form.requester_id || null,
       project_id: form.project_id || null,
+      planner_activity_id: form.planner_activity_id || null,
       allowed_company_ids: allowedCompanies.map((company) => company.id),
       visit_category: form.visit_category,
       outbound_transport_mode: form.outbound_transport_mode || null,
@@ -189,6 +243,28 @@ function AdsInner() {
         </SmartFormSection>
 
         <SmartFormSection id="type_destination" title={t('paxlog.create_ads.sections.type_destination')} level="essential" help={{ description: t('paxlog.create_ads.help.type_destination_description'), items: [ { label: 'individual', text: t('paxlog.create_ads.help.type_individual') }, { label: 'team', text: t('paxlog.create_ads.help.type_team') } ] }}>
+          {/* Picker activité Planner avec auto-fill (Bastien feedback).
+              En choisissant l'activité, le site, le projet, les dates et
+              un motif sont pré-remplis. Le PAX max de l'activité est
+              affiché dans le toast pour info — l'user peut le confronter
+              au nombre de PAX qu'il prévoit. */}
+          <DynamicPanelField
+            label="Activité liée (optionnel)"
+          >
+            <ActivityPicker
+              value={form.planner_activity_id || null}
+              onChange={handleSelectActivity}
+              placeholder="Choisir une activité pour pré-remplir le site, dates, projet…"
+            />
+            {selectedActivity && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                PAX max activité : <span className="font-medium text-foreground">{selectedActivity.pax_quota ?? '—'}</span>
+                {selectedActivity.priority && (
+                  <> · Priorité : <span className="font-medium text-foreground">{selectedActivity.priority}</span></>
+                )}
+              </p>
+            )}
+          </DynamicPanelField>
           <FormGrid>
             <DynamicPanelField label={t('common.type')}>
               <TagSelector
@@ -312,8 +388,8 @@ function AdsInner() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span
                       className={cn(
-                        'gl-badge text-[9px]',
-                        p.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral',
+                        'chip text-[9px]',
+                        p.pax_type === 'internal' ? 'chip-info' : '',
                       )}
                     >
                       {p.pax_type === 'internal'

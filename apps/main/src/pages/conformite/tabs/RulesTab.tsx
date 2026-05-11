@@ -227,14 +227,14 @@ export function RulesMatrixView({
             <div className="flex items-center gap-0.5 bg-accent rounded-lg p-0.5">
               <button
                 onClick={() => setViewMode('matrix')}
-                className={cn('gl-button-sm gl-button-default', viewMode === 'matrix' ? 'shadow-sm' : 'opacity-60 hover:opacity-100')}
+                className={cn('btn-sm btn-secondary', viewMode === 'matrix' ? 'shadow-sm' : 'opacity-60 hover:opacity-100')}
                 title={t('conformite.rules.view.matrix')}
               >
                 <Grid3X3 size={14} />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={cn('gl-button-sm gl-button-default', viewMode === 'list' ? 'shadow-sm' : 'opacity-60 hover:opacity-100')}
+                className={cn('btn-sm btn-secondary', viewMode === 'list' ? 'shadow-sm' : 'opacity-60 hover:opacity-100')}
                 title={t('conformite.rules.view.list')}
               >
                 <List size={14} />
@@ -242,7 +242,7 @@ export function RulesMatrixView({
             </div>
             <button
               onClick={() => setExportOpen(true)}
-              className="gl-button-sm gl-button-default"
+              className="btn-sm btn-secondary"
               title={t('conformite.rules.export')}
             >
               <Download size={14} />

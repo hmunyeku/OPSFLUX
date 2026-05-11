@@ -227,7 +227,7 @@ function CreateComplianceRecordInner() {
               <button
                 type="button"
                 onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
-                className="gl-button-sm gl-button-default !h-7 !w-7 !p-0 shrink-0"
+                className="btn-sm btn-secondary !h-7 !w-7 !p-0 shrink-0"
                 aria-label={t('common.remove')}
                 disabled={uploading}
               >

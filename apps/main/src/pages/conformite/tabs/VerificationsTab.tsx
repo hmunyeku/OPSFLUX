@@ -97,7 +97,7 @@ export function VerificationsTab() {
       header: t('conformite.columns.type'),
       size: 120,
       cell: ({ row }) => (
-        <span className="gl-badge gl-badge-neutral text-[9px]">{recordTypeLabels[row.original.record_type] || row.original.record_type}</span>
+        <span className="chip text-[9px]">{recordTypeLabels[row.original.record_type] || row.original.record_type}</span>
       ),
     },
     { accessorKey: 'description', header: t('conformite.columns.description'), size: 220 },
@@ -107,9 +107,9 @@ export function VerificationsTab() {
       size: 100,
       cell: ({ row }) => {
         const s = row.original.verification_status
-        const cls = s === 'pending' ? 'gl-badge-warning' : s === 'verified' ? 'gl-badge-success' : 'gl-badge-danger'
+        const cls = s === 'pending' ? 'chip-warn' : s === 'verified' ? 'chip-success' : 'chip-danger'
         const label = verificationStatusLabels[s] ?? s
-        return <span className={cn('gl-badge text-[9px]', cls)}>{label}</span>
+        return <span className={cn('chip text-[9px]', cls)}>{label}</span>
       },
     },
     {
@@ -146,10 +146,10 @@ export function VerificationsTab() {
         const count = row.original.attachment_count ?? 0
         const required = row.original.attachment_required !== false
         if (count > 0) {
-          return <span className="gl-badge gl-badge-success text-[9px]">{t('conformite.verifications.proof_present', { count })}</span>
+          return <span className="chip chip-success text-[9px]">{t('conformite.verifications.proof_present', { count })}</span>
         }
         if (required) {
-          return <span className="gl-badge gl-badge-warning text-[9px]">{t('conformite.verifications.proof_missing')}</span>
+          return <span className="chip chip-warn text-[9px]">{t('conformite.verifications.proof_missing')}</span>
         }
         return <span className="text-muted-foreground">—</span>
       },
@@ -184,8 +184,8 @@ export function VerificationsTab() {
         }
         return (
           <div className="flex items-center gap-1">
-            <button onClick={(e) => { e.stopPropagation(); if (!proofMissing) handleVerify(item.record_type, item.id) }} disabled={proofMissing} className="gl-button-sm gl-button-default text-green-600 hover:text-green-700 disabled:opacity-40" title={proofMissing ? t('conformite.verifications.proof_required_before_verify') : 'Vérifier'}><Check size={12} /></button>
-            <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="gl-button-sm gl-button-default text-destructive hover:text-destructive" title={t('common.reject')}><X size={12} /></button>
+            <button onClick={(e) => { e.stopPropagation(); if (!proofMissing) handleVerify(item.record_type, item.id) }} disabled={proofMissing} className="btn-sm btn-secondary text-green-600 hover:text-green-700 disabled:opacity-40" title={proofMissing ? t('conformite.verifications.proof_required_before_verify') : 'Vérifier'}><Check size={12} /></button>
+            <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="btn-sm btn-secondary text-destructive hover:text-destructive" title={t('common.reject')}><X size={12} /></button>
           </div>
         )
       },

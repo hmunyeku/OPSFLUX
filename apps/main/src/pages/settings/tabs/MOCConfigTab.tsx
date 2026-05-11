@@ -209,14 +209,14 @@ export function MOCConfigTab() {
                 />
                 <button
                   type="button"
-                  className="gl-button gl-button-sm gl-button-default"
+                  className="btn btn-sm btn-secondary"
                   onClick={addThreshold}
                 >
                   <Plus size={12} /> {t('common.add')}
                 </button>
                 <button
                   type="button"
-                  className="gl-button gl-button-sm gl-button-default"
+                  className="btn btn-sm btn-secondary"
                   onClick={resetThresholds}
                   title={t('moc.settings.reminders.reset') as string}
                 >
@@ -320,7 +320,7 @@ function MOCTypesAdmin() {
             />
             <button
               type="button"
-              className="gl-button gl-button-sm gl-button-primary"
+              className="btn btn-sm btn-primary"
               disabled={!newCode.trim() || !newLabel.trim() || createType.isPending}
               onClick={onCreate}
             >
@@ -328,7 +328,7 @@ function MOCTypesAdmin() {
             </button>
             <button
               type="button"
-              className="gl-button gl-button-sm gl-button-default"
+              className="btn btn-sm btn-secondary"
               onClick={() => {
                 setCreating(false)
                 setNewCode('')
@@ -341,7 +341,7 @@ function MOCTypesAdmin() {
         ) : (
           <button
             type="button"
-            className="gl-button gl-button-sm gl-button-default"
+            className="btn btn-sm btn-secondary"
             onClick={() => setCreating(true)}
           >
             <Plus size={12} /> {t('moc.settings.types.add')}
@@ -561,7 +561,7 @@ function MOCTypeCard({
         </label>
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-default"
+          className="btn btn-sm btn-secondary"
           disabled={addRule.isPending}
           onClick={onAddRule}
         >

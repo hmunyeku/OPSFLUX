@@ -126,11 +126,11 @@ export function EmailTemplatesTab() {
           {templates?.length ?? 0} modèle(s) configuré(s)
         </p>
         <div className="flex items-center gap-2">
-          <button onClick={handleSeed} disabled={seedMutation.isPending} className="gl-button-sm gl-button-default">
+          <button onClick={handleSeed} disabled={seedMutation.isPending} className="btn-sm btn-secondary">
             {seedMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             Initialiser les modèles par défaut
           </button>
-          <button onClick={handleCreate} className="gl-button-sm gl-button-confirm">
+          <button onClick={handleCreate} className="btn-sm btn-primary">
             <Plus size={12} />
             Nouveau modèle
           </button>
@@ -242,7 +242,7 @@ function TemplateList({
                 </span>
               ))
             ) : (
-              <span className="gl-badge gl-badge-warning">
+              <span className="chip chip-warn">
                 Aucune version
               </span>
             )}

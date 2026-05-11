@@ -79,7 +79,7 @@ function SecretField({
 // ── Integration status badge ──
 function StatusBadge({ configured }: { configured: boolean }) {
   return (
-    <span className={`gl-badge ${configured ? 'gl-badge-success' : 'gl-badge-neutral'}`}>
+    <span className={`chip ${configured ? 'chip-success' : ''}`}>
       {configured ? 'Configuré' : 'Non configuré'}
     </span>
   )
@@ -648,7 +648,7 @@ function ConnectorCard({
           {isConfigured && (
             <div className="flex items-center gap-3 pt-2 border-t border-border/30">
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={() => onTest(connector.id)}
                 disabled={isTesting}
               >
@@ -669,7 +669,7 @@ function ConnectorCard({
             <div className="pt-2 border-t border-border/30 space-y-2">
               {!showSendTest ? (
                 <button
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                   onClick={() => setShowSendTest(true)}
                 >
                   <Send size={12} />
@@ -685,7 +685,7 @@ function ConnectorCard({
                     className="gl-form-input h-7 text-xs flex-1 min-w-0"
                   />
                   <button
-                    className="gl-button-sm gl-button-confirm shrink-0"
+                    className="btn-sm btn-primary shrink-0"
                     onClick={() => {
                       if (testRecipient.trim()) {
                         onTestSend(connector.id, testRecipient.trim())
@@ -697,7 +697,7 @@ function ConnectorCard({
                     Envoyer
                   </button>
                   <button
-                    className="gl-button-sm gl-button-default shrink-0"
+                    className="btn-sm btn-secondary shrink-0"
                     onClick={() => { setShowSendTest(false); setTestRecipient('') }}
                   >
                     Annuler
@@ -712,12 +712,12 @@ function ConnectorCard({
             {confirmRemove ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{t('settings.supprimer_ce_connecteur')}</span>
-                <button className="gl-button-sm gl-button-danger" onClick={onRemove}>Oui</button>
-                <button className="gl-button-sm gl-button-default" onClick={() => setConfirmRemove(false)}>Non</button>
+                <button className="btn-sm btn-danger" onClick={onRemove}>Oui</button>
+                <button className="btn-sm btn-secondary" onClick={() => setConfirmRemove(false)}>Non</button>
               </div>
             ) : (
               <button
-                className="gl-button-sm gl-button-default text-red-600 dark:text-red-400"
+                className="btn-sm btn-secondary text-red-600 dark:text-red-400"
                 onClick={() => setConfirmRemove(true)}
               >
                 <Trash2 size={12} />
@@ -769,7 +769,7 @@ function AddConnectorDialog({
             <Plus size={16} className="text-primary" />
             <h3 className="text-sm font-semibold text-foreground">{t('settings.ajouter_un_service')}</h3>
           </div>
-          <button onClick={onClose} className="gl-button gl-button-default">
+          <button onClick={onClose} className="btn btn-secondary">
             <X size={16} />
           </button>
         </div>
@@ -787,7 +787,7 @@ function AddConnectorDialog({
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={!selectedCategory ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
+              className={!selectedCategory ? 'btn-sm btn-primary' : 'btn-sm btn-secondary'}
             >
               Tous
             </button>
@@ -797,7 +797,7 @@ function AddConnectorDialog({
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                  className={selectedCategory === cat ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
+                  className={selectedCategory === cat ? 'btn-sm btn-primary' : 'btn-sm btn-secondary'}
                 >
                   {label?.label || cat}
                 </button>
@@ -823,7 +823,7 @@ function AddConnectorDialog({
                   key={c.id}
                   type="button"
                   onClick={() => { onAdd(c.id); onClose() }}
-                  className="gl-button gl-button-default flex-col text-center group"
+                  className="btn btn-secondary flex-col text-center group"
                 >
                   <span className="text-2xl">{c.icon}</span>
                   <span className="text-xs font-semibold text-foreground">{c.name}</span>
@@ -1116,7 +1116,7 @@ export function IntegrationsTab() {
           </p>
           <button
             onClick={() => setShowAddDialog(true)}
-            className="gl-button-sm gl-button-confirm"
+            className="btn-sm btn-primary"
           >
             <Plus size={12} />
             Ajouter un service
@@ -1185,7 +1185,7 @@ export function IntegrationsTab() {
         </div>
         <button
           onClick={() => setShowAddDialog(true)}
-          className="gl-button-sm gl-button-confirm"
+          className="btn-sm btn-primary"
         >
           <Plus size={12} />
           Ajouter un service

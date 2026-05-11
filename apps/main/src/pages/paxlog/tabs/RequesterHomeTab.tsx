@@ -48,11 +48,11 @@ export function RequesterHomeTab({
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button className="gl-button-sm gl-button-confirm" onClick={onCreateAds}>
+              <button className="btn-sm btn-primary" onClick={onCreateAds}>
                 <ClipboardList size={14} />
                 {t('paxlog.new_ads')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={onCreateAvm}>
+              <button className="btn-sm btn-secondary" onClick={onCreateAvm}>
                 <Briefcase size={14} />
                 {t('paxlog.new_avm')}
               </button>

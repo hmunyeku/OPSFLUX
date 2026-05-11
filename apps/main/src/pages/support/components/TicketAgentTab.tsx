@@ -206,7 +206,7 @@ export function TicketAgentTab({
               {canManage && config?.enabled && (
                 <button
                   type="button"
-                  className="gl-button gl-button-sm gl-button-confirm w-fit"
+                  className="btn btn-sm btn-primary w-fit"
                   onClick={handleLaunch}
                   disabled={launch.isPending}
                 >
@@ -373,7 +373,7 @@ function ActiveRunCard({
             <div className="flex gap-2 mt-2 flex-wrap">
               <button
                 type="button"
-                className="gl-button gl-button-sm gl-button-default"
+                className="btn btn-sm btn-secondary"
                 onClick={() => onDeployAndVerify(run)}
                 disabled={isApproving || isRejecting || isDeploying}
               >
@@ -382,7 +382,7 @@ function ActiveRunCard({
               </button>
               <button
                 type="button"
-                className="gl-button gl-button-sm gl-button-confirm"
+                className="btn btn-sm btn-primary"
                 onClick={() => onApprove(run)}
                 disabled={isApproving || isRejecting || isDeploying}
               >
@@ -391,7 +391,7 @@ function ActiveRunCard({
               </button>
               <button
                 type="button"
-                className="gl-button gl-button-sm gl-button-default text-destructive"
+                className="btn btn-sm btn-secondary text-destructive"
                 onClick={() => onReject(run)}
                 disabled={isApproving || isRejecting || isDeploying}
               >
@@ -410,7 +410,7 @@ function ActiveRunCard({
       {canManage && !awaitingApproval && (
         <button
           type="button"
-          className="gl-button gl-button-sm gl-button-default text-destructive"
+          className="btn btn-sm btn-secondary text-destructive"
           onClick={() => onCancel(run)}
         >
           <XCircle size={12} /> {t('support.agent.cancel_run', 'Annuler le run')}

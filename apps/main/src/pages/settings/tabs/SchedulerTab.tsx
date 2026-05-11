@@ -87,10 +87,10 @@ function fmtDate(d: string | null): string {
 }
 
 const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
-  success: { cls: 'gl-badge-success', label: 'OK' },
-  error: { cls: 'gl-badge-danger', label: 'Erreur' },
-  missed: { cls: 'gl-badge-warning', label: 'Manqué' },
-  running: { cls: 'gl-badge-info', label: 'En cours' },
+  success: { cls: 'chip-success', label: 'OK' },
+  error: { cls: 'chip-danger', label: 'Erreur' },
+  missed: { cls: 'chip-warn', label: 'Manqué' },
+  running: { cls: 'chip-info', label: 'En cours' },
 }
 
 // ── Nested History Row ───────────────────────────────────────
@@ -179,14 +179,14 @@ function JobHistoryRows({ jobId }: { jobId: string }) {
                     <td className="px-3 py-1.5 text-[10px] text-muted-foreground font-mono">#{exec.id.slice(0, 8)}</td>
                     <td className="px-2 py-1.5">
                       {badge
-                        ? <span className={cn('gl-badge text-[8px]', badge.cls)}>{badge.label}</span>
+                        ? <span className={cn('chip text-[8px]', badge.cls)}>{badge.label}</span>
                         : <span className="text-[10px]">{exec.status}</span>
                       }
                     </td>
                     <td className="px-2 py-1.5 text-[10px] tabular-nums text-muted-foreground">{fmtDate(exec.started_at)}</td>
                     <td className="px-2 py-1.5 text-[10px] tabular-nums font-mono text-muted-foreground">{formatDuration(exec.duration_ms)}</td>
                     <td className="px-2 py-1.5">
-                      <span className={cn('gl-badge text-[8px]', exec.triggered_by === 'manual' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+                      <span className={cn('chip text-[8px]', exec.triggered_by === 'manual' ? 'chip-info' : '')}>
                         {exec.triggered_by === 'manual' ? 'Manuel' : 'Auto'}
                       </span>
                     </td>
@@ -309,7 +309,7 @@ export function SchedulerTab() {
           </div>
           <button
             onClick={() => qc.invalidateQueries({ queryKey: ['admin-scheduler-jobs'] })}
-            className="gl-button-sm gl-button-default"
+            className="btn-sm btn-secondary"
           >
             <RefreshCw size={12} /> Rafraîchir
           </button>
@@ -368,9 +368,9 @@ export function SchedulerTab() {
                         <td className="px-2 py-2.5 text-muted-foreground">{formatTrigger(job.trigger)}</td>
                         <td className="px-2 py-2.5">
                           {job.paused
-                            ? <span className="gl-badge gl-badge-neutral text-[9px]">En pause</span>
+                            ? <span className="chip text-[9px]">En pause</span>
                             : badge
-                              ? <span className={cn('gl-badge text-[9px]', badge.cls)}>{badge.label}</span>
+                              ? <span className={cn('chip text-[9px]', badge.cls)}>{badge.label}</span>
                               : <span className="text-muted-foreground text-[10px]">—</span>
                           }
                         </td>
@@ -388,17 +388,17 @@ export function SchedulerTab() {
                             <button
                               onClick={() => runJob.mutate(job.id)}
                               disabled={isRunning}
-                              className="gl-button-sm gl-button-confirm"
+                              className="btn-sm btn-primary"
                               title={t('settings.executer_maintenant')}
                             >
                               {isRunning ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
                             </button>
                             {job.paused ? (
-                              <button onClick={() => resumeJob.mutate(job.id)} className="gl-button-sm gl-button-default" title="Reprendre">
+                              <button onClick={() => resumeJob.mutate(job.id)} className="btn-sm btn-secondary" title="Reprendre">
                                 <RotateCcw size={11} />
                               </button>
                             ) : (
-                              <button onClick={() => pauseJob.mutate(job.id)} className="gl-button-sm gl-button-default" title="Mettre en pause">
+                              <button onClick={() => pauseJob.mutate(job.id)} className="btn-sm btn-secondary" title="Mettre en pause">
                                 <Pause size={11} />
                               </button>
                             )}

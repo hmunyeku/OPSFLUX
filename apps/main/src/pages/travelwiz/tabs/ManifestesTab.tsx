@@ -102,7 +102,7 @@ export function ManifestesTab() {
         const isThisRowPending = pendingValidateId === row.original.id
         return (
           <button
-            className="gl-button-sm gl-button-default text-xs"
+            className="btn-sm btn-secondary text-xs"
             onClick={(e) => {
               e.stopPropagation()
               setPendingValidateId(row.original.id)

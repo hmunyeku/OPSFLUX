@@ -44,7 +44,16 @@ export const PLANNER_CONFLICT_STATUS_VALUES = ['open', 'resolved', 'deferred'] a
 export const PLANNER_RESOLUTION_VALUES = ['approve_both', 'reschedule', 'reduce_pax', 'cancel', 'deferred'] as const
 export const PLANNER_DEP_TYPE_VALUES = ['FS', 'SS', 'FF', 'SF'] as const
 
-/** Extract a human error message from an axios error (FastAPI detail). */
+/** Extract a human error message from an axios error (FastAPI detail).
+ *
+ * SUP-0010 / SUP-0012 fix: l'ancienne version retournait undefined pour
+ * les erreurs structurées (StructuredHTTPException avec
+ * detail.code+message), parce qu'elle ne testait que `typeof detail
+ * === 'string'` et `Array.isArray(detail)`. Ajout du cas object pour
+ * matcher le détail structuré { code, message, params } et préférer
+ * le message backend (déjà en français côté backend pour les codes
+ * récents). Pour une localisation plus propre, les call sites peuvent
+ * utiliser describeError(err, t) à la place. */
 export function extractApiError(err: unknown): string | undefined {
   if (!err || typeof err !== 'object') return undefined
   const e = err as { response?: { data?: { detail?: unknown } }; message?: string }
@@ -53,6 +62,11 @@ export function extractApiError(err: unknown): string | undefined {
   if (Array.isArray(detail) && detail.length > 0) {
     // Pydantic validation errors
     return detail.map((d) => (typeof d === 'object' && d && 'msg' in d ? (d as { msg: string }).msg : String(d))).join(' · ')
+  }
+  if (detail && typeof detail === 'object') {
+    const d = detail as { code?: string; message?: string }
+    if (d.message) return d.message
+    if (d.code) return d.code
   }
   return e.message
 }
@@ -68,13 +82,13 @@ export const ACTIVITY_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const ACTIVITY_STATUS_BADGES: Record<string, string> = {
-  draft: 'gl-badge-neutral',
-  submitted: 'gl-badge-info',
-  validated: 'gl-badge-success',
-  rejected: 'gl-badge-danger',
-  in_progress: 'gl-badge-warning',
-  completed: 'gl-badge-success',
-  cancelled: 'gl-badge-neutral',
+  draft: '',
+  submitted: 'chip-info',
+  validated: 'chip-success',
+  rejected: 'chip-danger',
+  in_progress: 'chip-warn',
+  completed: 'chip-success',
+  cancelled: '',
 }
 
 export const ACTIVITY_TYPE_LABELS_FALLBACK: Record<string, string> = {
@@ -89,14 +103,14 @@ export const ACTIVITY_TYPE_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const ACTIVITY_TYPE_META: Record<string, { badge: string; icon: typeof Wrench }> = {
-  project: { badge: 'gl-badge-info', icon: ListTodo },
-  workover: { badge: 'gl-badge-warning', icon: Wrench },
-  drilling: { badge: 'gl-badge-danger', icon: Drill },
-  integrity: { badge: 'gl-badge-success', icon: Shield },
-  maintenance: { badge: 'gl-badge-warning', icon: HardHat },
-  permanent_ops: { badge: 'gl-badge-neutral', icon: Gauge },
-  inspection: { badge: 'gl-badge-info', icon: Eye },
-  event: { badge: 'gl-badge-neutral', icon: Calendar },
+  project: { badge: 'chip-info', icon: ListTodo },
+  workover: { badge: 'chip-warn', icon: Wrench },
+  drilling: { badge: 'chip-danger', icon: Drill },
+  integrity: { badge: 'chip-success', icon: Shield },
+  maintenance: { badge: 'chip-warn', icon: HardHat },
+  permanent_ops: { badge: '', icon: Gauge },
+  inspection: { badge: 'chip-info', icon: Eye },
+  event: { badge: '', icon: Calendar },
 }
 
 export const PRIORITY_LABELS_FALLBACK: Record<string, string> = {
@@ -130,9 +144,9 @@ export const CONFLICT_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const CONFLICT_STATUS_BADGES: Record<string, string> = {
-  open: 'gl-badge-danger',
-  resolved: 'gl-badge-success',
-  deferred: 'gl-badge-warning',
+  open: 'chip-danger',
+  resolved: 'chip-success',
+  deferred: 'chip-warn',
 }
 
 export const RESOLUTION_LABELS_FALLBACK: Record<string, string> = {
@@ -411,7 +425,7 @@ export function repairTimelineRange(
 
 export function StatusBadge({ status, labels, badges }: { status: string; labels: Record<string, string>; badges: Record<string, string> }) {
   return (
-    <span className={cn('gl-badge', badges[status] || 'gl-badge-neutral')}>
+    <span className={cn('chip', badges[status] || '')}>
       {labels[status] || status.replace(/_/g, ' ')}
     </span>
   )

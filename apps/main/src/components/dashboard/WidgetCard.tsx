@@ -56,6 +56,7 @@ import {
 } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { useWidgetData } from '@/hooks/useDashboard'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
 import { PerspectiveWidget } from './widgets/PerspectiveWidget'
@@ -174,6 +175,23 @@ export function WidgetTypeIcon({ type, className }: { type: string; className?: 
     case 'group': return <LayoutGrid className={cls} />
     default: return <BarChart3 className={cls} />
   }
+}
+
+// ── Body padding policy ─────────────────────────────────────────
+// One source of truth so a single value change propagates to every
+// widget. Aligns with the design audit (Bastien sprint visual): KPI
+// stays compact (p-3), most widgets get p-4 standard, full-bleed
+// surfaces (table / map / perspective) keep no padding so their
+// chrome reaches the card border.
+function getWidgetBodyPadding(type: string, fullscreen: boolean): string {
+  if (type === 'table' || type === 'perspective' || type === 'map') {
+    return 'overflow-hidden'
+  }
+  if (type === 'kpi') {
+    return fullscreen ? 'p-4' : 'p-3'
+  }
+  // chart / text / quick_access / clock / group / unknown
+  return fullscreen ? 'p-5' : 'p-4'
 }
 
 // ── Main WidgetCard ─────────────────────────────────────────────
@@ -301,38 +319,73 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
           )}>
             {displayTitle}
           </span>
-          {/* Toolbar — readable at rest (60% opacity), full on
-              hover. Icons bumped from 10px → 13px so they actually
-              render inside their 20px button without needing the
-              user to hover to find them. Removed `.gl-button` on
-              Download/Remove — its 32/40px target was being
-              force-collapsed to 20px which was clipping the icon
-              to invisibility. */}
-          <div className={cn(
-            'flex items-center gap-0.5 transition-opacity',
-            mode !== 'edit' ? 'opacity-60 group-hover:opacity-100' : 'opacity-90',
-          )}>
-            <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title={t('common.refresh')}>
+          {/* Toolbar — visually grouped button cluster (subtle bg
+              ring on the whole group, identical hover behaviour).
+              Icons render at full 60% opacity at rest, 100% on
+              card-hover. The 4 buttons now feel like a single
+              widget-control unit instead of 4 floating icons. */}
+          <div
+            role="group"
+            aria-label={t('common.actions') || 'Actions'}
+            className={cn(
+              'inline-flex items-center rounded-md transition-opacity',
+              !hasBgColor && 'bg-muted/0 group-hover:bg-muted/40',
+              hasBgColor && 'bg-white/0 group-hover:bg-white/10',
+              mode !== 'edit' ? 'opacity-60 group-hover:opacity-100' : 'opacity-90',
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => refetch()}
+              aria-label={t('common.refresh')}
+              title={t('common.refresh')}
+              className="h-5 w-5 inline-flex items-center justify-center rounded-l-md hover:bg-black/[0.06] dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+            >
               <RefreshCw className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground', isLoading && 'animate-spin')} />
             </button>
-            <button onClick={handleExport} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title={t('common.export')}>
+            <button
+              type="button"
+              onClick={handleExport}
+              aria-label={t('common.export')}
+              title={t('common.export')}
+              className="h-5 w-5 inline-flex items-center justify-center hover:bg-black/[0.06] dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+            >
               <Download className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground')} />
             </button>
-            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title={t('common.fullscreen')}>
+            <button
+              type="button"
+              onClick={() => setFullscreen(true)}
+              aria-label={t('common.fullscreen')}
+              title={t('common.fullscreen')}
+              className={cn(
+                'h-5 w-5 inline-flex items-center justify-center hover:bg-black/[0.06] dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+                !(mode === 'edit' && onRemove) && 'rounded-r-md',
+              )}
+            >
               <Maximize2 className={cn('h-3 w-3', hasBgColor ? 'text-white/80' : 'text-muted-foreground')} />
             </button>
             {mode === 'edit' && onRemove && (
-              <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/10 transition-colors" title={t('common.delete')}>
+              <button
+                type="button"
+                onClick={onRemove}
+                aria-label={t('common.delete')}
+                title={t('common.delete')}
+                className="h-5 w-5 inline-flex items-center justify-center rounded-r-md hover:bg-destructive/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive"
+              >
                 <X className="h-3 w-3 text-destructive/80" />
               </button>
             )}
           </div>
         </div>
-        {/* Content — table widgets are edge-to-edge, others have padding */}
+        {/* Content — padding policy:
+              table/perspective/map → edge-to-edge (their own chrome
+                  draws right up to the border)
+              kpi → p-3 (compact, lets the big number breathe)
+              all other widgets → p-4 (standard) */}
         <div
           className={cn(
             'flex-1 min-h-0',
-            (widget.type === 'table' || widget.type === 'perspective') ? 'overflow-hidden' : 'p-3',
+            getWidgetBodyPadding(widget.type, false),
           )}
           style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}
         >
@@ -351,17 +404,31 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
           <div className="flex items-center h-12 px-5 border-b shrink-0">
             <WidgetTypeIcon type={widget.type} className="h-4 w-4 text-primary mr-2" />
             <span className="text-sm font-semibold flex-1 font-display tracking-tight">{displayTitle}</span>
-            <button onClick={() => refetch()} className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors mr-1">
-              <RefreshCw className={cn('h-3.5 w-3.5 text-muted-foreground', isLoading && 'animate-spin')} />
-            </button>
-            <button onClick={() => setFullscreen(false)} className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
-              <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
+            <div role="group" aria-label={t('common.actions') || 'Actions'} className="inline-flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => refetch()}
+                aria-label={t('common.refresh')}
+                title={t('common.refresh')}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5 text-muted-foreground', isLoading && 'animate-spin')} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setFullscreen(false)}
+                aria-label={t('common.fullscreen')}
+                title={t('common.fullscreen')}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              >
+                <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </div>
           </div>
           <div
             className={cn(
               'flex-1 min-h-0',
-              (widget.type === 'table' || widget.type === 'perspective') ? 'overflow-hidden' : 'p-5',
+              getWidgetBodyPadding(widget.type, true),
             )}
             style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}
           >
@@ -377,12 +444,16 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
 
 function WidgetError({ onRetry }: { error?: unknown; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
-      <AlertTriangle className="h-5 w-5 text-destructive" />
-      <p className="text-xs text-muted-foreground">Erreur de chargement</p>
+    <div
+      className="flex flex-col items-center justify-center h-full gap-1.5 text-center select-none"
+      role="alert"
+    >
+      <AlertTriangle className="h-6 w-6 text-destructive/70" aria-hidden="true" />
+      <p className="text-xs text-muted-foreground font-medium">Erreur de chargement</p>
       <button
+        type="button"
         onClick={onRetry}
-        className="text-xs text-primary hover:underline"
+        className="text-[11px] text-primary hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded px-1 mt-0.5"
       >
         Réessayer
       </button>
@@ -391,55 +462,146 @@ function WidgetError({ onRetry }: { error?: unknown; onRetry: () => void }) {
 }
 
 // ── Loading Skeleton ────────────────────────────────────────────
+// Uses the shared Skeleton component (CSS shimmer + reduce-motion
+// fallback). One layout per widget family — KPI / table /
+// perspective / quick_access / clock / map / chart so the loading
+// state matches the resting layout (no jarring layout shift when
+// data lands).
 
 function WidgetSkeleton({ type }: { type: string }) {
-  // Skeleton shimmer style
-  const shimmer = 'animate-pulse rounded bg-muted/60'
-
   if (type === 'kpi') {
     return (
       <div className="flex flex-col h-full gap-3 p-1">
         <div className="flex items-start gap-3">
-          <div className={cn(shimmer, 'h-10 w-10 rounded-lg shrink-0')} />
+          <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
           <div className="flex-1 space-y-2">
-            <div className={cn(shimmer, 'h-8 w-24')} />
-            <div className={cn(shimmer, 'h-3 w-16')} />
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-3 w-16" />
           </div>
-          <div className={cn(shimmer, 'h-10 w-20 rounded-md')} />
+          <Skeleton className="h-10 w-20 rounded-md" />
         </div>
         <div className="grid grid-cols-2 gap-2 mt-auto">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className={cn(shimmer, 'h-8 rounded-md')} />
+            <Skeleton key={i} className="h-8 rounded-md" />
           ))}
         </div>
       </div>
     )
   }
 
-  if (type === 'table') {
+  if (type === 'table' || type === 'perspective') {
     return (
       <div className="flex flex-col h-full">
-        <div className={cn(shimmer, 'h-8 w-full rounded-none shrink-0')} />
+        <Skeleton className="h-8 w-full rounded-none shrink-0" />
         {[0, 1, 2, 3, 4].map((i) => (
           <div key={i} className="flex items-center gap-3 px-3 py-2 border-b border-border/20">
-            <div className={cn(shimmer, 'h-3 w-16')} />
-            <div className={cn(shimmer, 'h-3 flex-1')} />
-            <div className={cn(shimmer, 'h-5 w-14 rounded-full')} />
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-3 flex-1" />
+            <Skeleton className="h-5 w-14 rounded-full" />
           </div>
         ))}
       </div>
     )
   }
 
-  // Chart / default — centered spinner + bar skeleton
-  return (
-    <div className="flex flex-col items-center justify-end h-full gap-1 pb-4">
-      <div className="flex items-end gap-1.5 h-3/4 w-full px-4">
-        {[0.4, 0.7, 0.55, 0.9, 0.65, 0.8, 0.5].map((h, i) => (
-          <div key={i} className={cn(shimmer, 'flex-1 rounded-sm')} style={{ height: `${h * 100}%` }} />
+  if (type === 'map') {
+    return (
+      <div className="relative h-full w-full overflow-hidden">
+        <Skeleton className="absolute inset-0 rounded-none" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <MapPin className="h-6 w-6 text-muted-foreground/30" aria-hidden="true" />
+        </div>
+      </div>
+    )
+  }
+
+  if (type === 'quick_access') {
+    return (
+      <div className="grid grid-cols-4 gap-2 h-full p-1 auto-rows-fr">
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <Skeleton key={i} className="rounded-lg min-h-[60px]" />
         ))}
       </div>
-      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40 mt-2" />
+    )
+  }
+
+  if (type === 'clock') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2">
+        <Skeleton className="h-9 w-32" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+    )
+  }
+
+  if (type === 'group') {
+    return (
+      <div className="grid grid-cols-2 gap-2 h-full">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="rounded-lg" />
+        ))}
+      </div>
+    )
+  }
+
+  // Chart / text / default — bar-skeleton with subtle spinner anchor
+  const barHeights = [0.4, 0.7, 0.55, 0.9, 0.65, 0.8, 0.5]
+  return (
+    <div className="flex flex-col items-center justify-end h-full gap-1 pb-2">
+      <div className="flex items-end gap-1.5 h-3/4 w-full px-4">
+        {barHeights.map((h, i) => (
+          <div key={i} className="flex-1" style={{ height: `${h * 100}%` }}>
+            <Skeleton className="h-full w-full rounded-sm" />
+          </div>
+        ))}
+      </div>
+      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40 mt-2" aria-hidden="true" />
+    </div>
+  )
+}
+
+// ── Shared Empty State ──────────────────────────────────────────
+// Single visual vocabulary used by every widget renderer when there
+// is no data. Centered pictogram (low contrast), concise title in
+// muted-foreground, optional one-line hint at 70% opacity. Sits
+// inside the widget body padding so it never feels like a "blank
+// canvas" gap. Compact mode (used by KPI/Map) drops the hint to
+// keep the footprint small.
+function WidgetEmptyState({
+  icon: Icon,
+  title,
+  hint,
+  compact = false,
+}: {
+  icon: React.ElementType
+  title: string
+  hint?: string
+  compact?: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center h-full text-center select-none',
+        compact ? 'gap-1' : 'gap-1.5',
+      )}
+      role="status"
+      aria-live="polite"
+    >
+      <Icon
+        className={cn(
+          'text-muted-foreground/30',
+          compact ? 'h-5 w-5' : 'h-7 w-7',
+        )}
+        aria-hidden="true"
+      />
+      <p className={cn('text-muted-foreground/70 font-medium', compact ? 'text-[10.5px]' : 'text-xs')}>
+        {title}
+      </p>
+      {hint && !compact && (
+        <p className="text-[10.5px] text-muted-foreground/50 max-w-[220px] leading-snug">
+          {hint}
+        </p>
+      )}
     </div>
   )
 }
@@ -486,9 +648,11 @@ function WidgetRenderer({
       return <GroupWidget config={widget.config} />
     default:
       return (
-        <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-          Type de widget inconnu : {widget.type}
-        </div>
+        <WidgetEmptyState
+          icon={AlertCircle}
+          title={`Type de widget inconnu : ${widget.type}`}
+          compact
+        />
       )
   }
 }
@@ -668,6 +832,7 @@ function KPIWidget({
   data: unknown[]
   meta?: Record<string, unknown>
 }) {
+  const { t } = useTranslation()
   const valueField = (config.value_field as string) || 'value'
   const labelField = (config.label as string) || (meta?.label as string) || ''
   const trend = (meta?.trend as number) ?? (config.trend as number) ?? null
@@ -771,8 +936,21 @@ function KPIWidget({
         </span>
       )}
 
-      {/* ── Middle: sparkline fills available space, capped at 128px ── */}
-      {sparklineData && sparklineData.length > 1 && (
+      {/* ── Middle: sparkline fills available space, capped at 128px ──
+          Si value=0 ET pas de details (cas des widgets "Alertes critiques"
+          quand il n'y a aucune alerte, etc.), on évite le sparkline flat
+          qui prend de la place pour rien et on affiche un état vide
+          élégant à la place — checkmark + message rassurant. */}
+      {numValue === 0 && !hasDetails && (rawSparkline === null || (rawSparkline?.every?.(v => v === 0) ?? false)) ? (
+        <div className="flex-1 min-h-0 flex items-center justify-center text-center px-2 py-1">
+          <div className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600/70 dark:text-emerald-400/70">
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l3.5 3.5L13 5" />
+            </svg>
+            <span>{t('dashboard.empty.kpi_calm')}</span>
+          </div>
+        </div>
+      ) : sparklineData && sparklineData.length > 1 && (
         <div className="flex-1 min-h-0 max-h-28 py-1">
           <KPISparkline data={sparklineData} color={sparklineColor} />
         </div>
@@ -853,6 +1031,7 @@ interface GroupChild {
 }
 
 function GroupWidget({ config }: { config: Record<string, unknown> }) {
+  const { t } = useTranslation()
   const layout = (config.layout as string) || '2x2'
   const children = (config.children as GroupChild[]) || []
 
@@ -865,10 +1044,11 @@ function GroupWidget({ config }: { config: Record<string, unknown> }) {
 
   if (!children.length) {
     return (
-      <div className="flex items-center justify-center h-full text-xs text-muted-foreground/40">
-        <LayoutGrid className="h-5 w-5 mr-2 opacity-30" />
-        Configurer les KPIs enfants
-      </div>
+      <WidgetEmptyState
+        icon={LayoutGrid}
+        title={t('dashboard.empty.group_title')}
+        hint={t('dashboard.empty.group_hint')}
+      />
     )
   }
 
@@ -989,13 +1169,25 @@ function ChartWidget({
     return <GanttWidget data={chartData} />
   }
 
-  // Empty state
-  if (!chartData.length) {
+  // Empty state — zero rows OR every numeric series is 0/null.
+  // Same visual language as the KPI "Tout est calme" empty state:
+  // a subtle pictogram + a concise reassuring message + a quiet
+  // hint, all on muted color so the card doesn't scream "broken".
+  const allZero = chartData.length > 0 && chartData.every((row) =>
+    yFields.every((f) => {
+      const v = (row as Record<string, unknown>)[f]
+      const n = typeof v === 'number' ? v : parseFloat(String(v ?? '0'))
+      return !v || n === 0
+    }),
+  )
+  if (!chartData.length || allZero) {
+    const PictoIcon = chartType === 'pie' ? PieChart : chartType === 'line' || chartType === 'area' ? Activity : BarChart3
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-2">
-        <BarChart3 className="h-8 w-8 text-muted-foreground/20" />
-        <span className="text-xs text-muted-foreground/40">{t('common.no_data')}</span>
-      </div>
+      <WidgetEmptyState
+        icon={PictoIcon}
+        title={t('dashboard.empty.chart_title')}
+        hint={t('dashboard.empty.chart_hint')}
+      />
     )
   }
 
@@ -1245,10 +1437,11 @@ function GanttWidget({ data }: { data: unknown[] }) {
 
   if (!activities.length) {
     return (
-      <div className="flex items-center justify-center h-full gap-2 text-xs text-muted-foreground/50">
-        <GanttChart className="h-4 w-4" />
-        Aucune activité planifiée
-      </div>
+      <WidgetEmptyState
+        icon={GanttChart}
+        title="Aucune activité planifiée"
+        hint="Les activités planifiées apparaîtront sur la frise chronologique"
+      />
     )
   }
 
@@ -1585,10 +1778,11 @@ function TableWidget({
 
   if (!rows.length || !effectiveColumns.length) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
-        <Table2 className="h-8 w-8 text-muted-foreground/15" />
-        <span className="text-xs text-muted-foreground/40">{t('common.no_data_available')}</span>
-      </div>
+      <WidgetEmptyState
+        icon={Table2}
+        title={t('dashboard.empty.table_title')}
+        hint={t('dashboard.empty.table_hint')}
+      />
     )
   }
 
@@ -1859,12 +2053,16 @@ function MapWidget({ config, data }: MapWidgetProps) {
   }, [JSON.stringify(positions), isFleetMap])
 
   if (positions.length === 0) {
-    const msg = flatItems.length > 0 ? 'Coordonnées manquantes' : 'Aucune position'
+    const hasItemsWithoutCoords = flatItems.length > 0
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-1 text-center">
-        <MapPin className="h-6 w-6 text-muted-foreground/30" />
-        <p className="text-[10px] text-muted-foreground">{msg}</p>
-      </div>
+      <WidgetEmptyState
+        icon={MapPin}
+        title={hasItemsWithoutCoords ? 'Coordonnées manquantes' : 'Aucune position'}
+        hint={hasItemsWithoutCoords
+          ? 'Les éléments retournés ne contiennent pas de latitude/longitude'
+          : 'Aucun point géolocalisé pour le moment'}
+        compact
+      />
     )
   }
 
@@ -1880,15 +2078,18 @@ function TextWidget({
   config: Record<string, unknown>
   data: unknown[]
 }) {
+  const { t } = useTranslation()
   const content = (config.content as string)
     || (data?.[0] as Record<string, unknown>)?.content as string
     || ''
 
   if (!content) {
     return (
-      <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-        Aucun contenu
-      </div>
+      <WidgetEmptyState
+        icon={Type}
+        title={t('dashboard.empty.text_title')}
+        compact
+      />
     )
   }
 

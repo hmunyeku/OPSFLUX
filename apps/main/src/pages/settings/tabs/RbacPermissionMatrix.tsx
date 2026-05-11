@@ -428,7 +428,7 @@ export function RolePicker({ values, roles, onChange, disabled }: {
             <span className="text-muted-foreground">Aucun rôle</span>
           ) : (
             selectedNames.map((name, i) => (
-              <span key={values[i]} className="gl-badge gl-badge-info text-[10px] shrink-0">{name}</span>
+              <span key={values[i]} className="chip chip-info text-[10px] shrink-0">{name}</span>
             ))
           )}
         </div>

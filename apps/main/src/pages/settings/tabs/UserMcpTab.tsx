@@ -89,7 +89,7 @@ function BackendCard({ backend, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: st
           <div className="flex items-center gap-2 flex-wrap">
             <Plug size={14} className="text-muted-foreground" />
             <span className="text-sm font-semibold text-foreground">{backend.name}</span>
-            {backend.slug === 'opsflux' && <span className="gl-badge gl-badge-info">{t('imputations.tab_default')}</span>}
+            {backend.slug === 'opsflux' && <span className="chip chip-info">{t('imputations.tab_default')}</span>}
           </div>
           <p className="text-xs text-muted-foreground mt-1">{backend.description || backend.slug}</p>
         </div>
@@ -99,10 +99,10 @@ function BackendCard({ backend, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: st
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Endpoint</p>
         <div className="flex items-center gap-2">
           <code className="text-xs break-all flex-1">{endpointUrl}</code>
-          <button className="gl-button gl-button-default" onClick={() => navigator.clipboard.writeText(endpointUrl)}>
+          <button className="btn btn-secondary" onClick={() => navigator.clipboard.writeText(endpointUrl)}>
             <Copy size={14} />
           </button>
-          <a className="gl-button gl-button-default" href={endpointUrl} target="_blank" rel="noreferrer">
+          <a className="btn btn-secondary" href={endpointUrl} target="_blank" rel="noreferrer">
             <ExternalLink size={14} />
           </a>
         </div>
@@ -113,7 +113,7 @@ function BackendCard({ backend, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: st
           <div className="flex items-center gap-2">
             <Wrench size={14} className="text-muted-foreground" />
             <span className="text-sm font-medium text-foreground">Outils disponibles</span>
-            <span className="gl-badge gl-badge-neutral">
+            <span className="chip">
               {isLoading ? '…' : (data?.tools.length ?? 0)}
             </span>
           </div>
@@ -240,7 +240,7 @@ export function UserMcpTab() {
               onChange={(e) => setExpiresInDays(e.target.value)}
               placeholder="Jours"
             />
-            <button className="gl-button gl-button-confirm" onClick={handleCreate} disabled={createToken.isPending}>
+            <button className="btn btn-primary" onClick={handleCreate} disabled={createToken.isPending}>
               {createToken.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               Créer
             </button>
@@ -267,7 +267,7 @@ export function UserMcpTab() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <Key size={14} className="text-muted-foreground" />
                       <span className="text-sm font-semibold text-foreground">{token.name}</span>
-                      <span className={`gl-badge ${token.revoked || expiry.expired ? 'gl-badge-neutral' : expiry.warn ? 'gl-badge-warning' : 'gl-badge-success'}`}>
+                      <span className={`chip ${token.revoked || expiry.expired ? '' : expiry.warn ? 'chip-warn' : 'chip-success'}`}>
                         {token.revoked ? 'Révoqué' : expiry.text}
                       </span>
                     </div>
@@ -278,7 +278,7 @@ export function UserMcpTab() {
                   <div className="flex items-center gap-2 shrink-0">
                     {!token.revoked && (
                       <button
-                        className="gl-button gl-button-default"
+                        className="btn btn-secondary"
                         onClick={() => revokeToken.mutate(token.id)}
                         title={t('settings.revoquer_le_token')}
                       >
@@ -286,7 +286,7 @@ export function UserMcpTab() {
                       </button>
                     )}
                     <button
-                      className="gl-button gl-button-danger"
+                      className="btn btn-danger"
                       onClick={() => deleteToken.mutate(token.id)}
                       title={t('settings.supprimer_le_token')}
                     >

@@ -189,10 +189,10 @@ export function MapsTab() {
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={handleLoadHistory} className="gl-button-sm gl-button-default">
+            <button onClick={handleLoadHistory} className="btn-sm btn-secondary">
               <History size={13} /> {t('assets.kmz.history_button')}
             </button>
-            <button onClick={handleExport} disabled={exporting} className="gl-button-sm gl-button-primary">
+            <button onClick={handleExport} disabled={exporting} className="btn-sm btn-primary">
               {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
               {t('assets.kmz.export_button')}
             </button>
@@ -251,7 +251,7 @@ export function MapsTab() {
                   </div>
                 </div>
               </div>
-              <button onClick={clearPreview} className="gl-button-sm gl-button-default !h-7 !w-7 !p-0 shrink-0">
+              <button onClick={clearPreview} className="btn-sm btn-secondary !h-7 !w-7 !p-0 shrink-0">
                 <X size={12} />
               </button>
             </div>
@@ -266,7 +266,7 @@ export function MapsTab() {
                     {info.attribute_keys && info.attribute_keys.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {info.attribute_keys.slice(0, 6).map(k => (
-                          <span key={k} className="gl-badge gl-badge-neutral text-[10px]">{k}</span>
+                          <span key={k} className="chip text-[10px]">{k}</span>
                         ))}
                         {info.attribute_keys.length > 6 && (
                           <span className="text-[10px] text-muted-foreground">+{info.attribute_keys.length - 6}</span>
@@ -307,7 +307,7 @@ export function MapsTab() {
                 <button
                   onClick={handleCommit}
                   disabled={!selectedFieldId || importing || !pendingFile}
-                  className="gl-button-sm gl-button-primary"
+                  className="btn-sm btn-primary"
                 >
                   {importing ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                   {t('assets.kmz.commit_button')}
@@ -328,7 +328,7 @@ export function MapsTab() {
                 <Check size={14} className="text-green-600" />
                 <div className="text-sm font-semibold">{t('assets.kmz.report_title')}</div>
               </div>
-              <button onClick={clearPreview} className="gl-button-sm gl-button-default">
+              <button onClick={clearPreview} className="btn-sm btn-secondary">
                 {t('assets.kmz.report_reset')}
               </button>
             </div>
@@ -364,7 +364,7 @@ export function MapsTab() {
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {report.warnings.map((w, i) => (
                     <div key={i} className="text-[11px] flex items-start gap-2 py-1">
-                      <span className="gl-badge gl-badge-warning shrink-0">{w.kind}</span>
+                      <span className="chip chip-warn shrink-0">{w.kind}</span>
                       <span className="font-mono text-muted-foreground">{w.name}</span>
                       <span className="text-muted-foreground">— {w.reason}</span>
                     </div>
@@ -377,7 +377,7 @@ export function MapsTab() {
                 <span className="text-[11px] text-muted-foreground font-mono">run #{report.field.import_run_id.slice(0, 8)}</span>
                 <button
                   onClick={() => handleRollback(report.field.import_run_id!)}
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                 >
                   <Undo2 size={12} /> {t('assets.kmz.rollback_button')}
                 </button>
@@ -393,7 +393,7 @@ export function MapsTab() {
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <History size={14} /> {t('assets.kmz.history_title')}
               </div>
-              <button onClick={() => setShowHistory(false)} className="gl-button-sm gl-button-default !h-7 !w-7 !p-0">
+              <button onClick={() => setShowHistory(false)} className="btn-sm btn-secondary !h-7 !w-7 !p-0">
                 <X size={12} />
               </button>
             </div>
@@ -414,7 +414,7 @@ export function MapsTab() {
                       </div>
                     </div>
                     {!run.rolled_back_at && (
-                      <button onClick={() => handleRollback(run.id)} className="gl-button-sm gl-button-default shrink-0">
+                      <button onClick={() => handleRollback(run.id)} className="btn-sm btn-secondary shrink-0">
                         <Undo2 size={12} /> {t('assets.kmz.rollback_button')}
                       </button>
                     )}

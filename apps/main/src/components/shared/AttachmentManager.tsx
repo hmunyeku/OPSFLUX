@@ -343,11 +343,11 @@ export function AttachmentManager({
                 </button>
                 {!readOnly && (isConfirming ? (
                   <div className="flex items-center gap-0.5">
-                    <button className="gl-button gl-button-danger text-[9px]" onClick={() => handleDelete(att.id)} disabled={deleteAttachment.isPending}>Oui</button>
-                    <button className="gl-button gl-button-default text-[9px]" onClick={() => setConfirmDeleteId(null)}>Non</button>
+                    <button className="btn btn-danger text-[9px]" onClick={() => handleDelete(att.id)} disabled={deleteAttachment.isPending}>Oui</button>
+                    <button className="btn btn-secondary text-[9px]" onClick={() => setConfirmDeleteId(null)}>Non</button>
                   </div>
                 ) : (
-                  <button className="gl-button gl-button-danger" onClick={() => setConfirmDeleteId(att.id)} title="Supprimer">
+                  <button className="btn btn-danger" onClick={() => setConfirmDeleteId(att.id)} title="Supprimer">
                     <Trash2 size={11} />
                   </button>
                 ))}

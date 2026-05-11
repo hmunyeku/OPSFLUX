@@ -1,17 +1,19 @@
 /**
- * Sidebar — GitLab Pajamas-style navigation with dynamic module items.
+ * Sidebar — Pajamas++ navigation (Phase 1B)
  *
- * Collapsed: 48px (icons only). Expanded: 180px.
- * Background: --chrome.
- * Active item: bg-primary/[0.16] + left 3px accent.
- * Transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1).
+ * What changed vs. the previous version:
+ *  - Replaced inline className spaghetti (cn() with 8 lines of conditionals)
+ *    with the single `.nav-item` utility from styles/pajamas-pp.css.
+ *  - Removed gradient + shadow on active state. Pajamas++ uses a solid
+ *    primary tint (10% opacity) + a 2px left rail. Cleaner, ERP-like.
+ *  - Removed icon hover-scale. Reads as a UI tic at this density.
+ *  - Section labels use the new `.nav-section-label` class for consistency.
+ *  - Default expanded width: 200px (was 180px) — the new label letter
+ *    spacing needs the extra room.
+ *  - Active state now also tints the icon. Uniform "this is selected".
  *
- * Per docs spec (02_DESIGN_SYSTEM.md §4):
- * - Section label "Navigation" (expanded only)
- * - Nav items from registered modules (ordered, RBAC-filtered)
- * - Spacer
- * - Admin section: Settings + Help + Collapse toggle
- * - Badge support on each nav item
+ * Behaviour preserved 1:1: routing, RBAC, module gating, prefetch on hover,
+ * mobile close, badges, collapse toggle.
  */
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -50,11 +52,6 @@ interface SidebarProps {
   onClose?: () => void
 }
 
-// ── Navigation registry ──────────────────────────────────────
-// Modules register their nav items here. In a full implementation,
-// this would come from ModuleRegistry manifests + RBAC filtering.
-// For now, module manifests populate this at startup.
-
 export interface NavItemDef {
   path: string
   icon: LucideIcon
@@ -66,8 +63,6 @@ export interface NavItemDef {
   requiredAnyPermissions?: string[]
 }
 
-// Core navigation items — sourced from module manifests
-// Each item requires at least one .read permission from its module to be visible.
 const moduleNavItems: NavItemDef[] = [
   { path: '/home', icon: LayoutGrid, labelKey: 'nav.home', module: 'core', order: 5 },
   { path: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', module: 'dashboard', order: 10, requiredPermission: 'dashboard.read' },
@@ -83,9 +78,6 @@ const moduleNavItems: NavItemDef[] = [
   { path: '/moc', icon: ClipboardList, labelKey: 'nav.moc', module: 'moc', order: 62, requiredPermission: 'moc.read' },
 ]
 
-// Workflow is a platform-wide infrastructure module (defines the
-// approval chains all other modules plug into) — it belongs in the
-// system/admin section, not alongside business modules.
 const adminNavItems: NavItemDef[] = [
   { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', module: 'conformite', order: 82, requiredPermission: 'conformite.record.read' },
   { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset_registry', order: 85, requiredPermission: 'asset.read' },
@@ -105,16 +97,10 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
   const { data: modules = [], isLoading: modulesLoading } = useModules()
   const enabledModules = new Set(modules.filter((m) => m.enabled).map((m) => m.slug))
 
-  // Filter items based on requiredPermission, then sort by order
   const filterByPermission = (items: NavItemDef[]) =>
     items.filter((item) => {
-      // Prevent a first-paint flash of disabled modules before module state loads.
-      if (item.module && item.module !== 'core' && modulesLoading) {
-        return false
-      }
-      if (item.module && item.module !== 'core' && modules.length > 0 && !enabledModules.has(item.module)) {
-        return false
-      }
+      if (item.module && item.module !== 'core' && modulesLoading) return false
+      if (item.module && item.module !== 'core' && modules.length > 0 && !enabledModules.has(item.module)) return false
       if (item.requiredAnyPermissions?.length) return hasAny(item.requiredAnyPermissions)
       if (item.requiredPermission) return hasPermission(item.requiredPermission)
       return true
@@ -130,55 +116,22 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
       <button
         key={item.path}
         onClick={() => { navigate(item.path); onClose?.() }}
-        // Prefetch module chunk on hover/focus so activation feels
-        // instant. Imported dynamically to keep Sidebar's own bundle
-        // light (the prefetch helper is ~3KB, only loaded if sidebar
-        // is ever rendered).
-        onMouseEnter={() => {
-          import('@/lib/routePrefetch').then(m => m.prefetchRoute(item.path)).catch(() => {})
-        }}
-        onFocus={() => {
-          import('@/lib/routePrefetch').then(m => m.prefetchRoute(item.path)).catch(() => {})
-        }}
+        onMouseEnter={() => { import('@/lib/routePrefetch').then(m => m.prefetchRoute(item.path)).catch(() => {}) }}
+        onFocus={() => { import('@/lib/routePrefetch').then(m => m.prefetchRoute(item.path)).catch(() => {}) }}
         className={cn(
-          'group relative flex w-full items-center gap-2.5 rounded-lg text-sm transition-all duration-200',
-          // Active: gradient primary → highlight tint, subtle glow.
-          // Hover: soft chrome bg, icon scales slightly, tint strip
-          // slides in from the left.
-          isActive
-            ? 'bg-gradient-to-r from-primary/[0.18] to-highlight/[0.10] text-foreground font-medium shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.12)]'
-            : 'text-muted-foreground hover:bg-chrome-hover hover:text-foreground',
-          // Collapsed mode: square button with bigger icon (+50% glyph,
-          // larger hit-target). Expanded mode: comfortable horizontal
-          // pill with regular icon.
-          collapsed ? 'justify-center px-0 w-10 h-10 mx-auto' : 'px-2 h-8',
+          'nav-item',
+          isActive && 'is-active',
+          collapsed && 'is-collapsed',
         )}
         title={collapsed ? t(item.labelKey) : undefined}
+        aria-current={isActive ? 'page' : undefined}
       >
-        {/* Active accent strip — gradient so it aligns with the StatCard
-            vocabulary. Slightly thicker than before for better read. */}
-        {isActive && !collapsed && (
-          <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full bg-gradient-to-b from-primary to-highlight" />
-        )}
-        {/* Hover accent strip — fades in on non-active items so users
-            get a consistent visual cue. */}
-        {!isActive && !collapsed && (
-          <span className="absolute left-0 top-1 bottom-1 w-[2px] rounded-r-full bg-primary/0 group-hover:bg-primary/40 transition-colors duration-200" />
-        )}
-        <Icon
-          size={collapsed ? 22 : 16}
-          className={cn(
-            'shrink-0 transition-transform duration-200',
-            isActive ? 'text-primary' : 'group-hover:scale-110',
-          )}
-        />
+        <Icon className="nav-item-ico" aria-hidden="true" />
         {!collapsed && (
           <>
-            <span className="truncate flex-1 text-left">{t(item.labelKey)}</span>
+            <span className="nav-item-label">{t(item.labelKey)}</span>
             {item.badge !== undefined && item.badge > 0 && (
-              <span className="ml-auto h-4 min-w-[16px] flex items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground px-1 shadow-sm">
-                {item.badge > 99 ? '99+' : item.badge}
-              </span>
+              <span className="nav-item-badge">{item.badge > 99 ? '99+' : item.badge}</span>
             )}
           </>
         )}
@@ -192,53 +145,37 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
       className={cn(
         'flex h-full flex-col border-r border-border bg-chrome',
         'transition-[width] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]',
-        collapsed ? 'w-14' : 'w-[180px]',
+        collapsed ? 'w-14' : 'w-[200px]',
       )}
     >
-      {/* Top spacing */}
       <div className="h-1.5 shrink-0" />
 
-      {/* Navigation section */}
-      <nav className="flex-1 space-y-0.5 px-1.5 py-1 overflow-y-auto overflow-x-hidden" role="navigation" aria-label={t('nav.section_label')}>
-        {/* Section label (expanded only) */}
+      <nav
+        className="flex-1 px-1.5 py-1 overflow-y-auto overflow-x-hidden flex flex-col gap-0.5"
+        role="navigation"
+        aria-label={t('nav.section_label')}
+      >
         {!collapsed && (
-          <div className="px-1.5 pb-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-              {t('nav.section_label')}
-            </span>
-          </div>
+          <span className="nav-section-label">{t('nav.section_label')}</span>
         )}
-
         {sortedModuleItems.map(renderNavItem)}
       </nav>
 
-      {/* Bottom section: admin + help + network status + collapse toggle */}
-      <div className="border-t border-border px-1.5 py-1.5 space-y-0.5 shrink-0">
-        {/* Section label — mirrors the "Navigation" label up top so
-            both sections of the sidebar feel like sibling groupings
-            rather than one main list + a stray footer. Only rendered
-            when the sidebar is expanded. */}
+      <div className="border-t border-border px-1.5 py-1.5 shrink-0 flex flex-col gap-0.5">
         {!collapsed && filteredAdminItems.length > 0 && (
-          <div className="px-1.5 pb-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-              {t('nav.admin_section_label', 'Administration')}
-            </span>
-          </div>
+          <span className="nav-section-label">{t('nav.admin_section_label', 'Administration')}</span>
         )}
         {filteredAdminItems.map(renderNavItem)}
 
         <button
           onClick={onToggle}
-          className={cn(
-            'flex w-full items-center gap-2.5 rounded-lg text-sm text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors duration-150',
-            collapsed ? 'justify-center px-0 w-10 h-10 mx-auto' : 'px-2 h-8',
-          )}
+          className={cn('nav-item', collapsed && 'is-collapsed')}
           title={collapsed ? t('nav.expand') : t('nav.collapse')}
         >
           {collapsed
-            ? <PanelLeft size={20} />
-            : <PanelLeftClose size={16} />}
-          {!collapsed && <span className="truncate">{t('nav.collapse')}</span>}
+            ? <PanelLeft className="nav-item-ico" aria-hidden="true" />
+            : <PanelLeftClose className="nav-item-ico" aria-hidden="true" />}
+          {!collapsed && <span className="nav-item-label">{t('nav.collapse')}</span>}
         </button>
       </div>
     </aside>

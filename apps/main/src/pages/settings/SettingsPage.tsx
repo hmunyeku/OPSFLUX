@@ -23,7 +23,7 @@ import {
   Users, CalendarClock, Ship, Boxes, FolderKanban,
   Languages, ClipboardList,
   Sliders, LayoutTemplate, Briefcase, Server, CircleCheck, Bot,
-  Search, X,
+  Search, X, Wrench,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -130,6 +130,9 @@ const SECTION_TAB_MAP: Record<string, string> = {
   'entity-users': 'entities',
   // SystemHealthTab sections
   'system-health': 'system-health',
+  // MaintenanceTab sections
+  'maintenance-demo': 'maintenance',
+  'maintenance-reset': 'maintenance',
 }
 
 // ── Import tab components ───────────────────────────────────
@@ -164,6 +167,7 @@ import { GdprTab } from './tabs/GdprTab'
 import { AdminerTab } from './tabs/AdminerTab'
 import { SystemTab } from './tabs/SystemTab'
 import { ModulesTab } from './tabs/ModulesTab'
+import { MaintenanceTab } from './tabs/MaintenanceTab'
 // EntitiesTab moved to dedicated /entities sidebar page
 
 // ── Import dynamic panel forms ──────────────────────────────
@@ -227,9 +231,10 @@ registerSettingsSection({ id: 'gdpr',             label: 'RGPD / Protection des 
 registerSettingsSection({ id: 'delete-policies',  label: 'Politiques de suppression',    icon: Trash2,      component: DeletePoliciesTab, category: 'general', parentId: 'grp-security', order: 30, requiredPermission: 'core.settings.manage' })
 
 // Group 5: Système — technical / rarely touched, at the bottom
-registerSettingsSection({ id: 'system',  label: 'Système',          icon: Activity, component: SystemTab,  category: 'general', parentId: 'grp-system', order: 10, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'modules', label: 'Modules',          icon: Boxes,    component: ModulesTab, category: 'general', parentId: 'grp-system', order: 20, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'adminer', label: 'Base de données',  icon: Database, component: AdminerTab, category: 'general', parentId: 'grp-system', order: 30, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'system',      label: 'Système',          icon: Activity, component: SystemTab,      category: 'general', parentId: 'grp-system', order: 10, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'modules',     label: 'Modules',          icon: Boxes,    component: ModulesTab,     category: 'general', parentId: 'grp-system', order: 20, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'maintenance', label: 'Maintenance',      icon: Wrench,   component: MaintenanceTab, category: 'general', parentId: 'grp-system', order: 25, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'adminer',     label: 'Base de données',  icon: Database, component: AdminerTab,     category: 'general', parentId: 'grp-system', order: 30, requiredPermission: 'admin.system' })
 
 registerPanelRenderer('settings-pdf-template', (view) => (
   <EditPdfTemplatePanel

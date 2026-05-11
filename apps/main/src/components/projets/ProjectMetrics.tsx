@@ -215,8 +215,12 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
     <div className="space-y-4">
       {/* ─── ROW 1 ── HERO: gauge (left) + bullet planning chart (right).
           Fixed 300px gauge column on lg+ keeps the visual weight stable
-          regardless of project name length. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4">
+          regardless of project name length.
+          items-start: Bastien feedback - sans ça, la card Planning
+          (souvent vide en empty state) s'étirait pour matcher la hauteur
+          de la card Avancement (gauge ~280px). Maintenant chaque card
+          prend sa hauteur naturelle. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
         <FormSection title={t('projets.metrics.progress', 'Avancement')} defaultExpanded>
           <div className="flex flex-col items-center gap-3 pt-1">
             <ProgressGauge value={project.progress} />

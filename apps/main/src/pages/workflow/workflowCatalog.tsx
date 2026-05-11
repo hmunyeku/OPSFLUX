@@ -247,11 +247,11 @@ function DefinitionCard({
       >
         {def.status === 'draft' && (
           <>
-            <button onClick={onPublish} className="gl-button-sm gl-button-confirm text-[10px]">
+            <button onClick={onPublish} className="btn-sm btn-primary text-[10px]">
               <Send size={9} /> {t('workflow.publish')}
             </button>
             {canDelete && (
-              <button onClick={onDelete} className="gl-button-sm gl-button-danger text-[10px]">
+              <button onClick={onDelete} className="btn-sm btn-danger text-[10px]">
                 <Trash2 size={9} /> {t('common.delete')}
               </button>
             )}
@@ -260,16 +260,16 @@ function DefinitionCard({
         {def.status === 'published' && (
           <>
             {canDelete && (
-              <button onClick={onArchive} className="gl-button-sm gl-button-default text-[10px]">
+              <button onClick={onArchive} className="btn-sm btn-secondary text-[10px]">
                 <Archive size={9} /> {t('workflow.archive')}
               </button>
             )}
-            <button onClick={(e) => { e.stopPropagation(); onViewInstances() }} className="gl-button-sm gl-button-default text-[10px]">
+            <button onClick={(e) => { e.stopPropagation(); onViewInstances() }} className="btn-sm btn-secondary text-[10px]">
               <Eye size={9} /> {t('workflow.instances')}
             </button>
           </>
         )}
-        <button onClick={onClone} className="gl-button-sm gl-button-default text-[10px]">
+        <button onClick={onClone} className="btn-sm btn-secondary text-[10px]">
           <Copy size={9} /> {structureLocked ? t('workflow.adjustable_version') : t('workflow.clone')}
         </button>
       </div>
@@ -353,7 +353,7 @@ export function InstancesTable({
       id: 'actions',
       header: '',
       cell: () => (
-        <button className="gl-button gl-button-default">
+        <button className="btn btn-secondary">
           <Eye size={12} />
         </button>
       ),
@@ -455,11 +455,11 @@ export function CreateDialog({
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 mt-4">
-          <button onClick={onClose} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
+          <button onClick={onClose} className="btn-sm btn-secondary">{t('common.cancel')}</button>
           <button
             onClick={() => { onCreate(name, description, entityType); onClose() }}
             disabled={!name.trim()}
-            className="gl-button-sm gl-button-confirm"
+            className="btn-sm btn-primary"
           >
             <Plus size={12} /> {t('common.create')}
           </button>

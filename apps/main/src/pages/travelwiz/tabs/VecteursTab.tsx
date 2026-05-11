@@ -61,7 +61,7 @@ export function VecteursTab() {
         const vt = VECTOR_TYPE_MAP[row.original.type]
         const VIcon = vt?.icon || Ship
         return (
-          <span className={cn('gl-badge inline-flex items-center gap-1', vt?.badge || 'gl-badge-neutral')}>
+          <span className={cn('chip inline-flex items-center gap-1', vt?.badge || '')}>
             <VIcon size={10} />
             {vt?.label || row.original.type}
           </span>
@@ -91,7 +91,7 @@ export function VecteursTab() {
       size: 40,
       cell: ({ row }: { row: { original: { id: string } } }) => (
         <button
-          className="gl-button gl-button-danger opacity-0 group-hover:opacity-100"
+          className="btn btn-danger opacity-0 group-hover:opacity-100"
           onClick={async (e: React.MouseEvent) => { e.stopPropagation(); const ok = await confirmDialog({ title: t('travelwiz.actions.delete_confirm_title'), message: t('travelwiz.actions.delete_vector_confirm'), confirmLabel: t('travelwiz.actions.delete'), variant: 'danger' }); if (ok) deleteVector.mutate(row.original.id) }}
           title={t('travelwiz.actions.delete')}
         >

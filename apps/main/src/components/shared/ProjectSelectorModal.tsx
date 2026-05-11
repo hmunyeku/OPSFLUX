@@ -132,7 +132,7 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''} · {projects.length}{hasMore ? `/${totalAvailable}` : ''} affichés</span>
               <Dialog.Close asChild>
-                <button className="gl-button gl-button-default"><X size={14} /></button>
+                <button className="btn btn-secondary"><X size={14} /></button>
               </Dialog.Close>
             </div>
           </div>
@@ -244,8 +244,8 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
                 : 'Aucune sélection — affichera tous les projets'}
             </span>
             <div className="flex items-center gap-2">
-              <button onClick={onClose} className="gl-button-sm gl-button-default">Annuler</button>
-              <button onClick={handleApply} className="gl-button-sm gl-button-confirm">
+              <button onClick={onClose} className="btn-sm btn-secondary">Annuler</button>
+              <button onClick={handleApply} className="btn-sm btn-primary">
                 Appliquer
               </button>
             </div>

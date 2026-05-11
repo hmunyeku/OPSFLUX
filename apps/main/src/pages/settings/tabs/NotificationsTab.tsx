@@ -239,12 +239,12 @@ export function NotificationsTab() {
         )}
 
         <div className="flex items-center gap-3 mt-6">
-          <button className="gl-button gl-button-confirm" onClick={handleSave} disabled={updatePrefs.isPending}>
+          <button className="btn btn-primary" onClick={handleSave} disabled={updatePrefs.isPending}>
             {updatePrefs.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
             Enregistrer
           </button>
           <button
-            className="gl-button gl-button-default"
+            className="btn btn-secondary"
             onClick={() => {
               if (prefs) {
                 setGlobalLevel(prefs.global_level)

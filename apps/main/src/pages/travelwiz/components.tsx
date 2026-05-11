@@ -8,25 +8,96 @@ import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 
 export function StatusBadge({ status, labels, badges }: { status: string; labels: Record<string, string>; badges: Record<string, string> }) {
   return (
-    <span className={cn('gl-badge', badges[status] || 'gl-badge-neutral')}>
+    <span className={cn('chip', badges[status] || '')}>
       {labels[status] || status.replace(/_/g, ' ')}
     </span>
   )
 }
 
-export function StatCard({ label, value, icon: Icon, accent }: { label: string; value: string | number; icon: typeof Plane; accent?: string }) {
+/**
+ * StatCard — version compacte single-line alignée sur Planner/PaxLog.
+ *
+ * Bastien feedback: les stats du haut (Voyages tab) prenaient trop de
+ * place sur mobile et même desktop. L'ancienne version 2-lignes
+ * (icone+label en haut, valeur en bas, p-3 rounded-xl) faisait ~80px
+ * de hauteur par card. La nouvelle version single-line: [accent rail]
+ * [icon] LABEL ── sparkline ── VALUE, ~32px de hauteur, sparkline
+ * conditionnelle qui se cache via container queries quand la card
+ * est étroite.
+ */
+export function StatCard({ label, value, icon: Icon, accent, sparkline, onClick, active }: {
+  label: string
+  value: string | number
+  icon: typeof Plane
+  accent?: string
+  /** Sparkline values (≥2) plotted as inline area chart. Hidden when narrow or all-zero. */
+  sparkline?: number[]
+  /** Click handler — fait de la card un bouton-filtre cliquable. */
+  onClick?: () => void
+  /** Highlight quand le filtre associé est actif. */
+  active?: boolean
+}) {
+  const Tag = onClick ? 'button' : 'div'
   return (
-    <div className="group relative rounded-xl border border-border/70 bg-gradient-to-br from-background to-background/60 p-3 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-border">
-      {/* Accent strip — see planner/shared.tsx for the full palette. */}
-      <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-primary/80 to-highlight/40" />
-      <div className="flex items-center gap-2 text-muted-foreground mb-1">
-        <Icon size={13} className={accent} />
-        <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
-      </div>
-      <p className="text-xl font-bold text-foreground tabular-nums font-display tracking-tight">
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={cn(
+        '@container/kpi group relative flex items-center gap-2 rounded-lg border bg-gradient-to-br from-background to-background/60 px-3 py-1.5 overflow-hidden transition-all text-left shrink-0 snap-start w-[160px] @md/stats:w-full',
+        onClick && 'cursor-pointer hover:border-primary/50 hover:shadow-sm',
+        active ? 'border-primary/60 ring-1 ring-primary/30 bg-primary/5' : 'border-border/70 hover:border-border',
+      )}
+    >
+      <div className={cn(
+        'absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b',
+        accent?.includes('red') || accent?.includes('destructive') ? 'from-red-500/80 to-red-400/40'
+        : accent?.includes('amber') || accent?.includes('yellow')  ? 'from-amber-500/80 to-amber-400/40'
+        : accent?.includes('emerald') || accent?.includes('green') ? 'from-emerald-500/80 to-emerald-400/40'
+        : accent?.includes('violet') || accent?.includes('purple') ? 'from-violet-500/80 to-violet-400/40'
+        : accent?.includes('blue') ? 'from-blue-500/80 to-blue-400/40'
+        : 'from-primary/80 to-primary/40',
+      )} />
+      <Icon size={13} className="text-muted-foreground shrink-0 ml-0.5" />
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{label}</span>
+      <span className="flex-1" />
+      {sparkline && sparkline.length >= 2 && sparkline.some(v => v > 0) && (
+        <span className="hidden @[180px]/kpi:inline-flex shrink-0">
+          <Sparkline values={sparkline} accent={accent} />
+        </span>
+      )}
+      <span className={cn(
+        'text-lg font-bold tabular-nums font-display tracking-tight leading-none',
+        accent || 'text-foreground',
+      )}>
         {typeof value === 'number' ? <AnimatedCounter value={value} /> : value}
-      </p>
-    </div>
+      </span>
+    </Tag>
+  )
+}
+
+/** Tiny inline sparkline — area chart 64×18 px aligned on Planner Sparkline. */
+function Sparkline({ values, accent }: { values: number[]; accent?: string }) {
+  const W = 64, H = 18
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  const points = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * W
+    const y = H - ((v - min) / range) * (H - 2) - 1
+    return [x, y]
+  })
+  const path = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  const area = `${path} L${W},${H} L0,${H} Z`
+  const stroke = accent?.includes('red') ? '#ef4444'
+    : accent?.includes('amber') ? '#f59e0b'
+    : accent?.includes('emerald') || accent?.includes('green') ? '#10b981'
+    : accent?.includes('blue') ? '#3b82f6'
+    : 'currentColor'
+  return (
+    <svg width={W} height={H} className="text-primary/60" aria-hidden="true">
+      <path d={area} fill={stroke} fillOpacity={0.12} />
+      <path d={path} fill="none" stroke={stroke} strokeWidth={1.25} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
   )
 }
 

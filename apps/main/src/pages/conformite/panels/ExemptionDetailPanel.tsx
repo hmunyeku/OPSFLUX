@@ -84,9 +84,9 @@ export function ExemptionDetailPanel({ id }: { id: string }) {
 
   const statusBadge = (() => {
     const s = exemption.status
-    const cls = s === 'approved' ? 'gl-badge-success' : s === 'rejected' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
+    const cls = s === 'approved' ? 'chip-success' : s === 'rejected' ? 'chip-danger' : s === 'pending' ? 'chip-warn' : ''
     const label = exemptionStatusLabels[s] ?? s
-    return <span className={cn('gl-badge', cls)}>{label}</span>
+    return <span className={cn('chip', cls)}>{label}</span>
   })()
 
   return (
@@ -110,7 +110,7 @@ export function ExemptionDetailPanel({ id }: { id: string }) {
             <DetailFieldGrid>
               <ReadOnlyRow label={t('common.status')} value={statusBadge} />
               <ReadOnlyRow label="Type de conformité" value={exemption.record_type_name || '--'} />
-              <ReadOnlyRow label="Catégorie" value={exemption.record_type_category ? <span className="gl-badge gl-badge-neutral">{exemption.record_type_category}</span> : '--'} />
+              <ReadOnlyRow label="Catégorie" value={exemption.record_type_category ? <span className="chip">{exemption.record_type_category}</span> : '--'} />
               <ReadOnlyRow label="Propriétaire" value={exemption.owner_name || '--'} />
               <ReadOnlyRow label="Date de début" value={formatDate(exemption.start_date)} />
               <ReadOnlyRow label="Date de fin" value={formatDate(exemption.end_date)} />

@@ -38,6 +38,7 @@ import { QuickCreateModal } from '@/components/layout/QuickCreateModal'
 import { TopbarSearchSuggestions } from '@/components/layout/TopbarSearchSuggestions'
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { ShellModeToggle } from '@/components/shell/ShellModeToggle'
 import { ROUTES } from '@/lib/routes'
 
 interface TopbarProps {
@@ -364,11 +365,10 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       <header
         role="banner"
         data-tour="topbar"
-        // Subtle gradient + backdrop-blur gives the topbar some depth
-        // against the noise-textured body. 1px gradient line at the
-        // bottom instead of a flat border for a softer horizon.
-        className="relative flex h-11 items-center bg-chrome/90 backdrop-blur-md px-2 sm:px-3 shrink-0 gap-1 sm:gap-2 supports-[backdrop-filter]:bg-chrome/80"
-        style={{ zIndex: 'var(--z-topbar)' }}
+        // `topbar-pp` (Pajamas++) supplies height, chrome bg, bottom border
+        // and z-index. Tailwind utilities here cover responsive padding/gaps
+        // only — Pajamas++ defaults already match the prior visual.
+        className="topbar-pp shrink-0 px-2 sm:px-3 gap-1 sm:gap-2"
       >
         <div
           aria-hidden="true"
@@ -417,6 +417,13 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
           <div className="mx-1 h-4 w-px bg-border hidden lg:block" />
           <EntitySwitcher />
+        </div>
+
+        {/* ── Shell-mode toggle (Phase 1C) — Atlas / Operator per module.
+             Renders nothing for routes outside MODULE_DEFAULTS (home,
+             settings root, etc.). Hidden on < lg to keep mobile clean. ── */}
+        <div className="hidden lg:flex shrink-0">
+          <ShellModeToggle moduleSlug={pathname.split('/').filter(Boolean)[0]} />
         </div>
 
         {/* ── Center: Contextual search input (hidden on < sm to free space) ── */}

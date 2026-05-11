@@ -1808,14 +1808,14 @@ export function GanttView({
               <button
                 type="button"
                 onClick={() => setEditingDep(null)}
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
               >
                 Annuler
               </button>
               <button
                 type="button"
                 onClick={handleSaveDep}
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
               >
                 Enregistrer
               </button>

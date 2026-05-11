@@ -8,7 +8,7 @@ import { normalizeNames } from '@/lib/normalize'
 import type { CredentialType, PaxCredential, PaxSitePresence } from '@/services/paxlogService'
 import { DynamicPanelShell, PanelActionButton, FormSection, PanelContentLayout, DangerConfirmButton, InlineEditableRow, ReadOnlyRow, SectionColumns } from '@/components/layout/DynamicPanel'
 import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
-import { Users, Plus, User, ArrowLeft, Trash2, Building2, Info } from 'lucide-react'
+import { Users, Plus, User, ArrowLeft, Trash2, Building2, Info, FileCheck2, Shield as ShieldIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
@@ -93,7 +93,7 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
       <PanelContentLayout>
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={profile.active ? 'active' : 'inactive'} />
-          <span className={cn('gl-badge', profile.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+          <span className={cn('chip', profile.pax_type === 'internal' ? 'chip-info' : '')}>
             {paxTypeLabels[profile.pax_type] || profile.pax_type}
           </span>
         </div>
@@ -168,7 +168,15 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
           <div className="@container space-y-5">
             <FormSection title={t('paxlog.profile_panel.credentials_title', { count: credentials?.length || 0 })}>
               {!credentials || credentials.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.no_certification')}</p>
+                // Empty state ameliore (Bastien feedback): pictogramme + hint
+                // au lieu d'un texte gris italique perdu
+                <div className="flex flex-col items-center justify-center py-4 px-3 rounded-md border border-dashed border-border/60 bg-muted/30">
+                  <div className="h-8 w-8 rounded-full bg-muted/60 flex items-center justify-center mb-2">
+                    <FileCheck2 className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">{t('paxlog.no_certification')}</p>
+                  <p className="text-[10px] text-muted-foreground/70 text-center mt-0.5">{t('paxlog.profile_panel.credentials_empty_hint', 'Les certifications apparaissent ici une fois ajoutées')}</p>
+                </div>
               ) : (
                 <div className="space-y-1">
                   {credentials.map((cred: PaxCredential) => (
@@ -189,14 +197,19 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
 
             <FormSection title={t('paxlog.profile_panel.compliance_records_title', { count: complianceRecords.length })}>
               {complianceRecords.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.profile_panel.compliance_records_empty')}</p>
+                <div className="flex flex-col items-center justify-center py-4 px-3 rounded-md border border-dashed border-border/60 bg-muted/30">
+                  <div className="h-8 w-8 rounded-full bg-muted/60 flex items-center justify-center mb-2">
+                    <ShieldIcon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">{t('paxlog.profile_panel.compliance_records_empty')}</p>
+                </div>
               ) : (
                 <div className="space-y-1">
                   {complianceRecords.slice(0, 8).map((record) => (
                     <button
                       key={record.id}
                       type="button"
-                      className="gl-button gl-button-default w-full text-left"
+                      className="btn btn-secondary w-full text-left"
                       onClick={() => openDynamicPanel({ type: 'detail', module: 'conformite', id: record.id, meta: { subtype: 'record' } })}
                     >
                       <div className="flex items-center justify-between gap-2 text-xs">
@@ -208,7 +221,7 @@ export function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSo
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className={cn('gl-badge', (record.attachment_count ?? 0) > 0 ? 'gl-badge-success' : 'gl-badge-warning')}>
+                          <span className={cn('chip', (record.attachment_count ?? 0) > 0 ? 'chip-success' : 'chip-warn')}>
                             {(record.attachment_count ?? 0) > 0
                               ? t('paxlog.profile_panel.proof_present', { count: record.attachment_count ?? 0 })
                               : t('paxlog.profile_panel.proof_missing')}

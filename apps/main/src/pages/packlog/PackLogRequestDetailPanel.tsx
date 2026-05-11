@@ -71,13 +71,13 @@ const REASON_LABELS: Record<string, string> = {
 }
 
 const REQUEST_STATUS_BADGES: Record<string, string> = {
-  draft: 'gl-badge-neutral',
-  submitted: 'gl-badge-warning',
-  approved: 'gl-badge-info',
-  assigned: 'gl-badge-info',
-  in_progress: 'gl-badge-info',
-  closed: 'gl-badge-success',
-  cancelled: 'gl-badge-danger',
+  draft: '',
+  submitted: 'chip-warn',
+  approved: 'chip-info',
+  assigned: 'chip-info',
+  in_progress: 'chip-info',
+  closed: 'chip-success',
+  cancelled: 'chip-danger',
 }
 
 export function CargoRequestDetailPanel({ id }: { id: string }) {
@@ -258,22 +258,22 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
         <div className="mb-2 flex flex-wrap items-center gap-1.5">
           <span
             className={cn(
-              'gl-badge',
-              REQUEST_STATUS_BADGES[cargoRequest.status] ?? 'gl-badge-neutral',
+              'chip',
+              REQUEST_STATUS_BADGES[cargoRequest.status] ?? '',
             )}
           >
             {requestStatusLabels[cargoRequest.status] ?? cargoRequest.status}
           </span>
           <span
             className={cn(
-              'gl-badge',
-              cargoRequest.is_ready_for_submission ? 'gl-badge-success' : 'gl-badge-warning',
+              'chip',
+              cargoRequest.is_ready_for_submission ? 'chip-success' : 'chip-warn',
             )}
           >
             {cargoRequest.is_ready_for_submission ? 'Prête à soumettre' : 'À compléter'}
           </span>
           {missingRequirements.length > 0 && (
-            <span className="gl-badge gl-badge-warning">
+            <span className="chip chip-warn">
               {missingRequirements.length} manque(s)
             </span>
           )}
@@ -472,7 +472,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow
                   label="Statut"
                   value={
-                    <span className={cn('gl-badge', REQUEST_STATUS_BADGES[cargoRequest.status] ?? 'gl-badge-neutral')}>
+                    <span className={cn('chip', REQUEST_STATUS_BADGES[cargoRequest.status] ?? '')}>
                       {requestStatusLabels[cargoRequest.status] ?? cargoRequest.status}
                     </span>
                   }
@@ -611,7 +611,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                               {cargo.code}
                             </span>
                             {cargo.hazmat_validated && (
-                              <span className="gl-badge gl-badge-danger text-[9px]">HAZMAT</span>
+                              <span className="chip chip-danger text-[9px]">HAZMAT</span>
                             )}
                           </div>
                           <p className="mt-0.5 truncate text-sm font-medium text-foreground">
@@ -685,8 +685,8 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                         </div>
                         <span
                           className={cn(
-                            'gl-badge shrink-0',
-                            option.can_load ? 'gl-badge-success' : 'gl-badge-warning',
+                            'chip shrink-0',
+                            option.can_load ? 'chip-success' : 'chip-warn',
                           )}
                         >
                           {option.can_load ? 'Chargeable' : 'Bloqué'}
@@ -742,7 +742,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                       {option.compatible_zones.length > 0 && (
                         <div className="mb-3 flex flex-wrap gap-1">
                           {option.compatible_zones.map((zone) => (
-                            <span key={zone.zone_id} className="gl-badge gl-badge-neutral">
+                            <span key={zone.zone_id} className="chip">
                               <MapPin size={9} className="mr-0.5" />
                               {zone.zone_name}
                               {zone.surface_m2 != null

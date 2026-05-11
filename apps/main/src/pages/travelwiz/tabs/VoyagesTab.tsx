@@ -134,7 +134,7 @@ export function VoyagesTab() {
       size: 40,
       cell: ({ row }: { row: { original: { id: string } } }) => (
         <button
-          className="gl-button gl-button-danger opacity-0 group-hover:opacity-100"
+          className="btn btn-danger opacity-0 group-hover:opacity-100"
           onClick={async (e: React.MouseEvent) => { e.stopPropagation(); const ok = await confirmDialog({ title: t('travelwiz.actions.delete_confirm_title'), message: t('travelwiz.actions.delete_voyage_confirm'), confirmLabel: t('travelwiz.actions.delete'), variant: 'danger' }); if (ok) deleteVoyage.mutate(row.original.id) }}
           title={t('travelwiz.actions.delete')}
         >
@@ -146,11 +146,16 @@ export function VoyagesTab() {
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label={t('travelwiz.stats.total')} value={total} icon={Plane} />
-        <StatCard label={t('travelwiz.stats.planned')} value={stats.planned} icon={Calendar} />
-        <StatCard label={t('travelwiz.stats.in_progress')} value={stats.inProgress} icon={Plane} accent="text-amber-500" />
-        <StatCard label={t('travelwiz.stats.pax_boarded')} value={stats.totalPax} icon={Users} accent="text-blue-500" />
+      {/* Stats bar — single-line compacte (Bastien feedback: les stats
+          prenaient trop de place). Sur mobile/narrow: scroll horizontal
+          snap. Sur desktop large: grid 4-cols pleine largeur. */}
+      <div className="@container/stats border-b border-border">
+        <div className="flex @md/stats:grid @md/stats:grid-cols-4 gap-2 px-3 py-2 overflow-x-auto snap-x snap-mandatory">
+          <StatCard label={t('travelwiz.stats.total')} value={total} icon={Plane} />
+          <StatCard label={t('travelwiz.stats.planned')} value={stats.planned} icon={Calendar} />
+          <StatCard label={t('travelwiz.stats.in_progress')} value={stats.inProgress} icon={Plane} accent="text-amber-500" />
+          <StatCard label={t('travelwiz.stats.pax_boarded')} value={stats.totalPax} icon={Users} accent="text-blue-500" />
+        </div>
       </div>
 
       {/* Status filter moved into the DataTable visual-search toolbar. */}

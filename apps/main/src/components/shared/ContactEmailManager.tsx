@@ -98,7 +98,12 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
       )}
 
       {!isLoading && emails.length > 0 && (
-        <div className="space-y-1">
+        // SUP-0019 fix-3: ajouter min-w-0 sur le wrapper pour garantir
+        // que le flex enfant peut tronquer son email — sans cela le
+        // container prend la largeur du contenu (longue chaîne email)
+        // et le truncate ne kick jamais en, ce qui laisse l'email
+        // déborder par-dessus son label.
+        <div className="space-y-1 min-w-0">
           {emails.map((ce) => {
             if (editingId === ce.id) {
               return (
@@ -130,10 +135,21 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                 title={t('projets.double_cliquez_pour_modifier')}
               >
                 <Mail size={12} className="text-muted-foreground shrink-0" />
-                <span className="text-[10px] font-medium text-muted-foreground uppercase w-16 shrink-0">
+                {/* SUP-0019 (re-fix): le label avait `w-16` (64px) ce qui
+                    laissait "PROFESSIONNEL" (≈ 80px) déborder par-dessus
+                    l'email du sibling. La capture de Bastien montrait
+                    "PROFESSION{NEL@xxx.com" avec le label superposant
+                    visuellement le début de l'email.
+                    Solution: enlever la largeur fixe — laisser le label
+                    occuper sa largeur naturelle et juste shrink-0 pour
+                    qu'il ne se réduise pas. */}
+                <span className="text-[10px] font-medium text-muted-foreground uppercase shrink-0">
                   {EMAIL_LABELS.find((l) => l.value === ce.label)?.label ?? ce.label}
                 </span>
-                <span className="text-foreground text-xs truncate">
+                {/* L'email garde flex-1 + min-w-0 + truncate pour absorber
+                    toute la largeur restante et tronquer si trop long
+                    (avec title pour révéler la valeur entière au hover). */}
+                <span className="text-foreground text-xs truncate flex-1 min-w-0" title={ce.email}>
                   {ce.email}
                 </span>
                 {ce.is_default && (
@@ -213,8 +229,8 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
             {EMAIL_LABELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
           </select>
           <div className="flex items-center justify-end gap-2">
-            <button onClick={() => { setShowForm(false); setEmail('') }} className="gl-button-sm gl-button-default">Annuler</button>
-            <button onClick={handleCreate} disabled={!email.trim() || createEmail.isPending} className="gl-button-sm gl-button-confirm">
+            <button onClick={() => { setShowForm(false); setEmail('') }} className="btn-sm btn-secondary">Annuler</button>
+            <button onClick={handleCreate} disabled={!email.trim() || createEmail.isPending} className="btn-sm btn-primary">
               {createEmail.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
             </button>
           </div>
@@ -265,10 +281,10 @@ function InlineEmailEditor({
       <select value={editLabel} onChange={(e) => setEditLabel(e.target.value)} className="text-[10px] px-1 py-0.5 rounded border border-border/60 bg-card">
         {labelOptions.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
       </select>
-      <button onClick={handleSave} disabled={isSaving} className="gl-button gl-button-confirm text-green-600">
+      <button onClick={handleSave} disabled={isSaving} className="btn btn-primary text-green-600">
         {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
       </button>
-      <button onClick={onCancel} className="gl-button gl-button-default">
+      <button onClick={onCancel} className="btn btn-secondary">
         <X size={10} />
       </button>
     </div>

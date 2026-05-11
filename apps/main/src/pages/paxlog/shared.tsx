@@ -39,27 +39,27 @@ export const ADS_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const ADS_STATUS_BADGES: Record<string, string> = {
-  draft: 'gl-badge-neutral',
-  submitted: 'gl-badge-info',
-  pending_project_review: 'gl-badge-warning',
-  pending_compliance: 'gl-badge-warning',
-  pending_validation: 'gl-badge-warning',
-  pending_arbitration: 'gl-badge-warning',
-  pending_initiator_review: 'gl-badge-warning',
-  approved: 'gl-badge-success',
-  rejected: 'gl-badge-danger',
-  cancelled: 'gl-badge-neutral',
-  requires_review: 'gl-badge-info',
-  in_progress: 'gl-badge-success',
-  completed: 'gl-badge-success',
+  draft: '',
+  submitted: 'chip-info',
+  pending_project_review: 'chip-warn',
+  pending_compliance: 'chip-warn',
+  pending_validation: 'chip-warn',
+  pending_arbitration: 'chip-warn',
+  pending_initiator_review: 'chip-warn',
+  approved: 'chip-success',
+  rejected: 'chip-danger',
+  cancelled: '',
+  requires_review: 'chip-info',
+  in_progress: 'chip-success',
+  completed: 'chip-success',
 }
 
 export const SEVERITY_COLOR_MAP: Record<string, string> = {
-  info: 'gl-badge-info',
-  warning: 'gl-badge-warning',
-  site_ban: 'gl-badge-danger',
-  temp_ban: 'gl-badge-danger',
-  permanent_ban: 'gl-badge-danger',
+  info: 'chip-info',
+  warning: 'chip-warn',
+  site_ban: 'chip-danger',
+  temp_ban: 'chip-danger',
+  permanent_ban: 'chip-danger',
 }
 
 export const ROTATION_STATUS_LABELS_FALLBACK: Record<string, string> = {
@@ -69,9 +69,9 @@ export const ROTATION_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const ROTATION_STATUS_BADGES: Record<string, string> = {
-  active: 'gl-badge-success',
-  paused: 'gl-badge-warning',
-  completed: 'gl-badge-neutral',
+  active: 'chip-success',
+  paused: 'chip-warn',
+  completed: '',
 }
 
 export const AVM_STATUS_LABELS_FALLBACK: Record<string, string> = {
@@ -84,12 +84,12 @@ export const AVM_STATUS_LABELS_FALLBACK: Record<string, string> = {
 }
 
 export const AVM_STATUS_BADGES: Record<string, string> = {
-  draft: 'gl-badge-neutral',
-  in_preparation: 'gl-badge-warning',
-  active: 'gl-badge-info',
-  ready: 'gl-badge-success',
-  completed: 'gl-badge-success',
-  cancelled: 'gl-badge-neutral',
+  draft: '',
+  in_preparation: 'chip-warn',
+  active: 'chip-info',
+  ready: 'chip-success',
+  completed: 'chip-success',
+  cancelled: '',
 }
 
 export const ALL_TABS = [
@@ -110,21 +110,21 @@ export type MainTabId = (typeof ALL_TABS)[number]['id']
 export function StatusBadge({ status, map, labels, badges, className }: { status: string; map?: Record<string, { labelKey: string; badge: string }>; labels?: Record<string, string>; badges?: Record<string, string>; className?: string }) {
   const { t } = useTranslation()
   if (labels) {
-    return <span className={cn('gl-badge', badges?.[status] || 'gl-badge-neutral', className)}>{labels[status] ?? status.replace(/_/g, ' ')}</span>
+    return <span className={cn('chip', badges?.[status] || '', className)}>{labels[status] ?? status.replace(/_/g, ' ')}</span>
   }
   if (map) {
     const entry = map[status]
-    return <span className={cn('gl-badge', entry?.badge || 'gl-badge-neutral', className)}>{entry ? t(entry.labelKey) : status.replace(/_/g, ' ')}</span>
+    return <span className={cn('chip', entry?.badge || '', className)}>{entry ? t(entry.labelKey) : status.replace(/_/g, ' ')}</span>
   }
   const colorMap: Record<string, string> = {
-    active: 'gl-badge-success', draft: 'gl-badge-neutral', submitted: 'gl-badge-info',
-    approved: 'gl-badge-success', rejected: 'gl-badge-danger', in_progress: 'gl-badge-warning',
-    completed: 'gl-badge-success', cancelled: 'gl-badge-neutral', incomplete: 'gl-badge-warning',
-    suspended: 'gl-badge-danger', archived: 'gl-badge-neutral', valid: 'gl-badge-success',
-    expired: 'gl-badge-danger', pending_validation: 'gl-badge-warning',
-    pending_compliance: 'gl-badge-warning', requires_review: 'gl-badge-info',
+    active: 'chip-success', draft: '', submitted: 'chip-info',
+    approved: 'chip-success', rejected: 'chip-danger', in_progress: 'chip-warn',
+    completed: 'chip-success', cancelled: '', incomplete: 'chip-warn',
+    suspended: 'chip-danger', archived: '', valid: 'chip-success',
+    expired: 'chip-danger', pending_validation: 'chip-warn',
+    pending_compliance: 'chip-warn', requires_review: 'chip-info',
   }
-  return <span className={cn('gl-badge', colorMap[status] || 'gl-badge-neutral', className)}>{status.replace(/_/g, ' ')}</span>
+  return <span className={cn('chip', colorMap[status] || '', className)}>{status.replace(/_/g, ' ')}</span>
 }
 
 export function buildStatusFilterOptions(labels: Record<string, string>, values: string[], allLabel: string) {
@@ -137,7 +137,7 @@ export function buildStatusFilterOptions(labels: Record<string, string>, values:
 export function SeverityBadge({ severity }: { severity: string }) {
   const severityLabels = useDictionaryLabels('pax_incident_severity')
   return (
-    <span className={cn('gl-badge', SEVERITY_COLOR_MAP[severity] || 'gl-badge-neutral')}>
+    <span className={cn('chip', SEVERITY_COLOR_MAP[severity] || '')}>
       {severityLabels[severity] || severity}
     </span>
   )
@@ -270,8 +270,8 @@ export function daysUntil(dateStr: string): number {
 }
 
 export function CountdownBadge({ days }: { days: number }) {
-  const color = days <= 7 ? 'gl-badge-danger' : days <= 30 ? 'gl-badge-warning' : 'gl-badge-info'
-  return <span className={cn('gl-badge', color)}>{days}j</span>
+  const color = days <= 7 ? 'chip-danger' : days <= 30 ? 'chip-warn' : 'chip-info'
+  return <span className={cn('chip', color)}>{days}j</span>
 }
 
 // ── Searchable Picker (reused for company & user selection) ───
@@ -337,7 +337,7 @@ export function SearchablePicker<T extends { id: string }>({
               {items.map((item) => (
                 <button
                   key={item.id}
-                  className="gl-button gl-button-sm gl-button-default w-full text-left"
+                  className="btn btn-sm btn-secondary w-full text-left"
                   onClick={() => { onSelect(item); setOpen(false) }}
                 >
                   {renderItem(item)}

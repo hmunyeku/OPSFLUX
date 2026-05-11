@@ -219,10 +219,10 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
   }
 
   const STATUS_BADGE: Record<string, string> = {
-    draft: 'gl-badge-neutral',
-    validated: 'gl-badge-info',
-    promoted: 'gl-badge-success',
-    archived: 'gl-badge-warning',
+    draft: '',
+    validated: 'chip-info',
+    promoted: 'chip-success',
+    archived: 'chip-warn',
   }
   const STATUS_LABEL: Record<string, string> = {
     draft: 'Brouillon',
@@ -296,8 +296,8 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                 <textarea className={cn(panelInputClass, 'min-h-[60px]')} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
               </DynamicPanelField>
               <div className="col-span-full flex gap-2 justify-end">
-                <button className="gl-button-sm gl-button-default" onClick={() => setEditing(false)}>{t('common.cancel')}</button>
-                <button className="gl-button-sm gl-button-confirm" onClick={handleSave} disabled={!editForm.title.trim() || updateScenario.isPending}>
+                <button className="btn-sm btn-secondary" onClick={() => setEditing(false)}>{t('common.cancel')}</button>
+                <button className="btn-sm btn-primary" onClick={handleSave} disabled={!editForm.title.trim() || updateScenario.isPending}>
                   {updateScenario.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
                 </button>
               </div>
@@ -308,16 +308,16 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('common.description')} value={scenario.description || '—'} />
               <ReadOnlyRow label={t('common.status')} value={
                 <div className="flex items-center gap-1.5">
-                  <span className={cn('gl-badge text-[10px]', STATUS_BADGE[scenario.status] || 'gl-badge-neutral')}>
+                  <span className={cn('chip text-[10px]', STATUS_BADGE[scenario.status] || '')}>
                     {STATUS_LABEL[scenario.status] || scenario.status}
                   </span>
                   {isReference && (
-                    <span className="gl-badge text-[10px] gl-badge-warning inline-flex items-center gap-1">
+                    <span className="chip text-[10px] chip-warn inline-flex items-center gap-1">
                       <Star size={9} className="fill-amber-500" /> Référence
                     </span>
                   )}
                   {isThisScenarioActive && (
-                    <span className="gl-badge text-[10px] gl-badge-info">{t('planner.scenario.active_view', 'Vue active')}</span>
+                    <span className="chip text-[10px] chip-info">{t('planner.scenario.active_view', 'Vue active')}</span>
                   )}
                 </div>
               } />
@@ -403,8 +403,8 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
-                <button className="gl-button-sm gl-button-default text-xs" onClick={() => setShowAddActivity(false)}>{t('common.cancel')}</button>
-                <button className="gl-button-sm gl-button-confirm text-xs" onClick={handleAddScenarioActivity} disabled={addScenarioActivity.isPending}>
+                <button className="btn-sm btn-secondary text-xs" onClick={() => setShowAddActivity(false)}>{t('common.cancel')}</button>
+                <button className="btn-sm btn-primary text-xs" onClick={handleAddScenarioActivity} disabled={addScenarioActivity.isPending}>
                   {addScenarioActivity.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.add', 'Ajouter')}
                 </button>
               </div>
@@ -428,9 +428,9 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-medium text-foreground truncate">{(act.title as string) || (act.source_activity_title as string) || '—'}</span>
-                      {Boolean(act.is_removed) && <span className="gl-badge gl-badge-danger text-[9px]">{t('common.deleted_female')}</span>}
-                      {Boolean(act.source_activity_id) && !act.is_removed && <span className="gl-badge gl-badge-neutral text-[9px]">{t('common.modified_female')}</span>}
-                      {!act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-info text-[9px]">{t('common.new_female')}</span>}
+                      {Boolean(act.is_removed) && <span className="chip chip-danger text-[9px]">{t('common.deleted_female')}</span>}
+                      {Boolean(act.source_activity_id) && !act.is_removed && <span className="chip text-[9px]">{t('common.modified_female')}</span>}
+                      {!act.source_activity_id && !act.is_removed && <span className="chip chip-info text-[9px]">{t('common.new_female')}</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
                       {Boolean(act.asset_name) && <span>{String(act.asset_name)}</span>}
@@ -441,7 +441,7 @@ export function ScenarioDetailPanel({ id }: { id: string }) {
                   </div>
                   {!isPromoted && !isArchived && (
                     <button
-                      className="gl-button gl-button-danger opacity-0 group-hover:opacity-100"
+                      className="btn btn-danger opacity-0 group-hover:opacity-100"
                       title={t('planner.scenario.remove_activity', 'Retirer du scénario')}
                       onClick={() => handleRemoveScenarioActivity(act.id as string)}
                     >

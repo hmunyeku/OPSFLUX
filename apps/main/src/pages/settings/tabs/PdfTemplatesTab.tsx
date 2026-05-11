@@ -153,11 +153,11 @@ export function PdfTemplatesTab() {
           {t('settings.pdf_templates.count_summary', { count: totalCount })}
         </p>
         <div className="flex items-center gap-2">
-          <button onClick={handleSeed} disabled={seedMutation.isPending} className="gl-button-sm gl-button-default">
+          <button onClick={handleSeed} disabled={seedMutation.isPending} className="btn-sm btn-secondary">
             {seedMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             {t('settings.pdf_templates.seed_defaults')}
           </button>
-          <button onClick={handleCreate} className="gl-button-sm gl-button-confirm">
+          <button onClick={handleCreate} className="btn-sm btn-primary">
             <Plus size={12} />
             {t('settings.pdf_templates.new_template')}
           </button>
@@ -272,7 +272,7 @@ function PdfTemplateGrid({
             </span>
 
             {/* Page format */}
-            <span className="gl-badge gl-badge-info">
+            <span className="chip chip-info">
               {PAGE_SIZE_LABELS[t.page_size] ?? t.page_size} {t.orientation === 'landscape' ? '↔' : '↕'}
             </span>
 
@@ -287,7 +287,7 @@ function PdfTemplateGrid({
                 </span>
               ))
             ) : (
-              <span className="gl-badge gl-badge-warning">
+              <span className="chip chip-warn">
                 Aucune version
               </span>
             )}

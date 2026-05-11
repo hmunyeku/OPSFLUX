@@ -410,7 +410,7 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={() => setBulkFillOpen(true)}
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
           title={t('planner.remplir_la_selection_avec_une_valeur')}
           disabled={selectedKeys.length === 0}
         >
@@ -419,7 +419,7 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={copyValueToSelection}
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
           title={t('planner.copier_la_premiere_cellule_sur_toute_la')}
           disabled={selectedKeys.length === 0}
         >
@@ -428,7 +428,7 @@ export function VariablePobEditor({
         <button
           type="button"
           onClick={clearSelection}
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
           title={t('planner.vider_la_selection_suppr')}
           disabled={selectedKeys.length === 0}
         >
@@ -451,7 +451,7 @@ export function VariablePobEditor({
             const v = Number(raw)
             if (Number.isFinite(v)) fillAllWith(v)
           }}
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
           title={t('planner.remplir_tous_les_jours')}
         >
           Tout
@@ -470,7 +470,7 @@ export function VariablePobEditor({
             const v = Number(raw)
             if (Number.isFinite(v)) fillWeekdaysOnly(v)
           }}
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
           title="Lun-Ven uniquement"
         >
           Semaine
@@ -489,7 +489,7 @@ export function VariablePobEditor({
             const v = Number(raw)
             if (Number.isFinite(v)) fillWeekendsOnly(v)
           }}
-          className="gl-button gl-button-default"
+          className="btn btn-secondary"
           title="Sam-Dim uniquement"
         >
           Week-end
@@ -519,14 +519,14 @@ export function VariablePobEditor({
           <button
             type="button"
             onClick={applyBulkFill}
-            className="gl-button gl-button-confirm"
+            className="btn btn-primary"
           >
             OK
           </button>
           <button
             type="button"
             onClick={() => { setBulkFillOpen(false); setBulkFillValue('') }}
-            className="gl-button gl-button-default"
+            className="btn btn-secondary"
           >
             Annuler
           </button>

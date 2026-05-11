@@ -231,7 +231,7 @@ export default function I18nTab() {
         <div className="grow" />
         <button
           onClick={() => setShowLanguagesPanel(true)}
-          className="gl-button-sm gl-button-default items-center gap-1.5"
+          className="btn-sm btn-secondary items-center gap-1.5"
         >
           <Globe size={14} /> Gérer les langues
         </button>
@@ -264,7 +264,7 @@ export default function I18nTab() {
 
         <button
           onClick={() => setShowAddKey(true)}
-          className="gl-button-sm gl-button-confirm items-center gap-1.5"
+          className="btn-sm btn-primary items-center gap-1.5"
         >
           <Plus size={14} /> Ajouter une clé
         </button>
@@ -420,7 +420,7 @@ function MessageRow({ message }: { message: I18nMessage }) {
               <button
                 onClick={save}
                 disabled={upsert.isPending}
-                className="gl-button gl-button-confirm text-primary"
+                className="btn btn-primary text-primary"
                 title="Enregistrer"
               >
                 {upsert.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
@@ -448,7 +448,7 @@ function MessageRow({ message }: { message: I18nMessage }) {
               </button>
               <button
                 onClick={handleDelete}
-                className="gl-button gl-button-danger"
+                className="btn btn-danger"
                 title="Supprimer"
               >
                 <Trash2 size={14} />
@@ -515,13 +515,13 @@ function AddKeyRow({
         className="gl-form-input w-full text-xs"
       />
       <div className="flex items-center gap-2 justify-end">
-        <button onClick={onCancel} className="gl-button-sm gl-button-default">
+        <button onClick={onCancel} className="btn-sm btn-secondary">
           Annuler
         </button>
         <button
           onClick={save}
           disabled={upsert.isPending || !key.trim() || !value.trim()}
-          className="gl-button-sm gl-button-confirm"
+          className="btn-sm btn-primary"
         >
           {upsert.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
         </button>
@@ -581,7 +581,7 @@ function AiTranslateButton({
       <button
         onClick={() => { setResult(null); mutation.mutate() }}
         disabled={mutation.isPending}
-        className="gl-button-sm gl-button-default items-center gap-1.5"
+        className="btn-sm btn-secondary items-center gap-1.5"
         title={`Traduire automatiquement les clés manquantes du ${sourceLang.toUpperCase()} vers ${targetLang.toUpperCase()} via l'IA`}
       >
         {mutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
@@ -675,14 +675,14 @@ function ImportExportMenu({
       <button
         onClick={exportJson}
         disabled={messages.length === 0}
-        className="gl-button-sm gl-button-default items-center gap-1.5"
+        className="btn-sm btn-secondary items-center gap-1.5"
       >
         <Download size={14} /> Exporter
       </button>
       <button
         onClick={() => fileRef.current?.click()}
         disabled={bulk.isPending}
-        className="gl-button-sm gl-button-default items-center gap-1.5"
+        className="btn-sm btn-secondary items-center gap-1.5"
       >
         {bulk.isPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
         Importer
@@ -756,7 +756,7 @@ function LanguagesPanel({
           <div className="font-medium flex items-center gap-2">
             <Globe size={16} /> Langues
           </div>
-          <button onClick={onClose} className="gl-button gl-button-default">
+          <button onClick={onClose} className="btn btn-secondary">
             <X size={16} />
           </button>
         </div>
@@ -835,13 +835,13 @@ function LanguagesPanel({
                 Langue de droite à gauche (RTL)
               </label>
               <div className="flex gap-2 justify-end">
-                <button onClick={() => setShowAdd(false)} className="gl-button-sm gl-button-default">
+                <button onClick={() => setShowAdd(false)} className="btn-sm btn-secondary">
                   Annuler
                 </button>
                 <button
                   onClick={handleCreate}
                   disabled={create.isPending}
-                  className="gl-button-sm gl-button-confirm"
+                  className="btn-sm btn-primary"
                 >
                   {create.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
                 </button>
@@ -850,7 +850,7 @@ function LanguagesPanel({
           ) : (
             <button
               onClick={() => setShowAdd(true)}
-              className="gl-button gl-button-default w-full border-dashed"
+              className="btn btn-secondary w-full border-dashed"
             >
               <Plus size={14} /> Ajouter une langue
             </button>

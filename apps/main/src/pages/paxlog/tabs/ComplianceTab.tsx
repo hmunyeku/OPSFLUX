@@ -103,7 +103,7 @@ export function ComplianceTab() {
           contractors_only: t('paxlog.compliance_tab.scope_values.contractors_only'),
           permanent_staff_only: t('paxlog.compliance_tab.scope_values.permanent_staff_only'),
         }
-        return <span className="gl-badge gl-badge-neutral">{labels[row.original.scope] || row.original.scope}</span>
+        return <span className="chip">{labels[row.original.scope] || row.original.scope}</span>
       },
       size: 120,
     },
@@ -118,7 +118,7 @@ export function ComplianceTab() {
     {
       accessorKey: 'defined_by',
       header: t('paxlog.compliance_tab.defined_by'),
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.defined_by === 'hse_central' ? t('paxlog.compliance_tab.defined_by_values.hse_central') : t('paxlog.compliance_tab.defined_by_values.site')}</span>,
+      cell: ({ row }) => <span className="chip">{row.original.defined_by === 'hse_central' ? t('paxlog.compliance_tab.defined_by_values.hse_central') : t('paxlog.compliance_tab.defined_by_values.site')}</span>,
       size: 100,
     },
   ], [credTypeMap, t])
@@ -126,13 +126,20 @@ export function ComplianceTab() {
   return (
     <PanelContent>
       <div className="p-4 space-y-5">
-        {/* Stats */}
+        {/* Stats — fallback à 0 (et '—' pour le taux) quand complianceStats
+            renvoie des champs undefined: avant, on voyait 'undefined%' dans
+            la première carte si le backend ne calcule pas encore le taux. */}
         {complianceStats && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label={t('paxlog.compliance_tab.kpis.rate')} value={`${complianceStats.compliance_rate}%`} icon={Shield} accent={complianceStats.compliance_rate >= 90 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} />
-            <StatCard label={t('paxlog.compliance_tab.kpis.compliant')} value={complianceStats.compliant_pax} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
-            <StatCard label={t('paxlog.compliance_tab.kpis.non_compliant')} value={complianceStats.non_compliant_pax} icon={XCircle} accent={complianceStats.non_compliant_pax > 0 ? 'text-destructive' : undefined} />
-            <StatCard label={t('paxlog.compliance_tab.kpis.expiring_soon')} value={complianceStats.expiring_soon} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
+            <StatCard
+              label={t('paxlog.compliance_tab.kpis.rate')}
+              value={typeof complianceStats.compliance_rate === 'number' ? `${complianceStats.compliance_rate}%` : '—'}
+              icon={Shield}
+              accent={(complianceStats.compliance_rate ?? 0) >= 90 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}
+            />
+            <StatCard label={t('paxlog.compliance_tab.kpis.compliant')} value={complianceStats.compliant_pax ?? 0} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
+            <StatCard label={t('paxlog.compliance_tab.kpis.non_compliant')} value={complianceStats.non_compliant_pax ?? 0} icon={XCircle} accent={(complianceStats.non_compliant_pax ?? 0) > 0 ? 'text-destructive' : undefined} />
+            <StatCard label={t('paxlog.compliance_tab.kpis.expiring_soon')} value={complianceStats.expiring_soon ?? 0} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
           </div>
         )}
 

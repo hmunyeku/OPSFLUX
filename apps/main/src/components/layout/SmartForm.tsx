@@ -503,7 +503,7 @@ export function SmartFormWizardNav({
           <button
             type="button"
             onClick={() => goToStep(currentStep - 1)}
-            className="gl-button gl-button-default inline-flex items-center gap-1"
+            className="btn btn-secondary inline-flex items-center gap-1"
           >
             <ChevronLeft size={12} />
             {t('smart_form.wizard.previous', 'Précédent')}
@@ -516,7 +516,7 @@ export function SmartFormWizardNav({
           type="button"
           onClick={toggleHelp}
           className={cn(
-            'gl-button gl-button-default inline-flex items-center gap-1',
+            'btn btn-secondary inline-flex items-center gap-1',
             helpDrawerOpen ? 'text-primary' : 'text-muted-foreground',
           )}
           title={t('smart_form.wizard.help', "Afficher l'aide de cette étape") as string}
@@ -528,7 +528,7 @@ export function SmartFormWizardNav({
           <button
             type="button"
             onClick={handleSkip}
-            className="gl-button gl-button-default inline-flex items-center gap-1"
+            className="btn btn-secondary inline-flex items-center gap-1"
             title={t('smart_form.wizard.skip_hint', 'Étape facultative — vous pourrez y revenir plus tard') as string}
           >
             <SkipForward size={12} />
@@ -539,7 +539,7 @@ export function SmartFormWizardNav({
           <button
             type="button"
             onClick={handleNext}
-            className="gl-button-sm gl-button-primary inline-flex items-center gap-1"
+            className="btn-sm btn-primary inline-flex items-center gap-1"
           >
             {t('smart_form.wizard.next', 'Suivant')}
             <ChevronRight size={12} />
@@ -553,7 +553,7 @@ export function SmartFormWizardNav({
               onSubmit?.()
             }}
             disabled={submitDisabled}
-            className="gl-button-sm gl-button-confirm inline-flex items-center gap-1 disabled:opacity-50"
+            className="btn-sm btn-primary inline-flex items-center gap-1 disabled:opacity-50"
           >
             <Check size={12} />
             {submitLabel ?? t('smart_form.wizard.finish', 'Terminer')}
@@ -623,7 +623,7 @@ export function SmartFormInlineHelpDrawer() {
               store.setAssistantTab('help')
               store.setAIPanelOpen(true)
             }}
-            className="gl-button-sm gl-button-default inline-flex items-center gap-1 text-muted-foreground"
+            className="btn-sm btn-secondary inline-flex items-center gap-1 text-muted-foreground"
             title={t('smart_form.wizard.help_full', 'Ouvrir l\u2019aide du module') as string}
           >
             <ExternalLink size={11} />
@@ -631,7 +631,7 @@ export function SmartFormInlineHelpDrawer() {
           <button
             type="button"
             onClick={() => ctx.setHelpDrawerOpen(false)}
-            className="gl-button-sm gl-button-default"
+            className="btn-sm btn-secondary"
             title={t('common.close', 'Fermer') as string}
           >
             <X size={11} />

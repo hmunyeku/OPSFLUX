@@ -71,12 +71,12 @@ export { EquipmentDetailPanel, PipelineDetailPanel }
 // ── Helpers ─────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  OPERATIONAL: 'gl-badge-success',
-  STANDBY: 'gl-badge-warning',
-  UNDER_CONSTRUCTION: 'gl-badge-info',
-  SUSPENDED: 'gl-badge-neutral',
-  DECOMMISSIONED: 'gl-badge-danger',
-  ABANDONED: 'gl-badge-danger',
+  OPERATIONAL: 'chip-success',
+  STANDBY: 'chip-warn',
+  UNDER_CONSTRUCTION: 'chip-info',
+  SUSPENDED: '',
+  DECOMMISSIONED: 'chip-danger',
+  ABANDONED: 'chip-danger',
 }
 
 const STATUS_OPTIONS_FALLBACK = [
@@ -138,7 +138,7 @@ const INSTALLATION_TYPE_OPTIONS = [
 function StatusBadge({ status }: { status: string | null | undefined }) {
   if (!status) return <span className="text-muted-foreground">—</span>
   return (
-    <span className={cn('gl-badge', STATUS_COLORS[status] || 'gl-badge-neutral')}>
+    <span className={cn('chip', STATUS_COLORS[status] || '')}>
       {status.replace(/_/g, ' ')}
     </span>
   )
@@ -177,7 +177,7 @@ function ChildLink({ icon: Icon, label, count, isLoading, onClick, iconColor }: 
     <button
       type="button"
       onClick={onClick}
-      className="gl-button gl-button-sm gl-button-default flex w-full group"
+      className="btn btn-sm btn-secondary flex w-full group"
     >
       <Icon size={14} className={iconColor} />
       <span className="text-foreground font-medium">{label}</span>
@@ -185,7 +185,7 @@ function ChildLink({ icon: Icon, label, count, isLoading, onClick, iconColor }: 
         {isLoading ? (
           <span className="text-muted-foreground">...</span>
         ) : (
-          <span className="gl-badge gl-badge-neutral font-semibold">{count ?? 0}</span>
+          <span className="chip font-semibold">{count ?? 0}</span>
         )}
         <ArrowRight size={12} className="text-muted-foreground group-hover:text-foreground transition-colors" />
       </span>
@@ -461,7 +461,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('common.code')} value={<span className="font-mono font-semibold">{site.code}</span>} />
               {canUpdate
                 ? <InlineEditableSelect label={t('common.type')} value={site.site_type} options={SITE_TYPE_OPTIONS} onSave={(v) => handleSave('site_type', v)} />
-                : <ReadOnlyRow label={t('common.type')} value={site.site_type ? <span className="gl-badge gl-badge-neutral">{site.site_type.replace(/_/g, ' ')}</span> : '—'} />
+                : <ReadOnlyRow label={t('common.type')} value={site.site_type ? <span className="chip">{site.site_type.replace(/_/g, ' ')}</span> : '—'} />
               }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={site.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
@@ -700,7 +700,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('common.code')} value={<span className="font-mono font-semibold">{inst.code}</span>} />
               {canUpdate
                 ? <InlineEditableSelect label={t('common.type')} value={inst.installation_type} options={INSTALLATION_TYPE_OPTIONS} onSave={(v) => handleSave('installation_type', v)} />
-                : <ReadOnlyRow label={t('common.type')} value={inst.installation_type ? <span className="gl-badge gl-badge-neutral">{inst.installation_type.replace(/_/g, ' ')}</span> : '—'} />
+                : <ReadOnlyRow label={t('common.type')} value={inst.installation_type ? <span className="chip">{inst.installation_type.replace(/_/g, ' ')}</span> : '—'} />
               }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={inst.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />

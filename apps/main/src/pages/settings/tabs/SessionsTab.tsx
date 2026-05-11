@@ -113,8 +113,8 @@ export function SessionsTab() {
       header: t('settings.columns.sessions.status'),
       size: 110,
       cell: ({ row }) => row.original.is_current
-        ? <span className="gl-badge gl-badge-success text-[9px]">Session actuelle</span>
-        : <span className="gl-badge gl-badge-neutral text-[9px]">{t('common.active_female')}</span>,
+        ? <span className="chip chip-success text-[9px]">Session actuelle</span>
+        : <span className="chip text-[9px]">{t('common.active_female')}</span>,
     },
     {
       accessorKey: 'created_at',
@@ -138,7 +138,7 @@ export function SessionsTab() {
           <button
             onClick={(e) => { e.stopPropagation(); handleRevoke(row.original.id) }}
             disabled={revokeSession.isPending}
-            className="gl-button-sm gl-button-danger"
+            className="btn-sm btn-danger"
           >
             Révoquer
           </button>
@@ -179,7 +179,7 @@ export function SessionsTab() {
 
         {otherSessions.length > 0 && (
           <button
-            className="gl-button gl-button-danger"
+            className="btn btn-danger"
             onClick={handleRevokeAll}
             disabled={revokeAll.isPending}
           >

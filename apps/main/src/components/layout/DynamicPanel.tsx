@@ -204,7 +204,7 @@ export function DynamicPanelShell({
           {onClose && (
             <button
               onClick={onClose}
-              className="gl-button-sm gl-button-default h-6 w-6 !p-0 shrink-0"
+              className="btn-sm btn-secondary h-6 w-6 !p-0 shrink-0"
               aria-label="Fermer"
             >
               <X size={14} />
@@ -292,7 +292,7 @@ export function DynamicPanelShell({
   }, [width])
 
   // Shared button style for header controls
-  const hdrBtn = 'gl-button-sm gl-button-default flex h-6 w-6 !p-0 shrink-0'
+  const hdrBtn = 'btn-sm btn-secondary flex h-6 w-6 !p-0 shrink-0'
   const navBtn = 'h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0'
 
   // ── When inside a floating panel, skip all shell chrome ──
@@ -319,7 +319,11 @@ export function DynamicPanelShell({
             previous two horizontal bars (h-9 nav + h-10 header = 76px)
             into a single h-11 row so the chrome eats less vertical
             real-estate. Layout from left to right:
-              [Back btn] | [icon] [title/subtitle] | [pager] [tools] */}
+              [Back btn] | [icon] [title/subtitle] | [actions] | [pager] [tools]
+            Actions are inlined here on desktop (≥ sm) — Pajamas++ pattern.
+            The previous standalone strip below the header was visually
+            disconnected and ate vertical real estate. Mobile keeps the
+            sticky-bottom action bar (rendered after the content). */}
         <div className="flex items-center gap-3 h-11 border-b border-border px-4 shrink-0 bg-background-subtle/50">
           <button
             onClick={() => {
@@ -336,13 +340,29 @@ export function DynamicPanelShell({
           <div className="w-px h-5 bg-border/60 shrink-0" />
 
           {icon && <span className="shrink-0">{icon}</span>}
-          <div className="flex-1 min-w-0">
+          {/* Title region: capped so the action bar gets a real budget.
+              Without max-w the flex-1 title grows to fill all remaining
+              space, leaving the ResponsiveActionBar with ~0 measured
+              budget — which collapses every label to icon-only. Cap at
+              ~50% of the row so actions always have ≥ 200-300px to render
+              labelled buttons. min-w-0 still lets it truncate. */}
+          <div className="flex-1 min-w-0 max-w-[50%]">
             <h2 className="text-sm font-semibold text-foreground truncate leading-tight">{title}</h2>
             {subtitle && <p className="text-[11px] text-muted-foreground truncate leading-tight">{subtitle}</p>}
           </div>
 
+          {/* Inline actions — desktop only (mobile uses sticky bottom bar).
+              flex-1 lets the bar take all remaining horizontal space so the
+              ResponsiveActionBar can keep labels visible (its own measure
+              logic will collapse to icon-only only when truly out of room). */}
+          {actionsNode && (
+            <div className="hidden sm:flex items-center gap-1.5 flex-1 min-w-0 pl-2 border-l border-border/60">
+              {actionsNode}
+            </div>
+          )}
+
           {canNavigate && (
-            <div className="flex items-center gap-0.5 shrink-0">
+            <div className="flex items-center gap-0.5 shrink-0 pl-2 border-l border-border/60">
               <span className="text-xs text-muted-foreground mr-1 tabular-nums hidden sm:inline">
                 {currentIndex + 1} / {navItems.length}
               </span>
@@ -376,20 +396,6 @@ export function DynamicPanelShell({
             </button>
           </div>
         </div>
-
-        {/* Actions toolbar
-            Desktop: rendered as a slim row UNDER the header (existing
-            behaviour preserved by `hidden sm:flex`).
-            Mobile: hidden here — instead the same actions are rendered
-            as a sticky bottom bar BELOW the scroll area so users don't
-            have to scroll a long form to reach the Save / Cancel
-            buttons. Both layouts share the same `actionsNode` so the
-            button labels stay consistent. */}
-        {actionsNode && (
-          <div className="hidden sm:flex items-center justify-end gap-2 border-b border-border px-4 py-1.5 shrink-0 bg-background-subtle min-w-0">
-            {actionsNode}
-          </div>
-        )}
 
         {/* Content — full-width scroll container; the inner
             `PanelContentLayout` (used by detail panels) handles its own
@@ -583,10 +589,26 @@ export function FormGrid({
 export function SectionColumns({
   children,
   className,
+  sidebar,
 }: {
   children: React.ReactNode
   className?: string
+  /** Layout mode:
+   *   - undefined (default): vertical stack (legacy behavior)
+   *   - 'right-320': CSS Grid 1fr/320px on ≥ lg viewports — main on
+   *     left, narrow sidebar on right (Pajamas++ design pattern).
+   *     Children are placed in source order: 1st = main, 2nd = sidebar.
+   *     Stacks vertically below the breakpoint.
+   */
+  sidebar?: 'right-320'
 }) {
+  if (sidebar === 'right-320') {
+    return (
+      <div className={cn('grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]', className)}>
+        {children}
+      </div>
+    )
+  }
   return (
     <div className={cn('space-y-3', className)}>
       {children}
@@ -738,13 +760,20 @@ export function FormSection({
   return (
     <fieldset
       className={cn(
-        // Very discreet card — border so light it almost reads as a hairline
-        // separator. Hover-on-section shows a slightly stronger border to
-        // signal interactivity (collapse/expand). April 2026 design v2.
-        'border border-border/20 hover:border-border/40 rounded-lg bg-card/20 transition-colors px-3 py-2',
+        // Pajamas++ section card — visible but restrained chrome so
+        // each section reads as its own grouped surface without making
+        // a form-heavy panel feel like a card explosion (May 2026
+        // design v2). Earlier attempts at "discreet"
+        // (border-border/20 + bg-card/20, or border-border/60 +
+        // shadow-sm) disappeared on white-on-cream because --card and
+        // --background are nearly identical (#FFF vs #FCFAF6).
+        // Solution: full-opacity border + ring shadow at low opacity
+        // (the ring reads as a 1px outline rather than a drop shadow,
+        // so 5+ sections stack cleanly).
+        'border border-border rounded-lg bg-card shadow-[0_1px_3px_rgba(20,30,55,0.06)] transition-colors px-5 py-4',
         // Slightly more bottom padding when content is shown.
-        collapsible && expanded && 'pb-3 space-y-1.5',
-        !collapsible && 'pb-3 space-y-1.5',
+        collapsible && expanded && 'pb-4 space-y-2',
+        !collapsible && 'pb-4 space-y-2',
         className,
       )}
     >
@@ -901,10 +930,10 @@ export function PanelActionButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'gl-button-sm',
-        variant === 'primary' && 'gl-button-confirm',
-        variant === 'danger' && 'gl-button-danger',
-        variant === 'default' && 'gl-button-default',
+        'btn-sm',
+        variant === 'primary' && 'btn-primary',
+        variant === 'danger' && 'btn-danger',
+        variant === 'default' && 'btn-secondary',
       )}
     >
       {icon}
@@ -963,10 +992,10 @@ export function DangerConfirmButton({
       onClick={handleClick}
       disabled={disabled}
       className={cn(
-        'gl-button-sm transition-all duration-200',
+        'btn-sm transition-all duration-200',
         confirming
           ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse'
-          : 'gl-button-danger',
+          : 'btn-danger',
       )}
     >
       {icon}
@@ -1406,7 +1435,7 @@ export function InlineEditableTags({
         )}
       >
         <span className="flex-1 min-w-0">
-          <span className="gl-badge gl-badge-neutral">{displayLabel}</span>
+          <span className="chip">{displayLabel}</span>
         </span>
         {!disabled && <Pencil size={11} className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/70 transition-colors" />}
       </span>

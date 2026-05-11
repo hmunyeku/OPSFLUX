@@ -413,7 +413,7 @@ function WorkflowEditorInner({
     <div className="flex flex-col h-full">
       {/* ── Editor Header ── */}
       <div className="flex items-center gap-3 px-4 py-1.5 border-b border-border bg-card shrink-0">
-        <button onClick={onBack} className="gl-button gl-button-default">
+        <button onClick={onBack} className="btn btn-secondary">
           <ArrowLeft size={16} />
         </button>
         <div className="flex-1 min-w-0">
@@ -446,7 +446,7 @@ function WorkflowEditorInner({
               <button
                 onClick={handleUndo}
                 disabled={!canUndo}
-                className="gl-button gl-button-default"
+                className="btn btn-secondary"
                 title={t('workflow.shortcut_undo')}
               >
                 <Undo2 size={14} />
@@ -454,7 +454,7 @@ function WorkflowEditorInner({
               <button
                 onClick={handleRedo}
                 disabled={!canRedo}
-                className="gl-button gl-button-default"
+                className="btn btn-secondary"
                 title={t('workflow.shortcut_redo')}
               >
                 <Redo2 size={14} />
@@ -494,7 +494,7 @@ function WorkflowEditorInner({
           <button
             onClick={() => setShowValidation(!showValidation)}
             className={cn(
-              'gl-button-sm text-[10px]',
+              'btn-sm text-[10px]',
               hasErrors
                 ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400'
                 : validationIssues.length > 0
@@ -516,7 +516,7 @@ function WorkflowEditorInner({
           )}
 
           {/* Clone */}
-          <button onClick={onClone} className="gl-button-sm gl-button-default text-[10px]" title={t('workflow.clone')}>
+          <button onClick={onClone} className="btn-sm btn-secondary text-[10px]" title={t('workflow.clone')}>
             <Copy size={11} /> {t('workflow.clone')}
           </button>
 
@@ -525,7 +525,7 @@ function WorkflowEditorInner({
             <button
               onClick={onPublish}
               disabled={hasErrors}
-              className="gl-button-sm text-[10px] bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="btn-sm text-[10px] bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50 disabled:opacity-40 disabled:cursor-not-allowed"
               title={hasErrors ? t('workflow.fix_errors_before_publish') : t('workflow.publish')}
             >
               <Send size={11} /> {t('workflow.publish')}
@@ -534,7 +534,7 @@ function WorkflowEditorInner({
 
           {/* Archive (published only) */}
           {definition.status === 'published' && canDelete && (
-            <button onClick={onArchive} className="gl-button-sm gl-button-default text-[10px]">
+            <button onClick={onArchive} className="btn-sm btn-secondary text-[10px]">
               <Archive size={11} /> {t('workflow.archive')}
             </button>
           )}
@@ -544,7 +544,7 @@ function WorkflowEditorInner({
             <>
               <div className="w-px h-5 bg-border" />
               <span className="text-[10px] text-muted-foreground hidden sm:block">{t('workflow.shortcut_save')}</span>
-              <button onClick={handleSave} disabled={saving} className="gl-button-sm gl-button-confirm">
+              <button onClick={handleSave} disabled={saving} className="btn-sm btn-primary">
                 {saving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
                 {t('workflow.save')}
               </button>

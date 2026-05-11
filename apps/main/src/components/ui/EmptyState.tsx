@@ -79,7 +79,7 @@ const sizeConfig: Record<EmptyStateSize, {
     iconWrapper: 'mb-0',
     titleClass: 'text-xs font-semibold text-foreground',
     descClass: 'text-xs text-muted-foreground max-w-xs',
-    btnClass: 'gl-button-sm',
+    btnClass: 'btn-sm',
   },
   default: {
     container: 'py-12 px-6 gap-3',
@@ -87,7 +87,7 @@ const sizeConfig: Record<EmptyStateSize, {
     iconWrapper: 'mb-1',
     titleClass: 'text-sm font-semibold text-foreground',
     descClass: 'text-sm text-muted-foreground max-w-sm',
-    btnClass: 'gl-button-sm',
+    btnClass: 'btn-sm',
   },
   large: {
     container: 'py-20 px-8 gap-4 relative',
@@ -98,7 +98,7 @@ const sizeConfig: Record<EmptyStateSize, {
     iconWrapper: 'mb-2 p-5 rounded-3xl bg-gradient-to-br from-primary/8 to-highlight/8 ring-1 ring-primary/10 shadow-[0_10px_40px_-15px_hsl(var(--primary)/0.25)] backdrop-blur-sm',
     titleClass: 'text-xl font-bold text-foreground font-display tracking-tight',
     descClass: 'text-base text-muted-foreground max-w-md',
-    btnClass: 'gl-button-sm',
+    btnClass: 'btn-sm',
   },
 }
 
@@ -154,10 +154,10 @@ export function EmptyState({
               className={cn(
                 config.btnClass,
                 action.variant === 'premium'
-                  ? 'gl-button-premium'
+                  ? 'btn-premium'
                   : action.variant === 'primary' || !action.variant
-                    ? 'gl-button-confirm'
-                    : 'gl-button-default',
+                    ? 'btn-primary'
+                    : 'btn-secondary',
               )}
             >
               {action.label}
@@ -167,7 +167,7 @@ export function EmptyState({
             <button
               type="button"
               onClick={secondaryAction.onClick}
-              className={cn(config.btnClass, 'gl-button-default')}
+              className={cn(config.btnClass, 'btn-secondary')}
             >
               {secondaryAction.label}
             </button>

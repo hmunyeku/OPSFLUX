@@ -609,7 +609,19 @@ async def close_ticket(
     await _log_status_change(db, ticket.id, old, "closed", current_user.id)
 
     await db.commit()
-    await db.refresh(ticket, ["comments"])
+
+    # Re-fetch with comments eagerly loaded to avoid MissingGreenlet on
+    # response serialization. Mirrors the resolve_ticket pattern — using
+    # `await db.refresh(ticket, ["comments"])` here triggers an implicit
+    # lazy-load on the comments relationship in async session, which
+    # raises MissingGreenlet -> 500. Discovered when trying to close
+    # SUP-0016 / SUP-0014 (admin spam/rhetorical tickets).
+    refreshed = await db.execute(
+        select(SupportTicket)
+        .options(selectinload(SupportTicket.comments))
+        .where(SupportTicket.id == ticket_id)
+    )
+    ticket = refreshed.scalar_one()
 
     # Kick off satisfaction survey to the reporter — best effort, does
     # not block the close response.
@@ -682,7 +694,15 @@ async def reopen_ticket(
     await _log_status_change(db, ticket.id, old, "open", current_user.id, "Réouvert")
 
     await db.commit()
-    await db.refresh(ticket, ["comments"])
+
+    # Re-fetch with comments eagerly loaded — same MissingGreenlet
+    # avoidance as in close_ticket and resolve_ticket.
+    refreshed = await db.execute(
+        select(SupportTicket)
+        .options(selectinload(SupportTicket.comments))
+        .where(SupportTicket.id == ticket_id)
+    )
+    ticket = refreshed.scalar_one()
 
     user_ids = {ticket.reporter_id}
     if ticket.assignee_id:

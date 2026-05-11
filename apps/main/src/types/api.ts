@@ -2055,33 +2055,66 @@ export interface VoyageStatusUpdate {
 }
 
 // ── TravelWiz — Voyage Stops ────────────────────────────────
+//
+// SUP-0033 alignment: les types frontend pointaient vers une ancienne
+// API (location/arrival_at) alors que le backend expose asset_id /
+// scheduled_arrival depuis longtemps. Resync sur le schéma backend
+// (cf app/schemas/travelwiz.py:VoyageStopRead/Create/Update).
+//
+// `location` est conservé en optional read-only pour la rétro-compat
+// des composants legacy qui l'affichent encore — le backend ne le
+// renvoie pas, donc le champ sera undefined sur les nouvelles données.
 
 export interface VoyageStop {
   id: string
   voyage_id: string
-  location: string
+  asset_id: string
+  asset_name?: string | null
   stop_order: number
-  arrival_at: string | null
-  departure_at: string | null
-  description: string | null
+  scheduled_arrival?: string | null
+  scheduled_departure?: string | null
+  actual_arrival?: string | null
+  actual_departure?: string | null
+  // Flux PAX/cargo par étape : ces compteurs représentent ce qui
+  // se passe À CETTE escale. L'occupation cumulée du vecteur après
+  // l'étape N est Σ(pax_boarded[1..N]) − Σ(pax_disembarked[1..N]).
+  pax_boarded_count: number
+  pax_disembarked_count: number
+  cargo_loaded_kg: number
+  cargo_unloaded_kg: number
+  notes?: string | null
   active: boolean
-  created_at: string
+  /** @deprecated — use asset_name. Kept for legacy display code. */
+  location?: string
+  /** @deprecated — use scheduled_arrival. */
+  arrival_at?: string | null
 }
 
 export interface VoyageStopCreate {
-  location: string
-  stop_order?: number
-  arrival_at?: string | null
-  departure_at?: string | null
-  description?: string | null
+  asset_id: string
+  stop_order: number
+  scheduled_arrival?: string | null
+  scheduled_departure?: string | null
+  pax_boarded_count?: number | null
+  pax_disembarked_count?: number | null
+  cargo_loaded_kg?: number | null
+  cargo_unloaded_kg?: number | null
+  notes?: string | null
 }
 
 export interface VoyageStopUpdate {
-  location?: string
+  asset_id?: string
   stop_order?: number
-  arrival_at?: string | null
-  departure_at?: string | null
-  description?: string | null
+  scheduled_arrival?: string | null
+  scheduled_departure?: string | null
+  actual_arrival?: string | null
+  actual_departure?: string | null
+  pax_boarded_count?: number | null
+  pax_disembarked_count?: number | null
+  cargo_loaded_kg?: number | null
+  cargo_unloaded_kg?: number | null
+  notes?: string | null
+  active?: boolean
 }
 
 // ── TravelWiz — Manifests ───────────────────────────────────

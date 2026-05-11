@@ -73,7 +73,7 @@ export function SatisfactionPage() {
       <div className="max-w-lg mx-auto mt-20 p-6 text-center">
         <h1 className="text-lg font-semibold mb-2">{t('support.satisfaction.not_found_title', 'Ticket introuvable')}</h1>
         <p className="text-sm text-muted-foreground">{t('support.satisfaction.not_found_desc', "Ce lien n'est peut-être plus valide.")}</p>
-        <Link to="/support" className="gl-button gl-button-sm gl-button-default mt-4 inline-flex">
+        <Link to="/support" className="btn btn-sm btn-secondary mt-4 inline-flex">
           <ArrowLeft size={11} /> {t('support.satisfaction.back', 'Retour au support')}
         </Link>
       </div>
@@ -173,7 +173,7 @@ export function SatisfactionPage() {
 
           <button
             type="button"
-            className="gl-button gl-button-primary w-full"
+            className="btn btn-primary w-full"
             disabled={rating === 0 || submit.isPending}
             onClick={() => submit.mutate()}
           >

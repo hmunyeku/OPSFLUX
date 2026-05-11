@@ -331,7 +331,7 @@ export function CreateEquipmentPanel() {
         </FormSection>
 
         <div className="p-3 border-t border-border">
-          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createEquipment.isPending}>
+          <button className="btn btn-primary w-full" onClick={handleSubmit} disabled={createEquipment.isPending}>
             {createEquipment.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
             Créer l'équipement
           </button>
@@ -467,7 +467,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
               label="Phase"
               value={
                 equip.fluid_phase
-                  ? <span className="gl-badge gl-badge-neutral">{FLUID_PHASE_OPTIONS.find((o) => o.value === equip.fluid_phase)?.label || equip.fluid_phase}</span>
+                  ? <span className="chip">{FLUID_PHASE_OPTIONS.find((o) => o.value === equip.fluid_phase)?.label || equip.fluid_phase}</span>
                   : '--'
               }
             />
@@ -616,7 +616,7 @@ export function CreateProcessLinePanel() {
         </FormSection>
 
         <div className="p-3 border-t border-border">
-          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createLine.isPending}>
+          <button className="btn btn-primary w-full" onClick={handleSubmit} disabled={createLine.isPending}>
             {createLine.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
             Créer la ligne
           </button>
@@ -723,7 +723,7 @@ export function CreateDCSTagPanel() {
         </FormSection>
 
         <div className="p-3 border-t border-border">
-          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createTag.isPending}>
+          <button className="btn btn-primary w-full" onClick={handleSubmit} disabled={createTag.isPending}>
             {createTag.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
             Créer le tag DCS
           </button>

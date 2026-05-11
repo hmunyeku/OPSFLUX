@@ -53,17 +53,17 @@ import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 // ── Status badge helper ──────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  OPERATIONAL: 'gl-badge-success',
-  STANDBY: 'gl-badge-warning',
-  UNDER_CONSTRUCTION: 'gl-badge-info',
-  SUSPENDED: 'gl-badge-neutral',
-  DECOMMISSIONED: 'gl-badge-danger',
-  ABANDONED: 'gl-badge-danger',
+  OPERATIONAL: 'chip-success',
+  STANDBY: 'chip-warn',
+  UNDER_CONSTRUCTION: 'chip-info',
+  SUSPENDED: '',
+  DECOMMISSIONED: 'chip-danger',
+  ABANDONED: 'chip-danger',
 }
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={cn('gl-badge', STATUS_COLORS[status] || 'gl-badge-neutral')}>
+    <span className={cn('chip', STATUS_COLORS[status] || '')}>
       {status.replace(/_/g, ' ')}
     </span>
   )
@@ -224,7 +224,7 @@ function FieldsTab() {
     {
       accessorKey: 'country',
       header: t('assets.country'),
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.country}</span>,
+      cell: ({ row }) => <span className="chip">{row.original.country}</span>,
     },
     {
       accessorKey: 'operator',
@@ -233,7 +233,7 @@ function FieldsTab() {
     {
       accessorKey: 'environment',
       header: t('assets.environment'),
-      cell: ({ row }) => row.original.environment ? <span className="gl-badge gl-badge-info">{row.original.environment}</span> : '—',
+      cell: ({ row }) => row.original.environment ? <span className="chip chip-info">{row.original.environment}</span> : '—',
     },
     {
       accessorKey: 'status',
@@ -349,12 +349,20 @@ function SitesTab() {
     {
       accessorKey: 'site_type',
       header: t('common.type'),
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.site_type.replace(/_/g, ' ')}</span>,
+      // SUP-0002 fix: site_type peut être null pour des sites importés
+      // sans type défini. L'ancien code faisait .replace() direct ce qui
+      // crashait silencieusement la cellule (null.replace TypeError) →
+      // colonne TYPE vide pour ces rows. Affiche un dash explicite.
+      cell: ({ row }) => row.original.site_type
+        ? <span className="chip">{String(row.original.site_type).replace(/_/g, ' ')}</span>
+        : <span className="text-muted-foreground/40">—</span>,
     },
     {
       accessorKey: 'environment',
       header: t('assets.environment'),
-      cell: ({ row }) => <span className="gl-badge gl-badge-info">{row.original.environment}</span>,
+      cell: ({ row }) => row.original.environment
+        ? <span className="chip chip-info">{row.original.environment}</span>
+        : <span className="text-muted-foreground/40">—</span>,
     },
     {
       accessorKey: 'country',
@@ -479,12 +487,16 @@ function InstallationsTab() {
     {
       accessorKey: 'installation_type',
       header: t('common.type'),
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral text-[10px]">{row.original.installation_type.replace(/_/g, ' ')}</span>,
+      // Defensive null-check (cf SUP-0002): un installation_type null
+      // crashait silencieusement la cellule via .replace().
+      cell: ({ row }) => row.original.installation_type
+        ? <span className="chip text-[10px]">{String(row.original.installation_type).replace(/_/g, ' ')}</span>
+        : <span className="text-muted-foreground/40">—</span>,
     },
     {
       accessorKey: 'environment',
       header: t('assets.environment'),
-      cell: ({ row }) => <span className="gl-badge gl-badge-info">{row.original.environment}</span>,
+      cell: ({ row }) => <span className="chip chip-info">{row.original.environment}</span>,
     },
     {
       accessorKey: 'is_manned',
@@ -629,7 +641,9 @@ function EquipmentTab() {
     {
       accessorKey: 'equipment_class',
       header: t('assets.equipment_class'),
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral text-[10px]">{row.original.equipment_class.replace(/_/g, ' ')}</span>,
+      cell: ({ row }) => row.original.equipment_class
+        ? <span className="chip text-[10px]">{String(row.original.equipment_class).replace(/_/g, ' ')}</span>
+        : <span className="text-muted-foreground/40">—</span>,
     },
     {
       accessorKey: 'manufacturer',
@@ -642,8 +656,8 @@ function EquipmentTab() {
       cell: ({ row }) => {
         const c = row.original.criticality
         if (!c) return '—'
-        const cls = c === 'A' ? 'gl-badge-danger' : c === 'B' ? 'gl-badge-warning' : 'gl-badge-neutral'
-        return <span className={cn('gl-badge', cls)}>{c}</span>
+        const cls = c === 'A' ? 'chip-danger' : c === 'B' ? 'chip-warn' : ''
+        return <span className={cn('chip', cls)}>{c}</span>
       },
     },
     {
@@ -758,7 +772,9 @@ function PipelinesTab() {
     {
       accessorKey: 'service',
       header: t('assets.service'),
-      cell: ({ row }) => <span className="gl-badge gl-badge-info text-[10px]">{row.original.service.replace(/_/g, ' ')}</span>,
+      cell: ({ row }) => row.original.service
+        ? <span className="chip chip-info text-[10px]">{String(row.original.service).replace(/_/g, ' ')}</span>
+        : <span className="text-muted-foreground/40">—</span>,
     },
     {
       accessorKey: 'nominal_diameter_in',

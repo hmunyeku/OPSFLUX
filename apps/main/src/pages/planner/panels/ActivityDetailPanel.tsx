@@ -211,7 +211,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
             <button
               onClick={save}
               disabled={isPending || !draftOtherId}
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
             >
               Enregistrer
             </button>
@@ -238,13 +238,13 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
       <span className="font-medium text-foreground truncate flex-1" title={otherActivityTitle || otherActivityId}>
         {otherActivityTitle || otherActivityId.slice(0, 8) + '…'}
       </span>
-      <span className="gl-badge gl-badge-neutral text-[10px]" title={t('planner.dependency.type_tooltip', 'Type de dépendance')}>{dep.dependency_type}</span>
+      <span className="chip text-[10px]" title={t('planner.dependency.type_tooltip', 'Type de dépendance')}>{dep.dependency_type}</span>
       {lagDisplay && (
         <span className="text-muted-foreground text-[10px] tabular-nums" title={t('planner.dependency.lag_tooltip', 'Délai (lag)')}>{lagDisplay}</span>
       )}
       <button
         onClick={startEdit}
-        className="gl-button gl-button-confirm"
+        className="btn btn-primary"
         title={t('common.edit')}
       >
         <Pencil size={11} />
@@ -725,7 +725,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
 
   const typeEntry = ACTIVITY_TYPE_META[tp]
   const priorityEntry = { label: priorityLabels[activity.priority] ?? activity.priority, cls: PRIORITY_CLASS_MAP[activity.priority] || 'text-muted-foreground' }
-  const statusEntry = { label: activityStatusLabels[st] ?? st, badge: ACTIVITY_STATUS_BADGES[st] || 'gl-badge-neutral' }
+  const statusEntry = { label: activityStatusLabels[st] ?? st, badge: ACTIVITY_STATUS_BADGES[st] || '' }
 
   return (
     <DynamicPanelShell
@@ -951,7 +951,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       <ReadOnlyRow
                         label="Type"
                         value={
-                          <span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>
+                          <span className={cn('chip inline-flex items-center gap-1', typeEntry?.badge || '')}>
                             {activityTypeLabels[tp] || tp}
                           </span>
                         }
@@ -961,7 +961,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       <ReadOnlyRow
                         label="Statut"
                         value={
-                          <span className={cn('gl-badge', statusEntry?.badge || 'gl-badge-neutral')}>
+                          <span className={cn('chip', statusEntry?.badge || '')}>
                             {statusEntry?.label || st}
                           </span>
                         }
@@ -1219,10 +1219,10 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="gl-button-sm gl-button-confirm" onClick={handleAddDep} disabled={addDependency.isPending}>
+                    <button className="btn-sm btn-primary" onClick={handleAddDep} disabled={addDependency.isPending}>
                       Ajouter
                     </button>
-                    <button className="gl-button-sm gl-button-default" onClick={() => setShowDepAdd(false)}>
+                    <button className="btn-sm btn-secondary" onClick={() => setShowDepAdd(false)}>
                       Annuler
                     </button>
                   </div>
@@ -1289,14 +1289,14 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <button className="gl-button-sm gl-button-confirm" onClick={handleSetRecurrence} disabled={setRecurrence.isPending}>
+                      <button className="btn-sm btn-primary" onClick={handleSetRecurrence} disabled={setRecurrence.isPending}>
                         Configurer
                       </button>
-                      <button className="gl-button-sm gl-button-default" onClick={() => setShowRecurrence(false)}>
+                      <button className="btn-sm btn-secondary" onClick={() => setShowRecurrence(false)}>
                         Annuler
                       </button>
                       <button
-                        className="gl-button-sm text-xs text-destructive hover:text-destructive/80 ml-auto"
+                        className="btn-sm text-xs text-destructive hover:text-destructive/80 ml-auto"
                         onClick={() => deleteRecurrence.mutate(id, {
                           onSuccess: () => { toast({ title: t('planner.toast.recurrence_deleted'), variant: 'success' }); setShowRecurrence(false) },
                         })}
@@ -1346,13 +1346,13 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      className="gl-button-sm gl-button-confirm"
+                      className="btn-sm btn-primary"
                       onClick={handleOverridePriority}
                       disabled={!priorityOverrideForm.reason || overridePriority.isPending}
                     >
                       Appliquer
                     </button>
-                    <button className="gl-button-sm gl-button-default" onClick={() => setShowPriorityOverride(false)}>
+                    <button className="btn-sm btn-secondary" onClick={() => setShowPriorityOverride(false)}>
                       Annuler
                     </button>
                   </div>
@@ -1423,9 +1423,9 @@ export function ActivityDetailPanel({ id }: { id: string }) {
               </div>
             ) : null}
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => { setShowImpact(false) }}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => { setShowImpact(false) }}>{t('common.cancel')}</button>
               <button
-                className="gl-button-sm gl-button-confirm"
+                className="btn-sm btn-primary"
                 onClick={doSave}
                 disabled={updateActivity.isPending}
               >

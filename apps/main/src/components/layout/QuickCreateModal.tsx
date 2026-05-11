@@ -696,7 +696,7 @@ export function QuickCreateModal({ open, onClose }: QuickCreateModalProps) {
           </span>
           <button
             onClick={onClose}
-            className="gl-button-sm gl-button-default inline-flex items-center gap-1.5"
+            className="btn-sm btn-secondary inline-flex items-center gap-1.5"
           >
             <X size={12} />
             {t('common.cancel', 'Annuler')}

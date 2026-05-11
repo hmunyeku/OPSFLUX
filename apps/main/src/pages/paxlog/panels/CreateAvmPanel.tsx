@@ -353,7 +353,7 @@ function CreateAvmInner() {
                 </DynamicPanelField>
               </div>
             ))}
-            <button type="button" className="gl-button-sm gl-button-default" onClick={addProgramLine}>
+            <button type="button" className="btn-sm btn-secondary" onClick={addProgramLine}>
               <Plus size={13} />
               {t('paxlog.create_avm.program.add_line')}
             </button>

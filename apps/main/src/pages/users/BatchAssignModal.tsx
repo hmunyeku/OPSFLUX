@@ -88,7 +88,7 @@ export function BatchAssignModal({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-medium text-foreground truncate">{item.label}</span>
-                    {item.badge && <span className="gl-badge gl-badge-neutral text-[9px] shrink-0">{item.badge}</span>}
+                    {item.badge && <span className="chip text-[9px] shrink-0">{item.badge}</span>}
                   </div>
                   {item.sublabel && <p className="text-[11px] text-muted-foreground truncate">{item.sublabel}</p>}
                 </div>
@@ -97,7 +97,7 @@ export function BatchAssignModal({
             )
           })}
         </div>
-        <button onClick={onClose} className="gl-button-sm gl-button-default w-full text-xs">{t('common.cancel')}</button>
+        <button onClick={onClose} className="btn-sm btn-secondary w-full text-xs">{t('common.cancel')}</button>
       </div>
     </div>
   )

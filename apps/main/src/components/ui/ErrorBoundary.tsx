@@ -62,10 +62,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 || tx('error_boundary.description', "Une erreur inattendue s'est produite. L'équipe technique a été notifiée.")}
             </p>
             <div className="mt-6 flex items-center justify-center gap-2">
-              <button onClick={this.handleReset} className="gl-button-sm gl-button-default">
+              <button onClick={this.handleReset} className="btn-sm btn-secondary">
                 <RefreshCw size={13} /> {tx('error_boundary.retry', 'Réessayer')}
               </button>
-              <button onClick={this.handleHome} className="gl-button-sm gl-button-confirm">
+              <button onClick={this.handleHome} className="btn-sm btn-primary">
                 <Home size={13} /> {tx('error_boundary.home', 'Accueil')}
               </button>
             </div>

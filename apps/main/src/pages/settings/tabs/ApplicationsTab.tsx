@@ -63,7 +63,7 @@ export function ApplicationsTab() {
               <span className="inline-flex items-center justify-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{apps?.length || 0}</span>
             </div>
             <button
-              className="gl-button-sm gl-button-confirm"
+              className="btn-sm btn-primary"
               onClick={() => openDynamicPanel({ type: 'create', module: 'settings-app' })}
             >
               Ajouter une application
@@ -96,14 +96,14 @@ export function ApplicationsTab() {
                       {app.confidential ? 'Confidentielle' : 'Publique'}
                     </span>
                     {app.scopes.map((s) => (
-                      <span key={s} className="gl-badge gl-badge-neutral">{s}</span>
+                      <span key={s} className="chip">{s}</span>
                     ))}
                   </div>
 
                   {/* Actions */}
                   <div className="pt-2 border-t border-border/30">
                     <button
-                      className="gl-button-sm gl-button-danger"
+                      className="btn-sm btn-danger"
                       onClick={() => handleDeactivate(app.id)}
                       disabled={deactivateApp.isPending}
                     >
@@ -146,14 +146,14 @@ export function ApplicationsTab() {
                   {/* Scopes */}
                   <div className="flex flex-wrap gap-1 mb-3">
                     {auth.scopes.map((s) => (
-                      <span key={s} className="gl-badge gl-badge-neutral">{s}</span>
+                      <span key={s} className="chip">{s}</span>
                     ))}
                   </div>
 
                   {/* Actions */}
                   <div className="pt-2 border-t border-border/30">
                     <button
-                      className="gl-button-sm gl-button-danger"
+                      className="btn-sm btn-danger"
                       onClick={() => handleRevokeAuth(auth.id)}
                       disabled={revokeAuth.isPending}
                     >

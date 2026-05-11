@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Ship } from 'lucide-react'
+import { describeError } from '@/lib/errors'
 import { DynamicPanelShell, PanelContentLayout, FormGrid, DynamicPanelField, panelInputClass, type ActionItem } from '@/components/layout/DynamicPanel'
 import {
   SmartFormProvider,
@@ -55,7 +56,16 @@ function CreateVectorInner() {
       await createVector.mutateAsync(form)
       toast({ title: t('travelwiz.toast.vector_created'), variant: 'success' })
       closeDynamicPanel()
-    } catch { toast({ title: t('travelwiz.toast.vector_creation_error'), variant: 'error' }) }
+    } catch (err) {
+      // SUP-0032: Bastien voyait juste "erreur de création" sans détail.
+      // describeError surface le code d'erreur backend en français
+      // (validation Pydantic, conflit registration, etc.).
+      toast({
+        title: t('travelwiz.toast.vector_creation_error'),
+        description: describeError(err, t),
+        variant: 'error',
+      })
+    }
   }
 
   const createVectorActions = useMemo<ActionItem[]>(() => [

@@ -185,11 +185,11 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
           {t('papyrus.builder.fields_configured', { count: fields.length })}
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" className="gl-button-sm gl-button-default" onClick={addField} disabled={disabled}>
+          <button type="button" className="btn-sm btn-secondary" onClick={addField} disabled={disabled}>
             <Plus size={12} />
             <span>{t('papyrus.builder.add_field')}</span>
           </button>
-          <button type="button" className="gl-button-sm gl-button-confirm" onClick={save} disabled={disabled || isSaving}>
+          <button type="button" className="btn-sm btn-primary" onClick={save} disabled={disabled || isSaving}>
             <span>{isSaving ? t('papyrus.builder.saving') : t('papyrus.builder.save_schema')}</span>
           </button>
         </div>
@@ -210,7 +210,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
               <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Champ {index + 1}
               </div>
-              <button type="button" className="gl-button-sm gl-button-danger" onClick={() => removeField(index)} disabled={disabled}>
+              <button type="button" className="btn-sm btn-danger" onClick={() => removeField(index)} disabled={disabled}>
                 <Trash2 size={12} />
                 <span>{t('common.delete')}</span>
               </button>
@@ -307,7 +307,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                     />
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-danger"
+                      className="btn-sm btn-danger"
                       onClick={() => updateField(index, (current) => ({
                         ...current,
                         options: (current.options ?? []).filter((_, currentOptionIndex) => currentOptionIndex !== optionIndex),
@@ -320,7 +320,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                 ))}
                 <button
                   type="button"
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                   onClick={() => updateField(index, (current) => ({
                     ...current,
                     options: [...(current.options ?? []), { label: `Option ${(current.options?.length ?? 0) + 1}`, value: `option_${(current.options?.length ?? 0) + 1}` }],
@@ -380,7 +380,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                     </select>
                     <button
                       type="button"
-                      className="gl-button-sm gl-button-danger"
+                      className="btn-sm btn-danger"
                       onClick={() => updateField(index, (current) => ({
                         ...current,
                         columns: (current.columns ?? []).filter((_, currentColumnIndex) => currentColumnIndex !== columnIndex),
@@ -393,7 +393,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                 ))}
                 <button
                   type="button"
-                  className="gl-button-sm gl-button-default"
+                  className="btn-sm btn-secondary"
                   onClick={() => updateField(index, (current) => ({
                     ...current,
                     columns: [...(current.columns ?? []), { key: `column_${(current.columns?.length ?? 0) + 1}`, label: `Colonne ${(current.columns?.length ?? 0) + 1}`, type: 'text' }],

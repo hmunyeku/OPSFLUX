@@ -31,11 +31,11 @@ type AuditEntry = {
 }
 
 const ACTION_BADGE_VARIANT: Record<string, string> = {
-  create: 'gl-badge-success',
-  login: 'gl-badge-info',
-  update: 'gl-badge-warning',
-  delete: 'gl-badge-danger',
-  logout: 'gl-badge-neutral',
+  create: 'chip-success',
+  login: 'chip-info',
+  update: 'chip-warn',
+  delete: 'chip-danger',
+  logout: '',
 }
 
 const getJournalColumns = (t: (key: string) => string): ColumnDef<AuditEntry>[] => [
@@ -54,8 +54,8 @@ const getJournalColumns = (t: (key: string) => string): ColumnDef<AuditEntry>[] 
     cell: ({ getValue }) => {
       const action = getValue<string>()
       const key = action.toLowerCase().split('.')[0]
-      const variant = ACTION_BADGE_VARIANT[key] ?? 'gl-badge-neutral'
-      return <span className={`gl-badge ${variant} text-[10px]`}>{action}</span>
+      const variant = ACTION_BADGE_VARIANT[key] ?? ''
+      return <span className={`chip ${variant} text-[10px]`}>{action}</span>
     },
     size: 110,
   },

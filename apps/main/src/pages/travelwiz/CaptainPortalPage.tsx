@@ -111,7 +111,7 @@ function CaptainLogin({ onLogin }: { onLogin: (voyageId: string, captainName: st
           <button
             onClick={handleSubmit}
             disabled={code.length !== 6 || auth.isPending}
-            className="gl-button-sm gl-button-primary w-full py-4 text-lg font-semibold justify-center gap-2"
+            className="btn-sm btn-primary w-full py-4 text-lg font-semibold justify-center gap-2"
           >
             {auth.isPending ? <Loader2 size={14} className="animate-spin" /> : <LogIn size={14} />}
             Acceder
@@ -236,8 +236,8 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
             <p className="text-xs text-muted-foreground">Capitaine: {captainName}</p>
           </div>
           <span className={cn(
-            'gl-badge text-xs',
-            (voyage.status as string) === 'departed' ? 'gl-badge-warning' : (voyage.status as string) === 'arrived' ? 'gl-badge-success' : 'gl-badge-info',
+            'chip text-xs',
+            (voyage.status as string) === 'departed' ? 'chip-warn' : (voyage.status as string) === 'arrived' ? 'chip-success' : 'chip-info',
           )}>
             {voyage.status}
           </span>
@@ -345,7 +345,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
             <button
               onClick={handleRecordEvent}
               disabled={recordEvent.isPending}
-              className="gl-button-sm gl-button-primary w-full py-3 font-semibold justify-center gap-2"
+              className="btn-sm btn-primary w-full py-3 font-semibold justify-center gap-2"
             >
               {recordEvent.isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
               Enregistrer l'événement
@@ -418,7 +418,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
             <button
               onClick={handleWeatherReport}
               disabled={reportWeather.isPending}
-              className="gl-button-sm gl-button-primary w-full py-3 font-semibold justify-center gap-2"
+              className="btn-sm btn-primary w-full py-3 font-semibold justify-center gap-2"
             >
               {reportWeather.isPending ? <Loader2 size={14} className="animate-spin" /> : <CloudSun size={14} />}
               Envoyer rapport météo

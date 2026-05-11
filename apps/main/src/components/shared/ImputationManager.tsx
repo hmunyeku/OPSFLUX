@@ -174,19 +174,72 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
     )
   }
 
+  // Bastien feedback: 'au niveau imputation sur une ADS, c'est un peu
+  // le folklore, on ne comprend pas comment ca fonctionne'.
+  // Refonte de l'en-tete pour expliquer le concept + barre de
+  // completude + warning visuel quand != 100%.
+  const totalPct = total
+  const isComplete = totalPct === 100
+  const isOverflow = totalPct > 100
+  const remaining = Math.max(0, 100 - totalPct)
   return (
     <div className="space-y-2">
-      {/* Section header with + button on hover */}
-      <div className="flex items-center gap-2 group">
-        <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wide">{t('common.imputations')}</h3>
-        {editable && !showForm && (
-          <button
-            className="gl-button gl-button-confirm h-5 w-5 flex text-primary opacity-0 group-hover:opacity-100"
-            onClick={() => setShowForm(true)}
-            title={t('settings.imputation_manager.add')}
-          >
-            <Plus size={13} />
-          </button>
+      {/* Header explicatif: titre + bouton ajouter visible + indicateur
+          de completude (barre + tag colore). Avant: juste un H3
+          minuscule et un + au hover. */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">{t('common.imputations')}</h3>
+            {imputations && imputations.length === 0 && editable && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Découpez le coût par projet / centre de coût (%). La somme doit faire 100%.
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {imputations && imputations.length > 0 && (
+              <span
+                className={cn(
+                  'chip inline-flex items-center gap-1 text-[10px]',
+                  isComplete ? 'chip-success'
+                  : isOverflow ? 'chip-danger'
+                  : 'chip-warning',
+                )}
+                title={isComplete ? 'Total 100% — imputation complète'
+                  : isOverflow ? `Total ${totalPct}% — dépasse 100%, ajustez les pourcentages`
+                  : `${remaining}% restant à imputer`}
+              >
+                {totalPct}% / 100%
+              </span>
+            )}
+            {editable && !showForm && (
+              <button
+                type="button"
+                className="btn-sm btn-secondary"
+                onClick={() => setShowForm(true)}
+                title={t('settings.imputation_manager.add')}
+              >
+                <Plus size={11} /> Ajouter
+              </button>
+            )}
+          </div>
+        </div>
+        {/* Barre de progression d'imputation — visible uniquement
+            quand il y a au moins une ligne, pour confirmer visuellement
+            qu'on a bien tout reparti. */}
+        {imputations && imputations.length > 0 && (
+          <div className="h-1 rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn(
+                'h-full transition-all',
+                isComplete ? 'bg-emerald-500'
+                : isOverflow ? 'bg-red-500'
+                : 'bg-amber-500',
+              )}
+              style={{ width: `${Math.min(100, totalPct)}%` }}
+            />
+          </div>
         )}
       </div>
       {/* Add form */}
@@ -229,9 +282,9 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
                 </div>
               </div>
               <div className="flex items-center gap-2 justify-end">
-                <button className="gl-button-sm" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
+                <button className="btn-sm" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
                 <button
-                  className="gl-button-sm gl-button-confirm"
+                  className="btn-sm btn-primary"
                   disabled={(!form.imputation_reference_id && !form.project_id && !form.cost_center_id) || createImputation.isPending}
                   onClick={handleAdd}
                 >
@@ -311,7 +364,7 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
                           {updateImputation.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
                         </button>
                         <button
-                          className="gl-button gl-button-default"
+                          className="btn btn-secondary"
                           onClick={cancelEdit}
                         >
                           <X size={11} />
@@ -320,13 +373,13 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
                     ) : (
                       <>
                         <button
-                          className="gl-button gl-button-default"
+                          className="btn btn-secondary"
                           onClick={() => startEdit(imp)}
                         >
                           <Pencil size={11} />
                         </button>
                         <button
-                          className="gl-button gl-button-danger"
+                          className="btn btn-danger"
                           onClick={() => handleDelete(imp.id)}
                         >
                           <Trash2 size={11} />

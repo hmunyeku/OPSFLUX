@@ -200,8 +200,8 @@ export function GdprTab() {
               <textarea className="gl-form-input text-sm w-full min-h-[40px] resize-y" placeholder="Mesures correctives prises"
                 value={breachForm.measures_taken} onChange={e => setBreachForm(f => ({ ...f, measures_taken: e.target.value }))} />
               <div className="flex gap-2">
-                <button className="gl-button-sm gl-button-default" onClick={() => setShowBreachForm(false)}>{t('common.cancel')}</button>
-                <button className="gl-button-sm bg-red-600 text-white hover:bg-red-700 flex items-center gap-1"
+                <button className="btn-sm btn-secondary" onClick={() => setShowBreachForm(false)}>{t('common.cancel')}</button>
+                <button className="btn-sm bg-red-600 text-white hover:bg-red-700 flex items-center gap-1"
                   disabled={!breachForm.title || !breachForm.description}
                   onClick={() => breachMutation.mutate({
                     title: breachForm.title,
@@ -215,7 +215,7 @@ export function GdprTab() {
               </div>
             </div>
           ) : (
-            <button className="gl-button-sm gl-button-default items-center gap-1.5"
+            <button className="btn-sm btn-secondary items-center gap-1.5"
               onClick={() => setShowBreachForm(true)}>
               <AlertTriangle size={12} /> Declarer un incident de violation
             </button>

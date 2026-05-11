@@ -265,7 +265,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
               <p className="text-xs text-muted-foreground mt-0.5">Projet {projectCode} — sélectionnez les tâches à planifier individuellement</p>
             </div>
             <Dialog.Close asChild>
-              <button className="gl-button gl-button-default"><X size={14} /></button>
+              <button className="btn btn-secondary"><X size={14} /></button>
             </Dialog.Close>
           </div>
 
@@ -340,9 +340,9 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}</span>
-              <button onClick={onClose} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
+              <button onClick={onClose} className="btn-sm btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleSend} disabled={selectedIds.size === 0 || sendToPlanner.isPending}
-                className="gl-button gl-button-sm gl-button-confirm flex">
+                className="btn btn-sm btn-primary flex">
                 {sendToPlanner.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
                 Envoyer au Planner ({selectedIds.size})
               </button>

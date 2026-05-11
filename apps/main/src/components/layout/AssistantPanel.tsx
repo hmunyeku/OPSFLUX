@@ -63,6 +63,7 @@ import mermaid from 'mermaid'
 import { safeLocal } from '@/lib/safeStorage'
 import { buildConsoleLogFile, consoleLogBuffer } from '@/lib/consoleCapture'
 import { RichTextField } from '@/components/shared/RichTextField'
+import { OnboardingWizard, isOnboardingDismissed } from '@/components/onboarding/OnboardingWizard'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -370,11 +371,11 @@ function TourSpotlight({
           </button>
           <div className="flex gap-2">
             {step > 0 && (
-              <button onClick={onPrev} className="gl-button-sm gl-button-default text-[10px]">
+              <button onClick={onPrev} className="btn-sm btn-secondary text-[10px]">
                 Précédent
               </button>
             )}
-            <button onClick={onNext} className="gl-button-sm gl-button-confirm text-[10px] flex items-center gap-1">
+            <button onClick={onNext} className="btn-sm btn-primary text-[10px] flex items-center gap-1">
               {isLast ? <><CheckCircle2 size={10} /> Terminer</> : <><ArrowRight size={10} /> Suivant</>}
             </button>
           </div>
@@ -462,6 +463,24 @@ export function AssistantPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── Onboarding wizard state ──
+  // The wizard lives at panel level so it can be auto-opened on first
+  // login (independent of whether the panel itself is open) and shared
+  // across tabs (HelpTab CTA). We persist the "already dismissed" flag
+  // in localStorage via isOnboardingDismissed/markOnboardingDismissed —
+  // user-preferences would be slower (round-trip) for a flag we read at
+  // mount time.
+  const [wizardOpen, setWizardOpen] = useState(false)
+  useEffect(() => {
+    if (isOnboardingDismissed()) return
+    // Defer slightly so we don't fight the welcome-tour auto-launch on
+    // truly fresh sessions; the tour opens immediately, then the wizard
+    // surfaces a moment later — but we only show the wizard if the user
+    // hasn't dismissed it yet.
+    const timer = setTimeout(() => setWizardOpen(true), 1200)
+    return () => clearTimeout(timer)
+  }, [])
+
   const cyclePanelMode = useCallback(() => {
     const next = panelMode === 'docked' ? 'floating' : panelMode === 'floating' ? 'compact' : 'docked'
     setPref('assistantPanelMode', next)
@@ -488,14 +507,20 @@ export function AssistantPanel() {
     }
   }, [tabs, activeTab])
 
-  if (!aiPanelOpen) return null
+  // The wizard renders independently of the panel chrome so it can show
+  // up on first login even when aiPanelOpen is false.
+  const wizardElement = <OnboardingWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+
+  if (!aiPanelOpen) return wizardElement
 
   const modeIcon = panelMode === 'docked' ? PanelRight : panelMode === 'floating' ? Maximize2 : Minimize2
   const modeLabel = panelMode === 'docked' ? 'Docké (clic: flottant)' : panelMode === 'floating' ? 'Flottant (clic: compact)' : 'Compact (clic: docké)'
   const ModeIcon = modeIcon
 
   return (
-    <aside
+    <>
+      {wizardElement}
+      <aside
       className={cn(
         'flex flex-col bg-background/95 backdrop-blur-sm border-border shadow-lg',
         'animate-in slide-in-from-right duration-200',
@@ -521,7 +546,7 @@ export function AssistantPanel() {
           <span className="text-[10px] text-muted-foreground truncate hidden sm:inline">· {HELP_CONTENT[currentModule]?.title || currentModule}</span>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          {/* Icon buttons — use plain classes instead of .gl-button. The
+          {/* Icon buttons — use plain classes instead of .btn. The
               button class ships with text-button padding and a min-h that
               collapses inside a 24×24 square, erasing the icon. */}
           <button
@@ -563,11 +588,12 @@ export function AssistantPanel() {
       {/* ── Tab content ── */}
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         {activeTab === 'chat' && <ChatTab currentModule={currentModule} />}
-        {activeTab === 'help' && <HelpTab currentModule={currentModule} />}
+        {activeTab === 'help' && <HelpTab currentModule={currentModule} onOpenWizard={() => setWizardOpen(true)} />}
         {activeTab === 'tours' && <ToursTab currentModule={currentModule} />}
         {activeTab === 'ticket' && <TicketTab />}
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }
 
@@ -805,7 +831,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
                         <button
                           key={`${i}-${actionIndex}-${action.target}`}
                           onClick={() => runAssistantAction(action)}
-                          className="gl-button-sm gl-button-secondary inline-flex items-center gap-1"
+                          className="btn-sm btn-secondary inline-flex items-center gap-1"
                         >
                           {action.type === 'confirm-write' ? <CheckCircle2 size={12} /> : <ArrowRight size={12} />}
                           {action.label}
@@ -874,7 +900,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
           <button
             onClick={sendMessage}
             disabled={!input.trim() || streaming}
-            className="gl-button-sm gl-button-confirm h-9 w-9 flex items-center justify-center shrink-0"
+            className="btn-sm btn-primary h-9 w-9 flex items-center justify-center shrink-0"
           >
             {streaming ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           </button>
@@ -888,12 +914,33 @@ function ChatTab({ currentModule }: { currentModule: string }) {
 // TAB 2: CONTEXTUAL HELP
 // ═══════════════════════════════════════════════════════════════
 
-function HelpTab({ currentModule }: { currentModule: string }) {
+function HelpTab({ currentModule, onOpenWizard }: { currentModule: string; onOpenWizard: () => void }) {
   const { t } = useTranslation()
   const help = HELP_CONTENT[currentModule]
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+      {/* Onboarding wizard CTA — always visible at the top of the Help tab. */}
+      <div className="rounded-lg border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-3.5">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+            <Sparkles size={16} className="text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-semibold text-foreground">{t('onboarding.cta.title')}</h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{t('onboarding.cta.subtitle')}</p>
+            <button
+              onClick={onOpenWizard}
+              className="btn btn-sm btn-primary mt-2.5"
+            >
+              <Sparkles size={11} />
+              {t('onboarding.cta.button')}
+              <ArrowRight size={11} />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {!help ? (
         <div className="text-sm text-muted-foreground">{t('assistant.help.none')}</div>
       ) : (
@@ -1114,13 +1161,13 @@ function ToursTab({ currentModule }: { currentModule: string }) {
                   <p className="text-[10px] text-muted-foreground/60 mt-1">{tour.steps.length} étapes</p>
                 </div>
                 {isActive ? (
-                  <button onClick={closeTour} className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1 text-red-500">
+                  <button onClick={closeTour} className="btn-sm btn-secondary shrink-0 flex items-center gap-1 text-red-500">
                     <StopCircle size={10} /> Arreter
                   </button>
                 ) : (
                   <button
                     onClick={() => startTour(tour)}
-                    className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1"
+                    className="btn-sm btn-secondary shrink-0 flex items-center gap-1"
                   >
                     <Play size={10} /> {isCompleted ? 'Revoir' : 'Démarrer'}
                   </button>
@@ -1168,6 +1215,17 @@ function TicketTab() {
 
   // Screenshot capture — hides the Assistant panel so it doesn't appear in
   // the capture, then restores it.
+  //
+  // Quality fix (feedback Bastien sur ses tickets) :
+  //   - scale: 0.5 produisait des screenshots flous, illisibles à
+  //     l'oeil nu (textes UI à 11–13 px se transformaient en bouillie
+  //     de 5 px). Passé à scale: window.devicePixelRatio (typiquement
+  //     1 ou 2 sur Retina) pour capturer à la résolution NATIVE de
+  //     l'écran. Trade-off taille fichier vs lisibilité : un PNG full
+  //     1920×1080 fait ~2 Mo, c'est OK pour du support.
+  //   - Switch PNG → JPEG (quality 0.92) : un screenshot UI compresse
+  //     très bien en JPEG sans artefacts visibles, et économise ~70%
+  //     de poids vs PNG. Le tout sans dégrader la netteté.
   const captureScreenshot = useCallback(async () => {
     setCapturing(true)
     const panelEl = document.querySelector<HTMLElement>('aside[class*="slide-in-from-right"]')
@@ -1176,16 +1234,21 @@ function TicketTab() {
     try {
       await new Promise(r => setTimeout(r, 80))
       const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(document.body, { useCORS: true, scale: 0.5, logging: false })
+      const canvas = await html2canvas(document.body, {
+        useCORS: true,
+        scale: Math.max(1, window.devicePixelRatio || 1),
+        logging: false,
+        backgroundColor: '#ffffff',
+      })
       if (panelEl) panelEl.style.visibility = prevVisibility ?? ''
       canvas.toBlob((blob) => {
         if (blob) {
-          const file = new File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' })
+          const file = new File([blob], `screenshot-${Date.now()}.jpg`, { type: 'image/jpeg' })
           setAttachments(prev => [...prev, file])
           setPreviews(prev => [...prev, { name: file.name, url: URL.createObjectURL(blob), type: 'image' }])
         }
         setCapturing(false)
-      }, 'image/png')
+      }, 'image/jpeg', 0.92)
     } catch {
       if (panelEl) panelEl.style.visibility = prevVisibility ?? ''
       toast({ title: "Capture d'écran impossible", variant: 'error' })
@@ -1378,19 +1441,19 @@ function TicketTab() {
 
       {/* Media buttons — screenshot, screen-recording, file attach */}
       <div className="flex items-center gap-1.5">
-        <button onClick={captureScreenshot} disabled={capturing || recording} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
+        <button onClick={captureScreenshot} disabled={capturing || recording} className="btn-sm btn-secondary flex-1 justify-center text-[10px]">
           {capturing ? <Loader2 size={10} className="animate-spin" /> : <Camera size={10} />} Photo
         </button>
         {recording ? (
-          <button onClick={stopRecording} className="gl-button-sm gl-button-danger flex-1 justify-center text-[10px] animate-pulse">
+          <button onClick={stopRecording} className="btn-sm btn-danger flex-1 justify-center text-[10px] animate-pulse">
             <Square size={10} /> Stop {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
           </button>
         ) : (
-          <button onClick={startRecording} disabled={capturing} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
+          <button onClick={startRecording} disabled={capturing} className="btn-sm btn-secondary flex-1 justify-center text-[10px]">
             <Video size={10} /> Vidéo
           </button>
         )}
-        <button onClick={() => fileRef.current?.click()} disabled={recording} className="gl-button-sm gl-button-default flex-1 justify-center text-[10px]">
+        <button onClick={() => fileRef.current?.click()} disabled={recording} className="btn-sm btn-secondary flex-1 justify-center text-[10px]">
           <Paperclip size={10} /> Fichier
         </button>
         <input ref={fileRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx" className="hidden" onChange={handleFileAttach} />
@@ -1436,7 +1499,7 @@ function TicketTab() {
               && (form.description || '').replace(/<[^>]+>/g, '').trim().length < 20)
           || createTicket.isPending
         }
-        className="gl-button-sm gl-button-confirm w-full justify-center"
+        className="btn-sm btn-primary w-full justify-center"
       >
         {createTicket.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
         Envoyer le ticket

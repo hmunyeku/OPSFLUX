@@ -660,11 +660,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
               onChange={(e) => setRejectReason(e.target.value)}
             />
             <div className="flex items-center gap-2">
-              <button className="gl-button-sm gl-button-danger" disabled={rejectAds.isPending} onClick={handleReject}>
+              <button className="btn-sm btn-danger" disabled={rejectAds.isPending} onClick={handleReject}>
                 {rejectAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <ThumbsDown size={12} />}
                 {t('paxlog.confirm_reject')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowRejectForm(false)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setShowRejectForm(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -679,11 +679,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
               onChange={(e) => setReviewReason(e.target.value)}
             />
             <div className="flex items-center gap-2">
-              <button className="gl-button-sm gl-button-default" disabled={requestReviewAds.isPending || !reviewReason.trim()} onClick={handleRequestReview}>
+              <button className="btn-sm btn-secondary" disabled={requestReviewAds.isPending || !reviewReason.trim()} onClick={handleRequestReview}>
                 {requestReviewAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                 {t('paxlog.ads_detail.request_review.confirm')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowReviewForm(false)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setShowReviewForm(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -720,14 +720,14 @@ export function AdsDetailPanel({ id }: { id: string }) {
             </div>
             <div className="flex items-center gap-2">
               <button
-                className="gl-button-sm gl-button-default"
+                className="btn-sm btn-secondary"
                 disabled={requestAdsStayChange.isPending || !stayChangeReason.trim()}
                 onClick={handleRequestStayChange}
               >
                 {requestAdsStayChange.isPending ? <Loader2 size={12} className="animate-spin" /> : <Clock size={12} />}
                 {t('paxlog.ads_detail.stay_change.confirm')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowStayChangeForm(false)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setShowStayChangeForm(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -742,11 +742,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
               onChange={(e) => setManualDepartureReason(e.target.value)}
             />
             <div className="flex items-center gap-2">
-              <button className="gl-button-sm gl-button-default" disabled={manualDepartureAds.isPending || !manualDepartureReason.trim()} onClick={handleManualDeparture}>
+              <button className="btn-sm btn-secondary" disabled={manualDepartureAds.isPending || !manualDepartureReason.trim()} onClick={handleManualDeparture}>
                 {manualDepartureAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <LogOut size={12} />}
                 {t('paxlog.ads_detail.manual_departure.confirm')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => { setShowManualDepartureForm(false); setManualDepartureReason('') }}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => { setShowManualDepartureForm(false); setManualDepartureReason('') }}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -761,11 +761,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
               onChange={(e) => setResubmitReason(e.target.value)}
             />
             <div className="flex items-center gap-2">
-              <button className="gl-button-sm gl-button-confirm" disabled={resubmitAds.isPending || !resubmitReason.trim()} onClick={handleResubmit}>
+              <button className="btn-sm btn-primary" disabled={resubmitAds.isPending || !resubmitReason.trim()} onClick={handleResubmit}>
                 {resubmitAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                 {t('paxlog.ads_detail.resubmit.confirm')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowResubmitForm(false)}>{t('common.cancel')}</button>
+              <button className="btn-sm btn-secondary" onClick={() => setShowResubmitForm(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -773,12 +773,12 @@ export function AdsDetailPanel({ id }: { id: string }) {
         {/* Status badges */}
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={ads.status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} />
-          <span className={cn('gl-badge', ads.type === 'team' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+          <span className={cn('chip', ads.type === 'team' ? 'chip-info' : '')}>
             {ads.type === 'individual' ? t('paxlog.create_ads.type.individual') : t('paxlog.create_ads.type.team')}
           </span>
-          {ads.cross_company_flag && <span className="gl-badge gl-badge-warning">{t('paxlog.ads_detail.cross_company')}</span>}
+          {ads.cross_company_flag && <span className="chip chip-warn">{t('paxlog.ads_detail.cross_company')}</span>}
           {ads.is_round_trip_no_overnight && (
-            <span className="gl-badge gl-badge-info" title={t('paxlog.ads_detail.round_trip_no_overnight_hint', "Visite d'une journée — comptée dans le forecast PAX du jour uniquement")}>
+            <span className="chip chip-info" title={t('paxlog.ads_detail.round_trip_no_overnight_hint', "Visite d'une journée — comptée dans le forecast PAX du jour uniquement")}>
               {t('paxlog.ads_detail.round_trip_no_overnight', 'A/R sans nuitée')}
             </span>
           )}
@@ -1074,7 +1074,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                   <p className="font-medium">{t('paxlog.ads_detail.operational_impact.stay_change_types')}</p>
                   <div className="flex flex-wrap gap-2">
                     {latestStayChangeKinds.map((kind) => (
-                      <span key={kind} className="gl-badge gl-badge-neutral">
+                      <span key={kind} className="chip">
                         {getStayChangeKindLabel(kind)}
                       </span>
                     ))}
@@ -1094,7 +1094,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
           defaultExpanded
           headerExtra={ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update') ? (
             <button
-              className="gl-button gl-button-confirm h-5 w-5 flex text-primary"
+              className="btn btn-primary h-5 w-5 flex text-primary"
               onClick={() => setShowPaxPicker(true)}
               title={t('paxlog.ads_detail.actions.add_passenger')}
             >
@@ -1154,7 +1154,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                               </p>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <span className={cn('gl-badge text-[9px]', (c.pax_type || c.type) === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+                              <span className={cn('chip text-[9px]', (c.pax_type || c.type) === 'internal' ? 'chip-info' : '')}>
                                 {(c.pax_type || c.type) === 'internal' ? t('paxlog.ads_detail.passenger_type.internal') : t('paxlog.ads_detail.passenger_type.external')}
                               </span>
                               {alreadyAdded ? (
@@ -1236,9 +1236,26 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       {ap.pax_company_name && <p className="text-[10px] text-muted-foreground">{ap.pax_company_name}</p>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {ap.compliant === true && <CheckCircle2 size={13} className="text-green-600" />}
-                      {ap.compliant === false && <XCircle size={13} className="text-red-500" />}
-                      <span className={cn('gl-badge', ap.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+                      {/* Compliance status — chip explicite avec tooltip
+                          (Bastien feedback: ne comprenait pas ce que
+                          'compliant' voulait dire à côté de chip Ext.). */}
+                      {ap.compliant === true && (
+                        <span
+                          className="chip chip-success inline-flex items-center gap-1"
+                          title="Tous les pré-requis de conformité site sont satisfaits pour ce PAX (certifications valides, profil complet, etc.)"
+                        >
+                          <CheckCircle2 size={11} /> Conforme
+                        </span>
+                      )}
+                      {ap.compliant === false && (
+                        <span
+                          className="chip chip-danger inline-flex items-center gap-1"
+                          title="Au moins un pré-requis de conformité n'est pas satisfait : certifications expirées, profil incomplet, ou règles site non remplies. Voir l'onglet Conformité pour le détail."
+                        >
+                          <XCircle size={11} /> Non conforme
+                        </span>
+                      )}
+                      <span className={cn('chip', ap.pax_type === 'internal' ? 'chip-info' : '')}>
                         {ap.pax_type === 'internal' ? t('paxlog.ads_detail.passenger_type.internal') : t('paxlog.ads_detail.passenger_type.external')}
                       </span>
                       <StatusBadge status={ap.status} />
@@ -1265,7 +1282,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       )}
                       {(ap.user_id || ap.contact_id) && hasPermission('paxlog.ads.update') && (
                         <button
-                          className="gl-button gl-button-danger"
+                          className="btn btn-danger"
                           onClick={() => removePax.mutate({ adsId: id, entryId: ap.id })}
                           title={t('paxlog.ads_detail.actions.remove_passenger')}
                         >
@@ -1279,7 +1296,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       {(complianceSummary.verification_sequence ?? complianceSummary.covered_layers ?? []).length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {(complianceSummary.verification_sequence ?? complianceSummary.covered_layers ?? []).map((layer) => (
-                            <span key={`${ap.id}-${layer}`} className="gl-badge gl-badge-neutral">
+                            <span key={`${ap.id}-${layer}`} className="chip">
                               {layer === 'site_requirements'
                                 ? t('paxlog.ads_detail.compliance.layers.site_requirements')
                                 : layer === 'job_profile'
@@ -1342,11 +1359,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
                         onChange={(e) => setPaxRejectReason(e.target.value)}
                       />
                       <div className="flex items-center gap-2">
-                        <button className="gl-button-sm gl-button-danger" disabled={decideAdsPax.isPending} onClick={handleRejectPassenger}>
+                        <button className="btn-sm btn-danger" disabled={decideAdsPax.isPending} onClick={handleRejectPassenger}>
                           {t('common.reject')}
                         </button>
                         <button
-                          className="gl-button-sm gl-button-secondary"
+                          className="btn-sm btn-secondary"
                           onClick={() => {
                             setPaxRejectEntryId(null)
                             setPaxRejectReason('')
@@ -1470,7 +1487,38 @@ export function AdsDetailPanel({ id }: { id: string }) {
             )}
 
             {stayPrograms.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">{t('paxlog.ads_detail.stay_programs.empty')}</p>
+              // Empty state explicite (Bastien feedback): l'ancien
+              // 'pas de sejour defini' italique ne disait ni quoi
+              // faire ni pourquoi il n'y avait pas de bouton si la
+              // permission/statut ne le permet pas.
+              <div className="flex flex-col items-center justify-center py-6 px-4 rounded-md border border-dashed border-border/60 bg-muted/30 text-center">
+                <BedDouble className="h-6 w-6 text-muted-foreground/60 mb-2" />
+                <p className="text-xs text-foreground font-medium">{t('paxlog.ads_detail.stay_programs.empty')}</p>
+                {canManageStayPrograms ? (
+                  <>
+                    <p className="text-[10px] text-muted-foreground mt-1 max-w-md">
+                      Définissez les déplacements de chaque PAX (date, transport, sites visités) pour préparer les manifestes et la conformité site par site.
+                    </p>
+                    {!showStayProgramForm && (
+                      <button
+                        type="button"
+                        onClick={() => setShowStayProgramForm(true)}
+                        className="btn-sm btn-primary mt-3"
+                      >
+                        <Plus size={11} /> {t('paxlog.ads_detail.stay_programs.create')}
+                      </button>
+                    )}
+                  </>
+                ) : !stayProgramsEnabled ? (
+                  <p className="text-[10px] text-muted-foreground mt-1 max-w-md">
+                    Les séjours ne peuvent être créés que pour les ADS en statut Brouillon, À revoir, Approuvé ou En cours. Statut actuel : <span className="font-medium">{ads.status}</span>.
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground mt-1 max-w-md">
+                    Vous n'avez pas la permission de créer un séjour. Demandez à votre administrateur la permission <code className="text-[10px] px-1 py-0.5 bg-muted rounded">paxlog.stay.create</code>.
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="space-y-3">
                 {stayPrograms.map((program) => {
@@ -1488,10 +1536,10 @@ export function AdsDetailPanel({ id }: { id: string }) {
                         </div>
                         <div className="flex items-center gap-2">
                           <StatusBadge status={program.status} map={{
-                            draft: { labelKey: 'paxlog.status.ads.draft', badge: 'gl-badge-neutral' },
-                            submitted: { labelKey: 'paxlog.status.ads.submitted', badge: 'gl-badge-info' },
-                            approved: { labelKey: 'paxlog.status.ads.approved', badge: 'gl-badge-success' },
-                            rejected: { labelKey: 'paxlog.status.ads.rejected', badge: 'gl-badge-danger' },
+                            draft: { labelKey: 'paxlog.status.ads.draft', badge: '' },
+                            submitted: { labelKey: 'paxlog.status.ads.submitted', badge: 'chip-info' },
+                            approved: { labelKey: 'paxlog.status.ads.approved', badge: 'chip-success' },
+                            rejected: { labelKey: 'paxlog.status.ads.rejected', badge: 'chip-danger' },
                           }} />
                           {program.status === 'draft' && canManageStayPrograms && (
                             <PanelActionButton onClick={() => submitStayProgram.mutate(program.id)} disabled={submitStayProgram.isPending}>

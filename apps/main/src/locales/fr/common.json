@@ -1255,7 +1255,18 @@
     },
     "transfers": {
       "title": "Transferts",
-      "create": "Nouveau transfert"
+      "create": "Nouveau transfert",
+      "create_subtitle": "Transférer un employé d'un tiers vers un autre",
+      "select_tier": "Sélectionner l'entreprise source",
+      "select_tier_help": "Choisissez l'entreprise actuelle de l'employé",
+      "source_company": "Entreprise source",
+      "select_employee": "Sélectionner l'employé",
+      "select_employee_help": "Choisissez l'employé à transférer",
+      "destination": "Destination",
+      "destination_help": "Entreprise vers laquelle l'employé sera transféré",
+      "details": "Détails du transfert",
+      "details_help": "Informations complémentaires sur le transfert",
+      "reason_placeholder": "Ex: Changement de contrat, réorganisation..."
     },
     "check": {
       "compliant": "Conforme",
@@ -1343,7 +1354,12 @@
       "rejected": "Rejeté",
       "document_verified": "Document vérifié",
       "document_rejected": "Document rejeté",
-      "error": "Erreur"
+      "error": "Erreur",
+      "select_employee": "Veuillez sélectionner un employé",
+      "select_tiers": "Veuillez sélectionner les entreprises source et destination",
+      "same_tier_error": "L'entreprise source et destination doivent être différentes",
+      "transfer_created": "Transfert créé avec succès",
+      "transfer_creation_error": "Erreur lors de la création du transfert"
     },
     "auto_genere_a_la_creation": "Auto-genere a la creation",
     "description_du_type_de_conformite": "Description du type de conformite...",

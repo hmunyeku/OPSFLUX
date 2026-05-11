@@ -60,6 +60,7 @@ import { JobPositionDetailPanel } from './panels/JobPositionDetailPanel'
 import { CreateRulePanel } from './panels/CreateRulePanel'
 import { EditRulePanel } from './panels/EditRulePanel'
 import { VerificationDetailPanel } from './panels/VerificationDetailPanel'
+import { CreateTransferPanel } from './panels/CreateTransferPanel'
 
 // Tabs
 import { VerificationsTab } from './tabs/VerificationsTab'
@@ -106,6 +107,7 @@ export function ConformitePage() {
   const canCreateExemption = hasPermission('conformite.exemption.create')
   const canApproveExemption = hasPermission('conformite.exemption.approve')
   const canVerify = hasPermission('conformite.verify')
+  const canCreateTransfer = hasPermission('conformite.transfer.create')
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -271,8 +273,9 @@ export function ConformitePage() {
     if (activeTab === 'exemptions' && canCreateExemption) return <ToolbarButton icon={Plus} label={t('conformite.exemptions.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'exemption' } })} />
     if (activeTab === 'enregistrements' && canCreateRecord) return <ToolbarButton icon={Plus} label={t('conformite.records.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'record' } })} />
     if (activeTab === 'regles' && canCreateRule) return <ToolbarButton icon={Plus} label={t('conformite.rules.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'rule' } })} />
+    if (activeTab === 'transferts' && canCreateTransfer) return <ToolbarButton icon={Plus} label={t('conformite.transfers.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'transfer' } })} />
     return null
-  }, [activeTab, openDynamicPanel, canCreateType, canCreateRecord, canCreateJP, canCreateExemption, canCreateRule, t])
+  }, [activeTab, openDynamicPanel, canCreateType, canCreateRecord, canCreateJP, canCreateExemption, canCreateRule, canCreateTransfer, t])
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -443,6 +446,7 @@ export function ConformitePage() {
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'rule' && <CreateRulePanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'edit' && dynamicPanel.meta?.subtype === 'rule' && <EditRulePanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'verification' && <VerificationDetailPanel id={dynamicPanel.id} recordType={dynamicPanel.meta?.record_type as string || ''} />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'transfer' && <CreateTransferPanel />}
     </div>
   )
 }
@@ -459,5 +463,6 @@ registerPanelRenderer('conformite', (view) => {
   if (view.type === 'create' && view.meta?.subtype === 'exemption') return <CreateExemptionPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'exemption') return <ExemptionDetailPanel id={view.id} />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'verification') return <VerificationDetailPanel id={view.id} recordType={view.meta?.record_type as string || ''} />
+  if (view.type === 'create' && view.meta?.subtype === 'transfer') return <CreateTransferPanel />
   return null
 })

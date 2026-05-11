@@ -1236,8 +1236,25 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       {ap.pax_company_name && <p className="text-[10px] text-muted-foreground">{ap.pax_company_name}</p>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {ap.compliant === true && <CheckCircle2 size={13} className="text-green-600" />}
-                      {ap.compliant === false && <XCircle size={13} className="text-red-500" />}
+                      {/* Compliance status — chip explicite avec tooltip
+                          (Bastien feedback: ne comprenait pas ce que
+                          'compliant' voulait dire à côté de chip Ext.). */}
+                      {ap.compliant === true && (
+                        <span
+                          className="chip chip-success inline-flex items-center gap-1"
+                          title="Tous les pré-requis de conformité site sont satisfaits pour ce PAX (certifications valides, profil complet, etc.)"
+                        >
+                          <CheckCircle2 size={11} /> Conforme
+                        </span>
+                      )}
+                      {ap.compliant === false && (
+                        <span
+                          className="chip chip-danger inline-flex items-center gap-1"
+                          title="Au moins un pré-requis de conformité n'est pas satisfait : certifications expirées, profil incomplet, ou règles site non remplies. Voir l'onglet Conformité pour le détail."
+                        >
+                          <XCircle size={11} /> Non conforme
+                        </span>
+                      )}
                       <span className={cn('chip', ap.pax_type === 'internal' ? 'chip-info' : '')}>
                         {ap.pax_type === 'internal' ? t('paxlog.ads_detail.passenger_type.internal') : t('paxlog.ads_detail.passenger_type.external')}
                       </span>
@@ -1470,7 +1487,38 @@ export function AdsDetailPanel({ id }: { id: string }) {
             )}
 
             {stayPrograms.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">{t('paxlog.ads_detail.stay_programs.empty')}</p>
+              // Empty state explicite (Bastien feedback): l'ancien
+              // 'pas de sejour defini' italique ne disait ni quoi
+              // faire ni pourquoi il n'y avait pas de bouton si la
+              // permission/statut ne le permet pas.
+              <div className="flex flex-col items-center justify-center py-6 px-4 rounded-md border border-dashed border-border/60 bg-muted/30 text-center">
+                <BedDouble className="h-6 w-6 text-muted-foreground/60 mb-2" />
+                <p className="text-xs text-foreground font-medium">{t('paxlog.ads_detail.stay_programs.empty')}</p>
+                {canManageStayPrograms ? (
+                  <>
+                    <p className="text-[10px] text-muted-foreground mt-1 max-w-md">
+                      Définissez les déplacements de chaque PAX (date, transport, sites visités) pour préparer les manifestes et la conformité site par site.
+                    </p>
+                    {!showStayProgramForm && (
+                      <button
+                        type="button"
+                        onClick={() => setShowStayProgramForm(true)}
+                        className="btn-sm btn-primary mt-3"
+                      >
+                        <Plus size={11} /> {t('paxlog.ads_detail.stay_programs.create')}
+                      </button>
+                    )}
+                  </>
+                ) : !stayProgramsEnabled ? (
+                  <p className="text-[10px] text-muted-foreground mt-1 max-w-md">
+                    Les séjours ne peuvent être créés que pour les ADS en statut Brouillon, À revoir, Approuvé ou En cours. Statut actuel : <span className="font-medium">{ads.status}</span>.
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground mt-1 max-w-md">
+                    Vous n'avez pas la permission de créer un séjour. Demandez à votre administrateur la permission <code className="text-[10px] px-1 py-0.5 bg-muted rounded">paxlog.stay.create</code>.
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="space-y-3">
                 {stayPrograms.map((program) => {

@@ -869,18 +869,21 @@ export function GoutiSyncToolbar() {
           positioned dropdown. Rounded corners are applied per-button via
           rounded-l/rounded-r so the split-button still looks unified. */}
       <div ref={wrapperRef} className="relative inline-flex text-xs">
+        {/* Bouton split Pajamas++ — taille btn-sm comme les autres boutons
+            de toolbar. La couleur orange reste pour signaler 'integration
+            externe Gouti' mais la taille s'aligne avec le reste de l'app. */}
         <button
           type="button"
           onClick={handleMainClick}
           disabled={syncSelected.isPending}
-          className="btn btn-secondary text-orange-700"
+          className="btn-sm btn-secondary text-orange-700 dark:text-orange-400 rounded-r-none border-r-0"
           title={hasSelection
             ? `Forcer la synchronisation (${status.project_count} importés · dernière : ${lastSyncLabel})`
             : 'Ouvrir l\'assistant d\'import Gouti'}
         >
           {syncSelected.isPending
-            ? <Loader2 size={12} className="animate-spin" />
-            : <RefreshCw size={12} />}
+            ? <Loader2 size={11} className="animate-spin" />
+            : <RefreshCw size={11} />}
           Sync Gouti
           {status.project_count > 0 && (
             <span className="ml-0.5 px-1 rounded bg-orange-500/20 text-[10px] tabular-nums">{status.project_count}</span>
@@ -890,8 +893,8 @@ export function GoutiSyncToolbar() {
           type="button"
           onClick={() => setDropdownOpen(v => !v)}
           className={cn(
-            'px-1.5 rounded-r border border-l-0 border-orange-500/30 bg-orange-500/5 text-orange-700 hover:bg-orange-500/10 flex items-center',
-            dropdownOpen && 'bg-orange-500/20',
+            'btn-sm btn-secondary text-orange-700 dark:text-orange-400 rounded-l-none !px-1.5 border-l-0',
+            dropdownOpen && 'bg-accent',
           )}
           title="Options"
           aria-haspopup="menu"

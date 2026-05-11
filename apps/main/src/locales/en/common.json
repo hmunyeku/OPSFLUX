@@ -1199,7 +1199,18 @@
     },
     "transfers": {
       "title": "Transfers",
-      "create": "New transfer"
+      "create": "New transfer",
+      "create_subtitle": "Transfer an employee from one company to another",
+      "select_tier": "Select source company",
+      "select_tier_help": "Choose the current company of the employee",
+      "source_company": "Source company",
+      "select_employee": "Select employee",
+      "select_employee_help": "Choose the employee to transfer",
+      "destination": "Destination",
+      "destination_help": "Company to which the employee will be transferred",
+      "details": "Transfer details",
+      "details_help": "Additional information about the transfer",
+      "reason_placeholder": "E.g.: Contract change, reorganization..."
     },
     "check": {
       "compliant": "Compliant",
@@ -1293,7 +1304,14 @@
     "ex_mise_a_jour_duree_de_validite": "Ex: Mise à jour durée de validité...",
     "aucun_historique_disponible": "Aucun historique disponible.",
     "document_non_trouve_ou_deja_traite": "Document non trouve ou deja traite.",
-    "expliquez_pourquoi_ce_document_est_rejet": "Expliquez pourquoi ce document est rejete..."
+    "expliquez_pourquoi_ce_document_est_rejet": "Expliquez pourquoi ce document est rejete...",
+    "toast": {
+      "select_employee": "Please select an employee",
+      "select_tiers": "Please select source and destination companies",
+      "same_tier_error": "Source and destination companies must be different",
+      "transfer_created": "Transfer created successfully",
+      "transfer_creation_error": "Error creating transfer"
+    }
   },
   "projets": {
     "title": "Projects",

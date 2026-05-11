@@ -28,12 +28,15 @@ function formatDate(value: string | null | undefined) {
   })
 }
 
-const STATUS_TONE: Record<string, string> = {
-  boarded: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  checked_in: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
-  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  no_show: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-  offloaded: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+// Mapping vers les variantes Pajamas++ .chip-* du design system.
+// boarded=success (vert), checked_in=info (bleu), pending=warn (ambre),
+// no_show=danger (rouge), offloaded=neutre.
+const STATUS_CHIP: Record<string, string> = {
+  boarded: 'chip-success',
+  checked_in: 'chip-info',
+  pending: 'chip-warn',
+  no_show: 'chip-danger',
+  offloaded: '',
 }
 
 export function AdsBoardingScanPage() {
@@ -142,10 +145,7 @@ export function AdsBoardingScanPage() {
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
                                 <div className="truncate text-sm font-semibold text-foreground">{passenger.name}</div>
-                                <span className={cn(
-                                  'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                                  STATUS_TONE[passenger.boarding_status] ?? 'bg-muted text-muted-foreground',
-                                )}>
+                                <span className={cn('chip uppercase tracking-wide', STATUS_CHIP[passenger.boarding_status])}>
                                   {passenger.boarding_status}
                                 </span>
                                 {passenger.standby && (
@@ -264,10 +264,7 @@ export function AdsBoardingScanPage() {
                       <div key={pax.ads_pax_id} className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="text-sm font-semibold text-foreground">{pax.name}</div>
-                          <span className={cn(
-                            'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                            pax.boarding_status ? (STATUS_TONE[pax.boarding_status] ?? 'bg-muted text-muted-foreground') : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-                          )}>
+                          <span className={cn('chip uppercase tracking-wide', pax.boarding_status ? STATUS_CHIP[pax.boarding_status] : '')}>
                             {pax.boarding_status || (pax.assigned_to_manifest ? 'assigné' : 'hors manifeste')}
                           </span>
                         </div>

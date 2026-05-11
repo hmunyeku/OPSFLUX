@@ -1101,8 +1101,8 @@ function LinkedSSOAccounts() {
                 </div>
                 {unlinkingId === l.id ? (
                   <div className="flex items-center gap-1 shrink-0 text-xs">
-                    <button onClick={() => handleUnlink(l.id)} className="btn btn-danger bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Oui</button>
-                    <button onClick={() => setUnlinkingId(null)} className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400">Non</button>
+                    <button onClick={() => handleUnlink(l.id)} className="btn-sm btn-danger">Oui</button>
+                    <button onClick={() => setUnlinkingId(null)} className="btn-sm btn-secondary">Non</button>
                   </div>
                 ) : (
                   <button

@@ -564,10 +564,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                 <MetadataRow
                   label={t('common.status')}
                   value={
-                    <span className={cn(
-                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
-                      metaForm.enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-muted text-muted-foreground',
-                    )}>
+                    <span className={cn('chip', metaForm.enabled && 'chip-success')}>
                       {metaForm.enabled ? <Check size={11} /> : <X size={11} />}
                       {metaForm.enabled ? t('common.active') : t('common.inactive')}
                     </span>
@@ -1079,11 +1076,10 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
               </div>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className={cn(
-                  'inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide',
-                  previewState === 'ready' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-                  previewState === 'loading' && 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
-                  previewState === 'error' && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-                  previewState === 'idle' && 'bg-muted text-muted-foreground',
+                  'chip uppercase tracking-wide',
+                  previewState === 'ready' && 'chip-success',
+                  previewState === 'loading' && 'chip-info',
+                  previewState === 'error' && 'chip-danger',
                 )}>
                   {previewState === 'ready' && t('settings.pdf_templates_editor.preview_status.ready')}
                   {previewState === 'loading' && t('settings.pdf_templates_editor.preview_status.loading')}

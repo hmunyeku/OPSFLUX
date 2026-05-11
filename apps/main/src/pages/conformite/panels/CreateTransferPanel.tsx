@@ -39,16 +39,17 @@ function CreateTransferInner() {
   const prefillFromTierId = (dynamicPanel?.meta?.from_tier_id as string | undefined) ?? ''
   const { toast } = useToast()
 
-  // Fetch all tiers for dropdowns.
-  // SUP-0038 followup (Bastien): la limite 500 etait invisible et le user voyait
-  // sa liste tronquee silencieusement quand >500 tiers. On la pousse au plafond
-  // backend (1000) en attendant le refactor vers un picker server-search.
+  // Fetch all tiers + job positions for dropdowns.
+  // SUP-0038 followup (Bastien): la limite 500 hardcodee etait invisible et le
+  // user voyait sa liste tronquee silencieusement quand son tenant avait >500
+  // tiers. On demande maintenant la valeur admin-configurable max (par defaut
+  // 10000) — le backend rejette avec 400 si l'admin a configure un plafond
+  // plus bas via le setting 'datatable.max_page_size'.
   // TODO: migrer vers CompanyPicker + nouveau JobPositionPicker (server-side
-  // typeahead via EntityPickerBase etendu) pour supprimer cette borne dure.
-  const { data: tiersData } = useTiers({ page_size: 1000 })
-
-  // Fetch job positions for the new job position selector (SUP-0038)
-  const { data: jobPositionsData } = useJobPositions({ page_size: 1000 })
+  // typeahead via EntityPickerBase etendu) pour supprimer le besoin de fetch
+  // bulk — c'est la vraie solution pour les tenants a tres gros catalogue.
+  const { data: tiersData } = useTiers({ page_size: 10000 })
+  const { data: jobPositionsData } = useJobPositions({ page_size: 10000 })
 
   const [selectedContactTierId, setSelectedContactTierId] = useState<string>(prefillFromTierId)
 

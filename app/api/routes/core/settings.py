@@ -409,6 +409,13 @@ async def upsert_setting(
         scope_id=scope_id,
     )
 
+    # Invalidate pagination cache when the relevant setting changes — the
+    # value is cached in-process and would otherwise stay stale until the
+    # next process restart (cf. SUP-0038 followup, May 2026).
+    if body.key == "datatable.max_page_size" and scope == "tenant":
+        from app.core.pagination import invalidate_max_page_size_cache
+        invalidate_max_page_size_cache()
+
     # Audit log every entity/tenant write — these are admin-surface changes
     # that may touch connector creds, compliance policy, etc. User-scope
     # writes are self-service and not audit-worthy.

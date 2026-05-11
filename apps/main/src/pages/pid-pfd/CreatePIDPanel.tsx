@@ -31,10 +31,11 @@ import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { usePermission } from '@/hooks/usePermission'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { EquipmentPicker } from '@/components/shared/EquipmentPicker'
 import { NoteManager } from '@/components/shared/NoteManager'
 import {
   useCreatePIDDocument, useCreateEquipment, useUpdateEquipment,
-  useEquipmentDetail, useEquipment, usePIDDocuments, useCreateProcessLine,
+  useEquipmentDetail, usePIDDocuments, useCreateProcessLine,
   useCreateDCSTag, useDeleteEquipment,
 } from '@/hooks/usePidPfd'
 import { TagManager } from '@/components/shared/TagManager'
@@ -633,7 +634,7 @@ export function CreateDCSTagPanel() {
   const { t } = useTranslation()
   const { toast } = useToast()
   const createTag = useCreateDCSTag()
-  const { data: equipData } = useEquipment({ page: 1, page_size: 500 })
+  // EquipmentPicker = server-side typeahead, plus de bulk fetch tronque (cf. SUP-0038 followup)
   const [form, setForm] = useState({
     tag_name: '',
     tag_type: 'PI',
@@ -695,10 +696,10 @@ export function CreateDCSTagPanel() {
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Equipement</label>
-              <select className="gl-form-select text-sm w-full" value={form.equipment_id} onChange={(e) => set('equipment_id', e.target.value)}>
-                <option value="">-- Aucun --</option>
-                {equipData?.items?.map((eq) => <option key={eq.id} value={eq.id}>{eq.tag} — {eq.description || eq.equipment_type}</option>)}
-              </select>
+              <EquipmentPicker
+                value={form.equipment_id || null}
+                onChange={(id) => set('equipment_id', id ?? '')}
+              />
             </div>
           </div>
         </FormSection>

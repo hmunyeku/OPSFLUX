@@ -42,6 +42,7 @@ import {
   SectionColumns,
 } from '@/components/layout/DynamicPanel'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { EquipmentPicker } from '@/components/shared/EquipmentPicker'
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -1824,7 +1825,7 @@ function CreateDCSTagPanel() {
   const { t } = useTranslation()
   const { toast } = useToast()
   const createTag = useCreateDCSTag()
-  const { data: equipData } = useEquipment({ page: 1, page_size: 500 })
+  // EquipmentPicker = server-side typeahead (cf. SUP-0038 followup)
   const [form, setForm] = useState({
     tag_name: '',
     tag_type: 'PI',
@@ -1886,10 +1887,10 @@ function CreateDCSTagPanel() {
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Equipement</label>
-              <select className="gl-form-select text-sm w-full" value={form.equipment_id} onChange={(e) => set('equipment_id', e.target.value)}>
-                <option value="">{t('projets.aucun')}</option>
-                {equipData?.items?.map((eq) => <option key={eq.id} value={eq.id}>{eq.tag} — {eq.description || eq.equipment_type}</option>)}
-              </select>
+              <EquipmentPicker
+                value={form.equipment_id || null}
+                onChange={(id) => set('equipment_id', id ?? '')}
+              />
             </div>
           </div>
         </FormSection>

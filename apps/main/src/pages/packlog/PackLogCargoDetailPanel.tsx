@@ -383,17 +383,48 @@ export function CargoDetailPanel({ id }: { id: string }) {
     ? cargoRequests.find((request) => request.id === cargo.request_id) ?? null
     : null
 
-  // Silence "declared but never used" — these helpers still live in
-  // the file so we can easily re-enable inline-edit mode later; the
-  // action bar no longer has a trigger for them.
-  void startEdit
-  void handleSave
-
-  // OpsFlux pattern: no edit-mode switch — inline edit directly on
-  // permissioned fields (double-click InlineEditable rows). Only
-  // domain actions that can't be expressed inline remain.
+  // SUP-0034 (Bastien, second angle): le pattern 'inline-edit' avait ete
+  // amorce sur ce panel mais jamais finalise -> `startEdit` / `handleSave`
+  // etaient supprimes via `void` et le formulaire d'edition (gating sur
+  // editing===true) n'etait jamais accessible. Resultat: une fois le cargo
+  // cree, plus moyen de le remplir/corriger ("impossible de remplir le
+  // dossier colis, une fois valide" -- ticket SUP-0034).
+  //
+  // Le 1er fix (commit 8d485a3c, 11 mai) avait restaure le bouton Modifier
+  // sur PackLogRequestDetailPanel (= la "demande" parente), mais le meme
+  // bug existait aussi ici sur PackLogCargoDetailPanel (= le cargo
+  // individuel = "dossier colis" au sens strict du ticket). Ce 2eme fix
+  // applique le meme pattern.
   const actionItems = useMemo<ActionItem[]>(() => {
-    const items: ActionItem[] = []
+    // Mode edition : seulement Annuler + Enregistrer.
+    if (editing) {
+      return [
+        {
+          id: 'cancel-edit',
+          label: t('common.cancel'),
+          priority: 40,
+          onClick: () => setEditing(false),
+        },
+        {
+          id: 'save-edit',
+          label: t('common.save'),
+          variant: 'primary',
+          priority: 100,
+          loading: updateCargo.isPending,
+          disabled: updateCargo.isPending,
+          onClick: handleSave,
+        },
+      ]
+    }
+    // Mode lecture : Modifier (declenche edition), Ouvrir demande, Etiquette PDF.
+    const items: ActionItem[] = [
+      {
+        id: 'edit-cargo',
+        label: t('common.edit'),
+        priority: 80,
+        onClick: startEdit,
+      },
+    ]
     if (cargoRequest) {
       items.push({
         id: 'open-request',
@@ -418,7 +449,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
       onClick: () => labelPdf.mutate({ id }),
     })
     return items
-  }, [cargoRequest, panelModule, id, labelPdf])
+  }, [editing, cargoRequest, panelModule, id, labelPdf, t, updateCargo.isPending, startEdit, handleSave])
 
   if (isLoading || !cargo) {
     return (

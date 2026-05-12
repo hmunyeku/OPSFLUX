@@ -23,8 +23,13 @@
 | `9e41426b` | feat(teams): attache d'équipes sur les activités planner (SUP-0040 phase 1 final) | Phase 1 SUP-0040 complète à 100% |
 | `3333adf8` | fix(secu): IDOR sur 9 routes PII utilisateur + CORS bypass via 500 | **Sécurité critique** — fermeture exfiltration PII |
 | `8efcbaa9` | i18n: complete top common.* missing keys + bulk-translate trivial EN labels | 30 clés FR + 60 EN ajoutées |
+| `44a4dd82` | docs(qa): protocole 200 etapes + journal de session autonome | Protocole + journal QA |
+| `14a18da5` | fix(secu+i18n): audit log require_permission + papyrus body Pydantic + 49 EN trad | Sécu + i18n complément |
+| `85e19fda` | hotfix(secu): audit endpoint — require_permission retourne deja un Depends | **Hotfix** : API down ~5min suite à 14a18da5, double-Depends imbriqué |
 
-Tous déployés sur prod (compose status `done` × 3).
+**Tous déployés sur prod (compose status `done` × 6).**
+
+⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 
 **Couverture du protocole 200 étapes** :
 

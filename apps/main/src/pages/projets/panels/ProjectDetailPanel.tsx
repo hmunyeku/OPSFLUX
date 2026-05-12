@@ -19,7 +19,11 @@ import {
   Minimize2,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
-import { Info, Paperclip, LayoutList, BarChart3, Search, Lock } from 'lucide-react'
+import { Info, Paperclip, LayoutList, BarChart3, Search, Lock, Users2 } from 'lucide-react'
+import { useProjectTeams, useAttachTeamToProject, useDetachTeamFromProject } from '@/hooks/useTeams'
+import { TeamPicker } from '@/components/shared/TeamPicker'
+import { TeamCreateInline } from '@/components/shared/TeamCreateInline'
+import { PROJECT_TEAM_ROLE_LABELS, type ProjectTeamRole } from '@/services/teamsService'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
 import { describeError } from '@/lib/errors'
@@ -1148,6 +1152,163 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
         <X size={14} />
       </button>
     </div>
+  )
+}
+
+// ─── ProjectTeamsSection (SUP-0040) ──────────────────────────────────────────
+// Bastien (mai 2026): "on peut ajouter une equipe comme membre d'un projet
+// etc." Attache des objets `Team` au projet en tant que stakeholders.
+// Different de ProjectMember (individus) — ici on garde la team comme
+// objet first-class. Les individus de l'equipe ne sont pas auto-ajoutes
+// aux project_members (eviter le bruit ; si besoin, on listera join-on-the-fly).
+function ProjectTeamsSection({ projectId }: { projectId: string }) {
+  const { data: teams = [] } = useProjectTeams(projectId)
+  const attachTeam = useAttachTeamToProject()
+  const detachTeam = useDetachTeamFromProject()
+  const [showAttachPanel, setShowAttachPanel] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const [selectedRole, setSelectedRole] = useState<ProjectTeamRole | ''>('')
+  const { toast } = useToast()
+
+  const excludeIds = teams.map((pt) => pt.team_id)
+
+  const handleAttach = (teamId: string) => {
+    attachTeam.mutate(
+      { projectId, teamId, role: selectedRole || undefined },
+      {
+        onSuccess: () => {
+          toast({ title: 'Équipe attachée', variant: 'success' })
+          setSelectedTeamId(null)
+          setSelectedRole('')
+          setShowAttachPanel(false)
+        },
+        onError: (err: any) => {
+          toast({
+            title: 'Attache échouée',
+            description: err?.response?.data?.detail || err?.message,
+            variant: 'error',
+          })
+        },
+      },
+    )
+  }
+
+  const handleDetach = (teamId: string, teamName: string) => {
+    if (!window.confirm(`Détacher l'équipe « ${teamName} » de ce projet ?`)) return
+    detachTeam.mutate({ projectId, teamId })
+  }
+
+  return (
+    <FormSection
+      title={`Équipes attachées (${teams.length})`}
+      collapsible
+      defaultExpanded
+      storageKey="project-detail-teams"
+      headerExtra={
+        <button
+          className="btn btn-tertiary h-5 px-1.5 flex items-center gap-1 text-[10px]"
+          onClick={() => setShowAttachPanel((v) => !v)}
+          title="Attacher une équipe"
+        >
+          <Plus size={11} />
+          <span className="hidden sm:inline">Équipe</span>
+        </button>
+      }
+    >
+      {showAttachPanel && (
+        <div className="mb-2">
+          {showCreate ? (
+            <TeamCreateInline
+              onCreated={(team) => {
+                setShowCreate(false)
+                handleAttach(team.id)
+              }}
+              onCancel={() => setShowCreate(false)}
+            />
+          ) : (
+            <div className="space-y-2 p-2 rounded-md border border-info/40 bg-info/5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold flex items-center gap-1">
+                  <Users2 size={12} className="text-info" />
+                  Attacher une équipe
+                </span>
+                <button
+                  className="p-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowAttachPanel(false)}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex-1">
+                  <TeamPicker
+                    value={selectedTeamId}
+                    onChange={setSelectedTeamId}
+                    placeholder="Choisir une équipe..."
+                    excludeIds={excludeIds}
+                  />
+                </div>
+                <select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value as ProjectTeamRole)}
+                  className={cn(panelInputClass, 'w-full sm:w-[150px]')}
+                >
+                  <option value="">Rôle (optionnel)</option>
+                  {Object.entries(PROJECT_TEAM_ROLE_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-1">
+                  <button
+                    className="btn btn-primary h-6 px-2 text-[10px]"
+                    disabled={!selectedTeamId || attachTeam.isPending}
+                    onClick={() => selectedTeamId && handleAttach(selectedTeamId)}
+                  >
+                    {attachTeam.isPending ? <Loader2 size={10} className="animate-spin" /> : 'Attacher'}
+                  </button>
+                  <button
+                    className="btn btn-tertiary h-6 px-2 text-[10px]"
+                    onClick={() => setShowCreate(true)}
+                  >
+                    + Nouvelle
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {teams.length === 0 ? (
+        <EmptyState icon={Users2} title="Aucune équipe attachée" variant="search" size="compact" />
+      ) : (
+        <div className="space-y-1">
+          {teams.map((pt) => (
+            <div key={pt.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent/50 text-xs">
+              <Users2 size={14} className="shrink-0 text-info" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium truncate">{pt.team_name}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {pt.team_member_count} membre{pt.team_member_count > 1 ? 's' : ''}
+                  {pt.team_visibility === 'private' && <span> · privée</span>}
+                  {pt.role && (
+                    <span> · {PROJECT_TEAM_ROLE_LABELS[pt.role as ProjectTeamRole] ?? pt.role}</span>
+                  )}
+                </p>
+              </div>
+              <button
+                className="btn btn-danger h-6 px-2 text-[10px] shrink-0"
+                onClick={() => handleDetach(pt.team_id, pt.team_name)}
+                disabled={detachTeam.isPending}
+                title="Détacher l'équipe"
+              >
+                <Trash2 size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </FormSection>
   )
 }
 
@@ -3543,6 +3704,9 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               )}
               <MemberQuickAdd projectId={id} />
             </FormSection>
+
+            {/* SUP-0040 — Équipes attachées (Team objects, distinct des membres individuels) */}
+            <ProjectTeamsSection projectId={id} />
 
             {/* Pointage / Time tracking (workflow draft → submitted → validated) */}
             <TimeTrackingSection projectId={id} members={members ?? []} />

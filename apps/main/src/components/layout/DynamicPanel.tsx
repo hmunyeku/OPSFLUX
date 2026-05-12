@@ -1126,6 +1126,164 @@ export function InlineEditableRow({
   )
 }
 
+/* ─── Inline Editable Select Dropdown (SUP-0026) ──────────────────
+ * Custom dropdown qui remplace <select> natif HTML pour garantir
+ * que TOUTES les options sont accessibles via scroll, peu importe
+ * le browser. Le natif limitait l'affichage (Firefox tronquait,
+ * Edge variait selon viewport).
+ *
+ * Comportement :
+ *   - Click sur le bouton -> popup absolue avec liste scrollable
+ *   - Click sur une option -> selection + commit
+ *   - Escape ou click outside -> annule
+ *   - Recherche clavier : taper des lettres focus la 1ere option
+ *     matchante (preserve le comportement natif HTML attendu)
+ *   - max-h-[280px] sur la liste = ~10 options visibles avant scroll
+ */
+function InlineEditableSelectDropdown({
+  value,
+  options,
+  onSelect,
+  onCancel,
+}: {
+  value: string
+  options: { value: string; label: string }[]
+  onSelect: (value: string) => void
+  onCancel: () => void
+}) {
+  const [open, setOpen] = useState(true)  // ouvre par defaut quand on entre en edition
+  const [searchBuf, setSearchBuf] = useState('')
+  const [highlighted, setHighlighted] = useState<number>(() => {
+    const idx = options.findIndex((o) => o.value === value)
+    return idx >= 0 ? idx : 0
+  })
+  const containerRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+  const selectedOption = options.find((o) => o.value === value)
+
+  // Auto-scroll la list pour montrer l'option highlighted.
+  useEffect(() => {
+    if (!open || !listRef.current) return
+    const el = listRef.current.children[highlighted] as HTMLElement | undefined
+    if (el) el.scrollIntoView({ block: 'nearest' })
+  }, [highlighted, open])
+
+  // Click outside -> cancel.
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        onCancel()
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [onCancel])
+
+  // Clavier : Up/Down navigue, Enter commit, Escape annule, lettres = type-ahead.
+  const handleKey = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCancel()
+        return
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        const opt = options[highlighted]
+        if (opt) onSelect(opt.value)
+        return
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setHighlighted((i) => Math.min(i + 1, options.length - 1))
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setHighlighted((i) => Math.max(i - 1, 0))
+        return
+      }
+      // Type-ahead : on accumule les lettres tapees rapidement et on
+      // jump vers la 1ere option dont le label commence par ce buffer.
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const next = (searchBuf + e.key).toLowerCase()
+        setSearchBuf(next)
+        const idx = options.findIndex((o) => o.label.toLowerCase().startsWith(next))
+        if (idx >= 0) setHighlighted(idx)
+        // Reset buffer apres 600ms d'inactivite.
+        window.setTimeout(() => setSearchBuf(''), 600)
+      }
+    },
+    [highlighted, options, onSelect, onCancel, searchBuf],
+  )
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative"
+      tabIndex={-1}
+      onKeyDown={handleKey}
+    >
+      <button
+        type="button"
+        autoFocus
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          'flex w-full items-center justify-between gap-2 h-7 px-2 rounded-md',
+          'bg-background border border-border hover:border-primary/40',
+          'text-sm text-foreground transition-colors',
+          'focus:outline-none focus:ring-1 focus:ring-primary/40',
+        )}
+      >
+        <span className="truncate">
+          {selectedOption?.label ?? <span className="text-muted-foreground">—</span>}
+        </span>
+        <ChevronDown size={12} className={cn('shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <ul
+          ref={listRef}
+          role="listbox"
+          className={cn(
+            'absolute z-50 left-0 right-0 mt-1',
+            'max-h-[280px] overflow-y-auto',
+            'rounded-md border border-border bg-popover shadow-lg',
+            'py-1 text-sm',
+          )}
+        >
+          {options.length === 0 && (
+            <li className="px-2 py-1.5 text-xs text-muted-foreground italic">
+              Aucune option
+            </li>
+          )}
+          {options.map((opt, i) => (
+            <li key={opt.value}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={opt.value === value}
+                onMouseEnter={() => setHighlighted(i)}
+                onClick={() => onSelect(opt.value)}
+                className={cn(
+                  'w-full flex items-center gap-2 px-2 py-1 text-left text-sm',
+                  'hover:bg-accent transition-colors',
+                  i === highlighted && 'bg-accent',
+                  opt.value === value && 'font-medium text-primary',
+                )}
+              >
+                {opt.value === value && <Check size={11} className="shrink-0" />}
+                <span className={cn('truncate', opt.value !== value && 'pl-[15px]')}>
+                  {opt.label}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 /* ─── Inline Editable Select ──────────────────────────────────── */
 
 export function InlineEditableSelect({
@@ -1164,17 +1322,18 @@ export function InlineEditableSelect({
       <div className="flex items-center gap-3 py-1.5 border-b border-border/50">
         <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
         <div className="flex-1">
-          <select
+          {/* SUP-0026 : le <select> natif HTML avec appearance:none rendait
+              un dropdown limite a quelques options par browser (Firefox
+              tronquait severement, Edge variait). On utilise maintenant un
+              dropdown custom (button + ul absolu) avec max-h-[280px] et
+              overflow-y-auto pour garantir que TOUTES les options sont
+              accessibles, quel que soit le browser et le nombre d'options. */}
+          <InlineEditableSelectDropdown
             value={draft}
-            onChange={(e) => { setDraft(e.target.value); commit(e.target.value) }}
-            onBlur={() => setEditing(false)}
-            autoFocus
-            className="gl-form-select h-7 text-sm"
-          >
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            options={options}
+            onSelect={(v) => { setDraft(v); commit(v) }}
+            onCancel={() => setEditing(false)}
+          />
         </div>
       </div>
     )

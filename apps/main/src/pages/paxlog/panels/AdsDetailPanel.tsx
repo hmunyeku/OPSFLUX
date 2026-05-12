@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
-import { useAds, useAdsPax, useAdsEvents, useAdsExternalLinks, useStayPrograms, useAdsImputationSuggestion, useSubmitAds, useCancelAds, useStartAdsProgress, useApproveAds, useDecideAdsPax, useRejectAds, useRequestAdsStayChange, useRequestReviewAds, useResubmitAds, useCompleteAds, useManualDepartureAds, useAdsPdf, useCreateExternalLink, useCreateStayProgram, useSubmitStayProgram, useApproveStayProgram, useUpdateAds, useAddPaxToAdsV2, useRemovePaxFromAds, usePaxCandidates } from '@/hooks/usePaxlog'
+import { useAds, useAdsPax, useAdsEvents, useAdsExternalLinks, useStayPrograms, useAdsImputationSuggestion, useSubmitAds, useCancelAds, useStartAdsProgress, useApproveAds, useDecideAdsPax, useRejectAds, useRequestAdsStayChange, useRequestReviewAds, useResubmitAds, useCompleteAds, useManualDepartureAds, useAdsPdf, useCreateExternalLink, useCreateStayProgram, useSubmitStayProgram, useApproveStayProgram, useUpdateAds, useAddPaxToAdsV2, useRemovePaxFromAds, usePaxCandidates, useImportPaxCsv, useAdsPaxSuggestions } from '@/hooks/usePaxlog'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/stores/authStore'
 import { useAssetTree } from '@/hooks/useAssets'
@@ -9,15 +9,16 @@ import { useDictionaryLabels } from '@/hooks/useDictionary'
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useDebounce } from '@/hooks/useDebounce'
 import type { AssetTreeNode } from '@/types/api'
-import type { AdsStayChangeRequest, StayProgramCreate, PaxCandidate, AdsPax } from '@/services/paxlogService'
+import type { AdsStayChangeRequest, StayProgramCreate, PaxCandidate, AdsPax, AdsPaxCsvImportResult, AdsPaxSuggestion } from '@/services/paxlogService'
 import { paxlogService } from '@/services/paxlogService'
 import { cn } from '@/lib/utils'
 import { ReadOnlyRow, DynamicPanelShell, DynamicPanelField, FormGrid, FormSection, PanelActionButton, DangerConfirmButton, DetailFieldGrid, PanelContentLayout, panelInputClass } from '@/components/layout/DynamicPanel'
 import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
-import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag, Info, Users, BedDouble, BookOpen } from 'lucide-react'
+import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag, Info, Users, BedDouble, BookOpen, FileSpreadsheet, Sparkles, History } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { PaxAvatar } from '@/components/shared/PaxAvatar'
 import { ImputationManager } from '@/components/shared/ImputationManager'
 import { AdsExternalLinksAudit } from '@/pages/paxlog/components/AdsExternalLinksAudit'
 import { TagManager } from '@/components/shared/TagManager'
@@ -55,6 +56,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
   const updateAds = useUpdateAds()
   const addPaxV2 = useAddPaxToAdsV2()
   const removePax = useRemovePaxFromAds()
+  const importPaxCsv = useImportPaxCsv()
   const { hasPermission } = usePermission()
   const currentUser = useAuthStore((s) => s.user)
   const { data: assetTree = [] } = useAssetTree()
@@ -90,12 +92,24 @@ export function AdsDetailPanel({ id }: { id: string }) {
   const [allowedCompaniesDraft, setAllowedCompaniesDraft] = useState<AllowedCompanySelection[]>([])
   const [paxRejectEntryId, setPaxRejectEntryId] = useState<string | null>(null)
   const [paxRejectReason, setPaxRejectReason] = useState('')
+  // SUP-0039 — CSV import + history suggestions
+  const [showCsvImportModal, setShowCsvImportModal] = useState(false)
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [csvImportResult, setCsvImportResult] = useState<AdsPaxCsvImportResult | null>(null)
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [stayProgramTarget, setStayProgramTarget] = useState<{ user_id?: string | null; contact_id?: string | null }>({})
   const [stayMovements, setStayMovements] = useState<Array<{ effective_date: string; from_location: string; to_location: string; transport_mode: string; notes: string }>>([
     { effective_date: '', from_location: '', to_location: '', transport_mode: '', notes: '' },
   ])
   const debouncedPaxSearch = useDebounce(paxSearch, 300)
   const { data: paxCandidates } = usePaxCandidates(debouncedPaxSearch, id)
+  // Suggestions historiques — chargees a la demande (lazy via enabled flag)
+  // pour eviter une requete inutile sur ADS qui ne sont pas en draft.
+  const { data: paxSuggestions, isLoading: paxSuggestionsLoading } = useAdsPaxSuggestions(id, {
+    enabled: showSuggestions,
+    limit: 20,
+    months: 6,
+  })
 
   // Resolve asset name from tree
   const resolveAssetName = useCallback((assetId: string | null | undefined): string | null => {
@@ -523,6 +537,53 @@ export function AdsDetailPanel({ id }: { id: string }) {
         setStayMovements([{ effective_date: '', from_location: '', to_location: '', transport_mode: '', notes: '' }])
       },
     })
+  }
+
+  // SUP-0039 — CSV import + history-based suggestion handlers
+  const handleCsvImport = () => {
+    if (!csvFile) return
+    importPaxCsv.mutate(
+      { adsId: id, file: csvFile },
+      {
+        onSuccess: (result) => {
+          setCsvImportResult(result)
+          setCsvFile(null)
+          const { added, errors, skipped } = result.summary
+          toast({
+            title: t('paxlog.ads_detail.csv_import.success_title') || 'Import terminé',
+            description: `${added} pax ajouté(s), ${skipped} ignoré(s), ${errors} erreur(s)`,
+            variant: errors > 0 ? 'warning' : 'success',
+          })
+        },
+        onError: (err: any) => {
+          toast({
+            title: t('paxlog.ads_detail.csv_import.error_title') || "Erreur d'import",
+            description: err?.response?.data?.message || err?.message || 'Echec import',
+            variant: 'error',
+          })
+        },
+      },
+    )
+  }
+
+  const handleAddSuggestion = (sugg: AdsPaxSuggestion) => {
+    addPaxV2.mutate(
+      {
+        adsId: id,
+        body: sugg.user_id
+          ? { user_id: sugg.user_id }
+          : { contact_id: sugg.contact_id! },
+      },
+      {
+        onError: (err: any) => {
+          toast({
+            title: t('paxlog.ads_detail.actions.add_passenger') || 'Ajout pax',
+            description: err?.response?.data?.message || err?.message || 'Echec',
+            variant: 'error',
+          })
+        },
+      },
+    )
   }
 
   return (
@@ -1103,15 +1164,206 @@ export function AdsDetailPanel({ id }: { id: string }) {
           title={t('paxlog.ads_detail.sections.passengers', { count: adsPax?.length || 0 })}
           defaultExpanded
           headerExtra={ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update') ? (
-            <button
-              className="btn btn-primary h-5 w-5 flex text-primary"
-              onClick={() => setShowPaxPicker(true)}
-              title={t('paxlog.ads_detail.actions.add_passenger')}
-            >
-              <Plus size={13} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                className={cn(
+                  'btn btn-tertiary h-5 px-1.5 flex items-center gap-1 text-[10px]',
+                  showSuggestions && 'btn-info',
+                )}
+                onClick={() => setShowSuggestions((s) => !s)}
+                title={t('paxlog.ads_detail.actions.suggestions') || 'Suggestions depuis l\'historique'}
+              >
+                <Sparkles size={11} />
+                {t('paxlog.ads_detail.actions.suggestions_short') || 'Suggérer'}
+              </button>
+              <button
+                className="btn btn-tertiary h-5 px-1.5 flex items-center gap-1 text-[10px]"
+                onClick={() => setShowCsvImportModal((v) => !v)}
+                title={t('paxlog.ads_detail.actions.import_csv') || 'Importer CSV'}
+              >
+                <FileSpreadsheet size={11} />
+                CSV
+              </button>
+              <button
+                className="btn btn-primary h-5 w-5 flex text-primary"
+                onClick={() => setShowPaxPicker(true)}
+                title={t('paxlog.ads_detail.actions.add_passenger')}
+              >
+                <Plus size={13} />
+              </button>
+            </div>
           ) : undefined}
         >
+          {/* SUP-0039 — Suggestions historiques (apparait au-dessus du picker
+              quand l'utilisateur clique 'Suggérer'). Liste des pax les plus
+              recurrents sur l'installation+criteres similaires, avec ajout
+              1-clic. Compte 'X ADS récents' pour donner la confiance. */}
+          {showSuggestions && (
+            <div className="mb-3">
+              <div className="space-y-2 p-2 rounded-md border border-info/40 bg-info/5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                    <Sparkles size={12} className="text-info" />
+                    {t('paxlog.ads_detail.suggestions.title') || 'Suggestions depuis l\'historique'}
+                    {paxSuggestions && (
+                      <span className="text-muted-foreground font-normal text-[10px]">
+                        ({paxSuggestions.total} {t('paxlog.ads_detail.suggestions.count_suffix') || 'candidat(s)'} • {paxSuggestions.window_months} {t('paxlog.ads_detail.suggestions.months') || 'mois'})
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    className="p-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowSuggestions(false)}
+                    title={t('common.close')}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                {paxSuggestionsLoading && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground py-3 justify-center">
+                    <Loader2 size={12} className="animate-spin" />
+                    {t('paxlog.ads_detail.suggestions.loading') || 'Recherche d\'ADS similaires...'}
+                  </div>
+                )}
+                {!paxSuggestionsLoading && paxSuggestions && paxSuggestions.items.length === 0 && (
+                  <p className="text-xs text-muted-foreground py-2 italic text-center">
+                    {t('paxlog.ads_detail.suggestions.empty') || 'Aucun pax recurrent trouve sur cette installation.'}
+                  </p>
+                )}
+                {!paxSuggestionsLoading && paxSuggestions && paxSuggestions.items.length > 0 && (
+                  <div className="max-h-[260px] overflow-y-auto space-y-1">
+                    {paxSuggestions.items.map((sugg) => {
+                      const fullName = `${sugg.last_name ?? ''} ${sugg.first_name ?? ''}`.trim()
+                      const isAdding = addPaxV2.isPending
+                      return (
+                        <div
+                          key={`${sugg.pax_source}-${sugg.user_id || sugg.contact_id}`}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent/40 text-xs"
+                        >
+                          <PaxAvatar
+                            avatarUrl={sugg.avatar_url}
+                            fullName={fullName}
+                            size={28}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{fullName}</p>
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                              {sugg.job_position_name && <span>{sugg.job_position_name}</span>}
+                              {sugg.company_name && <span>• {sugg.company_name}</span>}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-[10px] text-muted-foreground flex items-center gap-1">
+                            <History size={10} />
+                            {sugg.occurrences} {t('paxlog.ads_detail.suggestions.ads_count') || 'ADS'}
+                          </div>
+                          <button
+                            className="btn btn-primary h-6 px-2 text-[10px] shrink-0"
+                            disabled={isAdding}
+                            onClick={() => handleAddSuggestion(sugg)}
+                            title={t('paxlog.ads_detail.actions.add_passenger') || 'Ajouter'}
+                          >
+                            {isAdding ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* SUP-0039 — Modal import CSV (email column obligatoire). Affiche
+              le rapport en bas apres traitement : added/skipped/errors avec
+              detail des lignes erronees. */}
+          {showCsvImportModal && (
+            <div className="mb-3">
+              <div className="space-y-2 p-2 rounded-md border border-border bg-card">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                    <FileSpreadsheet size={12} className="text-primary" />
+                    {t('paxlog.ads_detail.csv_import.title') || 'Importer des passagers depuis CSV'}
+                  </div>
+                  <button
+                    className="p-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setShowCsvImportModal(false)
+                      setCsvFile(null)
+                      setCsvImportResult(null)
+                    }}
+                    title={t('common.close')}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {t('paxlog.ads_detail.csv_import.instructions') || 'Le fichier CSV doit contenir au minimum une colonne "email". Séparateurs supportés : , ; tab. Encodages : UTF-8 ou CP1252 (Excel FR).'}
+                </p>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setCsvFile(file)
+                      setCsvImportResult(null)
+                    }
+                  }}
+                  className={panelInputClass}
+                />
+                {csvFile && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="btn btn-primary h-6 px-2 text-[10px]"
+                      disabled={importPaxCsv.isPending}
+                      onClick={handleCsvImport}
+                    >
+                      {importPaxCsv.isPending ? (
+                        <><Loader2 size={10} className="animate-spin mr-1" /> {t('common.importing') || 'Import…'}</>
+                      ) : (
+                        <>{t('common.import') || 'Importer'}</>
+                      )}
+                    </button>
+                    <button
+                      className="btn btn-tertiary h-6 px-2 text-[10px]"
+                      onClick={() => setCsvFile(null)}
+                    >
+                      {t('common.cancel')}
+                    </button>
+                    <span className="text-[10px] text-muted-foreground truncate">{csvFile.name}</span>
+                  </div>
+                )}
+                {csvImportResult && (
+                  <div className="mt-2 space-y-1 p-2 rounded border bg-muted/30 text-[11px]">
+                    <p className="font-semibold">
+                      {t('paxlog.ads_detail.csv_import.result_title') || 'Résultat'}
+                    </p>
+                    <p className="text-emerald-600 dark:text-emerald-400">
+                      ✓ {csvImportResult.summary.added} {t('paxlog.ads_detail.csv_import.added') || 'ajouté(s)'}
+                    </p>
+                    {csvImportResult.summary.skipped > 0 && (
+                      <p className="text-amber-600 dark:text-amber-400">
+                        ⚠ {csvImportResult.summary.skipped} {t('paxlog.ads_detail.csv_import.skipped') || 'déjà présent(s)'}
+                      </p>
+                    )}
+                    {csvImportResult.summary.errors > 0 && (
+                      <div className="text-red-600 dark:text-red-400">
+                        <p>✗ {csvImportResult.summary.errors} {t('paxlog.ads_detail.csv_import.errors') || 'erreur(s)'}</p>
+                        <div className="mt-1 max-h-24 overflow-y-auto space-y-0.5">
+                          {csvImportResult.errors.map((err, idx) => (
+                            <p key={idx} className="text-[10px]">
+                              Ligne {err.row}: {err.error} {err.email ? `(${err.email})` : ''}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* PAX Search & Add */}
           {showPaxPicker && (
             <div className="mb-3">
@@ -1188,8 +1440,39 @@ export function AdsDetailPanel({ id }: { id: string }) {
           {!adsPax || adsPax.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.ads_detail.empty.passengers')}</p>
           ) : (
-            <div className="space-y-1">
-              {adsPax.map((ap: AdsPax) => (
+            // SUP-0039 — groupement par entreprise pour scanner rapidement les
+            // sociétés représentées dans l'ADS. Les pax sans entreprise sont
+            // rassembles dans un bucket "Sans entreprise" en dernier.
+            <div className="space-y-3">
+              {(() => {
+                const NO_COMPANY_KEY = '__no_company__'
+                const grouped = adsPax.reduce<Record<string, AdsPax[]>>((acc, ap: AdsPax) => {
+                  const key = ap.pax_company_name || NO_COMPANY_KEY
+                  if (!acc[key]) acc[key] = []
+                  acc[key].push(ap)
+                  return acc
+                }, {})
+                // Sort: entreprises par ordre alpha, "Sans entreprise" en dernier.
+                const groupKeys = Object.keys(grouped).sort((a, b) => {
+                  if (a === NO_COMPANY_KEY) return 1
+                  if (b === NO_COMPANY_KEY) return -1
+                  return a.localeCompare(b, 'fr')
+                })
+                return groupKeys.map((groupKey) => {
+                  const groupLabel = groupKey === NO_COMPANY_KEY
+                    ? (t('paxlog.ads_detail.no_company') || 'Sans entreprise')
+                    : groupKey
+                  const paxList = grouped[groupKey]
+                  return (
+                    <div key={groupKey} className="space-y-0.5">
+                      {/* Company header */}
+                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-2 py-0.5 bg-muted/30 rounded-sm flex items-center gap-2">
+                        <span className="flex-1 truncate">{groupLabel}</span>
+                        <span className="font-normal normal-case">
+                          {paxList.length} pax
+                        </span>
+                      </div>
+                      {paxList.map((ap: AdsPax) => (
                 <div key={ap.id} className="rounded px-2 py-1.5 hover:bg-accent/50 text-xs group">
                   {(() => {
                     const complianceSummary = (ap.compliance_summary ?? null) as null | {
@@ -1215,10 +1498,19 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       (item) => !item.blocking && (item.status || '').toLowerCase() !== 'ok'
                         && (item.status || '').toLowerCase() !== 'compliant',
                     )
+                    const fullName = `${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()
                     return (
                       <>
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    {/* SUP-0039: avatar + nom + poste + entreprise. Hiérarchie
+                        visuelle alignée avec le retour Bastien (mai 2026). */}
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <PaxAvatar
+                        avatarUrl={ap.pax_avatar_url}
+                        fullName={fullName}
+                        size={28}
+                      />
+                      <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">
                         {(ap.user_id || ap.contact_id) ? (
                           <button
@@ -1236,14 +1528,22 @@ export function AdsDetailPanel({ id }: { id: string }) {
                               })
                             }
                           >
-                            {`${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()}
+                            {fullName}
                           </button>
                         ) : (
-                          <>{ap.pax_last_name ?? ''} {ap.pax_first_name ?? ''}</>
+                          <>{fullName}</>
                         )}
                       </p>
-                      {ap.pax_badge && <p className="text-[10px] text-muted-foreground">{t('paxlog.ads_detail.fields.badge', { value: ap.pax_badge })}</p>}
-                      {ap.pax_company_name && <p className="text-[10px] text-muted-foreground">{ap.pax_company_name}</p>}
+                      {/* Poste + badge en sous-ligne (entreprise est deja
+                          dans le header de groupe, on ne la redonne pas ici). */}
+                      {(ap.pax_job_position_name || ap.pax_badge) && (
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {ap.pax_job_position_name}
+                          {ap.pax_job_position_name && ap.pax_badge && <span> • </span>}
+                          {ap.pax_badge && <>{t('paxlog.ads_detail.fields.badge', { value: ap.pax_badge })}</>}
+                        </p>
+                      )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {/* Compliance status — chip explicite avec tooltip
@@ -1400,6 +1700,10 @@ export function AdsDetailPanel({ id }: { id: string }) {
                   })()}
                 </div>
               ))}
+                    </div>
+                  )
+                })
+              })()}
             </div>
           )}
         </FormSection>

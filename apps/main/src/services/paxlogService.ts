@@ -530,7 +530,57 @@ export interface AdsPax {
   pax_company_name?: string | null
   pax_email?: string | null
   pax_phone?: string | null
+  // SUP-0039: avatar + poste pour rendre la liste vivante. Bastien (mai 2026):
+  // "chaque nom doit apparaître toujours avec l'avatar ou la photo de profil
+  // à côté".
+  pax_avatar_url?: string | null
+  pax_job_position_name?: string | null
   compliant?: boolean | null
+}
+
+export interface AdsPaxCsvImportRow {
+  row: number
+  email?: string | null
+  name?: string | null
+  source?: 'user' | 'contact'
+  reason?: string | null
+  error?: string | null
+}
+
+export interface AdsPaxCsvImportResult {
+  status: 'completed'
+  summary: {
+    total_rows: number
+    added: number
+    errors: number
+    skipped: number
+  }
+  added: AdsPaxCsvImportRow[]
+  errors: AdsPaxCsvImportRow[]
+  skipped: AdsPaxCsvImportRow[]
+}
+
+export interface AdsPaxSuggestion {
+  user_id: string | null
+  contact_id: string | null
+  pax_source: 'user' | 'contact'
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  avatar_url: string | null
+  job_position_name: string | null
+  company_id: string | null
+  company_name: string | null
+  occurrences: number
+  score: number
+  last_seen: string | null
+}
+
+export interface AdsPaxSuggestionsResponse {
+  ads_id: string
+  window_months: number
+  total: number
+  items: AdsPaxSuggestion[]
 }
 
 export interface AdsPaxDecision {
@@ -1294,6 +1344,39 @@ export const paxlogService = {
 
   removePaxFromAds: async (adsId: string, entryId: string): Promise<void> => {
     await api.delete(`/api/v1/pax/ads/${adsId}/pax/${entryId}`)
+  },
+
+  /** Bulk-import PAX from a CSV file (column `email` required).
+   *  Returns per-row report : added / skipped / errors.
+   *  Voir SUP-0039 — l'objectif est l'import en masse pour gagner du temps
+   *  sur les grosses ADS multi-entreprises. */
+  importPaxCsv: async (adsId: string, file: File): Promise<AdsPaxCsvImportResult> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await api.post<AdsPaxCsvImportResult>(
+      `/api/v1/pax/ads/${adsId}/import-pax-csv`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
+    return data
+  },
+
+  /** Suggestion de PAX a partir de l'historique des ADS similaires
+   *  (meme installation, fenetre temporelle 6 mois par defaut). Bonus de
+   *  score si meme visit_category, meme projet, intersection avec les
+   *  allowed_companies. Voir SUP-0039 §4. */
+  getPaxSuggestions: async (
+    adsId: string,
+    opts?: { limit?: number; months?: number },
+  ): Promise<AdsPaxSuggestionsResponse> => {
+    const params: Record<string, number> = {}
+    if (opts?.limit) params.limit = opts.limit
+    if (opts?.months) params.months = opts.months
+    const { data } = await api.get<AdsPaxSuggestionsResponse>(
+      `/api/v1/pax/ads/${adsId}/pax/suggestions`,
+      { params },
+    )
+    return data
   },
 
   /** Search PAX candidates: existing profiles + users + contacts */

@@ -501,6 +501,39 @@ export function usePaxCandidates(search: string, adsId?: string) {
   })
 }
 
+/** Bulk-import PAX from a CSV file. */
+export function useImportPaxCsv() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ adsId, file }: { adsId: string; file: File }) =>
+      paxlogService.importPaxCsv(adsId, file),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId, 'pax'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId, 'pax-suggestions'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+    },
+  })
+}
+
+/** History-based PAX suggestions (similar ADS on same installation).
+ *  SUP-0039 — autocomplete suggestion to save time on recurrent ADS. */
+export function useAdsPaxSuggestions(
+  adsId: string,
+  opts?: { limit?: number; months?: number; enabled?: boolean },
+) {
+  const enabled = opts?.enabled !== false && !!adsId
+  return useQuery({
+    queryKey: ['paxlog', 'ads', adsId, 'pax-suggestions', opts?.limit, opts?.months],
+    queryFn: () =>
+      paxlogService.getPaxSuggestions(adsId, {
+        limit: opts?.limit,
+        months: opts?.months,
+      }),
+    enabled,
+    staleTime: 60_000, // assez stable, on cache 1 min
+  })
+}
+
 // ── AdS Imputations ──
 
 export function useAdsImputations(adsId: string) {

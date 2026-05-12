@@ -7,6 +7,8 @@ Integrates with:
 - Workflow Engine: FSM service manages AdS status transitions (D-014)
 """
 
+import csv
+import io
 import logging
 import hashlib
 import re
@@ -15,11 +17,12 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, File, Header, HTTPException, Query, Request, UploadFile, status
 from jose import JWTError, jwt
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, bindparam, func, literal, or_, select, text, update
+from sqlalchemy import and_, bindparam, case, func, literal, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import (
     get_current_entity,
@@ -5397,23 +5400,80 @@ async def list_ads_pax(
         "no_show": 6,
     }
 
+    # Batch-load users + contacts (avec leurs job_position en eager) — evite N+1.
+    # Reference Bastien SUP-0039 (mai 2026): "il ne faut pas oublier que chaque
+    # nom d'un contact ou d'un utilisateur doit apparaître toujours avec l'avatar
+    # ou la photo de profil à côté". On enrichit donc le payload avec
+    # avatar_url + job_position_name + company_name pour les 2 cotes.
+    user_ids = [e.user_id for e in entries if e.user_id]
+    contact_ids = [e.contact_id for e in entries if e.contact_id]
+
+    users_dict: dict[UUID, User] = {}
+    if user_ids:
+        users_result = await db.execute(
+            select(User)
+            .options(selectinload(User.job_position))
+            .where(User.id.in_(user_ids))
+        )
+        users_dict = {u.id: u for u in users_result.scalars().all()}
+
+    contacts_dict: dict[UUID, TierContact] = {}
+    if contact_ids:
+        contacts_result = await db.execute(
+            select(TierContact)
+            .options(selectinload(TierContact.job_position))
+            .where(TierContact.id.in_(contact_ids))
+        )
+        contacts_dict = {c.id: c for c in contacts_result.scalars().all()}
+
+    # Resolve linked TierContact for users qui en ont un (employes externes)
+    # + assemble la map tier_id -> Tier.name en une seule passe.
+    linked_tier_contact_ids = [
+        getattr(u, "tier_contact_id", None)
+        for u in users_dict.values()
+        if getattr(u, "tier_contact_id", None)
+    ]
+    linked_contacts_dict: dict[UUID, TierContact] = {}
+    if linked_tier_contact_ids:
+        linked_contacts_result = await db.execute(
+            select(TierContact).where(TierContact.id.in_(linked_tier_contact_ids))
+        )
+        linked_contacts_dict = {
+            tc.id: tc for tc in linked_contacts_result.scalars().all()
+        }
+
+    tier_ids: set[UUID] = set()
+    tier_ids.update(tc.tier_id for tc in linked_contacts_dict.values() if tc.tier_id)
+    tier_ids.update(c.tier_id for c in contacts_dict.values() if c.tier_id)
+    company_names: dict[UUID, str] = {}
+    if tier_ids:
+        tier_result = await db.execute(
+            select(Tier.id, Tier.name).where(Tier.id.in_(tier_ids))
+        )
+        company_names = {row[0]: row[1] for row in tier_result.all()}
+
     items = []
     for ads_pax in entries:
         if ads_pax.user_id:
-            u = await db.get(User, ads_pax.user_id)
+            u = users_dict.get(ads_pax.user_id)
             linked_contact = None
             linked_company_name = None
             if u and getattr(u, "tier_contact_id", None):
-                linked_contact = await db.get(TierContact, u.tier_contact_id)
+                linked_contact = linked_contacts_dict.get(u.tier_contact_id)
                 if linked_contact:
-                    linked_company_name = await db.scalar(
-                        select(Tier.name).where(Tier.id == linked_contact.tier_id)
-                    )
+                    linked_company_name = company_names.get(linked_contact.tier_id)
             pax_email = None
             pax_phone = None
             if u:
                 pax_email = await resolve_user_contact(db, str(u.id), "email") or u.email
                 pax_phone = await resolve_user_contact(db, str(u.id), "sms")
+            # Poste : on prefere la relation User.job_position (canonical),
+            # fallback sur User.position s'il existe en tant que champ libre.
+            job_position_name = None
+            if u and getattr(u, "job_position", None):
+                job_position_name = u.job_position.name
+            elif u:
+                job_position_name = getattr(u, "position", None)
             items.append({
                 "id": str(ads_pax.id),
                 "ads_id": str(ads_pax.ads_id),
@@ -5432,9 +5492,19 @@ async def list_ads_pax(
                 "pax_type": "external" if linked_contact else (u.pax_type if u else "internal"),
                 "pax_email": pax_email,
                 "pax_phone": pax_phone,
+                "pax_avatar_url": u.avatar_url if u else None,
+                "pax_job_position_name": job_position_name,
             })
         elif ads_pax.contact_id:
-            c = await db.get(TierContact, ads_pax.contact_id)
+            c = contacts_dict.get(ads_pax.contact_id)
+            # Poste contact : job_position relation canonical, fallback
+            # sur le champ libre `position` (texte) qui est legacy.
+            job_position_name = None
+            if c and getattr(c, "job_position", None):
+                job_position_name = c.job_position.name
+            elif c and getattr(c, "position", None):
+                job_position_name = c.position
+            pax_company_name = company_names.get(c.tier_id) if (c and c.tier_id) else None
             items.append({
                 "id": str(ads_pax.id),
                 "ads_id": str(ads_pax.ads_id),
@@ -5448,10 +5518,13 @@ async def list_ads_pax(
                 "pax_first_name": c.first_name if c else "?",
                 "pax_last_name": c.last_name if c else "?",
                 "pax_company_id": str(c.tier_id) if c else None,
+                "pax_company_name": pax_company_name,
                 "pax_badge": c.badge_number if c else None,
                 "pax_type": "external",
                 "pax_email": c.email if c else None,
                 "pax_phone": c.phone if c else None,
+                "pax_avatar_url": c.photo_url if c else None,
+                "pax_job_position_name": job_position_name,
             })
 
     # Waitlisted PAX are surfaced first, then ordered by priority.
@@ -5815,6 +5888,454 @@ async def add_pax_to_ads(
         "user_id": str(body.user_id) if body.user_id else None,
         "contact_id": str(body.contact_id) if body.contact_id else None,
         "name": pax_name,
+    }
+
+
+# ─── CSV bulk import (SUP-0039) ─────────────────────────────────────────────
+# Bastien (mai 2026): "il faut donner la possibilite d'importer une liste de
+# pax via CSV". Le CSV doit contenir au minimum la colonne `email`; les
+# autres (first_name, last_name) sont ignorees — on resout l'identite via
+# l'email dans User puis TierContact. Doublons sautes (avec rapport), erreurs
+# remontees ligne par ligne. Status par defaut: pending_check (compliance
+# sera rejouee a la prochaine submission de l'ADS).
+@router.post("/ads/{ads_id}/import-pax-csv", status_code=200)
+async def import_pax_from_csv(
+    ads_id: UUID,
+    file: UploadFile = File(...),
+    request: Request = None,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bulk-import PAX from a CSV (email column required).
+
+    Resolves each email against active Users first, then active TierContacts
+    of the current entity. Returns a per-row report {added, skipped, errors}.
+    """
+    ads_result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
+        raise StructuredHTTPException(
+            404, code="ADS_NOT_FOUND", message="AdS not found",
+        )
+    if not await _can_manage_ads(
+        ads, current_user=current_user, request=request,
+        entity_id=entity_id, db=db,
+    ):
+        raise StructuredHTTPException(
+            403, code="ADS_FORBIDDEN_MANAGE",
+            message="Vous ne pouvez pas modifier les PAX de cette AdS.",
+        )
+    if ads.status not in ("draft", "requires_review"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PAX can only be imported on draft or review-pending AdS.",
+        )
+
+    contents = await file.read()
+    try:
+        csv_text = contents.decode("utf-8")
+    except UnicodeDecodeError:
+        # Tolerance Windows: tentative UTF-8 BOM puis cp1252 (Excel FR par defaut).
+        try:
+            csv_text = contents.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            try:
+                csv_text = contents.decode("cp1252")
+            except UnicodeDecodeError as exc:
+                raise StructuredHTTPException(
+                    400, code="INVALID_CSV_ENCODING",
+                    message="CSV doit etre UTF-8, UTF-8 BOM ou CP1252 (Excel FR).",
+                ) from exc
+
+    # csv.Sniffer pour detecter , ; ou \t comme separateur (Excel FR = ;)
+    try:
+        dialect = csv.Sniffer().sniff(csv_text[:2048], delimiters=",;\t|")
+    except csv.Error:
+        dialect = csv.excel  # fallback virgule
+    reader = csv.DictReader(io.StringIO(csv_text), dialect=dialect)
+
+    if not reader.fieldnames or not any(
+        f and f.strip().lower() == "email" for f in reader.fieldnames
+    ):
+        raise StructuredHTTPException(
+            400, code="INVALID_CSV_FORMAT",
+            message="CSV doit contenir une colonne 'email'.",
+        )
+
+    # Normalise le nom de colonne email (case-insensitive + trim).
+    email_field = next(
+        f for f in reader.fieldnames if f and f.strip().lower() == "email"
+    )
+
+    added: list[dict] = []
+    errors: list[dict] = []
+    skipped: list[dict] = []
+
+    for row_num, row in enumerate(reader, start=2):  # start=2: ligne 1 = header
+        email = (row.get(email_field, "") or "").strip().lower()
+        if not email:
+            errors.append({"row": row_num, "error": "Email manquant"})
+            continue
+
+        # Recherche d'abord dans Users actifs.
+        user = (await db.execute(
+            select(User).where(
+                func.lower(User.email) == email,
+                User.active == True,  # noqa: E712
+            )
+        )).scalar_one_or_none()
+
+        # Sinon TierContacts actifs de cette entite.
+        contact = None
+        if not user:
+            contact = (await db.execute(
+                select(TierContact)
+                .join(Tier, Tier.id == TierContact.tier_id)
+                .where(
+                    func.lower(TierContact.email) == email,
+                    TierContact.active == True,  # noqa: E712
+                    Tier.entity_id == entity_id,
+                )
+            )).scalar_one_or_none()
+
+        if not user and not contact:
+            errors.append({
+                "row": row_num,
+                "email": email,
+                "error": "Aucun user/contact trouve avec cet email",
+            })
+            continue
+
+        # Doublon ? skip avec raison.
+        if user:
+            existing = (await db.execute(
+                select(AdsPax.id).where(
+                    AdsPax.ads_id == ads_id, AdsPax.user_id == user.id,
+                )
+            )).scalar_one_or_none()
+            if existing:
+                skipped.append({
+                    "row": row_num, "email": email,
+                    "name": f"{user.first_name} {user.last_name}".strip(),
+                    "reason": "Deja dans l'AdS",
+                })
+                continue
+            db.add(AdsPax(ads_id=ads_id, user_id=user.id, status="pending_check"))
+            added.append({
+                "row": row_num, "email": email,
+                "name": f"{user.first_name} {user.last_name}".strip(),
+                "source": "user",
+            })
+        else:
+            existing = (await db.execute(
+                select(AdsPax.id).where(
+                    AdsPax.ads_id == ads_id, AdsPax.contact_id == contact.id,
+                )
+            )).scalar_one_or_none()
+            if existing:
+                skipped.append({
+                    "row": row_num, "email": email,
+                    "name": f"{contact.first_name} {contact.last_name}".strip(),
+                    "reason": "Deja dans l'AdS",
+                })
+                continue
+            db.add(AdsPax(
+                ads_id=ads_id, contact_id=contact.id, status="pending_check",
+            ))
+            added.append({
+                "row": row_num, "email": email,
+                "name": f"{contact.first_name} {contact.last_name}".strip(),
+                "source": "contact",
+            })
+
+    await db.commit()
+    return {
+        "status": "completed",
+        "summary": {
+            "total_rows": len(added) + len(errors) + len(skipped),
+            "added": len(added),
+            "errors": len(errors),
+            "skipped": len(skipped),
+        },
+        "added": added,
+        "errors": errors,
+        "skipped": skipped,
+    }
+
+
+# ─── History-based PAX suggestions (SUP-0039) ───────────────────────────────
+# Bastien (mai 2026): "Est-ce qu'il est possible d'utiliser des fonctions
+# d'autocompletion pour suggerer des pax en observant l'historique des ADS
+# ayant les memes parametres significatifs ? L'objectif est de faire gagner
+# du temps."
+#
+# Algorithme: on cherche les ADS historiques (6 derniers mois, status approuve
+# ou en cours ou complete) sur LA MEME installation que l'ADS courant, puis
+# on compte les pax recurrents avec une ponderation par:
+#   - recency: exp(-days_ago / 90), pax recents > pax anciens
+#   - visit_category match: +50% bonus si meme categorie de visite
+#   - project_id match: +100% bonus si meme projet (signal le plus fort)
+#   - allowed_company intersection: +30% bonus par tier en commun
+# On exclut les pax deja dans l'ADS courant. Top N (default 20) renvoye.
+@router.get("/ads/{ads_id}/pax/suggestions")
+async def suggest_ads_pax_from_history(
+    ads_id: UUID,
+    limit: int = Query(20, ge=1, le=50),
+    months: int = Query(6, ge=1, le=24, description="Fenetre temporelle en mois"),
+    request: Request = None,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
+    db: AsyncSession = Depends(get_db),
+):
+    """Suggest PAX from history of similar ADS on the same installation.
+
+    Returns a list of pax (user OR contact) sorted by relevance score with:
+      - identity (user_id/contact_id, name, avatar, job_position, company)
+      - frequency (number of historical ADS where this pax appeared)
+      - last_seen (most recent ADS date with this pax)
+      - score (relevance debug)
+    """
+    # ADS courant pour extraire criteres.
+    ads = (await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )).scalar_one_or_none()
+    if not ads:
+        raise StructuredHTTPException(
+            404, code="ADS_NOT_FOUND", message="AdS not found",
+        )
+    await _assert_ads_read_access(
+        ads, current_user=current_user, request=request,
+        entity_id=entity_id, db=db,
+    )
+
+    # Allowed companies de l'ADS courant pour le bonus intersection.
+    cur_allowed_tier_ids = [
+        row[0] for row in (await db.execute(
+            select(AdsAllowedCompany.company_id)
+            .where(AdsAllowedCompany.ads_id == ads_id)
+        )).all()
+    ]
+
+    # Pax deja dans l'ADS courant — a exclure.
+    cur_user_ids = set()
+    cur_contact_ids = set()
+    for row in (await db.execute(
+        select(AdsPax.user_id, AdsPax.contact_id)
+        .where(AdsPax.ads_id == ads_id)
+    )).all():
+        if row[0]:
+            cur_user_ids.add(row[0])
+        if row[1]:
+            cur_contact_ids.add(row[1])
+
+    # Requete d'agregation sur les ADS historiques de la meme installation.
+    # On agrege par (user_id, contact_id) avec score pondere.
+    cutoff = datetime.now(timezone.utc) - timedelta(days=months * 30)
+    HISTORY_STATUSES = ("approved", "in_progress", "completed")
+
+    # On precompile les bonus en SQL pour pouvoir trier en base.
+    # CASE WHEN matching THEN bonus ELSE 0 — plus fiable que des cast Boolean->float
+    # qui ont des coins/coins different selon dialecte (sqlite vs postgres).
+    cat_bonus = case(
+        (Ads.visit_category == ads.visit_category, literal(0.5)),
+        else_=literal(0.0),
+    )
+    if ads.project_id:
+        proj_bonus = case(
+            (Ads.project_id == ads.project_id, literal(1.0)),
+            else_=literal(0.0),
+        )
+    else:
+        proj_bonus = literal(0.0)
+    # Recency: exp(-days_ago / 90). EXTRACT EPOCH retourne des secondes en postgres.
+    recency = func.exp(
+        -func.extract("epoch", func.now() - Ads.created_at) / literal(86400.0 * 90.0)
+    )
+
+    # Allowed-company intersection bonus (compte les company_id en commun).
+    if cur_allowed_tier_ids:
+        company_bonus_subq = (
+            select(
+                AdsAllowedCompany.ads_id,
+                func.count().label("hits"),
+            )
+            .where(AdsAllowedCompany.company_id.in_(cur_allowed_tier_ids))
+            .group_by(AdsAllowedCompany.ads_id)
+            .subquery()
+        )
+        company_bonus = func.coalesce(
+            company_bonus_subq.c.hits.cast(text("float")), 0.0
+        ) * 0.3
+    else:
+        company_bonus_subq = None
+        company_bonus = literal(0.0)
+
+    # Le score par ligne agregee est SUM(weight per ADS).
+    # weight_per_ads = recency * (1 + cat_bonus + proj_bonus + company_bonus)
+    weight = recency * (literal(1.0) + cat_bonus + proj_bonus + company_bonus)
+
+    stmt = (
+        select(
+            AdsPax.user_id,
+            AdsPax.contact_id,
+            func.count().label("occurrences"),
+            func.sum(weight).label("score"),
+            func.max(Ads.created_at).label("last_seen"),
+        )
+        .join(Ads, Ads.id == AdsPax.ads_id)
+        .where(
+            Ads.entity_id == entity_id,
+            Ads.site_entry_asset_id == ads.site_entry_asset_id,
+            Ads.status.in_(HISTORY_STATUSES),
+            Ads.created_at >= cutoff,
+            Ads.id != ads_id,
+        )
+    )
+    if company_bonus_subq is not None:
+        stmt = stmt.outerjoin(
+            company_bonus_subq, company_bonus_subq.c.ads_id == Ads.id,
+        )
+    stmt = (
+        stmt.group_by(AdsPax.user_id, AdsPax.contact_id)
+        .order_by(text("score DESC NULLS LAST"), text("occurrences DESC"))
+        .limit(limit * 3)  # over-fetch pour avoir marge apres exclusion
+    )
+
+    rows = (await db.execute(stmt)).all()
+
+    # Filtre exclusion + hydratation.
+    candidate_user_ids: list[UUID] = []
+    candidate_contact_ids: list[UUID] = []
+    scored: list[dict] = []
+    for row in rows:
+        uid = row.user_id
+        cid = row.contact_id
+        if uid and uid in cur_user_ids:
+            continue
+        if cid and cid in cur_contact_ids:
+            continue
+        scored.append({
+            "user_id": uid,
+            "contact_id": cid,
+            "occurrences": int(row.occurrences),
+            "score": float(row.score) if row.score is not None else 0.0,
+            "last_seen": row.last_seen,
+        })
+        if uid:
+            candidate_user_ids.append(uid)
+        if cid:
+            candidate_contact_ids.append(cid)
+        if len(scored) >= limit:
+            break
+
+    # Hydratation users (avec job_position + tier_contact + tier name).
+    users_map: dict[UUID, User] = {}
+    if candidate_user_ids:
+        u_rows = (await db.execute(
+            select(User)
+            .options(selectinload(User.job_position))
+            .where(User.id.in_(candidate_user_ids))
+        )).scalars().all()
+        users_map = {u.id: u for u in u_rows}
+
+    contacts_map: dict[UUID, TierContact] = {}
+    if candidate_contact_ids:
+        c_rows = (await db.execute(
+            select(TierContact)
+            .options(selectinload(TierContact.job_position))
+            .where(TierContact.id.in_(candidate_contact_ids))
+        )).scalars().all()
+        contacts_map = {c.id: c for c in c_rows}
+
+    # Resolve les tier_contacts lies aux users (employes externes) + map tier->name.
+    link_tc_ids = [
+        getattr(u, "tier_contact_id", None) for u in users_map.values()
+        if getattr(u, "tier_contact_id", None)
+    ]
+    link_tc_map: dict[UUID, TierContact] = {}
+    if link_tc_ids:
+        link_tc_rows = (await db.execute(
+            select(TierContact).where(TierContact.id.in_(link_tc_ids))
+        )).scalars().all()
+        link_tc_map = {tc.id: tc for tc in link_tc_rows}
+
+    all_tier_ids: set[UUID] = set()
+    all_tier_ids.update(tc.tier_id for tc in link_tc_map.values() if tc.tier_id)
+    all_tier_ids.update(c.tier_id for c in contacts_map.values() if c.tier_id)
+    tier_name_map: dict[UUID, str] = {}
+    if all_tier_ids:
+        for row in (await db.execute(
+            select(Tier.id, Tier.name).where(Tier.id.in_(all_tier_ids))
+        )).all():
+            tier_name_map[row[0]] = row[1]
+
+    suggestions = []
+    for s in scored:
+        if s["user_id"]:
+            u = users_map.get(s["user_id"])
+            if not u:
+                continue
+            company_name = None
+            company_id = None
+            tc = link_tc_map.get(getattr(u, "tier_contact_id", None) or UUID(int=0))
+            if tc:
+                company_id = tc.tier_id
+                company_name = tier_name_map.get(tc.tier_id)
+            job_position_name = None
+            if getattr(u, "job_position", None):
+                job_position_name = u.job_position.name
+            else:
+                job_position_name = getattr(u, "position", None)
+            suggestions.append({
+                "user_id": str(u.id),
+                "contact_id": None,
+                "pax_source": "user",
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "email": u.email,
+                "avatar_url": u.avatar_url,
+                "job_position_name": job_position_name,
+                "company_id": str(company_id) if company_id else None,
+                "company_name": company_name,
+                "occurrences": s["occurrences"],
+                "score": s["score"],
+                "last_seen": s["last_seen"].isoformat() if s["last_seen"] else None,
+            })
+        elif s["contact_id"]:
+            c = contacts_map.get(s["contact_id"])
+            if not c:
+                continue
+            job_position_name = None
+            if getattr(c, "job_position", None):
+                job_position_name = c.job_position.name
+            elif getattr(c, "position", None):
+                job_position_name = c.position
+            suggestions.append({
+                "user_id": None,
+                "contact_id": str(c.id),
+                "pax_source": "contact",
+                "first_name": c.first_name,
+                "last_name": c.last_name,
+                "email": c.email,
+                "avatar_url": c.photo_url,
+                "job_position_name": job_position_name,
+                "company_id": str(c.tier_id) if c.tier_id else None,
+                "company_name": tier_name_map.get(c.tier_id) if c.tier_id else None,
+                "occurrences": s["occurrences"],
+                "score": s["score"],
+                "last_seen": s["last_seen"].isoformat() if s["last_seen"] else None,
+            })
+
+    return {
+        "ads_id": str(ads_id),
+        "window_months": months,
+        "total": len(suggestions),
+        "items": suggestions,
     }
 
 

@@ -5936,26 +5936,45 @@ async def import_pax_from_csv(
         )
 
     contents = await file.read()
-    try:
-        csv_text = contents.decode("utf-8")
-    except UnicodeDecodeError:
-        # Tolerance Windows: tentative UTF-8 BOM puis cp1252 (Excel FR par defaut).
+    # IMPORTANT: utf-8-sig en priorite — il mange le BOM (\xef\xbb\xbf) que
+    # Excel ajoute systematiquement aux exports CSV. utf-8 pur fonctionnerait
+    # aussi mais laisserait le BOM dans la 1ere colonne, ce qui casserait le
+    # match "email" du header.
+    csv_text: str | None = None
+    for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
         try:
-            csv_text = contents.decode("utf-8-sig")
+            csv_text = contents.decode(enc)
+            break
         except UnicodeDecodeError:
-            try:
-                csv_text = contents.decode("cp1252")
-            except UnicodeDecodeError as exc:
-                raise StructuredHTTPException(
-                    400, code="INVALID_CSV_ENCODING",
-                    message="CSV doit etre UTF-8, UTF-8 BOM ou CP1252 (Excel FR).",
-                ) from exc
+            continue
+    if csv_text is None:
+        raise StructuredHTTPException(
+            400, code="INVALID_CSV_ENCODING",
+            message="CSV doit etre UTF-8 (avec ou sans BOM), CP1252 ou Latin-1.",
+        )
 
-    # csv.Sniffer pour detecter , ; ou \t comme separateur (Excel FR = ;)
+    # Detection separateur. csv.Sniffer marche bien sur 200+ chars mais
+    # peut se planter sur des fichiers mini. Fallback manuel: on regarde
+    # quel separateur revient le plus dans la 1ere ligne (header).
+    header_line = csv_text.split("\n", 1)[0] if csv_text else ""
     try:
         dialect = csv.Sniffer().sniff(csv_text[:2048], delimiters=",;\t|")
     except csv.Error:
-        dialect = csv.excel  # fallback virgule
+        # Compte manuellement les separateurs candidats dans le header.
+        candidates = {",": header_line.count(","), ";": header_line.count(";"),
+                      "\t": header_line.count("\t"), "|": header_line.count("|")}
+        best = max(candidates, key=lambda k: candidates[k])
+        if candidates[best] > 0:
+            class _D(csv.Dialect):
+                delimiter = best
+                quotechar = '"'
+                doublequote = True
+                skipinitialspace = False
+                lineterminator = "\r\n"
+                quoting = csv.QUOTE_MINIMAL
+            dialect = _D
+        else:
+            dialect = csv.excel
     reader = csv.DictReader(io.StringIO(csv_text), dialect=dialect)
 
     if not reader.fieldnames or not any(
@@ -5963,7 +5982,10 @@ async def import_pax_from_csv(
     ):
         raise StructuredHTTPException(
             400, code="INVALID_CSV_FORMAT",
-            message="CSV doit contenir une colonne 'email'.",
+            message=(
+                "CSV doit contenir une colonne 'email'. Verifiez encodage "
+                "(UTF-8 conseille) et separateur (virgule, point-virgule ou tab)."
+            ),
         )
 
     # Normalise le nom de colonne email (case-insensitive + trim).

@@ -6138,54 +6138,55 @@ async def suggest_ads_pax_from_history(
     cutoff = datetime.now(timezone.utc) - timedelta(days=months * 30)
     HISTORY_STATUSES = ("approved", "in_progress", "completed")
 
-    # On precompile les bonus en SQL pour pouvoir trier en base.
-    # CASE WHEN matching THEN bonus ELSE 0 — plus fiable que des cast Boolean->float
-    # qui ont des coins/coins different selon dialecte (sqlite vs postgres).
+    # Score pondere. CASE WHEN matching THEN bonus ELSE 0 plutot que des cast
+    # boolean->float qui different selon dialecte.
     cat_bonus = case(
-        (Ads.visit_category == ads.visit_category, literal(0.5)),
-        else_=literal(0.0),
+        (Ads.visit_category == ads.visit_category, 0.5),
+        else_=0.0,
     )
     if ads.project_id:
         proj_bonus = case(
-            (Ads.project_id == ads.project_id, literal(1.0)),
-            else_=literal(0.0),
+            (Ads.project_id == ads.project_id, 1.0),
+            else_=0.0,
         )
     else:
         proj_bonus = literal(0.0)
-    # Recency: exp(-days_ago / 90). EXTRACT EPOCH retourne des secondes en postgres.
+    # Recency: exp(-days_ago / 90). On passe par du raw SQL pour la partie
+    # extract qui est specifique postgres et peut donner du SQL invalide
+    # avec `func.extract`. 7776000 = 86400 * 90 (secondes dans 90 jours).
     recency = func.exp(
-        -func.extract("epoch", func.now() - Ads.created_at) / literal(86400.0 * 90.0)
+        text("-EXTRACT(EPOCH FROM (NOW() - ads.created_at)) / 7776000.0")
     )
 
     # Allowed-company intersection bonus (compte les company_id en commun).
     if cur_allowed_tier_ids:
         company_bonus_subq = (
             select(
-                AdsAllowedCompany.ads_id,
+                AdsAllowedCompany.ads_id.label("ab_ads_id"),
                 func.count().label("hits"),
             )
             .where(AdsAllowedCompany.company_id.in_(cur_allowed_tier_ids))
             .group_by(AdsAllowedCompany.ads_id)
             .subquery()
         )
-        company_bonus = func.coalesce(
-            company_bonus_subq.c.hits.cast(text("float")), 0.0
-        ) * 0.3
+        company_bonus = func.coalesce(company_bonus_subq.c.hits, 0) * 0.3
     else:
         company_bonus_subq = None
         company_bonus = literal(0.0)
 
-    # Le score par ligne agregee est SUM(weight per ADS).
     # weight_per_ads = recency * (1 + cat_bonus + proj_bonus + company_bonus)
     weight = recency * (literal(1.0) + cat_bonus + proj_bonus + company_bonus)
+    score_col = func.sum(weight).label("score")
+    occ_col = func.count().label("occurrences")
+    last_seen_col = func.max(Ads.created_at).label("last_seen")
 
     stmt = (
         select(
             AdsPax.user_id,
             AdsPax.contact_id,
-            func.count().label("occurrences"),
-            func.sum(weight).label("score"),
-            func.max(Ads.created_at).label("last_seen"),
+            occ_col,
+            score_col,
+            last_seen_col,
         )
         .join(Ads, Ads.id == AdsPax.ads_id)
         .where(
@@ -6198,11 +6199,11 @@ async def suggest_ads_pax_from_history(
     )
     if company_bonus_subq is not None:
         stmt = stmt.outerjoin(
-            company_bonus_subq, company_bonus_subq.c.ads_id == Ads.id,
+            company_bonus_subq, company_bonus_subq.c.ab_ads_id == Ads.id,
         )
     stmt = (
         stmt.group_by(AdsPax.user_id, AdsPax.contact_id)
-        .order_by(text("score DESC NULLS LAST"), text("occurrences DESC"))
+        .order_by(score_col.desc().nullslast(), occ_col.desc())
         .limit(limit * 3)  # over-fetch pour avoir marge apres exclusion
     )
 

@@ -93,11 +93,14 @@ class Team(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     active: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
     tags: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
+    # TeamMember a 2 FK vers `teams` (team_id + moved_to_team_id). Sans
+    # foreign_keys explicite, SQLAlchemy refuse de configurer le mapper.
     members = relationship(
         "TeamMember",
         back_populates="team",
         cascade="all, delete-orphan",
         order_by="TeamMember.joined_at",
+        foreign_keys="TeamMember.team_id",
     )
     project_links = relationship(
         "ProjectTeam",

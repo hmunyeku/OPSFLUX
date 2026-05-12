@@ -230,7 +230,7 @@ async def list_teams(
     include_inactive: bool = False,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("teams.read")),
+    _: None = require_permission("teams.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Liste les equipes accessibles.
@@ -284,7 +284,7 @@ async def create_team(
     payload: TeamCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("teams.create")),
+    _: None = require_permission("teams.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Cree une equipe. Si `initial_members` est fourni, les ajoute en 1 transaction."""
@@ -347,7 +347,7 @@ async def get_team(
     team_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("teams.read")),
+    _: None = require_permission("teams.read"),
     db: AsyncSession = Depends(get_db),
 ):
     team = await _get_team_or_404(db, team_id, entity_id)
@@ -365,7 +365,7 @@ async def update_team(
     payload: TeamUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("teams.update")),
+    _: None = require_permission("teams.update"),
     db: AsyncSession = Depends(get_db),
 ):
     team = await _get_team_or_404(db, team_id, entity_id)
@@ -405,7 +405,7 @@ async def delete_team(
     team_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("teams.delete")),
+    _: None = require_permission("teams.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     team = await _get_team_or_404(db, team_id, entity_id)
@@ -431,7 +431,7 @@ async def add_team_member(
     payload: TeamMemberCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("teams.member.manage")),
+    _: None = require_permission("teams.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     team = await _get_team_or_404(db, team_id, entity_id)
@@ -475,7 +475,7 @@ async def update_team_member(
     payload: TeamMemberUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("teams.member.manage")),
+    _: None = require_permission("teams.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     team = await _get_team_or_404(db, team_id, entity_id)
@@ -505,7 +505,7 @@ async def remove_team_member(
     member_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("teams.member.manage")),
+    _: None = require_permission("teams.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """Sort un membre de l'equipe (UPDATE left_at = NOW). Pas de DELETE."""
@@ -533,7 +533,7 @@ async def move_team_member(
     payload: TeamMemberMove,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("teams.member.manage")),
+    _: None = require_permission("teams.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """Deplace un membre vers une autre equipe.
@@ -607,7 +607,7 @@ async def get_team_history(
     team_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("teams.read")),
+    _: None = require_permission("teams.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Tous les membres (actifs + sortis), ordres chronologiquement DESC.

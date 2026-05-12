@@ -122,7 +122,7 @@ services:
       args:
         VITE_API_URL: https://api.${DOMAIN:-opsflux.io}
         VITE_DRAWIO_URL: https://drawio.${DOMAIN:-opsflux.io}
-        BUILD_ID: "22"
+        BUILD_ID: "23"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"

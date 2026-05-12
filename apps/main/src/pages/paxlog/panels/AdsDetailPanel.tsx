@@ -1164,6 +1164,9 @@ export function AdsDetailPanel({ id }: { id: string }) {
           title={t('paxlog.ads_detail.sections.passengers', { count: adsPax?.length || 0 })}
           defaultExpanded
           headerExtra={ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update') ? (
+            // Mobile-friendly : sur < sm on cache les labels des 2 premiers
+            // boutons pour ne garder que les icones. Le bouton + reste pareil
+            // (deja icon-only).
             <div className="flex items-center gap-1">
               <button
                 className={cn(
@@ -1174,7 +1177,9 @@ export function AdsDetailPanel({ id }: { id: string }) {
                 title={t('paxlog.ads_detail.actions.suggestions') || 'Suggestions depuis l\'historique'}
               >
                 <Sparkles size={11} />
-                {t('paxlog.ads_detail.actions.suggestions_short') || 'Suggérer'}
+                <span className="hidden sm:inline">
+                  {t('paxlog.ads_detail.actions.suggestions_short') || 'Suggérer'}
+                </span>
               </button>
               <button
                 className="btn btn-tertiary h-5 px-1.5 flex items-center gap-1 text-[10px]"
@@ -1182,7 +1187,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                 title={t('paxlog.ads_detail.actions.import_csv') || 'Importer CSV'}
               >
                 <FileSpreadsheet size={11} />
-                CSV
+                <span className="hidden sm:inline">CSV</span>
               </button>
               <button
                 className="btn btn-primary h-5 w-5 flex text-primary"
@@ -1247,14 +1252,22 @@ export function AdsDetailPanel({ id }: { id: string }) {
                           />
                           <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{fullName}</p>
-                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                              {sugg.job_position_name && <span>{sugg.job_position_name}</span>}
-                              {sugg.company_name && <span>• {sugg.company_name}</span>}
+                            {/* job@company : flex-wrap + truncate par span pour
+                                ne pas deborder sur mobile (les noms d'entreprises
+                                comme "PERENCO Cameroun Sarl" peuvent etre longs). */}
+                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0 text-[10px] text-muted-foreground">
+                              {sugg.job_position_name && <span className="truncate max-w-full">{sugg.job_position_name}</span>}
+                              {sugg.company_name && <span className="truncate max-w-full">• {sugg.company_name}</span>}
                             </div>
                           </div>
+                          {/* Compteur d'ADS : cache le label "ADS" sur tres
+                              petits ecrans, garde l'icone + nombre. */}
                           <div className="shrink-0 text-[10px] text-muted-foreground flex items-center gap-1">
                             <History size={10} />
-                            {sugg.occurrences} {t('paxlog.ads_detail.suggestions.ads_count') || 'ADS'}
+                            <span className="tabular-nums">{sugg.occurrences}</span>
+                            <span className="hidden sm:inline">
+                              {t('paxlog.ads_detail.suggestions.ads_count') || 'ADS'}
+                            </span>
                           </div>
                           <button
                             className="btn btn-primary h-6 px-2 text-[10px] shrink-0"
@@ -1465,10 +1478,12 @@ export function AdsDetailPanel({ id }: { id: string }) {
                   const paxList = grouped[groupKey]
                   return (
                     <div key={groupKey} className="space-y-0.5">
-                      {/* Company header */}
-                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-2 py-0.5 bg-muted/30 rounded-sm flex items-center gap-2">
-                        <span className="flex-1 truncate">{groupLabel}</span>
-                        <span className="font-normal normal-case">
+                      {/* Company header — flex avec truncate sur le nom et
+                          shrink-0 sur le compteur pour eviter overflow sur
+                          mobile (noms longs type "PERENCO Cameroun Sarl"). */}
+                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-2 py-0.5 bg-muted/30 rounded-sm flex items-center gap-2 min-w-0">
+                        <span className="flex-1 min-w-0 truncate">{groupLabel}</span>
+                        <span className="font-normal normal-case shrink-0">
                           {paxList.length} pax
                         </span>
                       </div>
@@ -1501,7 +1516,13 @@ export function AdsDetailPanel({ id }: { id: string }) {
                     const fullName = `${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()
                     return (
                       <>
-                  <div className="flex items-center justify-between gap-2">
+                  {/* Responsive: sur mobile (< sm) on stack vertical avec
+                      les chips/boutons d'action en-dessous, et on autorise
+                      le flex-wrap des chips pour ne pas deborder. Avant ce
+                      fix la rangee horizontale fixe forcait un scroll
+                      horizontal sur viewport < 480px (4 chips + 3 boutons
+                      a droite + nom + poste). */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     {/* SUP-0039: avatar + nom + poste + entreprise. Hiérarchie
                         visuelle alignée avec le retour Bastien (mai 2026). */}
                     <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -1514,7 +1535,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       <p className="font-medium truncate">
                         {(ap.user_id || ap.contact_id) ? (
                           <button
-                            className="font-medium text-primary hover:underline text-left"
+                            className="font-medium text-primary hover:underline text-left truncate max-w-full"
                             onClick={() =>
                               openDynamicPanel({
                                 type: 'detail',
@@ -1545,7 +1566,12 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Bloc actions: flex-wrap pour autoriser le retour a la
+                        ligne des chips/boutons si l'ecran est etroit. Sur
+                        mobile, ce bloc apparait sous le bloc identite
+                        (flex-col du parent). Sur desktop, reste a droite
+                        (shrink-0 via sm:shrink-0). */}
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 sm:shrink-0 pl-9 sm:pl-0">
                       {/* Compliance status — chip explicite avec tooltip
                           (Bastien feedback initial: ne comprenait pas ce que
                           'compliant' voulait dire à côté de chip Ext.).

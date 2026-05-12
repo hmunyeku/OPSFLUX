@@ -204,6 +204,25 @@ Brut : **306 endpoints / 1176** (~26%). **Chiffre sur-compté** : beaucoup utili
 
 14. **`/docs` API 404** : Swagger UI désactivé en prod. Si volontaire OK, sinon à activer pour les développeurs.
 
+15. **MFA = 0/11 utilisateurs actifs** — aucun compte n'a la MFA activée. Risque sécu si l'app est exposée en prod ouverte. Décision business à valider avec Bastien.
+
+### Modules testés cette nuit (lecture seule)
+
+| Module | URL | Statut | Note |
+|---|---|---|---|
+| Dashboard | `/dashboard` | ✅ KPIs OK | Onboarding "déjà configuré" est un Dialog |
+| Tiers | `/tiers` | ✅ liste 24 | TYPE/PAYS/SIRET vides systématiques |
+| Projets | `/projets` | ✅ 68 projets | DynamicPanel sans URL profonde |
+| Planner | `/planner` | ✅ 14 activités | 5 onglets fonctionnels |
+| PaxLog | `/paxlog?tab=ads` | ✅ 7 ADS + panel détail | SUP-0040 utilisé sur ADS-2026-0014 |
+| PackLog | `/packlog` | ✅ 6 demandes 8 colis | 4 alertes affichées |
+| TravelWiz | `/travelwiz` | ✅ KPI flotte + tracking | `<p>basket bleu</p>` rendu brut bug |
+| Conformité | `/conformite` | ✅ 9 onglets | Module riche |
+| Assets | `/assets` | ✅ 7 installations | Hiérarchie + carte |
+| MOC | `/moc` | ✅ 1 MOC en attente | Module fonctionnel |
+| Workflows | `/workflows` → `/workflow` | ✅ 17 instances | Redirection auto pluriel→singulier |
+| Users (Comptes) | `/users` | ✅ 11 actifs | ⚠️ MFA 0% |
+
 ---
 
 ## Détails par étape

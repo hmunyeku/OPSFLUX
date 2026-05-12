@@ -183,6 +183,23 @@ export const plannerService = {
     return data
   },
 
+  /** SUP-0027 : cree un ADS draft pre-rempli depuis une activite validee.
+   *  Le lien `ads.planner_activity_id` est pose pour la tracabilite. */
+  createAdsFromActivity: async (activityId: string): Promise<{
+    id: string
+    reference: string
+    status: string
+    planner_activity_id: string
+    site_entry_asset_id: string
+    visit_category: string
+    visit_purpose: string
+    start_date: string
+    end_date: string
+  }> => {
+    const { data } = await api.post(`${BASE}/activities/${activityId}/create-ads`)
+    return data
+  },
+
   createActivityFromTask: async (params: {
     project_id: string
     task_id: string

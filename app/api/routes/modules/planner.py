@@ -5384,3 +5384,135 @@ async def get_asset_pob_today(
         }
         for aid in keys
     }
+
+
+# ─── SUP-0027 : Creer un ADS depuis une activite planner validee ──────────────
+# Bastien (mai 2026): "pouvoir créer un ads avec les datas d'une tache planner
+# validée pour ne pas avoir à tout recopier".
+#
+# Strategie : on materialise un ADS draft pre-rempli avec asset/dates/category
+# depuis l'activite. L'utilisateur peut ensuite l'ajuster + ajouter ses pax
+# avant submission. Le lien `ads.planner_activity_id` garde la tracabilite
+# pour les rapports cross-module.
+@router.post("/activities/{activity_id}/create-ads", status_code=201)
+async def create_ads_from_activity(
+    activity_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pre-fill et cree un ADS draft a partir d'une activite planner validee.
+
+    Mapping :
+        activity.asset_id          -> ads.site_entry_asset_id
+        activity.title             -> ads.visit_purpose
+        activity.project_id        -> ads.project_id
+        activity.start/end_date    -> ads.start_date / end_date (dates only)
+        activity.type              -> ads.visit_category (via mapping)
+        activity.id                -> ads.planner_activity_id (lien)
+
+    L'activite doit etre dans un statut "exploitable" :
+    validated, in_progress, ou completed.
+    """
+    from app.models.paxlog import Ads
+    from app.core.references import generate_reference as _gen_ref
+    from app.core.errors import StructuredHTTPException
+    from datetime import date as _date, timedelta as _timedelta
+
+    activity = (await db.execute(
+        select(PlannerActivity).where(
+            PlannerActivity.id == activity_id,
+            PlannerActivity.entity_id == entity_id,
+            PlannerActivity.deleted_at.is_(None),
+        )
+    )).scalar_one_or_none()
+    if not activity:
+        raise StructuredHTTPException(
+            404, code="ACTIVITY_NOT_FOUND", message="Activite introuvable.",
+        )
+    # On accepte tous les statuts "validés ou plus" : la demande Bastien
+    # parlait de "validée" mais en pratique on peut creer un ADS depuis
+    # une activite en cours ou completee aussi (cas regularisation).
+    ALLOWED_STATUSES = ("validated", "in_progress", "completed")
+    if activity.status not in ALLOWED_STATUSES:
+        raise StructuredHTTPException(
+            400, code="ACTIVITY_NOT_VALIDATED",
+            message=(
+                f"L'activite doit etre validee/en cours/completee. "
+                f"Statut actuel: {activity.status}."
+            ),
+        )
+
+    # Mapping type d'activite -> categorie ADS.
+    type_to_category = {
+        "project": "project_work",
+        "workover": "project_work",
+        "drilling": "project_work",
+        "integrity": "maintenance",
+        "maintenance": "maintenance",
+        "inspection": "inspection",
+        "permanent_ops": "permanent_ops",
+        "event": "visit",
+    }
+    visit_category = type_to_category.get(activity.type, "other")
+
+    # Dates : si l'activite n'a pas de dates, defaut aujourd'hui + 7 jours.
+    today = _date.today()
+    start = activity.start_date.date() if activity.start_date else today
+    end = activity.end_date.date() if activity.end_date else (today + _timedelta(days=7))
+    if end < start:
+        end = start
+
+    # Generation de reference (idem POST /ads classique)
+    reference = await _gen_ref("ADS", db, entity_id=entity_id)
+
+    ads = Ads(
+        entity_id=entity_id,
+        reference=reference,
+        type="individual",
+        status="draft",
+        planner_activity_id=activity.id,
+        project_id=activity.project_id,
+        created_by=current_user.id,
+        requester_id=current_user.id,
+        site_entry_asset_id=activity.asset_id,
+        visit_purpose=activity.title,
+        visit_category=visit_category,
+        # L'ADS vient du planner -> le flag est naturellement vrai.
+        visit_category_requires_planner=True,
+    )
+    # Champs dates : Ads.start_date/end_date sont obligatoires (NOT NULL).
+    ads.start_date = start
+    ads.end_date = end
+
+    db.add(ads)
+    await db.commit()
+    await db.refresh(ads)
+
+    await record_audit(
+        db,
+        user_id=current_user.id,
+        entity_id=entity_id,
+        action="ads.created_from_activity",
+        resource_type="ads",
+        resource_id=str(ads.id),
+        details={
+            "reference": ads.reference,
+            "planner_activity_id": str(activity.id),
+            "activity_type": activity.type,
+            "activity_title": activity.title,
+        },
+    )
+
+    return {
+        "id": str(ads.id),
+        "reference": ads.reference,
+        "status": ads.status,
+        "planner_activity_id": str(ads.planner_activity_id),
+        "site_entry_asset_id": str(ads.site_entry_asset_id),
+        "visit_category": ads.visit_category,
+        "visit_purpose": ads.visit_purpose,
+        "start_date": ads.start_date.isoformat(),
+        "end_date": ads.end_date.isoformat(),
+    }

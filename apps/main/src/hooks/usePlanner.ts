@@ -225,6 +225,19 @@ export function useCancelActivity() {
   })
 }
 
+/** SUP-0027 : creer un ADS pre-rempli depuis une activite validee.
+ *  Invalide les caches paxlog/ads pour que le nouvel ADS apparaisse
+ *  dans la liste sans refresh manuel. */
+export function useCreateAdsFromActivity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (activityId: string) => plannerService.createAdsFromActivity(activityId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+    },
+  })
+}
+
 export function useCreateActivityFromTask() {
   const qc = useQueryClient()
   return useMutation({

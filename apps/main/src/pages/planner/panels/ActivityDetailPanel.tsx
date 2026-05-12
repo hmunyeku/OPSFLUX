@@ -46,6 +46,7 @@ import {
   useValidateActivity,
   useRejectActivity,
   useCancelActivity,
+  useCreateAdsFromActivity,
   useActivityDependencies,
   useAddDependency,
   useRemoveDependency,
@@ -266,6 +267,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
   const promptInput = usePromptInput()
   const confirm = useConfirm()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: activity, isLoading, isError } = useActivity(id)
   const updateActivity = useUpdateActivity()
   const deleteActivity = useDeleteActivity()
@@ -273,6 +275,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
   const validateActivity = useValidateActivity()
   const rejectActivity = useRejectActivity()
   const cancelActivity = useCancelActivity()
+  const createAdsFromActivity = useCreateAdsFromActivity()
   const { data: dependencies } = useActivityDependencies(id)
   const addDependency = useAddDependency()
   const removeDependency = useRemoveDependency()
@@ -460,6 +463,28 @@ export function ActivityDetailPanel({ id }: { id: string }) {
       onError: () => toast({ title: t('planner.toast.cancellation_error'), variant: 'error' }),
     })
   }, [id, cancelActivity, toast, t])
+
+  // SUP-0027 : creer un ADS draft pre-rempli depuis l'activite + naviguer
+  // immediatement vers son detail panel pour permettre a l'utilisateur de
+  // completer (visit_purpose, pax, transport) et de soumettre.
+  const handleCreateAds = useCallback(() => {
+    createAdsFromActivity.mutate(id, {
+      onSuccess: (newAds) => {
+        toast({
+          title: `AdS ${newAds.reference} créé`,
+          description: 'Le brouillon est pré-rempli. Complétez et soumettez.',
+          variant: 'success',
+        })
+        // Navigate vers le detail de l'ADS dans le dynamic panel.
+        openDynamicPanel({ type: 'detail', module: 'paxlog', id: newAds.id })
+      },
+      onError: (err) => toast({
+        title: 'Création AdS échouée',
+        description: extractApiError(err),
+        variant: 'error',
+      }),
+    })
+  }, [id, createAdsFromActivity, toast, openDynamicPanel])
 
   const handleAddDep = useCallback(async () => {
     if (!depForm.predecessor_id.trim()) return
@@ -702,6 +727,22 @@ export function ActivityDetailPanel({ id }: { id: string }) {
               onClick: handleCancel,
               disabled: cancelActivity.isPending,
               priority: 40,
+            } as ActionItem]
+          : []),
+        // SUP-0027 : Creer un ADS pre-rempli a partir de cette activite.
+        // Visible quand l'activite est exploitable (validated/in_progress/completed).
+        // Le pre-fill copie asset/dates/category/projet. L'utilisateur complete
+        // visit_purpose + ajoute les pax dans le detail ADS qui s'ouvre.
+        ...(['validated', 'in_progress', 'completed'].includes(st)
+          ? [{
+              id: 'create-ads',
+              label: 'Créer AdS',
+              icon: Send,
+              variant: 'default',
+              onClick: handleCreateAds,
+              disabled: createAdsFromActivity.isPending,
+              loading: createAdsFromActivity.isPending,
+              priority: 70,
             } as ActionItem]
           : []),
         ...(canDelete

@@ -267,15 +267,23 @@ async def list_teams(
         )
 
     stmt = stmt.order_by(Team.name)
+    # paginate() retourne un dict, pas un objet (cf. core/pagination.py).
+    # paged["items"] est la list de rows, paged.items est la METHODE du dict.
     paged = await paginate(db, stmt, pagination)
+    raw_teams = paged["items"]
     items = []
-    for team in paged.items:
+    for team in raw_teams:
         items.append(await _hydrate_team(db, team))
+    # Compute `pages` (champ obligatoire de PaginatedResponse).
+    page_size = paged["page_size"] or 1
+    total = paged["total"]
+    pages = (total + page_size - 1) // page_size if total else 0
     return PaginatedResponse[TeamRead](
         items=items,
-        total=paged.total,
-        page=paged.page,
-        page_size=paged.page_size,
+        total=total,
+        page=paged["page"],
+        page_size=page_size,
+        pages=pages,
     )
 
 

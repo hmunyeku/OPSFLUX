@@ -1302,33 +1302,32 @@ export function AdsDetailPanel({ id }: { id: string }) {
                   <p className="text-[10px] text-muted-foreground">
                     Sélectionnez une équipe existante, ou créez-en une nouvelle. Les membres actifs seront ajoutés comme pax avec un lien d'origine vers l'équipe.
                   </p>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="flex-1">
-                      <TeamPicker
-                        value={selectedTeamId}
-                        onChange={(teamId) => setSelectedTeamId(teamId)}
-                        placeholder="Choisir une équipe..."
-                      />
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        className="btn btn-primary h-6 px-2 text-[10px]"
-                        disabled={!selectedTeamId || addTeamToAds.isPending}
-                        onClick={() => selectedTeamId && handleAddTeam(selectedTeamId)}
-                      >
-                        {addTeamToAds.isPending ? (
-                          <><Loader2 size={10} className="animate-spin mr-1" /> Ajout...</>
-                        ) : (
-                          'Ajouter'
-                        )}
-                      </button>
-                      <button
-                        className="btn btn-tertiary h-6 px-2 text-[10px]"
-                        onClick={() => setShowTeamCreate(true)}
-                      >
-                        + Nouvelle équipe
-                      </button>
-                    </div>
+                  {/* Grid layout : mobile = 1 col stack vertical, desktop =
+                      3 col (picker etire / 2 boutons auto). Cohérent avec
+                      ProjectTeamsSection. */}
+                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                    <TeamPicker
+                      value={selectedTeamId}
+                      onChange={(teamId) => setSelectedTeamId(teamId)}
+                      placeholder="Choisir une équipe..."
+                    />
+                    <button
+                      className="btn btn-primary h-7 px-3 text-[11px] w-full sm:w-auto"
+                      disabled={!selectedTeamId || addTeamToAds.isPending}
+                      onClick={() => selectedTeamId && handleAddTeam(selectedTeamId)}
+                    >
+                      {addTeamToAds.isPending ? (
+                        <><Loader2 size={11} className="animate-spin mr-1" /> Ajout...</>
+                      ) : (
+                        'Ajouter'
+                      )}
+                    </button>
+                    <button
+                      className="btn btn-tertiary h-7 px-3 text-[11px] w-full sm:w-auto"
+                      onClick={() => setShowTeamCreate(true)}
+                    >
+                      + Nouvelle équipe
+                    </button>
                   </div>
                 </div>
               )}
@@ -1791,9 +1790,10 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       )}
                       {(ap.user_id || ap.contact_id) && hasPermission('paxlog.ads.update') && (
                         <button
-                          className="btn btn-danger"
+                          className="p-1 rounded text-destructive hover:bg-destructive/10 disabled:opacity-40 transition-colors"
                           onClick={() => removePax.mutate({ adsId: id, entryId: ap.id })}
                           title={t('paxlog.ads_detail.actions.remove_passenger')}
+                          disabled={removePax.isPending}
                         >
                           <Trash2 size={12} />
                         </button>

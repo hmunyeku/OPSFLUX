@@ -1240,40 +1240,39 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
                   <X size={14} />
                 </button>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <div className="flex-1">
-                  <TeamPicker
-                    value={selectedTeamId}
-                    onChange={setSelectedTeamId}
-                    placeholder="Choisir une équipe..."
-                    excludeIds={excludeIds}
-                  />
-                </div>
+              {/* Grid layout: mobile = 1 col (stack vertical), desktop = 4 col
+                  (picker etire / role fixe / 2 boutons auto). Plus propre que
+                  le flex-row+col qui faisait deborder sur mobile etroit. */}
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_150px_auto_auto] sm:items-center">
+                <TeamPicker
+                  value={selectedTeamId}
+                  onChange={setSelectedTeamId}
+                  placeholder="Choisir une équipe..."
+                  excludeIds={excludeIds}
+                />
                 <select
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value as ProjectTeamRole)}
-                  className={cn(panelInputClass, 'w-full sm:w-[150px]')}
+                  className={cn(panelInputClass, 'w-full')}
                 >
                   <option value="">Rôle (optionnel)</option>
                   {Object.entries(PROJECT_TEAM_ROLE_LABELS).map(([v, l]) => (
                     <option key={v} value={v}>{l}</option>
                   ))}
                 </select>
-                <div className="flex items-center gap-1">
-                  <button
-                    className="btn btn-primary h-6 px-2 text-[10px]"
-                    disabled={!selectedTeamId || attachTeam.isPending}
-                    onClick={() => selectedTeamId && handleAttach(selectedTeamId)}
-                  >
-                    {attachTeam.isPending ? <Loader2 size={10} className="animate-spin" /> : 'Attacher'}
-                  </button>
-                  <button
-                    className="btn btn-tertiary h-6 px-2 text-[10px]"
-                    onClick={() => setShowCreate(true)}
-                  >
-                    + Nouvelle
-                  </button>
-                </div>
+                <button
+                  className="btn btn-primary h-7 px-3 text-[11px] w-full sm:w-auto"
+                  disabled={!selectedTeamId || attachTeam.isPending}
+                  onClick={() => selectedTeamId && handleAttach(selectedTeamId)}
+                >
+                  {attachTeam.isPending ? <Loader2 size={11} className="animate-spin" /> : 'Attacher'}
+                </button>
+                <button
+                  className="btn btn-tertiary h-7 px-3 text-[11px] w-full sm:w-auto"
+                  onClick={() => setShowCreate(true)}
+                >
+                  + Nouvelle
+                </button>
               </div>
             </div>
           )}
@@ -1297,12 +1296,12 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
                 </p>
               </div>
               <button
-                className="btn btn-danger h-6 px-2 text-[10px] shrink-0"
+                className="p-1 rounded shrink-0 text-destructive hover:bg-destructive/10 disabled:opacity-40"
                 onClick={() => handleDetach(pt.team_id, pt.team_name)}
                 disabled={detachTeam.isPending}
                 title="Détacher l'équipe"
               >
-                <Trash2 size={11} />
+                <Trash2 size={12} />
               </button>
             </div>
           ))}

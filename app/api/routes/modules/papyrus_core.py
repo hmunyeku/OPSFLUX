@@ -30,6 +30,9 @@ except ImportError:
 from app.core.database import get_db
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.errors import StructuredHTTPException
+# SUP-secu : import top-level pour que FastAPI puisse valider le body
+# Pydantic AVANT l'execution du endpoint public submit_papyrus_external_form.
+from app.schemas.papyrus import PapyrusExternalSubmissionCreate
 
 logger = logging.getLogger(__name__)
 
@@ -252,17 +255,20 @@ async def consume_papyrus_external_form(
 )
 async def submit_papyrus_external_form(
     form_id: UUID,
-    body: dict,
+    # SUP-secu : endpoint public, on type le body en Pydantic pour que la
+    # validation s'execute AVANT le corps de la fonction. Avant : `body: dict`
+    # acceptait n'importe quel JSON et la validation se faisait a posteriori
+    # via PapyrusExternalSubmissionCreate(**body) — risque de logique
+    # contournee si du code parcourait `body` avant le parse.
+    body: PapyrusExternalSubmissionCreate,
     token: str = Query(...),
     request: Request = None,
     db: AsyncSession = Depends(get_db),
 ):
-    from app.schemas.papyrus import PapyrusExternalSubmissionCreate
     from app.services.modules.papyrus_forms_service import submit_external_form
 
-    parsed = PapyrusExternalSubmissionCreate(**body)
     request_ip = request.client.host if request and request.client else None
-    return await submit_external_form(form_id=form_id, token=token, request_ip=request_ip, body=parsed, db=db)
+    return await submit_external_form(form_id=form_id, token=token, request_ip=request_ip, body=body, db=db)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

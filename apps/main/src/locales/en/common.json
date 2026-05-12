@@ -1344,7 +1344,8 @@
       "same_tier_error": "Source and destination companies must be different",
       "transfer_created": "Transfer created successfully",
       "transfer_creation_error": "Error creating transfer",
-      "error": "Error"
+      "error": "Error",
+      "rejected": "Rejected"
     },
     "columns": {
       "code": "Code",
@@ -1352,7 +1353,10 @@
       "type": "Type",
       "status": "Status",
       "description": "Description",
-      "date": "Date"
+      "date": "Date",
+      "category": "Category",
+      "department": "Department",
+      "priority": "Priority"
     }
   },
   "projets": {
@@ -1567,7 +1571,13 @@
     "columns": {
       "code": "Code",
       "name": "Name",
-      "status": "Status"
+      "status": "Status",
+      "priority": "Priority",
+      "task_count": "Tasks",
+      "company": "Company",
+      "deadline": "Due date",
+      "task": "Task",
+      "assignee": "Manager"
     },
     "task_subtabs": {
       "actions": "Actions"
@@ -1640,7 +1650,11 @@
     "afficher_les_vecteurs_de_transport": "Afficher les vecteurs de transport",
     "supporte_le_markdown_titres_listes_gras": "Supporte le Markdown (titres, listes, gras, italique)",
     "description_du_widget": "Description du widget...",
-    "couleur_de_fond": "Couleur de fond"
+    "couleur_de_fond": "Couleur de fond",
+    "empty": {
+      "table_title": "No entries",
+      "kpi_calm": "All quiet"
+    }
   },
   "workflow": {
     "title": "Workflows",
@@ -3221,7 +3235,8 @@
       "site": "Site",
       "asset": "Asset",
       "type": "Type",
-      "status": "Status"
+      "status": "Status",
+      "priority": "Priority"
     },
     "simulation": {
       "label": "Simulation",
@@ -3309,10 +3324,19 @@
     },
     "actions": {
       "cancel_activity": "Cancel",
-      "delete": "Delete"
+      "delete": "Delete",
+      "submit": "Submit",
+      "validate": "Validate",
+      "reject": "Reject"
     },
     "toast": {
       "error_generic": "Error"
+    },
+    "filters": {
+      "reset": "Reset"
+    },
+    "stats": {
+      "in_progress": "In progress"
     }
   },
   "travelwiz": {
@@ -3463,7 +3487,15 @@
       "type": "Type",
       "status": "Status",
       "description": "Description",
-      "date": "Date"
+      "date": "Date",
+      "reference": "Reference",
+      "voyage": "Voyage",
+      "departure": "Departure",
+      "arrival": "Arrival",
+      "vector": "Vector",
+      "cargo_count": "Cargo",
+      "export_request": "Request",
+      "export_parcel": "Package"
     }
   },
   "report_editor": {
@@ -3663,7 +3695,9 @@
       "type": "Type",
       "status": "Status",
       "date": "Date",
-      "description": "Description"
+      "description": "Description",
+      "equipment_count": "Equipment",
+      "equipment": "Equipment"
     }
   },
   "messaging": {
@@ -4460,11 +4494,13 @@
       "rbac_roles": {
         "name": "Name",
         "code": "Code",
-        "description": "Description"
+        "description": "Description",
+        "users": "Users"
       },
       "rbac_groups": {
         "name": "Name",
-        "status": "Status"
+        "status": "Status",
+        "members": "Members"
       },
       "sessions": {
         "status": "Status"
@@ -4472,11 +4508,14 @@
       "entities": {
         "code": "Code",
         "name": "Name",
-        "status": "Status"
+        "status": "Status",
+        "country": "Country",
+        "users": "Users"
       },
       "audit": {
         "date": "Date",
-        "action": "Action"
+        "action": "Action",
+        "user": "User"
       },
       "tokens": {
         "name": "Name",
@@ -4879,7 +4918,11 @@
       "name": "Name",
       "status": "Status",
       "user_name": "Name",
-      "user_status": "Status"
+      "user_status": "Status",
+      "country": "Country",
+      "city": "City",
+      "users": "Users",
+      "email": "Email"
     }
   },
   "packlog": {
@@ -5110,7 +5153,14 @@
     "publiee_le": "Publiée le",
     "columns": {
       "type": "Type",
-      "status": "Status"
+      "status": "Status",
+      "priority": "Priority"
+    },
+    "announcements": {
+      "columns": {
+        "priority": "Priority",
+        "active": "Active"
+      }
     }
   },
   "asset_registry": {
@@ -5214,16 +5264,29 @@
   },
   "onboarding": {
     "step1": {
-      "last_name": "Name"
+      "last_name": "Name",
+      "email": "Email"
     },
     "step3": {
-      "last_name": "Name"
+      "last_name": "Name",
+      "email": "Email"
     },
     "step5": {
       "type": "Type"
     },
     "step6": {
-      "site_type": "Type"
+      "site_type": "Type",
+      "country": "Country"
+    },
+    "nav": {
+      "previous": "Previous",
+      "next": "Next",
+      "finish": "Completed"
+    },
+    "step2": {
+      "address": "Address",
+      "city": "City",
+      "country": "Country"
     }
   }
 }

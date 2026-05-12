@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user
+from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import AuditLog, User
@@ -16,7 +16,11 @@ from app.schemas.common import AuditLogRead, PaginatedResponse
 router = APIRouter(prefix="/api/v1/audit-log", tags=["audit"])
 
 
-@router.get("", response_model=PaginatedResponse[AuditLogRead])
+@router.get(
+    "",
+    response_model=PaginatedResponse[AuditLogRead],
+    dependencies=[Depends(require_permission("core.audit.read"))],
+)
 async def list_audit_log(
     action: str | None = Query(None, description="Filter by action type"),
     resource_type: str | None = Query(None, description="Filter by resource type"),

@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/v1/audit-log", tags=["audit"])
 @router.get(
     "",
     response_model=PaginatedResponse[AuditLogRead],
-    dependencies=[Depends(require_permission("core.audit.read"))],
+    dependencies=[require_permission("core.audit.read")],
 )
 async def list_audit_log(
     action: str | None = Query(None, description="Filter by action type"),

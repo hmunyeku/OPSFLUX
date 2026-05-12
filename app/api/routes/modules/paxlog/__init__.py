@@ -5452,17 +5452,6 @@ async def list_ads_pax(
         )
         company_names = {row[0]: row[1] for row in tier_result.all()}
 
-    # Batch-load des noms d'equipes pour les pax issus d'une equipe (SUP-0040).
-    # On ne charge QUE les pax avec from_team_id non null.
-    from app.models.teams import Team as _Team
-    team_ids = {getattr(e, "from_team_id", None) for e in entries if getattr(e, "from_team_id", None)}
-    team_names: dict[UUID, str] = {}
-    if team_ids:
-        team_rows = (await db.execute(
-            select(_Team.id, _Team.name).where(_Team.id.in_(team_ids))
-        )).all()
-        team_names = {row[0]: row[1] for row in team_rows}
-
     items = []
     for ads_pax in entries:
         if ads_pax.user_id:
@@ -5505,8 +5494,6 @@ async def list_ads_pax(
                 "pax_phone": pax_phone,
                 "pax_avatar_url": u.avatar_url if u else None,
                 "pax_job_position_name": job_position_name,
-                "from_team_id": str(ads_pax.from_team_id) if getattr(ads_pax, "from_team_id", None) else None,
-                "from_team_name": team_names.get(ads_pax.from_team_id) if getattr(ads_pax, "from_team_id", None) else None,
             })
         elif ads_pax.contact_id:
             c = contacts_dict.get(ads_pax.contact_id)
@@ -5538,8 +5525,6 @@ async def list_ads_pax(
                 "pax_phone": c.phone if c else None,
                 "pax_avatar_url": c.photo_url if c else None,
                 "pax_job_position_name": job_position_name,
-                "from_team_id": str(ads_pax.from_team_id) if getattr(ads_pax, "from_team_id", None) else None,
-                "from_team_name": team_names.get(ads_pax.from_team_id) if getattr(ads_pax, "from_team_id", None) else None,
             })
 
     # Waitlisted PAX are surfaced first, then ordered by priority.
@@ -6102,192 +6087,6 @@ async def import_pax_from_csv(
         "errors": errors,
         "skipped": skipped,
     }
-
-
-# ─── Teams integration (SUP-0040) ──────────────────────────────────────────
-# Bastien (mai 2026): "ca permet de creer un ADS pour une equipe directement".
-# Snapshot semantic : on materialise les membres actifs de l'equipe en ads_pax
-# au moment de l'add-team. Les modifs ulterieures de l'equipe n'affectent
-# pas l'ADS automatiquement.
-@router.post("/ads/{ads_id}/add-team", status_code=200)
-async def add_team_to_ads(
-    ads_id: UUID,
-    body: dict,
-    request: Request = None,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.update"),
-    db: AsyncSession = Depends(get_db),
-):
-    """Materialise les membres actifs d'une equipe en ads_pax.
-
-    Body : {team_id: UUID, skip_duplicates: bool = true}
-
-    Renvoie un rapport per-membre :
-      {team_id, team_name, summary: {total, added, skipped, errors}, added/skipped/errors[]}
-    """
-    from app.models.teams import Team, TeamMember
-
-    team_id_raw = body.get("team_id")
-    skip_duplicates = body.get("skip_duplicates", True)
-    if not team_id_raw:
-        raise StructuredHTTPException(
-            400, code="MISSING_TEAM_ID", message="team_id requis.",
-        )
-    try:
-        team_id = UUID(str(team_id_raw))
-    except ValueError:
-        raise StructuredHTTPException(400, code="INVALID_TEAM_ID", message="team_id invalide.")
-
-    # ADS
-    ads = (await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )).scalar_one_or_none()
-    if not ads:
-        raise StructuredHTTPException(404, code="ADS_NOT_FOUND", message="AdS introuvable.")
-    if not await _can_manage_ads(
-        ads, current_user=current_user, request=request, entity_id=entity_id, db=db,
-    ):
-        raise StructuredHTTPException(
-            403, code="ADS_FORBIDDEN_MANAGE",
-            message="Vous ne pouvez pas modifier les PAX de cette AdS.",
-        )
-    if ads.status not in ("draft", "requires_review"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Les equipes ne peuvent etre ajoutees qu'a une AdS draft ou en revue.",
-        )
-
-    # Team — verifie visibilite (read access minimum)
-    team = (await db.execute(
-        select(Team).where(
-            Team.id == team_id, Team.entity_id == entity_id,
-            Team.deleted_at.is_(None),
-        )
-    )).scalar_one_or_none()
-    if not team:
-        raise StructuredHTTPException(404, code="TEAM_NOT_FOUND", message="Equipe introuvable.")
-    # Visibility gate inline (on ne factorise pas pour eviter circular import)
-    if team.visibility != "public" and team.created_by != current_user.id:
-        if not await has_user_permission(current_user, entity_id, "teams.manage", db):
-            raise StructuredHTTPException(
-                403, code="TEAM_PRIVATE", message="Cette equipe est privee.",
-            )
-
-    # Membres actifs de l'equipe
-    active_members = (await db.execute(
-        select(TeamMember).where(
-            TeamMember.team_id == team_id,
-            TeamMember.left_at.is_(None),
-        )
-    )).scalars().all()
-
-    # Pax deja dans l'ADS (pour skip dedup)
-    existing_pax = (await db.execute(
-        select(AdsPax.user_id, AdsPax.contact_id).where(AdsPax.ads_id == ads_id)
-    )).all()
-    existing_user_ids = {r[0] for r in existing_pax if r[0]}
-    existing_contact_ids = {r[1] for r in existing_pax if r[1]}
-
-    added: list[dict] = []
-    skipped: list[dict] = []
-    errors: list[dict] = []
-
-    for m in active_members:
-        if m.user_id:
-            if m.user_id in existing_user_ids:
-                if skip_duplicates:
-                    skipped.append({"member_id": str(m.id), "user_id": str(m.user_id),
-                                    "reason": "Deja dans l'AdS"})
-                    continue
-                else:
-                    errors.append({"member_id": str(m.id), "user_id": str(m.user_id),
-                                   "error": "Deja dans l'AdS"})
-                    continue
-            db.add(AdsPax(
-                ads_id=ads_id, user_id=m.user_id,
-                status="pending_check",
-                from_team_id=team_id,
-            ))
-            added.append({"member_id": str(m.id), "user_id": str(m.user_id),
-                          "role_in_team": m.role})
-        elif m.contact_id:
-            if m.contact_id in existing_contact_ids:
-                if skip_duplicates:
-                    skipped.append({"member_id": str(m.id), "contact_id": str(m.contact_id),
-                                    "reason": "Deja dans l'AdS"})
-                    continue
-                else:
-                    errors.append({"member_id": str(m.id), "contact_id": str(m.contact_id),
-                                   "error": "Deja dans l'AdS"})
-                    continue
-            db.add(AdsPax(
-                ads_id=ads_id, contact_id=m.contact_id,
-                status="pending_check",
-                from_team_id=team_id,
-            ))
-            added.append({"member_id": str(m.id), "contact_id": str(m.contact_id),
-                          "role_in_team": m.role})
-
-    await db.commit()
-    return {
-        "team_id": str(team_id),
-        "team_name": team.name,
-        "summary": {
-            "total_members": len(active_members),
-            "added": len(added),
-            "skipped": len(skipped),
-            "errors": len(errors),
-        },
-        "added": added,
-        "skipped": skipped,
-        "errors": errors,
-    }
-
-
-@router.delete("/ads/{ads_id}/teams/{team_id}", status_code=204)
-async def remove_team_from_ads(
-    ads_id: UUID,
-    team_id: UUID,
-    request: Request = None,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.update"),
-    db: AsyncSession = Depends(get_db),
-):
-    """Retire tous les pax issus de cette equipe de l'ADS.
-
-    Operation utile quand on a ajoute une equipe par erreur et qu'on veut
-    annuler en bloc plutot que de retirer pax-par-pax. Ne touche pas aux
-    pax ajoutes individuellement avec le meme user/contact (le snapshot
-    garantit que from_team_id != NULL distingue les 2).
-    """
-    ads = (await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )).scalar_one_or_none()
-    if not ads:
-        raise StructuredHTTPException(404, code="ADS_NOT_FOUND", message="AdS introuvable.")
-    if not await _can_manage_ads(
-        ads, current_user=current_user, request=request, entity_id=entity_id, db=db,
-    ):
-        raise StructuredHTTPException(
-            403, code="ADS_FORBIDDEN_MANAGE", message="Acces refuse.",
-        )
-    if ads.status not in ("draft", "requires_review"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Les equipes ne peuvent etre retirees qu'a une AdS draft ou en revue.",
-        )
-
-    pax_to_remove = (await db.execute(
-        select(AdsPax).where(
-            AdsPax.ads_id == ads_id,
-            AdsPax.from_team_id == team_id,
-        )
-    )).scalars().all()
-    for p in pax_to_remove:
-        await db.delete(p)
-    await db.commit()
 
 
 # ─── History-based PAX suggestions (SUP-0039) ───────────────────────────────

@@ -116,8 +116,3 @@ from app.models.agent import (  # noqa: F401
     SupportAgentVerificationResult,
     SupportVerificationScenario,
 )
-from app.models.teams import (  # noqa: F401
-    ProjectTeam,
-    Team,
-    TeamMember,
-)

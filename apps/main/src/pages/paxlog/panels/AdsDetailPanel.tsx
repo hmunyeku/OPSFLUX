@@ -14,14 +14,11 @@ import { paxlogService } from '@/services/paxlogService'
 import { cn } from '@/lib/utils'
 import { ReadOnlyRow, DynamicPanelShell, DynamicPanelField, FormGrid, FormSection, PanelActionButton, DangerConfirmButton, DetailFieldGrid, PanelContentLayout, panelInputClass } from '@/components/layout/DynamicPanel'
 import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
-import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag, Info, Users, BedDouble, BookOpen, FileSpreadsheet, Sparkles, History, Users2 } from 'lucide-react'
+import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag, Info, Users, BedDouble, BookOpen, FileSpreadsheet, Sparkles, History } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { PaxAvatar } from '@/components/shared/PaxAvatar'
-import { TeamPicker } from '@/components/shared/TeamPicker'
-import { TeamCreateInline } from '@/components/shared/TeamCreateInline'
-import { useAddTeamToAds, useRemoveTeamFromAds } from '@/hooks/useTeams'
 import { ImputationManager } from '@/components/shared/ImputationManager'
 import { AdsExternalLinksAudit } from '@/pages/paxlog/components/AdsExternalLinksAudit'
 import { TagManager } from '@/components/shared/TagManager'
@@ -60,8 +57,6 @@ export function AdsDetailPanel({ id }: { id: string }) {
   const addPaxV2 = useAddPaxToAdsV2()
   const removePax = useRemovePaxFromAds()
   const importPaxCsv = useImportPaxCsv()
-  const addTeamToAds = useAddTeamToAds()
-  const removeTeamFromAds = useRemoveTeamFromAds()
   const { hasPermission } = usePermission()
   const currentUser = useAuthStore((s) => s.user)
   const { data: assetTree = [] } = useAssetTree()
@@ -102,10 +97,6 @@ export function AdsDetailPanel({ id }: { id: string }) {
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [csvImportResult, setCsvImportResult] = useState<AdsPaxCsvImportResult | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
-  // SUP-0040 — Teams
-  const [showTeamPanel, setShowTeamPanel] = useState(false)
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
-  const [showTeamCreate, setShowTeamCreate] = useState(false)
   const [stayProgramTarget, setStayProgramTarget] = useState<{ user_id?: string | null; contact_id?: string | null }>({})
   const [stayMovements, setStayMovements] = useState<Array<{ effective_date: string; from_location: string; to_location: string; transport_mode: string; notes: string }>>([
     { effective_date: '', from_location: '', to_location: '', transport_mode: '', notes: '' },
@@ -568,48 +559,6 @@ export function AdsDetailPanel({ id }: { id: string }) {
           toast({
             title: t('paxlog.ads_detail.csv_import.error_title') || "Erreur d'import",
             description: err?.response?.data?.message || err?.message || 'Echec import',
-            variant: 'error',
-          })
-        },
-      },
-    )
-  }
-
-  // SUP-0040 — handlers Teams
-  const handleAddTeam = (teamId: string) => {
-    addTeamToAds.mutate(
-      { adsId: id, teamId, skip_duplicates: true },
-      {
-        onSuccess: (result) => {
-          const { added, skipped, errors } = result.summary
-          toast({
-            title: `Équipe « ${result.team_name } » ajoutée`,
-            description: `${added} pax ajouté(s), ${skipped} déjà présent(s), ${errors} erreur(s)`,
-            variant: errors > 0 ? 'warning' : 'success',
-          })
-          setSelectedTeamId(null)
-          setShowTeamPanel(false)
-        },
-        onError: (err: any) => {
-          toast({
-            title: 'Ajout équipe échoué',
-            description: err?.response?.data?.message || err?.message || 'Erreur',
-            variant: 'error',
-          })
-        },
-      },
-    )
-  }
-
-  const handleRemoveTeam = (teamId: string, teamName: string | null | undefined) => {
-    if (!window.confirm(`Retirer tous les pax issus de l'équipe « ${teamName ?? '?'} » ?`)) return
-    removeTeamFromAds.mutate(
-      { adsId: id, teamId },
-      {
-        onError: (err: any) => {
-          toast({
-            title: 'Retrait équipe échoué',
-            description: err?.response?.data?.message || err?.message,
             variant: 'error',
           })
         },
@@ -1222,17 +1171,6 @@ export function AdsDetailPanel({ id }: { id: string }) {
               <button
                 className={cn(
                   'btn btn-tertiary h-5 px-1.5 flex items-center gap-1 text-[10px]',
-                  showTeamPanel && 'btn-info',
-                )}
-                onClick={() => setShowTeamPanel((v) => !v)}
-                title="Ajouter une équipe entière"
-              >
-                <Users2 size={11} />
-                <span className="hidden sm:inline">Équipe</span>
-              </button>
-              <button
-                className={cn(
-                  'btn btn-tertiary h-5 px-1.5 flex items-center gap-1 text-[10px]',
                   showSuggestions && 'btn-info',
                 )}
                 onClick={() => setShowSuggestions((s) => !s)}
@@ -1261,79 +1199,6 @@ export function AdsDetailPanel({ id }: { id: string }) {
             </div>
           ) : undefined}
         >
-          {/* SUP-0040 — Panneau ajout d'equipe entiere.
-              Toggle 'Equipe' dans le header de section. Picker d'une equipe
-              existante OU formulaire inline pour creer une nouvelle equipe
-              dans le contexte ADS courant. Les membres actifs sont
-              materialises en ads_pax avec from_team_id. */}
-          {showTeamPanel && (
-            <div className="mb-3">
-              {showTeamCreate ? (
-                <TeamCreateInline
-                  suggestedMembers={(adsPax ?? [])
-                    .filter((ap) => ap.user_id || ap.contact_id)
-                    .map((ap) => ({
-                      user_id: ap.user_id || undefined,
-                      contact_id: ap.contact_id || undefined,
-                      label: `${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim(),
-                    }))}
-                  onCreated={(team) => {
-                    setShowTeamCreate(false)
-                    // L'equipe est creee — on l'ajoute immediatement a l'ADS.
-                    handleAddTeam(team.id)
-                  }}
-                  onCancel={() => setShowTeamCreate(false)}
-                />
-              ) : (
-                <div className="space-y-2 p-2 rounded-md border border-info/40 bg-info/5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold">
-                      <Users2 size={12} className="text-info" />
-                      Ajouter une équipe
-                    </div>
-                    <button
-                      className="p-1 text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowTeamPanel(false)}
-                      title={t('common.close')}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Sélectionnez une équipe existante, ou créez-en une nouvelle. Les membres actifs seront ajoutés comme pax avec un lien d'origine vers l'équipe.
-                  </p>
-                  {/* Grid layout : mobile = 1 col stack vertical, desktop =
-                      3 col (picker etire / 2 boutons auto). Cohérent avec
-                      ProjectTeamsSection. */}
-                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
-                    <TeamPicker
-                      value={selectedTeamId}
-                      onChange={(teamId) => setSelectedTeamId(teamId)}
-                      placeholder="Choisir une équipe..."
-                    />
-                    <button
-                      className="btn btn-primary h-7 px-3 text-[11px] w-full sm:w-auto"
-                      disabled={!selectedTeamId || addTeamToAds.isPending}
-                      onClick={() => selectedTeamId && handleAddTeam(selectedTeamId)}
-                    >
-                      {addTeamToAds.isPending ? (
-                        <><Loader2 size={11} className="animate-spin mr-1" /> Ajout...</>
-                      ) : (
-                        'Ajouter'
-                      )}
-                    </button>
-                    <button
-                      className="btn btn-tertiary h-7 px-3 text-[11px] w-full sm:w-auto"
-                      onClick={() => setShowTeamCreate(true)}
-                    >
-                      + Nouvelle équipe
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* SUP-0039 — Suggestions historiques (apparait au-dessus du picker
               quand l'utilisateur clique 'Suggérer'). Liste des pax les plus
               recurrents sur l'installation+criteres similaires, avec ajout
@@ -1699,26 +1564,6 @@ export function AdsDetailPanel({ id }: { id: string }) {
                           {ap.pax_badge && <>{t('paxlog.ads_detail.fields.badge', { value: ap.pax_badge })}</>}
                         </p>
                       )}
-                      {/* SUP-0040: badge 'via Équipe X' cliquable pour retirer
-                          tout le groupe-equipe en un clic. */}
-                      {ap.from_team_id && ap.from_team_name && ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update') && (
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0 rounded-sm bg-info/10 text-info hover:bg-info/20 text-[9px] font-medium"
-                          onClick={() => handleRemoveTeam(ap.from_team_id!, ap.from_team_name)}
-                          title={`Retirer toute l'équipe ${ap.from_team_name}`}
-                          disabled={removeTeamFromAds.isPending}
-                        >
-                          <Users2 size={9} />
-                          via {ap.from_team_name}
-                        </button>
-                      )}
-                      {ap.from_team_id && ap.from_team_name && !(ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update')) && (
-                        <p className="inline-flex items-center gap-1 mt-0.5 text-[9px] text-info">
-                          <Users2 size={9} />
-                          via {ap.from_team_name}
-                        </p>
-                      )}
                       </div>
                     </div>
                     {/* Bloc actions: flex-wrap pour autoriser le retour a la
@@ -1790,10 +1635,9 @@ export function AdsDetailPanel({ id }: { id: string }) {
                       )}
                       {(ap.user_id || ap.contact_id) && hasPermission('paxlog.ads.update') && (
                         <button
-                          className="p-1 rounded text-destructive hover:bg-destructive/10 disabled:opacity-40 transition-colors"
+                          className="btn btn-danger"
                           onClick={() => removePax.mutate({ adsId: id, entryId: ap.id })}
                           title={t('paxlog.ads_detail.actions.remove_passenger')}
-                          disabled={removePax.isPending}
                         >
                           <Trash2 size={12} />
                         </button>

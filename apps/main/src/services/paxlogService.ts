@@ -535,11 +535,6 @@ export interface AdsPax {
   // à côté".
   pax_avatar_url?: string | null
   pax_job_position_name?: string | null
-  // SUP-0040 (teams): trace l'equipe d'origine quand le pax a ete ajoute
-  // via "Ajouter une equipe". Permet le badge "via Equipe X" + action
-  // "retirer toute l'equipe".
-  from_team_id?: string | null
-  from_team_name?: string | null
   compliant?: boolean | null
 }
 

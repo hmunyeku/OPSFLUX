@@ -196,7 +196,37 @@
     "unit": "Unit",
     "filter_ellipsis": "Filter…",
     "stats": "Statistics",
-    "identification": "Identification"
+    "identification": "Identification",
+    "information": "Information",
+    "code_field": "Code",
+    "loading_ellipsis": "Loading…",
+    "name_field": "Name",
+    "title_field": "Title",
+    "longitude": "Longitude",
+    "type_field": "Type",
+    "latitude": "Latitude",
+    "priority_field": "Priority",
+    "reference": "Reference",
+    "failed": "Failed",
+    "requester": "Requester",
+    "planning": "Planning",
+    "vector": "Vector",
+    "data_source": "Data source",
+    "language": "Language",
+    "value_placeholder": "Value",
+    "clear": "Clear",
+    "country": "Country",
+    "dimensions": "Dimensions",
+    "reason": "Reason",
+    "destination": "Destination",
+    "imputation": "Imputation",
+    "company_contact": "Company contact",
+    "recipient": "Recipient",
+    "scheduling": "Scheduling",
+    "departure_base": "Departure base",
+    "mode": "Mode",
+    "created_by": "Created by",
+    "created_at_label": "Created at"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -1054,7 +1084,10 @@
     "derniers_roles": "Derniers rôles",
     "aucun_role": "Aucun rôle",
     "affecter_a_un_groupe": "Affecter à un groupe",
-    "affecter_a_une_entite": "Affecter à une entité"
+    "affecter_a_une_entite": "Affecter à une entité",
+    "toast": {
+      "permission_error": "Error"
+    }
   },
   "conformite": {
     "title": "Compliance",
@@ -1310,7 +1343,16 @@
       "select_tiers": "Please select source and destination companies",
       "same_tier_error": "Source and destination companies must be different",
       "transfer_created": "Transfer created successfully",
-      "transfer_creation_error": "Error creating transfer"
+      "transfer_creation_error": "Error creating transfer",
+      "error": "Error"
+    },
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "type": "Type",
+      "status": "Status",
+      "description": "Description",
+      "date": "Date"
     }
   },
   "projets": {
@@ -1521,6 +1563,17 @@
       "legend_validated": "Validated",
       "legend_rejected": "Rejected",
       "shortcuts_hint": "Tab for next cell · Enter to confirm · 0 to clear"
+    },
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "status": "Status"
+    },
+    "task_subtabs": {
+      "actions": "Actions"
+    },
+    "toast": {
+      "error": "Error"
     }
   },
   "dashboard": {
@@ -3166,7 +3219,9 @@
     "modifier_la_dependance": "Modifier la dépendance",
     "columns": {
       "site": "Site",
-      "asset": "Asset"
+      "asset": "Asset",
+      "type": "Type",
+      "status": "Status"
     },
     "simulation": {
       "label": "Simulation",
@@ -3251,6 +3306,13 @@
       "tab_information": "Information",
       "continue_edit_hint_suffix": " tab to continue editing.",
       "advanced_actions": "Advanced actions"
+    },
+    "actions": {
+      "cancel_activity": "Cancel",
+      "delete": "Delete"
+    },
+    "toast": {
+      "error_generic": "Error"
     }
   },
   "travelwiz": {
@@ -3395,7 +3457,14 @@
     "evenement_enregistre": "Événement enregistré",
     "rapport_meteo": "Rapport météo",
     "etat_de_mer": "Etat de mer",
-    "rapport_envoye": "Rapport envoyé"
+    "rapport_envoye": "Rapport envoyé",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "status": "Status",
+      "description": "Description",
+      "date": "Date"
+    }
   },
   "report_editor": {
     "title": "Papyrus",
@@ -3517,7 +3586,15 @@
     "ajouter_une_colonne": "Ajouter une colonne",
     "aucun_bloc_ajoute_un_paragraphe_ou_passe": "Aucun bloc. Ajoute un paragraphe ou passe en mode JSON.",
     "libelle_de_formule": "Libellé de formule",
-    "uri_de_reference": "URI de référence"
+    "uri_de_reference": "URI de référence",
+    "columns": {
+      "type": "Type",
+      "status": "Status",
+      "date": "Date"
+    },
+    "toast": {
+      "error": "Error"
+    }
   },
   "pid_pfd": {
     "title": "PID / PFD",
@@ -3581,7 +3658,13 @@
     "classe_de_spec": "Classe de spec",
     "materiau_de_construction": "Materiau de construction",
     "nom_du_tag": "Nom du tag *",
-    "description_du_tag": "Description du tag"
+    "description_du_tag": "Description du tag",
+    "columns": {
+      "type": "Type",
+      "status": "Status",
+      "date": "Date",
+      "description": "Description"
+    }
   },
   "messaging": {
     "title": "Messaging",
@@ -4363,7 +4446,43 @@
     "activite_soutenue_cette_semaine_avec_pro": "Activite soutenue cette semaine avec progression conforme au plan.",
     "1_reserve_en_cours_de_traitement": "1 reserve en cours de traitement",
     "rafraichir": "Rafraîchir",
-    "detail_de_l_apos_entree_d_apos_audit": "Détail de l&apos;entrée d&apos;audit"
+    "detail_de_l_apos_entree_d_apos_audit": "Détail de l&apos;entrée d&apos;audit",
+    "toast": {
+      "error": "Error",
+      "general": {
+        "setting_saved": "Setting saved"
+      },
+      "security_policy": {
+        "setting_saved": "Setting saved"
+      }
+    },
+    "columns": {
+      "rbac_roles": {
+        "name": "Name",
+        "code": "Code",
+        "description": "Description"
+      },
+      "rbac_groups": {
+        "name": "Name",
+        "status": "Status"
+      },
+      "sessions": {
+        "status": "Status"
+      },
+      "entities": {
+        "code": "Code",
+        "name": "Name",
+        "status": "Status"
+      },
+      "audit": {
+        "date": "Date",
+        "action": "Action"
+      },
+      "tokens": {
+        "name": "Name",
+        "status": "Status"
+      }
+    }
   },
   "help_system": {
     "contextual": "Contextual help",
@@ -4754,7 +4873,14 @@
     "reseaux": "Réseaux",
     "entite_parente": "Entité parente",
     "sous_entites": "Sous-entités",
-    "aucun_utilisateur_disponible": "Aucun utilisateur disponible"
+    "aucun_utilisateur_disponible": "Aucun utilisateur disponible",
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "status": "Status",
+      "user_name": "Name",
+      "user_status": "Status"
+    }
   },
   "packlog": {
     "title": "PackLog",
@@ -4981,7 +5107,11 @@
     "selectionner_un_module": "— Sélectionner un module —",
     "entite_id": "Entité (ID)",
     "epinglee": "Épinglée",
-    "publiee_le": "Publiée le"
+    "publiee_le": "Publiée le",
+    "columns": {
+      "type": "Type",
+      "status": "Status"
+    }
   },
   "asset_registry": {
     "geologie_reserves": "Géologie / Réserves",
@@ -5075,5 +5205,25 @@
     "les_fichiers_seront_uploades_dans_le_dos": "Les fichiers seront uploadés dans le dossier courant",
     "nouveau_dossier": "Nouveau dossier",
     "supprimer_la_selection": "Supprimer la sélection"
+  },
+  "pidpfd": {
+    "toast": {
+      "error": "Error",
+      "success": "Success"
+    }
+  },
+  "onboarding": {
+    "step1": {
+      "last_name": "Name"
+    },
+    "step3": {
+      "last_name": "Name"
+    },
+    "step5": {
+      "type": "Type"
+    },
+    "step6": {
+      "site_type": "Type"
+    }
   }
 }

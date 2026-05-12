@@ -316,6 +316,12 @@ class AdsPax(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     priority_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     priority_source: Mapped[str | None] = mapped_column(String(50))
+    # SUP-0040 (teams): trace l'equipe d'origine quand le pax a ete ajoute
+    # via "Ajouter une equipe". Snapshot — un changement de membres dans
+    # l'equipe apres-coup ne modifie pas l'ADS automatiquement.
+    from_team_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="SET NULL"), nullable=True,
+    )
 
     ads: Mapped["Ads"] = relationship(back_populates="pax_entries")
 

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
-import { useAds, useAdsPax, useAdsEvents, useAdsExternalLinks, useStayPrograms, useAdsImputationSuggestion, useSubmitAds, useCancelAds, useStartAdsProgress, useApproveAds, useDecideAdsPax, useRejectAds, useRequestAdsStayChange, useRequestReviewAds, useResubmitAds, useCompleteAds, useManualDepartureAds, useAdsPdf, useCreateExternalLink, useCreateStayProgram, useSubmitStayProgram, useApproveStayProgram, useUpdateAds, useAddPaxToAdsV2, useRemovePaxFromAds, usePaxCandidates, useImportPaxCsv } from '@/hooks/usePaxlog'
+import { useAds, useAdsPax, useAdsEvents, useAdsExternalLinks, useStayPrograms, useAdsImputationSuggestion, useSubmitAds, useCancelAds, useStartAdsProgress, useApproveAds, useDecideAdsPax, useRejectAds, useRequestAdsStayChange, useRequestReviewAds, useResubmitAds, useCompleteAds, useManualDepartureAds, useAdsPdf, useCreateExternalLink, useCreateStayProgram, useSubmitStayProgram, useApproveStayProgram, useUpdateAds, useAddPaxToAdsV2, useRemovePaxFromAds, usePaxCandidates } from '@/hooks/usePaxlog'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/stores/authStore'
 import { useAssetTree } from '@/hooks/useAssets'
@@ -55,7 +55,6 @@ export function AdsDetailPanel({ id }: { id: string }) {
   const updateAds = useUpdateAds()
   const addPaxV2 = useAddPaxToAdsV2()
   const removePax = useRemovePaxFromAds()
-  const importPaxCsv = useImportPaxCsv()
   const { hasPermission } = usePermission()
   const currentUser = useAuthStore((s) => s.user)
   const { data: assetTree = [] } = useAssetTree()
@@ -91,9 +90,6 @@ export function AdsDetailPanel({ id }: { id: string }) {
   const [allowedCompaniesDraft, setAllowedCompaniesDraft] = useState<AllowedCompanySelection[]>([])
   const [paxRejectEntryId, setPaxRejectEntryId] = useState<string | null>(null)
   const [paxRejectReason, setPaxRejectReason] = useState('')
-  const [showCsvImportModal, setShowCsvImportModal] = useState(false)
-  const [csvFile, setCsvFile] = useState<File | null>(null)
-  const [csvImportResult, setCsvImportResult] = useState<any>(null)
   const [stayProgramTarget, setStayProgramTarget] = useState<{ user_id?: string | null; contact_id?: string | null }>({})
   const [stayMovements, setStayMovements] = useState<Array<{ effective_date: string; from_location: string; to_location: string; transport_mode: string; notes: string }>>([
     { effective_date: '', from_location: '', to_location: '', transport_mode: '', notes: '' },
@@ -525,28 +521,6 @@ export function AdsDetailPanel({ id }: { id: string }) {
         setShowStayProgramForm(false)
         setStayProgramTarget({})
         setStayMovements([{ effective_date: '', from_location: '', to_location: '', transport_mode: '', notes: '' }])
-      },
-    })
-  }
-
-  const handleCsvImport = () => {
-    if (!csvFile) return
-    importPaxCsv.mutate({ adsId: id, file: csvFile }, {
-      onSuccess: (result) => {
-        setCsvImportResult(result)
-        setCsvFile(null)
-        toast({
-          title: t('paxlog.ads_detail.csv_import.success_title') || 'Import terminé',
-          description: `${result.summary.added} pax ajouté(s), ${result.summary.errors} erreur(s), ${result.summary.skipped} ignoré(s)`,
-          variant: result.summary.errors > 0 ? 'warning' : 'success',
-        })
-      },
-      onError: (error: any) => {
-        toast({
-          title: t('paxlog.ads_detail.csv_import.error_title') || 'Erreur d\'import',
-          description: error?.response?.data?.message || error.message,
-          variant: 'danger',
-        })
       },
     })
   }
@@ -1129,23 +1103,13 @@ export function AdsDetailPanel({ id }: { id: string }) {
           title={t('paxlog.ads_detail.sections.passengers', { count: adsPax?.length || 0 })}
           defaultExpanded
           headerExtra={ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update') ? (
-            <div className="flex items-center gap-1">
-              <button
-                className="btn btn-secondary h-5 px-1.5 flex items-center text-xs"
-                onClick={() => setShowCsvImportModal(true)}
-                title={t('paxlog.ads_detail.actions.import_csv') || 'Importer CSV'}
-              >
-                <Download size={11} className="mr-0.5" />
-                CSV
-              </button>
-              <button
-                className="btn btn-primary h-5 w-5 flex text-primary"
-                onClick={() => setShowPaxPicker(true)}
-                title={t('paxlog.ads_detail.actions.add_passenger')}
-              >
-                <Plus size={13} />
-              </button>
-            </div>
+            <button
+              className="btn btn-primary h-5 w-5 flex text-primary"
+              onClick={() => setShowPaxPicker(true)}
+              title={t('paxlog.ads_detail.actions.add_passenger')}
+            >
+              <Plus size={13} />
+            </button>
           ) : undefined}
         >
           {/* PAX Search & Add */}
@@ -1221,116 +1185,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
             </div>
           )}
 
-          {/* CSV Import Modal */}
-          {showCsvImportModal && (
-            <div className="mb-3">
-              <div className="space-y-2 p-3 rounded-md border border-border bg-card">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-sm">{t('paxlog.ads_detail.csv_import.title') || 'Importer des passagers depuis CSV'}</h4>
-                  <button
-                    className="p-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      setShowCsvImportModal(false)
-                      setCsvFile(null)
-                      setCsvImportResult(null)
-                    }}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t('paxlog.ads_detail.csv_import.instructions') || 'Le fichier CSV doit contenir au minimum une colonne "email". Les colonnes optionnelles : first_name, last_name.'}
-                </p>
-                <div className="space-y-2">
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) {
-                        setCsvFile(file)
-                        setCsvImportResult(null)
-                      }
-                    }}
-                    className={panelInputClass}
-                  />
-                  {csvFile && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="btn-sm btn-primary"
-                        disabled={importPaxCsv.isPending}
-                        onClick={handleCsvImport}
-                      >
-                        {importPaxCsv.isPending ? (
-                          <><Loader2 size={12} className="animate-spin mr-1" /> {t('common.importing') || 'Import en cours...'}</>
-                        ) : (
-                          <>{t('common.import') || 'Importer'}</>
-                        )}
-                      </button>
-                      <button
-                        className="btn-sm btn-secondary"
-                        onClick={() => setCsvFile(null)}
-                      >
-                        {t('common.cancel')}
-                      </button>
-                    </div>
-                  )}
-                  {csvImportResult && (
-                    <div className="mt-2 space-y-1 p-2 rounded border bg-muted/30 text-xs">
-                      <p className="font-semibold">
-                        {t('paxlog.ads_detail.csv_import.result_title') || 'Résultat de l\'import :'}
-                      </p>
-                      <p className="text-green-600 dark:text-green-400">
-                        ✓ {csvImportResult.summary.added} {t('paxlog.ads_detail.csv_import.added') || 'passagers ajoutés'}
-                      </p>
-                      {csvImportResult.summary.skipped > 0 && (
-                        <p className="text-orange-600 dark:text-orange-400">
-                          ⚠ {csvImportResult.summary.skipped} {t('paxlog.ads_detail.csv_import.skipped') || 'déjà présents'}
-                        </p>
-                      )}
-                      {csvImportResult.summary.errors > 0 && (
-                        <div className="text-red-600 dark:text-red-400">
-                          <p>✗ {csvImportResult.summary.errors} {t('paxlog.ads_detail.csv_import.errors') || 'erreurs'}</p>
-                          <div className="mt-1 max-h-24 overflow-y-auto space-y-0.5">
-                            {csvImportResult.errors.map((err: any, idx: number) => (
-                              <p key={idx} className="text-[10px]">
-                                Ligne {err.row}: {err.error} {err.email ? `(${err.email})` : ''}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
           {!adsPax || adsPax.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.ads_detail.empty.passengers')}</p>
           ) : (
-            <div className="space-y-3">
-              {(() => {
-                // Group pax by company
-                const grouped = adsPax.reduce((acc: Record<string, AdsPax[]>, pax: AdsPax) => {
-                  const companyKey = pax.pax_company_name || t('paxlog.ads_detail.no_company') || 'Sans entreprise'
-                  if (!acc[companyKey]) acc[companyKey] = []
-                  acc[companyKey].push(pax)
-                  return acc
-                }, {})
-
-                return Object.entries(grouped).map(([companyName, paxList]) => (
-                  <div key={companyName} className="space-y-1">
-                    {/* Company header */}
-                    <div className="text-xs font-semibold text-muted-foreground px-2 py-1 bg-muted/30 rounded flex items-center gap-2">
-                      <span className="flex-1">{companyName}</span>
-                      <span className="text-[10px] font-normal">
-                        {paxList.length} {paxList.length === 1 ? 'pax' : 'pax'}
-                      </span>
-                    </div>
-                    {/* Pax list for this company */}
-                    {paxList.map((ap: AdsPax) => (
+            <div className="space-y-1">
+              {adsPax.map((ap: AdsPax) => (
                 <div key={ap.id} className="rounded px-2 py-1.5 hover:bg-accent/50 text-xs group">
                   {(() => {
                     const complianceSummary = (ap.compliance_summary ?? null) as null | {
@@ -1359,62 +1218,32 @@ export function AdsDetailPanel({ id }: { id: string }) {
                     return (
                       <>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      {/* Avatar */}
-                      {(() => {
-                        const fullName = `${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()
-                        const words = fullName.split(/\s+/)
-                        const initials = words.length >= 2
-                          ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
-                          : fullName.slice(0, 2).toUpperCase()
-                        const colors = [
-                          'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500',
-                          'bg-pink-500', 'bg-teal-500', 'bg-indigo-500', 'bg-red-500'
-                        ]
-                        const colorIndex = fullName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
-                        const bgColor = colors[colorIndex]
-
-                        return ap.pax_avatar_url ? (
-                          <img
-                            src={ap.pax_avatar_url}
-                            alt={fullName}
-                            className="h-8 w-8 rounded-full object-cover shrink-0"
-                          />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">
+                        {(ap.user_id || ap.contact_id) ? (
+                          <button
+                            className="font-medium text-primary hover:underline text-left"
+                            onClick={() =>
+                              openDynamicPanel({
+                                type: 'detail',
+                                module: 'paxlog',
+                                id: (ap.user_id || ap.contact_id)!,
+                                meta: {
+                                  subtype: 'profile',
+                                  pax_source: (ap.pax_source || (ap.user_id ? 'user' : 'contact')),
+                                  from_ads_id: id,
+                                },
+                              })
+                            }
+                          >
+                            {`${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()}
+                          </button>
                         ) : (
-                          <div className={`flex items-center justify-center h-8 w-8 rounded-full font-semibold text-white text-[10px] shrink-0 ${bgColor}`}>
-                            {initials}
-                          </div>
-                        )
-                      })()}
-
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate">
-                          {(ap.user_id || ap.contact_id) ? (
-                            <button
-                              className="font-medium text-primary hover:underline text-left"
-                              onClick={() =>
-                                openDynamicPanel({
-                                  type: 'detail',
-                                  module: 'paxlog',
-                                  id: (ap.user_id || ap.contact_id)!,
-                                  meta: {
-                                    subtype: 'profile',
-                                    pax_source: (ap.pax_source || (ap.user_id ? 'user' : 'contact')),
-                                    from_ads_id: id,
-                                  },
-                                })
-                              }
-                            >
-                              {`${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()}
-                            </button>
-                          ) : (
-                            <>{ap.pax_last_name ?? ''} {ap.pax_first_name ?? ''}</>
-                          )}
-                        </p>
-                        {ap.pax_job_position_name && <p className="text-[10px] text-muted-foreground">{ap.pax_job_position_name}</p>}
-                        {ap.pax_company_name && <p className="text-[10px] text-muted-foreground">{ap.pax_company_name}</p>}
-                        {ap.pax_badge && <p className="text-[10px] text-muted-foreground">{t('paxlog.ads_detail.fields.badge', { value: ap.pax_badge })}</p>}
-                      </div>
+                          <>{ap.pax_last_name ?? ''} {ap.pax_first_name ?? ''}</>
+                        )}
+                      </p>
+                      {ap.pax_badge && <p className="text-[10px] text-muted-foreground">{t('paxlog.ads_detail.fields.badge', { value: ap.pax_badge })}</p>}
+                      {ap.pax_company_name && <p className="text-[10px] text-muted-foreground">{ap.pax_company_name}</p>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {/* Compliance status — chip explicite avec tooltip
@@ -1571,9 +1400,6 @@ export function AdsDetailPanel({ id }: { id: string }) {
                   })()}
                 </div>
               ))}
-                  </div>
-                ))
-              })()}
             </div>
           )}
         </FormSection>

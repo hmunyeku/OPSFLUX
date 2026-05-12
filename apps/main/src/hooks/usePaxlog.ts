@@ -491,18 +491,6 @@ export function useAddPaxToAdsV2() {
   })
 }
 
-export function useImportPaxCsv() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ adsId, file }: { adsId: string; file: File }) =>
-      paxlogService.importPaxCsv(adsId, file),
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId, 'pax'] })
-      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
-    },
-  })
-}
-
 /** Search PAX candidates (profiles + users + contacts) */
 export function usePaxCandidates(search: string, adsId?: string) {
   return useQuery({

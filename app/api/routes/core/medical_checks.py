@@ -6,7 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, check_verified_lock
+from starlette.requests import Request
+
+from app.api.deps import get_current_user, check_verified_lock, check_polymorphic_owner_access
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import MedicalCheck, User
@@ -20,9 +22,11 @@ router = APIRouter(prefix="/api/v1/medical-checks", tags=["medical-checks"])
 async def list_medical_checks(
     owner_type: str,
     owner_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_polymorphic_owner_access(owner_type, owner_id, current_user, db, request)
     result = await db.execute(
         select(MedicalCheck)
         .where(MedicalCheck.owner_type == owner_type, MedicalCheck.owner_id == owner_id)
@@ -36,9 +40,11 @@ async def create_medical_check(
     owner_type: str,
     owner_id: UUID,
     body: MedicalCheckCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_polymorphic_owner_access(owner_type, owner_id, current_user, db, request, write=True)
     obj = MedicalCheck(**body.model_dump(), owner_type=owner_type, owner_id=owner_id)
     db.add(obj)
     await db.commit()
@@ -50,6 +56,7 @@ async def create_medical_check(
 async def update_medical_check(
     check_id: UUID,
     body: MedicalCheckUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -61,6 +68,8 @@ async def update_medical_check(
             code="MEDICAL_CHECK_NOT_FOUND",
             message="Medical check not found",
         )
+    # SUP-secu : verifier l'acces a l'owner avant toute mutation (IDOR-fix).
+    await check_polymorphic_owner_access(obj.owner_type, obj.owner_id, current_user, db, request, write=True)
     await check_verified_lock(obj, current_user, db=db)
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
@@ -79,6 +88,7 @@ async def update_medical_check(
 @router.delete("/{check_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_medical_check(
     check_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -90,6 +100,8 @@ async def delete_medical_check(
             code="MEDICAL_CHECK_NOT_FOUND",
             message="Medical check not found",
         )
+    # SUP-secu : verifier l'acces a l'owner avant la suppression (IDOR-fix).
+    await check_polymorphic_owner_access(obj.owner_type, obj.owner_id, current_user, db, request, write=True)
     await check_verified_lock(obj, current_user, db=db)
     await delete_entity(obj, db, "medical_check", entity_id=obj.id, user_id=current_user.id)
     await db.commit()

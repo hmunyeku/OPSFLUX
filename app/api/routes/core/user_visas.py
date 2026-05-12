@@ -21,9 +21,11 @@ router = APIRouter(prefix="/api/v1/users/{user_id}/visas", tags=["user-visas"])
 @router.get("", response_model=list[UserVisaRead])
 async def list_visas(
     user_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_user_data_access(user_id, current_user, db, request)
     result = await db.execute(
         select(UserVisa).where(UserVisa.user_id == user_id).order_by(UserVisa.created_at)
     )

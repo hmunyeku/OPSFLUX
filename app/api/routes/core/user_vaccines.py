@@ -20,9 +20,11 @@ router = APIRouter(prefix="/api/v1/users/{user_id}/vaccines", tags=["user-vaccin
 @router.get("", response_model=list[UserVaccineRead])
 async def list_vaccines(
     user_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_user_data_access(user_id, current_user, db, request)
     result = await db.execute(
         select(UserVaccine).where(UserVaccine.user_id == user_id).order_by(UserVaccine.created_at)
     )

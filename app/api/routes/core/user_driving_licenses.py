@@ -20,9 +20,11 @@ router = APIRouter(prefix="/api/v1/users/{user_id}/driving-licenses", tags=["use
 @router.get("", response_model=list[DrivingLicenseRead])
 async def list_driving_licenses(
     user_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_user_data_access(user_id, current_user, db, request)
     result = await db.execute(
         select(DrivingLicense).where(DrivingLicense.user_id == user_id).order_by(DrivingLicense.created_at)
     )

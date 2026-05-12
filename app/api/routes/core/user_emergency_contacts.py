@@ -21,9 +21,11 @@ router = APIRouter(prefix="/api/v1/users/{user_id}/emergency-contacts", tags=["u
 @router.get("", response_model=list[EmergencyContactRead])
 async def list_emergency_contacts(
     user_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_user_data_access(user_id, current_user, db, request)
     result = await db.execute(
         select(EmergencyContact).where(EmergencyContact.user_id == user_id).order_by(EmergencyContact.created_at)
     )

@@ -319,9 +319,21 @@ async def global_exception_handler(request, exc):  # type: ignore[no-untyped-def
     _logging.getLogger("app.main").exception(
         "Unhandled exception on %s %s", request.method, request.url.path
     )
+    # SUP-secu : ne JAMAIS refleter une origine arbitraire en CORS sur 500.
+    # Auparavant tout origin commencant par "https://" etait accepte, ce qui
+    # permettait a https://attacker.com de recuperer la reponse + cookies via
+    # `allow_credentials=true`. Maintenant : seules les origines whitelistees
+    # explicitement recoivent la reponse cross-origin. Les autres : pas de
+    # header CORS (le navigateur bloque cote client).
     origin = request.headers.get("origin", "")
     allowed_origins = set(settings.allowed_origins_list)
-    cors_origin = origin if origin in allowed_origins or origin.startswith("https://") else "*"
+    cors_headers: dict[str, str] = {}
+    if origin and origin in allowed_origins:
+        cors_headers = {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
     return _JSONResponse(
         status_code=500,
         content={
@@ -329,11 +341,7 @@ async def global_exception_handler(request, exc):  # type: ignore[no-untyped-def
             "message": "Une erreur interne est survenue.",
             "path": request.url.path,
         },
-        headers={
-            "Access-Control-Allow-Origin": cors_origin,
-            "Access-Control-Allow-Credentials": "true",
-            "Vary": "Origin",
-        },
+        headers=cors_headers,
     )
 
 

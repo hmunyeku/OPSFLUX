@@ -1296,6 +1296,21 @@ export const paxlogService = {
     await api.delete(`/api/v1/pax/ads/${adsId}/pax/${entryId}`)
   },
 
+  importPaxCsv: async (adsId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await api.post(`/api/v1/pax/ads/${adsId}/import-pax-csv`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return data as {
+      status: string
+      summary: { total_rows: number; added: number; errors: number; skipped: number }
+      added: Array<{ row: number; email: string; name: string; source: string }>
+      errors: Array<{ row: number; email?: string; error: string; data?: any }>
+      skipped: Array<{ row: number; email: string; name: string; reason: string }>
+    }
+  },
+
   /** Search PAX candidates: existing profiles + users + contacts */
   searchPaxCandidates: async (search: string, adsId?: string): Promise<PaxCandidate[]> => {
     const params: Record<string, string> = { search }

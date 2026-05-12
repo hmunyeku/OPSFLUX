@@ -7,6 +7,8 @@ Integrates with:
 - Workflow Engine: FSM service manages AdS status transitions (D-014)
 """
 
+import csv
+import io
 import logging
 import hashlib
 import re
@@ -15,11 +17,12 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, File, Header, HTTPException, Query, Request, UploadFile, status
 from jose import JWTError, jwt
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, bindparam, func, literal, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import (
     get_current_entity,
@@ -5397,23 +5400,76 @@ async def list_ads_pax(
         "no_show": 6,
     }
 
+    # Collect all user_ids and contact_ids for batch loading
+    user_ids = [e.user_id for e in entries if e.user_id]
+    contact_ids = [e.contact_id for e in entries if e.contact_id]
+
+    # Batch load users with job_position relation
+    users_dict = {}
+    if user_ids:
+        users_result = await db.execute(
+            select(User)
+            .options(selectinload(User.job_position))
+            .where(User.id.in_(user_ids))
+        )
+        users_dict = {u.id: u for u in users_result.scalars().all()}
+
+    # Batch load contacts with job_position relation
+    contacts_dict = {}
+    if contact_ids:
+        contacts_result = await db.execute(
+            select(TierContact)
+            .options(selectinload(TierContact.job_position))
+            .where(TierContact.id.in_(contact_ids))
+        )
+        contacts_dict = {c.id: c for c in contacts_result.scalars().all()}
+
+    # Load company names for users with tier_contact_id
+    tier_contact_ids = [u.tier_contact_id for u in users_dict.values() if getattr(u, "tier_contact_id", None)]
+    tier_contacts_for_users = {}
+    company_names = {}
+    if tier_contact_ids:
+        tier_contacts_result = await db.execute(
+            select(TierContact).where(TierContact.id.in_(tier_contact_ids))
+        )
+        tier_contacts_for_users = {tc.id: tc for tc in tier_contacts_result.scalars().all()}
+        tier_ids = [tc.tier_id for tc in tier_contacts_for_users.values()]
+        if tier_ids:
+            company_result = await db.execute(
+                select(Tier.id, Tier.name).where(Tier.id.in_(tier_ids))
+            )
+            company_names = {row[0]: row[1] for row in company_result.all()}
+
+    # Load company names for contacts
+    contact_tier_ids = [c.tier_id for c in contacts_dict.values() if c.tier_id]
+    if contact_tier_ids:
+        contact_company_result = await db.execute(
+            select(Tier.id, Tier.name).where(Tier.id.in_(contact_tier_ids))
+        )
+        for row in contact_company_result.all():
+            company_names[row[0]] = row[1]
+
     items = []
     for ads_pax in entries:
         if ads_pax.user_id:
-            u = await db.get(User, ads_pax.user_id)
+            u = users_dict.get(ads_pax.user_id)
             linked_contact = None
             linked_company_name = None
             if u and getattr(u, "tier_contact_id", None):
-                linked_contact = await db.get(TierContact, u.tier_contact_id)
+                linked_contact = tier_contacts_for_users.get(u.tier_contact_id)
                 if linked_contact:
-                    linked_company_name = await db.scalar(
-                        select(Tier.name).where(Tier.id == linked_contact.tier_id)
-                    )
+                    linked_company_name = company_names.get(linked_contact.tier_id)
             pax_email = None
             pax_phone = None
             if u:
                 pax_email = await resolve_user_contact(db, str(u.id), "email") or u.email
                 pax_phone = await resolve_user_contact(db, str(u.id), "sms")
+
+            # Get job position name
+            job_position_name = None
+            if u and u.job_position:
+                job_position_name = u.job_position.name
+
             items.append({
                 "id": str(ads_pax.id),
                 "ads_id": str(ads_pax.ads_id),
@@ -5432,9 +5488,24 @@ async def list_ads_pax(
                 "pax_type": "external" if linked_contact else (u.pax_type if u else "internal"),
                 "pax_email": pax_email,
                 "pax_phone": pax_phone,
+                "pax_avatar_url": u.avatar_url if u else None,
+                "pax_job_position_name": job_position_name,
             })
         elif ads_pax.contact_id:
-            c = await db.get(TierContact, ads_pax.contact_id)
+            c = contacts_dict.get(ads_pax.contact_id)
+
+            # Get job position name, fallback to position field
+            job_position_name = None
+            if c and c.job_position:
+                job_position_name = c.job_position.name
+            elif c and c.position:
+                job_position_name = c.position
+
+            # Get company name
+            pax_company_name = None
+            if c and c.tier_id:
+                pax_company_name = company_names.get(c.tier_id)
+
             items.append({
                 "id": str(ads_pax.id),
                 "ads_id": str(ads_pax.ads_id),
@@ -5448,10 +5519,13 @@ async def list_ads_pax(
                 "pax_first_name": c.first_name if c else "?",
                 "pax_last_name": c.last_name if c else "?",
                 "pax_company_id": str(c.tier_id) if c else None,
+                "pax_company_name": pax_company_name,
                 "pax_badge": c.badge_number if c else None,
                 "pax_type": "external",
                 "pax_email": c.email if c else None,
                 "pax_phone": c.phone if c else None,
+                "pax_avatar_url": c.photo_url if c else None,
+                "pax_job_position_name": job_position_name,
             })
 
     # Waitlisted PAX are surfaced first, then ordered by priority.
@@ -5815,6 +5889,180 @@ async def add_pax_to_ads(
         "user_id": str(body.user_id) if body.user_id else None,
         "contact_id": str(body.contact_id) if body.contact_id else None,
         "name": pax_name,
+    }
+
+
+@router.post("/ads/{ads_id}/import-pax-csv", status_code=200)
+async def import_pax_from_csv(
+    ads_id: UUID,
+    file: UploadFile = File(...),
+    request: Request = None,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Import multiple PAX from a CSV file.
+
+    Expected CSV columns: email (required), first_name, last_name
+    Searches for users/contacts by email and adds them to the AdS.
+    Returns a report with success and error counts.
+    """
+    # Verify AdS
+    ads_result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
+        raise StructuredHTTPException(
+            404,
+            code="ADS_NOT_FOUND",
+            message="AdS not found",
+        )
+    if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
+        raise StructuredHTTPException(
+            403,
+            code="VOUS_NE_POUVEZ_PAS_MODIFIER_LES",
+            message="Vous ne pouvez pas modifier les PAX de cette AdS.",
+        )
+    if ads.status not in ("draft", "requires_review"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PAX can only be imported to draft or review-pending AdS.",
+        )
+
+    # Read and parse CSV
+    contents = await file.read()
+    try:
+        csv_text = contents.decode('utf-8')
+    except UnicodeDecodeError:
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_CSV_ENCODING",
+            message="CSV file must be UTF-8 encoded",
+        )
+
+    csv_file = io.StringIO(csv_text)
+    reader = csv.DictReader(csv_file)
+
+    # Validate required columns
+    if not reader.fieldnames or 'email' not in reader.fieldnames:
+        raise StructuredHTTPException(
+            400,
+            code="INVALID_CSV_FORMAT",
+            message="CSV must contain 'email' column",
+        )
+
+    added = []
+    errors = []
+    skipped = []
+
+    for row_num, row in enumerate(reader, start=2):  # Start at 2 (header is row 1)
+        email = row.get('email', '').strip().lower()
+        if not email:
+            errors.append({
+                "row": row_num,
+                "error": "Missing email",
+                "data": row
+            })
+            continue
+
+        # Search for user by email
+        user_result = await db.execute(
+            select(User).where(func.lower(User.email) == email, User.active == True)  # noqa: E712
+        )
+        user = user_result.scalar_one_or_none()
+
+        # Search for contact by email if no user found
+        contact = None
+        if not user:
+            contact_result = await db.execute(
+                select(TierContact)
+                .join(Tier, Tier.id == TierContact.tier_id)
+                .where(
+                    func.lower(TierContact.email) == email,
+                    TierContact.active == True,  # noqa: E712
+                    Tier.entity_id == entity_id
+                )
+            )
+            contact = contact_result.scalar_one_or_none()
+
+        if not user and not contact:
+            errors.append({
+                "row": row_num,
+                "email": email,
+                "error": "No user or contact found with this email"
+            })
+            continue
+
+        # Check if already in AdS
+        if user:
+            existing = await db.execute(
+                select(AdsPax.id).where(AdsPax.ads_id == ads_id, AdsPax.user_id == user.id)
+            )
+            if existing.scalar_one_or_none():
+                skipped.append({
+                    "row": row_num,
+                    "email": email,
+                    "name": f"{user.first_name} {user.last_name}",
+                    "reason": "Already in AdS"
+                })
+                continue
+
+            # Add to AdS
+            entry = AdsPax(
+                ads_id=ads_id,
+                user_id=user.id,
+                status="pending_check",
+            )
+            db.add(entry)
+            added.append({
+                "row": row_num,
+                "email": email,
+                "name": f"{user.first_name} {user.last_name}",
+                "source": "user"
+            })
+        else:  # contact
+            existing = await db.execute(
+                select(AdsPax.id).where(AdsPax.ads_id == ads_id, AdsPax.contact_id == contact.id)
+            )
+            if existing.scalar_one_or_none():
+                skipped.append({
+                    "row": row_num,
+                    "email": email,
+                    "name": f"{contact.first_name} {contact.last_name}",
+                    "reason": "Already in AdS"
+                })
+                continue
+
+            # Add to AdS
+            entry = AdsPax(
+                ads_id=ads_id,
+                contact_id=contact.id,
+                status="pending_check",
+            )
+            db.add(entry)
+            added.append({
+                "row": row_num,
+                "email": email,
+                "name": f"{contact.first_name} {contact.last_name}",
+                "source": "contact"
+            })
+
+    await db.commit()
+
+    return {
+        "status": "completed",
+        "summary": {
+            "total_rows": len(added) + len(errors) + len(skipped),
+            "added": len(added),
+            "errors": len(errors),
+            "skipped": len(skipped),
+        },
+        "added": added,
+        "errors": errors,
+        "skipped": skipped,
     }
 
 

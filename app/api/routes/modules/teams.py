@@ -338,10 +338,17 @@ async def create_team(
 
     await db.commit()
     await record_audit(
-        db, current_user.id, entity_id, "team.create",
-        target_type="team", target_id=team.id,
-        metadata={"name": team.name, "visibility": team.visibility,
-                  "initial_members": len(payload.initial_members)},
+        db,
+        user_id=current_user.id,
+        entity_id=entity_id,
+        action="team.created",
+        resource_type="team",
+        resource_id=str(team.id),
+        details={
+            "name": team.name,
+            "visibility": team.visibility,
+            "initial_members": len(payload.initial_members),
+        },
     )
     await db.refresh(team)
     return await _hydrate_team(db, team, include_members=True)
@@ -425,8 +432,12 @@ async def delete_team(
     team.deleted_at = datetime.now(timezone.utc)
     await db.commit()
     await record_audit(
-        db, current_user.id, entity_id, "team.delete",
-        target_type="team", target_id=team.id,
+        db,
+        user_id=current_user.id,
+        entity_id=entity_id,
+        action="team.deleted",
+        resource_type="team",
+        resource_id=str(team.id),
     )
 
 

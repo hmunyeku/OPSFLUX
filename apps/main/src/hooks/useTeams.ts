@@ -195,3 +195,38 @@ export function useDetachTeamFromProject() {
     },
   })
 }
+
+// ── Activity integration ──────────────────────────────────
+
+export function useActivityTeams(activityId: string, opts?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['planner', 'activity', activityId, 'teams'],
+    queryFn: () => teamsService.listActivityTeams(activityId),
+    enabled: !!activityId && (opts?.enabled !== false),
+    staleTime: 15_000,
+  })
+}
+
+export function useAttachTeamToActivity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      activityId, teamId, role,
+    }: { activityId: string; teamId: string; role?: ProjectTeamRole }) =>
+      teamsService.attachToActivity(activityId, teamId, role),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['planner', 'activity', vars.activityId, 'teams'] })
+    },
+  })
+}
+
+export function useDetachTeamFromActivity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ activityId, teamId }: { activityId: string; teamId: string }) =>
+      teamsService.detachFromActivity(activityId, teamId),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['planner', 'activity', vars.activityId, 'teams'] })
+    },
+  })
+}

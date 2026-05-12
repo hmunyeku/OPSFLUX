@@ -52,6 +52,11 @@ PROJECT_TEAM_ROLES = (
     "subcontractor",   # sous-traitance
 )
 
+# Roles d'attachement d'une equipe a une activite planner. Memes valeurs que
+# ProjectTeam mais en table separee — utile pour le pointage Phase 4 ou on
+# materialise les heures travaillees par equipe attachee a une activite.
+ACTIVITY_TEAM_ROLES = PROJECT_TEAM_ROLES
+
 
 # ─── Team ─────────────────────────────────────────────────────────────────────
 
@@ -229,3 +234,44 @@ class ProjectTeam(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     team = relationship("Team", back_populates="project_links")
+
+
+# ─── ActivityTeam — jonction activite planner <-> equipe ──────────────────────
+
+
+class ActivityTeam(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Attache une equipe a une activite planner.
+
+    Comme `ProjectTeam` : pas d'expansion en individus, on garde l'equipe
+    comme objet first-class au niveau activite. Prepare la Phase 4
+    (pointage par equipe sur les activites).
+
+    Visible dans le detail panel de l'activite (planner). La meme equipe
+    peut etre attachee a plusieurs activites simultanement.
+    """
+
+    __tablename__ = "activity_teams"
+    __table_args__ = (
+        UniqueConstraint("activity_id", "team_id", name="uq_activity_team"),
+        CheckConstraint(
+            f"role IS NULL OR role IN {ACTIVITY_TEAM_ROLES}",
+            name="ck_activity_team_role",
+        ),
+        Index("idx_activity_teams_activity", "activity_id"),
+        Index("idx_activity_teams_team", "team_id"),
+    )
+
+    activity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("planner_activities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    team_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False,
+    )
+    role: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    attached_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    attached_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True,
+    )

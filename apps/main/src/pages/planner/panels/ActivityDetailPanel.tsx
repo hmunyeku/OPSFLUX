@@ -8,7 +8,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   CalendarRange, Users, CheckCircle2, XCircle, Send, Ban, Pencil, Trash2, Link2, Loader2,
-  Repeat, ArrowUpDown, Plus, Info, Paperclip, AlertTriangle,
+  Repeat, ArrowUpDown, Plus, Info, Paperclip, AlertTriangle, Users2, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
@@ -34,6 +34,10 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { ActivityPicker } from '@/components/shared/ActivityPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { TeamPicker } from '@/components/shared/TeamPicker'
+import { TeamCreateInline } from '@/components/shared/TeamCreateInline'
+import { useActivityTeams, useAttachTeamToActivity, useDetachTeamFromActivity } from '@/hooks/useTeams'
+import { PROJECT_TEAM_ROLE_LABELS, type ProjectTeamRole } from '@/services/teamsService'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { plannerService } from '@/services/plannerService'
@@ -258,6 +262,160 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
         <XCircle size={11} />
       </button>
     </div>
+  )
+}
+
+
+// ─── ActivityTeamsSection (SUP-0040 phase 1 final) ───────────────────────────
+// Pareil que ProjectTeamsSection mais a la granularite activite. Reutilise
+// les composants partages TeamPicker + TeamCreateInline. Prepare la Phase 4
+// (pointage par equipe sur les heures d'activite).
+function ActivityTeamsSection({ activityId }: { activityId: string }) {
+  const { data: teams = [] } = useActivityTeams(activityId)
+  const attachTeam = useAttachTeamToActivity()
+  const detachTeam = useDetachTeamFromActivity()
+  const [showAttachPanel, setShowAttachPanel] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const [selectedRole, setSelectedRole] = useState<ProjectTeamRole | ''>('')
+  const { toast } = useToast()
+
+  const excludeIds = teams.map((at) => at.team_id)
+
+  const handleAttach = (teamId: string) => {
+    attachTeam.mutate(
+      { activityId, teamId, role: selectedRole || undefined },
+      {
+        onSuccess: () => {
+          toast({ title: 'Équipe attachée', variant: 'success' })
+          setSelectedTeamId(null)
+          setSelectedRole('')
+          setShowAttachPanel(false)
+        },
+        onError: (err: any) => {
+          toast({
+            title: 'Attache échouée',
+            description: err?.response?.data?.detail || err?.message,
+            variant: 'error',
+          })
+        },
+      },
+    )
+  }
+
+  const handleDetach = (teamId: string, teamName: string) => {
+    if (!window.confirm(`Détacher l'équipe « ${teamName} » de cette activité ?`)) return
+    detachTeam.mutate({ activityId, teamId })
+  }
+
+  return (
+    <FormSection title={`Équipes attachées (${teams.length})`}>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] text-muted-foreground">
+          Attache des équipes à cette activité pour preparer le pointage et faciliter la planification.
+        </p>
+        <button
+          className="btn btn-tertiary h-5 px-1.5 flex items-center gap-1 text-[10px]"
+          onClick={() => setShowAttachPanel((v) => !v)}
+          title="Attacher une équipe"
+        >
+          <Plus size={11} />
+          <span className="hidden sm:inline">Équipe</span>
+        </button>
+      </div>
+
+      {showAttachPanel && (
+        <div className="mb-2">
+          {showCreate ? (
+            <TeamCreateInline
+              onCreated={(team) => {
+                setShowCreate(false)
+                handleAttach(team.id)
+              }}
+              onCancel={() => setShowCreate(false)}
+            />
+          ) : (
+            <div className="space-y-2 p-2 rounded-md border border-info/40 bg-info/5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold flex items-center gap-1">
+                  <Users2 size={12} className="text-info" />
+                  Attacher une équipe
+                </span>
+                <button
+                  className="p-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowAttachPanel(false)}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_150px_auto_auto] sm:items-center">
+                <TeamPicker
+                  value={selectedTeamId}
+                  onChange={setSelectedTeamId}
+                  placeholder="Choisir une équipe..."
+                  excludeIds={excludeIds}
+                />
+                <select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value as ProjectTeamRole)}
+                  className={cn(panelInputClass, 'w-full')}
+                >
+                  <option value="">Rôle (optionnel)</option>
+                  {Object.entries(PROJECT_TEAM_ROLE_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+                <button
+                  className="btn btn-primary h-7 px-3 text-[11px] w-full sm:w-auto"
+                  disabled={!selectedTeamId || attachTeam.isPending}
+                  onClick={() => selectedTeamId && handleAttach(selectedTeamId)}
+                >
+                  {attachTeam.isPending ? <Loader2 size={11} className="animate-spin" /> : 'Attacher'}
+                </button>
+                <button
+                  className="btn btn-tertiary h-7 px-3 text-[11px] w-full sm:w-auto"
+                  onClick={() => setShowCreate(true)}
+                >
+                  + Nouvelle
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {teams.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground italic py-2 text-center">
+          Aucune équipe attachée. Utilisez le bouton ci-dessus.
+        </p>
+      ) : (
+        <div className="space-y-1">
+          {teams.map((at) => (
+            <div key={at.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent/50 text-xs">
+              <Users2 size={14} className="shrink-0 text-info" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium truncate">{at.team_name}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {at.team_member_count} membre{at.team_member_count > 1 ? 's' : ''}
+                  {at.team_visibility === 'private' && <span> · privée</span>}
+                  {at.role && (
+                    <span> · {PROJECT_TEAM_ROLE_LABELS[at.role as ProjectTeamRole] ?? at.role}</span>
+                  )}
+                </p>
+              </div>
+              <button
+                className="p-1 rounded shrink-0 text-destructive hover:bg-destructive/10 disabled:opacity-40"
+                onClick={() => handleDetach(at.team_id, at.team_name)}
+                disabled={detachTeam.isPending}
+                title="Détacher l'équipe"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </FormSection>
   )
 }
 
@@ -1142,6 +1300,9 @@ export function ActivityDetailPanel({ id }: { id: string }) {
               <FormSection title={t('common.description')}>
                 <InlineEditableRow label="Description" value={activity.description ?? ''} onSave={(v) => handleInlineSave('description', v)} />
               </FormSection>
+
+              {/* SUP-0040 phase 1 final : equipes attachees a l'activite */}
+              <ActivityTeamsSection activityId={id} />
 
               {tp === 'workover' && (activity.well_reference || activity.rig_name) && (
                 <FormSection title={t('common.workover_details')}>

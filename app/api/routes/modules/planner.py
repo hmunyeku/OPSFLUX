@@ -5516,3 +5516,166 @@ async def create_ads_from_activity(
         "start_date": ads.start_date.isoformat(),
         "end_date": ads.end_date.isoformat(),
     }
+
+
+# ─── SUP-0040 Phase 1 final : Activity teams ──────────────────────────────────
+# Attache des equipes (objet first-class) a une activite planner. Pareil que
+# project_teams mais a la granularite activite. Prepare le pointage Phase 4.
+@router.get("/activities/{activity_id}/teams")
+async def list_activity_teams(
+    activity_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("planner.activity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Liste les equipes attachees a une activite, hydrate (nom, taille)."""
+    from app.models.teams import ActivityTeam, Team, TeamMember
+    from sqlalchemy import func as _func
+
+    activity = (await db.execute(
+        select(PlannerActivity).where(
+            PlannerActivity.id == activity_id,
+            PlannerActivity.entity_id == entity_id,
+        )
+    )).scalar_one_or_none()
+    if not activity:
+        raise HTTPException(404, detail="Activity not found")
+
+    rows = (await db.execute(
+        select(ActivityTeam, Team)
+        .join(Team, Team.id == ActivityTeam.team_id)
+        .where(ActivityTeam.activity_id == activity_id, Team.deleted_at.is_(None))
+        .order_by(ActivityTeam.attached_at.desc())
+    )).all()
+    out = []
+    for at, team in rows:
+        member_count = await db.scalar(
+            select(_func.count()).select_from(TeamMember).where(
+                TeamMember.team_id == team.id, TeamMember.left_at.is_(None),
+            )
+        ) or 0
+        out.append({
+            "id": str(at.id),
+            "activity_id": str(at.activity_id),
+            "team_id": str(at.team_id),
+            "role": at.role,
+            "attached_at": at.attached_at.isoformat() if at.attached_at else None,
+            "attached_by": str(at.attached_by) if at.attached_by else None,
+            "team_name": team.name,
+            "team_visibility": team.visibility,
+            "team_member_count": int(member_count),
+        })
+    return out
+
+
+@router.post("/activities/{activity_id}/teams", status_code=201)
+async def attach_team_to_activity(
+    activity_id: UUID,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Attache une equipe a une activite. Idempotent si deja attachee."""
+    from app.models.teams import ActivityTeam, Team
+
+    team_id_raw = body.get("team_id")
+    role = body.get("role")
+    if not team_id_raw:
+        raise HTTPException(400, detail="team_id required")
+    try:
+        team_id = UUID(str(team_id_raw))
+    except ValueError:
+        raise HTTPException(400, detail="invalid team_id")
+    if role and role not in ("main_team", "support_team", "consulting", "subcontractor"):
+        raise HTTPException(400, detail="invalid role")
+
+    activity = (await db.execute(
+        select(PlannerActivity).where(
+            PlannerActivity.id == activity_id,
+            PlannerActivity.entity_id == entity_id,
+        )
+    )).scalar_one_or_none()
+    if not activity:
+        raise HTTPException(404, detail="Activity not found")
+
+    team = (await db.execute(
+        select(Team).where(
+            Team.id == team_id, Team.entity_id == entity_id, Team.deleted_at.is_(None),
+        )
+    )).scalar_one_or_none()
+    if not team:
+        raise HTTPException(404, detail="Team not found")
+
+    # Idempotent : si deja attache, renvoie l'existant (mise a jour role si change).
+    existing = (await db.execute(
+        select(ActivityTeam).where(
+            ActivityTeam.activity_id == activity_id,
+            ActivityTeam.team_id == team_id,
+        )
+    )).scalar_one_or_none()
+    if existing:
+        if role and existing.role != role:
+            existing.role = role
+            await db.commit()
+            await db.refresh(existing)
+        return {
+            "id": str(existing.id),
+            "activity_id": str(existing.activity_id),
+            "team_id": str(existing.team_id),
+            "role": existing.role,
+            "attached_at": existing.attached_at.isoformat() if existing.attached_at else None,
+            "team_name": team.name,
+            "team_visibility": team.visibility,
+        }
+
+    at = ActivityTeam(
+        activity_id=activity_id,
+        team_id=team_id,
+        role=role,
+        attached_by=current_user.id,
+    )
+    db.add(at)
+    await db.commit()
+    await db.refresh(at)
+    return {
+        "id": str(at.id),
+        "activity_id": str(at.activity_id),
+        "team_id": str(at.team_id),
+        "role": at.role,
+        "attached_at": at.attached_at.isoformat() if at.attached_at else None,
+        "team_name": team.name,
+        "team_visibility": team.visibility,
+    }
+
+
+@router.delete("/activities/{activity_id}/teams/{team_id}", status_code=204)
+async def detach_team_from_activity(
+    activity_id: UUID,
+    team_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("planner.activity.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Detache une equipe d'une activite (suppression hard)."""
+    from app.models.teams import ActivityTeam
+
+    activity = (await db.execute(
+        select(PlannerActivity).where(
+            PlannerActivity.id == activity_id,
+            PlannerActivity.entity_id == entity_id,
+        )
+    )).scalar_one_or_none()
+    if not activity:
+        raise HTTPException(404, detail="Activity not found")
+
+    at = (await db.execute(
+        select(ActivityTeam).where(
+            ActivityTeam.activity_id == activity_id,
+            ActivityTeam.team_id == team_id,
+        )
+    )).scalar_one_or_none()
+    if at:
+        await db.delete(at)
+        await db.commit()

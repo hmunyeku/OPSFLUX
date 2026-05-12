@@ -257,6 +257,33 @@ export const teamsService = {
   detachFromProject: async (projectId: string, teamId: string): Promise<void> => {
     await api.delete(`/api/v1/projects/${projectId}/teams/${teamId}`)
   },
+
+  // ── Activity integration (SUP-0040 phase 1 final) ──
+  /** Liste les equipes attachees a une activite planner. Memes champs que
+   *  ProjectTeamRead (le DTO backend est identique : team_name, role,
+   *  team_member_count, ...). */
+  listActivityTeams: async (activityId: string): Promise<ProjectTeamRead[]> => {
+    const { data } = await api.get<ProjectTeamRead[]>(
+      `/api/v1/planner/activities/${activityId}/teams`,
+    )
+    return data
+  },
+
+  attachToActivity: async (
+    activityId: string,
+    teamId: string,
+    role?: ProjectTeamRole,
+  ): Promise<ProjectTeamRead> => {
+    const { data } = await api.post<ProjectTeamRead>(
+      `/api/v1/planner/activities/${activityId}/teams`,
+      { team_id: teamId, role },
+    )
+    return data
+  },
+
+  detachFromActivity: async (activityId: string, teamId: string): Promise<void> => {
+    await api.delete(`/api/v1/planner/activities/${activityId}/teams/${teamId}`)
+  },
 }
 
 // ── Localised labels ──────────────────────────────────────

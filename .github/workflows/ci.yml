@@ -3,8 +3,13 @@ name: CI — Lint & Test
 on:
   pull_request:
     branches: [main, develop]
+  # SUP : ajout main pour catcher les push directs et eviter qu'un commit
+  # qui casse le build (cf bug PWA i18n bundle > 2 MiB) ne soit pas
+  # detecte avant le deploy Dokploy. Idealement on devrait interdire le
+  # push direct sur main via branch protection, mais ce trigger
+  # garantit au moins un signal CI rouge en cas de regression.
   push:
-    branches: [develop]
+    branches: [develop, main]
 
 jobs:
   backend:

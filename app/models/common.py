@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin, VerifiableMixin
+from app.models.base import AuditUserMixin, Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin, VerifiableMixin
 
 
 # ─── Entities ────────────────────────────────────────────────────────────────
@@ -1624,8 +1624,18 @@ class TierContactTransfer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 # ─── Projects / Projets ─────────────────────────────────────────────────────
 
 
-class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Projet — inspire de Gouti."""
+class Project(UUIDPrimaryKeyMixin, TimestampMixin, AuditUserMixin, Base):
+    """Projet — inspire de Gouti.
+
+    SUP-bug session 10 : migration 024 a ajoute created_by + updated_by en
+    BDD via le pattern AuditUserMixin, mais le modele ne l'avait jamais
+    branche -- l'attribut Project.created_by etait perdu. Impact : le code
+    de suppression user (users.py:1572-1574) faisait
+    `getattr(Project, "created_by", None)` qui retournait None et SKIPPAIT
+    silencieusement la check de dependances (un user supprime laissait
+    ses projets sans verification). Bug logique sans crash, mais correct
+    bugfix.
+    """
     __tablename__ = "projects"
     __table_args__ = (
         Index("idx_projects_entity", "entity_id"),

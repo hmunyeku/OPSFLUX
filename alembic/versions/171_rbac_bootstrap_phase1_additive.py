@@ -78,6 +78,8 @@ def upgrade():
         ('mcp.gateway.manage', 'Manage MCP gateway config', 'mcp', 'gateway', 'manage', 'integration', false),
         ('mcp.token.create', 'Issue MCP tokens', 'mcp', 'token', 'create', 'integration', true),
         ('mcp.agent.execute', 'Execute MCP agent actions', 'mcp', 'agent', 'execute', 'integration', false)
+        -- On conflict, refresh structural fields only; preserve name/module
+        -- (a tenant may have customized them).
         ON CONFLICT (code) DO UPDATE SET
             namespace = EXCLUDED.namespace,
             resource = EXCLUDED.resource,

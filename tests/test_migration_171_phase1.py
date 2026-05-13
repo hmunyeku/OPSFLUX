@@ -103,7 +103,7 @@ async def test_renamed_role_keeps_permissions(db_session):
 
 @pytest.mark.asyncio
 async def test_tenant_settings_seeded(db_session, sample_entity):
-    """6 tenant settings are seeded for each existing entity."""
+    """7 tenant settings are seeded for each existing entity."""
     from app.models.common import Setting
     expected_keys = [
         "rbac.default_role.internal",
@@ -112,6 +112,7 @@ async def test_tenant_settings_seeded(db_session, sample_entity):
         "rbac.delegation.max_duration_days",
         "rbac.delegation.notify_security_officer",
         "rbac.export.async_threshold_users",
+        "rbac.bootstrap.email_admins_on_migration",
     ]
     result = await db_session.execute(
         select(Setting.key).where(
@@ -125,7 +126,12 @@ async def test_tenant_settings_seeded(db_session, sample_entity):
 
 
 def test_migration_171_idempotent():
-    """Running alembic upgrade head twice in a row doesn't error and doesn't duplicate data."""
+    """Running alembic upgrade head on a DB already at head is a safe no-op (doesn't error).
+
+    NOTE: This is a smoke test only. True data-level idempotence (no duplicate rows on re-run)
+    is guaranteed by the `ON CONFLICT` clauses in the migration's SQL, not asserted here.
+    To strengthen, add a row-count diff test that re-runs the seed SQL directly (out of scope for PR-A).
+    """
     result = subprocess.run(
         ["alembic", "upgrade", "head"], capture_output=True, text=True
     )

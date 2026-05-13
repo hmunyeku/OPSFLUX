@@ -250,7 +250,11 @@ git add app/models/common.py tests/test_models_rbac_audit_event.py
 git commit -m "feat(rbac): add RbacAuditEvent model for audit trail"
 ```
 
-## Groupe 2 — Migration alembic 170 (phase 1 additive)
+## Groupe 2 — Migration alembic 171 (phase 1 additive)
+
+> **Implementation note**: the spec/plan originally said "migration 170", but `170_papyrus_ext_created_at.py`
+> already existed in the repo. The actual migration shipped as **171_rbac_bootstrap_phase1_additive.py**.
+> All task content below remains valid — only the filename / revision_id / down_revision changed.
 
 ### Task 2.1 : Créer la migration alembic squelette
 

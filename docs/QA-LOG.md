@@ -507,6 +507,48 @@ Aucun 500 caché sur les mutations DELETE. Le 409 sur user est notable : **notre
 
 **Recommandation CI** : intégrer `audit_model_vs_db.py` + `audit_db_cols_used_in_code.py` au pipeline pour bloquer un push si l'un de ces 4 patterns apparaît.
 
+---
+
+## Session 11 — "on continue" : audit AuditUserMixin systémique
+
+**Commit déployé** :
+
+| SHA | Sujet |
+|---|---|
+| `833635f9` | chore(audit) — script `audit_auditable_orphans.py` |
+
+**Vague II — Inventaire systémique** :
+
+Liste BDD : **87 tables** ont `created_by`/`updated_by` (via migration 024).
+
+**Vague JJ — Cross-référence modèles vs usages code** :
+
+Script ad-hoc qui pour chaque modèle orphelin :
+1. Détecte les colonnes manquantes (`created_by` ou `updated_by`)
+2. Cherche dans tout `app/` les usages `ClassName.col` ou `ClassName.col2`
+
+**Résultat** : sur les 87 modèles avec dette latente, **1 SEUL** a du code applicatif qui accède réellement à ces colonnes : `Project.created_by` (`users.py:1572`).
+
+→ **Bug #30 était le seul cas effectif**. Les 86 autres modèles ont la dette mais aucun bug effectif (BDD a la colonne, modèle ne la voit pas, code ne s'en sert pas).
+
+### Bilan session 11
+
+- 1 commit déployé (outil pérenne)
+- **0 nouveau bug à corriger** (l'audit confirme que bug #30 était le seul vrai cas)
+- **Dette latente cartographiée** : 86 modèles à brancher AuditUserMixin progressivement pour la cohérence (pas urgent — pas de bug effectif)
+- **Outil pérenne** : `audit_auditable_orphans.py` pour CI futur
+
+### Bilan global cumulé sessions 1-11 (FINAL × 4)
+
+- **29 commits déployés sur main**
+- **30 bugs identifiés**, **24 corrigés et déployés**, **6 en backlog**
+- **Tickets support résolus** : 3 (SUP-0040, SUP-0042, SUP-0039)
+- **Endpoints validés** : 66
+- **Scripts pérennes** : **5** (i18n_bulk, audit_model_vs_db, compare_model_vs_db, audit_db_cols_used_in_code, audit_auditable_orphans)
+- **Migrations alembic ajoutées** : 6
+- **Modèles SQLAlchemy fixés** : 3
+- **Dette latente connue** : 86 modèles AuditUserMixin non branchés (inerte actuellement)
+
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 
 **Couverture du protocole 200 étapes** :

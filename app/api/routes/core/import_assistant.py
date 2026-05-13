@@ -54,6 +54,10 @@ _PERMISSION_MAP: dict[str, str] = {
     "ar_installation": "asset.create",
     "ar_equipment": "asset.create",
     "ar_pipeline": "asset.create",
+    # RBAC bulk imports (PR-A)
+    "rbac_role_permission": "core.rbac.manage",
+    "rbac_group_override": "core.rbac.manage",
+    "rbac_user_group": "core.rbac.manage",
 }
 
 

@@ -1981,6 +1981,105 @@ class PlannerActivityHandler(TargetObjectHandler):
         return None
 
 
+# ── RBAC import handlers (PR-A) ───────────────────────────────────────────
+# These handlers expose metadata to the ImportWizard (target list, fields)
+# but the actual import work is dispatched to app.services.modules.rbac_import_service
+# in execute_import() via an early branch.
+
+
+class RbacRolePermissionHandler(TargetObjectHandler):
+    key = "rbac_role_permission"
+    label = "Liaisons Rôle → Permission"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="role_code", label="Code rôle", type="string", required=True, example="OPERATOR"),
+            TargetFieldDef(key="permission_code", label="Code permission", type="string", required=True, example="asset.asset.read"),
+        ]
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+        if not row.get("role_code"):
+            errors.append(RowValidationError(row_index=idx, field="role_code", message="role_code requis"))
+        if not row.get("permission_code"):
+            errors.append(RowValidationError(row_index=idx, field="permission_code", message="permission_code requis"))
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        return None  # Composite PK; handled by rbac_import_service
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        # Dispatched in execute_import to rbac_import_service.import_rbac_role_permission
+        raise NotImplementedError("Use execute_import() dispatch — direct call not supported.")
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        return None
+
+
+class RbacGroupOverrideHandler(TargetObjectHandler):
+    key = "rbac_group_override"
+    label = "Overrides de groupe"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="group_id", label="ID groupe", type="string"),
+            TargetFieldDef(key="group_name", label="Nom groupe", type="string", example="Operators - Site A"),
+            TargetFieldDef(key="permission_code", label="Code permission", type="string", required=True, example="asset.asset.read"),
+            TargetFieldDef(key="granted", label="Accordé", type="boolean", required=True, example="true"),
+        ]
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+        if not row.get("group_id") and not row.get("group_name"):
+            errors.append(RowValidationError(row_index=idx, field="group_id", message="group_id ou group_name requis"))
+        if not row.get("permission_code"):
+            errors.append(RowValidationError(row_index=idx, field="permission_code", message="permission_code requis"))
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        return None
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        raise NotImplementedError("Use execute_import() dispatch — direct call not supported.")
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        return None
+
+
+class RbacUserGroupHandler(TargetObjectHandler):
+    key = "rbac_user_group"
+    label = "Appartenance Utilisateur ↔ Groupe"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="user_email", label="Email utilisateur", type="string", example="alice@example.com"),
+            TargetFieldDef(key="user_id", label="ID utilisateur", type="string"),
+            TargetFieldDef(key="group_id", label="ID groupe", type="string"),
+            TargetFieldDef(key="group_name", label="Nom groupe", type="string"),
+            TargetFieldDef(key="roles", label="Rôles (csv)", type="string", example="OPERATOR,DO"),
+        ]
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+        if not row.get("user_email") and not row.get("user_id"):
+            errors.append(RowValidationError(row_index=idx, field="user_email", message="user_email ou user_id requis"))
+        if not row.get("group_id") and not row.get("group_name"):
+            errors.append(RowValidationError(row_index=idx, field="group_id", message="group_id ou group_name requis"))
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        return None
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        raise NotImplementedError("Use execute_import() dispatch — direct call not supported.")
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        return None
+
+
 # ── Handler registry ──────────────────────────────────────────────────────
 
 HANDLERS: dict[str, TargetObjectHandler] = {}
@@ -2003,6 +2102,10 @@ _register_handler(ARSiteHandler())
 _register_handler(ARInstallationHandler())
 _register_handler(AREquipmentHandler())
 _register_handler(ARPipelineHandler())
+# RBAC bulk imports (PR-A) — actual work dispatched in execute_import()
+_register_handler(RbacRolePermissionHandler())
+_register_handler(RbacGroupOverrideHandler())
+_register_handler(RbacUserGroupHandler())
 
 
 # ── Transform engine ──────────────────────────────────────────────────────
@@ -2599,6 +2702,45 @@ async def execute_import(
     handler = HANDLERS.get(target_object)
     if not handler:
         raise ValueError(f"Unknown target object: {target_object}")
+
+    # RBAC bulk imports (PR-A): route to dedicated service.
+    # Strategy mapping: "skip"/"update"/"fail" (generic ImportWizard) -> "MERGE"
+    # is the safe default. REPLACE_* variants are opt-in via row-level metadata
+    # or future query-string extension; for now MERGE for everything.
+    if target_object in ("rbac_role_permission", "rbac_group_override", "rbac_user_group"):
+        # Apply transforms pipeline before mapping
+        rbac_rows_raw = rows
+        if transforms:
+            rbac_rows_raw = apply_transforms(rows, transforms, column_mapping)
+        mapped_rows = [_apply_mapping(r, column_mapping) for r in rbac_rows_raw]
+
+        if target_object == "rbac_role_permission":
+            from app.services.modules.rbac_import_service import import_rbac_role_permission
+            rbac_result = await import_rbac_role_permission(db, entity_id, mapped_rows, strategy="MERGE", actor_user_id=user_id)
+        elif target_object == "rbac_group_override":
+            from app.services.modules.rbac_import_service import import_rbac_group_override
+            rbac_result = await import_rbac_group_override(db, entity_id, mapped_rows, strategy="MERGE", actor_user_id=user_id)
+        else:  # rbac_user_group
+            from app.services.modules.rbac_import_service import import_rbac_user_group
+            rbac_result = await import_rbac_user_group(db, entity_id, mapped_rows, strategy="MERGE", actor_user_id=user_id)
+
+        # Adapt RBAC service result -> ImportExecuteResponse shape
+        rbac_errors = [
+            RowValidationError(
+                row_index=e.get("row", 0),
+                field="_rbac",
+                message=e.get("message", ""),
+                severity="error",
+            )
+            for e in rbac_result.get("errors", [])
+        ]
+        return {
+            "created": rbac_result.get("created", 0),
+            "updated": rbac_result.get("updated", 0),
+            "skipped": rbac_result.get("ignored", 0),
+            "errors": rbac_errors,
+            "total_processed": len(rows),
+        }
 
     # Apply transforms pipeline
     if transforms:

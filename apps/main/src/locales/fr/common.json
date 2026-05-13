@@ -6418,6 +6418,12 @@
       "time_hours_ago_other": "il y a {{count}}h",
       "time_days_ago_one": "il y a {{count}}j",
       "time_days_ago_other": "il y a {{count}}j"
+    },
+    "gconfig": {
+      "section_cartography": "Cartographie",
+      "section_notifications": "Notifications",
+      "section_emails": "Emails",
+      "section_emails_desc": "Personnalisation de l'apparence des emails envoyés par OpsFlux."
     }
   },
   "help_system": {
@@ -6908,7 +6914,14 @@
     "reseaux": "Réseaux",
     "entite_parente": "Entité parente",
     "sous_entites": "Sous-entités",
-    "aucun_utilisateur_disponible": "Aucun utilisateur disponible"
+    "aucun_utilisateur_disponible": "Aucun utilisateur disponible",
+    "badges": {
+      "active": "Active",
+      "archived": "Archivée"
+    },
+    "filters": {
+      "archived": "Archivées"
+    }
   },
   "packlog": {
     "title": "PackLog",

@@ -151,7 +151,7 @@ function useEntityColumns() {
       header: t('settings.columns.entities.status'),
       cell: ({ getValue }) => {
         const active = getValue() as boolean
-        return <BadgeCell value={active ? 'Active' : 'Archivée'} variant={active ? 'success' : 'neutral'} />
+        return <BadgeCell value={active ? t('entities.badges.active') : t('entities.badges.archived')} variant={active ? 'success' : 'neutral'} />
       },
       size: 100,
     },
@@ -354,7 +354,7 @@ function EntityDetailPanel({ id }: { id: string }) {
             <p className="text-sm text-muted-foreground font-mono">{entity.code}</p>
             <div className="flex items-center gap-2 mt-1.5">
               <span className={cn('chip', entity.active ? 'chip-success' : '')}>
-                {entity.active ? 'Active' : 'Archivée'}
+                {entity.active ? t('entities.badges.active') : t('entities.badges.archived')}
               </span>
               {entity.country && (
                 <span className="text-xs text-muted-foreground">
@@ -559,7 +559,7 @@ export function EntitiesTab() {
       options: [
         { value: 'all', label: 'Toutes', count: data?.total },
         { value: 'active', label: 'Actives', count: activeCount },
-        { value: 'archived', label: 'Archivées', count: archivedCount },
+        { value: 'archived', label: t('entities.filters.archived'), count: archivedCount },
       ],
     }]
   }, [data])

@@ -6112,6 +6112,12 @@
       "time_hours_ago_other": "{{count}}h ago",
       "time_days_ago_one": "{{count}}d ago",
       "time_days_ago_other": "{{count}}d ago"
+    },
+    "gconfig": {
+      "section_cartography": "Mapping",
+      "section_notifications": "Notifications",
+      "section_emails": "Emails",
+      "section_emails_desc": "Customize the appearance of emails sent by OpsFlux."
     }
   },
   "help_system": {
@@ -6602,6 +6608,13 @@
       "created_at": "Created at",
       "groups": "Groups",
       "trade_name": "Trade name"
+    },
+    "badges": {
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "filters": {
+      "archived": "Archived"
     }
   },
   "packlog": {

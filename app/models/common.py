@@ -2,6 +2,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID as PyUUID
 
 from sqlalchemy import (
@@ -673,7 +674,13 @@ class Setting(UUIDPrimaryKeyMixin, Base):
     )
 
     key: Mapped[str] = mapped_column(String(200), nullable=False)
-    value: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    value: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    """JSONB column accepting any JSON-serializable value (scalar, list, dict).
+
+    Note: Legacy code uses `{"v": <scalar>}` wrapper convention; RBAC code (PR-A onwards)
+    writes raw scalars. Both shapes are valid JSONB. Readers should handle both via:
+        `value if not isinstance(value, dict) or "v" not in value else value["v"]`
+    """
     scope: Mapped[str] = mapped_column(
         String(20), nullable=False, default="tenant"
     )  # tenant | entity | user

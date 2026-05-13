@@ -55,7 +55,36 @@ def upgrade():
     op.create_index("ix_rbac_audit_event_type", "rbac_audit_events", ["event_type"])
     op.create_index("ix_rbac_audit_actor", "rbac_audit_events", ["actor_user_id"])
 
-    # 3. Seed new permissions (continued in task 2.2)
+    # 3. Seed new permissions (~20 codes)
+    op.execute("""
+        INSERT INTO permissions (code, name, namespace, resource, action, module, sensitive) VALUES
+        ('system.platform.admin', 'Platform admin (cross-tenant)', 'system', 'platform', 'admin', 'core', false),
+        ('system.tenant.read', 'List/view tenants', 'system', 'tenant', 'read', 'core', false),
+        ('system.tenant.create', 'Create tenants', 'system', 'tenant', 'create', 'core', false),
+        ('system.tenant.update', 'Update tenants', 'system', 'tenant', 'update', 'core', false),
+        ('system.user.read', 'Read users cross-tenant', 'system', 'user', 'read', 'core', true),
+        ('system.user.create', 'Create users cross-tenant', 'system', 'user', 'create', 'core', false),
+        ('system.audit.cross_tenant_read', 'Read audit across all tenants', 'system', 'audit', 'cross_tenant_read', 'core', true),
+        ('core.rbac.export', 'Export RBAC matrices to PDF', 'core', 'rbac', 'export', 'core', false),
+        ('core.user.audit_export', 'Export user audit sheets (RGPD)', 'core', 'user', 'audit_export', 'core', true),
+        ('core.delegation.read', 'View delegations', 'core', 'delegation', 'read', 'core', false),
+        ('core.delegation.create', 'Create delegations on own permissions', 'core', 'delegation', 'create', 'core', false),
+        ('core.delegation.manage', 'Manage any delegation in tenant', 'core', 'delegation', 'manage', 'core', false),
+        ('core.delegation.revoke', 'Revoke any delegation', 'core', 'delegation', 'revoke', 'core', false),
+        ('asset.installation.read', 'Read installations', 'asset', 'installation', 'read', 'asset_registry', false),
+        ('asset.installation.update', 'Update installations', 'asset', 'installation', 'update', 'asset_registry', false),
+        ('asset.field.read', 'Read oil fields', 'asset', 'field', 'read', 'asset_registry', false),
+        ('paxlog.signalement.create', 'Submit HSE signalement', 'paxlog', 'signalement', 'create', 'paxlog', false),
+        ('mcp.gateway.manage', 'Manage MCP gateway config', 'mcp', 'gateway', 'manage', 'integration', false),
+        ('mcp.token.create', 'Issue MCP tokens', 'mcp', 'token', 'create', 'integration', true),
+        ('mcp.agent.execute', 'Execute MCP agent actions', 'mcp', 'agent', 'execute', 'integration', false)
+        ON CONFLICT (code) DO UPDATE SET
+            namespace = EXCLUDED.namespace,
+            resource = EXCLUDED.resource,
+            action = EXCLUDED.action,
+            sensitive = EXCLUDED.sensitive
+    """)
+
     # 4. Seed new roles (continued in task 2.3)
     # 5. Rename existing roles (continued in task 2.4)
     # 6. Seed tenant settings (continued in task 2.5)

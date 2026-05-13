@@ -59,6 +59,56 @@ jobs:
           ENVIRONMENT: development
         run: pytest tests/ -x --tb=short -q
 
+  # SUP : audit du schema BDD pour catcher les bugs de drift modele/migration
+  # (decouvert pendant les sessions QA-LOG :
+  #   bug #25 dashboards.tv_token         - colonne modele manquante en BDD
+  #   bug #26 ar_pumps.api_type_designation - colonne modele manquante en BDD
+  #   bug #29 Attachment.category         - colonne BDD manquante au modele
+  #   bug #30 Project AuditUserMixin      - mixin orphelin avec code usage
+  # ).
+  # Job dedie : tourne alembic upgrade head sur une BDD vierge puis croise
+  # les colonnes BDD vs les modeles Python. Echec si nouveau drift detecte.
+  db-schema-audit:
+    name: DB schema drift audit
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: opsflux
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: opsflux_audit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://opsflux:test@localhost:5432/opsflux_audit
+          SECRET_KEY: test-secret-key
+          JWT_SECRET_KEY: test-jwt-secret
+          ENVIRONMENT: development
+        run: alembic upgrade head
+
+      - name: Run schema audit (strict)
+        env:
+          DATABASE_URL: postgresql+asyncpg://opsflux:test@localhost:5432/opsflux_audit
+        run: python scripts/db_schema_audit.py --strict
+
   frontend:
     name: Frontend (TypeScript)
     runs-on: ubuntu-latest

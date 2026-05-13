@@ -130,6 +130,62 @@
 
 Mission "continue jusqu'à la fin" : exécutée.
 
+---
+
+## Session 5 — vagues Q à V (continuons)
+
+**Vague Q — Audit shadow imports** ✅
+Agent dédié a scanné les 98 fichiers `app/api/routes/**/*.py` :
+- **0 bug actif** restant (le fix #19 sur `create_user/Entity` était le seul vrai).
+- 42 shadows "safe" détectés (référence APRÈS l'import local) dans 16 fichiers. À nettoyer pour propreté code, **zéro risque runtime**. Ticket backlog cleanup.
+
+**Vague R — Créations TravelWiz + PackLog** ✅
+- Voyage `VYG-2026-000003` créé (vector_id + departure_base_id + dates → HTTP 201, status=planned)
+- Cargo Request `CGR-...` créé (HTTP 201, status=draft, lié au project_id + destination_asset_id)
+
+**Vague S — Tests CSV import pax** ✅
+- CSV simple `email,role_in_team` → 2 rows added, résolution email→User OK
+- CSV BOM Excel + délimiteur `;` (utf-8-sig) → 1 row added (header parsing OK malgré BOM)
+- CSV malformé (emails invalides) → status=completed, 3 errors avec messages clairs, 0 added, transaction propre
+- ⚠️ Mineur i18n : message d'erreur backend "Aucun user/contact trouve avec cet email" sans accent — hardcoded FR
+
+**Vague T — Workflows + MOC** ✅
+- `POST /planner/activities/{id}/submit` (draft → submitted) → HTTP 200
+- `POST /planner/activities/bulk-validate` → HTTP 200, `{success: 1, skipped: 0, errors: []}`
+- MOC `created → under_study` → **400 correct** (transition non autorisée, machine d'état FSM applique allowed_targets)
+- MOC `created → approved` → **400 correct** (business rules : "signature du demandeur requise + revue hiérarchie")
+
+**Vague U — Browser smoke Settings** ⚠️ 1 bug UI mineur
+- Page `/settings` charge OK avec 9 tabs et 5 sections
+- `?tab=systeme` URL param non honoré (reste sur "Profil") — bug d'URL state, mineur
+- **Bug UI #21** : badge nombre collé au libellé sans espace : `"Rôles & Permissions1"`, `"Tiers24"`, `"Tiers3"`. Pattern récurrent dans `PageHeader`/tab badges. À fixer par un `gap` ou marge dans le CSS du composant Badge.
+
+**Vague V — Rapport final + smoke** ✅
+Smoke test 13/13 endpoints HTTP 200 :
+- projects / pax/ads / planner/activities / teams / audit-log / tiers / asset-registry/installations / travelwiz/voyages / moc / workflow/definitions / users / rbac/roles / packlog/cargo-requests
+
+### Bugs session 5
+
+21. **UI mineur** : badges nombre collés au libellé sans espace (`"Tiers24"`, `"Rôles & Permissions1"`). Pattern récurrent dans PageHeader/Tab. À fixer dans le composant Badge ou Tab par un `gap-1.5` ou `ml-1.5`.
+
+22. **Mineur i18n backend** : message d'erreur CSV import "Aucun user/contact trouve avec cet email" — sans accent. Hardcoded FR backend. Backlog avec autres hardcoded.
+
+### Bilan session 5
+- 0 nouveau commit déployé (toutes les vagues étaient des **tests** validants, pas des fixes)
+- 13 nouveaux tests fonctionnels (création voyage/cargo, CSV upload 3 cas, workflow transitions, browser smoke 5 modules)
+- 2 nouveaux bugs mineurs ajoutés au backlog (#21 UI badge, #22 i18n CSV)
+- Audit shadow imports confirme : 0 bug racine ramoyer.
+
+**Prod stable** : 13/13 endpoints clés HTTP 200 post-session 5.
+
+### Bilan global cumulé sessions 1-5
+
+- **16 commits déployés** (inchangé session 5)
+- **22 bugs identifiés**, **16 corrigés et déployés**, **6 en backlog priorisé**
+- **5 fonctions transversales validées** par tests E2E API : login, RBAC, CSV import, workflow transitions, création multi-modules
+- **2 documents** publiés (`QA-PROTOCOL-200.md` + `QA-LOG.md`)
+- **Couverture protocole 200 étapes** : ~50% via tests API + audits statiques (interactive browser : 35-40 étapes)
+
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 
 **Couverture du protocole 200 étapes** :

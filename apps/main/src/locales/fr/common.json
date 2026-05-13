@@ -93,7 +93,11 @@
     "vector_not_found": "Vecteur introuvable.",
     "voyage_not_found": "Voyage introuvable.",
     "destination_required": "La destination est obligatoire.",
-    "origin_required": "L'origine est obligatoire."
+    "origin_required": "L'origine est obligatoire.",
+    "not_found": {
+      "description": "Description",
+      "title": "Titre"
+    }
   },
   "popup": {
     "load_error_title": "Impossible de charger le panneau",
@@ -128,7 +132,9 @@
     "imputations": "Imputations",
     "help": "Aide",
     "collapse": "Réduire",
-    "expand": "Étendre"
+    "expand": "Étendre",
+    "admin_section_label": "Admin section label",
+    "home": "Home"
   },
   "auth": {
     "login": "Connexion",
@@ -173,7 +179,8 @@
     "server_online": "Serveur connecté",
     "server_offline": "Serveur injoignable",
     "verification_d_email": "Vérification d'email",
-    "verification_en_cours": "Vérification en cours..."
+    "verification_en_cours": "Vérification en cours...",
+    "server_offline_hint": "Server offline indice"
   },
   "topbar": {
     "acting_as": "Contexte d'action",
@@ -319,7 +326,223 @@
     "departure_base": "Base de départ",
     "mode": "Mode",
     "created_by": "Créé par",
-    "created_at_label": "Créé le"
+    "created_at_label": "Créé le",
+    "active_female": "Actif female",
+    "active_until": "Actif until",
+    "activity": "Activité",
+    "actual_end": "Actual fin",
+    "add_at_least_one_recipient": "Ajouter at least one recipient",
+    "add_cc": "Ajouter cc",
+    "addresses": "Addresses",
+    "appearance": "Appearance",
+    "application": "Application",
+    "approve": "Approuver",
+    "archived_count": "Archivé count",
+    "associations": "Associations",
+    "attached_files": "Attached fichiers",
+    "attachment_section": "Pièce jointe section",
+    "availability": "Availability",
+    "blocks": "Blocks",
+    "boarded": "Boarded",
+    "body_measurements": "Body measurements",
+    "capacities": "Capacities",
+    "cargo_compliance": "Cargaison compliance",
+    "certification": "Certification",
+    "city": "Ville",
+    "classification": "Classification",
+    "columns": "Columns",
+    "commissioning_date": "Commissioning date",
+    "complete": "Complete",
+    "completeness": "Completeness",
+    "conditions": "Conditions",
+    "confidential": "Confidential",
+    "configuration": "Configuration",
+    "constant": "Constant",
+    "contact": "Contact",
+    "contact_info": "Contact info",
+    "contact_phone": "Contact téléphone",
+    "content": "Content",
+    "created_at_female": "Créé at female",
+    "creating": "Creating",
+    "critical_priority": "Critical priorité",
+    "current": "Current",
+    "daily": "Daily",
+    "damaged": "Damaged",
+    "dates": "Dates",
+    "deleted": "Supprimé",
+    "deleted_female": "Supprimé female",
+    "delivered": "Delivered",
+    "dependencies": "Dependencies",
+    "designation": "Designation",
+    "destination_installation": "Destination installation",
+    "detail": "Détail",
+    "dictionary": "Dictionary",
+    "discipline": "Discipline",
+    "display": "Display",
+    "distribution": "Distribution",
+    "document_prepared_on": "Document prepared sur",
+    "document_type": "Document type",
+    "documents": "Documents",
+    "draft": "Brouillon",
+    "draw_hint": "Draw indice",
+    "drilling_details": "Drilling détails",
+    "drilling_program_ref": "Drilling program ref",
+    "email_attachments_intro": "Email pièces jointes intro",
+    "email_body_placeholder": "Email body espace réservé",
+    "empty_state": "Empty état",
+    "exemption": "Exemption",
+    "expected_return_date": "Expected return date",
+    "filters": "Filters",
+    "first_name": "Premier nom",
+    "fluid": "Fluid",
+    "formula": "Formula",
+    "free_contact_name": "Free contact nom",
+    "free_requester": "Free requester",
+    "general": "General",
+    "hazmat_validation": "Hazmat validation",
+    "health": "Health",
+    "height_cm": "Height cm",
+    "high_priority": "High priorité",
+    "home_base": "Home base",
+    "identity": "Identity",
+    "importing": "Importing",
+    "imputations": "Imputations",
+    "internal_sensitivity": "Internal sensitivity",
+    "invalid_code": "Invalid code",
+    "inventory_reference": "Inventory reference",
+    "label_field": "Label champ",
+    "label_long": "Label long",
+    "last_modified": "Dernier modifié",
+    "last_name": "Dernier nom",
+    "legal": "Legal",
+    "length_cm": "Length cm",
+    "license_concession": "License concession",
+    "lifting_points_certified": "Lifting points certified",
+    "lifting_provided_by": "Lifting provided by",
+    "list_type": "Liste type",
+    "loading_zone": "Loading zone",
+    "location": "Location",
+    "logistics_context": "Logistics context",
+    "logistics_preparation": "Logistics preparation",
+    "low_priority": "Low priorité",
+    "maintenance": "Maintenance",
+    "maintenance_details": "Maintenance détails",
+    "management": "Management",
+    "manufacturer": "Manufacturer",
+    "map_preview": "Map aperçu",
+    "material_ownership": "Material ownership",
+    "max_recipients_reached": "Max recipients reached",
+    "measurement": "Measurement",
+    "medium_priority": "Medium priorité",
+    "message": "Message",
+    "missing": "Missing",
+    "modification": "Modification",
+    "modified_female": "Modifié female",
+    "modules": "Modules",
+    "monthly": "Monthly",
+    "motive": "Motive",
+    "motive_ellipsis": "Motive ellipsis",
+    "name_ellipsis": "Nom ellipsis",
+    "name_en": "Nom en",
+    "name_fr": "Nom fr",
+    "new_female": "New female",
+    "no_history_available": "Aucun historique available",
+    "no_permission_available": "Aucun permission available",
+    "no_preset": "Aucun preset",
+    "no_widget_found": "Aucun widget found",
+    "nomenclature": "Nomenclature",
+    "none_option": "None option",
+    "not_found": "Not found",
+    "notes_documents": "Notes documents",
+    "number_type": "Number type",
+    "object_type": "Object type",
+    "operational": "Operational",
+    "options": "Options",
+    "orientation": "Orientation",
+    "orientation_deg": "Orientation deg",
+    "owner": "Owner",
+    "package_count": "Colis count",
+    "package_type": "Colis type",
+    "packages": "Colis",
+    "packaging": "Packaging",
+    "paragraph": "Paragraph",
+    "parameters": "Parameters",
+    "pax_quota": "Pax quota",
+    "period": "Period",
+    "periodicity": "Periodicity",
+    "photos_documents": "Photos documents",
+    "picker_truncated": "Picker truncated",
+    "pickup_evidence": "Pickup evidence",
+    "pickup_location": "Pickup location",
+    "pob_mode": "Pob mode",
+    "presets": "Presets",
+    "public": "Public",
+    "recipients_placeholder": "Recipients espace réservé",
+    "recurrence": "Recurrence",
+    "registration": "Registration",
+    "regulatory_reference": "Regulatory reference",
+    "rename": "Rename",
+    "restricted": "Restricted",
+    "reusable_package": "Reusable colis",
+    "rig_name": "Rig nom",
+    "root": "Root",
+    "rotation": "Rotation",
+    "sap_article": "Sap article",
+    "save_failed": "Enregistrer échec",
+    "saved": "Saved",
+    "schedule_hours": "Schedule hours",
+    "scopes": "Scopes",
+    "search_settings": "Rechercher paramètres",
+    "send": "Send",
+    "send_email": "Send email",
+    "sender": "Sender",
+    "sender_company": "Sender entreprise",
+    "sending": "Sending",
+    "shipment_request": "Shipment request",
+    "shipment_request_label": "Shipment request label",
+    "site": "Site",
+    "spud_date": "Spud date",
+    "stackable": "Stackable",
+    "standard": "Standard",
+    "stops": "Stops",
+    "subject": "Subject",
+    "subject_placeholder": "Subject espace réservé",
+    "subtype": "Subtype",
+    "tab_dashboard": "Tab tableau de bord",
+    "tab_overview": "Tab vue d'ensemble",
+    "tag_field": "Étiquette champ",
+    "tags_notes": "Étiquettes notes",
+    "tags_notes_files": "Étiquettes notes fichiers",
+    "target_depth_m": "Target depth m",
+    "targeting": "Targeting",
+    "task": "Tâche",
+    "templates": "Templates",
+    "text_type": "Text type",
+    "to": "Vers",
+    "total_area_m2": "Total area m2",
+    "tracking_label": "Tracking label",
+    "transport": "Transport",
+    "unknown": "Unknown",
+    "up": "Up",
+    "use_email_as_is": "Use email as est",
+    "user": "Utilisateur",
+    "user_contact": "Utilisateur contact",
+    "user_unavailable": "Utilisateur unavailable",
+    "value_ellipsis": "Valeur ellipsis",
+    "verification": "Verification",
+    "verified": "Verified",
+    "verified_on": "Verified sur",
+    "version": "Version",
+    "volume_m3": "Volume m3",
+    "water_depth_m": "Water depth m",
+    "weekly": "Weekly",
+    "weight_kg": "Weight kg",
+    "weight_ticket": "Weight ticket",
+    "well_reference": "Well reference",
+    "width_cm": "Width cm",
+    "work_order": "Work order",
+    "workflow": "Workflow",
+    "workover_details": "Workover détails"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -946,7 +1169,46 @@
       "tag": "Tag",
       "pipeline_id": "ID Pipeline",
       "dn_in": "DN (in)"
-    }
+    },
+    "kmz": {
+      "commit_button": "Valider bouton",
+      "commit_confirm_message": "Valider confirmer message",
+      "commit_confirm_title": "Valider confirmer titre",
+      "commit_field_label": "Valider champ label",
+      "commit_field_placeholder": "Valider champ espace réservé",
+      "commit_hint": "Valider indice",
+      "description": "Description",
+      "dropzone_hint": "Zone de dépôt indice",
+      "dropzone_title": "Zone de dépôt titre",
+      "errors": {
+        "export_failed": "Exporter échec",
+        "import_failed": "Importer échec",
+        "not_kmz": "Not KMZ",
+        "parse_failed": "Analyse échec"
+      },
+      "export_button": "Exporter bouton",
+      "export_ready": "Exporter prêt",
+      "history_button": "Historique bouton",
+      "history_empty": "Historique empty",
+      "history_rolled_back": "Historique rolled retour",
+      "history_title": "Historique titre",
+      "import_ready_hint": "Importer prêt indice",
+      "import_success": "Importer succès",
+      "preview_ready": "Aperçu prêt",
+      "report_created": "Rapport créé",
+      "report_errors": "Rapport erreurs",
+      "report_matched": "Rapport apparié",
+      "report_reset": "Rapport réinitialiser",
+      "report_skipped": "Rapport ignoré",
+      "report_title": "Rapport titre",
+      "report_warnings_title": "Rapport avertissements titre",
+      "rollback_button": "Restaurer bouton",
+      "rollback_confirm_message": "Restaurer confirmer message",
+      "rollback_confirm_title": "Restaurer confirmer titre",
+      "title": "Titre",
+      "uploading": "Uploading"
+    },
+    "no_hierarchy_data": "Aucun hierarchy data"
   },
   "tiers": {
     "title": "Tiers",
@@ -973,7 +1235,14 @@
         "access": "Accès externe",
         "contact_details": "Coordonnées de l'employé",
         "compliance": "Référentiels & conformité",
-        "notes_documents": "Notes & documents"
+        "notes_documents": "Notes & documents",
+        "addresses": "Addresses",
+        "emails": "Emails",
+        "legal_ids": "Legal ids",
+        "opening_hours": "Opening hours",
+        "phones": "Phones",
+        "socials": "Socials",
+        "tags": "Étiquettes"
       },
       "auto_generated": "Auto-généré à la création",
       "trade_name": "Nom commercial principal",
@@ -1059,8 +1328,23 @@
         "payment_terms": "30 jours net",
         "description": "Description libre..."
       },
-      "blocking_section": "Blocage"
-    }
+      "blocking_section": "Blocage",
+      "contact_department": "Contact department",
+      "contact_position": "Contact position",
+      "no_related_projects": "Aucun related projets"
+    },
+    "contact_form": {
+      "errors": {
+        "name_required": "Nom required"
+      },
+      "is_primary": "Est primary",
+      "placeholders": {
+        "first_name": "Premier nom",
+        "last_name": "Dernier nom"
+      }
+    },
+    "select_company": "Sélectionner entreprise",
+    "select_contact": "Sélectionner contact"
   },
   "users": {
     "title": "Utilisateurs",
@@ -1196,7 +1480,23 @@
     "derniers_roles": "Derniers rôles",
     "aucun_role": "Aucun rôle",
     "affecter_a_un_groupe": "Affecter à un groupe",
-    "affecter_a_une_entite": "Affecter à une entité"
+    "affecter_a_une_entite": "Affecter à une entité",
+    "groups_subtitle": "Groupes subtitle",
+    "overview_subtitle": "Vue d'ensemble subtitle",
+    "rechercher_une_entite": "Rechercher une entite",
+    "roles_subtitle": "Rôles subtitle",
+    "sections": {
+      "admin": "Admin",
+      "admin_help": "Admin help",
+      "auth": "Auth",
+      "auth_help": "Auth help",
+      "entity_access": "Entity access",
+      "entity_access_help": "Entity access help",
+      "identity": "Identity",
+      "identity_help": "Identity help"
+    },
+    "select_user": "Sélectionner utilisateur",
+    "user": "Utilisateur"
   },
   "conformite": {
     "title": "Conformité",
@@ -1209,7 +1509,8 @@
       "exemptions": "Exemptions",
       "fiches_poste": "Fiches de poste",
       "regles": "Règles",
-      "transferts": "Transferts"
+      "transferts": "Transferts",
+      "matrice": "Matrice"
     },
     "types": {
       "title": "Types de conformité",
@@ -1273,7 +1574,45 @@
       "issued_at": "Date d'émission",
       "expires_at": "Date d'expiration",
       "issuer": "Émetteur",
-      "reference_number": "N° référence"
+      "reference_number": "N° référence",
+      "attachment_required_hint": "Pièce jointe required indice",
+      "attachment_upload_cta": "Pièce jointe téléverser cta",
+      "attachments_help": "Pièces jointes help",
+      "create_success": "Créer succès",
+      "detail_title": "Détail titre",
+      "errors": {
+        "attachment_required": "Pièce jointe required",
+        "attachment_upload_failed": "Pièce jointe téléverser échec",
+        "missing_required": "Missing required"
+      },
+      "fields": {
+        "expires_at": "Expires at",
+        "issued_at": "Issued at",
+        "issuer": "Issuer",
+        "notes": "Notes",
+        "owner_id": "Owner id",
+        "owner_type": "Owner type",
+        "reference_number": "Reference number",
+        "status": "Statut",
+        "type": "Type"
+      },
+      "owner_types": {
+        "asset": "Asset",
+        "job_position": "Job position",
+        "tier_contact": "Tier contact",
+        "user": "Utilisateur"
+      },
+      "placeholders": {
+        "notes": "Notes",
+        "owner_id": "Owner id",
+        "type": "Type"
+      },
+      "sections": {
+        "attachments": "Pièces jointes",
+        "general": "General",
+        "owner": "Owner",
+        "reference": "Reference"
+      }
     },
     "rules": {
       "title": "Règles de conformité",
@@ -1393,7 +1732,20 @@
       "keep_current_position": "Conserver le poste actuel",
       "details": "Détails du transfert",
       "details_help": "Informations complémentaires sur le transfert",
-      "reason_placeholder": "Ex: Changement de contrat, réorganisation..."
+      "reason_placeholder": "Ex: Changement de contrat, réorganisation...",
+      "audit_section": "Audit section",
+      "compliance_active": "Compliance actif",
+      "compliance_invalidated": "Compliance invalidated",
+      "compliance_invalidated_hint": "Compliance invalidated indice",
+      "compliance_invalidated_title": "Compliance invalidated titre",
+      "detail_title": "Détail titre",
+      "from_company": "From entreprise",
+      "movement_section": "Movement section",
+      "timeline_empty": "Timeline empty",
+      "timeline_tab": "Timeline tab",
+      "timeline_title": "Timeline titre",
+      "to_company": "Vers entreprise",
+      "transferred_by": "Transferred by"
     },
     "check": {
       "compliant": "Conforme",
@@ -1436,7 +1788,10 @@
         "vaccine": "Vaccin",
         "driving_license": "Permis",
         "medical_check": "Visite médicale"
-      }
+      },
+      "reject_prompt": "Rejeter prompt",
+      "reject_title": "Rejeter titre",
+      "verify": "Verify"
     },
     "exemptions": {
       "title": "Exemptions",
@@ -1779,7 +2134,17 @@
       "no_comments": "Aucun commentaire pour le moment",
       "add_comment_placeholder": "Ajouter un commentaire…"
     },
-    "task": "Tâche",
+    "task": {
+      "planner": {
+        "already_linked": "Already linked",
+        "link_button": "Link bouton",
+        "sent": "Sent",
+        "unlink_button": "Unlink bouton",
+        "unlink_error": "Unlink erreur",
+        "unlinked": "Unlinked"
+      },
+      "view_project": "Voir projet"
+    },
     "advanced": {
       "archive_node": "Archiver le nœud",
       "cpm_title": "Chemin critique (CPM)",
@@ -1800,7 +2165,49 @@
       "legend_validated": "Validé",
       "legend_rejected": "Rejeté",
       "shortcuts_hint": "Tab pour cellule suivante · Entrée pour valider · 0 pour vider"
-    }
+    },
+    "dep_ff": "Dep ff",
+    "dep_fs": "Dep fs",
+    "dep_sf": "Dep sf",
+    "dep_ss": "Dep ss",
+    "errors": {
+      "asset_required": "Asset required"
+    },
+    "external_refs": "External refs",
+    "initial_tasks": "Initial tâches",
+    "is_milestone": "Est milestone",
+    "milestone": "Milestone",
+    "placeholders": {
+      "clone_name": "Clone nom",
+      "comment_with_mention": "Commentaire avec mention",
+      "description": "Description",
+      "estimated_hours": "Estimated hours",
+      "lag_days": "Lag days",
+      "lot_budget": "Lot budget",
+      "lot_code": "Lot code",
+      "lot_name": "Lot nom",
+      "milestone_name": "Milestone nom",
+      "new_action": "New action",
+      "new_deliverable": "New deliverable",
+      "revision_desc_optional": "Revision desc optional",
+      "revision_name": "Revision nom",
+      "select_site": "Sélectionner site",
+      "task_description": "Tâche description",
+      "task_title": "Tâche titre",
+      "template_desc_optional": "Template desc optional",
+      "template_name": "Template nom"
+    },
+    "select": "Sélectionner",
+    "task_dependency_type": "Tâche dependency type",
+    "task_end_date": "Tâche fin date",
+    "task_lag_days": "Tâche lag days",
+    "task_lag_days_hint": "Tâche lag days indice",
+    "task_milestone_date": "Tâche milestone date",
+    "task_predecessor": "Tâche predecessor",
+    "task_predecessor_none": "Tâche predecessor none",
+    "task_start_date": "Tâche début date",
+    "task_start_date_hint": "Tâche début date indice",
+    "task_title_placeholder": "Tâche titre espace réservé"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -2090,7 +2497,9 @@
     "entity_option": {
       "avis_sejour": "Avis de séjour (AdS)",
       "ads": "Avis de séjour (FSM)"
-    }
+    },
+    "validation_errors": "Validation erreurs",
+    "validation_warnings": "Validation avertissements"
   },
   "search": {
     "title": "Recherche",
@@ -2116,7 +2525,13 @@
     "command_palette": "Palette de commandes",
     "navigate": "naviguer",
     "open": "ouvrir",
-    "close": "fermer"
+    "close": "fermer",
+    "hint_enter_full": "Indice enter full",
+    "hint_enter_select": "Indice enter sélectionner",
+    "no_suggestions": "Aucun suggestions",
+    "searching": "Searching",
+    "suggestions": "Suggestions",
+    "view_full_results": "Voir full results"
   },
   "imputations": {
     "page_title": "Imputations",
@@ -2305,6 +2720,17 @@
         "recent_ads": "AdS récents",
         "expiring_credentials": "Certifications expirantes",
         "compliance_stats": "Statistiques de conformité"
+      },
+      "kpi": {
+        "active_incidents": "Actif incidents",
+        "compliance_rate": "Compliance rate",
+        "compliant": "Compliant",
+        "expired": "Expired",
+        "expiring_soon": "Expiring soon",
+        "non_compliant": "Non compliant",
+        "pending_ads": "En attente ads",
+        "registered_pax": "Registered pax",
+        "total_pax": "Total pax"
       }
     },
     "requester": {
@@ -2443,7 +2869,9 @@
         "request": "Demande",
         "type_destination": "Type et destination",
         "visit_details": "Détails de la visite",
-        "allowed_companies": "Entreprises autorisées"
+        "allowed_companies": "Entreprises autorisées",
+        "imputations": "Imputations",
+        "passengers": "Passagers"
       },
       "checklist": {
         "destination": "Destination renseignée",
@@ -2482,7 +2910,26 @@
         "visit_purpose": "Décrire l'objet de la visite..."
       },
       "footer_hint": "Les passagers et imputations peuvent être ajoutés après la création, via le panneau de détail.",
-      "allowed_companies_help": "Limitez ici les entreprises autorisées pour l'autocomplétion externe, les liens publics et le périmètre d'audit."
+      "allowed_companies_help": "Limitez ici les entreprises autorisées pour l'autocomplétion externe, les liens publics et le périmètre d'audit.",
+      "help": {
+        "allowed_companies_description": "Allowed entreprises description",
+        "attachments_description": "Pièces jointes description",
+        "imputations_description": "Imputations description",
+        "notes_description": "Notes description",
+        "passengers_description": "Passagers description",
+        "passengers_tip_external": "Passagers tip external",
+        "passengers_tip_search": "Passagers tip rechercher",
+        "request_description": "Request description",
+        "request_tip_requester": "Request tip requester",
+        "type_destination_description": "Type destination description",
+        "type_individual": "Type individual",
+        "type_team": "Type équipe",
+        "visit_details_description": "Visit détails description",
+        "visit_tip_category": "Visit tip catégorie",
+        "visit_tip_dates": "Visit tip dates",
+        "visit_tip_purpose": "Visit tip purpose"
+      },
+      "search_pax_hint": "Rechercher pax indice"
     },
     "create_avm": {
       "title": "Nouvel avis de mission",
@@ -2535,6 +2982,10 @@
           "activity": "Ex: inspection ligne, réunion projet, handover...",
           "notes": "Contraintes, participants, dépendances..."
         }
+      },
+      "window": {
+        "end": "Fin",
+        "start": "Début"
       }
     },
     "ads_detail": {
@@ -2551,7 +3002,10 @@
         "remove_passenger": "Retirer ce passager",
         "request_review": "Renvoyer en correction",
         "resubmit": "Re-soumettre",
-        "request_stay_change": "Modifier le séjour"
+        "request_stay_change": "Modifier le séjour",
+        "import_csv": "Importer CSV",
+        "suggestions": "Suggestions",
+        "suggestions_short": "Suggestions short"
       },
       "external_link": {
         "title": "Destinataire du lien externe",
@@ -2590,7 +3044,9 @@
           "session_context_mismatch": "Contexte navigateur incohérent",
           "session_ip_changed": "IP changée",
           "public_access_rate_limited": "Consultation publique limitée"
-        }
+        },
+        "no_companies": "Aucun entreprises",
+        "no_companies_ads": "Aucun entreprises ads"
       },
       "compliance": {
         "blocking_title": "Non-conformités bloquantes",
@@ -2785,6 +3241,31 @@
       "empty": {
         "pax_search": "Aucun résultat pour « {{search}} »",
         "passengers": "Aucun passager. Ajoutez des PAX pour pouvoir soumettre l'AdS."
+      },
+      "csv_import": {
+        "added": "Added",
+        "error_title": "Erreur titre",
+        "errors": "Erreurs",
+        "instructions": "Instructions",
+        "result_title": "Result titre",
+        "skipped": "Ignoré",
+        "success_title": "Succès titre",
+        "title": "Titre"
+      },
+      "no_company": "Aucun entreprise",
+      "round_trip_no_overnight": "Round trip aucun overnight",
+      "suggestions": {
+        "ads_count": "Ads count",
+        "count_suffix": "Count suffix",
+        "empty": "Empty",
+        "loading": "Loading",
+        "months": "Months",
+        "title": "Titre"
+      },
+      "synthesis": "Synthesis",
+      "toasts": {
+        "submit_error": "Soumettre erreur",
+        "submitted": "Soumis"
       }
     },
     "avm_detail": {
@@ -2939,7 +3420,8 @@
       "status": {
         "resolved": "Résolu",
         "active": "Actif"
-      }
+      },
+      "severity": "Severity"
     },
     "rotations_tab": {
       "columns": {
@@ -2949,7 +3431,8 @@
       "compliance": {
         "clear": "Conforme",
         "blocked_one": "1 blocage",
-        "blocked_other": "{{count}} blocages"
+        "blocked_other": "{{count}} blocages",
+        "blocked": "Blocked"
       },
       "cycle": "Cycle",
       "start": "Début",
@@ -3009,7 +3492,9 @@
       "boarding_status": "Boarding {{status}} le {{date}}",
       "completed_at": "Clôturé le {{date}}",
       "reference_evidence_help": "Ajoutez ici les pièces justificatives du profil et du référentiel, par exemple certificat médical, attestations, habilitations ou documents de preuve utiles à la vérification de conformité.",
-      "add_compliance_record": "Ajouter un enregistrement de conformité"
+      "add_compliance_record": "Ajouter un enregistrement de conformité",
+      "back_to_ads": "Retour vers ads",
+      "open_full_profile": "Ouvrir full profil"
     },
     "records": {
       "create": "Nouvel enregistrement",
@@ -3077,6 +3562,31 @@
         "search_company": "Rechercher une entreprise...",
         "search_group": "Rechercher un groupe PAX...",
         "description": "Décrire l'incident..."
+      },
+      "help": {
+        "attachments_description": "Pièces jointes description",
+        "ban_period_description": "Ban period description",
+        "concerned_description": "Concerned description",
+        "concerned_tip_company": "Concerned tip entreprise",
+        "concerned_tip_group": "Concerned tip groupe",
+        "concerned_tip_pax": "Concerned tip pax",
+        "details_description": "Détails description",
+        "details_tip_date": "Détails tip date",
+        "details_tip_description": "Détails tip description",
+        "notes_description": "Notes description",
+        "severity_description": "Severity description",
+        "severity_info": "Severity info",
+        "severity_permanent_ban": "Severity permanent ban",
+        "severity_site_ban": "Severity site ban",
+        "severity_temp_ban": "Severity temp ban",
+        "severity_warning": "Severity avertissement"
+      },
+      "severity": {
+        "info": "Info",
+        "permanent_ban": "Permanent ban",
+        "site_ban": "Site ban",
+        "temp_ban": "Temp ban",
+        "warning": "Avertissement"
       }
     },
     "rotation_panel": {
@@ -3335,7 +3845,17 @@
       "child_tasks_to_review": "{{count}} sous-tâche(s) à revoir dans le planning détaillé",
       "status_pending": "En attente",
       "status_responded": "Répondu",
-      "status_forced": "Forcé"
+      "status_forced": "Forcé",
+      "accept_counter": "Accept counter",
+      "counter_accepted_success": "Counter accepted succès",
+      "force_available_at": "Force available at",
+      "force_confirm": "Force confirmer",
+      "force_description": "Force description",
+      "force_reason": "Force motif",
+      "force_reason_placeholder": "Force motif espace réservé",
+      "force_title": "Force titre",
+      "forced_success": "Forced succès",
+      "section_title": "Section titre"
     },
     "capacity": {
       "empty_title": "Aucune donnée",
@@ -3645,6 +4165,26 @@
       "tab_information": "Informations",
       "continue_edit_hint_suffix": " pour continuer l'édition.",
       "advanced_actions": "Actions avancées"
+    },
+    "activity": {
+      "help": {
+        "attachments_description": "Pièces jointes description",
+        "description_description": "Description description",
+        "drilling_description": "Drilling description",
+        "general_description": "General description",
+        "general_tip_project": "General tip projet",
+        "general_tip_site": "General tip site",
+        "general_tip_title": "General tip titre",
+        "maintenance_description": "Maintenance description",
+        "notes_description": "Notes description",
+        "planning_description": "Planning description",
+        "tags_description": "Étiquettes description",
+        "type_description": "Type description",
+        "type_tip_pob": "Type tip pob",
+        "workover_description": "Workover description"
+      },
+      "section_general": "Section general",
+      "section_type": "Section type"
     }
   },
   "travelwiz": {
@@ -3880,7 +4420,63 @@
     "evenement_enregistre": "Événement enregistré",
     "rapport_meteo": "Rapport météo",
     "etat_de_mer": "Etat de mer",
-    "rapport_envoye": "Rapport envoyé"
+    "rapport_envoye": "Rapport envoyé",
+    "dashboard": {
+      "kpi": {
+        "cargo_transit": "Cargaison transit",
+        "no_shows_month": "Aucun shows month",
+        "pax_transit": "Pax transit",
+        "voyages_today": "Voyages today"
+      }
+    },
+    "rotation": {
+      "base_placeholder": "Base espace réservé",
+      "create_subtitle": "Créer subtitle",
+      "create_title": "Créer titre",
+      "help_attachments": "Help pièces jointes",
+      "help_identification": "Help identification",
+      "help_identification_tip_base": "Help identification tip base",
+      "help_identification_tip_name": "Help identification tip nom",
+      "help_identification_tip_vector": "Help identification tip vecteur",
+      "help_notes": "Help notes",
+      "help_periodicity": "Help periodicity",
+      "help_periodicity_tip_cron": "Help periodicity tip cron",
+      "help_periodicity_tip_voyage": "Help periodicity tip voyage",
+      "name_placeholder": "Nom espace réservé",
+      "vector_placeholder": "Vecteur espace réservé"
+    },
+    "vector": {
+      "deck_plan": {
+        "create": "Créer",
+        "description": "Description",
+        "edit": "Modifier",
+        "has_plan": "Has plan",
+        "invalid_url": "Invalid url",
+        "no_plan": "Aucun plan",
+        "open_in_window": "Ouvrir in window",
+        "tab": "Tab",
+        "title": "Titre"
+      }
+    },
+    "voyage": {
+      "actual_arrival": "Actual arrival",
+      "actual_departure": "Actual departure",
+      "delay_reason": "Delay motif",
+      "departure_base": "Departure base",
+      "events_count": "Events count",
+      "hazmat_items": "Hazmat éléments",
+      "kpi_section": "Kpi section",
+      "last_stop": "Dernier stop",
+      "late_min": "Late min",
+      "no_events": "Aucun events",
+      "no_shows": "Aucun shows",
+      "on_time": "Sur heure",
+      "rotation": "Rotation",
+      "scheduled_arrival": "Scheduled arrival",
+      "scheduled_departure": "Scheduled departure",
+      "total_cargo": "Total cargaison",
+      "total_pax": "Total pax"
+    }
   },
   "report_editor": {
     "title": "Papyrus",
@@ -3963,7 +4559,8 @@
       "add_field": "Ajouter un champ",
       "save_schema": "Enregistrer le schéma",
       "saving": "Enregistrement...",
-      "no_fields": "Aucun champ. Ajoutez au moins un champ pour construire le formulaire."
+      "no_fields": "Aucun champ. Ajoutez au moins un champ pour construire le formulaire.",
+      "fields_configured": "Champs configured"
     },
     "presets": {
       "title": "Presets Papyrus",
@@ -4068,7 +4665,17 @@
     "ajouter_une_colonne": "Ajouter une colonne",
     "aucun_bloc_ajoute_un_paragraphe_ou_passe": "Aucun bloc. Ajoute un paragraphe ou passe en mode JSON.",
     "libelle_de_formule": "Libellé de formule",
-    "uri_de_reference": "URI de référence"
+    "uri_de_reference": "URI de référence",
+    "placeholders": {
+      "code_auto": "Code auto",
+      "discipline_example": "Discipline example",
+      "doctype_name_en_example": "Doctype nom en example",
+      "doctype_name_fr_example": "Doctype nom fr example",
+      "document_title": "Document titre",
+      "nomenclature_example": "Nomenclature example",
+      "template_description": "Template description",
+      "template_name": "Template nom"
+    }
   },
   "pid_pfd": {
     "title": "PID / PFD",
@@ -4238,7 +4845,171 @@
     "selectionner_un_module": "— Sélectionner un module —",
     "entite_id": "Entité (ID)",
     "epinglee": "Épinglée",
-    "publiee_le": "Publiée le"
+    "publiee_le": "Publiée le",
+    "agent": {
+      "approval_desc": "Approbation desc",
+      "approval_required": "Approbation required",
+      "approve_merge": "Approuver merge",
+      "cancel_run": "Annuler run",
+      "cb_desc": "Cb desc",
+      "cb_title": "Cb titre",
+      "confirm": {
+        "approve_label": "Approuver label",
+        "approve_msg": "Approuver msg",
+        "approve_title": "Approuver titre",
+        "cancel_label": "Annuler label",
+        "cancel_msg": "Annuler msg",
+        "cancel_title": "Annuler titre",
+        "deploy_label": "Deploy label",
+        "deploy_msg": "Deploy msg",
+        "deploy_title": "Deploy titre",
+        "launch_label": "Launch label",
+        "launch_msg": "Launch msg",
+        "launch_title": "Launch titre",
+        "reject_label": "Rejeter label",
+        "reject_msg": "Rejeter msg",
+        "reject_title": "Rejeter titre"
+      },
+      "console_errors": "Console erreurs",
+      "cost": "Cost",
+      "critical_count": "Critical count",
+      "deploy": {
+        "done_title": "Done titre",
+        "fail_title": "Fail titre",
+        "failed": "Échec",
+        "ok": "Ok"
+      },
+      "deploy_verify_btn": "Deploy verify btn",
+      "deployment_label": "Deployment label",
+      "disabled": "Disabled",
+      "disabled_desc": "Disabled desc",
+      "disabled_title": "Disabled titre",
+      "enabled": "Enabled",
+      "last_run_proposal": "Dernier run proposal",
+      "launch": "Launch",
+      "loading_playwright": "Loading playwright",
+      "mode_label": "Mode label",
+      "no_active": "Aucun actif",
+      "phase": {
+        "deploy": "Deploy",
+        "diagnosis": "Diagnosis",
+        "fix": "Fix",
+        "report": "Rapport",
+        "reproduction": "Reproduction",
+        "triage": "Triage",
+        "verification": "Verification"
+      },
+      "playwright_check": "Playwright check",
+      "previous_runs": "Précédent runs",
+      "reject": "Rejeter",
+      "title": "Titre",
+      "toast": {
+        "cancelled": "Annulé",
+        "launch_failed": "Launch échec",
+        "launched": "Launched",
+        "launched_desc": "Launched desc",
+        "merge_failed": "Merge échec",
+        "merged": "Merged",
+        "rejected": "Rejeté"
+      },
+      "tokens": "Tokens"
+    },
+    "github": {
+      "choose_connector": "Choisir connector",
+      "create_and_link": "Créer et link",
+      "last_sync": "Dernier sync",
+      "link_failed": "Link échec",
+      "linked_success": "Linked succès",
+      "linked_to": "Linked vers",
+      "no_connector": "Aucun connector",
+      "not_linked_desc": "Not linked desc",
+      "pause": "Pause",
+      "paused": "Paused",
+      "resume": "Resume",
+      "select_connector": "Sélectionner connector",
+      "sync_active": "Sync actif",
+      "sync_disabled": "Sync disabled",
+      "sync_resumed": "Sync resumed"
+    },
+    "review": {
+      "agent_warns": "Agent warns",
+      "files_modified": "Fichiers modifié",
+      "fix_ci": "Fix ci",
+      "logs_empty": "Logs empty",
+      "logs_loading": "Logs loading",
+      "logs_unavailable": "Logs unavailable",
+      "merge": "Merge",
+      "merging": "Merging",
+      "next_steps": "Suivant étapes",
+      "post_exec_checks": "Post exec checks",
+      "pr_open_warning": "Pr ouvrir avertissement",
+      "reasoning": "Reasoning",
+      "reject": "Rejeter",
+      "rejecting": "Rejecting",
+      "retry_failed": "Retry échec",
+      "retry_launched": "Retry launched",
+      "retry_tooltip": "Retry info-bulle",
+      "retrying": "Retrying",
+      "root_cause": "Root cause",
+      "status": {
+        "awaiting_human": "Awaiting human",
+        "completed": "Terminé",
+        "failed": "Échec",
+        "rejected": "Rejeté"
+      },
+      "view_logs": "Voir logs",
+      "view_pr": "Voir pr"
+    },
+    "satisfaction": {
+      "already_desc": "Already desc",
+      "already_title": "Already titre",
+      "back": "Retour",
+      "comment_label": "Commentaire label",
+      "comment_placeholder": "Commentaire espace réservé",
+      "not_found_desc": "Not found desc",
+      "not_found_title": "Not found titre",
+      "on_date": "Sur date",
+      "rating1": "Rating1",
+      "rating2": "Rating2",
+      "rating3": "Rating3",
+      "rating4": "Rating4",
+      "rating5": "Rating5",
+      "star_aria": "Star aria",
+      "submit": "Soumettre",
+      "thanks": "Thanks",
+      "ticket_label": "Ticket label",
+      "title": "Titre",
+      "your_rating": "Your rating"
+    },
+    "supervision": {
+      "avg_cost": "Avg cost",
+      "avg_time": "Avg heure",
+      "budget_over": "Budget over",
+      "cb_active": "Cb actif",
+      "cb_active_short": "Cb actif short",
+      "cb_label": "Cb label",
+      "cb_ok": "Cb ok",
+      "cb_triggered": "Cb triggered",
+      "completed_count": "Terminé count",
+      "consec_failures": "Consec failures",
+      "daily_activity": "Daily activité",
+      "legend_failed": "Legend échec",
+      "legend_other": "Legend other",
+      "legend_success": "Legend succès",
+      "monthly_budget": "Monthly budget",
+      "no_failures": "Aucun failures",
+      "no_message": "Aucun message",
+      "no_recent_failure": "Aucun recent échec",
+      "no_runs_period": "Aucun runs period",
+      "period_cost": "Period cost",
+      "phase_label": "Phase label",
+      "recent_failures": "Recent failures",
+      "runs_active": "Runs actif",
+      "runs_total": "Runs total",
+      "status_breakdown": "Statut breakdown",
+      "success_rate": "Succès rate",
+      "tokens_total": "Tokens total"
+    }
   },
   "settings": {
     "help": {
@@ -4799,7 +5570,9 @@
       "entity_section_description": "Fallback d’imputation pour les dossiers créés dans cette entité quand aucune règle plus prioritaire ne s’applique.",
       "entity_card_title": "Règle d’imputation entité",
       "entity_card_description": "Cette règle sert de dernier filet pour les AdS et autres dossiers lorsque ni projet, ni préférence utilisateur, ni BU ne fournissent d’imputation exploitable.",
-      "entity_card_hint": "Ordre actuel de résolution AdS: projet du dossier -> défaut utilisateur -> BU du demandeur -> défaut entité -> fallback premier centre de coût actif."
+      "entity_card_hint": "Ordre actuel de résolution AdS: projet du dossier -> défaut utilisateur -> BU du demandeur -> défaut entité -> fallback premier centre de coût actif.",
+      "entity_description": "Entity description",
+      "entity_title": "Entity titre"
     },
     "imputation_manager": {
       "add": "Ajouter une imputation",
@@ -5274,6 +6047,113 @@
         "reset_error": "Échec de la réinitialisation",
         "select_scope": "Sélectionnez au moins un domaine"
       }
+    },
+    "agent_ia": {
+      "autonomy": {
+        "autonomous": "Autonomous",
+        "observation": "Observation",
+        "recommendation": "Recommendation"
+      },
+      "btn": {
+        "reset": "Réinitialiser",
+        "send_now": "Send now"
+      },
+      "confirm": {
+        "reset_cb": "Réinitialiser cb"
+      },
+      "hint": {
+        "allow_direct": "Allow direct",
+        "auto_trigger": "Auto trigger",
+        "enabled": "Enabled",
+        "forbidden": "Forbidden",
+        "window": "Window"
+      },
+      "last_send": "Dernier send",
+      "row": {
+        "agent_runner": "Agent runner",
+        "allow_direct": "Allow direct",
+        "auto_trigger": "Auto trigger",
+        "cb_cooldown": "Cb cooldown",
+        "cb_threshold": "Cb threshold",
+        "default_autonomy": "Default autonomy",
+        "dokploy_prod": "Dokploy prod",
+        "dokploy_staging": "Dokploy staging",
+        "email_to": "Email vers",
+        "enabled": "Enabled",
+        "max_concurrent": "Max concurrent",
+        "max_lines": "Max lines",
+        "max_runs": "Max runs",
+        "monthly_budget": "Monthly budget",
+        "send_hour": "Send hour",
+        "window_end": "Window fin",
+        "window_start": "Window début"
+      },
+      "section": {
+        "activation": "Activation",
+        "auto_mode": "Auto mode",
+        "budgets": "Budgets",
+        "connectors": "Connectors",
+        "daily_report": "Daily rapport",
+        "forbidden": "Forbidden"
+      },
+      "stat": {
+        "cb_active": "Cb actif",
+        "consec_failures": "Consec failures",
+        "ready": "Prêt",
+        "spent_month": "Spent month"
+      },
+      "subtitle": "Subtitle",
+      "tip": {
+        "no_email": "Aucun email",
+        "reset_cb": "Réinitialiser cb",
+        "unsaved_email": "Unsaved email"
+      },
+      "title": "Titre",
+      "toast": {
+        "cb_reset": "Cb réinitialiser",
+        "cb_reset_failed": "Cb réinitialiser échec",
+        "digest_failed": "Digest échec",
+        "digest_sent": "Digest sent",
+        "digest_sent_desc": "Digest sent desc",
+        "saved": "Saved"
+      },
+      "warn": {
+        "unsaved": "Unsaved"
+      }
+    },
+    "no_match": "Aucun match",
+    "scenarios": {
+      "chars": "Chars",
+      "confirm": {
+        "delete_msg": "Supprimer msg",
+        "delete_title": "Supprimer titre"
+      },
+      "crit": {
+        "critical": "Critical",
+        "important": "Important",
+        "nice_to_have": "Nice vers have"
+      },
+      "disabled": "Disabled",
+      "empty": "Empty",
+      "field": {
+        "criticality": "Criticality",
+        "description": "Description",
+        "enabled": "Enabled",
+        "name": "Nom",
+        "script": "Script",
+        "smoke": "Smoke",
+        "tags": "Étiquettes",
+        "timeout": "Timeout"
+      },
+      "new": "New",
+      "subtitle": "Subtitle",
+      "timeout_short": "Timeout short",
+      "title": "Titre",
+      "toast": {
+        "created": "Créé",
+        "deleted": "Supprimé",
+        "updated": "Mis à jour"
+      }
     }
   },
   "help_system": {
@@ -5292,7 +6172,25 @@
     "mark_all_read": "Tout marquer lu",
     "mark_read": "Marquer comme lu",
     "empty": "Aucune notification",
-    "see_all": "Voir toutes les notifications"
+    "see_all": "Voir toutes les notifications",
+    "all_read": "Tous read",
+    "archive": "Archiver",
+    "bell_label": "Bell label",
+    "category_all": "Catégorie tous",
+    "category_filter": "Catégorie filtrer",
+    "empty_all_description": "Empty tous description",
+    "empty_all_title": "Empty tous titre",
+    "empty_filtered_description": "Empty filtered description",
+    "empty_filtered_title": "Empty filtered titre",
+    "filter_all": "Filtrer tous",
+    "filter_read": "Filtrer read",
+    "filter_unread": "Filtrer unread",
+    "has_link": "Has link",
+    "no_body": "Aucun body",
+    "open": "Ouvrir",
+    "page_title": "Page titre",
+    "unread_count": "Unread count",
+    "view_all": "Voir tous"
   },
   "export": {
     "wizard_title": "Assistant d'export",
@@ -5757,6 +6655,20 @@
         "readiness": "Complétude du dossier",
         "pickup_location": "Localisation d'enlèvement",
         "files": "Fichiers opérationnels"
+      },
+      "return": {
+        "disposition": {
+          "mixed": "Mixed",
+          "none": "None"
+        },
+        "empty": "Empty",
+        "section_title": "Section titre",
+        "status": {
+          "full": "Full",
+          "no_elements": "Aucun elements",
+          "none": "None",
+          "partial": "Partial"
+        }
       }
     },
     "tracking": {
@@ -5928,6 +6840,34 @@
       "hazmat_label": "Matière dangereuse",
       "hazmat_class": "Classe HAZMAT",
       "hazmat_class_placeholder": "Classe 1, 2…"
+    },
+    "create_request": {
+      "title": "Titre"
+    },
+    "placeholders": {
+      "cargo_description": "Cargaison description",
+      "cargo_designation": "Cargaison designation",
+      "lifting_provider_example": "Lifting provider example",
+      "phone_example": "Téléphone example",
+      "pickup_contact_fallback": "Pickup contact fallback",
+      "pickup_location_example": "Pickup location example",
+      "request_title_example": "Request titre example",
+      "requester_fallback": "Requester fallback",
+      "sap_code_example": "Sap code example",
+      "select_company": "Sélectionner entreprise",
+      "select_contact": "Sélectionner contact",
+      "select_destination_asset": "Sélectionner destination asset",
+      "select_imputation": "Sélectionner imputation",
+      "select_project": "Sélectionner projet",
+      "select_user": "Sélectionner utilisateur"
+    },
+    "request": {
+      "imputation": "Imputation",
+      "requester": "Requester",
+      "section": {
+        "completeness": "Completeness",
+        "parties": "Parties"
+      }
     }
   },
   "pidpfd": {
@@ -5962,7 +6902,17 @@
       "tag_name_required": "Le nom du tag est requis",
       "dcs_tag_created": "Tag DCS créé",
       "dcs_tag_create_error": "Erreur lors de la création du tag"
-    }
+    },
+    "create_pid": "Créer pid",
+    "placeholders": {
+      "title": "Titre"
+    },
+    "sections": {
+      "drawing": "Drawing",
+      "drawing_help": "Drawing help",
+      "identity_help": "Identity help"
+    },
+    "select_equipment": "Sélectionner équipement"
   },
   "asset_registry": {
     "geologie_reserves": "Géologie / Réserves",
@@ -5991,7 +6941,10 @@
     "points_courbe_de_charge": "Points courbe de charge",
     "selectionner_une_configuration": "Sélectionner une configuration...",
     "zones_de_levage": "Zones de levage",
-    "courbe_de_pompe": "Courbe de pompe"
+    "courbe_de_pompe": "Courbe de pompe",
+    "select_field": "Sélectionner champ",
+    "select_installation": "Sélectionner installation",
+    "select_site": "Sélectionner site"
   },
   "legal": {
     "politique_de_confidentialite": "Politique de confidentialite",
@@ -6055,7 +7008,48 @@
     "deposer_les_fichiers_ici": "Déposer les fichiers ici",
     "les_fichiers_seront_uploades_dans_le_dos": "Les fichiers seront uploadés dans le dossier courant",
     "nouveau_dossier": "Nouveau dossier",
-    "supprimer_la_selection": "Supprimer la sélection"
+    "supprimer_la_selection": "Supprimer la sélection",
+    "aucun_resultat": "Aucun resultat",
+    "dossier_vide": "Dossier vide",
+    "filter": {
+      "archives": "Archives",
+      "audio": "Audio",
+      "documents": "Documents",
+      "images": "Images",
+      "videos": "Videos"
+    },
+    "preview": {
+      "loadError": "LoadError"
+    },
+    "racine": "Racine",
+    "toast": {
+      "batch_deleted": "Batch supprimé",
+      "create_folder_error_description": "Créer folder erreur description",
+      "delete_confirm_batch": "Supprimer confirmer batch",
+      "delete_confirm_file": "Supprimer confirmer fichier",
+      "delete_confirm_folder": "Supprimer confirmer folder",
+      "delete_confirm_label": "Supprimer confirmer label",
+      "delete_confirm_title": "Supprimer confirmer titre",
+      "delete_error_description": "Supprimer erreur description",
+      "deleted_item": "Supprimé élément",
+      "error": "Erreur",
+      "folder_created": "Folder créé",
+      "load_error_description": "Load erreur description",
+      "load_error_title": "Load erreur titre",
+      "path_copied": "Path copied",
+      "rename_error_description": "Rename erreur description",
+      "renamed_to": "Renamed vers",
+      "upload_error_description": "Téléverser erreur description",
+      "upload_error_title": "Téléverser erreur titre"
+    },
+    "toolbar": {
+      "refresh": "Rafraîchir",
+      "search_placeholder": "Rechercher espace réservé",
+      "selected_count": "Selected count",
+      "upload": "Téléverser",
+      "view_grid": "Voir grid",
+      "view_list": "Voir liste"
+    }
   },
   "onboarding": {
     "title": "Configuration guidée",
@@ -6185,6 +7179,368 @@
       "users_count": "{{count}} utilisateur(s) invité(s)",
       "modules_count": "{{count}} module(s) sélectionné(s)",
       "note": "Vous pouvez ré-ouvrir cet assistant à tout moment depuis l'onglet Aide du panneau d'assistance."
+    }
+  },
+  "assistant": {
+    "close": "Fermer",
+    "help": {
+      "none": "None",
+      "tips": "Tips",
+      "workflows": "Workflows"
+    },
+    "tabs": {
+      "chat": "Chat",
+      "help": "Help",
+      "ticket": "Ticket",
+      "tours": "Tours"
+    },
+    "ticket": {
+      "priorities": {
+        "critical": "Critical",
+        "high": "High",
+        "low": "Low",
+        "medium": "Medium"
+      },
+      "title_placeholder": "Titre espace réservé"
+    },
+    "title": "Titre"
+  },
+  "home": {
+    "greeting": {
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "morning": "Morning",
+      "night": "Night"
+    },
+    "no_modules": "Aucun modules"
+  },
+  "integrations": {
+    "heavy": {
+      "description": "Description",
+      "no_connector": "Aucun connector",
+      "title": "Titre"
+    }
+  },
+  "moc": {
+    "actions": {
+      "accord": "Accord",
+      "download_pdf": "Télécharger PDF",
+      "invite_validator": "Invite validator",
+      "new": "New",
+      "production_refuse": "Production refuse",
+      "production_validate": "Production valider",
+      "promote_to_project": "Promote vers projet",
+      "refuse": "Refuse",
+      "request_return": "Request return",
+      "save_signature": "Enregistrer signature",
+      "send_invite": "Send invite",
+      "send_return": "Send return"
+    },
+    "approved": "Approuvé",
+    "columns": {
+      "created_at": "Créé at",
+      "initiator": "Initiator",
+      "linked_project": "Linked projet",
+      "linked_project_chip": "Linked projet chip",
+      "manager": "Manager",
+      "manager_assigned": "Manager assigned",
+      "objectives": "Objectives",
+      "platform": "Platform",
+      "priority": "Priorité",
+      "reference": "Reference",
+      "site": "Site",
+      "status": "Statut"
+    },
+    "create": {
+      "failed": "Échec",
+      "section_initiator": "Section initiator",
+      "section_location": "Section location",
+      "section_objectives": "Section objectives",
+      "section_type": "Section type",
+      "section_validators": "Section validators",
+      "subtitle": "Subtitle",
+      "title": "Titre",
+      "validators_hint": "Validators indice"
+    },
+    "delete": {
+      "confirm_message": "Confirmer message",
+      "confirm_title": "Confirmer titre"
+    },
+    "detail_tab": {
+      "comments": "Commentaires",
+      "documents": "Documents",
+      "execution": "Execution",
+      "fiche": "Fiche",
+      "history": "Historique",
+      "production": "Production",
+      "validation": "Validation"
+    },
+    "field": {
+      "approval_level_tooltip": "Approbation level info-bulle",
+      "platformPlaceholder": "PlatformPlaceholder"
+    },
+    "fields": {
+      "comment": "Commentaire",
+      "comment_ph": "Commentaire ph",
+      "completed": "Terminé",
+      "cost_bucket": "Cost bucket",
+      "created_at": "Créé at",
+      "current_situation": "Current situation",
+      "description": "Description",
+      "duration_days": "Duration days",
+      "duration_days_hint": "Duration days indice",
+      "duration_days_optional_ph": "Duration days optional ph",
+      "external_function": "External function",
+      "external_function_ph": "External function ph",
+      "external_initiator_toggle": "External initiator toggle",
+      "external_name": "External nom",
+      "external_name_ph": "External nom ph",
+      "impact_analysis": "Impact analysis",
+      "impact_analysis_ph": "Impact analysis ph",
+      "initiator": "Initiator",
+      "initiator_email": "Initiator email",
+      "initiator_email_ph": "Initiator email ph",
+      "initiator_function": "Initiator function",
+      "initiator_function_ph": "Initiator function ph",
+      "initiator_signature": "Initiator signature",
+      "installation": "Installation",
+      "installation_hint_v2": "Installation indice v2",
+      "installation_ph": "Installation ph",
+      "invite_comment": "Invite commentaire",
+      "invite_comment_ph": "Invite commentaire ph",
+      "invitee": "Invitee",
+      "invitee_ph": "Invitee ph",
+      "is_real_change": "Est real change",
+      "level": "Level",
+      "linked_project": "Linked projet",
+      "linked_project_view": "Linked projet voir",
+      "manager": "Manager",
+      "manager_ph": "Manager ph",
+      "manual_location_toggle": "Manual location toggle",
+      "metier_code": "Metier code",
+      "metiers": "Metiers",
+      "metiers_empty": "Metiers empty",
+      "moc_type": "Moc type",
+      "moc_type_hint": "Moc type indice",
+      "modification_type": "Modification type",
+      "nature": "Nature",
+      "necessary": "Necessary",
+      "objectives": "Objectives",
+      "objectives_ph": "Objectives ph",
+      "planned_date": "Planifié date",
+      "platform": "Platform",
+      "priority": "Priorité",
+      "production_signature": "Production signature",
+      "proposed_changes": "Proposed changes",
+      "reference": "Reference",
+      "required": "Required",
+      "return_reason": "Return motif",
+      "return_reason_ph": "Return motif ph",
+      "role": "Rôle",
+      "site": "Site",
+      "site_custom": "Site custom",
+      "site_custom_ph": "Site custom ph",
+      "status": "Statut",
+      "temporary_end_date": "Temporary fin date",
+      "temporary_period": "Temporary period",
+      "temporary_start_date": "Temporary début date",
+      "title": "Titre",
+      "title_ph": "Titre ph",
+      "transition_comment_ph": "Transition commentaire ph"
+    },
+    "filters": {
+      "all_projects": "Tous projets",
+      "mine_as_manager": "Mine as manager",
+      "only_not_promoted": "Only not promoted",
+      "only_promoted": "Only promoted"
+    },
+    "flags": {
+      "environmental": "Environmental",
+      "esd_update": "Esd mettre à jour",
+      "hazid": "Hazid",
+      "hazop": "Hazop",
+      "pid_update": "Pid mettre à jour"
+    },
+    "help": {
+      "initiator_description": "Initiator description",
+      "initiator_tip_email": "Initiator tip email",
+      "initiator_tip_external": "Initiator tip external",
+      "initiator_tip_signature": "Initiator tip signature",
+      "location_description": "Location description",
+      "location_tip_fallback": "Location tip fallback",
+      "location_tip_installation": "Location tip installation",
+      "modtype_permanent": "Modtype permanent",
+      "modtype_temporary": "Modtype temporary",
+      "nature_optimisation": "Nature optimisation",
+      "nature_securite": "Nature securite",
+      "objectives_description": "Objectives description",
+      "objectives_tip_objectives": "Objectives tip objectives",
+      "objectives_tip_rich": "Objectives tip rich",
+      "objectives_tip_title": "Objectives tip titre",
+      "role_gas_manager": "Rôle gas manager",
+      "role_hse": "Rôle hse",
+      "role_lead_process": "Rôle lead process",
+      "role_maintenance_manager": "Rôle maintenance manager",
+      "role_metier": "Rôle metier",
+      "role_process_engineer": "Rôle process engineer",
+      "role_production_manager": "Rôle production manager",
+      "type_description": "Type description",
+      "type_tip_metiers": "Type tip metiers",
+      "validators_description": "Validators description"
+    },
+    "invited_user_default": "Invited utilisateur default",
+    "nature": {
+      "OPTIMISATION": "OPTIMISATION",
+      "SECURITE": "SECURITE"
+    },
+    "page_subtitle": "Page subtitle",
+    "page_title": "Page titre",
+    "priority_prefix": "Priorité prefix",
+    "rejected": "Rejeté",
+    "roles": {
+      "dg_full": "Dg full",
+      "do_full": "Do full"
+    },
+    "section": {
+      "attachments": "Pièces jointes",
+      "comments": "Commentaires",
+      "content": "Content",
+      "cost": "Cost",
+      "execution_accord": "Execution accord",
+      "flags": "Flags",
+      "identification": "Identification",
+      "invited_validators": "Invited validators",
+      "linked_project": "Linked projet",
+      "metier_validations": "Metier validations",
+      "production_validation": "Production validation",
+      "signatures": "Signatures",
+      "timeline": "Timeline",
+      "validation_matrix": "Validation matrix",
+      "workflow": "Workflow",
+      "workflow_stepper": "Workflow stepper"
+    },
+    "settings": {
+      "reminders": {
+        "description": "Description",
+        "enabled_hint": "Enabled indice",
+        "enabled_label": "Enabled label",
+        "invalid_threshold": "Invalid threshold",
+        "reset": "Réinitialiser",
+        "thresholds_hint": "Thresholds indice",
+        "thresholds_label": "Thresholds label",
+        "title": "Titre"
+      },
+      "types": {
+        "add": "Ajouter",
+        "add_rule": "Ajouter rule",
+        "code_ph": "Code ph",
+        "confirm_delete": "Confirmer supprimer",
+        "confirm_delete_title": "Confirmer supprimer titre",
+        "created": "Créé",
+        "deleted": "Supprimé",
+        "description": "Description",
+        "empty": "Empty",
+        "label_ph": "Label ph",
+        "metier_ph": "Metier ph",
+        "rules_empty": "Rules empty",
+        "rules_title": "Rules titre",
+        "title": "Titre"
+      }
+    },
+    "stats": {
+      "closed": "Closed",
+      "in_progress": "In progress",
+      "pending": "En attente",
+      "total": "Total"
+    },
+    "toast": {
+      "accord_saved": "Accord saved",
+      "created": "Créé",
+      "deleted": "Supprimé",
+      "error_generic": "Erreur generic",
+      "pdf_failed": "PDF échec",
+      "production_saved": "Production saved",
+      "promoted": "Promoted",
+      "return_sent": "Return sent",
+      "transitioned": "Transitioned",
+      "validator_invited": "Validator invited"
+    },
+    "transition": {
+      "prereqs_missing": "Prereqs missing",
+      "refused": "Refused"
+    },
+    "type_permanent": "Type permanent",
+    "type_temporary": "Type temporary"
+  },
+  "quick_create": {
+    "hint_enter": "Indice enter",
+    "no_results": "Aucun results",
+    "search_placeholder": "Rechercher espace réservé",
+    "title": "Titre"
+  },
+  "rich_text": {
+    "image_insert": "Image insert",
+    "image_invalid_type": "Image invalid type",
+    "image_save_first": "Image enregistrer premier",
+    "image_too_large": "Image too large",
+    "image_upload_failed": "Image téléverser échec"
+  },
+  "shell": {
+    "atlas": "Atlas",
+    "default": "Default",
+    "default_hint": "Default indice",
+    "mode_aria": "Mode aria",
+    "operator": "Operator",
+    "reset": "Réinitialiser",
+    "save_error": "Enregistrer erreur"
+  },
+  "smart_form": {
+    "mode": {
+      "advanced": "Advanced",
+      "simple": "Simple",
+      "wizard": "Wizard"
+    },
+    "show_advanced": "Show advanced",
+    "simple_hint": "Simple indice",
+    "wizard": {
+      "finish": "Finish",
+      "help": "Help",
+      "help_full": "Help full",
+      "help_none": "Help none",
+      "help_see_full": "Help see full",
+      "help_short": "Help short",
+      "help_title": "Help titre",
+      "help_values": "Help values",
+      "next": "Suivant",
+      "previous": "Précédent",
+      "skip": "Skip",
+      "skip_hint": "Skip indice",
+      "step": "Étape"
+    }
+  },
+  "teams": {
+    "create_new": "Créer new",
+    "created": "Créé",
+    "error": {
+      "create": "Créer",
+      "name_required": "Nom required"
+    },
+    "field": {
+      "description": "Description",
+      "initial_members": "Initial members",
+      "name": "Nom",
+      "visibility": "Visibility"
+    },
+    "placeholder": {
+      "description": "Description",
+      "name": "Nom"
+    },
+    "select_team": "Sélectionner équipe",
+    "visibility": {
+      "private": "Private",
+      "private_hint": "Private indice",
+      "public": "Public",
+      "public_hint": "Public indice"
     }
   }
 }

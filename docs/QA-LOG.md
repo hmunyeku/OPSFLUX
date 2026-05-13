@@ -958,3 +958,39 @@ error during build:
 | Migrations alembic | 6 |
 | CI workflows | 2 + trigger push main |
 | Clés i18n synchronisées | 12 910 |
+
+---
+
+## Session 15 — tLabel bilingue WidgetCard
+
+**Commit déployé** : `397ca50f`
+
+### Bug fixé : labels widgets toujours FR en mode EN
+
+**Cause** : `WidgetCard.tsx` avait un dict `LABEL_FR` hardcoded utilisé par `tLabel(raw)` pour traduire les enums dans les cellules de table widgets. Aucune logique de langue → mode EN affichait toujours FR (CRITIQUE, HAUTE, Planifié, Actif, Brouillon, etc.).
+
+**Fix** : Création de `LABEL_EN` jumeau (100+ paires) et sélection runtime via `localStorage.getItem('language')` (clé utilisée par i18next-browser-languagedetector dans `lib/i18n.ts`).
+
+**Vérification browser** :
+- Avant (EN) : `Planifié | CRITIQUE | HAUTE | Actif`
+- Après (EN) : `Planned | CRITICAL | HIGH | Active` ✅
+- Mode FR : identique avant/après ✅
+
+Cellules de tables widgets désormais bilingues sur tous les modules (Projets dashboard, PaxLog, etc.).
+
+### Bilan session 15
+- 1 commit déployé
+- **Bug latent affichage** : widgets cellules tables EN affichaient FR partout — corrigé
+- Couvre 100+ enums : statuses (open/closed/draft/...), priorités (low/medium/high/critical), tier types, voyage statuses, cargo statuses, weather, etc.
+
+### Bilan global cumulé sessions 1-15
+
+| Métrique | Valeur |
+|---|---|
+| **Commits déployés** | **37** |
+| Bugs identifiés | 32 |
+| Bugs corrigés | 26 |
+| Tickets support résolus | 3 |
+| Endpoints validés | 85 |
+| Scripts pérennes | 10 |
+| CI workflows | 2 + trigger main |

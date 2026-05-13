@@ -87,7 +87,11 @@ def upgrade():
             sensitive = EXCLUDED.sensitive
     """)
 
-    # 4. Seed 8 new roles
+    # 4. Seed 11 new roles (8 truly new + 3 aliases for deprecated SUPER_ADMIN/PAX_ADMIN/HSE_ADMIN)
+    # Note: SUPER_ADMIN/PAX_ADMIN/HSE_ADMIN are kept for backward compatibility (24+ references
+    # in code: fsm_service.py, seed_service.py, gdpr_purge.py, etc.) plus permission_sync.py
+    # re-inserts SUPER_ADMIN at every app startup. The 3 new codes coexist as aliases for now;
+    # a dedicated cleanup PR will sweep references and remove the legacy codes from permission_sync.
     op.execute("""
         INSERT INTO roles (code, name, description, module) VALUES
         ('SECURITY_OFFICER', 'Security Officer', 'Auditeur indépendant, lecture seule sur RBAC/audit/user, peut révoquer délégations', 'core'),
@@ -97,42 +101,14 @@ def upgrade():
         ('OPERATOR', 'Operator', 'Contributeur métier — saisit/édite, ne valide pas', 'core'),
         ('PAX', 'Personnel mobilisé', 'Self-service pour les users externes (profil, rotations, badges)', 'paxlog'),
         ('TIER_CONTACT', 'Contact tiers externe', 'Self-service pour les contacts des tiers/compagnies externes', 'tier'),
-        ('INTEGRATION_BOT', 'Integration Bot', 'Compte service pour intégrations/MCP/webhooks', 'integration')
+        ('INTEGRATION_BOT', 'Integration Bot', 'Compte service pour intégrations/MCP/webhooks', 'integration'),
+        ('PLATFORM_ADMIN', 'Platform Administrator', 'Future replacement for SUPER_ADMIN — same wildcard semantics. SUPER_ADMIN kept as legacy alias.', 'core'),
+        ('PAX_COORD', 'PAX Coordinator', 'Future replacement for PAX_ADMIN. PAX_ADMIN kept as legacy alias.', 'paxlog'),
+        ('HSE_MGR', 'HSE Manager', 'Future replacement for HSE_ADMIN. HSE_ADMIN kept as legacy alias.', 'core')
         ON CONFLICT (code) DO NOTHING
     """)
 
-    # 5. Rename existing roles using INSERT+propagate+DELETE
-    # (cannot UPDATE roles.code because FK role_permissions.role_code lacks ON UPDATE CASCADE)
-    RENAMES = [
-        ("SUPER_ADMIN", "PLATFORM_ADMIN"),
-        ("PAX_ADMIN", "PAX_COORD"),
-        ("HSE_ADMIN", "HSE_MGR"),
-    ]
-    for old_code, new_code in RENAMES:
-        # 5.a Create the new role row (copy of the old)
-        op.execute(f"""
-            INSERT INTO roles (code, name, description, module)
-            SELECT '{new_code}', name, description, module FROM roles WHERE code = '{old_code}'
-            ON CONFLICT (code) DO NOTHING
-        """)
-        # 5.b Propagate role_permissions
-        op.execute(f"""
-            INSERT INTO role_permissions (role_code, permission_code)
-            SELECT '{new_code}', permission_code FROM role_permissions WHERE role_code = '{old_code}'
-            ON CONFLICT DO NOTHING
-        """)
-        # 5.c Propagate user_group_roles
-        op.execute(f"""
-            INSERT INTO user_group_roles (group_id, role_code)
-            SELECT group_id, '{new_code}' FROM user_group_roles WHERE role_code = '{old_code}'
-            ON CONFLICT DO NOTHING
-        """)
-        # 5.d Delete the old liaisons then the old role
-        op.execute(f"DELETE FROM role_permissions WHERE role_code = '{old_code}'")
-        op.execute(f"DELETE FROM user_group_roles WHERE role_code = '{old_code}'")
-        op.execute(f"DELETE FROM roles WHERE code = '{old_code}'")
-
-    # 6. Seed tenant settings (one row per existing entity, with default values)
+    # 5. Seed tenant settings (one row per existing entity, with default values)
     SETTINGS = [
         ("rbac.default_role.internal", '"READER"'),
         ("rbac.default_role.external", '"PAX"'),

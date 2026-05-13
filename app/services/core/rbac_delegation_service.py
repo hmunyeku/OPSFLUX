@@ -1,5 +1,7 @@
 """RBAC delegation service — create/modify/revoke with ISO 27001 guardrails."""
+import asyncio
 import hashlib
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -20,6 +22,8 @@ from app.models.common import (
     UserDelegation,
 )
 from app.schemas.rbac_delegation import DelegationCreate
+
+logger = logging.getLogger(__name__)
 
 
 async def _get_tenant_setting(db: AsyncSession, entity_id: UUID, key: str, default):
@@ -96,6 +100,12 @@ async def _build_certificate_variables(
     from app.models.common import Entity, Permission
 
     entity = await db.get(Entity, entity_id)
+    if not entity:
+        raise StructuredHTTPException(
+            500,
+            code="RBAC_TENANT_MISSING",
+            message=f"Tenant {entity_id} not found while building delegation certificate",
+        )
 
     # Fetch permission details
     perms_result = await db.execute(
@@ -129,9 +139,9 @@ async def _build_certificate_variables(
             "email": delegate.email,
         },
         "tenant": {
-            "id": str(entity.id) if entity else "",
-            "name": entity.name if entity else "",
-            "logo_url": entity.logo_url if entity else None,
+            "id": str(entity.id),
+            "name": entity.name,
+            "logo_url": entity.logo_url,
         },
         "delegation_duration_days": duration_days,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -163,8 +173,11 @@ async def _notify_security_officers(
         .distinct()
     )
     result = await db.execute(so_users_stmt)
-    for email, lang in result.all():
-        await render_and_send_email(
+
+    # Collect coroutines and dispatch in parallel; gather captures exceptions
+    # so one SMTP failure doesn't block notifying the other SOs.
+    sends = [
+        render_and_send_email(
             db,
             slug="rbac.delegation.granted",
             entity_id=entity_id,
@@ -173,6 +186,16 @@ async def _notify_security_officers(
             variables=cert_vars,
             attachments=attachments,
         )
+        for email, lang in result.all()
+    ]
+    results = await asyncio.gather(*sends, return_exceptions=True)
+    for r in results:
+        if isinstance(r, Exception):
+            logger.warning("Failed to notify a SECURITY_OFFICER: %s", r)
+        elif r is False:
+            logger.warning(
+                "render_and_send_email returned False for a SECURITY_OFFICER (template missing or send failure)"
+            )
 
 
 async def create_delegation(
@@ -183,7 +206,11 @@ async def create_delegation(
     client_ip: str | None = None,
     user_agent: str | None = None,
 ) -> UserDelegation:
-    """Create a delegation with all ISO guardrails, emails, PDF and audit trail."""
+    """Create a delegation with all ISO guardrails, emails, PDF and audit trail.
+
+    Note: Notification emails are fire-and-forget. SMTP / template failures are logged
+    but do not roll back the delegation grant (the audit row remains authoritative).
+    """
     await validate_delegation_constraints(db, body, delegator, entity_id)
 
     # Fetch delegate
@@ -248,7 +275,7 @@ async def create_delegation(
         else []
     )
 
-    await render_and_send_email(
+    sent_granted = await render_and_send_email(
         db,
         slug="rbac.delegation.granted",
         entity_id=entity_id,
@@ -257,7 +284,12 @@ async def create_delegation(
         variables=cert_vars,
         attachments=attachments,
     )
-    await render_and_send_email(
+    if not sent_granted:
+        logger.warning(
+            "Failed to send 'rbac.delegation.granted' for delegation %s", delegation.id
+        )
+
+    sent_received = await render_and_send_email(
         db,
         slug="rbac.delegation.received",
         entity_id=entity_id,
@@ -266,6 +298,10 @@ async def create_delegation(
         variables=cert_vars,
         attachments=attachments,
     )
+    if not sent_received:
+        logger.warning(
+            "Failed to send 'rbac.delegation.received' for delegation %s", delegation.id
+        )
 
     # 6. Optionally CC SECURITY_OFFICERs
     notify_so = await _get_tenant_setting(db, entity_id, "rbac.delegation.notify_security_officer", True)
@@ -287,7 +323,11 @@ async def revoke_delegation(
     client_ip: str | None = None,
     user_agent: str | None = None,
 ) -> UserDelegation:
-    """Revoke a delegation: mark inactive, send emails, audit."""
+    """Revoke a delegation: mark inactive, send emails, audit.
+
+    Note: Notification emails are fire-and-forget. SMTP / template failures are logged
+    but do not roll back the revocation (the audit row remains authoritative).
+    """
     delegation = await db.get(UserDelegation, delegation_id)
     if not delegation:
         raise StructuredHTTPException(404, code="DELEGATION_NOT_FOUND", message="Delegation not found")
@@ -341,7 +381,7 @@ async def revoke_delegation(
         (delegator.email, delegator.language or "fr"),
         (delegate.email, delegate.language or "fr"),
     ]:
-        await render_and_send_email(
+        sent = await render_and_send_email(
             db,
             slug="rbac.delegation.revoked",
             entity_id=entity_id,
@@ -350,6 +390,12 @@ async def revoke_delegation(
             variables=cert_vars,
             attachments=attachments,
         )
+        if not sent:
+            logger.warning(
+                "Failed to send 'rbac.delegation.revoked' to %s for delegation %s",
+                to_email,
+                delegation.id,
+            )
 
     await invalidate_rbac_cache(delegation.delegate_id)
     return delegation

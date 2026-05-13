@@ -103,3 +103,21 @@ async def sample_user(db_session: AsyncSession, sample_entity):
     db_session.add(user)
     await db_session.flush()
     return user
+
+
+@pytest_asyncio.fixture
+async def another_user(db_session, sample_entity):
+    """A second User in the same tenant as sample_user, for delegation tests."""
+    from uuid import uuid4
+
+    from app.models.common import User
+
+    user = User(
+        email=f"anotheruser_{uuid4().hex[:8]}@opsflux.test",
+        first_name="Another",
+        last_name="User",
+        default_entity_id=sample_entity.id,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    return user

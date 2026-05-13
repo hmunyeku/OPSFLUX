@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown, ChevronRight, Check, X, Search, FolderTree,
-  Shield, Users as UsersRound, User as UserIcon,
+  Shield, Users as UsersRound, User as UserIcon, UserCheck,
 } from 'lucide-react'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
@@ -110,13 +110,14 @@ export function buildPermissionMatrix(permissions: PermissionRead[]): MatrixModu
     })
 }
 
-export type PermSource = 'user' | 'role' | 'group'
+export type PermSource = 'user' | 'role' | 'group' | 'delegation'
 
 export const SOURCE_BADGE: Record<PermSource, { icon: React.ElementType; color: string; label: string }> = {
-  user:  { icon: UserIcon,   color: 'text-violet-500', label: 'Utilisateur' },
-  role:  { icon: Shield,     color: 'text-blue-500',   label: 'Rôle' },
-  group: { icon: UsersRound, color: 'text-emerald-500', label: 'Groupe' },
-}
+  user:       { icon: UserIcon,   color: 'text-violet-500',  label: 'Utilisateur' },
+  role:       { icon: Shield,     color: 'text-blue-500',    label: 'Rôle' },
+  group:      { icon: UsersRound, color: 'text-emerald-500', label: 'Groupe' },
+  delegation: { icon: UserCheck,  color: 'text-purple-500',  label: 'Délégation' },
+} as const
 
 /** Reusable Permission Matrix component */
 export function PermissionMatrix({

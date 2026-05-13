@@ -1,0 +1,22 @@
+<p>Hello,</p>
+{% if expiry_phase == 'j3' %}
+  <p>The following delegation <strong>will expire in 3 days</strong>:</p>
+{% else %}
+  <p>The following delegation <strong>has expired today</strong>:</p>
+{% endif %}
+<ul>
+  <li><strong>Delegator:</strong> {{ delegator.full_name }} ({{ delegator.email }})</li>
+  <li><strong>Delegate:</strong> {{ delegate.full_name }} ({{ delegate.email }})</li>
+  <li><strong>Period:</strong> {{ delegation.start_date }} → {{ delegation.end_date }}</li>
+  <li><strong>Permissions:</strong> {{ delegation.permissions | length }}</li>
+</ul>
+{% if expiry_phase == 'j3' %}
+  <p style="background:#fef3c7;padding:8px 12px;border-left:3px solid #92400e;">
+    If a renewal is required, the delegator must create a new delegation. No automatic renewal (ISO 27001 §A.9.2.6).
+  </p>
+{% else %}
+  <p style="background:#fee2e2;padding:8px 12px;border-left:3px solid #991b1b;">
+    The delegated permissions are no longer active. The RBAC audit trail preserves the record of this delegation.
+  </p>
+{% endif %}
+<p style="color: #64748b; font-size: 11px;">Certificate fingerprint: {{ content_hash | default('—') }}</p>

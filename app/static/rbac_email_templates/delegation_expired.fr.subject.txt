@@ -1,0 +1,1 @@
+{% if expiry_phase == 'j3' %}[OpsFlux] Délégation expire dans 3 jours — {{ delegator.full_name }} → {{ delegate.full_name }}{% else %}[OpsFlux] Délégation expirée aujourd'hui — {{ delegator.full_name }} → {{ delegate.full_name }}{% endif %}

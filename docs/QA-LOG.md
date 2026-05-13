@@ -549,6 +549,96 @@ Script ad-hoc qui pour chaque modèle orphelin :
 - **Modèles SQLAlchemy fixés** : 3
 - **Dette latente connue** : 86 modèles AuditUserMixin non branchés (inerte actuellement)
 
+---
+
+## Session 12 — "go" : intégration CI db-schema-audit
+
+**Commit déployé** :
+
+| SHA | Sujet |
+|---|---|
+| `8a403cc9` | ci — job `db-schema-audit` + script `db_schema_audit.py` consolidé |
+
+**Objectif** : empêcher la régression des 4 patterns de bugs model_vs_db identifiés en sessions 5-11.
+
+### Approche
+
+1. **Script consolidé portable** : `scripts/db_schema_audit.py`
+   - Parse les modèles SQLAlchemy via regex strict
+   - **Gère l'héritage Mixin** (TimestampMixin, AuditUserMixin, VerifiableMixin, etc.) — ajoute les colonnes héritées au runtime
+   - Gère les `mapped_column("explicit_name", …)` qui override le nom Python
+   - Connecte à la BDD via `DATABASE_URL` env var
+   - Détecte les drifts dans les **2 sens** :
+     - Pattern 1 : modèle déclare X, BDD ne l'a pas
+     - Pattern 2 : BDD a X, modèle ne le voit pas, code applicatif y accède
+   - Mode `--strict` : exit 1 si findings
+   - Rapport Markdown sur stdout
+
+2. **Job CI dédié** : `.github/workflows/ci.yml` → `db-schema-audit`
+   - Postgres + redis frais (BDD `opsflux_audit`, isolée des tests)
+   - `pip install -e ".[dev]"`
+   - `alembic upgrade head`
+   - `python scripts/db_schema_audit.py --strict`
+   - Échec du CI si nouveau drift détecté
+
+3. **Trigger** : tourne sur les PRs vers main/develop + push develop
+
+### Vérifications locales
+
+- ✅ Script parse correctement 303 modèles
+- ✅ `Project.created_by` reconnu (via AuditUserMixin)
+- ✅ `Project.updated_by` reconnu
+- ✅ `Attachment.category` reconnu (déclaration directe ajoutée session 9)
+- ✅ YAML workflow validé (`yaml.safe_load`)
+- ✅ Pas de conflit avec le job backend existant (BDD différente)
+
+### Comportement attendu en CI futur
+
+- **Cas normal** : tous les modèles cohérents → job ✅
+- **Cas bug latent introduit** (ex: ajouter un attribut au modèle sans migration) : job ❌ avec rapport des drifts précis
+
+### Bilan session 12
+
+- 1 commit déployé (script consolidé + workflow)
+- **0 bug nouveau** trouvé (pas de stress test cette session)
+- **CI/CD intégrée** : les bugs type #25/#26/#29/#30 ne pourront plus passer en review silencieusement
+- **Workflow déclenché sur PR/develop push** — sera visible au prochain PR
+
+### Bilan global cumulé sessions 1-12 (TRULY FINAL)
+
+- **30 commits déployés sur main**
+- **30 bugs identifiés**, **24 corrigés et déployés**, **6 en backlog**
+- **Tickets support résolus** : 3
+- **Endpoints validés** : 66
+- **Scripts pérennes** : **6** (i18n_bulk, audit_model_vs_db, compare_model_vs_db, audit_db_cols_used_in_code, audit_auditable_orphans, **db_schema_audit consolidé**)
+- **Migrations alembic ajoutées** : 6
+- **Modèles SQLAlchemy fixés** : 3
+- **CI workflows ajoutés** : 1 (db-schema-audit)
+- **Dette latente cartographiée** : 86 modèles AuditUserMixin (inerte)
+
+### Mon avis franc final
+
+On a couvert :
+- ✅ Sécurité critique (IDOR PII, CORS bypass, audit endpoint)
+- ✅ Bugs UI visibles (rich-text strip, badge dashboard, scroll support, type ADS auto-bascule)
+- ✅ Drift model/BDD (4 patterns identifiés, 4 outils créés, CI intégrée)
+- ✅ RBAC validé (5 endpoints + 6 mutations + 6 DELETE)
+- ✅ Tickets support actifs (SUP-0040, SUP-0042, SUP-0039 résolus)
+- ✅ Stress tests POST/PATCH/DELETE/GET sur 66 endpoints
+- ✅ Création complète via API (tier, contact, address, phone, project, 7 activities, ADS, field, site, MOC, voyage, cargo, user)
+- ✅ CSV import pax avec encodages exotiques
+
+Ce qui RESTE strictement en backlog produit (décisions humaines requises) :
+- SUP-0041 (refonte visual search datatable)
+- SUP-0043 (refonte annonces avec ciblage)
+- SUP-0038 (refonte transfert employé)
+- SUP-0007 (UX mineur)
+- 800 clés EN à traduire
+- 5 composants > 1900 lignes à refactoriser
+- 86 modèles AuditUserMixin à brancher progressivement
+
+**L'autonomie nuit a atteint son maximum utile.** Au-delà, c'est du travail produit qui demande tes décisions.
+
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 
 **Couverture du protocole 200 étapes** :

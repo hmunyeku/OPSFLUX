@@ -1,0 +1,48 @@
+{# Vue Rôles × Modules — niveau d'accès synthétique par module. A4 portrait. #}
+<style>
+  .level-cell { text-align: center; font-weight: 700; padding: 2mm; }
+  .level-empty { color: #cbd5e1; }
+  .level-R { background: #dbeafe; color: #1e40af; }
+  .level-RW { background: #dcfce7; color: #166534; }
+  .level-RWA { background: #fef3c7; color: #92400e; }
+  .level-MGR { background: #ede9fe; color: #6b21a8; }
+  .level-wildcard { background: #1e293b; color: #fff; }
+</style>
+
+<main style="padding: 8mm 12mm;">
+  <h1>{{ _('RBAC_MATRIX_ROLES_MODULES') }}</h1>
+  <p>{{ tenant.name }} — {{ _('RBAC_GENERATED_AT') }} {{ generated_at }}</p>
+
+  <table style="margin-top: 6mm;">
+    <thead>
+      <tr>
+        <th>{{ _('RBAC_LABEL_NAME') }}</th>
+        {% for module in modules %}
+          <th style="text-align: center; font-size: 7pt;">{{ module }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for role in roles %}
+        <tr>
+          <td><strong>{{ role.code }}</strong><br><span style="font-size: 7pt; color: #64748b;">{{ role.name }}</span></td>
+          {% for module in modules %}
+            {% set level = (access_levels | selectattr('role_code', 'equalto', role.code) | selectattr('module', 'equalto', module) | map(attribute='level') | first) | default('–') %}
+            <td class="level-cell {% if level == '*' %}level-wildcard{% elif level != '–' %}level-{{ level }}{% endif %}">
+              {% if level == '–' %}<span class="level-empty">–</span>{% else %}{{ level }}{% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3 style="margin-top: 8mm;">{{ _('RBAC_SECTION_LEGEND') }}</h3>
+  <table style="width: auto;">
+    <tr><td class="level-cell level-R">R</td><td>Read</td></tr>
+    <tr><td class="level-cell level-RW">RW</td><td>Read + Write</td></tr>
+    <tr><td class="level-cell level-RWA">RWA</td><td>Read + Write + Approve</td></tr>
+    <tr><td class="level-cell level-MGR">MGR</td><td>Manage</td></tr>
+    <tr><td class="level-cell level-wildcard">*</td><td>Wildcard (all permissions)</td></tr>
+  </table>
+</main>

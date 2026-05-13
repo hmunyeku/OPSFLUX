@@ -35,7 +35,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.common import PdfTemplate, PdfTemplateVersion
+from app.models.common import I18nMessage, PdfTemplate, PdfTemplateVersion
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,80 @@ _jinja_env = Environment(
     autoescape=True,
     undefined=Undefined,  # missing vars render as empty string
 )
+
+
+# ── i18n translator for RBAC PDF templates ───────────────────────────────
+#
+# RBAC PDF templates (matrices, fiches, certificats) are rendered language-
+# agnostic via Jinja: HTML contains tokens like `{{ _('RBAC_GENERATED_AT') }}`
+# which resolve to the active language at render time.
+#
+# Storage:
+#   - I18nMessage rows with `namespace = 'rbac_pdf'`, `key = '<TOKEN>'`,
+#     `language_code = 'fr' | 'en' | ...`, `value = '<translation>'`.
+#   - Seeded by migration 172 (FR + EN); admins can add languages.
+#
+# Cache strategy:
+#   - In-memory dict per language, lazily primed on first render per language.
+#   - Invalidated via `_clear_translation_cache()` when admins edit translations.
+
+_TRANSLATION_NAMESPACE = "rbac_pdf"
+_TRANSLATION_CACHE: dict[str, dict[str, str]] = {}
+
+
+def _lookup_translation(key: str, lang: str) -> str | None:
+    """Synchronous translation lookup from the in-memory cache.
+
+    Returns None if the language is not primed or the key is missing.
+    The cache is populated lazily by `prime_translation_cache(db, lang)`.
+    """
+    cache_for_lang = _TRANSLATION_CACHE.get(lang)
+    if cache_for_lang is None:
+        return None
+    return cache_for_lang.get(key)
+
+
+async def prime_translation_cache(db: AsyncSession, lang: str) -> None:
+    """Load all `rbac_pdf` translations for `lang` into the in-memory cache.
+
+    No-op if the language is already primed. Safe to call on every render.
+    Stores an empty dict for languages with no rows so we don't requery.
+    """
+    if lang in _TRANSLATION_CACHE:
+        return  # already primed
+    result = await db.execute(
+        select(I18nMessage.key, I18nMessage.value).where(
+            I18nMessage.namespace == _TRANSLATION_NAMESPACE,
+            I18nMessage.language_code == lang,
+        )
+    )
+    _TRANSLATION_CACHE[lang] = {row[0]: row[1] for row in result.all()}
+
+
+def _clear_translation_cache(lang: str | None = None) -> None:
+    """Drop cached translations.
+
+    Pass `lang` to clear a single language; omit to clear all. Call this from
+    admin endpoints that mutate `rbac_pdf` namespace messages.
+    """
+    if lang is None:
+        _TRANSLATION_CACHE.clear()
+    else:
+        _TRANSLATION_CACHE.pop(lang, None)
+
+
+def _build_translator(lang: str):
+    """Return a `_(key)` Jinja-callable that resolves rbac_pdf translations.
+
+    Falls back to returning the key itself if no translation is found, so a
+    missing translation never breaks the render — it just displays the
+    canonical key as text. The translator is pure-Python (no I/O); the cache
+    must be primed via `prime_translation_cache(db, lang)` before use.
+    """
+    def _(key: str) -> str:
+        value = _lookup_translation(key, lang)
+        return value if value is not None else key
+    return _
 
 
 # ── QR code helper ───────────────────────────────────────────────────────

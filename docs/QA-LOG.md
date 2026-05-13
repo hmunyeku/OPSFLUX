@@ -323,6 +323,64 @@ Au-delà des fixes ponctuels, 2 patterns récurrents méritent attention :
 
 2. **500 silencieux sur listes** : plusieurs endpoints retournaient 500 plutôt qu'un ignore-row. Recommandation : refactor générique du pattern "valider Pydantic row-par-row dans la pagination" pour les listes critiques.
 
+---
+
+## Session 8 — "on continue" : audit BDD vs modèles
+
+**Approche** : suite au pattern bug #25 (3 colonnes manquantes en BDD vs modèle Dashboard), audit systématique des 303 tables.
+
+**Outils créés** :
+- `scripts/audit_model_vs_db.py` : parse les modèles SQLAlchemy via regex strict `Mapped[…] = mapped_column(`, exclut les `relationship()`
+- `scripts/compare_model_vs_db.py` : compare avec les colonnes BDD via `information_schema`, produit le diff
+
+**Commits déployés** :
+
+| SHA | Sujet |
+|---|---|
+| `d4a06f79` | fix(asset-registry) — migration 169 : `api_type_designation` + `fluid_viscosity_cst` à `ar_pumps` + scripts d'audit |
+
+**Résultats audit (303 tables / 4176 colonnes BDD analysées)** :
+
+✅ **5 tables déclarées dans le code mais absentes en BDD** (probablement non utilisées actuellement) :
+- `deck_layouts`, `deck_layout_items` (packlog)
+- `mission_visa_followups`, `mission_allowance_requests` (paxlog)
+- `process_lib_items` (pid_pfd)
+
+✅ **3 cas de colonnes manquantes en BDD vs modèle** (après filtrage faux positifs `metadata_` mappés à `"metadata"`) :
+
+| Table | Colonnes manquantes | Action |
+|---|---|---|
+| `ar_pumps` | `api_type_designation`, `fluid_viscosity_cst` | **🔧 FIXED** migration 169 |
+| `papyrus_external_submissions` | `created_at` (TimestampMixin hérité mais override par `submitted_at`) | ⏸️ Bas risque (pas d'endpoint qui SELECT directement). Backlog. |
+| `trip_kpis` | 8 colonnes mismatch nom : `sailing_duration_min` vs `productive_duration_min`, `cargo_loaded_kg` vs `cargo_weight_loaded_kg`, `pax_no_show` vs `no_shows`, `on_time_arrival`+`on_time_departure` vs `on_time` (1 seul), `departure_delay_min` vs `delay_minutes`, `loading_duration_min` vs `cargo_ops_duration_min`, `cargo_unloaded_kg` (absent BDD) | ⏸️ Mismatch profond — décision business requise pour aligner. Backlog. |
+
+**Bugs session 8** :
+
+26. **`ar_pumps` 2 colonnes BDD manquantes** : `api_type_designation` + `fluid_viscosity_cst` déclarées modèle mais jamais migrées. Toute lecture/écriture sur ces colonnes aurait crash similaire à bug #25. **Fix migration 169** déployé + vérifié.
+
+27. **`papyrus_external_submissions.created_at`** : TimestampMixin hérité mais override par `submitted_at` en pratique. Pas exposé via endpoint actuel. Backlog refacto modèle.
+
+28. **`trip_kpis` désynchronisation profonde modèle ≠ BDD** : 8 noms incompatibles. Probable refacto BDD non suivi côté modèle. Backlog : nécessite décision business pour l'alignement.
+
+**Stress test 27 endpoints supplémentaires** :
+- ✅ AUCUN 500 caché trouvé
+- ⚠️ `/documents` → 307 (trailing slash redirect, pas un bug)
+
+### Bilan session 8
+- 1 commit déployé (migration 169 + 2 scripts d'audit)
+- **1 bug latent corrigé** (`ar_pumps`)
+- **2 bugs latents documentés** (trip_kpis désaligné, papyrus_external_submissions.created_at)
+- **Outil pérenne** : 2 scripts d'audit réutilisables (peuvent être lancés en CI/CD pour catch les futurs cas)
+
+### Bilan global cumulé sessions 1-8 (FINAL)
+
+- **25 commits déployés sur main**
+- **28 bugs identifiés**, **21 corrigés et déployés**, **6 en backlog**, **1 invalidé**
+- **Tickets support résolus officiellement** : 3 (SUP-0040, SUP-0042, SUP-0039)
+- **Prod stable** : 17/17 endpoints HTTP 200 + 27 endpoints stress-testés
+- **Outils créés** : `scripts/i18n_bulk_translate.py`, `scripts/audit_model_vs_db.py`, `scripts/compare_model_vs_db.py`
+- **Documents** : `docs/QA-PROTOCOL-200.md` + `docs/QA-LOG.md` complet
+
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 
 **Couverture du protocole 200 étapes** :

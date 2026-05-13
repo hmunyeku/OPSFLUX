@@ -26,8 +26,33 @@
 | `44a4dd82` | docs(qa): protocole 200 etapes + journal de session autonome | Protocole + journal QA |
 | `14a18da5` | fix(secu+i18n): audit log require_permission + papyrus body Pydantic + 49 EN trad | Sécu + i18n complément |
 | `85e19fda` | hotfix(secu): audit endpoint — require_permission retourne deja un Depends | **Hotfix** : API down ~5min suite à 14a18da5, double-Depends imbriqué |
+| `9f8693d5` | docs(qa): log session 2 + incident | Doc |
+| `0ac6af55` | docs(qa): tour browser 12 modules | Doc |
+| `b096d8d6` | fix(ux+types+i18n): cargo rich-text strip + ADS pax_count live + 5 hooks types + 13 EN trad | UX critique : KPI PAX TOTAL aligné + rich-text rendu propre |
+| `39187000` | fix(projets): POST /api/v1/projects HTTP 500 — pop staging_ref + initial_tasks | **Bug bloquant** : aucune création projet via API ne marchait |
 
-**Tous déployés sur prod (compose status `done` × 6).**
+**Tous déployés sur prod (compose status `done` × 9).**
+
+### Session 3 — résumé des vagues A à J (autonomie continue après "continue jusqu'à la fin")
+
+**Vague A** ✅ `WidgetCard.renderCell` strip HTML rich-text — `<p>basket bleu</p>` rendu propre.
+**Vague B** ✅ DynamicPanel URL profonde confirmée OK (faux positif initial — hook `useOpenDetailFromPath` fonctionne).
+**Vague C** ✅ `_enrich_ads` recalcule `pax_count` live via `COUNT(ads_pax)`. ADS-2026-0014 → 6 pax (au lieu de 0).
+**Vague D** ✅ `useAssetRegistry.ts` : 5 hooks Update typés stricts.
+**Vague E** ✅ +13 traductions EN (total nuit 122 trad EN + 30 clés FR).
+**Vague F** ⏭️ SKIP refacto hardcoded strings (risque > bénéfice en autonomie).
+**Vague G** ✅ Création via API complète : Tier `TIR-2026-0007` + Contact `Jean DUPONT` + Address + Phone + Project `PRJ-26-000067` (après fix #5) + 7 activities (tous types : workover/drilling/inspection/maintenance/event/integrity/permanent_ops) + ADS `ADS-2026-0016`.
+**Vague H** ✅ Audit responsive via CSS injection forcée 380px → 24 éléments overflow (tables widgets dashboard). Backlog : mode "cards" en <sm.
+**Vague I** ✅ Tests permissions sans token. ⚠️ 4 endpoints retournent **400 au lieu de 401** (`projects/pax/ads/planner/activities/tiers`).
+**Vague J** ✅ Ce rapport.
+
+### Bugs identifiés en session 3 (en plus du backlog précédent)
+
+16. **Address schema incohérent** : `tier.address` utilise `zip_code` + `is_primary` ; `Address` polymorphique utilise `postal_code` + `is_default`. Dette de cohérence.
+
+17. **POST /api/v1/projects HTTP 500** → **corrigé** en session 3 (commit `39187000`).
+
+18. **Auth ordering incohérent** : 4 endpoints retournent 400 sans token au lieu de 401. `get_current_entity` est évalué avant `get_current_user`. À ré-ordonner les `Depends` pour qu'un client non-auth reçoive un 401 propre avec WWW-Authenticate header.
 
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 

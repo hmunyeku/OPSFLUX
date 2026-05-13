@@ -554,10 +554,12 @@ async def create_project(
                 select(OilSite.id).where(OilSite.id == asset_id).limit(1)
             )
             if site_check.scalar_one_or_none() is None:
-                raise StructuredHTTPException(
-                    422,
-                    code="ASSET_NOT_FOUND",
-                    message=f"Asset {asset_id} introuvable (ni Installation ni Site).",
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "ASSET_NOT_FOUND",
+                        "message": f"Asset {asset_id} introuvable (ni Installation ni Site).",
+                    },
                 )
 
     if not payload.get("code"):

@@ -378,7 +378,7 @@
     "delivered": "Delivered",
     "dependencies": "Dependencies",
     "designation": "Designation",
-    "destination_installation": "Destination installation",
+    "destination_installation": "Installation de destination",
     "detail": "Détail",
     "dictionary": "Dictionary",
     "discipline": "Discipline",
@@ -547,7 +547,8 @@
     "work_order": "Work order",
     "workflow": "Workflow",
     "workover_details": "Workover détails",
-    "revoke": "Révoquer"
+    "revoke": "Révoquer",
+    "contact_company": "Contact entreprise"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -4586,6 +4587,44 @@
       "scheduled_departure": "Scheduled departure",
       "total_cargo": "Total cargaison",
       "total_pax": "Total pax"
+    },
+    "cargo_request": {
+      "readiness": {
+        "title_label": "Intitulé métier de la demande",
+        "title_label_short": "Intitulé de la demande",
+        "description_label": "Description opérationnelle",
+        "sender_label": "Entreprise expéditrice",
+        "sender_short": "Expéditeur",
+        "cargo_items_label": "Au moins un colis rattaché",
+        "ready_for_input": "Prête pour saisie colis",
+        "in_preparation": "Préparation dossier",
+        "ready_to_submit": "Prête à soumettre",
+        "to_complete": "À compléter"
+      },
+      "fields": {
+        "filled": "Renseigné",
+        "optional": "Optional",
+        "to_specify": "À préciser"
+      },
+      "placeholders": {
+        "title_example": "Demande d'expédition équipements forage",
+        "destination_install": "Sélectionner l'installation de destination…",
+        "requester_name_fallback": "Fallback si le demandeur n'existe pas dans le référentiel",
+        "parent_request_imposed": "Demande parente imposée",
+        "parent_request_none": "Aucune demande parente",
+        "designation_short": "Désignation courte du colis",
+        "description_cargo": "Description opérationnelle du colis, de l'unité ou du lot…",
+        "pickup_contact_fallback": "Fallback si hors référentiel"
+      },
+      "detail": {
+        "section_operational": "Lecture opérationnelle",
+        "section_completeness": "Complétude de la demande",
+        "vector_fallback": "Vecteur",
+        "can_load": "Chargeable",
+        "cannot_load": "Bloqué",
+        "ready_message": "La demande est prête pour soumission.",
+        "not_ready_message": "La demande n'est pas encore prête pour soumission."
+      }
     }
   },
   "report_editor": {

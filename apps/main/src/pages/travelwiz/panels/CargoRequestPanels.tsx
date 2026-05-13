@@ -74,9 +74,9 @@ export function CreateCargoRequestPanel() {
   }
 
   const readinessChecklist = [
-    { label: 'Intitulé métier de la demande', done: Boolean(form.title.trim()) },
-    { label: 'Description opérationnelle', done: Boolean((form.description ?? '').trim()) },
-    { label: 'Entreprise expéditrice', done: Boolean(form.sender_tier_id) },
+    { label: t('travelwiz.cargo_request.readiness.title_label'), done: Boolean(form.title.trim()) },
+    { label: t('travelwiz.cargo_request.readiness.description_label'), done: Boolean((form.description ?? '').trim()) },
+    { label: t('travelwiz.cargo_request.readiness.sender_label'), done: Boolean(form.sender_tier_id) },
     { label: 'Contact entreprise', done: Boolean(form.sender_contact_tier_contact_id) },
     { label: 'Destinataire', done: Boolean((form.receiver_name ?? '').trim()) },
     { label: 'Site de destination', done: Boolean(form.destination_asset_id) },
@@ -104,7 +104,7 @@ export function CreateCargoRequestPanel() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="chip chip-info">{t('common.draft')}</span>
                 <span className={cn('chip', readinessScore >= 100 ? 'chip-success' : 'chip-warn')}>
-                  {readinessScore >= 100 ? 'Prête pour saisie colis' : 'Préparation dossier'}
+                  {readinessScore >= 100 ? t('travelwiz.cargo_request.readiness.ready_for_input') : t('travelwiz.cargo_request.readiness.in_preparation')}
                 </span>
               </div>
               <div className="grid gap-3 md:grid-cols-4">
@@ -118,11 +118,11 @@ export function CreateCargoRequestPanel() {
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.project')}</p>
-                  <p className="mt-1 text-sm font-medium text-foreground">{form.project_id ? 'Renseigné' : 'Optionnel'}</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{form.project_id ? t('travelwiz.cargo_request.fields.filled') : t('travelwiz.cargo_request.fields.optional')}</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.requester')}</p>
-                  <p className="mt-1 text-sm font-medium text-foreground">{form.requester_user_id || form.requester_name ? 'Renseigné' : 'À préciser'}</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{form.requester_user_id || form.requester_name ? t('travelwiz.cargo_request.fields.filled') : t('travelwiz.cargo_request.fields.to_specify')}</p>
                 </div>
               </div>
               <div className="grid gap-2 md:grid-cols-2">
@@ -146,7 +146,7 @@ export function CreateCargoRequestPanel() {
                     value={form.title}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                     className={panelInputClass}
-                    placeholder="Demande d'expédition équipements forage"
+                    placeholder={t('travelwiz.cargo_request.placeholders.title_example')}
                   />
                 </DynamicPanelField>
                 <DynamicPanelField label={t('common.project')}>
@@ -200,7 +200,7 @@ export function CreateCargoRequestPanel() {
                     value={form.destination_asset_id ?? null}
                     onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })}
                     clearable
-                    placeholder="Sélectionner l'installation de destination..."
+                    placeholder={t('travelwiz.cargo_request.placeholders.destination_install')}
                   />
                 </DynamicPanelField>
                 <DynamicPanelField label={t('common.requester')}>
@@ -211,7 +211,7 @@ export function CreateCargoRequestPanel() {
                   />
                 </DynamicPanelField>
                 <DynamicPanelField label={t('common.free_requester')}>
-                  <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si le demandeur n'existe pas dans le référentiel" />
+                  <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder={t('travelwiz.cargo_request.placeholders.requester_name_fallback')} />
                 </DynamicPanelField>
               </FormGrid>
             </FormSection>
@@ -343,7 +343,7 @@ export function CreateCargoPanel() {
                   className={panelInputClass}
                   disabled={!!preselectedRequestId}
                 >
-                  <option value="">{preselectedRequestId ? 'Demande parente imposée' : 'Aucune demande parente'}</option>
+                  <option value="">{preselectedRequestId ? t('travelwiz.cargo_request.placeholders.parent_request_imposed') : t('travelwiz.cargo_request.placeholders.parent_request_none')}</option>
                   {cargoRequests.map((request) => (
                     <option key={request.id} value={request.id}>{request.request_code} — {request.title}</option>
                   ))}
@@ -367,7 +367,7 @@ export function CreateCargoPanel() {
                 </select>
               </DynamicPanelField>
               <DynamicPanelField label={t('common.designation')}>
-                <input type="text" value={form.designation ?? ''} onChange={(e) => setForm({ ...form, designation: e.target.value || null })} className={panelInputClass} placeholder="Désignation courte du colis" />
+                <input type="text" value={form.designation ?? ''} onChange={(e) => setForm({ ...form, designation: e.target.value || null })} className={panelInputClass} placeholder={t('travelwiz.cargo_request.placeholders.designation_short')} />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.sap_article')}>
                 <input type="text" value={form.sap_article_code ?? ''} onChange={(e) => setForm({ ...form, sap_article_code: e.target.value || null })} className={panelInputClass} placeholder="MAT-00001" />
@@ -378,7 +378,7 @@ export function CreateCargoPanel() {
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   className={`${panelInputClass} min-h-[60px] resize-y`}
-                  placeholder="Description opérationnelle du colis, de l'unité ou du lot..."
+                  placeholder={t('travelwiz.cargo_request.placeholders.description_cargo')}
                   rows={3}
                 />
               </DynamicPanelField>
@@ -392,7 +392,7 @@ export function CreateCargoPanel() {
                 <div className="mt-3 grid gap-3 md:grid-cols-4">
                   <div>
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.project')}</p>
-                    <p className="mt-1 text-sm text-foreground">{selectedRequest.project_id ? 'Renseigné' : '—'}</p>
+                    <p className="mt-1 text-sm text-foreground">{selectedRequest.project_id ? t('travelwiz.cargo_request.fields.filled') : '—'}</p>
                   </div>
                   <div>
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('common.imputation')}</p>
@@ -526,7 +526,7 @@ export function CreateCargoPanel() {
                 />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.free_contact_name')}>
-                <input type="text" value={form.pickup_contact_name ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si hors référentiel" />
+                <input type="text" value={form.pickup_contact_name ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_name: e.target.value || null })} className={panelInputClass} placeholder={t('travelwiz.cargo_request.placeholders.pickup_contact_fallback')} />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.contact_phone')}>
                 <input type="text" value={form.pickup_contact_phone ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_phone: e.target.value || null })} className={panelInputClass} placeholder="+237..." />
@@ -631,15 +631,15 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
         ? ((error as { response?: { data?: { detail?: { missing_requirements?: string[] } } } }).response?.data?.detail?.missing_requirements ?? [])
         : []
       const requirementLabels: Record<string, string> = {
-        title: 'Intitulé de la demande',
-        description: 'Description de la demande',
-        sender_tier_id: 'Expéditeur',
-        sender_contact_tier_contact_id: 'Contact entreprise',
-        receiver_name: 'Destinataire',
-        destination_asset_id: 'Installation de destination',
-        imputation_reference_id: 'Imputation',
-        requester: 'Demandeur',
-        cargo_items: 'Au moins un colis rattaché',
+        title: t('travelwiz.cargo_request.readiness.title_label_short'),
+        description: t('travelwiz.cargo_request.readiness.description_label'),
+        sender_tier_id: t('travelwiz.cargo_request.readiness.sender_short'),
+        sender_contact_tier_contact_id: t('common.contact_company', 'Contact entreprise'),
+        receiver_name: t('common.recipient', 'Destinataire'),
+        destination_asset_id: t('common.destination_installation', 'Installation de destination'),
+        imputation_reference_id: t('common.imputation'),
+        requester: t('common.requester'),
+        cargo_items: t('travelwiz.cargo_request.readiness.cargo_items_label'),
       }
       toast({
         title: missing.length > 0
@@ -773,7 +773,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.free_requester')}>
-                <input type="text" value={editForm.requester_name ?? ''} onChange={(e) => setEditForm({ ...editForm, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si le demandeur n'existe pas dans le référentiel" />
+                <input type="text" value={editForm.requester_name ?? ''} onChange={(e) => setEditForm({ ...editForm, requester_name: e.target.value || null })} className={panelInputClass} placeholder={t('travelwiz.cargo_request.placeholders.requester_name_fallback')} />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.destination_installation')} span="full">
                 <AssetPicker
@@ -801,7 +801,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                   {requestStatusLabels[cargoRequest.status] ?? cargoRequest.status}
                 </span>
                 <span className={cn('chip', cargoRequest.is_ready_for_submission ? 'chip-success' : 'chip-warn')}>
-                  {cargoRequest.is_ready_for_submission ? 'Prête à soumettre' : 'À compléter'}
+                  {cargoRequest.is_ready_for_submission ? t('travelwiz.cargo_request.readiness.ready_to_submit') : t('travelwiz.cargo_request.readiness.to_complete')}
                 </span>
                 {loadingOptions?.length ? <span className="chip chip-info">{loadingOptions.length} option(s) de chargement</span> : null}
               </div>
@@ -833,18 +833,18 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               </div>
             </div>
 
-            <FormSection title="Lecture opérationnelle" collapsible defaultExpanded>
+            <FormSection title={t('travelwiz.cargo_request.detail.section_operational')} collapsible defaultExpanded>
               <div className="space-y-2">
                 {[
-                  { label: 'Intitulé de la demande', done: Boolean(cargoRequest.title?.trim()) },
-                  { label: 'Description de la demande', done: Boolean(cargoRequest.description?.trim()) },
-                  { label: 'Entreprise expéditrice', done: Boolean(cargoRequest.sender_tier_id) },
-                  { label: 'Contact entreprise', done: Boolean(cargoRequest.sender_contact_tier_contact_id) },
-                  { label: 'Destinataire', done: Boolean(cargoRequest.receiver_name?.trim()) },
-                  { label: 'Installation de destination', done: Boolean(cargoRequest.destination_asset_id) },
-                  { label: 'Imputation', done: Boolean(cargoRequest.imputation_reference_id) },
-                  { label: 'Demandeur', done: Boolean(cargoRequest.requester_user_id || cargoRequest.requester_name?.trim()) },
-                  { label: 'Au moins un colis rattaché', done: requestCargo.length > 0 },
+                  { label: t('travelwiz.cargo_request.readiness.title_label_short'), done: Boolean(cargoRequest.title?.trim()) },
+                  { label: t('travelwiz.cargo_request.readiness.description_label'), done: Boolean(cargoRequest.description?.trim()) },
+                  { label: t('travelwiz.cargo_request.readiness.sender_label'), done: Boolean(cargoRequest.sender_tier_id) },
+                  { label: t('common.contact_company', 'Contact entreprise'), done: Boolean(cargoRequest.sender_contact_tier_contact_id) },
+                  { label: t('common.recipient'), done: Boolean(cargoRequest.receiver_name?.trim()) },
+                  { label: t('common.destination_installation', 'Installation de destination'), done: Boolean(cargoRequest.destination_asset_id) },
+                  { label: t('common.imputation'), done: Boolean(cargoRequest.imputation_reference_id) },
+                  { label: t('common.requester'), done: Boolean(cargoRequest.requester_user_id || cargoRequest.requester_name?.trim()) },
+                  { label: t('travelwiz.cargo_request.readiness.cargo_items_label'), done: requestCargo.length > 0 },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center gap-2 text-xs">
                     {item.done
@@ -862,8 +862,8 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label={t('common.label_field')} value={cargoRequest.title} />
                 <ReadOnlyRow label={t('common.status')} value={requestStatusLabels[cargoRequest.status] ?? cargoRequest.status} />
                 <ReadOnlyRow label={t('common.description')} value={cargoRequest.description ?? '—'} />
-                <ReadOnlyRow label="Entreprise expéditrice" value={cargoRequest.sender_name ?? '—'} />
-                <ReadOnlyRow label="Contact entreprise" value={cargoRequest.sender_contact_name ?? '—'} />
+                <ReadOnlyRow label={t('travelwiz.cargo_request.readiness.sender_label')} value={cargoRequest.sender_name ?? '—'} />
+                <ReadOnlyRow label={t('common.contact_company', 'Contact entreprise')} value={cargoRequest.sender_contact_name ?? '—'} />
                 <ReadOnlyRow label={t('common.recipient')} value={cargoRequest.receiver_name ?? '—'} />
                 <ReadOnlyRow label={t('common.destination')} value={cargoRequest.destination_name ?? '—'} />
                 <ReadOnlyRow label={t('common.imputation')} value={cargoRequest.imputation_reference_name ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim() : '—'} />
@@ -873,26 +873,26 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               </DetailFieldGrid>
             </FormSection>
 
-            <FormSection title="Complétude de la demande" collapsible defaultExpanded>
+            <FormSection title={t('travelwiz.cargo_request.detail.section_completeness')} collapsible defaultExpanded>
               <div className="space-y-3">
                 <div className={`rounded-lg border px-3 py-2 text-xs ${cargoRequest.is_ready_for_submission ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
                   {cargoRequest.is_ready_for_submission
-                    ? 'La demande est prête pour soumission.'
-                    : "La demande n'est pas encore prête pour soumission."}
+                    ? t('travelwiz.cargo_request.detail.ready_message', 'La demande est prête pour soumission.')
+                    : t('travelwiz.cargo_request.detail.not_ready_message', "La demande n'est pas encore prête pour soumission.")}
                 </div>
                 {missingRequirements.length > 0 ? (
                   <div className="space-y-1">
                     {missingRequirements.map((item) => (
                       <div key={item} className="rounded-lg border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
                         {{
-                          title: 'Intitulé de la demande',
-                          description: 'Description de la demande',
-                          sender_tier_id: 'Expéditeur',
-                          receiver_name: 'Destinataire',
-                          destination_asset_id: 'Installation de destination',
-                          imputation_reference_id: 'Imputation',
-                          requester: 'Demandeur',
-                          cargo_items: 'Au moins un colis rattaché',
+                          title: t('travelwiz.cargo_request.readiness.title_label_short'),
+                          description: t('travelwiz.cargo_request.readiness.description_label'),
+                          sender_tier_id: t('travelwiz.cargo_request.readiness.sender_short'),
+                          receiver_name: t('common.recipient'),
+                          destination_asset_id: t('common.destination_installation', 'Installation de destination'),
+                          imputation_reference_id: t('common.imputation'),
+                          requester: t('common.requester'),
+                          cargo_items: t('travelwiz.cargo_request.readiness.cargo_items_label'),
                         }[item] ?? item}
                       </div>
                     ))}
@@ -952,7 +952,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground">{option.voyage_code}</p>
                           <p className="text-xs text-muted-foreground">
-                            {option.vector_name ?? 'Vecteur'} · départ {new Date(option.scheduled_departure).toLocaleString(numLocale())}
+                            {option.vector_name ?? t('travelwiz.cargo_request.detail.vector_fallback')} · départ {new Date(option.scheduled_departure).toLocaleString(numLocale())}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Base: {option.departure_base_name ?? '—'} · reste {option.remaining_weight_kg != null ? `${option.remaining_weight_kg.toLocaleString(numLocale())} kg` : 'poids non borné'}
@@ -986,7 +986,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           <span className={cn('chip', option.can_load ? 'chip-success' : 'chip-warn')}>
-                            {option.can_load ? 'Chargeable' : 'Bloqué'}
+                            {option.can_load ? t('travelwiz.cargo_request.detail.can_load') : t('travelwiz.cargo_request.detail.cannot_load')}
                           </span>
                           <PanelActionButton
                             variant="primary"

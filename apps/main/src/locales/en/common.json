@@ -451,7 +451,8 @@
     "width_cm": "Width cm",
     "work_order": "Work order",
     "workover_details": "Workover details",
-    "revoke": "Revoke"
+    "revoke": "Revoke",
+    "contact_company": "Company contact"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -4490,6 +4491,44 @@
       "help_periodicity_tip_voyage": "Help periodicity tip voyage",
       "name_placeholder": "Name placeholder",
       "vector_placeholder": "Vector placeholder"
+    },
+    "cargo_request": {
+      "readiness": {
+        "title_label": "Operational request title",
+        "title_label_short": "Request title",
+        "description_label": "Operational description",
+        "sender_label": "Sender company",
+        "sender_short": "Sender",
+        "cargo_items_label": "At least one cargo attached",
+        "ready_for_input": "Ready for cargo input",
+        "in_preparation": "In preparation",
+        "ready_to_submit": "Ready to submit",
+        "to_complete": "To complete"
+      },
+      "fields": {
+        "filled": "Filled",
+        "optional": "Optional",
+        "to_specify": "To specify"
+      },
+      "placeholders": {
+        "title_example": "Drilling equipment shipment request",
+        "destination_install": "Select destination installation…",
+        "requester_name_fallback": "Fallback if requester not in reference data",
+        "parent_request_imposed": "Parent request enforced",
+        "parent_request_none": "No parent request",
+        "designation_short": "Short cargo designation",
+        "description_cargo": "Operational description of the cargo, unit or batch…",
+        "pickup_contact_fallback": "Fallback if outside reference data"
+      },
+      "detail": {
+        "section_operational": "Operational view",
+        "section_completeness": "Request completeness",
+        "vector_fallback": "Vector",
+        "can_load": "Loadable",
+        "cannot_load": "Blocked",
+        "ready_message": "The request is ready for submission.",
+        "not_ready_message": "The request is not ready for submission yet."
+      }
     }
   },
   "report_editor": {

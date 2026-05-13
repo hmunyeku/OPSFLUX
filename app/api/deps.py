@@ -385,6 +385,9 @@ def _resolve_owner_model(owner_type: str):
     if owner_type == "moc":
         from app.models.moc import MOC
         return (MOC, True)
+    if owner_type == "delegation":
+        from app.models.common import UserDelegation
+        return (UserDelegation, True)
     # Unmapped (asset, medical_check, passport, etc.) fall through to
     # permission-only check upstream. Doesn't close the orphan loophole
     # for those types but doesn't regress them either.
@@ -461,6 +464,11 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     # the read/update perms. A user who can read the MOC can list its
     # attachments; a user who can update can upload/delete.
     "moc": ("moc.read", "moc.update"),
+    # User delegations — PDF certificate (ISO traceability) stocke en
+    # attachment polymorphique. Lecture autorisee si user peut lire ses
+    # delegations (any auth = perm core.users.read couvre le cas).
+    # Update reserve au delegant lui-meme (deja gere via la route POST).
+    "delegation": ("core.users.read", "core.users.manage"),
 }
 
 # Auto-fallback for `{module}_staging` owner types: any module present in

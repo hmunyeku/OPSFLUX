@@ -1334,8 +1334,7 @@ async def delete_my_delegation(
     delegation, delegate = row
 
     # ISO traceability: send revocation email + regenerate a REVOKED PDF
-    # snapshot BEFORE deleting. The original PDF stays in attachments
-    # (immutable audit log).
+    # snapshot. The original PDF stays in attachments (immutable audit log).
     try:
         from app.services.core.delegation_service import notify_delegation_revoked
         await notify_delegation_revoked(
@@ -1344,12 +1343,17 @@ async def delete_my_delegation(
             delegator=current_user,
             delegate=delegate,
         )
-        await db.commit()
     except Exception:
         # Already logged; never raise.
         pass
 
-    await db.delete(delegation)
+    # ISO compliance fix (bug #33) : soft-delete au lieu de hard-delete.
+    # Le hard-delete supprimait la row UserDelegation, ce qui cassait
+    # _assert_owner_row_exists et rendait les attachments PDF (certifs
+    # ISO) inaccessibles via /api/v1/attachments. On garde la row
+    # avec active=False — la delegation est revoquee (plus exercable)
+    # mais traceable indefiniment via son audit trail.
+    delegation.active = False
     await db.commit()
 
 

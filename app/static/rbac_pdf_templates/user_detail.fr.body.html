@@ -1,0 +1,77 @@
+<main style="padding: 8mm 12mm;">
+  <h1>{{ _('RBAC_USER_DETAIL') }} — {{ user.full_name }}</h1>
+  <p><strong>Email :</strong> {{ user.email }}</p>
+  <p><strong>Type :</strong> {{ user.user_type }}</p>
+
+  <h2>{{ _('RBAC_SECTION_GROUPS') }}</h2>
+  <ul>{% for g in groups %}<li>{{ g.name }}</li>{% endfor %}</ul>
+
+  <h2>{{ _('RBAC_SECTION_OVERRIDES') }}</h2>
+  {% if overrides %}
+    <table>
+      <thead><tr><th>{{ _('RBAC_LABEL_CODE') }}</th><th>État</th></tr></thead>
+      <tbody>
+        {% for o in overrides %}
+          <tr>
+            <td><span class="perm-code">{{ o.code }}</span></td>
+            <td>{% if o.granted %}✓ accordée{% else %}✗ révoquée{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p><em>Aucune surcharge.</em></p>
+  {% endif %}
+
+  <h2>{{ _('RBAC_SECTION_EFFECTIVE_PERMISSIONS') }} ({{ effective_permissions | length }})</h2>
+  <table>
+    <thead><tr><th>{{ _('RBAC_LABEL_CODE') }}</th><th>{{ _('RBAC_LABEL_SOURCE') }}</th></tr></thead>
+    <tbody>
+      {% for p in effective_permissions %}
+        <tr>
+          <td><span class="perm-code">{{ p.code }}</span></td>
+          <td><span class="source-badge source-{{ p.source }}">{{ _('RBAC_SOURCE_' ~ p.source | upper) }}</span></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if delegations_received %}
+    <h2>{{ _('RBAC_SECTION_DELEGATIONS_RECEIVED') }}</h2>
+    <table>
+      <thead><tr><th>De</th><th>{{ _('RBAC_LABEL_PERIOD') }}</th><th>{{ _('RBAC_SECTION_PERMISSIONS') }}</th><th>{{ _('RBAC_LABEL_REASON') }}</th></tr></thead>
+      <tbody>
+        {% for d in delegations_received %}
+          <tr>
+            <td>{{ d.delegator_id }}</td>
+            <td>{{ d.start_date }} → {{ d.end_date }}</td>
+            <td>{{ d.permissions | length }}</td>
+            <td>{{ d.reason | default('—') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if delegations_given %}
+    <h2>{{ _('RBAC_SECTION_DELEGATIONS_GIVEN') }}</h2>
+    <table>
+      <thead><tr><th>À</th><th>{{ _('RBAC_LABEL_PERIOD') }}</th><th>{{ _('RBAC_SECTION_PERMISSIONS') }}</th><th>{{ _('RBAC_LABEL_REASON') }}</th></tr></thead>
+      <tbody>
+        {% for d in delegations_given %}
+          <tr>
+            <td>{{ d.delegate_id }}</td>
+            <td>{{ d.start_date }} → {{ d.end_date }}</td>
+            <td>{{ d.permissions | length }}</td>
+            <td>{{ d.reason | default('—') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <div class="audit-footer" style="margin-top: 12mm; padding-top: 4mm; border-top: 1px solid #cbd5e1; font-size: 8pt; color: #64748b;">
+    <p><strong>{{ _('RBAC_AUDIT_EVENT') }} :</strong> <span style="font-family: monospace;">{{ audit_event_id | default('—') }}</span></p>
+    <p><em>{{ _('RBAC_ISO_CLAUSE_REVIEW') }}</em></p>
+  </div>
+</main>

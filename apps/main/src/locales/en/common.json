@@ -2111,7 +2111,8 @@
     "task_predecessor_none": "Task predecessor none",
     "task_start_date": "Task start date",
     "task_start_date_hint": "Task start date hint",
-    "task_title_placeholder": "Task title placeholder"
+    "task_title_placeholder": "Task title placeholder",
+    "task_label": "Task"
   },
   "dashboard": {
     "title": "Dashboard",

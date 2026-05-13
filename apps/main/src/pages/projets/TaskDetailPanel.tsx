@@ -367,7 +367,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
   if (!task) {
     return (
-      <DynamicPanelShell title={t('projets.task', 'Tâche')} subtitle={t('common.loading_ellipsis')} icon={<CheckCircle2 size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('projets.task_label', 'Tâche')} subtitle={t('common.loading_ellipsis')} icon={<CheckCircle2 size={14} className="text-primary" />}>
         <SkeletonDetailPanel />
       </DynamicPanelShell>
     )

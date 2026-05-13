@@ -135,3 +135,20 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # SUP : verifie que toutes les cles t() appelees dans le code TSX/TS
+  # sont definies dans locales/fr/common.json ET locales/en/common.json.
+  # Empeche les regressions type "cle brute affichee dans l'UI"
+  # (cf bugs i18n session 1 : 1133 cles t() manquantes en FR ajoutees
+  # session i18n-finalize).
+  i18n-check:
+    name: i18n coherence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check t() calls coherence FR/EN
+        run: python scripts/i18n_check.py

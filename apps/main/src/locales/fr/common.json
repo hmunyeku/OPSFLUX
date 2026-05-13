@@ -2207,7 +2207,8 @@
     "task_predecessor_none": "Tâche predecessor none",
     "task_start_date": "Tâche début date",
     "task_start_date_hint": "Tâche début date indice",
-    "task_title_placeholder": "Tâche titre espace réservé"
+    "task_title_placeholder": "Tâche titre espace réservé",
+    "task_label": "Tâche"
   },
   "dashboard": {
     "title": "Tableau de bord",

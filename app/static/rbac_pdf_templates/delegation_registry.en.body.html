@@ -1,0 +1,46 @@
+{# Delegations registry — A4 paysage. #}
+<style>
+  @page { size: A4 landscape; }
+  .status-cell { padding: 1mm 2mm; border-radius: 1mm; font-size: 7pt; font-weight: 700; text-transform: uppercase; }
+  .status-active { background: #dcfce7; color: #166534; }
+  .status-programmed { background: #dbeafe; color: #1e40af; }
+  .status-expired { background: #f1f5f9; color: #64748b; }
+  .status-revoked { background: #fee2e2; color: #991b1b; }
+</style>
+
+<main style="padding: 6mm 10mm;">
+  <h1>{{ _('RBAC_DELEGATIONS_REGISTRY') }}</h1>
+  <p>{{ tenant.name }} — {{ delegation_count }} {{ _('RBAC_COUNT_DELEGATIONS') }}</p>
+  {% if period.start or period.end %}
+    <p>{{ _('RBAC_LABEL_PERIOD') }} : {{ period.start | default('…') }} → {{ period.end | default('…') }}</p>
+  {% endif %}
+
+  <table style="margin-top: 4mm;">
+    <thead>
+      <tr>
+        <th>{{ _('RBAC_LABEL_DELEGATOR') }}</th>
+        <th>{{ _('RBAC_LABEL_DELEGATE') }}</th>
+        <th>{{ _('RBAC_LABEL_PERIOD') }}</th>
+        <th>{{ _('RBAC_LABEL_STATUS') }}</th>
+        <th>{{ _('RBAC_COUNT_PERMISSIONS') }}</th>
+        <th>{{ _('RBAC_LABEL_REASON') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in delegations %}
+        <tr>
+          <td>{{ d.delegator_name }}</td>
+          <td>{{ d.delegate_name }}</td>
+          <td style="font-size: 7pt;">{{ d.start_date }}<br>→ {{ d.end_date }}</td>
+          <td><span class="status-cell status-{{ d.status }}">{{ _('RBAC_STATUS_' ~ d.status | upper) }}</span></td>
+          <td style="text-align: center;">{{ d.permissions | length }}</td>
+          <td style="font-size: 7.5pt;">{{ d.reason | default('—') | truncate(80) }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p style="margin-top: 8mm; font-size: 8pt; color: #64748b; font-style: italic;">
+    {{ _('RBAC_ISO_CLAUSE_REVIEW') }}
+  </p>
+</main>

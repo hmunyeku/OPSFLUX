@@ -50,9 +50,15 @@ class MFARequiredResponse(BaseModel):
 
 
 class MFALoginRequest(BaseModel):
-    """Second step of login: verify MFA code to get real tokens."""
+    """Second step of login: verify MFA code to get real tokens.
+
+    remember_days : si > 0, crée un appareil de confiance MFA pour ne
+    pas avoir à saisir l'OTP pendant N jours. Clamp côté backend par
+    le setting admin auth.mfa_trust_device_max_days.
+    """
     mfa_token: str
     code: str
+    remember_days: int = 0
 
 
 class LoginResponse(BaseModel):

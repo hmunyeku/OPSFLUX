@@ -84,7 +84,11 @@
     "server_offline": "Server unreachable",
     "verification_d_email": "Vérification d'email",
     "verification_en_cours": "Vérification en cours...",
-    "server_offline_hint": "Server offline hint"
+    "server_offline_hint": "Server offline hint",
+    "mfa_max_days_hint": "(max {{max}} days)",
+    "mfa_remember_device": "Remember this device",
+    "mfa_remember_duration": "For",
+    "mfa_remember_hint": "On this device, you won't need to enter the code at every login."
   },
   "topbar": {
     "acting_as": "Acting context",
@@ -446,7 +450,8 @@
     "well_reference": "Well reference",
     "width_cm": "Width cm",
     "work_order": "Work order",
-    "workover_details": "Workover details"
+    "workover_details": "Workover details",
+    "revoke": "Revoke"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -5957,7 +5962,22 @@
     "mfa_policy_title": "Two-factor authentication (MFA)",
     "mfa_policy_description": "MFA security policy applied to all users.",
     "mfa_required_for_all_label": "Require MFA for all users",
-    "mfa_required_for_all_description": "When enabled, every user without MFA configured is forced to set it up before accessing the application (blocking overlay). Already logged-in users keep their active session but must configure MFA on next load."
+    "mfa_required_for_all_description": "When enabled, every user without MFA configured is forced to set it up before accessing the application (blocking overlay). Already logged-in users keep their active session but must configure MFA on next load.",
+    "mfa_trust_device_enabled_label": "Allow \"Remember this device\"",
+    "mfa_trust_device_enabled_description": "Lets users tick a box on the MFA page to skip entering the OTP at every login from this device. Max duration is configured below.",
+    "mfa_trust_device_max_days_label": "Maximum duration (days)",
+    "mfa_trust_device_max_days_description": "Maximum number of days a device can stay trusted. Recommended: 30 days. Safe maximum: 90.",
+    "trusted_devices_title": "MFA trusted devices",
+    "trusted_devices_description": "List of devices where you ticked \"Remember this device\". You can revoke a device to force MFA code entry at next login.",
+    "trusted_devices_empty": "No trusted device yet.",
+    "trusted_devices_count_one": "device",
+    "trusted_devices_count_other": "devices",
+    "trusted_devices_revoke_all": "Revoke all",
+    "trusted_devices_revoked": "Device revoked.",
+    "trusted_devices_revoked_all_one": "{{count}} device revoked.",
+    "trusted_devices_revoked_all_other": "{{count}} devices revoked.",
+    "trusted_devices_expires": "expires on",
+    "trusted_devices_last_used": "used"
   },
   "help_system": {
     "contextual": "Contextual help",

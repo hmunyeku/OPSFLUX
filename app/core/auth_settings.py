@@ -47,6 +47,11 @@ _DEFAULTS: dict[str, tuple[str, type, Any]] = {
     # le configurer avant tout autre accès (overlay bloquant côté front).
     # Géré par /api/v1/auth/mfa-policy + composant MFAEnforceOverlay.
     "mfa_required_for_all":      ("AUTH_MFA_REQUIRED_FOR_ALL", bool, False),
+    # MFA trusted devices — permet a un user de "se souvenir" d'un appareil
+    # pour ne pas saisir l'OTP a chaque connexion. Pattern classique
+    # "remember this device for X days".
+    "mfa_trust_device_enabled":  ("AUTH_MFA_TRUST_DEVICE_ENABLED", bool, True),
+    "mfa_trust_device_max_days": ("AUTH_MFA_TRUST_DEVICE_MAX_DAYS", int, 30),
     # Compliance: require verified email/phone to be declared compliant
     "require_account_verification": ("CONFORMITE_REQUIRE_ACCOUNT_VERIFICATION", bool, True),
     # Messaging: default channel per message type (auto | whatsapp | sms | email)

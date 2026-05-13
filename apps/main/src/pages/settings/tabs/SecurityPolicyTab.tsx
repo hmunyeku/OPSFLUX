@@ -287,6 +287,34 @@ export function SecurityPolicyTab() {
               onChange={(v) => save('mfa_required_for_all', v)}
             />
           </SettingRow>
+          <SettingRow
+            label={t('settings.mfa_trust_device_enabled_label', 'Autoriser "Se souvenir de cet appareil"')}
+            description={t(
+              'settings.mfa_trust_device_enabled_description',
+              "Permet aux utilisateurs de cocher une case sur la page MFA pour ne plus saisir leur code OTP à chaque connexion depuis cet appareil. Le délai max est configuré ci-dessous.",
+            )}
+          >
+            <Toggle
+              checked={s.mfa_trust_device_enabled ?? true}
+              onChange={(v) => save('mfa_trust_device_enabled', v)}
+            />
+          </SettingRow>
+          {(s.mfa_trust_device_enabled ?? true) && (
+            <SettingRow
+              label={t('settings.mfa_trust_device_max_days_label', 'Durée maximale (jours)')}
+              description={t(
+                'settings.mfa_trust_device_max_days_description',
+                "Nombre maximum de jours pendant lesquels un appareil peut être considéré comme de confiance. Recommandé : 30 jours. Maximum sécurisé : 90.",
+              )}
+            >
+              <NumberInput
+                value={s.mfa_trust_device_max_days ?? 30}
+                onChange={(v) => save('mfa_trust_device_max_days', v)}
+                min={1}
+                max={365}
+              />
+            </SettingRow>
+          )}
         </div>
       </CollapsibleSection>
 

@@ -180,7 +180,11 @@
     "server_offline": "Serveur injoignable",
     "verification_d_email": "Vérification d'email",
     "verification_en_cours": "Vérification en cours...",
-    "server_offline_hint": "Server offline indice"
+    "server_offline_hint": "Server offline indice",
+    "mfa_max_days_hint": "(max {{max}} jours)",
+    "mfa_remember_device": "Se souvenir de cet appareil",
+    "mfa_remember_duration": "Pendant",
+    "mfa_remember_hint": "Sur cet appareil, vous n'aurez plus à saisir le code à chaque connexion."
   },
   "topbar": {
     "acting_as": "Contexte d'action",
@@ -542,7 +546,8 @@
     "width_cm": "Width cm",
     "work_order": "Work order",
     "workflow": "Workflow",
-    "workover_details": "Workover détails"
+    "workover_details": "Workover détails",
+    "revoke": "Révoquer"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -6263,7 +6268,22 @@
     "mfa_policy_title": "Authentification à deux facteurs (MFA)",
     "mfa_policy_description": "Politique de sécurité MFA appliquée à tous les utilisateurs.",
     "mfa_required_for_all_label": "Exiger le MFA pour tous les utilisateurs",
-    "mfa_required_for_all_description": "Lorsqu'activé, tout utilisateur sans MFA configuré est forcé de le configurer avant d'accéder à l'application (overlay bloquant). Les utilisateurs déjà inscrits gardent leur session active mais doivent configurer le MFA au prochain chargement."
+    "mfa_required_for_all_description": "Lorsqu'activé, tout utilisateur sans MFA configuré est forcé de le configurer avant d'accéder à l'application (overlay bloquant). Les utilisateurs déjà inscrits gardent leur session active mais doivent configurer le MFA au prochain chargement.",
+    "mfa_trust_device_enabled_label": "Autoriser \"Se souvenir de cet appareil\"",
+    "mfa_trust_device_enabled_description": "Permet aux utilisateurs de cocher une case sur la page MFA pour ne plus saisir leur code OTP à chaque connexion depuis cet appareil. Le délai max est configuré ci-dessous.",
+    "mfa_trust_device_max_days_label": "Durée maximale (jours)",
+    "mfa_trust_device_max_days_description": "Nombre maximum de jours pendant lesquels un appareil peut être considéré comme de confiance. Recommandé : 30 jours. Maximum sécurisé : 90.",
+    "trusted_devices_title": "Appareils de confiance MFA",
+    "trusted_devices_description": "Liste des appareils où vous avez choisi \"Se souvenir de cet appareil\". Vous pouvez révoquer un appareil pour forcer la saisie du code MFA au prochain login.",
+    "trusted_devices_empty": "Aucun appareil de confiance pour le moment.",
+    "trusted_devices_count_one": "appareil",
+    "trusted_devices_count_other": "appareils",
+    "trusted_devices_revoke_all": "Tout révoquer",
+    "trusted_devices_revoked": "Appareil révoqué.",
+    "trusted_devices_revoked_all_one": "{{count}} appareil révoqué.",
+    "trusted_devices_revoked_all_other": "{{count}} appareils révoqués.",
+    "trusted_devices_expires": "expire le",
+    "trusted_devices_last_used": "utilisé"
   },
   "help_system": {
     "contextual": "Aide contextuelle",

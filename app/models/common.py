@@ -535,6 +535,53 @@ class RefreshToken(UUIDPrimaryKeyMixin, Base):
     revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
+# ─── MFA Trusted Devices ─────────────────────────────────────────────────────
+# Suite #6 MFA admin config — permet a un user de "se souvenir" de son
+# appareil pour ne pas saisir l'OTP a chaque connexion. La duree max
+# est controlee par le setting auth.mfa_trust_device_max_days.
+
+class MFATrustedDevice(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "mfa_trusted_devices"
+    __table_args__ = (
+        Index("idx_mfa_trusted_devices_user", "user_id"),
+        Index("idx_mfa_trusted_devices_expires", "expires_at"),
+        Index("idx_mfa_trusted_devices_token", "token_hash", unique=True),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # SHA-256 hash du token clear-text envoye dans le cookie HTTP-only.
+    # Le clear-text n'est jamais stocke en BDD pour limiter l'impact
+    # d'une fuite SQL.
+    token_hash: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Metadata pour audit + affichage dans Settings > Devices
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    browser: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    os: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    revoked: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
 # ─── Reference Sequences ────────────────────────────────────────────────────
 
 class ReferenceSequence(Base):

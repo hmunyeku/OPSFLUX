@@ -116,7 +116,7 @@ interface AuthState {
   mfaPending: boolean
 
   login: (email: string, password: string) => Promise<void>
-  verifyMfa: (code: string) => Promise<void>
+  verifyMfa: (code: string, rememberDays?: number) => Promise<void>
   clearMfa: () => void
   logout: () => void
   fetchUser: () => Promise<void>
@@ -157,14 +157,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user, currentEntityId: await resolveAccessibleCurrentEntityId(user) })
   },
 
-  verifyMfa: async (code: string) => {
+  verifyMfa: async (code: string, rememberDays = 0) => {
     const mfaToken = get().mfaToken
     if (!mfaToken) throw new Error('No MFA session')
 
+    // withCredentials needed for the cookie set-cookie to land
     const res = await api.post('/api/v1/auth/mfa-verify', {
       mfa_token: mfaToken,
       code,
-    })
+      remember_days: rememberDays,
+    }, { withCredentials: true })
     const { access_token, refresh_token } = res.data
     safeLocal.setItem('access_token', access_token)
     safeLocal.setItem('refresh_token', refresh_token)

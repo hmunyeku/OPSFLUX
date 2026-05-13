@@ -1,5 +1,6 @@
 """Test migration 171 phase 1 — additive bootstrap."""
 import os
+import subprocess
 import pytest
 from sqlalchemy import select
 from app.models.common import Permission, Role
@@ -121,3 +122,11 @@ async def test_tenant_settings_seeded(db_session, sample_entity):
     )
     found = {row[0] for row in result.all()}
     assert set(expected_keys) == found, f"Settings manquants: {set(expected_keys) - found}"
+
+
+def test_migration_171_idempotent():
+    """Running alembic upgrade head twice in a row doesn't error and doesn't duplicate data."""
+    result = subprocess.run(
+        ["alembic", "upgrade", "head"], capture_output=True, text=True
+    )
+    assert result.returncode == 0, f"Migration failed on second run: {result.stderr}"

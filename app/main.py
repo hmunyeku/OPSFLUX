@@ -102,6 +102,7 @@ from app.api.routes.core.rbac.delegations import router as rbac_delegations_rout
 from app.api.routes.core.rbac.exports import router as rbac_exports_router
 from app.api.routes.core.rbac.defaults import router as rbac_defaults_router
 from app.api.routes.core.rbac.audit_events import router as rbac_audit_events_router
+from app.api.routes.core.rbac.matrix import router as rbac_matrix_router
 from app.api.routes.modules.paxlog import router as paxlog_router
 from app.api.routes.modules.planner import router as planner_router
 from app.api.routes.modules.travelwiz import router as travelwiz_router
@@ -405,6 +406,7 @@ app.include_router(rbac_delegations_router)
 app.include_router(rbac_exports_router)
 app.include_router(rbac_defaults_router)
 app.include_router(rbac_audit_events_router)
+app.include_router(rbac_matrix_router)
 app.include_router(references_router)
 app.include_router(mcp_router)
 app.include_router(mcp_gateway_router)

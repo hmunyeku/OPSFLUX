@@ -36,7 +36,31 @@ async def test_permission_has_new_columns(db_session):
     assert fetched.resource == "thing"
     assert fetched.action == "read"
     assert fetched.deprecated is False
+    assert fetched.deprecated_for is None
     assert fetched.sensitive is False
+
+
+@pytest.mark.asyncio
+async def test_permission_deprecated_for_roundtrip(db_session):
+    """A permission marked deprecated points to its replacement code."""
+    perm = Permission(
+        code="old.thing.read",
+        name="Old read",
+        module="legacy",
+        namespace="old",
+        resource="thing",
+        action="read",
+        deprecated=True,
+        deprecated_for="new.thing.read",
+        sensitive=False,
+    )
+    db_session.add(perm)
+    await db_session.commit()
+
+    result = await db_session.execute(select(Permission).where(Permission.code == "old.thing.read"))
+    fetched = result.scalar_one()
+    assert fetched.deprecated is True
+    assert fetched.deprecated_for == "new.thing.read"
 
 
 @pytest.mark.asyncio

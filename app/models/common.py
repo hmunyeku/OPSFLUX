@@ -536,13 +536,17 @@ class RbacAuditEvent(UUIDPrimaryKeyMixin, Base):
         Index("ix_rbac_audit_tenant_time", "tenant_id", "occurred_at"),
         Index("ix_rbac_audit_event_type", "event_type"),
         Index("ix_rbac_audit_actor", "actor_user_id"),
+        CheckConstraint(
+            "status IN ('success', 'failure', 'pending', 'partial')",
+            name="ck_rbac_audit_status",
+        ),
     )
 
     tenant_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False, index=True
     )
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)
-    target: Mapped[str | None] = mapped_column(String(200))
+    target: Mapped[str | None] = mapped_column(String(500))
     params: Mapped[dict | None] = mapped_column(JSONB)
     result_summary: Mapped[dict | None] = mapped_column(JSONB)
     file_hash_sha256: Mapped[str | None] = mapped_column(String(64))

@@ -524,6 +524,45 @@ class UserPermissionOverride(Base):
     granted: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
 
+# ─── RBAC Audit Trail (PR-A) ──────────────────────────────────────────────
+
+class RbacAuditEvent(UUIDPrimaryKeyMixin, Base):
+    """Audit trail for RBAC-related events: exports, imports, delegations, matrix changes.
+
+    Conformity: ISO 27001 §A.9 Access Control, RGPD Art. 30 Records of processing.
+    """
+    __tablename__ = "rbac_audit_events"
+    __table_args__ = (
+        Index("ix_rbac_audit_tenant_time", "tenant_id", "occurred_at"),
+        Index("ix_rbac_audit_event_type", "event_type"),
+        Index("ix_rbac_audit_actor", "actor_user_id"),
+    )
+
+    tenant_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False, index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    target: Mapped[str | None] = mapped_column(String(200))
+    params: Mapped[dict | None] = mapped_column(JSONB)
+    result_summary: Mapped[dict | None] = mapped_column(JSONB)
+    file_hash_sha256: Mapped[str | None] = mapped_column(String(64))
+    actor_user_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    client_ip: Mapped[str | None] = mapped_column(String(45))
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        String(20), default="success", server_default="success", nullable=False
+    )
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    error_detail: Mapped[str | None] = mapped_column(Text)
+
+
 # ─── Refresh Tokens ──────────────────────────────────────────────────────────
 
 class RefreshToken(UUIDPrimaryKeyMixin, Base):

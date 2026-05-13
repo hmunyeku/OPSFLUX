@@ -6148,7 +6148,71 @@
     "no_body": "No body",
     "page_title": "Page title",
     "unread_count": "Unread count",
-    "view_all": "View all"
+    "view_all": "View all",
+    "levels": {
+      "participate": "Participate",
+      "watch": "Watch",
+      "mention": "Mention",
+      "disabled": "Disabled",
+      "global": "Global"
+    },
+    "level_desc": {
+      "participate": "Items you participate in",
+      "watch": "All notifications",
+      "mention": "Only when you are mentioned",
+      "disabled": "No notification"
+    },
+    "modules": {
+      "paxlog": "PaxLog",
+      "projects": "Projects",
+      "planner": "Planner",
+      "travelwiz": "TravelWiz",
+      "packlog": "PackLog",
+      "conformite": "Compliance",
+      "workflow": "Workflow",
+      "support": "Support",
+      "messaging": "Messaging",
+      "core": "System"
+    },
+    "events": {
+      "ads.submitted": "AdS submitted",
+      "ads.rejected": "AdS rejected",
+      "ads.compliance_failed": "AdS blocked by compliance",
+      "ads.approved": "AdS approved",
+      "planner.activity.validated": "Activity validated",
+      "planner.activity.cancelled": "Activity cancelled",
+      "planner.conflict.detected": "Capacity conflict detected",
+      "planner.revision.requested": "Revision requested",
+      "planner.revision.responded": "Revision answered",
+      "planner.revision.forced": "Revision forced",
+      "project.status.changed": "Project status changed",
+      "project.task.assigned": "Task assigned",
+      "project.task.planner_sync_required": "Planner revision suggested",
+      "conformite.record_verified": "Compliance verified / rejected",
+      "conformite.rule.changed": "Rule changed",
+      "conformite.record.expired": "Compliance expired",
+      "document.submitted": "Document submitted",
+      "document.approved": "Document approved",
+      "document.rejected": "Document rejected",
+      "document.published": "Document published",
+      "ticket.assigned": "Ticket assigned",
+      "ticket.commented": "Ticket commented",
+      "ticket.resolved": "Ticket resolved",
+      "travelwiz.pickup_reminder": "Pickup reminder"
+    },
+    "ui": {
+      "channel_allowed": "Allowed",
+      "module_header": "Module",
+      "event_header": "Event",
+      "channel_in_app": "In-app",
+      "channel_email": "Email",
+      "channel_digest": "Digest",
+      "channel_sms": "SMS",
+      "channel_whatsapp": "WhatsApp",
+      "groups_header": "Groups",
+      "groups_actions_section": "Groups & Actions",
+      "global_default_hint": "By default, all groups use the global notification level."
+    }
   },
   "export": {
     "wizard_title": "Export Assistant",

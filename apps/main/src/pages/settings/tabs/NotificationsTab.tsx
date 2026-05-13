@@ -92,6 +92,7 @@ const defaultNotificationEventMatrix = Object.fromEntries(
 
 export function NotificationsTab() {
   const { t } = useTranslation()
+  const channelLabel = useChannelLabel()
   const { toast } = useToast()
   const { data: prefs, isLoading: prefsLoading } = useNotificationPreferences()
   const { data: emails } = useUserEmails()
@@ -175,13 +176,13 @@ export function NotificationsTab() {
         <div className="mt-5">
           <label className="gl-label">{t('settings.niveau_de_notification_global')}</label>
           <p className="text-sm text-muted-foreground mb-2">
-            Par défaut, tous les groupes utilisent le niveau de notification global.
+            {t('notifications.ui.global_default_hint')}
           </p>
           <div className="flex items-center gap-2 max-w-xs">
             <Bell size={14} className="text-muted-foreground shrink-0" />
             <select value={globalLevel} onChange={(e) => setGlobalLevel(e.target.value)} className="gl-form-select">
               {notificationLevels.map((level) => (
-                <option key={level.value} value={level.value}>{level.label}</option>
+                <option key={level.value} value={level.value}>{t(`notifications.levels.${level.value}`, level.label)}</option>
               ))}
             </select>
           </div>
@@ -201,12 +202,12 @@ export function NotificationsTab() {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection id="notifications-groups" title="Groupes & Actions" description={t('settings.personnalisez_les_notifications_par_grou')} storageKey="settings.notifications.collapse">
+      <CollapsibleSection id="notifications-groups" title={t('notifications.ui.groups_actions_section')} description={t('settings.personnalisez_les_notifications_par_grou')} storageKey="settings.notifications.collapse">
         {/* Per-group overrides */}
         {groups && groups.length > 0 && (
           <div className="border border-border/60 rounded-lg bg-card">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-muted/30 rounded-t-lg">
-              <span className="text-sm font-semibold text-foreground">Groupes</span>
+              <span className="text-sm font-semibold text-foreground">{t('notifications.ui.groups_header')}</span>
               <span className="text-sm text-muted-foreground">{groups.length}</span>
             </div>
             {groups.map((group) => (
@@ -230,7 +231,7 @@ export function NotificationsTab() {
                   }}
                 >
                   {allLevels.map((level) => (
-                    <option key={level.value} value={level.value}>{level.label}</option>
+                    <option key={level.value} value={level.value}>{t(`notifications.levels.${level.value}`, level.label)}</option>
                   ))}
                 </select>
               </div>
@@ -267,16 +268,16 @@ export function NotificationsTab() {
       >
         <div className="border border-border/60 rounded-lg bg-card overflow-hidden">
           <div className="grid grid-cols-[1.5fr_repeat(3,minmax(0,140px))] gap-0 px-4 py-3 border-b border-border/40 bg-muted/30 text-xs font-semibold text-muted-foreground">
-            <span>Module</span>
-            <span>In-app</span>
-            <span>Email</span>
-            <span>Digest</span>
+            <span>{t('notifications.ui.module_header')}</span>
+            <span>{t('notifications.ui.channel_in_app')}</span>
+            <span>{t('notifications.ui.channel_email')}</span>
+            <span>{t('notifications.ui.channel_digest')}</span>
           </div>
           {notificationModules.map((module) => {
             const value = notificationMatrix[module.key] || defaultNotificationMatrix[module.key]
             return (
               <div key={module.key} className="grid grid-cols-[1.5fr_repeat(3,minmax(0,140px))] gap-0 px-4 py-3 border-b border-border/20 last:border-b-0 items-center">
-                <span className="text-sm text-foreground">{module.label}</span>
+                <span className="text-sm text-foreground">{t(`notifications.modules.${module.key}`, module.label)}</span>
                 {(['in_app', 'email', 'digest'] as const).map((channel) => (
                   <label key={channel} className="flex items-center gap-2 text-sm text-foreground">
                     <input
@@ -294,7 +295,7 @@ export function NotificationsTab() {
                       }}
                       className="h-4 w-4 accent-primary"
                     />
-                    <span>{europeanChannelLabel(channel)}</span>
+                    <span>{channelLabel(channel)}</span>
                   </label>
                 ))}
               </div>
@@ -311,20 +312,20 @@ export function NotificationsTab() {
       >
         <div className="border border-border/60 rounded-lg bg-card overflow-hidden">
           <div className="grid grid-cols-[1.1fr_1.5fr_repeat(5,minmax(0,110px))] gap-0 px-4 py-3 border-b border-border/40 bg-muted/30 text-xs font-semibold text-muted-foreground">
-            <span>Module</span>
-            <span>{t('settings.evenement')}</span>
-            <span>In-app</span>
-            <span>Email</span>
-            <span>Digest</span>
-            <span>SMS</span>
-            <span>WhatsApp</span>
+            <span>{t('notifications.ui.module_header')}</span>
+            <span>{t('notifications.ui.event_header')}</span>
+            <span>{t('notifications.ui.channel_in_app')}</span>
+            <span>{t('notifications.ui.channel_email')}</span>
+            <span>{t('notifications.ui.channel_digest')}</span>
+            <span>{t('notifications.ui.channel_sms')}</span>
+            <span>{t('notifications.ui.channel_whatsapp')}</span>
           </div>
           {notificationEvents.map((event) => {
             const value = notificationEventMatrix[event.key] || defaultNotificationEventMatrix[event.key]
             return (
               <div key={event.key} className="grid grid-cols-[1.1fr_1.5fr_repeat(5,minmax(0,110px))] gap-0 px-4 py-3 border-b border-border/20 last:border-b-0 items-center">
                 <span className="text-sm text-muted-foreground">{event.module}</span>
-                <span className="text-sm text-foreground">{event.label}</span>
+                <span className="text-sm text-foreground">{t(`notifications.events.${event.key}`, event.label)}</span>
                 {(['in_app', 'email', 'digest', 'sms', 'whatsapp'] as const).map((channel) => (
                   <label key={channel} className="flex items-center gap-2 text-sm text-foreground">
                     <input
@@ -342,7 +343,7 @@ export function NotificationsTab() {
                       }}
                       className="h-4 w-4 accent-primary"
                     />
-                    <span>{europeanChannelLabel(channel)}</span>
+                    <span>{channelLabel(channel)}</span>
                   </label>
                 ))}
               </div>
@@ -364,12 +365,9 @@ export function NotificationsTab() {
   )
 }
 
-function europeanChannelLabel(channel: 'in_app' | 'email' | 'digest' | 'sms' | 'whatsapp') {
-  if (channel === 'in_app') return 'Autorisé'
-  if (channel === 'email') return 'Autorisé'
-  if (channel === 'sms') return 'Autorisé'
-  if (channel === 'whatsapp') return 'Autorisé'
-  return 'Autorisé'
+function useChannelLabel() {
+  const { t } = useTranslation()
+  return (_channel: 'in_app' | 'email' | 'digest' | 'sms' | 'whatsapp') => t('notifications.ui.channel_allowed')
 }
 
 // ── Toast configuration section ────────────────────────────

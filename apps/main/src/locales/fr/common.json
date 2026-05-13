@@ -6454,7 +6454,71 @@
     "open": "Ouvrir",
     "page_title": "Page titre",
     "unread_count": "Unread count",
-    "view_all": "Voir tous"
+    "view_all": "Voir tous",
+    "levels": {
+      "participate": "Participer",
+      "watch": "Surveiller",
+      "mention": "Mention",
+      "disabled": "Désactivé",
+      "global": "Global"
+    },
+    "level_desc": {
+      "participate": "Éléments auxquels vous participez",
+      "watch": "Toutes les notifications",
+      "mention": "Uniquement quand vous êtes mentionné",
+      "disabled": "Aucune notification"
+    },
+    "modules": {
+      "paxlog": "PaxLog",
+      "projects": "Projets",
+      "planner": "Planner",
+      "travelwiz": "TravelWiz",
+      "packlog": "PackLog",
+      "conformite": "Conformité",
+      "workflow": "Workflow",
+      "support": "Support",
+      "messaging": "Messagerie",
+      "core": "Système"
+    },
+    "events": {
+      "ads.submitted": "AdS soumise",
+      "ads.rejected": "AdS rejetée",
+      "ads.compliance_failed": "AdS bloquée en conformité",
+      "ads.approved": "AdS approuvée",
+      "planner.activity.validated": "Activité validée",
+      "planner.activity.cancelled": "Activité annulée",
+      "planner.conflict.detected": "Conflit de capacité détecté",
+      "planner.revision.requested": "Révision demandée",
+      "planner.revision.responded": "Réponse à une révision",
+      "planner.revision.forced": "Révision forcée",
+      "project.status.changed": "Statut projet modifié",
+      "project.task.assigned": "Tâche assignée",
+      "project.task.planner_sync_required": "Révision Planner suggérée",
+      "conformite.record_verified": "Conformité vérifiée / rejetée",
+      "conformite.rule.changed": "Règle modifiée",
+      "conformite.record.expired": "Conformité expirée",
+      "document.submitted": "Document soumis",
+      "document.approved": "Document approuvé",
+      "document.rejected": "Document rejeté",
+      "document.published": "Document publié",
+      "ticket.assigned": "Ticket assigné",
+      "ticket.commented": "Ticket commenté",
+      "ticket.resolved": "Ticket résolu",
+      "travelwiz.pickup_reminder": "Rappel de navette"
+    },
+    "ui": {
+      "channel_allowed": "Autorisé",
+      "module_header": "Module",
+      "event_header": "Événement",
+      "channel_in_app": "In-app",
+      "channel_email": "Email",
+      "channel_digest": "Digest",
+      "channel_sms": "SMS",
+      "channel_whatsapp": "WhatsApp",
+      "groups_header": "Groupes",
+      "groups_actions_section": "Groupes & Actions",
+      "global_default_hint": "Par défaut, tous les groupes utilisent le niveau de notification global."
+    }
   },
   "export": {
     "wizard_title": "Assistant d'export",

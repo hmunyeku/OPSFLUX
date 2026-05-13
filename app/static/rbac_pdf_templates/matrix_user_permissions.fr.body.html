@@ -1,0 +1,64 @@
+{# Matrice Utilisateurs × Permissions — A4 paysage. Permissions effectives résolues (RGPD-sensible). #}
+<style>
+  @page { size: A4 landscape; }
+</style>
+
+<main>
+  <section class="cover-page">
+    <h1>{{ _('RBAC_MATRIX_USERS_PERMISSIONS') }}</h1>
+    <p class="cover-tenant">{{ tenant.name }}</p>
+    <p class="cover-date">{{ _('RBAC_GENERATED_AT') }} : {{ generated_at }}</p>
+    <div class="synthesis-box">
+      <h3>{{ _('RBAC_SECTION_SYNTHESIS') }}</h3>
+      <ul>
+        <li>{{ users | length }} {{ _('RBAC_COUNT_USERS') }}</li>
+        <li>{{ permissions | length }} {{ _('RBAC_COUNT_PERMISSIONS') }}</li>
+        <li>{{ grants | length }} {{ _('RBAC_COUNT_LINKS') }}</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="page-break-before">
+    <h2>{{ _('RBAC_MATRIX_USERS_PERMISSIONS') }}</h2>
+    <table class="matrix-table">
+      <thead>
+        <tr>
+          <th>{{ _('RBAC_LABEL_NAME') }}</th>
+          {% for user in users %}
+            <th class="role-col">{{ user.full_name }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for perm in permissions %}
+          <tr>
+            <td>
+              <div class="perm-code">{{ perm.code }}</div>
+              <div class="perm-name">{{ perm.name }}</div>
+              {% if perm.sensitive %}<span class="badge-rgpd">RGPD</span>{% endif %}
+            </td>
+            {% for user in users %}
+              {% set grant = (grants | selectattr('user_id', 'equalto', user.id|string) | selectattr('perm_code', 'equalto', perm.code) | first) %}
+              <td class="{% if grant %}granted{% endif %} {% if perm.module_disabled %}disabled{% endif %}">
+                {% if grant %}
+                  <span class="cell-granted">✓</span>
+                {% else %}
+                  <span class="cell-not-granted">·</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page-break-before">
+    <h2>{{ _('RBAC_SECTION_LEGEND') }}</h2>
+    <table style="width: auto;">
+      <tr><td><span class="cell-granted">✓</span></td><td>{{ _('RBAC_LEGEND_GRANTED') }}</td></tr>
+      <tr><td><span class="cell-not-granted">·</span></td><td>{{ _('RBAC_LEGEND_NOT_GRANTED') }}</td></tr>
+      <tr><td><span class="badge-rgpd">RGPD</span></td><td>{{ _('RBAC_LEGEND_RGPD_FLAG') }}</td></tr>
+    </table>
+  </section>
+</main>

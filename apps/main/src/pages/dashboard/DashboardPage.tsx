@@ -176,33 +176,14 @@ export function DashboardPage() {
     return unifyTabs(tabsData.mandatory, tabsData.personal)
   }, [tabsData])
 
-  // If we have no tabs from the API, show built-in "Overview" + "My activity" tabs
-  const hasApiTabs = allTabs.length > 0
-  const builtinTabs: UnifiedTab[] = useMemo(() => {
-    if (hasApiTabs || tabsLoading) return [] // Don't show fallback while loading
-    return [
-      {
-        id: '__builtin_overview',
-        name: t('dashboard.tab_overview'),
-        is_mandatory: true,
-        is_closable: false,
-        tab_order: 0,
-        widgets: [],
-        icon: null,
-      },
-      {
-        id: '__builtin_activity',
-        name: t('dashboard.tab_activity'),
-        is_mandatory: true,
-        is_closable: false,
-        tab_order: 1,
-        widgets: [],
-        icon: null,
-      },
-    ]
-  }, [hasApiTabs, tabsLoading, t])
-
-  const displayTabs = hasApiTabs ? allTabs : builtinTabs
+  // Refonte (mai 2026) : suppression des builtin tabs hardcodes
+  // ("Overview" + "My activity") qui creaient un dashboard fake
+  // different du module Dashboard reel. Le backend seed maintenant
+  // automatiquement un tab personnel vide au premier acces — l'user
+  // voit donc TOUJOURS au moins un tab DB-backed avec le vrai systeme
+  // de widgets configurables. L'empty-state pour tab sans widget est
+  // gere dans le rendu du body (cf bloc dashboardEmpty).
+  const displayTabs = allTabs
 
   // Auto-select first tab
   useEffect(() => {

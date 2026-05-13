@@ -613,6 +613,37 @@ async def delete_tv_link(
 #  TABS — combined view (mandatory + personal)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
+async def _seed_default_user_tab(
+    user_id: UUID, entity_id: UUID, db: AsyncSession
+) -> UserDashboardTab:
+    """Cree un UserDashboardTab par defaut pour un user qui n'a aucun tab.
+
+    Bastien (mai 2026) : "d'ou sort le tableau de bord qui apparait
+    a la premiere connexion (...) il est code en dur ?". Reponse : oui
+    c'etait un fallback hardcode cote frontend. On le remplace par un
+    vrai tab DB seed-er au premier acces (lazy), pour que l'experience
+    visuelle soit coherente avec le module Dashboard.
+
+    Le tab est cree vide (widgets=[]) — le frontend affiche alors un
+    empty state propre invitant l'user a ajouter ses widgets via le
+    bouton Modifier. Pas de widgets par defaut imposes parce que les
+    widgets disponibles sont role-specific et l'auto-selection serait
+    aleatoire.
+    """
+    tab = UserDashboardTab(
+        user_id=user_id,
+        entity_id=entity_id,
+        name="Mon tableau de bord",
+        tab_order=0,
+        widgets=[],
+    )
+    db.add(tab)
+    await db.flush()
+    await db.commit()
+    return tab
+
+
 @router.get(
     "/dashboard/tabs",
     response_model=list[DashboardTabRead],
@@ -632,6 +663,12 @@ async def list_tabs(
     Optional ``module`` query parameter filters by target_module slug
     (e.g. "planner", "paxlog", "travelwiz"). If omitted returns global
     (target_module IS NULL) tabs only for backward compatibility.
+
+    Si module is NULL (global dashboard) et que le user n'a AUCUN tab
+    (ni mandatory matching role, ni personal), on cree un tab personnel
+    vide par defaut. Garantit que l'user voit toujours au moins un tab
+    avec le vrai systeme de widgets DB-backed plutot que des fallbacks
+    hardcodes cote frontend.
     """
     module = _normalize_module_slug(module)
     user_roles = await _get_user_role_codes(current_user.id, entity_id, db)
@@ -676,7 +713,22 @@ async def list_tabs(
         .order_by(UserDashboardTab.tab_order)
     )
     personal_result = await db.execute(personal_stmt)
-    personal_tabs = personal_result.scalars().all()
+    personal_tabs = list(personal_result.scalars().all())
+
+    # Auto-seed : si user n'a aucun tab (mandatory + personal vide) et
+    # qu'on est sur le global dashboard (module is None), creer un tab
+    # personnel vide. Empeche le frontend d'afficher des builtin tabs
+    # hardcodes (cf comment in_seed_default_user_tab).
+    if not mandatory_tabs and not personal_tabs and not module:
+        try:
+            seeded = await _seed_default_user_tab(
+                current_user.id, entity_id, db,
+            )
+            personal_tabs.append(seeded)
+        except Exception:
+            logger.exception("Failed to seed default dashboard tab for user %s", current_user.id)
+            # On retourne quand meme la liste vide — le frontend a un
+            # empty state propre comme fallback.
 
     # Merge: mandatory first, then personal, each group sorted by tab_order
     combined: list[DashboardTabRead] = []

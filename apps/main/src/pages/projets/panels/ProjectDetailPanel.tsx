@@ -545,12 +545,13 @@ function TaskSubFeatures({ task, projectId, allTasks }: {
   projectId: string
   allTasks: ProjectTask[]
 }) {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<SubTab>('deps')
   const tabs: { id: SubTab; label: string; icon: typeof Link2 }[] = [
-    { id: 'deps', label: 'Dépendances', icon: Link2 },
-    { id: 'deliverables', label: 'Livrables', icon: Package },
-    { id: 'actions', label: 'Actions', icon: CheckSquare },
-    { id: 'history', label: 'Historique', icon: History },
+    { id: 'deps', label: t('projets.detail.tabs.deps'), icon: Link2 },
+    { id: 'deliverables', label: t('projets.detail.tabs.deliverables'), icon: Package },
+    { id: 'actions', label: t('projets.detail.tabs.actions'), icon: CheckSquare },
+    { id: 'history', label: t('projets.detail.tabs.history'), icon: History },
   ]
   return (
     <div className="border-t border-border/30 pt-2 mt-1">
@@ -711,7 +712,7 @@ function TaskRow({
 
   const WeatherIcon = weather === 'sunny' ? Sun : weather === 'cloudy' ? Cloud : weather === 'rainy' ? CloudRain : weather === 'stormy' ? CloudLightning : null
   const weatherTone = weather === 'sunny' ? 'text-amber-500' : weather === 'cloudy' ? 'text-zinc-400' : weather === 'rainy' ? 'text-blue-500' : 'text-red-500'
-  const weatherLabel = weather === 'sunny' ? 'Dans les temps' : weather === 'cloudy' ? 'Léger retard' : weather === 'rainy' ? 'Retard important' : weather === 'stormy' ? 'En dépassement' : ''
+  const weatherLabel = weather === 'sunny' ? t('projets.detail.weather.sunny') : weather === 'cloudy' ? t('projets.detail.weather.cloudy') : weather === 'rainy' ? t('projets.detail.weather.rainy') : weather === 'stormy' ? t('projets.detail.weather.stormy') : ''
 
   const fmtShortDate = (iso: string | null) => {
     if (!iso) return null
@@ -818,7 +819,7 @@ function TaskRow({
         )}
 
         {/* Durée — fixed width slot so columns align across rows */}
-        <span className="text-[10px] tabular-nums text-muted-foreground shrink-0 w-[42px] text-right" title={durationDays ? `Durée ${durationDays} j` : 'Durée non définie'}>
+        <span className="text-[10px] tabular-nums text-muted-foreground shrink-0 w-[42px] text-right" title={durationDays ? `Durée ${durationDays} j` : t('projets.detail.duration.undefined')}>
           {durationDays ? `${durationDays}j` : '—'}
         </span>
 
@@ -1162,6 +1163,7 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
 // objet first-class. Les individus de l'equipe ne sont pas auto-ajoutes
 // aux project_members (eviter le bruit ; si besoin, on listera join-on-the-fly).
 function ProjectTeamsSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: teams = [] } = useProjectTeams(projectId)
   const attachTeam = useAttachTeamToProject()
   const detachTeam = useDetachTeamFromProject()
@@ -1178,14 +1180,14 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
       { projectId, teamId, role: selectedRole || undefined },
       {
         onSuccess: () => {
-          toast({ title: 'Équipe attachée', variant: 'success' })
+          toast({ title: t('projets.detail.team.attached', 'Équipe attachée'), variant: 'success' })
           setSelectedTeamId(null)
           setSelectedRole('')
           setShowAttachPanel(false)
         },
         onError: (err: any) => {
           toast({
-            title: 'Attache échouée',
+            title: t('projets.detail.team.attach_failed'),
             description: err?.response?.data?.detail || err?.message,
             variant: 'error',
           })
@@ -1209,10 +1211,10 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
         <button
           className="btn btn-tertiary h-5 px-1.5 flex items-center gap-1 text-[10px]"
           onClick={() => setShowAttachPanel((v) => !v)}
-          title="Attacher une équipe"
+          title={t('projets.detail.team.attach_team')}
         >
           <Plus size={11} />
-          <span className="hidden sm:inline">Équipe</span>
+          <span className="hidden sm:inline">{t('common.team_singular', 'Équipe')}</span>
         </button>
       }
     >
@@ -1231,7 +1233,7 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold flex items-center gap-1">
                   <Users2 size={12} className="text-info" />
-                  Attacher une équipe
+                  {t('projets.detail.team.attach_team')}
                 </span>
                 <button
                   className="p-1 text-muted-foreground hover:text-foreground"
@@ -1279,7 +1281,7 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
         </div>
       )}
       {teams.length === 0 ? (
-        <EmptyState icon={Users2} title="Aucune équipe attachée" variant="search" size="compact" />
+        <EmptyState icon={Users2} title={t('projets.detail.team.no_team_attached')} variant="search" size="compact" />
       ) : (
         <div className="space-y-1">
           {teams.map((pt) => (
@@ -1299,7 +1301,7 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
                 className="p-1 rounded shrink-0 text-destructive hover:bg-destructive/10 disabled:opacity-40"
                 onClick={() => handleDetach(pt.team_id, pt.team_name)}
                 disabled={detachTeam.isPending}
-                title="Détacher l'équipe"
+                title={t('projets.detail.team.detach_team')}
               >
                 <Trash2 size={12} />
               </button>
@@ -1892,6 +1894,7 @@ function TaskFullscreenOverlay({
 }
 
 function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTask[] }) {
+  const { t } = useTranslation()
   const [showCreate, setShowCreate] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
@@ -2110,8 +2113,8 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
     { value: 'todo', label: 'À faire', cls: 'bg-muted text-muted-foreground', count: counts.todo },
     { value: 'in_progress', label: 'En cours', cls: 'bg-primary/10 text-primary', count: counts.in_progress },
     { value: 'review', label: 'Revue', cls: 'bg-yellow-500/10 text-yellow-600', count: counts.review },
-    { value: 'done', label: 'Terminées', cls: 'bg-green-500/10 text-green-600', count: counts.done },
-    { value: 'cancelled', label: 'Annulées', cls: 'bg-red-500/5 text-red-500', count: counts.cancelled },
+    { value: 'done', label: t('projets.detail.task_filters.done'), cls: 'bg-green-500/10 text-green-600', count: counts.done },
+    { value: 'cancelled', label: t('projets.detail.task_filters.cancelled'), cls: 'bg-red-500/5 text-red-500', count: counts.cancelled },
   ]
 
   return (
@@ -2302,7 +2305,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
             }
           />
         ) : (
-          <div role="tree" aria-label="Hiérarchie des tâches" className="border border-border/40 rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
+          <div role="tree" aria-label={t('projets.detail.task_tree_aria')} className="border border-border/40 rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
             {renderRows()}
           </div>
         )
@@ -2476,7 +2479,7 @@ function CustomFieldsSection({ projectId }: { projectId: string }) {
   }
 
   return (
-    <FormSection title="Champs personnalisés" collapsible defaultExpanded storageKey="project-detail-custom-fields">
+    <FormSection title={t('projets.detail.custom_fields_section')} collapsible defaultExpanded storageKey="project-detail-custom-fields">
       <DetailFieldGrid>
         {fields.map((f) => (
           <InlineEditableRow
@@ -2659,6 +2662,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
 // -- Planner Links Section ---------------------------------------------------
 
 function PlannerLinksSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: groups = [], isLoading } = usePlannerActivities(projectId)
   const [search, setSearch] = useState('')
@@ -2726,7 +2730,7 @@ function PlannerLinksSection({ projectId }: { projectId: string }) {
                     window.dispatchEvent(new CustomEvent('opsflux:focus-task', { detail: { taskId: g.task_id } }))
                   }}
                   className="w-full flex items-center gap-2 px-2 py-1.5 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
-                  title="Aller à la tâche"
+                  title={t('projets.detail.task_actions.go_to_task')}
                 >
                   <ListTodo size={11} className="shrink-0 text-muted-foreground" />
                   <span className="font-medium text-[11px] truncate flex-1">{g.task_title}</span>
@@ -2792,28 +2796,28 @@ function PlannerLinksSection({ projectId }: { projectId: string }) {
 
 // -- Activity Feed Section ----------------------------------------------------
 
-// Field labels — converts internal column names to friendly French
+// Field labels — converts internal column names to localized
 // equivalents for the activity feed. Anything not in the map is
 // humanised on the fly (snake_case → "Snake case").
-const TASK_FIELD_LABELS: Record<string, string> = {
-  due_date: 'Date d’échéance',
-  start_date: 'Date de début',
-  end_date: 'Date de fin',
-  progress: 'Progression',
-  status: 'Statut',
-  priority: 'Priorité',
-  estimated_hours: 'Heures estimées',
-  actual_hours: 'Heures réelles',
-  title: 'Titre',
-  description: 'Description',
-  assignee_id: 'Assigné',
-  parent_id: 'Tâche parente',
-  duration_days: 'Durée (jours)',
-}
-
-function humaniseField(field: string | undefined): string {
+type TFn = (k: string, opts?: { defaultValue?: string }) => string
+function humaniseField(field: string | undefined, t: TFn): string {
   if (!field) return ''
-  if (TASK_FIELD_LABELS[field]) return TASK_FIELD_LABELS[field]
+  const map: Record<string, string> = {
+    due_date: t('common.due_date'),
+    start_date: t('projets.detail.task_fields.start_date'),
+    end_date: t('common.end_date'),
+    progress: t('common.progress', { defaultValue: 'Progression' }),
+    status: t('common.status'),
+    priority: t('projets.detail.task_fields.priority'),
+    estimated_hours: t('projets.detail.task_fields.estimated_hours'),
+    actual_hours: t('projets.detail.task_fields.actual_hours'),
+    title: t('common.title_field'),
+    description: t('common.description'),
+    assignee_id: t('projets.detail.task_fields.assignee'),
+    parent_id: t('common.parent_task', { defaultValue: 'Tâche parente' }),
+    duration_days: t('common.duration_days', { defaultValue: 'Durée (jours)' }),
+  }
+  if (map[field]) return map[field]
   return field.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
 }
 
@@ -2836,6 +2840,7 @@ function ActivityFeedSection({
   projectId: string
   onNavigateToTask?: (taskId: string) => void
 }) {
+  const { t } = useTranslation()
   const { data: feed = [], isLoading } = useActivityFeed(projectId)
   const [filter, setFilter] = useState<'all' | 'task_change' | 'comment' | 'status_change' | 'situation'>('all')
   const [search, setSearch] = useState('')
@@ -2922,13 +2927,13 @@ function ActivityFeedSection({
             ? 'hover:bg-muted/60 hover:ring-1 hover:ring-primary/30 cursor-pointer'
             : 'cursor-default',
         )}
-        title={clickable ? 'Aller à la tâche' : undefined}
+        title={clickable ? t('projets.detail.task_actions.go_to_task') : undefined}
       >
         <span className="shrink-0">{iconForType(item.type)}</span>
 
         {/* Actor */}
         <span className="font-medium text-foreground shrink-0 truncate max-w-[140px]">
-          {item.user || 'Système'}
+          {item.user || t('projets.detail.system_user')}
         </span>
 
         {/* Subject (task title for task_change/comment, "Statut projet" for status_change) */}
@@ -2968,7 +2973,7 @@ function ActivityFeedSection({
         {item.type === 'task_change' && (
           <>
             <span className="text-muted-foreground/50 shrink-0">·</span>
-            <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 shrink-0">{humaniseField(item.field)}</span>
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 shrink-0">{humaniseField(item.field, t)}</span>
             <span className="px-1 rounded bg-red-500/10 text-red-700 dark:text-red-300 text-[10px] line-through shrink-0 max-w-[100px] truncate">{fmtFieldValue(item.field, item.old)}</span>
             <span className="text-muted-foreground/60 shrink-0">→</span>
             <span className="px-1 rounded bg-green-500/10 text-green-700 dark:text-green-300 text-[10px] font-medium shrink-0 max-w-[100px] truncate">{fmtFieldValue(item.field, item.new)}</span>
@@ -3338,7 +3343,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           //   3) Plan de bataille (Planification + Planner)
           //   4) Execution (Taches)  <- avant en 3e position, maintenant 5e
           //   5) Historique / Documents (artefacts)
-          { id: 'metriques', label: 'Métriques', icon: Target },
+          { id: 'metriques', label: t('projets.detail.tabs.metrics'), icon: Target },
           { id: 'fiche', label: 'Fiche', icon: Info },
           { id: 'planification', label: 'Planification', icon: BarChart3 },
           { id: 'planner', label: 'Planner', icon: CalendarClock },
@@ -3369,7 +3374,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         {detailTab !== 'metriques' && (() => {
           const trend = project.trend ?? 'flat'
           const trendArrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'
-          const trendLabel = trend === 'up' ? 'En amélioration' : trend === 'down' ? 'En dégradation' : 'Stable'
+          const trendLabel = trend === 'up' ? t('projets.detail.trend.up') : trend === 'down' ? t('projets.detail.trend.down') : t('projets.detail.trend.stable')
           const trendCls = trend === 'up'
             ? 'border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400'
             : trend === 'down'
@@ -3471,7 +3476,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 type="button"
                 onClick={() => setDetailTab('fiche')}
                 className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-border/50 bg-card/40 hover:bg-card/70 hover:border-primary/40 transition-colors text-left"
-                title="Voir l'équipe"
+                title={t('projets.detail.team.view_team')}
               >
                 <div className="flex items-center gap-1.5">
                   <Users size={12} className="text-muted-foreground" />
@@ -3542,9 +3547,9 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                   ? <InlineEditableTags label="Statut" value={project.status} options={projectStatusOptions} onSave={(v) => handleSave('status', v)} />
                   : <ReadOnlyRow label={t('common.status')} value={<span className="inline-flex items-center gap-1.5 text-sm" title="Statut piloté par Gouti — modifiable uniquement côté Gouti, sera resynchronisé à la prochaine importation."><Lock size={11} className="text-muted-foreground/60" />{projectStatusLabels[project.status] || project.status}<span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 ml-1">Gouti</span></span>} />}
                 {isProjectFieldEditable(project, 'priority', capabilities)
-                  ? <InlineEditableTags label="Priorité" value={project.priority} options={projectPriorityOptions} onSave={(v) => handleSave('priority', v)} />
+                  ? <InlineEditableTags label={t('projets.detail.task_fields.priority')} value={project.priority} options={projectPriorityOptions} onSave={(v) => handleSave('priority', v)} />
                   : <ReadOnlyRow label={t('common.priority_field')} value={<span className="inline-flex items-center gap-1.5 text-sm" title="Priorité pilotée par Gouti — modifiable uniquement côté Gouti."><Lock size={11} className="text-muted-foreground/60" />{projectPriorityLabels[project.priority] || project.priority}<span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 ml-1">Gouti</span></span>} />}
-                <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
+                <InlineEditableTags label={t('projets.detail.task_fields.meteo')} value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
                 <InlineEditableTags
                   label="Tendance"
                   value={project.trend ?? 'flat'}
@@ -3617,9 +3622,9 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
             <FormSection title={t('common.planning')} collapsible defaultExpanded storageKey="project-detail-planning">
               <DetailFieldGrid>
-                <InlineEditableRow label="Début" value={toDateInputValue(project.start_date)} displayValue={toDateDisplayValue(project.start_date)} onSave={(v) => handleSave('start_date', v || null)} type="date" />
-                <InlineEditableRow label="Fin prévue" value={toDateInputValue(project.end_date)} displayValue={toDateDisplayValue(project.end_date)} onSave={(v) => handleSave('end_date', v || null)} type="date" />
-                <InlineEditableRow label="Fin réelle" value={toDateInputValue(project.actual_end_date)} displayValue={toDateDisplayValue(project.actual_end_date)} onSave={(v) => handleSave('actual_end_date', v || null)} type="date" />
+                <InlineEditableRow label={t('projets.detail.date_labels.start')} value={toDateInputValue(project.start_date)} displayValue={toDateDisplayValue(project.start_date)} onSave={(v) => handleSave('start_date', v || null)} type="date" />
+                <InlineEditableRow label={t('projets.detail.date_labels.end_planned')} value={toDateInputValue(project.end_date)} displayValue={toDateDisplayValue(project.end_date)} onSave={(v) => handleSave('end_date', v || null)} type="date" />
+                <InlineEditableRow label={t('projets.detail.date_labels.end_actual')} value={toDateInputValue(project.actual_end_date)} displayValue={toDateDisplayValue(project.actual_end_date)} onSave={(v) => handleSave('actual_end_date', v || null)} type="date" />
               </DetailFieldGrid>
             </FormSection>
 
@@ -3632,7 +3637,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               headerExtra={
                 <span
                   className="text-[10px] text-muted-foreground/70 hidden sm:inline"
-                  title="La modification recalcule immédiatement l'avancement."
+                  title={t('projets.detail.recalc_progress_hint')}
                 >
                   Pondération du %
                 </span>
@@ -3651,7 +3656,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                       value={project.progress_weight_method || ''}
                       onChange={(v) => handleSave('progress_weight_method', v || null)}
                       options={[
-                        { value: '', label: 'Hériter' },
+                        { value: '', label: t('projets.detail.inherit') },
                         ...PROGRESS_WEIGHT_METHOD_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
                       ]}
                     />
@@ -3659,7 +3664,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                     <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-muted text-muted-foreground">
                       {project.progress_weight_method
                         ? PROGRESS_WEIGHT_METHOD_OPTIONS.find((o) => o.value === project.progress_weight_method)?.label
-                        : 'Hériter'}
+                        : t('projets.detail.inherit')}
                     </span>
                   )}
                   <p className="text-[11px] text-muted-foreground/80 italic">

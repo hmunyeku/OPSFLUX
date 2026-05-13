@@ -548,7 +548,10 @@
     "workflow": "Workflow",
     "workover_details": "Workover détails",
     "revoke": "Révoquer",
-    "contact_company": "Contact entreprise"
+    "contact_company": "Contact entreprise",
+    "duration_days": "Durée (jours)",
+    "parent_task": "Tâche parente",
+    "team_singular": "Équipe"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -2304,7 +2307,70 @@
     "task_start_date": "Tâche début date",
     "task_start_date_hint": "Tâche début date indice",
     "task_title_placeholder": "Saisir le titre de la tâche…",
-    "task_label": "Tâche"
+    "task_label": "Tâche",
+    "detail": {
+      "tabs": {
+        "deps": "Dépendances",
+        "deliverables": "Livrables",
+        "actions": "Actions",
+        "history": "Historique",
+        "metrics": "Métriques"
+      },
+      "task_actions": {
+        "add": "Ajouter",
+        "add_task": "Ajouter une tâche",
+        "task_after_select": "Sélectionner une tâche pour créer une sous-tâche",
+        "task_after_short": "Après",
+        "subtask_of": "Sous-tâche de « {{title}} »",
+        "insert_after": "Insérer une tâche après « {{title}} »",
+        "open_detail": "Ouvrir le détail complet de la tâche",
+        "go_to_task": "Aller à la tâche"
+      },
+      "team": {
+        "attach_team": "Attacher une équipe",
+        "attach_failed": "Attache échouée",
+        "no_team_attached": "Aucune équipe attachée",
+        "detach_team": "Détacher l'équipe",
+        "view_team": "Voir l'équipe",
+        "attached": "Équipe attachée"
+      },
+      "weather": {
+        "sunny": "Dans les temps",
+        "cloudy": "Léger retard",
+        "rainy": "Retard important",
+        "stormy": "En dépassement"
+      },
+      "task_filters": {
+        "done": "Terminées",
+        "cancelled": "Annulées"
+      },
+      "duration": {
+        "undefined": "Durée non définie"
+      },
+      "date_labels": {
+        "start": "Début",
+        "end_planned": "Fin prévue",
+        "end_actual": "Fin réelle"
+      },
+      "custom_fields_section": "Champs personnalisés",
+      "task_tree_aria": "Hiérarchie des tâches",
+      "recalc_progress_hint": "La modification recalcule immédiatement l'avancement.",
+      "inherit": "Hériter",
+      "system_user": "Système",
+      "trend": {
+        "up": "En amélioration",
+        "down": "En dégradation",
+        "stable": "Stable"
+      },
+      "task_fields": {
+        "start_date": "Date de début",
+        "priority": "Priorité",
+        "estimated_hours": "Heures estimées",
+        "actual_hours": "Heures réelles",
+        "assignee": "Assigné",
+        "meteo": "Météo"
+      }
+    }
   },
   "dashboard": {
     "title": "Tableau de bord",

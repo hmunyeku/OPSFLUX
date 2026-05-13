@@ -452,7 +452,10 @@
     "work_order": "Work order",
     "workover_details": "Workover details",
     "revoke": "Revoke",
-    "contact_company": "Company contact"
+    "contact_company": "Company contact",
+    "duration_days": "Duration (days)",
+    "parent_task": "Parent task",
+    "team_singular": "Team"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -2208,7 +2211,70 @@
     "task_start_date": "Task start date",
     "task_start_date_hint": "Task start date hint",
     "task_title_placeholder": "Task title placeholder",
-    "task_label": "Task"
+    "task_label": "Task",
+    "detail": {
+      "tabs": {
+        "deps": "Dependencies",
+        "deliverables": "Deliverables",
+        "actions": "Actions",
+        "history": "History",
+        "metrics": "Metrics"
+      },
+      "task_actions": {
+        "add": "Add",
+        "add_task": "Add a task",
+        "task_after_select": "Select a task to create a subtask",
+        "task_after_short": "After",
+        "subtask_of": "Subtask of {{title}}",
+        "insert_after": "Insert a task after {{title}}",
+        "open_detail": "Open task full detail",
+        "go_to_task": "Go to task"
+      },
+      "team": {
+        "attach_team": "Attach a team",
+        "attach_failed": "Attach failed",
+        "no_team_attached": "No team attached",
+        "detach_team": "Detach team",
+        "view_team": "View team",
+        "attached": "Team attached"
+      },
+      "weather": {
+        "sunny": "On time",
+        "cloudy": "Slight delay",
+        "rainy": "Significant delay",
+        "stormy": "Overrun"
+      },
+      "task_filters": {
+        "done": "Done",
+        "cancelled": "Cancelled"
+      },
+      "duration": {
+        "undefined": "Duration not set"
+      },
+      "date_labels": {
+        "start": "Start",
+        "end_planned": "Planned end",
+        "end_actual": "Actual end"
+      },
+      "custom_fields_section": "Custom fields",
+      "task_tree_aria": "Task hierarchy",
+      "recalc_progress_hint": "Editing instantly recomputes progress.",
+      "inherit": "Inherit",
+      "system_user": "System",
+      "trend": {
+        "up": "Improving",
+        "down": "Degrading",
+        "stable": "Stable"
+      },
+      "task_fields": {
+        "start_date": "Start date",
+        "priority": "Priority",
+        "estimated_hours": "Estimated hours",
+        "actual_hours": "Actual hours",
+        "assignee": "Assignee",
+        "meteo": "Weather"
+      }
+    }
   },
   "dashboard": {
     "title": "Dashboard",

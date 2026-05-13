@@ -1,0 +1,44 @@
+<main style="padding: 8mm 12mm;">
+  <h1>{{ _('RBAC_MATRIX_SOD') }}</h1>
+  <p>{{ tenant.name }} — {{ violation_count }} {{ _('RBAC_SOD_VIOLATIONS_COUNT') }}</p>
+
+  {% if violations %}
+    <h2>{{ _('RBAC_SOD_VIOLATIONS_COUNT') }}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>{{ _('RBAC_SOD_AFFECTED_ROLE') }}</th>
+          <th>{{ _('RBAC_SOD_RULE') }}</th>
+          <th>{{ _('RBAC_SECTION_PERMISSIONS') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in violations %}
+          <tr>
+            <td><strong>{{ v.role_code }}</strong></td>
+            <td>{{ v.rule_label }} <br><span style="font-size: 7pt; color: #64748b;">({{ v.rule_id }})</span></td>
+            <td>
+              {% for p in v.perms %}<span class="perm-code">{{ p }}</span><br>{% endfor %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="padding: 4mm; background: #dcfce7; color: #166534; border-radius: 2mm;">{{ _('RBAC_SOD_NO_VIOLATIONS') }}</p>
+  {% endif %}
+
+  <h2 style="margin-top: 8mm;">{{ _('RBAC_SECTION_LEGEND') }} — {{ _('RBAC_SOD_RULE') }}s</h2>
+  <table>
+    <thead><tr><th>ID</th><th>{{ _('RBAC_LABEL_DESCRIPTION') }}</th><th>{{ _('RBAC_SECTION_PERMISSIONS') }}</th></tr></thead>
+    <tbody>
+      {% for r in sod_rules %}
+        <tr>
+          <td><strong>{{ r.id }}</strong></td>
+          <td>{{ r.label }}</td>
+          <td>{% for p in r.perms %}<span class="perm-code">{{ p }}</span><br>{% endfor %}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</main>

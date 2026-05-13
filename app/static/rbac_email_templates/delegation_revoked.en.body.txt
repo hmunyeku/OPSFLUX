@@ -1,0 +1,17 @@
+Hello,
+
+The following delegation has been revoked:
+
+Delegator: {{ delegator.full_name }} ({{ delegator.email }})
+Delegate: {{ delegate.full_name }} ({{ delegate.email }})
+Originally scheduled period: {{ delegation.start_date }} -> {{ delegation.end_date }}
+Number of permissions: {{ delegation.permissions | length }}
+
+Revoked by: {{ revocation.actor_email }}
+Date: {{ revocation.revoked_at }}
+Reason: {{ revocation.reason }}
+
+The permissions are no longer active on the delegate's account.
+In accordance with ISO 27001 §A.9.2.6, this revocation is logged in the RBAC audit trail.
+
+Certificate fingerprint: {{ content_hash | default('—') }}

@@ -1,0 +1,1 @@
+[OpsFlux] Delegation revoked — {{ delegator.full_name }} → {{ delegate.full_name }}

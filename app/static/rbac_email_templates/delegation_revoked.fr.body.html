@@ -1,0 +1,16 @@
+<p>Bonjour,</p>
+<p>La délégation suivante a été révoquée :</p>
+<ul>
+  <li><strong>Délégant :</strong> {{ delegator.full_name }} ({{ delegator.email }})</li>
+  <li><strong>Délégué :</strong> {{ delegate.full_name }} ({{ delegate.email }})</li>
+  <li><strong>Période initialement prévue :</strong> {{ delegation.start_date }} → {{ delegation.end_date }}</li>
+  <li><strong>Nombre de permissions :</strong> {{ delegation.permissions | length }}</li>
+</ul>
+<p style="background:#fef2f2;padding:8px 12px;border-left:3px solid #dc2626;">
+  <strong>Révoquée par :</strong> {{ revocation.actor_email }}<br>
+  <strong>Date :</strong> {{ revocation.revoked_at }}<br>
+  <strong>Motif :</strong> {{ revocation.reason }}
+</p>
+<p>Les permissions ne sont plus actives sur le compte du délégué.</p>
+<p>Conformément à ISO 27001 §A.9.2.6, cette révocation est tracée dans le journal d'audit RBAC.</p>
+<p style="color: #64748b; font-size: 11px;">Empreinte du certificat : {{ content_hash | default('—') }}</p>

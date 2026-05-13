@@ -295,6 +295,9 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new user and send an invitation email."""
+    # SUP-debug : tracking ou plante POST /users (HTTP 500 silencieux)
+    logger.info("create_user: start email=%s entity_id=%s", body.email, entity_id)
+
     # Check email uniqueness
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
@@ -303,6 +306,7 @@ async def create_user(
             code="EMAIL_ALREADY_REGISTERED",
             message="Email already registered",
         )
+    logger.info("create_user: email unique OK")
 
     target_entity_id = body.default_entity_id or entity_id
     if target_entity_id:
@@ -313,30 +317,58 @@ async def create_user(
                 code="ENTITY_NOT_FOUND",
                 message="Entity not found",
             )
+    logger.info("create_user: target_entity_id=%s found", target_entity_id)
 
-    user = User(
-        email=body.email,
-        first_name=body.first_name,
-        last_name=body.last_name,
-        hashed_password=hash_password(body.password) if body.password else None,
-        default_entity_id=body.default_entity_id or entity_id,
-        language=body.language,
-    )
-    db.add(user)
-    await db.flush()  # flush to get user.id without committing
+    try:
+        user = User(
+            email=body.email,
+            first_name=body.first_name,
+            last_name=body.last_name,
+            hashed_password=hash_password(body.password) if body.password else None,
+            default_entity_id=body.default_entity_id or entity_id,
+            language=body.language,
+        )
+        db.add(user)
+        await db.flush()  # flush to get user.id without committing
+        logger.info("create_user: user flushed id=%s", user.id)
+    except Exception:
+        logger.exception("create_user: FAIL at User instantiation or flush")
+        raise
 
     # Auto-assign user to the selected entity through its default group.
-    if target_entity_id:
-        await _ensure_user_membership_in_entity(
-            user_id=user.id,
-            entity_id=target_entity_id,
-            db=db,
-        )
+    try:
+        if target_entity_id:
+            await _ensure_user_membership_in_entity(
+                user_id=user.id,
+                entity_id=target_entity_id,
+                db=db,
+            )
+        logger.info("create_user: membership OK")
+    except Exception:
+        logger.exception("create_user: FAIL at _ensure_user_membership_in_entity")
+        raise
 
     # Single commit for user creation + group assignment
-    await db.commit()
-    await db.refresh(user)
-    await invalidate_rbac_cache(user.id)
+    try:
+        await db.commit()
+        logger.info("create_user: commit OK")
+    except Exception:
+        logger.exception("create_user: FAIL at commit")
+        raise
+
+    try:
+        await db.refresh(user)
+        logger.info("create_user: refresh OK")
+    except Exception:
+        logger.exception("create_user: FAIL at refresh")
+        raise
+
+    try:
+        await invalidate_rbac_cache(user.id)
+        logger.info("create_user: rbac cache invalidated")
+    except Exception:
+        logger.exception("create_user: FAIL at invalidate_rbac_cache (non-fatal)")
+        # On ne lève pas — user créé OK, cache invalidation est optionnelle
 
     # Send invitation email (non-blocking — don't fail creation if email fails)
     try:

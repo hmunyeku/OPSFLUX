@@ -1,5 +1,6 @@
 """Entity CRUD — manage entities, assign users to entities."""
 
+import logging
 import math
 from uuid import UUID
 
@@ -11,6 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity as delete_entity_service
+from app.services.core.rbac_template_bootstrap import (
+    clone_rbac_email_templates_for_entity,
+)
 from app.core.pagination import PaginationParams
 from app.models.common import (
     Entity,
@@ -22,6 +26,8 @@ from app.models.common import (
 )
 from app.schemas.common import OpsFluxSchema, PaginatedResponse
 from app.core.errors import StructuredHTTPException
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/entities", tags=["entities"])
 
@@ -311,6 +317,18 @@ async def create_entity(
     db.add(entity)
     await db.commit()
     await db.refresh(entity)
+
+    # Clone the RBAC system email templates (seeded by migration 172) into
+    # the freshly-created entity. Failures here must NOT block entity
+    # creation: log and continue, the admin can re-seed via a follow-up.
+    try:
+        await clone_rbac_email_templates_for_entity(db, entity.id)
+        await db.commit()
+    except Exception:
+        logger.exception(
+            "Failed to clone RBAC email templates for new entity %s", entity.id
+        )
+        await db.rollback()
 
     return _entity_to_read(entity, user_count=0)
 

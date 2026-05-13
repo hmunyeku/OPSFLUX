@@ -81,3 +81,27 @@ async def test_all_export_endpoints_return_pdf_or_404(async_client, auth_headers
     assert resp.status_code in (200, 404, 422), f"Unexpected {resp.status_code} on {path}: {resp.text}"
     if resp.status_code == 200:
         assert resp.headers["content-type"] == "application/pdf"
+
+
+@pytest.mark.asyncio
+async def test_poll_audit_job_status(async_client, auth_headers_admin, sample_entity, db_session, sample_user):
+    """GET /exports/jobs/{audit_event_id} returns the current job status."""
+    from app.models.common import RbacAuditEvent
+    event = RbacAuditEvent(
+        tenant_id=sample_entity.id,
+        event_type="export.matrix_user",
+        target="test_async",
+        actor_user_id=sample_user.id,
+        status="pending",
+    )
+    db_session.add(event)
+    await db_session.commit()
+
+    resp = await async_client.get(
+        f"/api/v1/rbac/exports/jobs/{event.id}",
+        headers=auth_headers_admin,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "pending"
+    assert "audit_event_id" in data

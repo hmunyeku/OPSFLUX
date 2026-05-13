@@ -410,3 +410,50 @@ async def export_delegations_registry(
         filename=f"rbac_delegations_registry_{_date_suffix()}.pdf",
         params={"lang": lang, "status": status},
     )
+
+
+# 11. Async job polling (status + download stub)
+
+@router.get("/jobs/{audit_event_id}")
+async def get_export_job_status(
+    audit_event_id: UUID,
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.rbac.export"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Poll the status of an async export job."""
+    event = await db.get(RbacAuditEvent, audit_event_id)
+    if not event or event.tenant_id != entity_id:
+        raise StructuredHTTPException(404, code="JOB_NOT_FOUND", message="Job not found")
+
+    return {
+        "audit_event_id": str(event.id),
+        "status": event.status,  # pending | success | failure
+        "event_type": event.event_type,
+        "occurred_at": event.occurred_at.isoformat(),
+        "completed_at": event.completed_at.isoformat() if event.completed_at else None,
+        "duration_ms": event.duration_ms,
+        "error_code": event.error_code,
+        "error_detail": event.error_detail,
+        "download_url": f"/api/v1/rbac/exports/jobs/{event.id}/download" if event.status == "success" else None,
+    }
+
+
+@router.get("/jobs/{audit_event_id}/download")
+async def download_export_job(
+    audit_event_id: UUID,
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.rbac.export"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Download the PDF result of an async job. Stub for PR-A — full async pipeline in a later PR.
+
+    Returns 501 Not Implemented for now.
+    """
+    raise StructuredHTTPException(
+        501,
+        code="ASYNC_DOWNLOAD_NOT_IMPLEMENTED",
+        message="Full async pipeline is staged for a follow-up. Use synchronous endpoints in the meantime.",
+    )

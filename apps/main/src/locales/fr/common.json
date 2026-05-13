@@ -6424,6 +6424,22 @@
       "section_notifications": "Notifications",
       "section_emails": "Emails",
       "section_emails_desc": "Personnalisation de l'apparence des emails envoyés par OpsFlux."
+    },
+    "gdpr_admin": {
+      "audit_logs_label": "Logs d'audit",
+      "audit_logs_desc": "Durée de conservation des logs d'audit (en mois).",
+      "sessions_desc": "Durée de conservation de l'historique des sessions.",
+      "inactive_accounts_label": "Comptes inactifs",
+      "consent_section": "Consentement",
+      "cookie_banner_label": "Bannière cookies"
+    },
+    "tokens": {
+      "section_title": "Jetons d'accès personnel",
+      "section_desc": "Créez des jetons d'accès pour les applications qui ont besoin d'accéder à l'API OpsFlux.",
+      "create_btn": "Créer un jeton"
+    },
+    "applications": {
+      "section_title": "Applications"
     }
   },
   "help_system": {

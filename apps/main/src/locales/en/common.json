@@ -6118,6 +6118,22 @@
       "section_notifications": "Notifications",
       "section_emails": "Emails",
       "section_emails_desc": "Customize the appearance of emails sent by OpsFlux."
+    },
+    "gdpr_admin": {
+      "audit_logs_label": "Audit logs",
+      "audit_logs_desc": "Audit log retention period (in months).",
+      "sessions_desc": "Session history retention period.",
+      "inactive_accounts_label": "Inactive accounts",
+      "consent_section": "Consent",
+      "cookie_banner_label": "Cookie banner"
+    },
+    "tokens": {
+      "section_title": "Personal access tokens",
+      "section_desc": "Create access tokens for applications that need to access the OpsFlux API.",
+      "create_btn": "Create a token"
+    },
+    "applications": {
+      "section_title": "Applications"
     }
   },
   "help_system": {

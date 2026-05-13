@@ -100,3 +100,200 @@ async def test_render_both_languages(db_session, sample_entity, sample_user, ano
     fr_hash = hashlib.sha256(pdf_fr).hexdigest()
     en_hash = hashlib.sha256(pdf_en).hexdigest()
     assert fr_hash != en_hash, "FR and EN renders are identical — i18n may not be working"
+
+
+# ─── Snapshot tests for the 9 remaining RBAC templates ─────────────────────
+# Each test follows the same pattern: build variables via the matching
+# builder in rbac_export_service, call render_pdf, verify the output starts
+# with %PDF and is non-trivially sized.
+
+
+@pytest.mark.asyncio
+async def test_render_matrix_group_permissions(db_session, sample_entity, sample_user):
+    """Snapshot test for matrix_group_permissions — renders without errors."""
+    from app.core.pdf_templates import render_pdf
+    from app.services.core.rbac_export_service import build_matrix_group_permissions_variables
+
+    vars_dict = await build_matrix_group_permissions_variables(
+        db_session, sample_entity.id, sample_user, lang="fr", include_disabled=False
+    )
+    pdf_bytes = await render_pdf(
+        db_session,
+        slug="core.rbac.matrix_group_permissions",
+        entity_id=sample_entity.id,
+        language="fr",
+        variables=vars_dict,
+    )
+    assert pdf_bytes is not None, "Template not seeded or render failed"
+    assert pdf_bytes[:4] == b"%PDF", f"Output is not a PDF: {pdf_bytes[:20]}"
+    assert len(pdf_bytes) > 1000
+
+
+@pytest.mark.asyncio
+async def test_render_matrix_user_permissions(db_session, sample_entity, sample_user):
+    """Snapshot test for matrix_user_permissions — renders without errors."""
+    from app.core.pdf_templates import render_pdf
+    from app.services.core.rbac_export_service import build_matrix_user_permissions_variables
+
+    vars_dict = await build_matrix_user_permissions_variables(
+        db_session, sample_entity.id, sample_user, lang="fr"
+    )
+    pdf_bytes = await render_pdf(
+        db_session,
+        slug="core.rbac.matrix_user_permissions",
+        entity_id=sample_entity.id,
+        language="fr",
+        variables=vars_dict,
+    )
+    assert pdf_bytes is not None, "Template not seeded or render failed"
+    assert pdf_bytes[:4] == b"%PDF", f"Output is not a PDF: {pdf_bytes[:20]}"
+    assert len(pdf_bytes) > 1000
+
+
+@pytest.mark.asyncio
+async def test_render_role_detail(db_session, sample_entity, sample_user):
+    """Snapshot test for role_detail — uses TENANT_ADMIN role from migration 171."""
+    from app.core.pdf_templates import render_pdf
+    from app.services.core.rbac_export_service import build_role_detail_variables
+
+    vars_dict = await build_role_detail_variables(
+        db_session, sample_entity.id, sample_user, role_code="TENANT_ADMIN", lang="fr"
+    )
+    pdf_bytes = await render_pdf(
+        db_session,
+        slug="core.rbac.role_detail",
+        entity_id=sample_entity.id,
+        language="fr",
+        variables=vars_dict,
+    )
+    assert pdf_bytes is not None, "Template not seeded or render failed"
+    assert pdf_bytes[:4] == b"%PDF", f"Output is not a PDF: {pdf_bytes[:20]}"
+    assert len(pdf_bytes) > 1000
+
+
+@pytest.mark.asyncio
+async def test_render_group_detail(db_session, sample_entity, sample_user, sample_group):
+    """Snapshot test for group_detail — requires a sample group fixture."""
+    from app.core.pdf_templates import render_pdf
+    from app.services.core.rbac_export_service import build_group_detail_variables
+
+    vars_dict = await build_group_detail_variables(
+        db_session, sample_entity.id, sample_user, group_id=sample_group.id, lang="fr"
+    )
+    pdf_bytes = await render_pdf(
+        db_session,
+        slug="core.rbac.group_detail",
+        entity_id=sample_entity.id,
+        language="fr",
+        variables=vars_dict,
+    )
+    assert pdf_bytes is not None, "Template not seeded or render failed"
+    assert pdf_bytes[:4] == b"%PDF", f"Output is not a PDF: {pdf_bytes[:20]}"
+    assert len(pdf_bytes) > 1000
+
+
+@pytest.mark.asyncio
+async def test_render_user_detail(db_session, sample_entity, sample_user):
+    """Snapshot test for user_detail — renders for sample_user with delegations."""
+    from app.core.pdf_templates import render_pdf
+    from app.services.core.rbac_export_service import build_user_detail_variables
+
+    vars_dict = await build_user_detail_variables(
+        db_session, sample_entity.id, sample_user,
+        target_user_id=sample_user.id, lang="fr", include_delegations=True,
+    )
+    pdf_bytes = await render_pdf(
+        db_session,
+        slug="core.rbac.user_detail",
+        entity_id=sample_entity.id,
+        language="fr",
+        variables=vars_dict,
+    )
+    assert pdf_bytes is not None, "Template not seeded or render failed"
+    assert pdf_bytes[:4] == b"%PDF", f"Output is not a PDF: {pdf_bytes[:20]}"
+    assert len(pdf_bytes) > 1000
+
+
+@pytest.mark.asyncio
+async def test_render_role_modules(db_session, sample_entity, sample_user):
+    """Snapshot test for role_modules — Roles × Modules summary view."""
+    from app.core.pdf_templates import render_pdf
+    from app.services.core.rbac_export_service import build_role_modules_variables
+
+    vars_dict = await build_role_modules_variables(
+        db_session, sample_entity.id, sample_user, lang="fr"
+    )
+    pdf_bytes = await render_pdf(
+        db_session,
+        slug="core.rbac.role_modules",
+        entity_id=sample_entity.id,
+        language="fr",
+        variables=vars_dict,
+    )
+    assert pdf_bytes is not None, "Template not seeded or render failed"
+    assert pdf_bytes[:4] == b"%PDF", f"Output is not a PDF: {pdf_bytes[:20]}"
+    assert len(pdf_bytes) > 1000
+
+
+@pytest.mark.asyncio
+async def test_render_permission_catalog(db_session, sample_entity, sample_user):
+    """Snapshot test for permission_catalog — grouped by module."""
+    from app.core.pdf_templates import render_pdf
+    from app.services.core.rbac_export_service import build_permission_catalog_variables
+
+    vars_dict = await build_permission_catalog_variables(
+        db_session, sample_entity.id, sample_user, lang="fr",
+        group_by="module", include_disabled=False,
+    )
+    pdf_bytes = await render_pdf(
+        db_session,
+        slug="core.rbac.permission_catalog",
+        entity_id=sample_entity.id,
+        language="fr",
+        variables=vars_dict,
+    )
+    assert pdf_bytes is not None, "Template not seeded or render failed"
+    assert pdf_bytes[:4] == b"%PDF", f"Output is not a PDF: {pdf_bytes[:20]}"
+    assert len(pdf_bytes) > 1000
+
+
+@pytest.mark.asyncio
+async def test_render_sod_matrix(db_session, sample_entity, sample_user):
+    """Snapshot test for sod_matrix — Segregation of Duties matrix."""
+    from app.core.pdf_templates import render_pdf
+    from app.services.core.rbac_export_service import build_sod_matrix_variables
+
+    vars_dict = await build_sod_matrix_variables(
+        db_session, sample_entity.id, sample_user, lang="fr"
+    )
+    pdf_bytes = await render_pdf(
+        db_session,
+        slug="core.rbac.sod_matrix",
+        entity_id=sample_entity.id,
+        language="fr",
+        variables=vars_dict,
+    )
+    assert pdf_bytes is not None, "Template not seeded or render failed"
+    assert pdf_bytes[:4] == b"%PDF", f"Output is not a PDF: {pdf_bytes[:20]}"
+    assert len(pdf_bytes) > 1000
+
+
+@pytest.mark.asyncio
+async def test_render_delegation_registry(db_session, sample_entity, sample_user):
+    """Snapshot test for delegation_registry — list of delegations in the tenant."""
+    from app.core.pdf_templates import render_pdf
+    from app.services.core.rbac_export_service import build_delegations_registry_variables
+
+    vars_dict = await build_delegations_registry_variables(
+        db_session, sample_entity.id, sample_user, lang="fr"
+    )
+    pdf_bytes = await render_pdf(
+        db_session,
+        slug="core.rbac.delegation_registry",
+        entity_id=sample_entity.id,
+        language="fr",
+        variables=vars_dict,
+    )
+    assert pdf_bytes is not None, "Template not seeded or render failed"
+    assert pdf_bytes[:4] == b"%PDF", f"Output is not a PDF: {pdf_bytes[:20]}"
+    assert len(pdf_bytes) > 1000

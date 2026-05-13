@@ -1924,6 +1924,15 @@ class ProjectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     pob_quota: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # SUP-bug #37 : migration 145 (orpheline, dans branche morte alembic)
+    # ajoutait is_milestone, mais le head main passe par 158 → 170 sans
+    # toucher au modele. Schema Pydantic ProjectTaskCreate exposait
+    # is_milestone -> body.model_dump() passe la cle a ProjectTask() ->
+    # AttributeError -> 500. Fix : ajout au modele + migration 173
+    # idempotente qui creates la colonne si manquante.
+    is_milestone: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False,
+    )
 
     project: Mapped["Project"] = relationship(back_populates="tasks")
     parent: Mapped["ProjectTask | None"] = relationship(remote_side="ProjectTask.id", foreign_keys=[parent_id])

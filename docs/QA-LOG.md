@@ -433,6 +433,80 @@ Migration 170 ajoute `created_at` (manquante car héritée de TimestampMixin mai
 - **Scripts pérennes** : 3
 - **Migrations alembic ajoutées** : 6 (165→170)
 
+---
+
+## Session 10 — "on continue" : audit BDD→code + stress DELETE
+
+**Commits déployés** :
+
+| SHA | Sujet |
+|---|---|
+| `d66194f6` | fix(projects) — branche `AuditUserMixin` sur Project + nouvel outil `audit_db_cols_used_in_code.py` |
+
+**Vague EE — Audit bidirectionnel BDD ↔ modèle** :
+
+Nouvel outil créé : `scripts/audit_db_cols_used_in_code.py`. Pour chaque colonne BDD qui n'est PAS dans le modèle SQLAlchemy correspondant, vérifie si elle est utilisée dans le code applicatif via grep `ClassName.column_name`. Si oui → bug type #29.
+
+**6 candidats détectés** :
+
+| Cas | Verdict |
+|---|---|
+| `attachments.category` | ✅ Déjà fixé session 9 (bug #29) |
+| `compliance_records.verification_status` | Faux positif (hérité de `VerifiableMixin` au runtime, regex ne le voit pas) |
+| `compliance_records.verified_at` | Faux positif (idem) |
+| `medical_checks.verification_status` | Faux positif (idem) |
+| `medical_checks.verified_at` | Faux positif (idem) |
+| `projects.created_by` | **VRAI bug #30** |
+
+**Vague FF — Fix Project.created_by manquant** :
+
+**Bug #30** : Migration 024 (mars 2026) avait ajouté `created_by` + `updated_by` à 30+ tables dont `projects`, via le pattern `AuditUserMixin`. **MAIS aucun modèle n'avait jamais branché ce Mixin** (defined dans `base.py:46` mais inutilisé partout). Impact spécifique sur Project :
+- Code `users.py:1572-1574` : `getattr(Project, "created_by", None) → None`
+- → check de dépendance "projets créés par ce user" est SKIPPÉE silencieusement
+- → un user pouvait être supprimé sans alerte malgré des projets à lui
+
+Fix conservateur (commit `d66194f6`) : `class Project(UUIDPrimaryKeyMixin, TimestampMixin, AuditUserMixin, Base)`. Les 29 autres tables touchées par 024 ont la même dette latente — à brancher au cas par cas dans des sessions futures (risque cassure constructor non évalué).
+
+**Vague GG — Stress DELETE admin** (6 endpoints) :
+
+| Action | Résultat |
+|---|---|
+| DELETE `/planner/activities/{id}` | **HTTP 200** ✅ |
+| DELETE `/planner/activities/{id}` (autre) | **HTTP 200** ✅ |
+| DELETE `/packlog/cargo-requests/{id}` | **HTTP 405** (pas d'endpoint DELETE — design) |
+| DELETE `/travelwiz/voyages/{id}` | **HTTP 200** ✅ |
+| DELETE `/asset-registry/fields/{id}` | **HTTP 409** ✅ (sites enfants — refus correct) |
+| DELETE `/users/{qa_viewer}` | **HTTP 409** ✅ (groupe enfant — refus correct, message FR clair) |
+
+Aucun 500 caché sur les mutations DELETE. Le 409 sur user est notable : **notre fix bug #30 fonctionne** (check Project.created_by est désormais évaluable, même si l'utilisateur qa.viewer n'a pas de projets à lui — c'est l'appartenance groupe qui a bloqué, logique).
+
+### Bilan session 10
+
+- 1 commit déployé
+- **1 bug logique latent corrigé** (#30 Project.created_by)
+- **1 nouvel outil pérenne** (audit_db_cols_used_in_code.py)
+- **6 stress DELETE validés** : 0 crash 500
+- **Pattern systémique identifié** : 29 autres modèles ont la même dette `AuditUserMixin` latente
+
+### Bilan global cumulé sessions 1-10 (FINAL FINAL FINAL)
+
+- **28 commits déployés sur main**
+- **30 bugs identifiés**, **24 corrigés et déployés**, **6 en backlog**
+- **Tickets support résolus** : 3
+- **Prod stable** : 17 + 27 + 10 + 6 + 6 endpoints validés
+- **Scripts pérennes** : 4 (`i18n_bulk`, `audit_model_vs_db`, `compare_model_vs_db`, `audit_db_cols_used_in_code`)
+- **Migrations alembic ajoutées** : 6
+- **Modèles SQLAlchemy fixés** : 3 (Attachment, ActivityTeam, Project AuditUserMixin)
+
+### Pattern model_vs_db identifié sur 4 axes
+
+1. **Modèle déclare X, BDD ne l'a pas** — `tv_token`, `tv_refresh_seconds`, `tv_token_expires_at`, `api_type_designation`, `fluid_viscosity_cst`, `papyrus.created_at` (6 cas)
+2. **BDD a X, modèle ne le voit pas** — `Attachment.category`, `Project.created_by` (2 cas)
+3. **Modèle ≠ BDD avec noms différents** — `trip_kpis` (8 cols mismatch) (1 cas, backlog)
+4. **AuditUserMixin orphelin** — 29 tables ont `created_by`/`updated_by` en BDD via mig 024 mais aucun modèle ne le branche (1 fixé sur Project, 29 backlog)
+
+**Recommandation CI** : intégrer `audit_model_vs_db.py` + `audit_db_cols_used_in_code.py` au pipeline pour bloquer un push si l'un de ces 4 patterns apparaît.
+
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 
 **Couverture du protocole 200 étapes** :

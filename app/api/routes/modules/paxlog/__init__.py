@@ -3149,7 +3149,10 @@ async def list_ads(
         ads_obj = row[0]
         ads_dict = {c.key: getattr(ads_obj, c.key) for c in ads_obj.__table__.columns}
 
-        # --- pax_display_name ---
+        # --- pax_display_name + pax_count (live count from ads_pax) ---
+        # SUP-bug : Ads.pax_count en BDD n'est pas dénormalisé fiablement
+        # (peut rester à 0 même quand des pax sont ajoutés via Teams). On
+        # recalcule le compte live ici pour le dashboard et la liste.
         pax_result = await db.execute(
             text("""
                 SELECT
@@ -3168,11 +3171,18 @@ async def list_ads(
         if pax_row:
             name = pax_row[0] or ""
             total = int(pax_row[1] or 0)
+            ads_dict["pax_count"] = total
             if ads_obj.type == "team" and total > 1:
                 ads_dict["pax_display_name"] = f"{name} (+{total - 1})"
             else:
                 ads_dict["pax_display_name"] = name or None
         else:
+            # Aucun pax associe -- ecraser pax_count BDD (peut etre 0 ou stale)
+            count_result = await db.execute(
+                text("SELECT COUNT(*) FROM ads_pax WHERE ads_id = :ads_id"),
+                {"ads_id": ads_obj.id},
+            )
+            ads_dict["pax_count"] = int(count_result.scalar() or 0)
             ads_dict["pax_display_name"] = None
 
         # --- imputation_label ---

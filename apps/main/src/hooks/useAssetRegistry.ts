@@ -11,6 +11,11 @@ import type {
   InstallationDeckUpdate,
   FieldLicenseCreate,
   FieldLicenseUpdate,
+  OilFieldUpdate,
+  OilSiteUpdate,
+  InstallationUpdate,
+  EquipmentUpdate,
+  PipelineUpdate,
 } from '@/types/assetRegistry'
 
 // ── Fields ──
@@ -41,7 +46,7 @@ export function useCreateField() {
 export function useUpdateField() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: OilFieldUpdate }) =>
       assetRegistryService.updateField(id, data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ar-fields'] })
@@ -133,7 +138,7 @@ export function useCreateSite() {
 export function useUpdateSite() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: OilSiteUpdate }) =>
       assetRegistryService.updateSite(id, data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ar-sites'] })
@@ -182,7 +187,7 @@ export function useCreateInstallation() {
 export function useUpdateInstallation() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: InstallationUpdate }) =>
       assetRegistryService.updateInstallation(id, data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ar-installations'] })
@@ -282,7 +287,7 @@ export function useCreateEquipment() {
 export function useUpdateEquipment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: EquipmentUpdate }) =>
       assetRegistryService.updateEquipment(id, data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ar-equipment'] })
@@ -327,7 +332,7 @@ export function useCreatePipeline() {
 export function useUpdatePipeline() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: PipelineUpdate }) =>
       assetRegistryService.updatePipeline(id, data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ar-pipelines'] })

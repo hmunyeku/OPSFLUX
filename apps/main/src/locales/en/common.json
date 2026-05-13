@@ -226,7 +226,8 @@
     "departure_base": "Departure base",
     "mode": "Mode",
     "created_by": "Created by",
-    "created_at_label": "Created at"
+    "created_at_label": "Created at",
+    "no_data_available": "No data to display"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -1580,7 +1581,8 @@
       "assignee": "Manager"
     },
     "task_subtabs": {
-      "actions": "Actions"
+      "actions": "Actions",
+      "history": "History"
     },
     "toast": {
       "error": "Error"
@@ -1653,7 +1655,8 @@
     "couleur_de_fond": "Couleur de fond",
     "empty": {
       "table_title": "No entries",
-      "kpi_calm": "All quiet"
+      "kpi_calm": "All quiet",
+      "chart_title": "No data to display"
     }
   },
   "workflow": {
@@ -3336,7 +3339,8 @@
       "reset": "Reset"
     },
     "stats": {
-      "in_progress": "In progress"
+      "in_progress": "In progress",
+      "total": "Total"
     }
   },
   "travelwiz": {
@@ -3495,7 +3499,9 @@
       "vector": "Vector",
       "cargo_count": "Cargo",
       "export_request": "Request",
-      "export_parcel": "Package"
+      "export_parcel": "Package",
+      "weight": "Weight",
+      "origin": "Origin"
     }
   },
   "report_editor": {
@@ -3622,7 +3628,8 @@
     "columns": {
       "type": "Type",
       "status": "Status",
-      "date": "Date"
+      "date": "Date",
+      "number": "Number"
     },
     "toast": {
       "error": "Error"
@@ -3697,7 +3704,9 @@
       "date": "Date",
       "description": "Description",
       "equipment_count": "Equipment",
-      "equipment": "Equipment"
+      "equipment": "Equipment",
+      "number": "Number",
+      "format": "Format"
     }
   },
   "messaging": {
@@ -4488,6 +4497,9 @@
       },
       "security_policy": {
         "setting_saved": "Setting saved"
+      },
+      "scheduler": {
+        "job_error": "Failure"
       }
     },
     "columns": {
@@ -4520,6 +4532,11 @@
       "tokens": {
         "name": "Name",
         "status": "Status"
+      }
+    },
+    "maintenance": {
+      "demo": {
+        "generate": "Generate"
       }
     }
   },
@@ -4922,7 +4939,8 @@
       "country": "Country",
       "city": "City",
       "users": "Users",
-      "email": "Email"
+      "email": "Email",
+      "currency": "Currency"
     }
   },
   "packlog": {
@@ -5287,6 +5305,9 @@
       "address": "Address",
       "city": "City",
       "country": "Country"
+    },
+    "recap": {
+      "skipped": "Past"
     }
   }
 }

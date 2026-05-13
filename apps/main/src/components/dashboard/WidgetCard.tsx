@@ -1773,7 +1773,15 @@ function TableWidget({
       return <span className="font-semibold text-primary cursor-pointer hover:underline">{s}</span>
     }
 
-    return <span>{s.length > 45 ? s.slice(0, 45) + '…' : s}</span>
+    // SUP-bug : certains champs contiennent du rich-text HTML (RichTextField)
+    // qui se retrouve serialise tel quel dans les cellules de table — ex :
+    // "<p>basket bleu</p>" affiche en clair dans CARGO TRACKING. On strip les
+    // balises pour ne garder que le contenu textuel quand on detecte du HTML.
+    let display = s
+    if (display.includes('<') && /<\/?[a-z][\s\S]*?>/i.test(display)) {
+      display = display.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim()
+    }
+    return <span>{display.length > 45 ? display.slice(0, 45) + '…' : display}</span>
   }
 
   if (!rows.length || !effectiveColumns.length) {

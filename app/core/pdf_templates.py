@@ -4740,8 +4740,16 @@ async def render_pdf_from_version(
     version: PdfTemplateVersion,
     template: PdfTemplate,
     variables: dict | None = None,
+    *,
+    db: AsyncSession | None = None,
 ) -> bytes:
-    """Render a specific version to PDF (for preview from admin routes)."""
+    """Render a specific version to PDF (for preview from admin routes).
+
+    Pass ``db`` to prime the rbac_pdf translation cache for the version's
+    language. When ``db`` is ``None``, the function still renders but the
+    translator falls back to returning canonical tokens (e.g. the literal
+    string ``RBAC_GENERATED_AT``) instead of translated text.
+    """
     validation = validate_pdf_template_source(
         body_html=version.body_html,
         header_html=version.header_html,
@@ -4759,11 +4767,13 @@ async def render_pdf_from_version(
 
     ctx = variables or {}
 
-    # i18n: inject the translator + lang derived from the version. This function
-    # has no `db` (called from admin preview routes that pre-prime the cache or
-    # accept the fallback-to-key behaviour). If the cache is cold, `_(key)`
-    # returns the canonical token so the render still succeeds.
+    # i18n: inject the translator + lang derived from the version. When `db`
+    # is supplied the rbac_pdf cache is primed so admin previews show the
+    # final translated strings; otherwise `_(key)` returns the canonical
+    # token (fallback-to-key) so the render still succeeds.
     _lang = (version.language or "fr").lower()
+    if db is not None:
+        await prime_translation_cache(db, _lang)
     ctx["_"] = _build_translator(_lang)
     ctx["lang"] = _lang
 
@@ -4800,8 +4810,16 @@ async def render_html_from_version(
     version: PdfTemplateVersion,
     template: PdfTemplate | None = None,
     variables: dict | None = None,
+    *,
+    db: AsyncSession | None = None,
 ) -> str:
-    """Render a specific version to HTML (for admin preview)."""
+    """Render a specific version to HTML (for admin preview).
+
+    Pass ``db`` to prime the rbac_pdf translation cache for the version's
+    language. When ``db`` is ``None``, the function still renders but the
+    translator falls back to returning canonical tokens (e.g. the literal
+    string ``RBAC_GENERATED_AT``) instead of translated text.
+    """
     validation = validate_pdf_template_source(
         body_html=version.body_html,
         header_html=version.header_html,
@@ -4815,11 +4833,13 @@ async def render_html_from_version(
 
     ctx = variables or {}
 
-    # i18n: inject the translator + lang derived from the version. This function
-    # has no `db` (called from admin preview routes that pre-prime the cache or
-    # accept the fallback-to-key behaviour). If the cache is cold, `_(key)`
-    # returns the canonical token so the render still succeeds.
+    # i18n: inject the translator + lang derived from the version. When `db`
+    # is supplied the rbac_pdf cache is primed so admin previews show the
+    # final translated strings; otherwise `_(key)` returns the canonical
+    # token (fallback-to-key) so the render still succeeds.
     _lang = (version.language or "fr").lower()
+    if db is not None:
+        await prime_translation_cache(db, _lang)
     ctx["_"] = _build_translator(_lang)
     ctx["lang"] = _lang
 

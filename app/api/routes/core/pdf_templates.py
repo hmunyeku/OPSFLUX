@@ -574,7 +574,9 @@ async def preview_template(
         )
 
     if body.output == "pdf":
-        pdf_bytes = await render_pdf_from_version(version, template, body.variables)
+        pdf_bytes = await render_pdf_from_version(
+            version, template, body.variables, db=db
+        )
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
@@ -583,7 +585,9 @@ async def preview_template(
             },
         )
     else:
-        html = await render_html_from_version(version, template, body.variables)
+        html = await render_html_from_version(
+            version, template, body.variables, db=db
+        )
         return {"rendered_html": html}
 
 

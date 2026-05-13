@@ -224,6 +224,7 @@ async def create_announcement(
         expires_at=body.expires_at,
         send_email=body.send_email,
         sender_id=current_user.id,
+        active=True,
         pinned=body.pinned,
     )
     db.add(announcement)

@@ -49,6 +49,16 @@ import { formatDate } from '@/lib/i18n'
 import { PermissionMatrix, RolePicker, SOURCE_BADGE, type PermSource } from './RbacPermissionMatrix'
 import { RbacDelegationsTab } from './RbacDelegationsTab'
 import { RbacSettingsTab } from './RbacSettingsTab'
+import { ExportPdfMenu, type ExportPdfItem } from '@/components/shared/ExportPdfMenu'
+import {
+  exportMatrixRolePermissionsUrl,
+  exportRoleDetailUrl,
+  exportMatrixGroupPermissionsUrl,
+  exportGroupDetailUrl,
+  exportPermissionCatalogUrl,
+  exportSodMatrixUrl,
+  exportRoleModulesUrl,
+} from '@/services/rbacService'
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN TAB — 3 sub-tabs
@@ -62,6 +72,79 @@ const SUB_TABS: { key: RbacSubTab; label: string; icon: React.ElementType }[] = 
   { key: 'permissions', label: 'Permissions', icon: Lock },
   { key: 'delegations', label: 'Délégations', icon: UserCheck },
   { key: 'settings', label: 'Réglages', icon: Settings2 },
+]
+
+// ── PDF export menu items (Task 4.2) ─────────────────────────
+
+const ROLES_EXPORT_ITEMS: ExportPdfItem[] = [
+  {
+    key: 'matrix_role_perms',
+    label: 'Matrice complète Rôles × Permissions',
+    description: 'Vue exhaustive de toutes les permissions par rôle, décomposée par module',
+    buildUrl: ({ lang, includeDisabledModules }) =>
+      exportMatrixRolePermissionsUrl({ lang, include_disabled_modules: includeDisabledModules }),
+  },
+  {
+    key: 'role_modules',
+    label: 'Vue Rôles × Modules',
+    description: 'Synthèse des niveaux d\'accès (R, RW, RWA, MGR) par rôle et module',
+    buildUrl: ({ lang }) => exportRoleModulesUrl({ lang }),
+  },
+  {
+    key: 'role_detail',
+    label: 'Fiche détaillée du rôle sélectionné',
+    description: 'Permissions, groupes utilisant ce rôle, nombre d\'utilisateurs',
+    requiresSelection: true,
+    buildUrl: ({ lang, selectedIds }) =>
+      selectedIds[0] ? exportRoleDetailUrl(selectedIds[0], { lang }) : null,
+  },
+  {
+    key: 'sod_matrix',
+    label: 'Matrice SoD (Ségrégation des Devoirs)',
+    description: 'Conflits détectés selon les règles SoD configurées',
+    buildUrl: ({ lang }) => exportSodMatrixUrl({ lang }),
+  },
+  {
+    key: 'permission_catalog',
+    label: 'Catalogue de permissions',
+    description: 'Liste de toutes les permissions actives groupées par module',
+    buildUrl: ({ lang, includeDisabledModules }) =>
+      exportPermissionCatalogUrl({ lang, include_disabled_modules: includeDisabledModules }),
+  },
+]
+
+const GROUPS_EXPORT_ITEMS: ExportPdfItem[] = [
+  {
+    key: 'matrix_group_perms',
+    label: 'Matrice complète Groupes × Permissions',
+    description: 'Permissions effectives par groupe (avec source : rôle / override / délégation)',
+    buildUrl: ({ lang, includeDisabledModules }) =>
+      exportMatrixGroupPermissionsUrl({ lang, include_disabled_modules: includeDisabledModules }),
+  },
+  {
+    key: 'group_detail',
+    label: 'Fiche détaillée du groupe sélectionné',
+    description: 'Rôles, membres, périmètre asset, permissions effectives',
+    requiresSelection: true,
+    buildUrl: ({ lang, selectedIds }) =>
+      selectedIds[0] ? exportGroupDetailUrl(selectedIds[0], { lang }) : null,
+  },
+]
+
+const PERMISSIONS_EXPORT_ITEMS: ExportPdfItem[] = [
+  {
+    key: 'permission_catalog',
+    label: 'Catalogue de permissions',
+    description: 'Liste exhaustive des permissions, groupées par module',
+    buildUrl: ({ lang, includeDisabledModules }) =>
+      exportPermissionCatalogUrl({ lang, include_disabled_modules: includeDisabledModules }),
+  },
+  {
+    key: 'sod_matrix',
+    label: 'Matrice SoD (Ségrégation des Devoirs)',
+    description: 'Conflits détectés',
+    buildUrl: ({ lang }) => exportSodMatrixUrl({ lang }),
+  },
 ]
 
 /**
@@ -387,6 +470,13 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     return (
       <>
         {showCreate && <CreateRoleForm onClose={() => setShowCreate(false)} />}
+        <div className="flex justify-end mb-2">
+          <ExportPdfMenu
+            items={ROLES_EXPORT_ITEMS}
+            selectedIds={selectedRole ? [selectedRole] : []}
+            context="roles"
+          />
+        </div>
         <DataTable
           {...dataTableProps}
           onSearchChange={() => { /* search driven by topbar */ }}
@@ -399,6 +489,13 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     <div className="flex gap-0 min-h-[500px]">
       <div className={cn('flex-1 min-w-0', selectedRole && 'max-w-[calc(100%-360px)]')}>
         {showCreate && <CreateRoleForm onClose={() => setShowCreate(false)} />}
+        <div className="flex justify-end mb-2">
+          <ExportPdfMenu
+            items={ROLES_EXPORT_ITEMS}
+            selectedIds={selectedRole ? [selectedRole] : []}
+            context="roles"
+          />
+        </div>
         <DataTable
           {...dataTableProps}
           onSearchChange={(v) => setInternalSearch(v)}
@@ -974,6 +1071,13 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
     return (
       <>
         {showCreate && <CreateGroupForm onClose={() => setShowCreate(false)} />}
+        <div className="flex justify-end mb-2">
+          <ExportPdfMenu
+            items={GROUPS_EXPORT_ITEMS}
+            selectedIds={selectedGroup ? [selectedGroup] : []}
+            context="groups"
+          />
+        </div>
         <DataTable
           columns={groupColumns}
           data={groups}
@@ -1028,6 +1132,14 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
       <div className={cn('flex-1 min-w-0', selectedGroup && 'max-w-[calc(100%-360px)]')}>
 
         {showCreate && <CreateGroupForm onClose={() => setShowCreate(false)} />}
+
+        <div className="flex justify-end mb-2">
+          <ExportPdfMenu
+            items={GROUPS_EXPORT_ITEMS}
+            selectedIds={selectedGroup ? [selectedGroup] : []}
+            context="groups"
+          />
+        </div>
 
         <DataTable
           columns={groupColumns}
@@ -1775,6 +1887,11 @@ export function PermissionsTab({ externalSearch }: { externalSearch?: string } =
           </div>
         )}
         <span className="text-xs text-muted-foreground shrink-0">{totalPerms} permission(s)</span>
+        <ExportPdfMenu
+          items={PERMISSIONS_EXPORT_ITEMS}
+          selectedIds={[]}
+          context="permissions"
+        />
       </div>
 
       {isLoading ? (

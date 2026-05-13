@@ -277,6 +277,17 @@ async def auth_headers_pax(another_user, sample_entity):
     }
 
 
+# TODO: Replace with real auth fixture when auth flow is wired into tests.
+@pytest_asyncio.fixture
+async def auth_headers_admin(sample_user, sample_entity):
+    """Headers that authenticate as a tenant admin user with core.rbac.export permission."""
+    return {
+        "X-Entity-ID": str(sample_entity.id),
+        "X-Test-User-Id": str(sample_user.id),
+        "X-Test-Has-Permission": "core.rbac.export,core.user.audit_export",
+    }
+
+
 @pytest_asyncio.fixture
 async def set_tenant_setting(db_session):
     """Factory fixture to set or update a tenant-scoped setting."""

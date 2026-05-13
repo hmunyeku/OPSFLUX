@@ -54,11 +54,14 @@ import { PermissionMatrix, RolePicker, SOURCE_BADGE, type PermSource } from './R
 
 type RbacSubTab = 'roles' | 'groups' | 'permissions'
 
-const SUB_TABS: { key: RbacSubTab; label: string; icon: React.ElementType }[] = [
-  { key: 'roles', label: 'Rôles', icon: ShieldCheck },
-  { key: 'groups', label: 'Groupes', icon: Users },
-  { key: 'permissions', label: 'Permissions', icon: Lock },
-]
+function useSubTabs(): { key: RbacSubTab; label: string; icon: React.ElementType }[] {
+  const { t } = useTranslation()
+  return [
+    { key: 'roles', label: t('rbac.tabs.roles', 'Rôles'), icon: ShieldCheck },
+    { key: 'groups', label: t('rbac.tabs.groups', 'Groupes'), icon: Users },
+    { key: 'permissions', label: t('rbac.tabs.permissions', 'Permissions'), icon: Lock },
+  ]
+}
 
 /**
  * InlineDetailPanel — alias to DynamicPanelShell in inline mode.
@@ -97,6 +100,7 @@ function InlineDetailPanel({
 
 export function RbacAdminTab() {
   const { t } = useTranslation()
+  const subTabs = useSubTabs()
   const [activeTab, setActiveTab] = useState<RbacSubTab>('roles')
   const { data: permMode } = usePermissionMode()
   const setModeMut = useSetPermissionMode()
@@ -118,7 +122,7 @@ export function RbacAdminTab() {
     <div className="space-y-0">
       {/* Sub-tab bar + permission mode toggle */}
       <div className="flex items-center gap-0 border-b border-border mb-4">
-        {SUB_TABS.map(({ key, label, icon: Icon }) => (
+        {subTabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
@@ -341,7 +345,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     isLoading,
     getRowId: (row: RoleRead) => row.code,
     searchValue: search,
-    searchPlaceholder: 'Filtrer les rôles...',
+    searchPlaceholder: t('rbac.filters.roles_search'),
     onRowClick: handleRowClick,
     pagination: { page: rolePage, pageSize: rolePSize, total: totalRoles, pages: pagesRoles },
     onPaginationChange: (newPage: number, newSize: number) => { setRolePage(newPage); setRolePSize(newSize) },
@@ -371,7 +375,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
         updated_at: 'Modifié le',
       },
     },
-    emptyTitle: search ? 'Aucun rôle trouvé.' : 'Aucun rôle configuré.',
+    emptyTitle: search ? t('rbac.empty.role_search') : t('rbac.empty.role_none'),
     emptyIcon: ShieldCheck,
     storageKey: 'rbac-roles',
   }
@@ -931,14 +935,14 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       id: 'role',
-      label: 'Rôle',
+      label: t('rbac.columns.role'),
       type: 'select' as const,
       options: [
-        { value: 'all', label: 'Tous les rôles' },
+        { value: 'all', label: t('rbac.filters.all_roles') },
         ...(rolesForFilter ?? []).map((r) => ({ value: r.code, label: r.name || r.code })),
       ],
     },
-  ], [total, rolesForFilter])
+  ], [total, rolesForFilter, t])
 
   const handleFilterChange = useCallback((id: string, value: unknown) => {
     if (id === 'status') {
@@ -975,7 +979,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
           getRowId={(row) => row.id}
           searchValue={search}
           onSearchChange={() => { /* search driven by topbar */ }}
-          searchPlaceholder="Filtrer les résultats..."
+          searchPlaceholder={t('rbac.filters.results_search')}
           onRowClick={handleRowClick}
           pagination={{ page, pageSize, total, pages }}
           onPaginationChange={(newPage, newSize) => { setPage(newPage); setPSize(newSize) }}
@@ -1008,7 +1012,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
             },
           }}
 
-          emptyTitle={search ? 'Aucun groupe trouvé.' : 'Aucun groupe configuré.'}
+          emptyTitle={search ? t('rbac.empty.group_search') : t('rbac.empty.group_none')}
           emptyIcon={Users}
           storageKey="rbac-groups"
         />
@@ -1030,7 +1034,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
           getRowId={(row) => row.id}
           searchValue={search}
           onSearchChange={(v) => { if (isControlled) { /* search driven by topbar */ } else { setInternalSearch(v); setPage(1) } }}
-          searchPlaceholder="Filtrer les résultats..."
+          searchPlaceholder={t('rbac.filters.results_search')}
           onRowClick={handleRowClick}
           pagination={{ page, pageSize, total, pages }}
           onPaginationChange={(newPage, newSize) => { setPage(newPage); setPSize(newSize) }}
@@ -1062,7 +1066,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
             },
           }}
 
-          emptyTitle={search ? 'Aucun groupe trouvé.' : 'Aucun groupe configuré.'}
+          emptyTitle={search ? t('rbac.empty.group_search') : t('rbac.empty.group_none')}
           emptyIcon={Users}
           storageKey="rbac-groups"
         />
@@ -1391,7 +1395,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
         disabled={updateMut.isPending}
         className={cn('btn-sm text-[11px]', group.active ? 'btn-secondary' : 'btn-primary')}
       >
-        {group.active ? 'Désactiver' : 'Activer'}
+        {group.active ? t('rbac.actions.deactivate') : t('rbac.actions.activate')}
       </button>
       {!isProtected && (
         <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDeleteGroup} confirmLabel="Supprimer ?">
@@ -1693,7 +1697,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
     return (
       <DynamicPanelShell
         title={group.name}
-        subtitle={group.role_names.join(', ') || group.role_codes.join(', ') || 'Aucun rôle'}
+        subtitle={group.role_names.join(', ') || group.role_codes.join(', ') || t('rbac.empty.no_role')}
         icon={<Users size={14} className="text-primary" />}
         actions={panelActions}
       >
@@ -1727,6 +1731,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
 // ══════════════════════════════════════════════════════════════════════════════
 
 export function PermissionsTab({ externalSearch }: { externalSearch?: string } = {}) {
+  const { t } = useTranslation()
   const [internalSearch, setInternalSearch] = useState('')
   const search = externalSearch ?? internalSearch
   const isControlled = externalSearch !== undefined
@@ -1777,7 +1782,7 @@ export function PermissionsTab({ externalSearch }: { externalSearch?: string } =
         </div>
       ) : filteredModules.length === 0 ? (
         <div className="py-12 text-center text-sm text-muted-foreground">
-          {search ? 'Aucune permission trouvée.' : 'Aucune permission enregistrée.'}
+          {search ? t('rbac.empty.permission_search') : t('rbac.empty.permission_none')}
         </div>
       ) : (
         <div className="space-y-4">

@@ -7816,5 +7816,38 @@
       "cta": "Configurer maintenant",
       "contact_admin": "En cas de problème, contactez votre administrateur."
     }
+  },
+  "rbac": {
+    "tabs": {
+      "roles": "Rôles",
+      "groups": "Groupes",
+      "permissions": "Permissions"
+    },
+    "filters": {
+      "roles_search": "Filtrer les rôles…",
+      "groups_search": "Filtrer les groupes…",
+      "permissions_search": "Filtrer les permissions…",
+      "results_search": "Filtrer les résultats…",
+      "all_roles": "Tous les rôles"
+    },
+    "empty": {
+      "role_search": "Aucun rôle trouvé.",
+      "role_none": "Aucun rôle configuré.",
+      "group_search": "Aucun groupe trouvé.",
+      "group_none": "Aucun groupe configuré.",
+      "permission_search": "Aucune permission trouvée.",
+      "permission_none": "Aucune permission enregistrée.",
+      "no_role": "Aucun rôle"
+    },
+    "columns": {
+      "role": "Rôle",
+      "entity": "Entité",
+      "created_at": "Créé le",
+      "updated_at": "Modifié le"
+    },
+    "actions": {
+      "activate": "Activer",
+      "deactivate": "Désactiver"
+    }
   }
 }

@@ -1255,3 +1255,63 @@ Sans accès UI (FortiGuard bloque `*.opsflux.io` catégorie "Meaningless Content
 | Clés i18n synchronisées | 13 566 |
 | Templates email | 52 |
 | Templates PDF | 14 |
+
+### Suite session 17 — workflow modules tests (post-fix #37)
+
+| Commit | Sujet |
+|---|---|
+| `5c9f7151` | bug #37 - is_milestone manquant en BDD (migration 145 orpheline) |
+
+#### Bug #37 — POST /projects/{id}/tasks → 500
+
+**Diagnostic** :
+- Migration `145_project_task_is_milestone` (ajout colonne) existait mais sa chaîne `down_revision=144_password_history` était dans une **branche morte alembic**
+- Le head principal (170_papyrus_ext_created_at) passait par 158→159→...→170 sans toucher à 144-145-146
+- BDD prod n'avait donc PAS la colonne `project_tasks.is_milestone`
+- Mais le schema Pydantic `ProjectTaskCreate` exposait `is_milestone: bool = False`
+- `ProjectTask(**body.model_dump())` → AttributeError → 500
+
+**Fix** :
+1. Ajout `is_milestone: Mapped[bool]` au modèle `ProjectTask`
+2. Migration 173 idempotente :
+   - `inspector.get_columns` pour check
+   - `add_column` si manquante
+   - `create_index` partiel `WHERE is_milestone=true`
+3. Branche 145-146 laissée orpheline pour éviter conflits sur installs ayant déjà stampé manuellement
+
+**Vérif post-deploy** :
+- POST /projects/{id}/tasks {title:'x'} → **201 OK** (avant: 500)
+- Migration 173 appliquée proprement (alembic upgrade head sans erreur)
+
+#### Workflows CRUD validés
+- ✅ Projet + Task : create / patch / delete OK (après fix #37)
+- ✅ Planner Activity : create avec type='maintenance' → 201
+- ✅ MOC : create avec installation_id → 201, delete → 204
+- ✅ TravelWiz Vector / Voyage : listés OK
+- ✅ Tier + Entity : CRUD complet 200/201/204
+
+### Bilan FINAL session 17
+
+- **3 commits** déployés (`078815ab`, `0bb13d9d`, `5c9f7151`)
+- **3 bugs critiques** corrigés (#32, #33, #37)
+- **4 faux positifs** invalidés
+- **130+ endpoints** stress-testés sans crash 500 (à part #37 qui est fix)
+- **CRUD validé** sur 7 entités (Tier, Entity, Project, Task, Activity, MOC, Délégation)
+- **Workflow ISO délégation** end-to-end : create → PDF → email → revoke → 2nd PDF
+- **Migration alembic 173** ajoutée (chain : 170→171→172→173)
+
+### Bilan global cumulé sessions 1-17 (FINAL session 17)
+
+| Métrique | Valeur |
+|---|---|
+| **Commits déployés** | **61** |
+| Bugs identifiés | 37 |
+| Bugs corrigés et déployés | **29** |
+| Faux positifs identifiés | 4 |
+| Tickets support résolus | 6 |
+| Endpoints validés | **150+** |
+| Migrations alembic | **9** (chain head 170→173) |
+| Clés i18n synchronisées | 13 566 |
+| Templates email | 52 |
+| Templates PDF | 14 |
+| Régressions sur fixes | 0 |

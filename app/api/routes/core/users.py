@@ -93,7 +93,17 @@ async def _ensure_user_membership_in_entity(
         )
         db.add(default_group)
         await db.flush()
-        db.add(UserGroupRole(group_id=default_group.id, role_code="viewer"))
+        # SUP-bug : avant on hardcodait role_code="viewer" qui n'existe pas
+        # en BDD (le seul role read-only canon est "READER"). Si aucun des
+        # codes candidats n'est present, on cree le groupe sans role -- le
+        # user pourra etre attache a un role par l'admin a posteriori.
+        candidates = ("READER", "VIEWER", "viewer")
+        role_result = await db.execute(
+            select(Role.code).where(Role.code.in_(candidates)).limit(1)
+        )
+        existing_code = role_result.scalar_one_or_none()
+        if existing_code:
+            db.add(UserGroupRole(group_id=default_group.id, role_code=existing_code))
 
     db.add(UserGroupMember(user_id=user_id, group_id=default_group.id))
 

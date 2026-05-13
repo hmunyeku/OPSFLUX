@@ -14,6 +14,7 @@ from app.services.core.delete_service import delete_entity as delete_entity_serv
 from app.core.pagination import PaginationParams
 from app.models.common import (
     Entity,
+    Role,
     User,
     UserGroup,
     UserGroupMember,
@@ -586,8 +587,15 @@ async def add_user_to_entity(
         )
         db.add(default_group)
         await db.flush()
-        # Assign viewer role via junction table
-        db.add(UserGroupRole(group_id=default_group.id, role_code="viewer"))
+        # SUP-bug : "viewer" hardcoded mais le seul role read-only canon
+        # est "READER". On detecte le role disponible et on skip si rien.
+        candidates = ("READER", "VIEWER", "viewer")
+        role_result = await db.execute(
+            select(Role.code).where(Role.code.in_(candidates)).limit(1)
+        )
+        existing_code = role_result.scalar_one_or_none()
+        if existing_code:
+            db.add(UserGroupRole(group_id=default_group.id, role_code=existing_code))
 
     # Add user to the default group
     membership = UserGroupMember(

@@ -173,6 +173,12 @@ _RBAC_PDF_TRANSLATIONS: list[tuple[str, str, str]] = [
     ("RBAC_COUNT_USERS", "utilisateurs", "users"),
     ("RBAC_COUNT_DELEGATIONS", "délégations", "delegations"),
     ("RBAC_COUNT_LINKS", "liaisons actives", "active links"),
+    ("RBAC_OVERRIDE_GRANTED", "✓ accordée", "✓ granted"),
+    ("RBAC_OVERRIDE_REVOKED", "✗ révoquée", "✗ revoked"),
+    ("RBAC_NO_OVERRIDES", "Aucune surcharge.", "No overrides."),
+    ("RBAC_LABEL_FROM", "De", "From"),
+    ("RBAC_LABEL_TO", "À", "To"),
+    ("RBAC_NO_GROUPS_USING_ROLE", "Aucun groupe n'utilise ce rôle.", "No group uses this role."),
 ]
 
 

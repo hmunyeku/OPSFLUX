@@ -31,7 +31,7 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p><em>Aucun groupe n'utilise ce rôle.</em></p>
+    <p><em>{{ _('RBAC_NO_GROUPS_USING_ROLE') }}</em></p>
   {% endif %}
 
   <p style="margin-top: 6mm;"><strong>{{ users_via_groups_count }}</strong> {{ _('RBAC_COUNT_USERS') }}</p>

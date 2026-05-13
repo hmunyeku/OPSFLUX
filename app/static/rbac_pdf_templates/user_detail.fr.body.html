@@ -9,18 +9,18 @@
   <h2>{{ _('RBAC_SECTION_OVERRIDES') }}</h2>
   {% if overrides %}
     <table>
-      <thead><tr><th>{{ _('RBAC_LABEL_CODE') }}</th><th>État</th></tr></thead>
+      <thead><tr><th>{{ _('RBAC_LABEL_CODE') }}</th><th>{{ _('RBAC_LABEL_STATUS') }}</th></tr></thead>
       <tbody>
         {% for o in overrides %}
           <tr>
             <td><span class="perm-code">{{ o.code }}</span></td>
-            <td>{% if o.granted %}✓ accordée{% else %}✗ révoquée{% endif %}</td>
+            <td>{% if o.granted %}{{ _('RBAC_OVERRIDE_GRANTED') }}{% else %}{{ _('RBAC_OVERRIDE_REVOKED') }}{% endif %}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
   {% else %}
-    <p><em>Aucune surcharge.</em></p>
+    <p><em>{{ _('RBAC_NO_OVERRIDES') }}</em></p>
   {% endif %}
 
   <h2>{{ _('RBAC_SECTION_EFFECTIVE_PERMISSIONS') }} ({{ effective_permissions | length }})</h2>
@@ -39,7 +39,7 @@
   {% if delegations_received %}
     <h2>{{ _('RBAC_SECTION_DELEGATIONS_RECEIVED') }}</h2>
     <table>
-      <thead><tr><th>De</th><th>{{ _('RBAC_LABEL_PERIOD') }}</th><th>{{ _('RBAC_SECTION_PERMISSIONS') }}</th><th>{{ _('RBAC_LABEL_REASON') }}</th></tr></thead>
+      <thead><tr><th>{{ _('RBAC_LABEL_FROM') }}</th><th>{{ _('RBAC_LABEL_PERIOD') }}</th><th>{{ _('RBAC_SECTION_PERMISSIONS') }}</th><th>{{ _('RBAC_LABEL_REASON') }}</th></tr></thead>
       <tbody>
         {% for d in delegations_received %}
           <tr>
@@ -56,7 +56,7 @@
   {% if delegations_given %}
     <h2>{{ _('RBAC_SECTION_DELEGATIONS_GIVEN') }}</h2>
     <table>
-      <thead><tr><th>À</th><th>{{ _('RBAC_LABEL_PERIOD') }}</th><th>{{ _('RBAC_SECTION_PERMISSIONS') }}</th><th>{{ _('RBAC_LABEL_REASON') }}</th></tr></thead>
+      <thead><tr><th>{{ _('RBAC_LABEL_TO') }}</th><th>{{ _('RBAC_LABEL_PERIOD') }}</th><th>{{ _('RBAC_SECTION_PERMISSIONS') }}</th><th>{{ _('RBAC_LABEL_REASON') }}</th></tr></thead>
       <tbody>
         {% for d in delegations_given %}
           <tr>

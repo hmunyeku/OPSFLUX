@@ -84,7 +84,17 @@ function AdsInner() {
       pax_type: (c.pax_type || c.type || 'external') as 'internal' | 'external',
     }
     if (stagedPaxKeys.has(paxKey(entry))) return
-    setStagedPax((prev) => [...prev, entry])
+    setStagedPax((prev) => {
+      const next = [...prev, entry]
+      // SUP-0040 : a partir de 2 pax, bascule auto le type ADS de
+      // 'individual' a 'team'. UX feedback Bastien : un trajet a 2+
+      // passagers est par definition une equipe -- ca evite l'oubli
+      // manuel et garantit la coherence avec les rapports d'occupation.
+      if (next.length > 1 && form.type === 'individual') {
+        setForm((f) => ({ ...f, type: 'team' }))
+      }
+      return next
+    })
     setPaxSearch('')
   }
   const removePax = (idx: number) =>

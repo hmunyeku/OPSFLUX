@@ -1026,12 +1026,19 @@ async def provider_paxlog_compliance_rate(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
 ) -> dict:
-    """PaxLog compliance rate and breakdown."""
+    """PaxLog compliance rate and breakdown.
+
+    Bug #41 fix : la colonne `is_compliant` n'existe PAS dans compliance_records.
+    Le vrai field est `status` (valeurs : valid/expired/pending/rejected).
+    L'ancienne query plantait silencieusement -> widget retournait null
+    -> KPI affichait '0' sans le % (frontend perdait l'unit).
+    Aligne sur provider_conformite_kpis (1130) qui utilise déjà status.
+    """
     r = await db.execute(text("""
         SELECT
             COUNT(*) AS total,
-            COUNT(*) FILTER (WHERE is_compliant = TRUE) AS compliant,
-            COUNT(*) FILTER (WHERE expires_at < NOW()) AS expired,
+            COUNT(*) FILTER (WHERE status = 'valid' AND (expires_at IS NULL OR expires_at > NOW())) AS compliant,
+            COUNT(*) FILTER (WHERE expires_at IS NOT NULL AND expires_at < NOW()) AS expired,
             COUNT(*) FILTER (WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '30 days') AS expiring_soon
         FROM compliance_records
         WHERE entity_id = :eid AND active = TRUE
@@ -1255,12 +1262,23 @@ async def provider_packlog_overview(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
 ) -> dict:
+    # Bug #44 fix : `cargo_count` n'est PAS une colonne reelle de cargo_requests,
+    # c'est une virtuelle calculee via jointure cargo_items (cf packlog_shared.py
+    # ligne 285). L'ancienne query plantait avec UndefinedColumnError -> widget
+    # retournait null -> KPI affichait 0 malgre 7 demandes existantes.
+    # Fix : sous-requete correlated qui compte les cargo_items lies.
     requests = await db.execute(text("""
         SELECT
             COUNT(*) AS total_requests,
             COUNT(*) FILTER (WHERE status IN ('draft', 'submitted', 'approved', 'assigned', 'in_progress')) AS active_requests,
             COUNT(*) FILTER (WHERE status = 'draft') AS blocked_requests,
-            COALESCE(SUM(cargo_count), 0) AS cargo_count
+            COALESCE(
+                (SELECT COUNT(*) FROM cargo_items ci
+                 WHERE ci.request_id IN (SELECT id FROM cargo_requests
+                                          WHERE entity_id = :eid AND active = TRUE)
+                   AND ci.active = TRUE),
+                0
+            ) AS cargo_count
         FROM cargo_requests
         WHERE entity_id = :eid AND active = TRUE
     """), {"eid": str(entity_id)})
@@ -1844,10 +1862,13 @@ async def provider_planner_by_type(
     """), {"eid": str(entity_id)})
     # Translate enum codes to FR labels for the chart legend (cf E2E bug #22).
     # Untranslated codes fall through unchanged.
+    # Bug #42 fix : 'permanent_ops' manquait du map -> affichait l'enum brut
+    # au milieu des autres types FR ("Projet, Inspection, ..., permanent_ops").
     type_labels = {
         "project": "Projet", "workover": "Workover", "drilling": "Forage",
         "integrity": "Intégrité", "maintenance": "Maintenance",
         "inspection": "Inspection", "event": "Événement",
+        "permanent_ops": "Ops permanentes",
     }
     return {"data": [
         {**dict(row), "name": type_labels.get(row["name"], row["name"])}

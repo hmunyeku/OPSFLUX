@@ -1,0 +1,119 @@
+{# Matrice Rôles × Permissions — A4 paysage, décomposée par module pour rester lisible. #}
+<style>
+  @page { size: A4 landscape; }
+  .cover-page h1 { font-size: 32pt; }
+  .cover-tenant { font-size: 14pt; color: #475569; margin: 2mm 0; }
+  .cover-date { font-size: 11pt; color: #64748b; }
+  .synthesis-box { margin-top: 30mm; padding: 8mm; background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 0 2mm 2mm 0; }
+  .synthesis-box h3 { margin-top: 0; }
+  .synthesis-box ul { margin: 0; padding-left: 4mm; }
+  .compliance-note { margin-top: 20mm; font-size: 9pt; color: #64748b; }
+  .compliance-note p { margin: 1mm 0; }
+  .toc { page-break-after: always; }
+  .toc h2 { border-bottom: 2px solid #1e293b; padding-bottom: 2mm; }
+  .toc a { color: #2563eb; text-decoration: none; display: block; padding: 1mm 0; }
+  .toc a:hover { text-decoration: underline; }
+  .module-section { page-break-before: always; }
+  .module-section h2 { font-size: 18pt; }
+  .module-meta { font-size: 9pt; color: #64748b; margin-bottom: 4mm; }
+  .matrix-table { width: 100%; border-collapse: collapse; font-size: 7pt; margin-top: 3mm; }
+  .matrix-table th { background: #1e293b; color: #fff; padding: 2mm; text-align: left; }
+  .matrix-table th.role-col { transform: rotate(-45deg); height: 35mm; vertical-align: bottom; white-space: nowrap; min-width: 6mm; padding: 1mm; }
+  .matrix-table td { padding: 1.5mm 2mm; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+  .matrix-table td.granted { background: #dcfce7; }
+  .matrix-table td.disabled { opacity: 0.4; background: #f1f5f9; }
+  .perm-code { font-family: monospace; font-size: 6.5pt; color: #475569; }
+  .perm-name { font-size: 7.5pt; }
+  .module-disabled-note { margin-top: 4mm; padding: 2mm; background: #fef3c7; color: #92400e; border-radius: 1mm; font-size: 9pt; }
+</style>
+
+<main>
+  {# Cover page #}
+  <section class="cover-page">
+    <h1>{{ _('RBAC_MATRIX_ROLES_PERMISSIONS') }}</h1>
+    <p class="cover-tenant">{{ tenant.name }}</p>
+    <p class="cover-date">{{ _('RBAC_GENERATED_AT') }} : {{ generated_at }}</p>
+
+    <div class="synthesis-box">
+      <h3>{{ _('RBAC_SECTION_SYNTHESIS') }}</h3>
+      <ul>
+        <li>{{ roles | length }} {{ _('RBAC_COUNT_ROLES') }}</li>
+        <li>{{ permissions | length }} {{ _('RBAC_COUNT_PERMISSIONS') }}</li>
+        <li>{{ grants | length }} {{ _('RBAC_COUNT_LINKS') }}</li>
+      </ul>
+    </div>
+
+    <div class="compliance-note">
+      <p>{{ _('RBAC_ISO_DOC_OPPOSABLE') }}</p>
+      <p>{{ _('RBAC_AUDIT_EVENT') }} : <span style="font-family: monospace;">{{ audit_event_id | default('—') }}</span></p>
+    </div>
+  </section>
+
+  {# Table of contents #}
+  <section class="toc">
+    <h2>{{ _('RBAC_SECTION_TOC') }}</h2>
+    {% for module in modules %}
+      <a href="#module-{{ module.namespace }}">
+        {{ module.label }} ({{ module.permission_count }} {{ _('RBAC_COUNT_PERMISSIONS') }})
+      </a>
+    {% endfor %}
+  </section>
+
+  {# One section per module #}
+  {% for module in modules %}
+    <section id="module-{{ module.namespace }}" class="module-section">
+      <h2>{{ module.label }} <span style="font-size: 10pt; color: #64748b;">({{ module.namespace }})</span></h2>
+      <div class="module-meta">{{ module.permissions | length }} {{ _('RBAC_COUNT_PERMISSIONS') }}</div>
+
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>{{ _('RBAC_LABEL_NAME') }}</th>
+            {% for role in roles %}
+              <th class="role-col">{{ role.code }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for perm in module.permissions %}
+            <tr>
+              <td style="min-width: 40mm;">
+                <div class="perm-code">{{ perm.code }}</div>
+                <div class="perm-name">{{ perm.name }}</div>
+                {% if perm.sensitive %}<span class="badge-rgpd">RGPD</span>{% endif %}
+              </td>
+              {% for role in roles %}
+                {% set cell_key = role.code ~ ',' ~ perm.code %}
+                {% set is_granted = [role.code, perm.code] in grants %}
+                <td class="{% if is_granted %}granted{% endif %} {% if perm.module_disabled %}disabled{% endif %}">
+                  {% if is_granted %}
+                    <span class="cell-granted">✓</span>
+                  {% else %}
+                    <span class="cell-not-granted">·</span>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if module.disabled_in_tenant %}
+        <div class="module-disabled-note">
+          ⓘ {{ _('RBAC_LEGEND_MODULE_DISABLED') }}.
+        </div>
+      {% endif %}
+    </section>
+  {% endfor %}
+
+  {# Legend #}
+  <section class="page-break-before">
+    <h2>{{ _('RBAC_SECTION_LEGEND') }}</h2>
+    <table style="width: auto;">
+      <tr><td><span class="cell-granted">✓</span></td><td>{{ _('RBAC_LEGEND_GRANTED') }}</td></tr>
+      <tr><td><span class="cell-not-granted">·</span></td><td>{{ _('RBAC_LEGEND_NOT_GRANTED') }}</td></tr>
+      <tr><td><span class="badge-rgpd">RGPD</span></td><td>{{ _('RBAC_LEGEND_RGPD_FLAG') }}</td></tr>
+      <tr><td style="background: #f1f5f9; opacity: 0.6; padding: 2mm 4mm;">…</td><td>{{ _('RBAC_LEGEND_MODULE_DISABLED') }}</td></tr>
+    </table>
+  </section>
+</main>

@@ -4,6 +4,17 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
   rbacService,
+  listDelegations,
+  listMyDelegations,
+  getDelegation,
+  createDelegation,
+  updateDelegation,
+  revokeDelegation,
+  getRbacDefaults,
+  setRbacDefaults,
+  listAuditEvents,
+  getMatrixRolePermissions,
+  getSodMatrix,
   type RoleCreate,
   type RoleUpdate,
   type GroupCreate,
@@ -12,6 +23,10 @@ import {
   type GroupsFilter,
   type PermissionsFilter,
   type PermissionOverride,
+  type DelegationCreatePayload,
+  type DelegationUpdatePayload,
+  type DelegationListFilters,
+  type AuditEventFilters,
 } from '@/services/rbacService'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -251,5 +266,118 @@ export function useSetPermissionMode() {
       qc.invalidateQueries({ queryKey: ['rbac', 'permission-mode'] })
       qc.invalidateQueries({ queryKey: ['rbac'] })
     },
+  })
+}
+
+// ════════════════════════════════════════════════════════════
+// DELEGATIONS
+// ════════════════════════════════════════════════════════════
+
+export function useDelegations(filters: DelegationListFilters = {}) {
+  return useQuery({
+    queryKey: ['rbac', 'delegations', filters],
+    queryFn: () => listDelegations(filters),
+    staleTime: 30_000,
+  })
+}
+
+export function useMyDelegations(direction?: 'received' | 'given') {
+  return useQuery({
+    queryKey: ['rbac', 'delegations', 'mine', direction],
+    queryFn: () => listMyDelegations(direction),
+    staleTime: 30_000,
+  })
+}
+
+export function useDelegation(id: string | null) {
+  return useQuery({
+    queryKey: ['rbac', 'delegation', id],
+    queryFn: () => getDelegation(id!),
+    enabled: !!id,
+  })
+}
+
+export function useCreateDelegation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: DelegationCreatePayload) => createDelegation(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rbac', 'delegations'] })
+    },
+  })
+}
+
+export function useUpdateDelegation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: DelegationUpdatePayload }) =>
+      updateDelegation(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rbac', 'delegations'] })
+    },
+  })
+}
+
+export function useRevokeDelegation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => revokeDelegation(id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rbac', 'delegations'] })
+    },
+  })
+}
+
+// ════════════════════════════════════════════════════════════
+// DEFAULTS
+// ════════════════════════════════════════════════════════════
+
+export function useRbacDefaults() {
+  return useQuery({
+    queryKey: ['rbac', 'defaults'],
+    queryFn: getRbacDefaults,
+    staleTime: 60_000,
+  })
+}
+
+export function useSetRbacDefaults() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: setRbacDefaults,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rbac', 'defaults'] })
+    },
+  })
+}
+
+// ════════════════════════════════════════════════════════════
+// AUDIT EVENTS
+// ════════════════════════════════════════════════════════════
+
+export function useAuditEvents(filters: AuditEventFilters = {}) {
+  return useQuery({
+    queryKey: ['rbac', 'audit-events', filters],
+    queryFn: () => listAuditEvents(filters),
+    staleTime: 15_000,
+  })
+}
+
+// ════════════════════════════════════════════════════════════
+// MATRIX JSON (for in-app views)
+// ════════════════════════════════════════════════════════════
+
+export function useMatrixRolePermissions(includeDisabledModules = false) {
+  return useQuery({
+    queryKey: ['rbac', 'matrix', 'role-permissions', includeDisabledModules],
+    queryFn: () => getMatrixRolePermissions(includeDisabledModules),
+    staleTime: 30_000,
+  })
+}
+
+export function useSodMatrix() {
+  return useQuery({
+    queryKey: ['rbac', 'matrix', 'sod'],
+    queryFn: getSodMatrix,
+    staleTime: 60_000,
   })
 }

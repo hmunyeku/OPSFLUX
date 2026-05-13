@@ -1126,3 +1126,132 @@ Sans accès UI (FortiGuard bloque `*.opsflux.io` catégorie "Meaningless Content
 4. SUP-0043 annonces : créer annonce target_type='group' → vérifier visible uniquement aux membres du groupe
 5. SUP-0038 : transférer un contact → vérifier que ses certifs s'affichent comme inactives immédiatement (pas après F5)
 6. Dashboard seed : nouveau user → doit voir un tab persisté DB, pas les builtin fakes
+
+---
+
+## Session 17 — autonomie nocturne, smoke tests API direct
+
+**Contexte** : Bastien a changé de réseau (plus de FortiGuard). "progresse en tout autonomie. je veux que demain matin tout soit ok." Tests via `curl` direct sur l'API en bypassant le browser.
+
+### Commits déployés (2)
+
+| SHA | Sujet | Sévérité |
+|---|---|---|
+| `078815ab` | bug #32 - attachments owner_type='delegation' refuse par API | 🔴 critique ISO |
+| `0bb13d9d` | bug #33 - DELETE delegation = hard delete cassait ISO trail | 🔴 critique ISO |
+
+### Bug #32 — Attachments owner_type='delegation' refusé
+
+**Diagnostic** : POST /me/delegations créait bien la délégation + le PDF certifié ISO (visible dans BDD via Attachment owner_type='delegation'), MAIS GET /attachments?owner_type=delegation → 400 "Unsupported owner type". Conséquence : **PDF inaccessible via API**, trail ISO cassé.
+
+**Cause** : `_OWNER_PERMISSION_MAP` et `_resolve_owner_model` dans `app/api/deps.py` ne contenaient pas l'entrée pour `delegation`.
+
+**Fix** : Ajout `delegation: (core.users.read, core.users.manage)` dans le map + résolution du modèle UserDelegation.
+
+**Vérif post-deploy** :
+- POST délégation → 201 OK
+- GET attachments?owner_type=delegation&owner_id=X → 200 avec 1 PDF (57 KB)
+- Download du PDF → 200, header `%PDF-1.7` valide
+
+### Bug #33 — DELETE délégation cassait l'ISO trail
+
+**Diagnostic** : DELETE /me/delegations/{id} faisait `db.delete(delegation)` (hard delete). Après suppression, GET /attachments?owner_type=delegation&owner_id=X → 404 "delegation not found" parce que `_assert_owner_row_exists` ne trouvait plus la row.
+
+**Conséquence** : Tous les PDFs ISO archivés (ACTIVE + REVOKED) **inaccessibles à jamais**. Cassait la promesse de traçabilité ISO permanente.
+
+**Fix** : Remplacer `db.delete(delegation)` par `delegation.active = False` (soft-delete via le champ active existant). La row reste, les attachments restent accessibles. Le PDF "REVOKED" généré par `notify_delegation_revoked()` complète l'audit trail.
+
+**Vérif post-deploy** :
+- POST délégation → 1 PDF ACTIVE créé
+- DELETE délégation (204) → soft-delete (active=false)
+- GET attachments après revoke → **2 PDFs** (ACTIVE original immuable + REVOKED audit)
+
+### Tests API exhaustifs (50+ endpoints)
+
+#### Endpoints critiques nouvelle session 16 (tous OK)
+- ✅ `/auth/login/config` retourne `mfa_trust_device_enabled=true, max_days=30`
+- ✅ `/auth/mfa-policy` retourne tous les 5 champs (required_for_all, must_setup, trust_*)
+- ✅ `/mfa/trusted-devices` GET/POST revoke/POST revoke-all
+- ✅ `/messaging/announcements` accepte les 7 target_types (all/entity/role/module/user/**group**/**page**)
+- ✅ `/me/delegations` POST + DELETE génèrent PDF + emails
+- ✅ `/dashboard/tabs` retourne 1 tab admin "Vue d'ensemble" avec 9 widgets DB-persisted
+
+#### CRUD complet
+- ✅ POST /tiers → 201
+- ✅ GET /tiers/{id} → 200
+- ✅ PATCH /tiers/{id} → 200
+- ✅ DELETE /tiers/{id} → 200
+- ✅ POST /entities → 201 (admin)
+- ✅ DELETE /entities/{id} → 200 (soft-delete via "Entity archived")
+
+#### Permissions & Isolation
+- ✅ Sans auth → 401 sur /tiers, /entities, /dashboard/tabs, /users/me/preferences
+- ✅ Token invalide → 401
+- ✅ JWT expired/malformé → 401
+- ✅ Fake entity_id dans X-Entity-ID → 403 sur tous les endpoints scoped
+
+#### 5xx hunting (chasse aux crashes)
+**Aucun 500 trouvé** sur :
+- Pagination négative / page=0 / page_size=99999 → 422 propres
+- UUID malformé / inexistant → 422 / 404 propres
+- SQL injection attempts dans query params → 200 (paramétrisation OK)
+- XSS payload dans nom de Tier → 201 (escape côté frontend requis)
+- Payloads vides {} → 422
+
+#### Edge cases délégations
+- ✅ Self-delegation → 400 YOU_CANNOT_DELEGATE_YOURSELF
+- ✅ end<start → 400 INVALID_DELEGATION_PERIOD
+- ✅ delegate inexistant → 404 DELEGATE_NOT_FOUND
+- ✅ scope_type='all' (défaut) → délègue toutes les perms du délégant
+
+#### Stress validation Pydantic
+- ✅ target_value > 500 chars → 422 max_length
+- ✅ priority invalide → 422 pattern mismatch
+- ✅ display_location invalide → 422 pattern
+- ✅ target_type invalide → 422 (les 7 valides bien acceptées)
+
+#### Templates système core
+- ✅ PDF templates count: **14** (incl. `delegation.certificate`)
+- ✅ Email templates count: **52** (incl. `delegation_granted`, `delegation_received`, `delegation_revoked`)
+
+#### Settings admin endpoints
+- ✅ PUT /admin/security-settings {mfa_required_for_all: true} → 200 + invalidate cache Redis
+- ✅ /auth/mfa-policy reflète immédiatement le change (required_for_all=true, must_setup=true pour admin sans MFA)
+- ✅ PUT /admin/security-settings {mfa_trust_device_max_days: 90} → /login/config retourne max_days=90
+- ✅ Roundtrip clean : remise à false → required_for_all=false confirmé
+
+### Faux positifs identifiés (4 bugs invalidés)
+
+| ID | Cause faux positif | Statut |
+|---|---|---|
+| #34 | Test envoyait `permissions=[]` mais le field est `permission_codes`. Le défaut `scope_type='all'` délègue toutes les perms du délégant, ce qui est cohérent. | NOT A BUG |
+| #35 | Test envoyait `scope=entity` dans body au lieu de query param. Le frontend utilise le bon path, roundtrip ok via `?scope=entity`. | NOT A BUG |
+| #36 | Test PUT `/settings` key=`security.mfa_required_for_all` scope=`entity`. Le frontend utilise `/admin/security-settings` qui stocke sous `auth.*` scope=tenant. Cohérent une fois compris. | NOT A BUG |
+| `/users/me` 422 | Pas une route — c'est `/auth/me` qui existe. `/users/{user_id}` interprète `me` comme UUID → 422. | NOT A BUG |
+
+### Bilan session 17
+
+- **2 commits** déployés sur main (status `done` Dokploy)
+- **2 bugs critiques ISO** fixés
+- **4 faux positifs** identifiés (mes tests, pas le backend)
+- **50+ endpoints** stress-testés sans crash 500
+- **CRUD validé** sur Tier + Entity + Délégation + Settings + Templates
+- **Cross-entity isolation** confirmée
+- **SQL injection attempts** : paramétrisation safe
+- **0 régression** typecheck/AST
+
+### Bilan global cumulé sessions 1-17
+
+| Métrique | Valeur |
+|---|---|
+| **Commits déployés** | **60** |
+| Bugs identifiés | 36 |
+| Bugs corrigés et déployés | **28** |
+| Faux positifs identifiés | 4 |
+| Tickets support résolus | 6 |
+| Endpoints validés | **130+** |
+| Scripts pérennes | 10 |
+| Migrations alembic | 8 |
+| Clés i18n synchronisées | 13 566 |
+| Templates email | 52 |
+| Templates PDF | 14 |

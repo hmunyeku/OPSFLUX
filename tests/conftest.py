@@ -3,6 +3,7 @@
 import asyncio
 import os
 from collections.abc import AsyncGenerator
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
@@ -121,3 +122,136 @@ async def another_user(db_session, sample_entity):
     db_session.add(user)
     await db_session.flush()
     return user
+
+
+@pytest_asyncio.fixture
+async def sample_group(db_session, sample_entity):
+    """A UserGroup in sample_entity tenant for fixture wiring."""
+    from app.models.common import UserGroup
+    group = UserGroup(entity_id=sample_entity.id, name="Test Group", active=True)
+    db_session.add(group)
+    await db_session.flush()
+    return group
+
+
+@pytest_asyncio.fixture
+async def third_user(db_session, sample_entity):
+    """A third User in the same tenant for sub-delegation tests."""
+    from uuid import uuid4
+
+    from app.models.common import User
+    user = User(
+        email=f"thirduser_{uuid4().hex[:8]}@opsflux.test",
+        first_name="Third",
+        last_name="User",
+        default_entity_id=sample_entity.id,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    return user
+
+
+@pytest_asyncio.fixture
+async def user_with_asset_read(db_session, sample_user, sample_entity, sample_group):
+    """sample_user wired with a role granting 'asset.asset.read'."""
+    from sqlalchemy import select
+
+    from app.models.common import (
+        Permission,
+        Role,
+        RolePermission,
+        UserGroupMember,
+        UserGroupRole,
+    )
+
+    # Ensure ASSET_READER role exists
+    role_result = await db_session.execute(select(Role).where(Role.code == "ASSET_READER"))
+    role = role_result.scalar_one_or_none()
+    if role is None:
+        role = Role(code="ASSET_READER", name="Asset Reader", module="asset")
+        db_session.add(role)
+
+    # Ensure permission exists (may already exist from migration 171 seed)
+    perm_result = await db_session.execute(select(Permission).where(Permission.code == "asset.asset.read"))
+    perm = perm_result.scalar_one_or_none()
+    if perm is None:
+        perm = Permission(
+            code="asset.asset.read", name="Read assets",
+            namespace="asset", resource="asset", action="read",
+            module="asset_registry",
+        )
+        db_session.add(perm)
+    await db_session.flush()
+
+    # Wire role → permission
+    rp_result = await db_session.execute(
+        select(RolePermission).where(
+            RolePermission.role_code == "ASSET_READER",
+            RolePermission.permission_code == "asset.asset.read",
+        )
+    )
+    if rp_result.scalar_one_or_none() is None:
+        db_session.add(RolePermission(role_code="ASSET_READER", permission_code="asset.asset.read"))
+
+    # Wire group → role
+    ugr_result = await db_session.execute(
+        select(UserGroupRole).where(
+            UserGroupRole.group_id == sample_group.id,
+            UserGroupRole.role_code == "ASSET_READER",
+        )
+    )
+    if ugr_result.scalar_one_or_none() is None:
+        db_session.add(UserGroupRole(group_id=sample_group.id, role_code="ASSET_READER"))
+
+    # Wire user → group
+    ugm_result = await db_session.execute(
+        select(UserGroupMember).where(
+            UserGroupMember.user_id == sample_user.id,
+            UserGroupMember.group_id == sample_group.id,
+        )
+    )
+    if ugm_result.scalar_one_or_none() is None:
+        db_session.add(UserGroupMember(user_id=sample_user.id, group_id=sample_group.id))
+
+    await db_session.flush()
+    return sample_user
+
+
+@pytest.fixture
+def mock_render_pdf():
+    """Mock render_pdf at the rbac_delegation_service module level."""
+    with patch("app.services.core.rbac_delegation_service.render_pdf", new_callable=AsyncMock) as m:
+        m.return_value = b"%PDF-1.4 fake bytes for testing"
+        yield m
+
+
+@pytest.fixture
+def mock_send_email():
+    """Mock render_and_send_email at the rbac_delegation_service module level."""
+    with patch("app.services.core.rbac_delegation_service.render_and_send_email", new_callable=AsyncMock) as m:
+        m.return_value = {"sent": True}
+        yield m
+
+
+@pytest_asyncio.fixture
+async def set_tenant_setting(db_session):
+    """Factory fixture to set or update a tenant-scoped setting."""
+    from sqlalchemy import select
+
+    from app.models.common import Setting
+
+    async def _set(entity_id, key, value):
+        result = await db_session.execute(
+            select(Setting).where(
+                Setting.key == key,
+                Setting.scope == "tenant",
+                Setting.scope_id == str(entity_id),
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            existing.value = value
+        else:
+            db_session.add(Setting(key=key, value=value, scope="tenant", scope_id=str(entity_id)))
+        await db_session.flush()
+    return _set

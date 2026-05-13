@@ -89,7 +89,7 @@ export interface PermissionOverride {
 
 export interface EffectivePermission {
   permission_code: string
-  source: 'user' | 'role' | 'group'
+  source: 'user' | 'role' | 'group' | 'delegation'
 }
 
 export interface GroupDetail extends Omit<GroupRead, 'member_count'> {

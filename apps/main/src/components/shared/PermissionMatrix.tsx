@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { usePermissions, useUserEffectivePermissions } from '@/hooks/useRbac'
 import type { PermissionRead } from '@/services/rbacService'
+import { type PermSource, SOURCE_BADGE } from '@/pages/settings/tabs/RbacPermissionMatrix'
 
 // ── Matrix action columns ────────────────────────────────────
 const MATRIX_ACTIONS = [
@@ -43,14 +44,6 @@ interface MatrixModule {
   module: string
   rows: MatrixRow[]
   allCodes: string[]
-}
-
-type PermSource = 'user' | 'role' | 'group'
-
-const SOURCE_BADGE: Record<PermSource, { icon: React.ElementType; color: string; label: string }> = {
-  user:  { icon: UserIcon,   color: 'text-violet-500', label: 'Utilisateur' },
-  role:  { icon: Shield,     color: 'text-blue-500',   label: 'Rôle' },
-  group: { icon: UsersRound, color: 'text-emerald-500', label: 'Groupe' },
 }
 
 // ── Matrix builder ───────────────────────────────────────────

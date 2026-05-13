@@ -15,6 +15,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileDown, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { downloadPdf } from '@/lib/downloadPdf'
+import { useToast } from '@/components/ui/Toast'
 
 export interface ExportPdfItem {
   key: string
@@ -46,19 +48,26 @@ export function ExportPdfMenu({
   hasPermission = true,
 }: ExportPdfMenuProps) {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [lang, setLang] = useState<'fr' | 'en'>(defaultLang)
   const [includeDisabledModules, setIncludeDisabledModules] = useState(defaultIncludeDisabledModules)
 
   if (!hasPermission) return null
 
-  const handleClick = (item: ExportPdfItem) => {
+  const handleClick = async (item: ExportPdfItem): Promise<void> => {
     if (item.requiresSelection && selectedIds.length === 0) return
     const url = item.buildUrl({ lang, includeDisabledModules, selectedIds })
     if (!url) return
     setOpen(false)
-    // Trigger browser download
-    window.location.href = url
+    try {
+      // Authenticated download — Bearer token is attached by the shared axios
+      // instance, which a raw `window.location.href` would bypass.
+      await downloadPdf(url)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast({ title: t('rbac.export.error', 'Erreur'), description: msg, variant: 'error' })
+    }
   }
 
   return (

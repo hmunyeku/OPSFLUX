@@ -21,6 +21,7 @@ import { delegationCertificateUrl, exportDelegationRegistryUrl } from '@/service
 import type { DelegationListItem, DelegationStatus } from '@/services/rbacService'
 import { DelegationCreateWizard } from './rbac/DelegationCreateWizard'
 import { formatDate } from '@/lib/i18n'
+import { downloadPdf } from '@/lib/downloadPdf'
 
 // ════════════════════════════════════════════════════════════
 // Status badge helper
@@ -148,15 +149,14 @@ export function RbacDelegationsTab() {
       header: '',
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <a
-            href={delegationCertificateUrl(row.original.id)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => downloadPdf(delegationCertificateUrl(row.original.id))}
             className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
             title="Télécharger le certificat PDF"
           >
             <FileDown className="h-3.5 w-3.5" />
-          </a>
+          </button>
           {row.original.status === 'active' && (
             <button
               type="button"
@@ -189,15 +189,14 @@ export function RbacDelegationsTab() {
             <option value="expired">Expirées</option>
             <option value="revoked">Révoquées</option>
           </select>
-          <a
-            href={exportDelegationRegistryUrl({ lang: 'fr' }, statusFilter || undefined)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => downloadPdf(exportDelegationRegistryUrl({ lang: 'fr' }, statusFilter || undefined))}
             className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1 text-sm hover:bg-slate-50"
           >
             <FileDown className="h-4 w-4" />
             Export registre
-          </a>
+          </button>
           <button
             type="button"
             onClick={() => setWizardOpen(true)}

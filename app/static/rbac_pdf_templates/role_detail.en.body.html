@@ -1,0 +1,38 @@
+<main style="padding: 8mm 12mm;">
+  <h1>{{ _('RBAC_ROLE_DETAIL') }} — {{ role.code }}</h1>
+  <p><strong>{{ _('RBAC_LABEL_NAME') }} :</strong> {{ role.name }}</p>
+  {% if role.description %}<p><strong>{{ _('RBAC_LABEL_DESCRIPTION') }} :</strong> {{ role.description }}</p>{% endif %}
+  {% if role.module %}<p><strong>{{ _('RBAC_LABEL_MODULE') }} :</strong> {{ role.module }}</p>{% endif %}
+
+  <h2>{{ _('RBAC_SECTION_PERMISSIONS') }} ({{ permission_count }})</h2>
+  {% for group in permissions_by_module %}
+    <h3>{{ group.module }}</h3>
+    <table>
+      <thead>
+        <tr><th>{{ _('RBAC_LABEL_CODE') }}</th><th>{{ _('RBAC_LABEL_NAME') }}</th><th>{{ _('RBAC_LABEL_ACTION') }}</th></tr>
+      </thead>
+      <tbody>
+        {% for perm in group.permissions %}
+          <tr>
+            <td><span class="perm-code">{{ perm.code }}</span></td>
+            <td>{{ perm.name }} {% if perm.sensitive %}<span class="badge-rgpd">RGPD</span>{% endif %}</td>
+            <td>{{ perm.action }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endfor %}
+
+  <h2>{{ _('RBAC_SECTION_GROUPS') }}</h2>
+  {% if groups_using_role %}
+    <ul>
+      {% for g in groups_using_role %}
+        <li>{{ g.name }} {% if not g.active %}({{ _('RBAC_STATUS_REVOKED') }}){% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p><em>Aucun groupe n'utilise ce rôle.</em></p>
+  {% endif %}
+
+  <p style="margin-top: 6mm;"><strong>{{ users_via_groups_count }}</strong> {{ _('RBAC_COUNT_USERS') }}</p>
+</main>

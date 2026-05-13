@@ -1,0 +1,10 @@
+<p>Bonjour {{ delegator.full_name }},</p>
+<p>Vous venez d'accorder une délégation de permissions à <strong>{{ delegate.full_name }}</strong> ({{ delegate.email }}).</p>
+<ul>
+  <li><strong>Période :</strong> {{ delegation.start_date }} → {{ delegation.end_date }} ({{ delegation_duration_days }} jours)</li>
+  <li><strong>Nombre de permissions :</strong> {{ delegation.permissions | length }}</li>
+  <li><strong>Motif :</strong> {{ delegation.reason }}</li>
+</ul>
+<p>Le certificat de délégation est joint à cet email (PDF signé électroniquement par empreinte SHA-256).</p>
+<p>Conformément à ISO 27001 §A.9.2.5, cette délégation est tracée dans le journal d'audit RBAC.</p>
+<p style="color: #64748b; font-size: 11px;">Empreinte du certificat : {{ content_hash | default('—') }}</p>

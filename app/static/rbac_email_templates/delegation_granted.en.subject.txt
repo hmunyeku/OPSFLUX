@@ -1,0 +1,1 @@
+[OpsFlux] Delegation granted to {{ delegate.full_name }} — confirmation

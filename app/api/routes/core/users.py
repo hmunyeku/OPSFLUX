@@ -1243,6 +1243,22 @@ async def create_my_delegation(
     db.add(delegation)
     await db.commit()
     await db.refresh(delegation)
+
+    # ISO traceability: best-effort PDF certificate + emails.
+    # Failures here MUST NOT roll back the delegation itself.
+    try:
+        from app.services.core.delegation_service import notify_delegation_created
+        await notify_delegation_created(
+            db,
+            delegation=delegation,
+            delegator=current_user,
+            delegate=delegate,
+        )
+        await db.commit()
+    except Exception:
+        # Already logged inside notify_delegation_created; never raise.
+        pass
+
     return _serialize_delegation(delegation, delegator=current_user, delegate=delegate)
 
 
@@ -1300,19 +1316,39 @@ async def delete_my_delegation(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(UserDelegation).where(
+        select(UserDelegation, User)
+        .join(User, User.id == UserDelegation.delegate_id)
+        .where(
             UserDelegation.id == delegation_id,
             UserDelegation.delegator_id == current_user.id,
             UserDelegation.entity_id == entity_id,
         )
     )
-    delegation = result.scalar_one_or_none()
-    if delegation is None:
+    row = result.one_or_none()
+    if row is None:
         raise StructuredHTTPException(
             404,
             code="DELEGATION_NOT_FOUND",
             message="Delegation not found",
         )
+    delegation, delegate = row
+
+    # ISO traceability: send revocation email + regenerate a REVOKED PDF
+    # snapshot BEFORE deleting. The original PDF stays in attachments
+    # (immutable audit log).
+    try:
+        from app.services.core.delegation_service import notify_delegation_revoked
+        await notify_delegation_revoked(
+            db,
+            delegation=delegation,
+            delegator=current_user,
+            delegate=delegate,
+        )
+        await db.commit()
+    except Exception:
+        # Already logged; never raise.
+        pass
+
     await db.delete(delegation)
     await db.commit()
 

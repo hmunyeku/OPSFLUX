@@ -3697,6 +3697,28 @@
       "due_soon": "Due in 7d",
       "blocked": "Compliance blocked",
       "total": "Total PAX"
+    },
+    "csv_import": {
+      "title": "Import passengers from CSV",
+      "subtitle": "Only one column is required: email. Other columns may be present (ignored).",
+      "need_template": "Not sure about the format? Download a ready-to-fill template.",
+      "download_template": "Template",
+      "drop_or_click": "Drop your CSV file here, or click to browse",
+      "format_hint": "Encodings: UTF-8, CP1252 (Excel FR) · Separators: , ; tab |",
+      "bad_file_type": "Unsupported file",
+      "bad_file_type_desc": "Only .csv files are accepted.",
+      "email_found": "Column 'email' detected — ready to import.",
+      "email_missing": "Column 'email' missing.",
+      "headers_found": "Columns found: ",
+      "preview": "Preview (first 5 rows)",
+      "required": "required",
+      "result_title": "Import result",
+      "added_label": "Added",
+      "skipped_label": "Duplicates",
+      "errors_label": "Errors",
+      "errors_details": "Error details:",
+      "importing": "Importing…",
+      "import_btn": "Import"
     }
   },
   "planner": {

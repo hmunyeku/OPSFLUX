@@ -3793,6 +3793,28 @@
       "due_soon": "À venir 7j",
       "blocked": "Conformité bloquée",
       "total": "Total PAX"
+    },
+    "csv_import": {
+      "title": "Importer des passagers depuis un CSV",
+      "subtitle": "Une seule colonne obligatoire : email. Le fichier peut contenir d'autres colonnes (ignorées).",
+      "need_template": "Pas sûr du format ? Téléchargez un modèle prêt à remplir.",
+      "download_template": "Modèle",
+      "drop_or_click": "Glissez votre fichier CSV ici, ou cliquez pour parcourir",
+      "format_hint": "Encodages : UTF-8, CP1252 (Excel FR) · Séparateurs : , ; tab |",
+      "bad_file_type": "Fichier non supporté",
+      "bad_file_type_desc": "Seuls les fichiers .csv sont acceptés.",
+      "email_found": "Colonne 'email' détectée — prêt à importer.",
+      "email_missing": "Colonne 'email' manquante.",
+      "headers_found": "Colonnes trouvées : ",
+      "preview": "Aperçu (5 premières lignes)",
+      "required": "requis",
+      "result_title": "Résultat de l'import",
+      "added_label": "Ajoutés",
+      "skipped_label": "Doublons",
+      "errors_label": "Erreurs",
+      "errors_details": "Détails des erreurs :",
+      "importing": "Import en cours…",
+      "import_btn": "Importer"
     }
   },
   "planner": {

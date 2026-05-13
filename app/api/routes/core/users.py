@@ -363,6 +363,25 @@ async def create_user(
         logger.exception("create_user: FAIL at refresh")
         raise
 
+    # Auto-attach default role to the new user (Group 12 — RBAC PR-A).
+    # Wrapped in try/except so user creation never fails if role attachment errors.
+    try:
+        from app.services.core.rbac_default_role_service import (
+            attach_default_role_to_user,
+        )
+
+        await attach_default_role_to_user(
+            db, user, target_entity_id or entity_id
+        )
+        await db.commit()
+        logger.info("create_user: default role attached")
+    except Exception:
+        logger.exception(
+            "create_user: FAIL at attach_default_role_to_user (non-fatal) user_id=%s",
+            user.id,
+        )
+        # Non-fatal — user is already committed.
+
     try:
         await invalidate_rbac_cache(user.id)
         logger.info("create_user: rbac cache invalidated")

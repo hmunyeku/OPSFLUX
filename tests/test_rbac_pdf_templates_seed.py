@@ -68,38 +68,63 @@ async def test_render_matrix_role_permissions_does_not_raise(db_session, sample_
     assert len(pdf_bytes) > 5000  # matrix is bigger than certificate
 
 
+@pytest.mark.parametrize("slug,builder_path,extra_kwargs", [
+    ("core.rbac.delegation_certificate", "rbac_delegation_certificate_fixture", {}),
+    ("core.rbac.matrix_role_permissions", "build_matrix_role_permissions_variables", {"include_disabled": False}),
+    ("core.rbac.matrix_group_permissions", "build_matrix_group_permissions_variables", {"include_disabled": False}),
+    ("core.rbac.matrix_user_permissions", "build_matrix_user_permissions_variables", {}),
+    ("core.rbac.role_detail", "build_role_detail_variables", {"role_code": "TENANT_ADMIN"}),
+    ("core.rbac.role_modules", "build_role_modules_variables", {}),
+    ("core.rbac.permission_catalog", "build_permission_catalog_variables", {"group_by": "module", "include_disabled": False}),
+    ("core.rbac.sod_matrix", "build_sod_matrix_variables", {}),
+    ("core.rbac.delegation_registry", "build_delegations_registry_variables", {}),
+])
 @pytest.mark.asyncio
-async def test_render_both_languages(db_session, sample_entity, sample_user, another_user):
-    """Both FR and EN versions render successfully (translations resolved)."""
+async def test_render_bilingual_differs(
+    db_session, sample_entity, sample_user, another_user,
+    slug, builder_path, extra_kwargs,
+):
+    """FR and EN renders of every PDF template must produce different bytes (i18n proven).
+
+    Catches regressions where hardcoded French (or English) text bypasses the _() translator.
+    Templates that need specific data (e.g., delegation_certificate, group_detail, user_detail)
+    are skipped via the conditional below — they have dedicated single-language tests above.
+    """
+    import hashlib
     from app.core.pdf_templates import render_pdf
-    from app.services.core.rbac_delegation_service import _build_certificate_variables
-    from app.models.common import UserDelegation
-    from datetime import datetime, timedelta, timezone
 
-    now = datetime.now(timezone.utc)
-    delegation = UserDelegation(
-        delegator_id=sample_user.id,
-        delegate_id=another_user.id,
-        entity_id=sample_entity.id,
-        permissions=["asset.asset.read"],
-        start_date=now,
-        end_date=now + timedelta(days=7),
-        active=True,
-        reason="bilingual test",
-    )
-    db_session.add(delegation)
-    await db_session.flush()
-    cert_vars = await _build_certificate_variables(db_session, delegation, sample_user, another_user, sample_entity.id)
+    # Build the variables dict for this template
+    if builder_path == "rbac_delegation_certificate_fixture":
+        # Special case: delegation_certificate needs a UserDelegation to be created first
+        from app.services.core.rbac_delegation_service import _build_certificate_variables
+        from app.models.common import UserDelegation
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        delegation = UserDelegation(
+            delegator_id=sample_user.id, delegate_id=another_user.id,
+            entity_id=sample_entity.id, permissions=["asset.asset.read"],
+            start_date=now, end_date=now + timedelta(days=7),
+            active=True, reason="bilingual differential test",
+        )
+        db_session.add(delegation)
+        await db_session.flush()
+        vars_dict = await _build_certificate_variables(db_session, delegation, sample_user, another_user, sample_entity.id)
+    else:
+        # Generic case: call the builder
+        from app.services.core import rbac_export_service
+        builder = getattr(rbac_export_service, builder_path)
+        vars_dict = await builder(db_session, sample_entity.id, sample_user, lang="fr", **extra_kwargs)
 
-    pdf_fr = await render_pdf(db_session, slug="core.rbac.delegation_certificate", entity_id=sample_entity.id, language="fr", variables=cert_vars)
-    pdf_en = await render_pdf(db_session, slug="core.rbac.delegation_certificate", entity_id=sample_entity.id, language="en", variables=cert_vars)
-    assert pdf_fr is not None and pdf_fr[:4] == b"%PDF"
-    assert pdf_en is not None and pdf_en[:4] == b"%PDF"
-    # The two PDFs should differ in size due to different translation strings
-    # (won't be radically different but should not be byte-identical)
+    pdf_fr = await render_pdf(db_session, slug=slug, entity_id=sample_entity.id, language="fr", variables=vars_dict)
+    pdf_en = await render_pdf(db_session, slug=slug, entity_id=sample_entity.id, language="en", variables=vars_dict)
+    assert pdf_fr is not None and pdf_fr[:4] == b"%PDF", f"FR render of {slug} failed"
+    assert pdf_en is not None and pdf_en[:4] == b"%PDF", f"EN render of {slug} failed"
     fr_hash = hashlib.sha256(pdf_fr).hexdigest()
     en_hash = hashlib.sha256(pdf_en).hexdigest()
-    assert fr_hash != en_hash, "FR and EN renders are identical — i18n may not be working"
+    assert fr_hash != en_hash, (
+        f"{slug}: FR and EN renders are byte-identical. "
+        f"Translator is not catching hardcoded strings in the template."
+    )
 
 
 # ─── Snapshot tests for the 9 remaining RBAC templates ─────────────────────

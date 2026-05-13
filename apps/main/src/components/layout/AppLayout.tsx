@@ -29,6 +29,7 @@ import { setToastAdminDefaults, syncToastPrefsFromServer, type ToastPosition } f
 import { applyUIScale, getUIScale, setUIScaleAdminDefault, syncUIScaleFromServer } from '@/lib/uiScale'
 import type { SettingRead } from '@/types/api'
 import { Banner, syncDismissedBannersFromServer } from '@/components/ui/Banner'
+import { MFAEnforceOverlay } from '@/components/shared/MFAEnforceOverlay'
 import { syncDatatablePrefsFromServer } from '@/components/ui/DataTable/utils'
 import { syncCollapseStatesFromServer } from '@/components/shared/CollapsibleSection'
 import { useWebSocket } from '@/hooks/useWebSocket'
@@ -219,6 +220,10 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <HelpProvider>
+    {/* #6 MFA admin config : overlay bloquant si MFA obligatoire et pas
+        active sur le user. Auto-masque sur /settings/security pour
+        permettre le setup lui-meme. */}
+    <MFAEnforceOverlay />
     {/*
       h-dvh (dynamic viewport height) instead of h-screen so the root
       layout follows the visible viewport on mobile browsers whose URL

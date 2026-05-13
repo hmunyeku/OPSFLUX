@@ -552,6 +552,46 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+class MFAPolicyResponse(BaseModel):
+    """Reponse de /auth/mfa-policy — informe le frontend si MFA setup
+    est obligatoire pour l'utilisateur courant.
+
+    Champs :
+    - required_for_all : le setting 'security.mfa_required_for_all' est
+      activé au scope entity (admin a coché la case)
+    - current_user_mfa_enabled : etat MFA du user courant
+    - current_user_must_setup : required_for_all ET pas mfa_enabled
+      → le frontend doit forcer la page de setup avant tout autre acces
+    """
+
+    required_for_all: bool
+    current_user_mfa_enabled: bool
+    current_user_must_setup: bool
+
+
+@router.get("/mfa-policy", response_model=MFAPolicyResponse)
+async def get_mfa_policy(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retourne la politique MFA pour l'utilisateur courant.
+
+    Lit le setting 'auth.mfa_required_for_all' (scope=tenant) via
+    get_security_settings (cache Redis 60s).
+    Si actif et le user n'a pas MFA, current_user_must_setup=true.
+    Le frontend MFAEnforceOverlay utilise ce flag pour bloquer l'app
+    et forcer la page de setup MFA.
+    """
+    cfg = await get_security_settings(db)
+    required = bool(cfg.get("mfa_required_for_all", False))
+    mfa_enabled = bool(current_user.mfa_enabled)
+    return MFAPolicyResponse(
+        required_for_all=required,
+        current_user_mfa_enabled=mfa_enabled,
+        current_user_must_setup=required and not mfa_enabled,
+    )
+
+
 @router.get("/me/permissions", response_model=list[str])
 async def get_my_permissions(
     request: Request,

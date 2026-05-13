@@ -261,6 +261,35 @@ export function SecurityPolicyTab() {
         </div>
       </CollapsibleSection>
 
+      {/* ── MFA obligatoire (#6) ──
+          Quand active, tous les users sans MFA voient un overlay
+          bloquant a la connexion qui les force a configurer leur MFA
+          (cf MFAEnforceOverlay.tsx). Setting lu via /auth/mfa-policy. */}
+      <CollapsibleSection
+        id="mfa-policy"
+        title={t('settings.mfa_policy_title', 'Authentification à deux facteurs (MFA)')}
+        description={t(
+          'settings.mfa_policy_description',
+          'Politique de sécurité MFA appliquée à tous les utilisateurs.',
+        )}
+        storageKey="settings.security-policy.collapse"
+      >
+        <div className="mt-2 space-y-0">
+          <SettingRow
+            label={t('settings.mfa_required_for_all_label', 'Exiger le MFA pour tous les utilisateurs')}
+            description={t(
+              'settings.mfa_required_for_all_description',
+              "Lorsqu'activé, tout utilisateur sans MFA configuré est forcé de le configurer avant d'accéder à l'application (overlay bloquant). Les utilisateurs déjà inscrits gardent leur session active mais doivent configurer le MFA au prochain chargement.",
+            )}
+          >
+            <Toggle
+              checked={s.mfa_required_for_all ?? false}
+              onChange={(v) => save('mfa_required_for_all', v)}
+            />
+          </SettingRow>
+        </div>
+      </CollapsibleSection>
+
       {/* ── Conformité ── */}
       <CollapsibleSection
         id="compliance-policy"

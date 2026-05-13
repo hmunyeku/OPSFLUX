@@ -6016,7 +6016,20 @@
     "trusted_devices_revoked_all_one": "{{count}} device revoked.",
     "trusted_devices_revoked_all_other": "{{count}} devices revoked.",
     "trusted_devices_expires": "expires on",
-    "trusted_devices_last_used": "used"
+    "trusted_devices_last_used": "used",
+    "integrations": {
+      "configured": "Configured",
+      "not_configured": "Not configured",
+      "connected": "Connected",
+      "error": "Error",
+      "time_just_now": "just now",
+      "time_minutes_ago_one": "{{count}}min ago",
+      "time_minutes_ago_other": "{{count}}min ago",
+      "time_hours_ago_one": "{{count}}h ago",
+      "time_hours_ago_other": "{{count}}h ago",
+      "time_days_ago_one": "{{count}}d ago",
+      "time_days_ago_other": "{{count}}d ago"
+    }
   },
   "help_system": {
     "contextual": "Contextual help",

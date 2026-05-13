@@ -99,7 +99,37 @@ def upgrade():
         ON CONFLICT (code) DO NOTHING
     """)
 
-    # 5. Rename existing roles (continued in task 2.4)
+    # 5. Rename existing roles using INSERT+propagate+DELETE
+    # (cannot UPDATE roles.code because FK role_permissions.role_code lacks ON UPDATE CASCADE)
+    RENAMES = [
+        ("SUPER_ADMIN", "PLATFORM_ADMIN"),
+        ("PAX_ADMIN", "PAX_COORD"),
+        ("HSE_ADMIN", "HSE_MGR"),
+    ]
+    for old_code, new_code in RENAMES:
+        # 5.a Create the new role row (copy of the old)
+        op.execute(f"""
+            INSERT INTO roles (code, name, description, module)
+            SELECT '{new_code}', name, description, module FROM roles WHERE code = '{old_code}'
+            ON CONFLICT (code) DO NOTHING
+        """)
+        # 5.b Propagate role_permissions
+        op.execute(f"""
+            INSERT INTO role_permissions (role_code, permission_code)
+            SELECT '{new_code}', permission_code FROM role_permissions WHERE role_code = '{old_code}'
+            ON CONFLICT DO NOTHING
+        """)
+        # 5.c Propagate user_group_roles
+        op.execute(f"""
+            INSERT INTO user_group_roles (group_id, role_code)
+            SELECT group_id, '{new_code}' FROM user_group_roles WHERE role_code = '{old_code}'
+            ON CONFLICT DO NOTHING
+        """)
+        # 5.d Delete the old liaisons then the old role
+        op.execute(f"DELETE FROM role_permissions WHERE role_code = '{old_code}'")
+        op.execute(f"DELETE FROM user_group_roles WHERE role_code = '{old_code}'")
+        op.execute(f"DELETE FROM roles WHERE code = '{old_code}'")
+
     # 6. Seed tenant settings (continued in task 2.5)
 
 

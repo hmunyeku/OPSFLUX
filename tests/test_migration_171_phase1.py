@@ -73,3 +73,28 @@ async def test_new_roles_seeded(db_session):
     result = await db_session.execute(select(Role.code).where(Role.code.in_(expected)))
     found = {row[0] for row in result.all()}
     assert set(expected) == found, f"Rôles manquants: {set(expected) - found}"
+
+
+@pytest.mark.asyncio
+async def test_roles_renamed(db_session):
+    """SUPER_ADMIN, PAX_ADMIN, HSE_ADMIN renamed to PLATFORM_ADMIN, PAX_COORD, HSE_MGR."""
+    new_codes = ["PLATFORM_ADMIN", "PAX_COORD", "HSE_MGR"]
+    result = await db_session.execute(select(Role.code).where(Role.code.in_(new_codes)))
+    found = {row[0] for row in result.all()}
+    assert set(new_codes) == found
+
+    old_codes = ["SUPER_ADMIN", "PAX_ADMIN", "HSE_ADMIN"]
+    result = await db_session.execute(select(Role.code).where(Role.code.in_(old_codes)))
+    found_old = {row[0] for row in result.all()}
+    assert not found_old, f"Anciens codes encore présents: {found_old}"
+
+
+@pytest.mark.asyncio
+async def test_renamed_role_keeps_permissions(db_session):
+    """PLATFORM_ADMIN (ex SUPER_ADMIN) keeps all the permissions it had."""
+    from app.models.common import RolePermission
+    result = await db_session.execute(
+        select(RolePermission).where(RolePermission.role_code == "PLATFORM_ADMIN")
+    )
+    perms = result.scalars().all()
+    assert len(perms) > 20, f"PLATFORM_ADMIN should have many perms, found {len(perms)}"

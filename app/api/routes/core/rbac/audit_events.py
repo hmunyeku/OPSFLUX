@@ -48,7 +48,7 @@ async def list_audit_events(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("core.rbac.read"),
+    _: None = require_permission("core.audit.read"),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(RbacAuditEvent).where(RbacAuditEvent.tenant_id == entity_id)

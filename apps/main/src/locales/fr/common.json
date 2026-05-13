@@ -6245,7 +6245,8 @@
         "select_all": "Tout sélectionner",
         "deselect_all": "Tout désélectionner",
         "tables": "tables",
-        "purge": "Vidanger"
+        "purge": "Vidanger",
+        "preserved_hint": "Toujours préservés : utilisateurs, rôles/permissions, paramètres, dictionnaires, traductions, modèles PDF, types de conformité, MCP."
       },
       "modal": {
         "title": "Confirmer la réinitialisation",
@@ -6261,6 +6262,22 @@
         "reset_summary": "{{count}} enregistrements supprimés sur {{scopes}} domaines",
         "reset_error": "Échec de la réinitialisation",
         "select_scope": "Sélectionnez au moins un domaine"
+      },
+      "scopes_map": {
+        "support_tickets": "Tickets de support",
+        "moc": "MOC — Management of Change",
+        "paxlog": "PaxLog — ADS, AVM, missions, incidents",
+        "voyages": "TravelWiz — voyages, vecteurs, manifestes",
+        "cargo": "PackLog — colis, demandes, scans",
+        "planner": "Planner — activités et conflits",
+        "compliance_records": "Conformité — enregistrements employés",
+        "workflow_runtime": "Workflow — instances actives",
+        "projects": "Projets et tâches",
+        "tiers": "Tiers — sociétés et contacts",
+        "assets": "Actifs — installations et équipements",
+        "polymorphic": "Pièces jointes, notes et étiquettes",
+        "notifications": "Notifications",
+        "audit_log": "Journal d'audit"
       }
     },
     "agent_ia": {

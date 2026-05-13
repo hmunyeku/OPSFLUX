@@ -5939,7 +5939,8 @@
         "warning_body": "Warning body",
         "scopes": "Scopes",
         "tables": "Tables",
-        "purge": "Purge"
+        "purge": "Purge",
+        "preserved_hint": "Always preserved: users, roles/permissions, settings, dictionaries, translations, PDF templates, compliance types, MCP."
       },
       "modal": {
         "title": "Title",
@@ -5955,6 +5956,22 @@
         "reset_summary": "Reset summary",
         "reset_error": "Reset error",
         "select_scope": "Select scope"
+      },
+      "scopes_map": {
+        "support_tickets": "Support tickets",
+        "moc": "MOC — Management of Change",
+        "paxlog": "PaxLog — ADS, AVM, missions, incidents",
+        "voyages": "TravelWiz — voyages, vectors, manifests",
+        "cargo": "PackLog — cargo, requests, scans",
+        "planner": "Planner — activities and conflicts",
+        "compliance_records": "Compliance — employee records",
+        "workflow_runtime": "Workflow — active instances",
+        "projects": "Projects and tasks",
+        "tiers": "Tiers — companies and contacts",
+        "assets": "Assets — installations and equipment",
+        "polymorphic": "Attachments, notes and tags",
+        "notifications": "Notifications",
+        "audit_log": "Audit log"
       }
     },
     "agent_ia": {

@@ -84,7 +84,7 @@ ALL_SCOPES_KEY = "all"
 SCOPES: dict[str, dict[str, Any]] = {
     # ── 1. Module data first (these FK to tiers / assets) ────────────
     "support_tickets": {
-        "label": "Support tickets",
+        "label": "Tickets de support",
         "tables": [
             "DELETE FROM ticket_status_history WHERE ticket_id IN (SELECT id FROM support_tickets WHERE entity_id = :entity_id)",
             "DELETE FROM ticket_todos WHERE ticket_id IN (SELECT id FROM support_tickets WHERE entity_id = :entity_id)",
@@ -94,7 +94,7 @@ SCOPES: dict[str, dict[str, Any]] = {
         "count_table": "support_tickets",
     },
     "moc": {
-        "label": "MOC (management of change)",
+        "label": "MOC — Management of Change",
         "tables": [
             "DELETE FROM moc_reminder_log WHERE moc_id IN (SELECT id FROM mocs WHERE entity_id = :entity_id)",
             "DELETE FROM moc_site_assignments WHERE moc_id IN (SELECT id FROM mocs WHERE entity_id = :entity_id)",
@@ -105,7 +105,7 @@ SCOPES: dict[str, dict[str, Any]] = {
         "count_table": "mocs",
     },
     "paxlog": {
-        "label": "PaxLog (ADS, AVM, missions, incidents)",
+        "label": "PaxLog — ADS, AVM, missions, incidents",
         "tables": [
             "DELETE FROM ads_events WHERE ads_id IN (SELECT id FROM ads WHERE entity_id = :entity_id)",
             "DELETE FROM external_access_links WHERE ads_id IN (SELECT id FROM ads WHERE entity_id = :entity_id)",
@@ -130,7 +130,7 @@ SCOPES: dict[str, dict[str, Any]] = {
         "count_table": "ads",
     },
     "voyages": {
-        "label": "TravelWiz (voyages, vecteurs, manifestes)",
+        "label": "TravelWiz — voyages, vecteurs, manifestes",
         "tables": [
             "DELETE FROM trip_kpis WHERE voyage_id IN (SELECT id FROM voyages WHERE entity_id = :entity_id)",
             "DELETE FROM trip_code_access WHERE voyage_id IN (SELECT id FROM voyages WHERE entity_id = :entity_id)",
@@ -153,7 +153,7 @@ SCOPES: dict[str, dict[str, Any]] = {
         "count_table": "voyages",
     },
     "cargo": {
-        "label": "PackLog (cargo, requests, scans)",
+        "label": "PackLog — colis, demandes, scans",
         "tables": [
             "DELETE FROM cargo_scan_events WHERE cargo_id IN (SELECT id FROM cargo_items WHERE entity_id = :entity_id)",
             "DELETE FROM cargo_attachment_evidences WHERE cargo_id IN (SELECT id FROM cargo_items WHERE entity_id = :entity_id)",
@@ -167,7 +167,7 @@ SCOPES: dict[str, dict[str, Any]] = {
         "count_table": "cargo_items",
     },
     "planner": {
-        "label": "Planner (activités planifiées et conflits)",
+        "label": "Planner — activités et conflits",
         "tables": [
             "DELETE FROM planner_activity_dependencies WHERE predecessor_id IN (SELECT id FROM planner_activities WHERE entity_id = :entity_id) OR successor_id IN (SELECT id FROM planner_activities WHERE entity_id = :entity_id)",
             "DELETE FROM planner_conflict_audit WHERE conflict_id IN (SELECT id FROM planner_conflicts WHERE entity_id = :entity_id)",
@@ -180,7 +180,7 @@ SCOPES: dict[str, dict[str, Any]] = {
         "count_table": "planner_activities",
     },
     "compliance_records": {
-        "label": "Conformité — enregistrements (les types/règles sont préservés)",
+        "label": "Conformité — enregistrements employés",
         "tables": [
             "DELETE FROM compliance_exemptions WHERE entity_id = :entity_id",
             "DELETE FROM compliance_records WHERE entity_id = :entity_id",
@@ -188,7 +188,7 @@ SCOPES: dict[str, dict[str, Any]] = {
         "count_table": "compliance_records",
     },
     "workflow_runtime": {
-        "label": "Workflow — instances et transitions (définitions préservées)",
+        "label": "Workflow — instances actives",
         "tables": [
             "DELETE FROM workflow_transitions WHERE instance_id IN (SELECT id FROM workflow_instances WHERE entity_id = :entity_id)",
             "DELETE FROM workflow_instances WHERE entity_id = :entity_id",
@@ -222,7 +222,7 @@ SCOPES: dict[str, dict[str, Any]] = {
     # ── 3. Tiers (referenced by projects via tier_id but tiers also stand
     #         alone, so this can run after projects) ─────────────────────
     "tiers": {
-        "label": "Tiers (sociétés et contacts)",
+        "label": "Tiers — sociétés et contacts",
         "tables": [
             # Polymorphic adjacencies that piggyback on tiers/contacts.
             # legal_identifiers + addresses + phones + contact_emails are
@@ -241,7 +241,7 @@ SCOPES: dict[str, dict[str, Any]] = {
     },
     # ── 4. Assets — last (referenced by planner, projects, voyages, ...) ─
     "assets": {
-        "label": "Assets / installations / équipements",
+        "label": "Actifs — installations et équipements",
         "tables": [
             "DELETE FROM ar_equipment_assignments WHERE equipment_id IN (SELECT id FROM ar_equipment WHERE entity_id = :entity_id)",
             "DELETE FROM ar_equipment_documents WHERE equipment_id IN (SELECT id FROM ar_equipment WHERE entity_id = :entity_id)",
@@ -257,7 +257,7 @@ SCOPES: dict[str, dict[str, Any]] = {
     },
     # ── 5. Polymorphic / cross-cutting (last) ────────────────────────
     "polymorphic": {
-        "label": "Pièces jointes, notes, tags (entity-scoped)",
+        "label": "Pièces jointes, notes et étiquettes",
         # Only the truly entity-scoped ones — the polymorphic ones above
         # are handled inside their owning scope. attachments has
         # entity_id; the rest are bound via owner_type/owner_id.
@@ -267,7 +267,7 @@ SCOPES: dict[str, dict[str, Any]] = {
         "count_table": "attachments",
     },
     "notifications": {
-        "label": "Notifications utilisateurs",
+        "label": "Notifications",
         "tables": [
             "DELETE FROM notifications WHERE entity_id = :entity_id",
         ],

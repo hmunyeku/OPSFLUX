@@ -1496,7 +1496,97 @@
       "identity_help": "Identity help"
     },
     "select_user": "Sélectionner utilisateur",
-    "user": "Utilisateur"
+    "user": "Utilisateur",
+    "badges": {
+      "locked": "Verrouillé",
+      "expired": "Expiré",
+      "active": "Actif",
+      "archived": "Archivé",
+      "external": "Externe",
+      "internal": "Interne"
+    },
+    "never_logged_in": "Jamais connecté",
+    "auth_methods": {
+      "email_password": "Email / Mot de passe",
+      "sso": "SSO",
+      "both": "Email + SSO"
+    },
+    "languages": {
+      "fr": "Français",
+      "en": "English"
+    },
+    "gender": {
+      "male": "Masculin",
+      "female": "Féminin",
+      "other": "Autre"
+    },
+    "actions": {
+      "reset_password": {
+        "label": "Réinitialiser le mot de passe",
+        "confirm_title": "Réinitialiser le mot de passe de {{count}} utilisateur(s) ?",
+        "confirm_message": "Un email de réinitialisation sera envoyé à chaque utilisateur sélectionné.",
+        "confirm_label": "Réinitialiser"
+      },
+      "activate": {
+        "label": "Activer"
+      },
+      "deactivate": {
+        "label": "Désactiver",
+        "confirm_title": "Désactiver {{count}} utilisateur(s) ?",
+        "confirm_message": "Les utilisateurs sélectionnés seront archivés et ne pourront plus se connecter.",
+        "confirm_label": "Désactiver"
+      },
+      "unlock": {
+        "label": "Déverrouiller"
+      },
+      "set_user_type": {
+        "label": "Changer le type",
+        "confirm_title": "Changer le type de {{count}} utilisateur(s) ?",
+        "confirm_message": "Interne = accès entité, Externe = accès limité aux entreprises liées.",
+        "confirm_label": "Interne",
+        "cancel_label": "Externe"
+      },
+      "assign_group": {
+        "label": "Affecter à un groupe"
+      },
+      "assign_entity": {
+        "label": "Affecter à une entité"
+      }
+    },
+    "filters": {
+      "status": {
+        "label": "Statut",
+        "all": "Tous",
+        "active": "Actifs",
+        "archived": "Archivés"
+      },
+      "user_type": {
+        "label": "Type",
+        "all": "Tous",
+        "internal": "Interne",
+        "external": "Externe"
+      },
+      "mfa": {
+        "label": "MFA",
+        "all": "Tous",
+        "enabled": "Activé",
+        "disabled": "Désactivé"
+      }
+    },
+    "batch_assign": {
+      "group_title": "Affecter à un groupe",
+      "entity_title": "Affecter à une entité",
+      "group_search": "Rechercher un groupe…",
+      "entity_search": "Rechercher une entité…",
+      "selected_count_one": "{{count}} utilisateur sélectionné",
+      "selected_count_other": "{{count}} utilisateurs sélectionnés",
+      "member_count_one": "{{count}} membre",
+      "member_count_other": "{{count}} membres",
+      "user_count_one": "{{count}} utilisateur",
+      "user_count_other": "{{count}} utilisateurs",
+      "no_role": "Aucun rôle"
+    },
+    "create_group_title": "Nouveau groupe"
   },
   "conformite": {
     "title": "Conformité",

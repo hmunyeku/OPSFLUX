@@ -1400,7 +1400,97 @@
       "identity": "Identity",
       "identity_help": "Identity help"
     },
-    "select_user": "Select user"
+    "select_user": "Select user",
+    "badges": {
+      "locked": "Locked",
+      "expired": "Expired",
+      "active": "Active",
+      "archived": "Archived",
+      "external": "External",
+      "internal": "Internal"
+    },
+    "never_logged_in": "Never logged in",
+    "auth_methods": {
+      "email_password": "Email / Password",
+      "sso": "SSO",
+      "both": "Email + SSO"
+    },
+    "languages": {
+      "fr": "French",
+      "en": "English"
+    },
+    "gender": {
+      "male": "Male",
+      "female": "Female",
+      "other": "Other"
+    },
+    "actions": {
+      "reset_password": {
+        "label": "Reset password",
+        "confirm_title": "Reset password for {{count}} user(s)?",
+        "confirm_message": "A reset email will be sent to each selected user.",
+        "confirm_label": "Reset"
+      },
+      "activate": {
+        "label": "Activate"
+      },
+      "deactivate": {
+        "label": "Deactivate",
+        "confirm_title": "Deactivate {{count}} user(s)?",
+        "confirm_message": "Selected users will be archived and can no longer log in.",
+        "confirm_label": "Deactivate"
+      },
+      "unlock": {
+        "label": "Unlock"
+      },
+      "set_user_type": {
+        "label": "Change type",
+        "confirm_title": "Change type for {{count}} user(s)?",
+        "confirm_message": "Internal = entity access, External = limited access to linked companies.",
+        "confirm_label": "Internal",
+        "cancel_label": "External"
+      },
+      "assign_group": {
+        "label": "Assign to a group"
+      },
+      "assign_entity": {
+        "label": "Assign to an entity"
+      }
+    },
+    "filters": {
+      "status": {
+        "label": "Status",
+        "all": "All",
+        "active": "Active",
+        "archived": "Archived"
+      },
+      "user_type": {
+        "label": "Type",
+        "all": "All",
+        "internal": "Internal",
+        "external": "External"
+      },
+      "mfa": {
+        "label": "MFA",
+        "all": "All",
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      }
+    },
+    "batch_assign": {
+      "group_title": "Assign to a group",
+      "entity_title": "Assign to an entity",
+      "group_search": "Search a group…",
+      "entity_search": "Search an entity…",
+      "selected_count_one": "{{count}} user selected",
+      "selected_count_other": "{{count}} users selected",
+      "member_count_one": "{{count}} member",
+      "member_count_other": "{{count}} members",
+      "user_count_one": "{{count}} user",
+      "user_count_other": "{{count}} users",
+      "no_role": "No role"
+    },
+    "create_group_title": "New group"
   },
   "conformite": {
     "title": "Compliance",

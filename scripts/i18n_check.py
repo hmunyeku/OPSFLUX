@@ -66,8 +66,20 @@ def main() -> int:
     fr = collect_json_keys(FR_PATH)
     en = collect_json_keys(EN_PATH)
 
-    missing_fr = called - fr
-    missing_en = called - en
+    # Pluriels i18next : t('x.count') resout x.count_one / x.count_other.
+    # Si on n'a que les variantes _one/_other dans le JSON, considere la
+    # cle de base couverte.
+    def covered(key: str, available: set[str]) -> bool:
+        if key in available:
+            return True
+        # Suffix pluriel i18next standard
+        for suffix in ('_one', '_other', '_zero', '_two', '_few', '_many'):
+            if f'{key}{suffix}' in available:
+                return True
+        return False
+
+    missing_fr = {k for k in called if not covered(k, fr)}
+    missing_en = {k for k in called if not covered(k, en)}
     fr_only = fr - en
     en_only = en - fr
 

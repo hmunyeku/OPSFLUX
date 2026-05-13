@@ -111,7 +111,7 @@ const getUserColumns = (t: (key: string) => string): ColumnDef<UserRead, unknown
       return <span className="chip text-[10px]">{AUTH_TYPE_LABELS[v] ?? v}</span>
     },
     size: 120,
-    meta: { filterType: 'select' as const, filterOptions: [{ value: 'email_password', label: 'Email / Mot de passe' }, { value: 'sso', label: 'SSO' }, { value: 'both', label: 'Email + SSO' }] },
+    meta: { filterType: 'select' as const, filterOptions: [{ value: 'email_password', label: t('users.auth_methods.email_password') }, { value: 'sso', label: t('users.auth_methods.sso') }, { value: 'both', label: t('users.auth_methods.both') }] },
   },
   {
     id: 'mfa',
@@ -133,7 +133,7 @@ const getUserColumns = (t: (key: string) => string): ColumnDef<UserRead, unknown
       </span>
     ),
     size: 80,
-    meta: { filterType: 'select' as const, filterOptions: [{ value: 'fr', label: 'Français' }, { value: 'en', label: 'English' }] },
+    meta: { filterType: 'select' as const, filterOptions: [{ value: 'fr', label: t('users.languages.fr') }, { value: 'en', label: t('users.languages.en') }] },
   },
   {
     accessorKey: 'active',
@@ -141,12 +141,12 @@ const getUserColumns = (t: (key: string) => string): ColumnDef<UserRead, unknown
     cell: ({ row }) => {
       const u = row.original
       if (u.locked_until && new Date(u.locked_until) > new Date()) {
-        return <BadgeCell value="Verrouillé" variant="warning" />
+        return <BadgeCell value={t('users.badges.locked')} variant="warning" />
       }
       if (u.account_expires_at && new Date(u.account_expires_at) < new Date()) {
-        return <BadgeCell value="Expiré" variant="neutral" />
+        return <BadgeCell value={t('users.badges.expired')} variant="neutral" />
       }
-      return <BadgeCell value={u.active ? 'Actif' : 'Archivé'} variant={u.active ? 'success' : 'neutral'} />
+      return <BadgeCell value={u.active ? t('users.badges.active') : t('users.badges.archived')} variant={u.active ? 'success' : 'neutral'} />
     },
     size: 100,
   },
@@ -156,8 +156,8 @@ const getUserColumns = (t: (key: string) => string): ColumnDef<UserRead, unknown
     cell: ({ getValue }) => {
       const v = getValue() as string
       return v === 'external'
-        ? <BadgeCell value="Externe" variant="warning" />
-        : <BadgeCell value="Interne" variant="info" />
+        ? <BadgeCell value={t('users.badges.external')} variant="warning" />
+        : <BadgeCell value={t('users.badges.internal')} variant="info" />
     },
     size: 90,
   },
@@ -185,7 +185,7 @@ const getUserColumns = (t: (key: string) => string): ColumnDef<UserRead, unknown
     header: t('users.columns.gender'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 70,
-    meta: { filterType: 'select' as const, filterOptions: [{ value: 'M', label: 'Masculin' }, { value: 'F', label: 'Féminin' }, { value: 'X', label: 'Autre' }] },
+    meta: { filterType: 'select' as const, filterOptions: [{ value: 'M', label: t('users.gender.male') }, { value: 'F', label: t('users.gender.female') }, { value: 'X', label: t('users.gender.other') }] },
   },
   {
     accessorKey: 'nationality',
@@ -344,6 +344,7 @@ const defaultHiddenUserColumns = [
 
 // ── User Card (for grid view) ──────────────────────────────
 function UserCard({ row: user, selected, onSelect, onClick }: CardRendererProps<UserRead>) {
+  const { t } = useTranslation()
   const initials = `${user.first_name?.charAt(0) ?? ''}${user.last_name?.charAt(0) ?? ''}`
   const color = getAvatarColor(`${user.first_name}${user.last_name}`)
 
@@ -384,7 +385,7 @@ function UserCard({ row: user, selected, onSelect, onClick }: CardRendererProps<
 
       <div className="flex items-center justify-center gap-1.5 mt-3 flex-wrap">
         <span className={cn('chip', user.active ? 'chip-success' : '')}>
-          {user.active ? 'Actif' : 'Archivé'}
+          {user.active ? t('users.badges.active') : t('users.badges.archived')}
         </span>
         {user.mfa_enabled && (
           <span className="chip chip-info text-[10px]"><ShieldCheck size={9} className="mr-0.5" />MFA</span>
@@ -395,7 +396,7 @@ function UserCard({ row: user, selected, onSelect, onClick }: CardRendererProps<
       <div className="mt-3 pt-3 border-t border-border/50 text-center">
         <span className="text-xs text-muted-foreground" title={user.last_login_at ? new Date(user.last_login_at).toLocaleString() : undefined}>
           <Clock size={10} className="inline mr-1" />
-          {user.last_login_at ? relativeTime(user.last_login_at) : 'Jamais connecté'}
+          {user.last_login_at ? relativeTime(user.last_login_at) : t('users.never_logged_in')}
         </span>
       </div>
     </div>
@@ -472,13 +473,13 @@ export function UsersPage() {
       actions.push(
         {
           id: 'reset-password',
-          label: 'Réinitialiser le mot de passe',
+          label: t('users.actions.reset_password.label'),
           icon: KeyRound,
           onAction: async (rows) => {
             const ok = await confirm({
-              title: `Réinitialiser le mot de passe de ${rows.length} utilisateur${rows.length > 1 ? 's' : ''} ?`,
-              message: 'Un email de réinitialisation sera envoyé à chaque utilisateur sélectionné.',
-              confirmLabel: 'Réinitialiser',
+              title: t('users.actions.reset_password.confirm_title', { count: rows.length }),
+              message: t('users.actions.reset_password.confirm_message'),
+              confirmLabel: t('users.actions.reset_password.confirm_label'),
             })
             if (!ok) return
             await Promise.all(rows.map((r) => batchPasswordReset.mutateAsync(r.email)))
@@ -486,7 +487,7 @@ export function UsersPage() {
         },
         {
           id: 'activate',
-          label: 'Activer',
+          label: t('users.actions.activate.label'),
           icon: UserCheck,
           onAction: async (rows) => {
             const inactiveRows = rows.filter((r) => !r.active)
@@ -498,16 +499,16 @@ export function UsersPage() {
         },
         {
           id: 'deactivate',
-          label: 'Désactiver',
+          label: t('users.actions.deactivate.label'),
           icon: UserX,
           variant: 'danger' as const,
           onAction: async (rows) => {
             const activeRows = rows.filter((r) => r.active)
             if (activeRows.length === 0) return
             const ok = await confirm({
-              title: `Désactiver ${activeRows.length} utilisateur${activeRows.length > 1 ? 's' : ''} ?`,
-              message: 'Les utilisateurs sélectionnés seront archivés et ne pourront plus se connecter.',
-              confirmLabel: 'Désactiver',
+              title: t('users.actions.deactivate.confirm_title', { count: activeRows.length }),
+              message: t('users.actions.deactivate.confirm_message'),
+              confirmLabel: t('users.actions.deactivate.confirm_label'),
               variant: 'danger',
             })
             if (!ok) return
@@ -518,7 +519,7 @@ export function UsersPage() {
         },
         {
           id: 'unlock',
-          label: 'Déverrouiller',
+          label: t('users.actions.unlock.label'),
           icon: Unlock,
           onAction: async (rows) => {
             const locked = rows.filter((r) => r.failed_login_count > 0 || (r.locked_until && new Date(r.locked_until) > new Date()))
@@ -530,14 +531,14 @@ export function UsersPage() {
         },
         {
           id: 'set-user-type',
-          label: 'Changer le type',
+          label: t('users.actions.set_user_type.label'),
           icon: Shield,
           onAction: async (rows) => {
             const ok = await confirm({
-              title: `Changer le type de ${rows.length} utilisateur${rows.length > 1 ? 's' : ''} ?`,
-              message: 'Interne = accès entité, Externe = accès limité aux entreprises liées.',
-              confirmLabel: 'Interne',
-              cancelLabel: 'Externe',
+              title: t('users.actions.set_user_type.confirm_title', { count: rows.length }),
+              message: t('users.actions.set_user_type.confirm_message'),
+              confirmLabel: t('users.actions.set_user_type.confirm_label'),
+              cancelLabel: t('users.actions.set_user_type.cancel_label'),
             })
             const newType = ok ? 'internal' : 'external'
             await Promise.all(rows.map((r) => updateUser.mutateAsync({ id: r.id, payload: { user_type: newType } })))
@@ -548,7 +549,7 @@ export function UsersPage() {
     if (canManageRbac) {
       actions.push({
         id: 'assign-group',
-        label: 'Affecter à un groupe',
+        label: t('users.actions.assign_group.label'),
         icon: Users,
         onAction: (rows) => {
           setBatchGroupUserIds(rows.map((r) => r.id))
@@ -558,7 +559,7 @@ export function UsersPage() {
     if (canManageEntities) {
       actions.push({
         id: 'assign-entity',
-        label: 'Affecter à une entité',
+        label: t('users.actions.assign_entity.label'),
         icon: Building2,
         onAction: (rows) => {
           setBatchEntityUserIds(rows.map((r) => r.id))
@@ -566,37 +567,37 @@ export function UsersPage() {
       })
     }
     return actions
-  }, [updateUser, batchPasswordReset, confirm, canManageUsers, canManageRbac, canManageEntities])
+  }, [t, updateUser, batchPasswordReset, confirm, canManageUsers, canManageRbac, canManageEntities])
 
   const filterDefs: DataTableFilterDef[] = useMemo(() => [
     {
       id: 'status',
-      label: 'Statut',
+      label: t('users.filters.status.label'),
       type: 'select' as const,
       options: [
-        { value: 'all', label: 'Tous', count: data?.total },
-        { value: 'active', label: 'Actifs' },
-        { value: 'archived', label: 'Archivés' },
+        { value: 'all', label: t('users.filters.status.all'), count: data?.total },
+        { value: 'active', label: t('users.filters.status.active') },
+        { value: 'archived', label: t('users.filters.status.archived') },
       ],
     },
     {
       id: 'user_type',
-      label: 'Type',
+      label: t('users.filters.user_type.label'),
       type: 'select' as const,
       options: [
-        { value: 'all', label: 'Tous' },
-        { value: 'internal', label: 'Interne' },
-        { value: 'external', label: 'Externe' },
+        { value: 'all', label: t('users.filters.user_type.all') },
+        { value: 'internal', label: t('users.filters.user_type.internal') },
+        { value: 'external', label: t('users.filters.user_type.external') },
       ],
     },
     {
       id: 'mfa',
-      label: 'MFA',
+      label: t('users.filters.mfa.label'),
       type: 'select' as const,
       options: [
-        { value: 'all', label: 'Tous' },
-        { value: 'enabled', label: 'Activé' },
-        { value: 'disabled', label: 'Désactivé' },
+        { value: 'all', label: t('users.filters.mfa.all') },
+        { value: 'enabled', label: t('users.filters.mfa.enabled') },
+        { value: 'disabled', label: t('users.filters.mfa.disabled') },
       ],
     },
   ], [data])
@@ -822,14 +823,14 @@ export function UsersPage() {
       {/* Batch group assignment modal */}
       {batchGroupUserIds && (
         <BatchAssignModal
-          title="Affecter à un groupe"
-          subtitle={`${batchGroupUserIds.length} utilisateur${batchGroupUserIds.length > 1 ? 's' : ''} sélectionné${batchGroupUserIds.length > 1 ? 's' : ''}`}
-          searchPlaceholder="Rechercher un groupe..."
+          title={t('users.batch_assign.group_title')}
+          subtitle={t('users.batch_assign.selected_count', { count: batchGroupUserIds.length })}
+          searchPlaceholder={t('users.batch_assign.group_search')}
           items={(allGroupsForPicker?.items ?? []).map((g) => ({
             id: g.id,
             label: g.name,
-            sublabel: g.role_names.join(', ') || g.role_codes.join(', ') || 'Aucun rôle',
-            meta: `${g.member_count} membre${g.member_count !== 1 ? 's' : ''}`,
+            sublabel: g.role_names.join(', ') || g.role_codes.join(', ') || t('users.batch_assign.no_role'),
+            meta: t('users.batch_assign.member_count', { count: g.member_count }),
             badge: g.entity_name || undefined,
             icon: Users,
             iconClassName: 'text-violet-500',
@@ -848,14 +849,14 @@ export function UsersPage() {
       {/* Batch entity assignment modal */}
       {batchEntityUserIds && (
         <BatchAssignModal
-          title="Affecter à une entité"
-          subtitle={`${batchEntityUserIds.length} utilisateur${batchEntityUserIds.length > 1 ? 's' : ''} sélectionné${batchEntityUserIds.length > 1 ? 's' : ''}`}
-          searchPlaceholder="Rechercher une entité..."
+          title={t('users.batch_assign.entity_title')}
+          subtitle={t('users.batch_assign.selected_count', { count: batchEntityUserIds.length })}
+          searchPlaceholder={t('users.batch_assign.entity_search')}
           items={(allEntitiesForPicker?.items ?? []).filter((e) => e.active).map((e) => ({
             id: e.id,
             label: e.name,
             sublabel: e.code,
-            meta: `${e.user_count} utilisateur${e.user_count !== 1 ? 's' : ''}`,
+            meta: t('users.batch_assign.user_count', { count: e.user_count }),
             badge: e.country || undefined,
             icon: Building2,
             iconClassName: 'text-blue-500',
@@ -874,9 +875,10 @@ export function UsersPage() {
 
 // ── Group DynamicPanel wrappers ───────────────────────────────
 function GroupCreatePanelWrapper() {
+  const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   return (
-    <DynamicPanelShell title="Nouveau groupe" onClose={closeDynamicPanel}>
+    <DynamicPanelShell title={t('users.create_group_title')} onClose={closeDynamicPanel}>
       <CreateGroupForm onClose={closeDynamicPanel} />
     </DynamicPanelShell>
   )

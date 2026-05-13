@@ -994,3 +994,135 @@ Cellules de tables widgets désormais bilingues sur tous les modules (Projets da
 | Endpoints validés | 85 |
 | Scripts pérennes | 10 |
 | CI workflows | 2 + trigger main |
+
+---
+
+## Session 16 — push prioritaire Bastien (wake + go autonomous)
+
+**Contexte** : Bastien priorisé "1, 2, 3, 6, 7, 4" (skip 5 branch protection — fait lui-même). Session étendue à autonomie complète avec multiples relances "go".
+
+### Commits déployés (20 sur main)
+
+| SHA | Sujet | Impact |
+|---|---|---|
+| `a01a80c0` | SUP-0043 annonces ciblage role/module + ajout group/page | Bug visibilité annonces fix + 2 nouveaux types target |
+| `51471765` | SUP-0038 invalide caches conformite apres transfert | Hook React Query qui ratait 6 caches |
+| `67c1f6d3` | #6 MFA admin config obligatoire pour tous | Setting + overlay enforce |
+| `22569c11` | #6+ MFA trust device "Se souvenir X jours" | Cookie HTTP-only + 5 endpoints + UI admin/user |
+| `e525d1f2` | #7 polish libellés FR auto-générés (43 cas) | Script + bulk fix |
+| `97f94123` | #4-A UsersPage 24 hardcodes FR → t() | i18n |
+| `b3bf28e7` | #4-B WidgetCard 9 hardcodes FR → t()/tLabel | i18n |
+| `7ce6d881` | #4-C CargoRequestPanels 28 hardcodes FR | i18n |
+| `6b78e3f1` | #4-D IntegrationsTab badges + time | i18n |
+| `a17d2584` | #4-E ProjectDetailPanel 30+ hardcodes | i18n |
+| `1a8ba336` | MaintenanceTab scopes nettoyés + bilingue | i18n admin |
+| `17362b95` | RbacAdminTab tabs/filters/empty bilingue | i18n admin |
+| `0204d7ae` | NotificationsTab 55 keys (levels/modules/events) | i18n admin |
+| `5c4cd175` | EntitiesTab + GeneralConfigTab titres sections | i18n admin |
+| `22c0762b` | GdprTab + AccessTokens + Apps titles | i18n admin |
+| `ade3f1f9` | I18nTab + EmailsTab buttons + empty | i18n admin |
+| `75e17577` | PaxLog refonte UI import CSV (drag-drop, preview) | UX fix |
+| `c3d42a29` | Onboarding refonte context-aware + permissions + import | UX critique fix |
+| `c147d2a2` | Dashboard backend seed default tab + retire builtin fakes | Fix "tableau de bord codé en dur" |
+| `9cf8003e` | Délégations ISO — PDF certificate + 3 email templates | Compliance ISO |
+
+### Tickets résolus
+- ✅ **SUP-0041** visual search datatable — découvert déjà fait (DB sync ok)
+- ✅ **SUP-0043** annonces ciblage fonctionnel role/module/group/page
+- ✅ **SUP-0038** invalidation caches transfert employé
+
+### Features livrées (hors tickets)
+
+**#6 MFA admin config** (2 commits, 800+ lignes)
+- Setting `security.mfa_required_for_all` → overlay bloquant si user sans MFA
+- Setting `auth.mfa_trust_device_enabled` + `mfa_trust_device_max_days`
+- Cookie HTTP-only Secure SameSite=Lax + SHA-256 token storage
+- 5 nouveaux endpoints (`/mfa/trusted-devices` GET/POST revoke/POST revoke-all)
+- UI admin + user (liste devices, révocation individuelle/globale)
+- LoginPage : checkbox "Se souvenir X jours" avec sélecteur (7/14/30/60/90/180/365)
+- 4 audits : `mfa_skipped_trust_device`, `mfa_trust_device_created/revoked`, `mfa_trust_devices_revoked_all`
+
+**Onboarding refonte** (1 commit, 300+ lignes)
+- Permission gating step-by-step (skip si user n'a pas la perm)
+- Step2 Entity : banner "Vous êtes rattaché à l'entité X" + lock champ si !canEdit
+- Step3/5/6 : intégration ImportWizard pour bulk user/tier/asset
+- Step6 : sélecteur niveau hiérarchie (Champs/Sites/Installations/Équipements)
+- Si aucune perm admin → wizard skip auto
+
+**Délégations ISO** (1 commit, 805 lignes)
+- Template PDF `delegation.certificate` A4 portrait avec badge ISO + QR code
+- 3 templates email : `delegation_granted`, `delegation_received`, `delegation_revoked` (FR+EN)
+- Service `delegation_service.py` orchestre PDF + emails best-effort
+- Attachment polymorphique `owner_type='delegation'` + `category='iso_traceability'`
+- Original PDF immuable + nouveau PDF REVOKED sur révocation (trail complet)
+
+**Admin polish** (6 commits, ~330 i18n keys ajoutées)
+- 10 tabs admin nettoyés : Maintenance, RbacAdmin, Notifications, Entities, GeneralConfig, Gdpr, AccessTokens, Applications, I18n, Emails
+- Bastien : "des trucs hardcodés, des titres qui ne veulent rien dire" → adressé
+
+### Vérifications code-only
+
+Sans accès UI (FortiGuard bloque `*.opsflux.io` catégorie "Meaningless Content") :
+
+| Check | Résultat |
+|---|---|
+| `npx tsc --noEmit -p apps/main/` | ✅ EXIT 0 (0 erreur) |
+| `python scripts/i18n_check.py` | ✅ 6783 clés FR = EN, 0 missing |
+| `python -c "import ast; ast.parse(...)"` sur tous nouveaux .py | ✅ syntax OK |
+| Imports cross-files validés via grep | ✅ tous les symboles importés existent |
+| Migrations alembic 171 + 172 chained sur head | ✅ pas de conflit head |
+| Dokploy compose status | ✅ "done" sur les 20 commits |
+
+### Bugs latents identifiés (non-bloquants, attente input Bastien)
+
+1. **MFA trust device + disable MFA** : si user désactive son MFA, les trusted devices ne sont pas auto-révoqués (deviennent inutiles puisque pas de challenge). Comportement OK pour MVP.
+
+2. **Hardcodes restants** :
+   - ProjectDetailPanel : ~80 sous-composants (Mini Gantt, TaskFullscreenOverlay, MilestoneRow)
+   - CargoRequestPanels : ~25 cas secondaires
+   - IntegrationsTab : ~50 labels/placeholders/helpText (config technique FR par design)
+
+3. **Polymorphisme adresses Entity** : Bastien a noté "on est sensé utiliser notre polymorphisme?" — refactor BDD (migration + backfill table addresses) non fait, gardé en TODO.
+
+4. **DashboardPage builtin tabs hardcodés** : commit `c147d2a2` ajoute backend seed pour les nouveaux users. Vérifier en prod que les anciens users n'aient pas double-tab (seed + builtin).
+
+5. **PATCH /me/delegations/{id}** : ne déclenche pas notification ISO si dates/perms changent. Pour ISO strict il faudrait régénérer un PDF "UPDATED". À trancher avec Bastien.
+
+### Bilan session 16
+
+- **20 commits** déployés sur main (status done sur tous)
+- **3 tickets support** résolus
+- **5 features majeures** livrées (MFA enforce, MFA trust device, onboarding, dashboard seed, délégations ISO)
+- **10 tabs admin** polish bilingue
+- **~330 clés i18n** ajoutées (6783 FR = EN)
+- **2 migrations alembic** (171 announcement_targets, 172 mfa_trusted_devices)
+- **5 nouveaux endpoints** backend (MFA trust devices CRUD)
+- **4 nouveaux settings admin** (MFA required, MFA trust enabled+max_days, etc.)
+- **3 nouveaux email templates** (délégations)
+- **1 nouveau PDF template** (délégation ISO certificate)
+- **0 régression** typecheck/i18n_check/AST/CI
+
+### Bilan global cumulé sessions 1-16
+
+| Métrique | Valeur |
+|---|---|
+| **Commits déployés** | **57** |
+| Bugs identifiés | 32 |
+| Bugs corrigés | 26 |
+| Tickets support résolus | **6** |
+| Endpoints validés | 85 |
+| Scripts pérennes | 10 |
+| Migrations alembic | **8** |
+| CI workflows | 3 (lint+test, schema audit, i18n) |
+| Clés i18n synchronisées | **13 566** (FR + EN) |
+| Nouveaux email templates | 3 |
+| Nouveaux PDF templates | 1 |
+
+### Reste à valider en UI (FortiGuard requis débloqué)
+
+1. Onboarding : tester avec user non-admin → doit voir wizard réduit
+2. MFA trust device : flow complet login → coche "Se souvenir 30j" → relogin sans OTP
+3. Délégations : créer délégation → vérifier PDF dans Attachments + emails reçus
+4. SUP-0043 annonces : créer annonce target_type='group' → vérifier visible uniquement aux membres du groupe
+5. SUP-0038 : transférer un contact → vérifier que ses certifs s'affichent comme inactives immédiatement (pas après F5)
+6. Dashboard seed : nouveau user → doit voir un tab persisté DB, pas les builtin fakes

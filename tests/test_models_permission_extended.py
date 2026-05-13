@@ -64,13 +64,13 @@ async def test_permission_deprecated_for_roundtrip(db_session):
 
 
 @pytest.mark.asyncio
-async def test_entity_has_logo_url(db_session):
+async def test_entity_has_logo_url(db_session, sample_entity):
     """Entity.logo_url column for PDF branding."""
     from app.models.common import Entity
-    entity = Entity(name="Test Tenant", logo_url="https://example.com/logo.png")
-    db_session.add(entity)
+
+    sample_entity.logo_url = "https://example.com/logo.png"
     await db_session.commit()
 
-    result = await db_session.execute(select(Entity).where(Entity.name == "Test Tenant"))
+    result = await db_session.execute(select(Entity).where(Entity.id == sample_entity.id))
     fetched = result.scalar_one()
     assert fetched.logo_url == "https://example.com/logo.png"

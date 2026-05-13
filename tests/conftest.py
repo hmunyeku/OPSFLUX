@@ -64,3 +64,42 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield ac
 
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def sample_entity(db_session: AsyncSession):
+    """An Entity row suitable for tests that need a tenant scope.
+
+    Uses a UUID-suffixed code to avoid collisions across tests sharing the schema.
+    """
+    from uuid import uuid4
+
+    from app.models.common import Entity
+
+    suffix = uuid4().hex[:8]
+    entity = Entity(
+        code=f"TEST_TENANT_{suffix}",
+        name="Test Tenant",
+    )
+    db_session.add(entity)
+    await db_session.flush()
+    return entity
+
+
+@pytest_asyncio.fixture
+async def sample_user(db_session: AsyncSession, sample_entity):
+    """A User row linked to sample_entity."""
+    from uuid import uuid4
+
+    from app.models.common import User
+
+    suffix = uuid4().hex[:8]
+    user = User(
+        email=f"testuser_{suffix}@opsflux.test",
+        first_name="Test",
+        last_name="User",
+        default_entity_id=sample_entity.id,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    return user

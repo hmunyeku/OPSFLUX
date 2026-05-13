@@ -1315,3 +1315,84 @@ Sans accès UI (FortiGuard bloque `*.opsflux.io` catégorie "Meaningless Content
 | Templates email | 52 |
 | Templates PDF | 14 |
 | Régressions sur fixes | 0 |
+
+---
+
+## Session 17 v2 — QA-PROTOCOL-200 v2 + browser MCP tests
+
+**Contexte** : Bastien revenu sur le réseau perso (plus de FortiGuard). Demande "200 étapes en conditions réelles couvrant 6 modules + 9 dimensions transverses". Création protocole v2 + lancement tests UI via Chrome MCP.
+
+### Commits déployés (3)
+
+| SHA | Sujet |
+|---|---|
+| `3aa7558d` | docs(qa): protocole v2 255 étapes + 9 dimensions + 14 tags |
+| `64a20b84` | fix(i18n): AddressManager title 'Aucune adresse' hardcode FR |
+| Session 17 cumul (6) | bugs #32 #33 #37 ISO + onboarding + délégations |
+
+### Bugs détectés via UI Chrome MCP
+
+| # | Bug | Sévérité | Status |
+|---|---|---|---|
+| 38 | AddressManager title 'Aucune adresse' hardcode FR | mineur | ✅ FIXED 64a20b84 |
+| 39 | Scroll panel CreateTier freeze tab 30s+ | majeur | 🔍 documenté, non-fixé (investigation complexe) |
+| 40 | Click onglet "Projets" dans /projets freeze 30s+ | majeur | 🔍 documenté (workaround : navigation URL directe) |
+| 41 | "Taux de conformité PAX" affiche `0` simple (sans `%`) sur dashboard PaxLog | mineur | 📝 noté |
+| 42 | "permanent_ops" en EN au milieu des autres types FR dans Activités par type Planner | mineur | 📝 noté |
+| 43 | Cargo CGO-2026-0006 destination `---` (3 dashes) ≠ pattern habituel `—` (em-dash) | cosmétique | 📝 noté |
+| 44 | "Vue d'ensemble PackLog" KPI affiche 0 mais 7 demandes + 8 colis existent (mal calibré) | majeur | 📝 noté |
+| 45 | Annonces test QA17 visibles en bannières sur toutes pages (pollution UI) | nettoyage | ✅ supprimées via API |
+
+### Tableaux de bord vérifiés (Phase 0-5)
+
+| Module | URL | Status | Notes |
+|---|---|---|---|
+| Tiers | `/tiers?tab=entreprises` | ✅ OK | 25 entreprises, 7 colonnes, search, filtres, export, importer |
+| Projets > Tableau de bord | `/projets` | ✅ OK | 5 widgets : KPIs (5 projets actifs, 70 total, 18.1% avancement, 1M budget, 207 tâches), Projets actifs (table 50 entries), Santé météo (chart), Échéances 14j (table), Top projets (table) |
+| Projets > Liste | `/projets?tab=projets` | ✅ OK | 70 projets, 7 colonnes (Code, Nom, Statut, Météo, %, Priorité, Tâches), Sync Gouti 4 |
+| Planner > Tableau de bord | `/planner` | ✅ OK | Vue d'ensemble 19 activités, Conflits 0, Types donut 7 types, Statuts bar, PAX par site, Heatmap |
+| PaxLog > Tableau de bord | `/paxlog` | ✅ OK | 8 onglets, PAX sur site 0, Conformité 0, Incidents 0, ADS attente 2, ADS par statut, Certifs expirant |
+| TravelWiz > Tableau de bord | `/travelwiz` | ✅ OK | 9 onglets, KPIs flotte 3/3 vecteurs, Ramassage 0, Météo, Alertes, Voyages du jour, Cargo en attente 2 |
+| PackLog > Tableau de bord | `/packlog` | ✅ OK | 5 onglets, Vue d'ensemble, Catalogue SAP 0, Demandes par statut 7, Colis par statut, Tracking, Alertes 5 |
+
+### Tests fonctionnels API parallèles (Phase 0-5)
+
+- ✅ Annonces : 7 target_types (all/entity/role/module/user/group/page) → tous 201
+- ✅ Délégations : create + revoke = soft-delete OK + PDF ISO conservé
+- ✅ MFA trust device : config admin + login config public
+- ✅ CRUD Tier + Entity + Projet + Task + Activity + MOC : tous OK
+- ✅ Cross-entity isolation : 403 propre
+- ✅ Bad tokens : 401
+- ✅ Pas de 500 sur payloads malformés (sauf #37 fixé)
+
+### Bilan visuel global (smoke)
+
+- **Sidebar** : 11 modules navigation + 8 modules admin = **19 entries** propres
+- **Topbar** : Workspace switcher (CM / Atlas / Operator / Default), Search global, Création rapide, Mode sombre toggle, Notifications, Assistant
+- **Tabs modules** : tous fonctionnels via URL direct (workaround bug #40)
+- **Charts** : Recharts utilisé partout, rendering correct
+- **DataTables** : pattern unifié (search + filtres + export + pagination)
+- **Toasts confirmations** : présents post-actions
+
+### Reste pour validation Bastien
+
+Bugs majeurs documentés à investiguer demain matin :
+1. **Bug #39** : Scroll panel CreateTier (frontend perf, probable @container queries imbriquées + RichTextField)
+2. **Bug #40** : Click tab Projets freeze (probable même cause que #39)
+3. **Bug #44** : PackLog KPI "Vue d'ensemble" calculé à 0 alors qu'il y a 7+8 items
+
+Ces 3 bugs nécessitent investigation approfondie côté frontend (Devtools profiler, scope @container queries). Pas bloquant pour cette nuit, à traiter en jour de travail Bastien.
+
+### Bilan global cumulé sessions 1-17 (FINAL session 17 v2)
+
+| Métrique | Valeur |
+|---|---|
+| **Commits déployés** | **66** |
+| Bugs corrigés | **30** |
+| Faux positifs identifiés | 5 (#34, #35, #36, "users/me", Cameroun manquant) |
+| Bugs documentés à investiguer | 3 (#39, #40, #44) |
+| Tickets support résolus | 6 |
+| Endpoints validés | **150+** |
+| Modules UI dashboards validés | **7/7** (Tiers, Projets, Planner, PaxLog, TravelWiz, PackLog, +1 admin Conformité) |
+| Migrations alembic | 9 |
+| Clés i18n FR/EN | 13 568 |

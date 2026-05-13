@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Users, Lock, Loader2, Search,
   ChevronRight, ChevronDown, Check, X, UserPlus, Trash2,
-  Shield,
+  Shield, UserCheck, Settings2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable, BadgeCell } from '@/components/ui/DataTable'
@@ -47,17 +47,21 @@ import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import type { RoleRead, PermissionRead, GroupRead, PermissionOverride } from '@/services/rbacService'
 import { formatDate } from '@/lib/i18n'
 import { PermissionMatrix, RolePicker, SOURCE_BADGE, type PermSource } from './RbacPermissionMatrix'
+import { RbacDelegationsTab } from './RbacDelegationsTab'
+import { RbacSettingsTab } from './RbacSettingsTab'
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN TAB — 3 sub-tabs
 // ══════════════════════════════════════════════════════════════════════════════
 
-type RbacSubTab = 'roles' | 'groups' | 'permissions'
+type RbacSubTab = 'roles' | 'groups' | 'permissions' | 'delegations' | 'settings'
 
 const SUB_TABS: { key: RbacSubTab; label: string; icon: React.ElementType }[] = [
   { key: 'roles', label: 'Rôles', icon: ShieldCheck },
   { key: 'groups', label: 'Groupes', icon: Users },
   { key: 'permissions', label: 'Permissions', icon: Lock },
+  { key: 'delegations', label: 'Délégations', icon: UserCheck },
+  { key: 'settings', label: 'Réglages', icon: Settings2 },
 ]
 
 /**
@@ -165,6 +169,8 @@ export function RbacAdminTab() {
       {activeTab === 'roles' && <RolesTab />}
       {activeTab === 'groups' && <GroupsTab />}
       {activeTab === 'permissions' && <PermissionsTab />}
+      {activeTab === 'delegations' && <RbacDelegationsTab />}
+      {activeTab === 'settings' && <RbacSettingsTab />}
     </div>
   )
 }

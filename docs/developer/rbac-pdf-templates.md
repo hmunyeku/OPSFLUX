@@ -54,21 +54,19 @@ app/static/
 └── rbac_email_templates/
     ├── delegation_granted.{fr,en}.subject.txt
     ├── delegation_granted.{fr,en}.body.html
-    ├── delegation_granted.{fr,en}.body.txt          ← documentation only,
-    │                                                  not seeded
-    ├── delegation_received.{fr,en}.{subject.txt,body.html,body.txt}
-    ├── delegation_revoked.{fr,en}.{subject.txt,body.html,body.txt}
-    └── delegation_expired.{fr,en}.{subject.txt,body.html,body.txt}
+    ├── delegation_received.{fr,en}.{subject.txt,body.html}
+    ├── delegation_revoked.{fr,en}.{subject.txt,body.html}
+    └── delegation_expired.{fr,en}.{subject.txt,body.html}
 ```
 
-### Why `.body.txt` files are NOT seeded
+### Email templates are HTML-only
 
 The OpsFlux `email_template_versions` table has no `body_text` column —
-only `subject` and `body_html`. The plain-text bodies are kept on disk
-for documentation purposes: if a future migration adds `body_text`
-support, the `.body.txt` files are ready to be folded in. For now they
-are dead weight in the static dir and should NOT be referenced from
-runtime code.
+only `subject` and `body_html`. Earlier drafts of this PR shipped
+`.body.txt` companion files for documentation, but they were dead
+bytes that nothing referenced and have been removed. See
+[Email templates: HTML-only](#email-templates-html-only) below for
+the design rationale.
 
 ---
 
@@ -234,12 +232,11 @@ remove the seed entry.
 
 ## How to add a new RBAC email template
 
-1. Create the 3 files for each language under
+1. Create the 2 files for each language under
    `app/static/rbac_email_templates/`:
    * `<file_stem>.fr.subject.txt` (single line, plain text)
    * `<file_stem>.fr.body.html`
-   * `<file_stem>.fr.body.txt` (documentation only — not seeded)
-   * `<file_stem>.en.{subject.txt,body.html,body.txt}`
+   * `<file_stem>.en.{subject.txt,body.html}`
 
 2. Add a descriptor to `_EMAIL_TEMPLATES` in migration 172:
    `(slug, file_stem, name_fr, name_en)`.
@@ -253,6 +250,14 @@ remove the seed entry.
 4. Trigger the new email type from your service layer using
    `render_email(db, slug=…, entity_id=…, language=…, variables=…)`
    (see `app/core/email_templates.py`).
+
+### Email templates: HTML-only
+
+RBAC delegation emails ship HTML-only (no plain-text alternative). The `EmailTemplateVersion`
+model has no `body_text` column. Acceptable trade-off for ISO 27001 compliance — admins reading
+these emails use modern clients that render HTML. If text-only fallback is needed for
+accessibility or spam-filter mitigation, extend the model in a separate PR and re-seed via
+`alembic stamp` + run a small backfill script.
 
 ---
 

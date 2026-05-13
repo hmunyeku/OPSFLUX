@@ -272,3 +272,76 @@ async def create_delegation(
     await invalidate_rbac_cache(body.delegate_id)
 
     return delegation
+
+
+async def revoke_delegation(
+    db: AsyncSession,
+    delegation_id: UUID,
+    actor: User,
+    entity_id: UUID,
+    reason: str,
+    client_ip: str | None = None,
+    user_agent: str | None = None,
+) -> UserDelegation:
+    """Revoke a delegation: mark inactive, send emails, audit."""
+    delegation = await db.get(UserDelegation, delegation_id)
+    if not delegation:
+        raise StructuredHTTPException(404, code="DELEGATION_NOT_FOUND", message="Delegation not found")
+    if delegation.entity_id != entity_id:
+        raise StructuredHTTPException(404, code="DELEGATION_NOT_FOUND", message="Delegation not in this tenant")
+    if not delegation.active:
+        raise StructuredHTTPException(400, code="RBAC_DELEGATION_ALREADY_INACTIVE", message="Already inactive")
+
+    delegation.active = False
+    delegation.reason = (delegation.reason or "") + f"\n\n[REVOKED by {actor.email} on {datetime.now(timezone.utc).isoformat()}: {reason}]"
+
+    delegator = await db.get(User, delegation.delegator_id)
+    delegate = await db.get(User, delegation.delegate_id)
+    cert_vars = await _build_certificate_variables(db, delegation, delegator, delegate, entity_id)
+    cert_vars["revocation"] = {
+        "actor_email": actor.email,
+        "reason": reason,
+        "revoked_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    cert_pdf = await render_pdf(
+        db,
+        slug="core.rbac.delegation_certificate",
+        entity_id=entity_id,
+        language=delegate.language or "fr",
+        variables=cert_vars,
+    )
+    cert_hash = hashlib.sha256(cert_pdf).hexdigest() if cert_pdf else None
+
+    audit = RbacAuditEvent(
+        tenant_id=entity_id,
+        event_type="delegation.revoked",
+        target=str(delegation.id),
+        params={"revoke_reason": reason, "actor_id": str(actor.id)},
+        file_hash_sha256=cert_hash,
+        actor_user_id=actor.id,
+        client_ip=client_ip,
+        user_agent=user_agent,
+        status="success",
+    )
+    db.add(audit)
+    await db.commit()
+    await db.refresh(delegation)
+
+    attachments = [("certificate.pdf", cert_pdf)] if cert_pdf else []
+    for to_email, lang in [
+        (delegator.email, delegator.language or "fr"),
+        (delegate.email, delegate.language or "fr"),
+    ]:
+        await render_and_send_email(
+            db,
+            slug="rbac.delegation.revoked",
+            entity_id=entity_id,
+            language=lang,
+            to=to_email,
+            variables=cert_vars,
+            attachments=attachments,
+        )
+
+    await invalidate_rbac_cache(delegation.delegate_id)
+    return delegation

@@ -9,6 +9,7 @@ from app.models.common import UserDelegation
 from app.schemas.rbac_delegation import DelegationCreate
 from app.services.core.rbac_delegation_service import (
     create_delegation,
+    revoke_delegation,
     validate_delegation_constraints,
 )
 
@@ -111,3 +112,37 @@ async def test_create_delegation_happy_path(
     event = result.scalar_one()
     assert event.file_hash_sha256 is not None
     assert len(event.file_hash_sha256) == 64
+
+
+@pytest.mark.asyncio
+async def test_revoke_delegation_marks_inactive_and_sends_emails(
+    db_session, sample_entity, sample_user, another_user, mock_render_pdf, mock_send_email
+):
+    """Revoking a delegation marks active=false, sends emails, logs audit."""
+    now = datetime.now(timezone.utc)
+    delegation = UserDelegation(
+        delegator_id=sample_user.id,
+        delegate_id=another_user.id,
+        entity_id=sample_entity.id,
+        permissions=["asset.asset.read"],
+        start_date=now - timedelta(hours=1),
+        end_date=now + timedelta(days=7),
+        active=True,
+        reason="test",
+    )
+    db_session.add(delegation)
+    await db_session.commit()
+
+    await revoke_delegation(db_session, delegation.id, sample_user, sample_entity.id, "annulation forcée")
+
+    await db_session.refresh(delegation)
+    assert delegation.active is False
+    assert mock_send_email.call_count >= 2
+
+    from sqlalchemy import select
+
+    from app.models.common import RbacAuditEvent
+    result = await db_session.execute(
+        select(RbacAuditEvent).where(RbacAuditEvent.event_type == "delegation.revoked")
+    )
+    assert result.scalar_one() is not None

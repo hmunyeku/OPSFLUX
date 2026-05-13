@@ -530,6 +530,13 @@ async def create_project(
     db: AsyncSession = Depends(get_db),
 ):
     payload = body.model_dump()
+    # SUP-bug : ProjectCreate inclut `staging_ref` (re-target staging rows)
+    # et `initial_tasks` (seed tasks) qui ne sont pas des colonnes Project.
+    # Sans cette extraction, Project(**payload) crashait avec un 500
+    # silencieux ("unexpected keyword argument staging_ref/initial_tasks").
+    staging_ref = payload.pop("staging_ref", None)
+    initial_tasks = payload.pop("initial_tasks", None) or []
+
     if not payload.get("code"):
         payload["code"] = await generate_reference("PRJ", db, entity_id=entity_id)
     # Default the project's currency to the entity's currency (not the literal
@@ -539,13 +546,54 @@ async def create_project(
         payload["currency"] = await get_entity_currency(db, entity_id)
     project = Project(entity_id=entity_id, **payload)
     db.add(project)
+    await db.flush()
+
+    # Initial tasks — seed le projet avec les taches minimales fournies.
+    # Champs supportes : title, status, priority, assignee_id, start_date,
+    # end_date, parent_id (None pour racine). Le reste est rempli plus
+    # tard via le panel detail.
+    if initial_tasks:
+        from app.models.common import ProjectTask
+        for idx, t_data in enumerate(initial_tasks):
+            t_dict = t_data if isinstance(t_data, dict) else t_data.model_dump()
+            db.add(ProjectTask(
+                project_id=project.id,
+                entity_id=entity_id,
+                title=t_dict.get("title", "Tache sans titre"),
+                status=t_dict.get("status", "todo"),
+                priority=t_dict.get("priority", "medium"),
+                assignee_id=t_dict.get("assignee_id"),
+                start_date=t_dict.get("start_date"),
+                end_date=t_dict.get("end_date"),
+                parent_id=t_dict.get("parent_id"),
+                order=idx,
+                active=True,
+            ))
+
+    # Staging ref — re-target attachments / notes / tags crees avant que le
+    # projet existe. Convention : owner_type='project_staging' + owner_id=staging_ref
+    # -> on les bascule en owner_type='project' + owner_id=project.id.
+    if staging_ref:
+        from sqlalchemy import text as sql_text
+        for tbl in ("attachments", "notes", "tags"):
+            try:
+                await db.execute(
+                    sql_text(
+                        f"UPDATE {tbl} SET owner_type = 'project', owner_id = :pid "
+                        f"WHERE owner_type = 'project_staging' AND owner_id = :sref"
+                    ),
+                    {"pid": str(project.id), "sref": str(staging_ref)},
+                )
+            except Exception:
+                pass  # Table may not exist or have different schema
+
     await db.commit()
     await db.refresh(project)
     d = {c.key: getattr(project, c.key) for c in project.__table__.columns}
     d["manager_name"] = None
     d["tier_name"] = None
     d["parent_name"] = None
-    d["task_count"] = 0
+    d["task_count"] = len(initial_tasks)
     d["member_count"] = 0
     d["children_count"] = 0
     return d

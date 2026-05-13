@@ -348,15 +348,29 @@ async def list_settings(
 
     result = await db.execute(query)
     settings = result.scalars().all()
-    return [
-        SettingRead(
-            key=setting.key,
-            value=_redact_setting_value(setting.key, setting.value),
-            scope=setting.scope,
-            scope_id=setting.scope_id,
-        )
-        for setting in settings
-    ]
+    # SUP-bug : GET /settings?scope=tenant retournait HTTP 500 silencieux.
+    # Cause : SettingRead.value est typé `dict[str, Any]` strict, et en BDD
+    # certains rows ont value=None ou un type non-dict (legacy). On filtre
+    # defensivement pour eviter le crash global -- les rows invalides sont
+    # ignorees et logguees pour qu'un admin les corrige.
+    import logging as _logging
+    _log = _logging.getLogger("app.settings")
+    out = []
+    for setting in settings:
+        try:
+            value = setting.value if isinstance(setting.value, dict) else {}
+            out.append(SettingRead(
+                key=setting.key,
+                value=_redact_setting_value(setting.key, value),
+                scope=setting.scope,
+                scope_id=setting.scope_id,
+            ))
+        except Exception as exc:
+            _log.warning(
+                "list_settings: skipping invalid row key=%s scope=%s scope_id=%s : %s",
+                setting.key, setting.scope, setting.scope_id, exc,
+            )
+    return out
 
 
 @router.put("")

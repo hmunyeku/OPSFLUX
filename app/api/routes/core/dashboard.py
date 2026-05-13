@@ -218,7 +218,23 @@ async def list_dashboards(
         owner_id=owner,
         is_public=True if public_only else None,
     )
-    return dashboards
+    # SUP-bug : GET /dashboards retournait HTTP 500 silencieux. Cause
+    # probable : un Dashboard row a un champ obligatoire (nav_menu_order,
+    # owner_id, is_public) null ou un type incompatible avec DashboardRead.
+    # Pour eviter le crash global d'un seul row corrompu, on filtre
+    # defensivement et on loggue les rows invalides.
+    import logging as _logging
+    _log = _logging.getLogger("app.dashboard")
+    out = []
+    for dash in dashboards:
+        try:
+            out.append(DashboardRead.model_validate(dash, from_attributes=True))
+        except Exception as exc:
+            _log.warning(
+                "list_dashboards: skipping invalid row id=%s name=%s : %s",
+                getattr(dash, "id", "?"), getattr(dash, "name", "?"), exc,
+            )
+    return out
 
 
 @router.get(

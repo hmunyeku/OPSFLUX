@@ -130,7 +130,22 @@ def upgrade():
         op.execute(f"DELETE FROM user_group_roles WHERE role_code = '{old_code}'")
         op.execute(f"DELETE FROM roles WHERE code = '{old_code}'")
 
-    # 6. Seed tenant settings (continued in task 2.5)
+    # 6. Seed tenant settings (one row per existing entity, with default values)
+    SETTINGS = [
+        ("rbac.default_role.internal", '"READER"'),
+        ("rbac.default_role.external", '"PAX"'),
+        ("rbac.default_role.tier_contact", '"TIER_CONTACT"'),
+        ("rbac.delegation.max_duration_days", '365'),
+        ("rbac.delegation.notify_security_officer", 'true'),
+        ("rbac.export.async_threshold_users", '500'),
+        ("rbac.bootstrap.email_admins_on_migration", 'true'),
+    ]
+    for key, value in SETTINGS:
+        op.execute(f"""
+            INSERT INTO settings (key, value, scope, scope_id)
+            SELECT '{key}', '{value}'::jsonb, 'tenant', id::text FROM entities
+            ON CONFLICT DO NOTHING
+        """)
 
 
 def downgrade():

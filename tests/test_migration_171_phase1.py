@@ -98,3 +98,26 @@ async def test_renamed_role_keeps_permissions(db_session):
     )
     perms = result.scalars().all()
     assert len(perms) > 20, f"PLATFORM_ADMIN should have many perms, found {len(perms)}"
+
+
+@pytest.mark.asyncio
+async def test_tenant_settings_seeded(db_session, sample_entity):
+    """6 tenant settings are seeded for each existing entity."""
+    from app.models.common import Setting
+    expected_keys = [
+        "rbac.default_role.internal",
+        "rbac.default_role.external",
+        "rbac.default_role.tier_contact",
+        "rbac.delegation.max_duration_days",
+        "rbac.delegation.notify_security_officer",
+        "rbac.export.async_threshold_users",
+    ]
+    result = await db_session.execute(
+        select(Setting.key).where(
+            Setting.scope == "tenant",
+            Setting.scope_id == str(sample_entity.id),
+            Setting.key.in_(expected_keys),
+        )
+    )
+    found = {row[0] for row in result.all()}
+    assert set(expected_keys) == found, f"Settings manquants: {set(expected_keys) - found}"

@@ -379,8 +379,9 @@ async def create_user(
         reset_token = create_password_reset_token(user_id=user.id, email=user.email)
         invitation_url = f"{app_settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
-        # Fetch entity name for template
-        from app.models.common import Entity
+        # Fetch entity name for template (Entity deja importe top-level,
+        # ne PAS re-importer ici : cree une variable locale et casse
+        # toutes les references precedentes a Entity avec UnboundLocalError).
         entity = await db.get(Entity, entity_id)
         entity_name = entity.name if entity else "OpsFlux"
 

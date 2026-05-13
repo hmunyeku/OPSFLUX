@@ -1,0 +1,44 @@
+/* RBAC PDF shared CSS — inlined into every template's body_html at seed time.
+   Supports A4 portrait by default; templates override @page size to landscape. */
+
+@page {
+  margin: 18mm 12mm 16mm 12mm;
+  @top-center { content: element(header); }
+  @bottom-center { content: element(footer); }
+}
+
+@page landscape {
+  size: A4 landscape;
+  margin: 16mm 14mm 14mm 14mm;
+}
+
+header { position: running(header); }
+footer { position: running(footer); }
+.page-number::before { content: counter(page); }
+.total-pages::before { content: counter(pages); }
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 9pt;
+  color: #0f172a;
+  line-height: 1.4;
+  margin: 0;
+  padding: 0;
+}
+
+h1 { font-size: 22pt; color: #0f172a; margin: 0 0 4mm 0; }
+h2 { font-size: 14pt; color: #1e293b; margin: 6mm 0 3mm 0; border-bottom: 1px solid #cbd5e1; padding-bottom: 1mm; }
+h3 { font-size: 11pt; color: #334155; margin: 4mm 0 2mm 0; }
+p { margin: 0 0 2mm 0; }
+table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+th { background: #1e293b; color: #fff; text-align: left; padding: 2mm; }
+td { padding: 2mm; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+tr:nth-child(even) { background: #f8fafc; }
+
+.badge-rgpd { display: inline-block; padding: 0.5mm 1.5mm; background: #fef3c7; color: #92400e; font-size: 6pt; border-radius: 1mm; font-weight: 600; }
+.badge-disabled { opacity: 0.4; background: #f1f5f9; }
+.cell-granted { color: #15803d; font-weight: 700; text-align: center; }
+.cell-not-granted { color: #cbd5e1; text-align: center; }
+.cover-page { padding: 30mm 20mm; page-break-after: always; }
+.section { page-break-inside: avoid; }
+.page-break-before { page-break-before: always; }

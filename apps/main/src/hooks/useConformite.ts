@@ -298,9 +298,25 @@ export function useCreateTransfer() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: TierContactTransferCreate) => conformiteService.createTransfer(payload),
+    // SUP-0038 fix : un transfert d'employe a plusieurs effets de bord
+    // cote backend (cf _invalidate_compliance_on_transfer dans
+    // conformite.py qui set active=False sur les records de l'employe,
+    // change tier_id, change job_position_id). On doit invalider TOUS
+    // les caches qui exposent ces donnees pour eviter d'afficher des
+    // certifs comme actives alors qu'elles viennent d'etre desactivees.
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transfers'] })
       qc.invalidateQueries({ queryKey: ['tier-contacts'] })
+      // Conformite : les records de l'employe ont ete invalides en DB
+      qc.invalidateQueries({ queryKey: ['compliance-records'] })
+      qc.invalidateQueries({ queryKey: ['compliance-kpis'] })
+      qc.invalidateQueries({ queryKey: ['compliance-matrix'] })
+      qc.invalidateQueries({ queryKey: ['compliance-check'] })
+      // PaxLog : le profil affiche aussi les certifs + la company link
+      qc.invalidateQueries({ queryKey: ['paxlog-profile'] })
+      qc.invalidateQueries({ queryKey: ['paxlog-profiles'] })
+      // Tier listing : si on filtre par tier, le contact a change de tier
+      qc.invalidateQueries({ queryKey: ['tiers'] })
     },
   })
 }

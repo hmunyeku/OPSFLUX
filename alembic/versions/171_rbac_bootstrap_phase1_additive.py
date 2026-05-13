@@ -85,7 +85,20 @@ def upgrade():
             sensitive = EXCLUDED.sensitive
     """)
 
-    # 4. Seed new roles (continued in task 2.3)
+    # 4. Seed 8 new roles
+    op.execute("""
+        INSERT INTO roles (code, name, description, module) VALUES
+        ('SECURITY_OFFICER', 'Security Officer', 'Auditeur indépendant, lecture seule sur RBAC/audit/user, peut révoquer délégations', 'core'),
+        ('DOC_CONTROLLER', 'Document Controller', 'Contrôleur documentaire Papyrus — gère MDR, templates, distribution', 'papyrus'),
+        ('PLANNER', 'Planificateur', 'Pilote du module Planner — activités, capacité, conflits', 'planner'),
+        ('MOC_VALIDATOR', 'MOC Validator', 'Valide les MOC sans pouvoir les créer (séparation des pouvoirs)', 'moc'),
+        ('OPERATOR', 'Operator', 'Contributeur métier — saisit/édite, ne valide pas', 'core'),
+        ('PAX', 'Personnel mobilisé', 'Self-service pour les users externes (profil, rotations, badges)', 'paxlog'),
+        ('TIER_CONTACT', 'Contact tiers externe', 'Self-service pour les contacts des tiers/compagnies externes', 'tier'),
+        ('INTEGRATION_BOT', 'Integration Bot', 'Compte service pour intégrations/MCP/webhooks', 'integration')
+        ON CONFLICT (code) DO NOTHING
+    """)
+
     # 5. Rename existing roles (continued in task 2.4)
     # 6. Seed tenant settings (continued in task 2.5)
 

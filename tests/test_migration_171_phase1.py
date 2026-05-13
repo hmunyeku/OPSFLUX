@@ -2,7 +2,7 @@
 import os
 import pytest
 from sqlalchemy import select
-from app.models.common import Permission
+from app.models.common import Permission, Role
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RBAC_PR_A_MIGRATION_APPLIED") != "1",
@@ -64,3 +64,12 @@ async def test_sensitive_permissions_flagged(db_session):
     )
     perm = result.scalar_one()
     assert perm.sensitive is True
+
+
+@pytest.mark.asyncio
+async def test_new_roles_seeded(db_session):
+    """8 new roles are seeded (SECURITY_OFFICER, DOC_CONTROLLER, PLANNER, MOC_VALIDATOR, OPERATOR, PAX, TIER_CONTACT, INTEGRATION_BOT)."""
+    expected = ["SECURITY_OFFICER", "DOC_CONTROLLER", "PLANNER", "MOC_VALIDATOR", "OPERATOR", "PAX", "TIER_CONTACT", "INTEGRATION_BOT"]
+    result = await db_session.execute(select(Role.code).where(Role.code.in_(expected)))
+    found = {row[0] for row in result.all()}
+    assert set(expected) == found, f"Rôles manquants: {set(expected) - found}"

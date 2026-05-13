@@ -6440,6 +6440,12 @@
     },
     "applications": {
       "section_title": "Applications"
+    },
+    "i18n": {
+      "empty_title": "Aucune traduction"
+    },
+    "emails": {
+      "section_title": "Adresses email"
     }
   },
   "help_system": {

@@ -6134,6 +6134,12 @@
     },
     "applications": {
       "section_title": "Applications"
+    },
+    "i18n": {
+      "empty_title": "No translation"
+    },
+    "emails": {
+      "section_title": "Email addresses"
     }
   },
   "help_system": {

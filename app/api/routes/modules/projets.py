@@ -28,7 +28,7 @@ from app.models.common import (
     ProjectSituation,
     User, Tier,
 )
-from app.models.asset_registry import Installation
+from app.models.asset_registry import Installation, OilSite
 from app.schemas.common import (
     PaginatedResponse,
     ProjectCreate, ProjectRead, ProjectUpdate,
@@ -536,6 +536,29 @@ async def create_project(
     # silencieux ("unexpected keyword argument staging_ref/initial_tasks").
     staging_ref = payload.pop("staging_ref", None)
     initial_tasks = payload.pop("initial_tasks", None) or []
+
+    # SUP-bug : asset_id (FK obligatoire) doit etre pre-valide en amont
+    # pour eviter le HTTP 500 silencieux a l'insertion (IntegrityError
+    # FK violation non capturee). On verifie que l'asset existe dans
+    # l'entity courante avant de monter le projet.
+    if payload.get("asset_id"):
+        # NOTE : Installation + OilSite deja importes top-level, ne PAS
+        # re-importer ici (eviterait UnboundLocalError type shadow import).
+        asset_id = payload["asset_id"]
+        # Asset polymorphique : Installation OU Site selon le contexte.
+        inst_check = await db.execute(
+            select(Installation.id).where(Installation.id == asset_id).limit(1)
+        )
+        if inst_check.scalar_one_or_none() is None:
+            site_check = await db.execute(
+                select(OilSite.id).where(OilSite.id == asset_id).limit(1)
+            )
+            if site_check.scalar_one_or_none() is None:
+                raise StructuredHTTPException(
+                    422,
+                    code="ASSET_NOT_FOUND",
+                    message=f"Asset {asset_id} introuvable (ni Installation ni Site).",
+                )
 
     if not payload.get("code"):
         payload["code"] = await generate_reference("PRJ", db, entity_id=entity_id)

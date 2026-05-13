@@ -98,3 +98,35 @@ async def test_inactive_delegation_does_not_grant(db_session, sample_entity, sam
 
     perms = await get_user_permissions(another_user.id, sample_entity.id, db_session)
     assert "asset.asset.read" not in perms
+
+
+from app.core.rbac import invalidate_rbac_cache
+
+
+@pytest.mark.asyncio
+async def test_cache_invalidation_after_new_delegation(db_session, sample_entity, sample_user, another_user):
+    """Creating a delegation + calling invalidate_rbac_cache makes the new perms visible."""
+    # First call seeds the cache (no delegation yet)
+    perms_before = await get_user_permissions(another_user.id, sample_entity.id, db_session)
+    assert "asset.asset.read" not in perms_before
+
+    # Create a delegation
+    now = datetime.now(timezone.utc)
+    delegation = UserDelegation(
+        delegator_id=sample_user.id,
+        delegate_id=another_user.id,
+        entity_id=sample_entity.id,
+        permissions=["asset.asset.read"],
+        start_date=now - timedelta(hours=1),
+        end_date=now + timedelta(days=1),
+        active=True,
+        reason="test cache",
+    )
+    db_session.add(delegation)
+    await db_session.commit()
+
+    # Without invalidation the cache may still serve the old result (depends on TTL).
+    # Force invalidation to make the new perm visible immediately.
+    await invalidate_rbac_cache(another_user.id)
+    perms_after = await get_user_permissions(another_user.id, sample_entity.id, db_session)
+    assert "asset.asset.read" in perms_after

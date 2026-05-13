@@ -6186,5 +6186,39 @@
       "modules_count": "{{count}} module(s) sélectionné(s)",
       "note": "Vous pouvez ré-ouvrir cet assistant à tout moment depuis l'onglet Aide du panneau d'assistance."
     }
+  },
+  "rbac": {
+    "export": {
+      "button": "Exporter PDF",
+      "close": "Fermer",
+      "lang": "Langue :",
+      "include_disabled_modules": "Inclure modules désactivés",
+      "selection_required": "Sélection requise"
+    },
+    "delegations": {
+      "title": "Délégations",
+      "coming_soon": "À venir."
+    },
+    "settings": {
+      "saved": "Réglages sauvés",
+      "coming_soon": "À venir.",
+      "defaults": {
+        "title": "Rôles par défaut à la création d'un utilisateur",
+        "help": "Quand un admin crée un utilisateur, ce rôle lui est automatiquement attribué (via un groupe \"Default {role}\").",
+        "internal": "Type interne",
+        "external": "Type externe",
+        "tier_contact": "Contact tiers"
+      },
+      "iso": {
+        "title": "Réglages ISO délégations",
+        "note": "La durée maximale des délégations et l'option de notification du SECURITY_OFFICER se règlent via l'onglet Settings global (clés ",
+        "and": "et",
+        "endpoint": "). Voir /api/v1/settings."
+      },
+      "audit": {
+        "title": "Audit RBAC récent (délégations)",
+        "empty": "Aucun événement récent."
+      }
+    }
   }
 }

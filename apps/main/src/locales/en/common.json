@@ -5309,5 +5309,39 @@
     "recap": {
       "skipped": "Past"
     }
+  },
+  "rbac": {
+    "export": {
+      "button": "Export PDF",
+      "close": "Close",
+      "lang": "Language:",
+      "include_disabled_modules": "Include disabled modules",
+      "selection_required": "Selection required"
+    },
+    "delegations": {
+      "title": "Delegations",
+      "coming_soon": "Coming soon."
+    },
+    "settings": {
+      "saved": "Settings saved",
+      "coming_soon": "Coming soon.",
+      "defaults": {
+        "title": "Default roles on user creation",
+        "help": "When an admin creates a user, this role is automatically assigned (via a \"Default {role}\" group).",
+        "internal": "Internal type",
+        "external": "External type",
+        "tier_contact": "Third-party contact"
+      },
+      "iso": {
+        "title": "ISO delegation settings",
+        "note": "The maximum delegation duration and the SECURITY_OFFICER notification option are configured via the global Settings tab (keys ",
+        "and": "and",
+        "endpoint": "). See /api/v1/settings."
+      },
+      "audit": {
+        "title": "Recent RBAC audit (delegations)",
+        "empty": "No recent events."
+      }
+    }
   }
 }

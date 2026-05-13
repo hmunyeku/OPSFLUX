@@ -183,6 +183,17 @@ async def _release_scheduler_leader_lock() -> None:
     _scheduler_lock_acquired = False
 
 
+# ── Job wrappers (jobs that need an explicit DB session) ───────────────────
+
+async def _run_rbac_delegation_expiry() -> None:
+    """Open a session and run the RBAC delegation expiry notifier."""
+    from app.core.database import async_session_factory
+    from app.tasks.rbac_delegation_expiry import notify_expiring_delegations
+
+    async with async_session_factory() as db:
+        await notify_expiring_delegations(db)
+
+
 # ── Job registration ───────────────────────────────────────────────────────
 
 def _register_jobs() -> None:
@@ -315,6 +326,16 @@ def _register_jobs() -> None:
         trigger=CronTrigger(hour=8, minute=0),
         id="project_reminders",
         name="Rappels échéances tâches projets (J-7 et J-1)",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    # RBAC delegation expiry notifications — daily at 08:00 (J-3 + J0)
+    scheduler.add_job(
+        _run_rbac_delegation_expiry,
+        trigger=CronTrigger(hour=8, minute=0),
+        id="rbac_delegation_expiry",
+        name="Rappels échéances délégations RBAC (J-3 et J0)",
         replace_existing=True,
         max_instances=1,
     )

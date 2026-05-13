@@ -233,6 +233,22 @@ def mock_send_email():
         yield m
 
 
+@pytest.fixture
+def mock_expiry_render_pdf():
+    """Mock render_pdf at the rbac_delegation_expiry cron module level."""
+    with patch("app.tasks.rbac_delegation_expiry.render_pdf", new_callable=AsyncMock) as m:
+        m.return_value = b"%PDF-1.4 fake bytes for testing"
+        yield m
+
+
+@pytest.fixture
+def mock_expiry_send_email():
+    """Mock render_and_send_email at the rbac_delegation_expiry cron module level."""
+    with patch("app.tasks.rbac_delegation_expiry.render_and_send_email", new_callable=AsyncMock) as m:
+        m.return_value = True
+        yield m
+
+
 @pytest_asyncio.fixture
 async def async_client(client):
     """Alias for the existing `client` fixture, named for new tests."""

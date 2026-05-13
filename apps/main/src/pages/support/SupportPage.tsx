@@ -1055,7 +1055,16 @@ export function SupportPage() {
           rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-support" /> : null}
         />
 
-        {activeTab === 'dashboard' && <ModuleDashboard module="support" toolbarPortalId="dash-toolbar-support" />}
+        {/* SUP-0042 : wrapper flex-1 overflow-y-auto pour permettre au
+            dashboard support de scroller. Sans ce wrapper, ModuleDashboard
+            (qui a deja overflow-y-auto en interne) ne sait pas se stretch
+            dans le parent flex-col -> contenu deborde sans scroll. Meme
+            pattern que TravelWizPage. */}
+        {activeTab === 'dashboard' && (
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <ModuleDashboard module="support" toolbarPortalId="dash-toolbar-support" />
+          </div>
+        )}
 
         {activeTab === 'tickets' && (
           <>

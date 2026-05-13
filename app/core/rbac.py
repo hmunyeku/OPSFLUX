@@ -1,15 +1,17 @@
-"""RBAC utilities — 3-layer permission resolution, cache invalidation.
+"""RBAC utilities — 4-layer permission resolution, cache invalidation.
 
 Resolution order (highest priority first):
-  1. User permission overrides   (per-user grants/revokes)
-  2. Role permissions             (via group → role → role_permissions)
-  3. Group permission overrides   (per-group grants/revokes)
+  1. User permission overrides    (per-user grants/revokes)
+  2. Active delegations received  (time-bounded permission delegation)
+  3. Role permissions             (via group → role → role_permissions)
+  4. Group permission overrides   (per-group grants/revokes)
 
 Permission mode (configurable per entity via setting `rbac.permission_mode`):
   - "restrictive" (default): higher-priority `granted=False` revokes lower layers
   - "additive": all `granted=True` across layers are unioned; `granted=False` is ignored
 """
 
+from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
@@ -22,13 +24,14 @@ from app.models.common import (
     Permission,
     RolePermission,
     Setting,
+    UserDelegation,
     UserGroup,
     UserGroupMember,
     UserGroupRole,
     UserPermissionOverride,
 )
 
-PermissionSource = Literal["user", "role", "group"]
+PermissionSource = Literal["user", "role", "group", "delegation"]
 PermissionMode = Literal["additive", "restrictive"]
 
 
@@ -78,19 +81,18 @@ async def _get_permission_mode(entity_id: UUID, db: AsyncSession) -> PermissionM
 async def _resolve_permissions(
     user_id: UUID, entity_id: UUID, db: AsyncSession
 ) -> dict[str, PermissionSource]:
-    """Resolve effective permissions with source tracking.
+    """Resolve effective permissions with source tracking, including active delegations.
 
-    Restrictive mode (default):
-      Layer 1 – Group overrides: granted=True adds, granted=False remembered for revoke
-      Layer 2 – Role permissions: standard grants
-      Layer 3 – User overrides: granted=True adds, granted=False revokes from all layers
+    Restrictive mode:
+      Layer 1 — Group overrides
+      Layer 2 — Role permissions
+      Layer 3 — Active delegations received  (NEW in PR-A)
+      Layer 4 — User overrides (highest priority)
 
     Additive mode:
       All granted=True across all layers are unioned; granted=False is ignored.
     """
     mode = await _get_permission_mode(entity_id, db)
-
-    # ── Fetch all 3 layers ────────────────────────────────────────────────
 
     # Layer 1: Group permission overrides
     group_overrides_stmt = (
@@ -122,7 +124,25 @@ async def _resolve_permissions(
     role_result = await db.execute(role_perms_stmt)
     role_codes = [row[0] for row in role_result.all()]
 
-    # Layer 3: User permission overrides
+    # Layer 3: Active delegations received (NEW in PR-A)
+    now = datetime.now(timezone.utc)
+    delegations_stmt = (
+        select(UserDelegation.permissions)
+        .where(
+            UserDelegation.delegate_id == user_id,
+            UserDelegation.entity_id == entity_id,
+            UserDelegation.active == True,
+            UserDelegation.start_date <= now,
+            UserDelegation.end_date > now,
+        )
+    )
+    delegations_result = await db.execute(delegations_stmt)
+    delegation_codes: list[str] = []
+    for row in delegations_result.all():
+        if isinstance(row[0], list):
+            delegation_codes.extend(row[0])
+
+    # Layer 4: User permission overrides
     user_overrides_stmt = (
         select(UserPermissionOverride.permission_code, UserPermissionOverride.granted)
         .where(UserPermissionOverride.user_id == user_id)
@@ -130,17 +150,16 @@ async def _resolve_permissions(
     user_result = await db.execute(user_overrides_stmt)
     user_overrides = user_result.all()
 
-    # ── Merge according to mode ───────────────────────────────────────────
-
     if mode == "additive":
-        return _merge_additive(group_overrides, role_codes, user_overrides)
+        return _merge_additive(group_overrides, role_codes, delegation_codes, user_overrides)
     else:
-        return _merge_restrictive(group_overrides, role_codes, user_overrides)
+        return _merge_restrictive(group_overrides, role_codes, delegation_codes, user_overrides)
 
 
 def _merge_additive(
     group_overrides: list[tuple[str, bool]],
     role_codes: list[str],
+    delegation_codes: list[str],
     user_overrides: list[tuple[str, bool]],
 ) -> dict[str, PermissionSource]:
     """Additive: union of all granted=True; granted=False is ignored."""
@@ -154,6 +173,10 @@ def _merge_additive(
         if code not in effective:
             effective[code] = "role"
 
+    for code in delegation_codes:
+        if code not in effective:
+            effective[code] = "delegation"
+
     for code, granted in user_overrides:
         if granted:
             effective[code] = "user"
@@ -164,6 +187,7 @@ def _merge_additive(
 def _merge_restrictive(
     group_overrides: list[tuple[str, bool]],
     role_codes: list[str],
+    delegation_codes: list[str],
     user_overrides: list[tuple[str, bool]],
 ) -> dict[str, PermissionSource]:
     """Restrictive: higher-priority granted=False revokes lower layers."""
@@ -180,12 +204,18 @@ def _merge_restrictive(
     # Layer 2: Role permissions
     for code in role_codes:
         if code in group_revokes:
-            # Group explicitly revokes this role permission
             effective.pop(code, None)
         elif code not in effective:
             effective[code] = "role"
 
-    # Layer 3: User overrides (highest priority)
+    # Layer 3: Active delegations received
+    for code in delegation_codes:
+        if code in group_revokes:
+            effective.pop(code, None)
+        elif code not in effective:
+            effective[code] = "delegation"
+
+    # Layer 4: User overrides (highest priority)
     for code, granted in user_overrides:
         if granted:
             effective[code] = "user"
@@ -224,7 +254,7 @@ async def get_user_permissions_with_sources(
 ) -> dict[str, PermissionSource]:
     """Get effective permissions with their source layer. Used for UI badge display.
 
-    Returns dict mapping permission_code → source ("user" | "role" | "group").
+    Returns dict mapping permission_code → source ("user" | "role" | "group" | "delegation").
     Not cached (used only in admin views, not hot path).
     """
     return await _resolve_permissions(user_id, entity_id, db)

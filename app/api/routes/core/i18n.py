@@ -55,6 +55,28 @@ from app.core.errors import StructuredHTTPException
 router = APIRouter(prefix="/api/v1/i18n", tags=["i18n"])
 
 
+# Namespace whose mutations require dropping the in-process translation
+# cache held by ``app.core.pdf_templates``. Imported lazily inside the
+# helper to keep this route module decoupled from the PDF engine.
+_RBAC_PDF_NAMESPACE = "rbac_pdf"
+
+
+def _maybe_clear_rbac_pdf_cache(namespace: str, language_code: str | None = None) -> None:
+    """If ``namespace == 'rbac_pdf'``, drop the cached translations.
+
+    Must be called after every insert/update/delete/bulk-upsert on
+    ``i18n_messages`` rows in that namespace. See
+    ``app/core/pdf_templates.py::_clear_translation_cache`` for the
+    contract and the multi-worker caveat.
+    """
+    if namespace != _RBAC_PDF_NAMESPACE:
+        return
+    # Local import to avoid a circular import path at module load.
+    from app.core.pdf_templates import _clear_translation_cache
+
+    _clear_translation_cache(language_code)
+
+
 # ── Helpers ────────────────────────────────────────────────────────────
 
 async def _recompute_hash(
@@ -266,6 +288,7 @@ async def admin_upsert_message(
 
     await _recompute_hash(db, body.language_code, body.namespace)
     await db.commit()
+    _maybe_clear_rbac_pdf_cache(body.namespace, body.language_code)
     await db.refresh(row)
     return row
 
@@ -305,6 +328,7 @@ async def admin_update_message(
 
     await _recompute_hash(db, msg.language_code, msg.namespace)
     await db.commit()
+    _maybe_clear_rbac_pdf_cache(msg.namespace, msg.language_code)
     await db.refresh(msg)
     return msg
 
@@ -332,6 +356,7 @@ async def admin_delete_message(
     await db.delete(msg)
     await _recompute_hash(db, lang_code, ns)
     await db.commit()
+    _maybe_clear_rbac_pdf_cache(ns, lang_code)
 
 
 @router.post(
@@ -397,6 +422,7 @@ async def admin_bulk_upsert(
 
     await _recompute_hash(db, body.language_code, body.namespace)
     await db.commit()
+    _maybe_clear_rbac_pdf_cache(body.namespace, body.language_code)
 
     meta = (
         await db.execute(
@@ -634,5 +660,6 @@ async def admin_ai_translate(
 
     await _recompute_hash(db, target_lang, namespace)
     await db.commit()
+    _maybe_clear_rbac_pdf_cache(namespace, target_lang)
 
     return {"translated": translated_count, "total_missing": len(missing)}

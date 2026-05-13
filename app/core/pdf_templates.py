@@ -96,10 +96,22 @@ async def prime_translation_cache(db: AsyncSession, lang: str) -> None:
 
 
 def _clear_translation_cache(lang: str | None = None) -> None:
-    """Drop cached translations.
+    """Drop cached translations. MUST be called by:
 
-    Pass `lang` to clear a single language; omit to clear all. Call this from
-    admin endpoints that mutate `rbac_pdf` namespace messages.
+    - Any admin endpoint that mutates ``i18n_messages`` rows where
+      ``namespace='rbac_pdf'`` (insert/update/delete/bulk-upsert).
+      The i18n admin endpoints in ``app/api/routes/core/i18n.py`` already
+      wire this in for the rbac_pdf namespace.
+    - Migration scripts that re-seed translations (call with
+      ``lang=None`` to drop every language).
+
+    Pass ``lang`` to clear a single language; omit to clear all.
+
+    Multi-worker caveat: this only clears the **current** worker's cache.
+    In a multi-worker deployment, other workers will still serve stale
+    translations until they restart or independently re-prime. For
+    distributed invalidation, publish a Redis pub/sub message from the
+    admin route or rely on rolling worker restarts after admin mutations.
     """
     if lang is None:
         _TRANSLATION_CACHE.clear()

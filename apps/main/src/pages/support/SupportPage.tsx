@@ -47,8 +47,9 @@ import type { SupportTicket, TicketCreate, TicketComment, StatusHistoryEntry, Ti
 import { useAnnouncements, useCreateAnnouncement, useUpdateAnnouncement, useDeleteAnnouncement } from '@/hooks/useAnnouncements'
 import type { Announcement, AnnouncementCreate } from '@/services/announcementService'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
-import { useRoles } from '@/hooks/useRbac'
+import { useRoles, useGroups } from '@/hooks/useRbac'
 import { useUsers } from '@/hooks/useUsers'
+import { useAllEntities } from '@/hooks/useEntities'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
@@ -691,9 +692,45 @@ function SupportStatsCards() {
 
 // ── Announcement shared constants ────────────────────────────
 
-const TARGET_LABELS: Record<string, string> = { all: 'Tout le monde', entity: 'Entité', role: 'Rôle', module: 'Module', user: 'Utilisateur' }
+// SUP-0043 : ciblage etendu avec group (UserGroup) et page (route URL)
+const TARGET_LABELS: Record<string, string> = {
+  all: 'Tout le monde',
+  entity: 'Entité',
+  role: 'Rôle',
+  group: 'Groupe d’utilisateurs',
+  user: 'Utilisateur',
+  module: 'Module',
+  page: 'Page',
+}
 const LOCATION_LABELS: Record<string, string> = { dashboard: 'Tableau de bord', banner: 'Bannière', login: 'Page login', all: 'Partout', modal: 'Modal', logout: 'Déconnexion' }
 const ANN_PRIORITY_LABELS: Record<string, string> = { info: 'Info', warning: 'Attention', critical: 'Critique', maintenance: 'Maintenance' }
+
+// SUP-0043 : enum strict des pages ciblables (synchro avec App.tsx routes).
+// Le champ "page" autorise aussi une URL custom (ex: /projets/<uuid>/tasks)
+// via le mode CUSTOM_PAGE_VALUE. Match cote frontend dans Banner.tsx via
+// useLocation().pathname.startsWith(target_value).
+export const PAGE_TARGET_OPTIONS: { value: string; label: string }[] = [
+  { value: '/home', label: 'Accueil' },
+  { value: '/dashboard', label: 'Tableau de bord' },
+  { value: '/assets', label: 'Actifs' },
+  { value: '/entities', label: 'Entités' },
+  { value: '/users', label: 'Utilisateurs' },
+  { value: '/tiers', label: 'Tiers' },
+  { value: '/conformite', label: 'Conformité' },
+  { value: '/projets', label: 'Projets' },
+  { value: '/paxlog', label: 'PaxLog' },
+  { value: '/planner', label: 'Planner' },
+  { value: '/travelwiz', label: 'TravelWiz' },
+  { value: '/packlog', label: 'PackLog' },
+  { value: '/imputations', label: 'Imputations' },
+  { value: '/papyrus', label: 'Papyrus' },
+  { value: '/pid-pfd', label: 'PID/PFD' },
+  { value: '/support', label: 'Support' },
+  { value: '/moc', label: 'MOC' },
+  { value: '/workflow', label: 'Workflows' },
+  { value: '/settings', label: 'Paramètres' },
+]
+const CUSTOM_PAGE_SENTINEL = '__custom__'
 
 // ── Create Announcement Panel ────────────────────────────────
 
@@ -704,10 +741,18 @@ function CreateAnnouncementPanel() {
   const { toast } = useToast()
   const { data: roles } = useRoles()
   const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
+  // SUP-0043 : groupes + entites pour les nouveaux selecteurs
+  // page_size=200 pour couvrir tous les groupes/entites d'un coup
+  // (les selects deroulants n'ont pas de pagination native)
+  const { data: groupsData } = useGroups({ page: 1, page_size: 200 })
+  const { data: entitiesData } = useAllEntities({ page: 1, page_size: 200, active: true })
   const annPriorityOptions = useDictionaryOptions('announcement_priority')
   const [form, setForm] = useState<AnnouncementCreate>({
     title: '', body: '', priority: 'info', target_type: 'all', target_value: null, display_location: 'banner', pinned: false, send_email: false, published_at: null, expires_at: null,
   })
+  // Mode "lien personnalise" pour le ciblage page : permet de coller une
+  // URL deep style /projets/<uuid>/tasks au lieu de choisir dans l'enum.
+  const [pageCustomMode, setPageCustomMode] = useState(false)
 
   const handleSubmit = async () => {
     if (!form.title.trim() || !form.body.trim()) return
@@ -757,7 +802,10 @@ function CreateAnnouncementPanel() {
         <FormSection title={t('common.targeting')}>
           <FormGrid>
             <DynamicPanelField label="Destinataires">
-              <select className={panelInputClass} value={form.target_type} onChange={e => setForm({ ...form, target_type: e.target.value, target_value: e.target.value === 'all' ? null : '' })}>
+              <select className={panelInputClass} value={form.target_type} onChange={e => {
+                setForm({ ...form, target_type: e.target.value, target_value: e.target.value === 'all' ? null : '' })
+                setPageCustomMode(false)
+              }}>
                 {Object.entries(TARGET_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </DynamicPanelField>
@@ -766,6 +814,18 @@ function CreateAnnouncementPanel() {
                 <select className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })}>
                   <option value="">— Sélectionner un rôle —</option>
                   {(roles ?? []).map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}
+                </select>
+              </DynamicPanelField>
+            )}
+            {form.target_type === 'group' && (
+              <DynamicPanelField label="Groupe">
+                <select className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })}>
+                  <option value="">— Sélectionner un groupe —</option>
+                  {(groupsData?.items ?? []).map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}{g.entity_name ? ` · ${g.entity_name}` : ''}
+                    </option>
+                  ))}
                 </select>
               </DynamicPanelField>
             )}
@@ -786,8 +846,47 @@ function CreateAnnouncementPanel() {
               </DynamicPanelField>
             )}
             {form.target_type === 'entity' && (
-              <DynamicPanelField label="Entité (ID)">
-                <input className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })} placeholder="UUID de l'entité" />
+              <DynamicPanelField label="Entité">
+                <select className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })}>
+                  <option value="">— Sélectionner une entité —</option>
+                  {(entitiesData?.items ?? []).map((ent) => (
+                    <option key={ent.id} value={ent.id}>{ent.name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+            )}
+            {form.target_type === 'page' && (
+              <DynamicPanelField label="Page">
+                <select
+                  className={panelInputClass}
+                  value={pageCustomMode ? CUSTOM_PAGE_SENTINEL : (form.target_value || '')}
+                  onChange={(e) => {
+                    if (e.target.value === CUSTOM_PAGE_SENTINEL) {
+                      setPageCustomMode(true)
+                      setForm({ ...form, target_value: '' })
+                    } else {
+                      setPageCustomMode(false)
+                      setForm({ ...form, target_value: e.target.value || null })
+                    }
+                  }}
+                >
+                  <option value="">— Sélectionner une page —</option>
+                  {PAGE_TARGET_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                  <option value={CUSTOM_PAGE_SENTINEL}>— Lien personnalisé… —</option>
+                </select>
+                {pageCustomMode && (
+                  <input
+                    className={cn(panelInputClass, 'mt-1.5')}
+                    value={form.target_value || ''}
+                    onChange={(e) => setForm({ ...form, target_value: e.target.value || null })}
+                    placeholder="/projets/<uuid>/tasks ou /tiers/<uuid>"
+                  />
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  L’annonce sera affichée à tout utilisateur visitant cette page (correspondance par préfixe).
+                </p>
               </DynamicPanelField>
             )}
           </FormGrid>
@@ -830,6 +929,11 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
   const deleteAnn = useDeleteAnnouncement()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
+  // SUP-0043 : pour resoudre les UUIDs des cibles en noms lisibles
+  const { data: groupsData } = useGroups({ page: 1, page_size: 200 })
+  const { data: entitiesData } = useAllEntities({ page: 1, page_size: 200 })
+  const { data: roles } = useRoles()
+  const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
 
   const ann = annData?.items.find((a) => a.id === id)
 
@@ -890,7 +994,27 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
         <FormSection title={t('common.targeting')}>
           <DetailFieldGrid>
             <ReadOnlyRow label="Destinataires" value={TARGET_LABELS[ann.target_type] || ann.target_type} />
-            {ann.target_value && <ReadOnlyRow label="Valeur cible" value={ann.target_value} />}
+            {ann.target_value && (() => {
+              // SUP-0043 : resout l'UUID/code en nom lisible quand possible
+              let resolved: string = ann.target_value
+              if (ann.target_type === 'group') {
+                const g = groupsData?.items.find((x) => x.id === ann.target_value)
+                if (g) resolved = `${g.name}${g.entity_name ? ` · ${g.entity_name}` : ''}`
+              } else if (ann.target_type === 'entity') {
+                const ent = entitiesData?.items.find((x) => x.id === ann.target_value)
+                if (ent) resolved = ent.name
+              } else if (ann.target_type === 'role') {
+                const r = roles?.find((x) => x.code === ann.target_value)
+                if (r) resolved = r.name
+              } else if (ann.target_type === 'user') {
+                const u = usersData?.items.find((x) => x.id === ann.target_value)
+                if (u) resolved = `${u.first_name} ${u.last_name}`
+              } else if (ann.target_type === 'page') {
+                const p = PAGE_TARGET_OPTIONS.find((x) => x.value === ann.target_value)
+                resolved = p ? p.label : ann.target_value
+              }
+              return <ReadOnlyRow label="Valeur cible" value={resolved} />
+            })()}
           </DetailFieldGrid>
         </FormSection>
 

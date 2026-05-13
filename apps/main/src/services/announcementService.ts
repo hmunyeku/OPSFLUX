@@ -11,7 +11,8 @@ export interface Announcement {
   body: string
   body_html: string | null
   priority: 'info' | 'warning' | 'critical' | 'maintenance'
-  target_type: 'all' | 'entity' | 'role' | 'module' | 'user'
+  // SUP-0043 : ajout group (UserGroup) et page (route URL)
+  target_type: 'all' | 'entity' | 'role' | 'module' | 'user' | 'group' | 'page'
   target_value: string | null
   display_location: 'dashboard' | 'login' | 'banner' | 'modal' | 'logout' | 'all'
   published_at: string | null

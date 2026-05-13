@@ -62,10 +62,22 @@ const BANNER_VARIANT_MAP: Record<string, 'info' | 'warning' | 'danger' | 'succes
 function ActiveBanners() {
   const { data } = useActiveAnnouncements()
   const dismiss = useDismissAnnouncement()
+  const location = useLocation()
 
-  const banners = (data?.items ?? []).filter(
-    a => (a.display_location === 'banner' || a.display_location === 'all') && !a.is_read
-  )
+  // SUP-0043 : pour les annonces ciblees 'page', le backend passe-thru
+  // toutes les annonces de type page (cf messaging.py). On filtre cote
+  // client en matchant le pathname courant avec target_value en prefixe.
+  // Ex: target_value='/projets' matche /projets, /projets/abc, /projets/abc/tasks.
+  // Ex: target_value='/projets/<uuid>' matche uniquement ce projet specifique.
+  const banners = (data?.items ?? []).filter((a) => {
+    if (!(a.display_location === 'banner' || a.display_location === 'all')) return false
+    if (a.is_read) return false
+    if (a.target_type === 'page') {
+      if (!a.target_value) return false
+      return location.pathname.startsWith(a.target_value)
+    }
+    return true
+  })
 
   if (banners.length === 0) return null
 

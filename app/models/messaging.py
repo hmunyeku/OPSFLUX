@@ -34,7 +34,7 @@ class Announcement(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
             name="ck_announcement_priority",
         ),
         CheckConstraint(
-            "target_type IN ('all','entity','role','module','user')",
+            "target_type IN ('all','entity','role','module','user','group','page')",
             name="ck_announcement_target_type",
         ),
         CheckConstraint(
@@ -56,10 +56,12 @@ class Announcement(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     # Targeting
     target_type: Mapped[str] = mapped_column(
         String(20), nullable=False, default="all"
-    )  # all, entity, role, module, user
+    )  # all, entity, role, module, user, group, page
     target_value: Mapped[str | None] = mapped_column(
-        String(200), nullable=True
-    )  # role code, module slug, user id, etc.
+        String(500), nullable=True
+    )  # role code, module slug, user/group/entity uuid, page path, etc.
+    # NB: String(500) pour absorber des chemins page complets type
+    #     /projets/<uuid>/tasks/<uuid>?tab=details
 
     # Display
     display_location: Mapped[str] = mapped_column(

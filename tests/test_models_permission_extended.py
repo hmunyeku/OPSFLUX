@@ -28,3 +28,16 @@ async def test_permission_has_new_columns(db_session):
     assert fetched.action == "read"
     assert fetched.deprecated is False
     assert fetched.sensitive is False
+
+
+@pytest.mark.asyncio
+async def test_entity_has_logo_url(db_session):
+    """Entity.logo_url column for PDF branding."""
+    from app.models.common import Entity
+    entity = Entity(name="Test Tenant", logo_url="https://example.com/logo.png")
+    db_session.add(entity)
+    await db_session.commit()
+
+    result = await db_session.execute(select(Entity).where(Entity.name == "Test Tenant"))
+    fetched = result.scalar_one()
+    assert fetched.logo_url == "https://example.com/logo.png"

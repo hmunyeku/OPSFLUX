@@ -1,0 +1,25 @@
+<main style="padding: 8mm 12mm;">
+  <h1>{{ _('RBAC_GROUP_DETAIL') }} — {{ group.name }}</h1>
+  <p><strong>{{ _('RBAC_LABEL_STATUS') }} :</strong> {{ _('RBAC_STATUS_ACTIVE') if group.active else _('RBAC_STATUS_REVOKED') }}</p>
+  {% if group.asset_scope %}<p><strong>{{ _('RBAC_LABEL_ASSET_SCOPE') }} :</strong> {{ group.asset_scope }}</p>{% endif %}
+
+  <h2>{{ _('RBAC_SECTION_ROLES') }}</h2>
+  <table>
+    <thead><tr><th>{{ _('RBAC_LABEL_CODE') }}</th><th>{{ _('RBAC_LABEL_NAME') }}</th><th>{{ _('RBAC_LABEL_MODULE') }}</th></tr></thead>
+    <tbody>
+      {% for role in roles %}
+        <tr><td><strong>{{ role.code }}</strong></td><td>{{ role.name }}</td><td>{{ role.module | default('—') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>{{ _('RBAC_SECTION_MEMBERS') }} ({{ members | length }})</h2>
+  <table>
+    <thead><tr><th>{{ _('RBAC_LABEL_NAME') }}</th><th>Email</th></tr></thead>
+    <tbody>
+      {% for u in members %}
+        <tr><td>{{ u.full_name }}</td><td>{{ u.email }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</main>

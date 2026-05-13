@@ -52,7 +52,45 @@
 
 17. **POST /api/v1/projects HTTP 500** → **corrigé** en session 3 (commit `39187000`).
 
-18. **Auth ordering incohérent** : 4 endpoints retournent 400 sans token au lieu de 401. `get_current_entity` est évalué avant `get_current_user`. À ré-ordonner les `Depends` pour qu'un client non-auth reçoive un 401 propre avec WWW-Authenticate header.
+18. **Auth ordering incohérent** : 4 endpoints retournent 400 sans token au lieu de 401 → **corrigé** session 4 (commit `53e256a3`).
+
+### Session 4 — vagues K à P (autonomie continue après "continue")
+
+**Commits** :
+
+| SHA | Sujet |
+|---|---|
+| `53e256a3` | fix(secu+api) — auth 400→401 sans token + Address aliases zip_code/is_primary |
+
+**Vague K** ✅ — `require_module_enabled` : si `current_user is None` et aucune route publique n'a fourni d'entity, on remonte un 401 avec `WWW-Authenticate: Bearer` au lieu du 400 trompeur. Vérifié sur 5 endpoints (projects/pax/ads/planner/activities/tiers/audit-log).
+
+**Vague L** ✅ — `AddressCreate/Update` accepte maintenant les alias `zip_code` (→ postal_code) et `is_primary` (→ is_default) via `populate_by_name=True`. Compatible avec les conventions des autres modèles du repo. Test : POST avec `zip_code: "69001"` + `is_primary: true` → réponse `postal_code: 69001`, `is_default: true`. ✅
+
+**Vague M** ✅ — Créations via API :
+- Asset Registry Field `QA-FLD-001` (HTTP 201)
+- Asset Registry Site `QA-SITE-001` (HTTP 201)
+- MOC `MOC_004_ASP1` (HTTP 201, status=created)
+- ⚠️ `country` est requis sur Field ET Site même quand l'un dérive de l'autre — UX faible (devrait hériter du parent).
+
+**Vague N** ❌ — Test permissions user non-admin avorté : POST /api/v1/users retourne HTTP 500 avec body vide (`detail=null`). Bug #19 à investiguer demain (cause probable : commit OK + serializer crash sur User → rollback du commit ? ou bien une étape silencieusement raise). Le user n'est pas créé en BDD.
+
+**Vague O** ✅ — Workflow definitions/instances opérationnels :
+- 6 définitions (Avis de Séjour, Planner Activity, Project Lifecycle, PackLog Cargo, Avis de Mission, ...)
+- 17 instances actives
+- Colonne s'appelle `current_state` (pas `state`) — mon test avait mauvais nom, pas bug.
+
+### Bug session 4
+
+19. **POST /api/v1/users HTTP 500** : creation user via API crash silencieusement (body vide). Cause exacte inconnue sans logs détaillés. Le user n'apparait pas en BDD donc transaction rollbacked. À investiguer : peut-être `invalidate_rbac_cache(user.id)` ou un autre await qui plante.
+
+### Bilan session 4
+
+3 fixes deployes (commits cumules session : 12) :
+- ✅ Fix #18 corrige (auth 400→401)
+- ✅ Address aliases ajoutés
+- Découverte 2 nouveaux items : country obligatoire Field/Site sans héritage (#20 mineur), POST /users 500 (#19 à investiguer).
+
+Total bugs identifiés depuis le début : **20** dont **14 corrigés** et **6 priorisés en backlog**.
 
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 

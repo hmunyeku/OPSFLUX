@@ -186,6 +186,57 @@ Smoke test 13/13 endpoints HTTP 200 :
 - **2 documents** publiés (`QA-PROTOCOL-200.md` + `QA-LOG.md`)
 - **Couverture protocole 200 étapes** : ~50% via tests API + audits statiques (interactive browser : 35-40 étapes)
 
+---
+
+## Session 6 — vagues W à Z
+
+**Commits déployés** :
+
+| SHA | Sujet |
+|---|---|
+| `bf93d759` | fix(paxlog) — **SUP-0040 ticket actif** : ADS type auto 'team' à partir de 2 pax |
+| `9dd7ac51` | fix(projets) — asset_id invalide HTTP 422 propre (vs 500 silencieux) |
+| `31e8c41f` | hotfix(projets) — NameError StructuredHTTPException → HTTPException standard |
+
+**Vague W — Bug #21 invalidé + Fix SUP-0040 actif** ✅
+- **#21 (badge collé "Tiers24")** : faux positif `innerText`. Le span `ml-2` donne 5px d'espace visuel réel. Pas de bug.
+- **Ticket support SUP-0040** détecté lors du browser : "Bug sur Creation nouvel ADS — auto-bascule type Équipe quand pax > 1". Fix : `addPax` dans `CreateAdsPanel.tsx` détecte le passage à 2 pax et bascule `type` de `individual` à `team` automatiquement. Conservateur : pas d'inverse à la suppression.
+
+**Vague X — Browser smoke 4 modules** ✅
+- `/imputations` : 1 référence (Capex Surface), KPIs OK
+- `/files` : Gestionnaire de fichiers, 3 dossiers root (attachments/avatars/exports), OK
+- `/papyrus` : 2 documents (FSR), KPIs Papyrus OK
+- `/support` : 40 tickets total, 5 ouverts, dashboard OK. C'est ici qu'on a découvert SUP-0040 actif.
+
+**Vague Y — Edge cases API** ✅
+- **Pagination** : `page=0`, `-1`, `page_size=0`, `10000` → tous 422 (Pydantic validation OK)
+- **Search** : empty, espace, accents, XSS string `<script>` → tous 200 (binds SQLAlchemy safe)
+- **POST tier sans nom** : 422 propre avec `Field required` ✅
+- **POST tier nom 300 chars** : 422 (max 200) ✅
+- **Bug #23 trouvé** : POST /projects avec asset_id invalide → HTTP 500 silencieux (FK violation). **Corrigé** : pré-validation asset_id, retourne 422 ASSET_NOT_FOUND avec message clair. Vérifié : valid asset → 201, invalid → 422.
+- **Hotfix #23** : 1er commit utilisait `StructuredHTTPException` non importé top-level → NameError. Bascule sur `HTTPException` standard. Deploy + retest OK.
+
+**Vague Z — Smoke final 15/15 HTTP 200** :
+- projects / pax/ads / planner/activities / teams / audit-log / tiers / asset-registry/installations / travelwiz/voyages / moc / workflow/definitions / users / rbac/roles / packlog/cargo-requests / imputations/references / support/tickets
+
+### Bugs session 6
+
+23. **POST /projects asset_id invalide** : 500 silencieux → **corrigé** `9dd7ac51` + hotfix `31e8c41f`.
+
+### Bilan session 6
+- 3 nouveaux commits déployés (incluant 1 hotfix StructuredHTTPException)
+- 1 ticket support actif résolu : **SUP-0040 auto-bascule team**
+- 1 bug API non documenté trouvé et corrigé : **#23 asset_id 500→422**
+- 15/15 endpoints HTTP 200
+
+### Bilan global cumulé sessions 1-6
+
+- **19 commits déployés sur main** (3 nouveaux session 6)
+- **23 bugs identifiés**, **17 corrigés et déployés**, **5 en backlog priorisé**, **1 invalidé** (#21 faux positif)
+- **Tickets support actifs résolus** : SUP-0040 (auto-bascule team)
+
+**Prod stable** : 15/15 endpoints clés HTTP 200.
+
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 
 **Couverture du protocole 200 étapes** :

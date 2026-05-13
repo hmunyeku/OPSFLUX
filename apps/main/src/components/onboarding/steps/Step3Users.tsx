@@ -7,11 +7,12 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Users, Plus, Trash2, Loader2, Check, Mail } from 'lucide-react'
+import { Users, Plus, Trash2, Loader2, Check, Mail, Upload } from 'lucide-react'
 import { useCreateUser, useSendPasswordReset } from '@/hooks/useUsers'
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
+import { ImportWizard } from '@/components/shared/ImportWizard'
 
 export interface Step3UserDraft {
   email: string
@@ -34,6 +35,7 @@ export function Step3Users({ value, onChange }: Props) {
   const { toast } = useToast()
   const [creating, setCreating] = useState(false)
   const [createdEmails, setCreatedEmails] = useState<string[]>([])
+  const [showImportWizard, setShowImportWizard] = useState(false)
 
   const addRow = () => onChange([...value, { email: '', first_name: '', last_name: '' }])
   const removeRow = (i: number) => onChange(value.filter((_, idx) => idx !== i))
@@ -179,6 +181,41 @@ export function Step3Users({ value, onChange }: Props) {
         </button>
       </div>
       <p className="text-[11px] text-muted-foreground leading-relaxed">{t('onboarding.step3.hint')}</p>
+
+      {/* Import en masse via wizard */}
+      <div className="rounded-md border border-dashed border-border bg-muted/20 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <Upload size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-foreground">
+                {t('onboarding.step3.bulk_title', 'Plusieurs utilisateurs à inviter ?')}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {t('onboarding.step3.bulk_hint', 'Importez votre annuaire (CSV/Excel) ou synchronisez depuis Azure AD / Keycloak.')}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowImportWizard(true)}
+            className="btn btn-sm btn-secondary shrink-0"
+          >
+            <Upload size={12} />
+            {t('onboarding.step3.bulk_btn', 'Importer en masse')}
+          </button>
+        </div>
+      </div>
+
+      <ImportWizard
+        open={showImportWizard}
+        onClose={() => setShowImportWizard(false)}
+        targetObject="user"
+        onImportComplete={() => {
+          setShowImportWizard(false)
+          toast({ title: t('onboarding.step3.bulk_imported', 'Utilisateurs importés avec succès'), variant: 'success' })
+        }}
+      />
     </div>
   )
 }

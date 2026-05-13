@@ -7486,7 +7486,10 @@
       "save": "Enregistrer l'entité",
       "saved": "Entité enregistrée",
       "error_required": "Le nom de l'entité est obligatoire.",
-      "error_no_entity": "Aucune entité courante détectée."
+      "error_no_entity": "Aucune entité courante détectée.",
+      "editing_entity": "Vous êtes rattaché à l’entité",
+      "editing_entity_hint": "Vous pouvez compléter ses informations ci-dessous.",
+      "readonly_hint": "Vous n’avez pas la permission de modifier cette entité. Contactez votre administrateur."
     },
     "step3": {
       "title": "Premiers utilisateurs",
@@ -7502,7 +7505,11 @@
       "error_empty": "Aucun utilisateur valide à créer.",
       "error_invalid_email": "Email invalide",
       "created": "{{count}} utilisateur(s) créé(s)",
-      "partial_fail": "{{count}} échec(s) — voir les détails dans la console"
+      "partial_fail": "{{count}} échec(s) — voir les détails dans la console",
+      "bulk_title": "Plusieurs utilisateurs à inviter ?",
+      "bulk_hint": "Importez votre annuaire (CSV/Excel) ou synchronisez depuis Azure AD / Keycloak.",
+      "bulk_btn": "Importer en masse",
+      "bulk_imported": "Utilisateurs importés avec succès"
     },
     "step4": {
       "title": "Modules à activer",
@@ -7534,7 +7541,11 @@
       "created_short": "Créé",
       "created": "Partenaire créé",
       "saved": "Partenaire enregistré",
-      "error_required": "Le nom du partenaire est obligatoire."
+      "error_required": "Le nom du partenaire est obligatoire.",
+      "bulk_title": "Plusieurs tiers à créer ?",
+      "bulk_hint": "Importez votre liste depuis un fichier CSV ou Excel — mapping de colonnes automatique.",
+      "bulk_btn": "Importer en masse",
+      "bulk_imported": "Tiers importés avec succès"
     },
     "step6": {
       "title": "Premier site / installation",
@@ -7555,7 +7566,15 @@
       "created": "Site créé",
       "saved": "Site enregistré",
       "hint": "Un « Field » parent est créé automatiquement avec des valeurs par défaut — modifiable plus tard.",
-      "error_required": "Nom et pays sont obligatoires."
+      "error_required": "Nom et pays sont obligatoires.",
+      "bulk_title": "Plusieurs sites/équipements à créer ?",
+      "bulk_hint": "Importez votre hiérarchie depuis un fichier CSV ou Excel.",
+      "bulk_btn": "Importer en masse",
+      "bulk_imported": "Actifs importés avec succès",
+      "bulk_level_field": "Champs",
+      "bulk_level_site": "Sites",
+      "bulk_level_installation": "Installations",
+      "bulk_level_equipment": "Équipements"
     },
     "recap": {
       "title": "Configuration récapitulative",

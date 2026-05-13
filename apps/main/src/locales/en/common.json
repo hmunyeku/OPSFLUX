@@ -7371,7 +7371,11 @@
       "hint": "Hint",
       "error_empty": "Error empty",
       "created": "Created",
-      "partial_fail": "Partial fail"
+      "partial_fail": "Partial fail",
+      "bulk_title": "Several users to invite?",
+      "bulk_hint": "Import your directory (CSV/Excel) or sync from Azure AD / Keycloak.",
+      "bulk_btn": "Bulk import",
+      "bulk_imported": "Users imported successfully"
     },
     "step5": {
       "type": "Type",
@@ -7391,7 +7395,11 @@
       "create": "Create",
       "created": "Created",
       "saved": "Saved",
-      "error_required": "Error required"
+      "error_required": "Error required",
+      "bulk_title": "Several tiers to create?",
+      "bulk_hint": "Import your list from a CSV or Excel file — automatic column mapping.",
+      "bulk_btn": "Bulk import",
+      "bulk_imported": "Tiers imported successfully"
     },
     "step6": {
       "site_type": "Type",
@@ -7412,7 +7420,15 @@
       "created": "Created",
       "saved": "Saved",
       "hint": "Hint",
-      "error_required": "Error required"
+      "error_required": "Error required",
+      "bulk_title": "Several sites/equipment to create?",
+      "bulk_hint": "Import your hierarchy from a CSV or Excel file.",
+      "bulk_btn": "Bulk import",
+      "bulk_imported": "Assets imported successfully",
+      "bulk_level_field": "Fields",
+      "bulk_level_site": "Sites",
+      "bulk_level_installation": "Installations",
+      "bulk_level_equipment": "Equipment"
     },
     "nav": {
       "previous": "Previous",
@@ -7435,7 +7451,10 @@
       "save": "Save",
       "saved": "Saved",
       "error_required": "Error required",
-      "error_no_entity": "Error no entity"
+      "error_no_entity": "Error no entity",
+      "editing_entity": "You are linked to entity",
+      "editing_entity_hint": "You can fill in its details below.",
+      "readonly_hint": "You don’t have permission to edit this entity. Contact your administrator."
     },
     "recap": {
       "skipped": "Past",

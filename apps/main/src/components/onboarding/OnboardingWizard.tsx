@@ -1,20 +1,29 @@
 /**
- * OnboardingWizard — Multi-step guided setup for a freshly created entity.
+ * OnboardingWizard — Multi-step guided setup, context-aware.
  *
- * Walks a new admin through 7 steps:
- *   1. Profile          — name, email, photo (self-service via /api/v1/profile)
- *   2. Entity info      — name, address, currency, timezone
- *   3. First user(s)    — invite at least one teammate
- *   4. Modules          — checkbox list of business modules to enable
- *   5. First Tier       — create the first business partner
- *   6. First Asset      — create the first site / installation
- *   7. Recap            — summary + "Terminé"
+ * Comportement (suite refonte Bastien : "assistant onboarding s'ouvre
+ * comme si on cree une nouvelle entite alors que l'utilisateur est
+ * deja affecte a une entite et il n'a pas forcement toutes les
+ * permissions") :
  *
- * Each step (except 7) has skip + previous/next. Current step + form
- * state persist in localStorage under `opsflux.onboarding.state` so the
- * wizard can resume after a reload. When the entity is already populated
- * (has tiers + users + assets) we render a short "déjà configuré" state
- * with a single dismiss button.
+ * - Steps disponibles dependent des permissions effectives du user :
+ *   1. Profile          — toujours (self-service)
+ *   2. Entity info      — uniquement si core.entity.update
+ *   3. First user(s)    — uniquement si core.users.create
+ *   4. Modules          — uniquement si core.settings.manage
+ *   5. First Tier       — uniquement si tier.create (avec bouton import en masse)
+ *   6. First Asset      — uniquement si asset.create (avec bouton import en masse)
+ *   7. Recap            — toujours
+ *
+ * - Step2Entity affiche le nom de l'entite courante en read-only et
+ *   ne permet jamais de "changer d'entite" (impossible par design).
+ *
+ * - Si l'utilisateur n'a aucune permission admin (ni 2/3/4/5/6), le
+ *   wizard se reduit a Step1Profile + Step7Recap minimaliste (welcome
+ *   tour, pas creation).
+ *
+ * - Le wizard ne se rouvre pas si user a deja ete onboarde
+ *   (markOnboardingDismissed dans localStorage).
  */
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -34,6 +43,7 @@ import { safeLocal } from '@/lib/safeStorage'
 import { useTiers } from '@/hooks/useTiers'
 import { useUsers } from '@/hooks/useUsers'
 import { useAssets } from '@/hooks/useAssets'
+import { usePermission } from '@/hooks/usePermission'
 import { Step1Profile } from './steps/Step1Profile'
 import { Step2Entity } from './steps/Step2Entity'
 import { Step3Users } from './steps/Step3Users'
@@ -87,7 +97,10 @@ const DEFAULT_STATE: OnboardingState = {
   asset: { name: '', site_type: 'ONSHORE', country: '' },
 }
 
-const TOTAL_STEPS = 7
+// TOTAL_STEPS retire — le nombre de steps depend des permissions du
+// user (cf allowedSteps dans le component). Conserve pour reference
+// historique.
+// const TOTAL_STEPS = 7
 
 // ── Persistence helpers ──────────────────────────────────────
 
@@ -142,22 +155,45 @@ interface Props {
 
 export function OnboardingWizard({ open, onClose }: Props) {
   const { t } = useTranslation()
+  const { hasPermission, loading: permsLoading } = usePermission()
   const [state, setState] = useState<OnboardingState>(() => loadState())
 
-  // Check "already configured" — if the entity has tiers + users + assets
-  // we show a different welcome state instead of forcing the full wizard.
-  // We only fetch this once the modal opens to avoid extra API calls.
+  // ── Steps autorises selon les permissions du user courant ──────
+  // Step1 (profile) et Step7 (recap) sont toujours visibles. Les
+  // autres sont conditionnees par les permissions admin du user.
+  // Si user n'a aucune perm admin -> wizard reduit a Profile+Recap.
+  const allowedSteps = useMemo<OnboardingStepId[]>(() => {
+    const steps: OnboardingStepId[] = [1] // Profile toujours
+    if (hasPermission('core.entity.update')) steps.push(2)
+    if (hasPermission('core.users.create')) steps.push(3)
+    if (hasPermission('core.settings.manage')) steps.push(4)
+    if (hasPermission('tier.create')) steps.push(5)
+    if (hasPermission('asset.create')) steps.push(6)
+    steps.push(7) // Recap toujours
+    return steps
+  }, [hasPermission])
+
+  const totalSteps = allowedSteps.length
+  const currentIndex = Math.max(0, allowedSteps.indexOf(state.currentStep))
+
+  // Check "already configured" — les hooks fetch toujours, en 403 si
+  // l'user n'a pas la perm, data reste undefined ; le check se base
+  // alors uniquement sur totalSteps.
   const { data: tiers } = useTiers({ page_size: 1 })
   const { data: users } = useUsers({ page_size: 1 })
   const { data: assets } = useAssets({ page_size: 1 })
 
   const alreadyConfigured = useMemo(() => {
     if (!open) return false
+    if (permsLoading) return false
+    // Si user a aucune perm admin -> on considere "deja configure"
+    // pour skipper le wizard, parce qu'il n'a rien a configurer.
+    if (totalSteps <= 2) return true
     const hasTiers = (tiers?.total ?? 0) > 0
-    const hasUsers = (users?.total ?? 0) > 1 // > 1 because the admin counts
+    const hasUsers = (users?.total ?? 0) > 1
     const hasAssets = (assets?.total ?? 0) > 0
     return hasTiers && hasUsers && hasAssets
-  }, [open, tiers, users, assets])
+  }, [open, permsLoading, totalSteps, tiers, users, assets])
 
   // Persist on every mutation.
   useEffect(() => {
@@ -168,30 +204,46 @@ export function OnboardingWizard({ open, onClose }: Props) {
     setState((s) => ({ ...s, ...patch }))
   }, [])
 
+  // Navigation : on saute aux steps autorises (allowedSteps) plutot
+  // qu'incrementer aveuglement, parce qu'un step peut etre filtre par
+  // permission entre 2 transitions.
   const goNext = useCallback(() => {
     setState((s) => {
-      const next: OnboardingStepId = Math.min(s.currentStep + 1, TOTAL_STEPS) as OnboardingStepId
+      const idx = allowedSteps.indexOf(s.currentStep)
+      const next = allowedSteps[idx + 1] ?? s.currentStep
       return {
         ...s,
         currentStep: next,
         completed: { ...s.completed, [s.currentStep]: true },
       }
     })
-  }, [])
+  }, [allowedSteps])
 
   const goPrev = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      currentStep: Math.max(s.currentStep - 1, 1) as OnboardingStepId,
-    }))
-  }, [])
+    setState((s) => {
+      const idx = allowedSteps.indexOf(s.currentStep)
+      const prev = idx > 0 ? allowedSteps[idx - 1] : s.currentStep
+      return { ...s, currentStep: prev }
+    })
+  }, [allowedSteps])
 
   const goSkip = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      currentStep: Math.min(s.currentStep + 1, TOTAL_STEPS) as OnboardingStepId,
-    }))
-  }, [])
+    setState((s) => {
+      const idx = allowedSteps.indexOf(s.currentStep)
+      const next = allowedSteps[idx + 1] ?? s.currentStep
+      return { ...s, currentStep: next }
+    })
+  }, [allowedSteps])
+
+  // Auto-correct : si currentStep n'est plus autorise (cas refresh
+  // permission), on reinitialise au 1er step autorise.
+  useEffect(() => {
+    if (!open || permsLoading) return
+    if (!allowedSteps.includes(state.currentStep)) {
+      setState((s) => ({ ...s, currentStep: allowedSteps[0] ?? 1 }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, permsLoading, allowedSteps])
 
   const handleFinish = useCallback(() => {
     markOnboardingDismissed()
@@ -206,8 +258,11 @@ export function OnboardingWizard({ open, onClose }: Props) {
   }, [onClose])
 
   if (!open) return null
+  if (permsLoading) return null
 
-  const progressPct = (state.currentStep / TOTAL_STEPS) * 100
+  const progressPct = totalSteps > 0 ? ((currentIndex + 1) / totalSteps) * 100 : 0
+  const isLastStep = currentIndex === totalSteps - 1
+  const isFirstStep = currentIndex === 0
 
   // ── Already configured shortcut ────────────────────────────
   if (alreadyConfigured) {
@@ -266,7 +321,7 @@ export function OnboardingWizard({ open, onClose }: Props) {
                     {t('onboarding.title')}
                   </Dialog.Title>
                   <Dialog.Description className="text-xs text-muted-foreground mt-0.5">
-                    {t('onboarding.step_label', { current: state.currentStep, total: TOTAL_STEPS })}
+                    {t('onboarding.step_label', { current: currentIndex + 1, total: totalSteps })}
                   </Dialog.Description>
                 </div>
               </div>
@@ -285,17 +340,16 @@ export function OnboardingWizard({ open, onClose }: Props) {
                 className="h-full bg-primary transition-all duration-300 ease-out"
                 style={{ width: `${progressPct}%` }}
                 role="progressbar"
-                aria-valuenow={state.currentStep}
+                aria-valuenow={currentIndex + 1}
                 aria-valuemin={1}
-                aria-valuemax={TOTAL_STEPS}
+                aria-valuemax={totalSteps}
               />
             </div>
-            {/* Step dots */}
+            {/* Step dots — un dot par step autorise */}
             <div className="mt-2 flex items-center justify-between gap-1 px-0.5">
-              {Array.from({ length: TOTAL_STEPS }, (_, i) => {
-                const stepNum = (i + 1) as OnboardingStepId
+              {allowedSteps.map((stepNum, i) => {
                 const active = stepNum === state.currentStep
-                const done = state.completed[stepNum] || stepNum < state.currentStep
+                const done = state.completed[stepNum] || i < currentIndex
                 return (
                   <div
                     key={stepNum}
@@ -357,20 +411,20 @@ export function OnboardingWizard({ open, onClose }: Props) {
           <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-border bg-muted/20 shrink-0">
             <button
               onClick={goPrev}
-              disabled={state.currentStep === 1}
+              disabled={isFirstStep}
               className="btn btn-sm btn-secondary"
             >
               <ArrowLeft size={12} />
               {t('onboarding.nav.previous')}
             </button>
             <div className="flex items-center gap-2">
-              {state.currentStep < TOTAL_STEPS && (
+              {!isLastStep && (
                 <button onClick={goSkip} className="btn btn-sm btn-secondary">
                   <SkipForward size={12} />
                   {t('onboarding.nav.skip')}
                 </button>
               )}
-              {state.currentStep < TOTAL_STEPS ? (
+              {!isLastStep ? (
                 <button onClick={goNext} className="btn btn-sm btn-primary">
                   {t('onboarding.nav.next')}
                   <ArrowRight size={12} />

@@ -4689,6 +4689,15 @@ async def render_pdf_preview(
         )
 
     ctx = variables or {}
+
+    # i18n: prime the rbac_pdf translation cache for `language` (no-op if already
+    # cached) and expose `_(key)` + `lang` to the Jinja template. Tokens like
+    # {{ _('RBAC_GENERATED_AT') }} resolve to the active language; missing keys
+    # fall back to the canonical token so a render never breaks.
+    await prime_translation_cache(db, language)
+    ctx["_"] = _build_translator(language)
+    ctx["lang"] = language
+
     body_html = render_template_string(version.body_html, ctx)
     header_html = render_template_string(version.header_html, ctx) if version.header_html else None
     footer_html = render_template_string(version.footer_html, ctx) if version.footer_html else None
@@ -4737,6 +4746,15 @@ async def render_pdf_from_version(
         )
 
     ctx = variables or {}
+
+    # i18n: inject the translator + lang derived from the version. This function
+    # has no `db` (called from admin preview routes that pre-prime the cache or
+    # accept the fallback-to-key behaviour). If the cache is cold, `_(key)`
+    # returns the canonical token so the render still succeeds.
+    _lang = (version.language or "fr").lower()
+    ctx["_"] = _build_translator(_lang)
+    ctx["lang"] = _lang
+
     body_html = render_template_string(version.body_html, ctx)
     header_html = render_template_string(version.header_html, ctx) if version.header_html else None
     footer_html = render_template_string(version.footer_html, ctx) if version.footer_html else None
@@ -4784,6 +4802,15 @@ async def render_html_from_version(
         )
 
     ctx = variables or {}
+
+    # i18n: inject the translator + lang derived from the version. This function
+    # has no `db` (called from admin preview routes that pre-prime the cache or
+    # accept the fallback-to-key behaviour). If the cache is cold, `_(key)`
+    # returns the canonical token so the render still succeeds.
+    _lang = (version.language or "fr").lower()
+    ctx["_"] = _build_translator(_lang)
+    ctx["lang"] = _lang
+
     body_html = render_template_string(version.body_html, ctx)
     header_html = render_template_string(version.header_html, ctx) if version.header_html else None
     footer_html = render_template_string(version.footer_html, ctx) if version.footer_html else None

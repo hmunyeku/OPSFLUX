@@ -5849,7 +5849,11 @@
       "subtitle": "Subtitle",
       "timeout_short": "Timeout short"
     },
-    "no_match": "No match"
+    "no_match": "No match",
+    "mfa_policy_title": "Two-factor authentication (MFA)",
+    "mfa_policy_description": "MFA security policy applied to all users.",
+    "mfa_required_for_all_label": "Require MFA for all users",
+    "mfa_required_for_all_description": "When enabled, every user without MFA configured is forced to set it up before accessing the application (blocking overlay). Already logged-in users keep their active session but must configure MFA on next load."
   },
   "help_system": {
     "contextual": "Contextual help",
@@ -7543,5 +7547,15 @@
     "image_save_first": "Image save first",
     "image_too_large": "Image too large",
     "image_upload_failed": "Image upload failed"
+  },
+  "mfa": {
+    "enforce": {
+      "title": "Two-factor authentication required",
+      "description": "Your administrator has made two-factor authentication mandatory. You must configure MFA before using the application.",
+      "why_title": "Why?",
+      "why_description": "MFA protects your account if your password is compromised. It takes 2 minutes to configure with an app like Google Authenticator or Microsoft Authenticator.",
+      "cta": "Configure now",
+      "contact_admin": "If you have any issue, contact your administrator."
+    }
   }
 }

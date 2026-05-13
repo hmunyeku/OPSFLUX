@@ -381,6 +381,58 @@ Au-delà des fixes ponctuels, 2 patterns récurrents méritent attention :
 - **Outils créés** : `scripts/i18n_bulk_translate.py`, `scripts/audit_model_vs_db.py`, `scripts/compare_model_vs_db.py`
 - **Documents** : `docs/QA-PROTOCOL-200.md` + `docs/QA-LOG.md` complet
 
+---
+
+## Session 9 — "on continue" : stress PATCH + DELETE permissions
+
+**Commits déployés** :
+
+| SHA | Sujet |
+|---|---|
+| `5d4e5be8` | fix(attachments) — ajoute `Attachment.category` manquant dans le modèle |
+| `da89636f` | fix(papyrus) — migration 170 : `created_at` à `papyrus_external_submissions` |
+
+**Vague AA — Stress PATCH 10 endpoints** :
+- ✅ PATCH `/tiers`, `/projects`, `/planner/activities`, `/teams`, `/users`, `/pax/ads`, `/asset-registry/fields`, `/travelwiz/voyages`, `/packlog/cargo-requests` → HTTP 200
+- ❌ PATCH `/moc/{id}` → **HTTP 500** identifié
+
+**Bug #29 — PATCH MOC HTTP 500** : `Attachment.category` utilisé dans `moc_service.reconcile_inline_images` mais **PAS déclaré dans le modèle Attachment** alors que la migration 139 l'avait créé en BDD. C'est l'inverse de bug #25/26 (BDD a la colonne, modèle ne la voit pas → INSERT via `Attachment(category=...)` plante avec TypeError, SELECT WHERE Attachment.category cassait `reconcile_inline_images` déclenché par tout PATCH MOC touchant un champ rich-text). **Corrigé** (commit `5d4e5be8`) : ajout `category: Mapped[str | None]` au modèle. Vérifié PATCH MOC → 200.
+
+**Vague BB — Fix papyrus_external_submissions.created_at** :
+Migration 170 ajoute `created_at` (manquante car héritée de TimestampMixin mais jamais migrée) avec backfill `submitted_at → created_at`. **Bug #27 corrigé**.
+
+**Vague CC — Tests permissions DELETE/PATCH avec qa.viewer (READER)** :
+
+| Action | Résultat |
+|---|---|
+| DELETE `/tiers/{id}` | **HTTP 403** ✅ |
+| DELETE `/projects/{id}` | **HTTP 403** ✅ |
+| DELETE `/teams/{id}` | **HTTP 403** ✅ |
+| DELETE `/moc/{id}` | **HTTP 403** ✅ |
+| DELETE `/users/{admin}` | **HTTP 403** ✅ |
+| PATCH `/users/{admin}` | **HTTP 403** ✅ |
+
+**RBAC validé** : 6/6 mutations bloquées par 403.
+
+### Découverte clé session 9
+
+**Pattern model_vs_db dans les 2 sens** : l'audit session 8 cherchait "modèle déclare X, BDD ne l'a pas" (3 cas). Session 9 a révélé l'inverse "BDD a X, modèle ne le déclare pas" (1 cas : `Attachment.category`). À ajouter à `compare_model_vs_db.py` (TODO backlog).
+
+### Bilan session 9
+- 2 commits déployés
+- **2 bugs latents corrigés** (Attachment.category impactait PATCH MOC ; papyrus created_at)
+- **RBAC validé** sur 6 actions de mutation
+- 1 amélioration outil identifiée
+
+### Bilan global cumulé sessions 1-9 (FINAL FINAL)
+
+- **27 commits déployés sur main**
+- **29 bugs identifiés**, **23 corrigés et déployés**, **6 en backlog**
+- **Tickets support résolus** : 3 (SUP-0040, SUP-0042, SUP-0039)
+- **Prod stable** : 17/17 endpoints + 27 stress + 10 PATCH + 6 permissions
+- **Scripts pérennes** : 3
+- **Migrations alembic ajoutées** : 6 (165→170)
+
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 
 **Couverture du protocole 200 étapes** :

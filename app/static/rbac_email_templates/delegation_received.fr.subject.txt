@@ -1,0 +1,1 @@
+[OpsFlux] Nouvelles permissions déléguées à votre compte par {{ delegator.full_name }}

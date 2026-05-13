@@ -1,0 +1,12 @@
+Bonjour {{ delegate.full_name }},
+
+{{ delegator.full_name }} ({{ delegator.email }}) vous a accordé une délégation de permissions sur votre compte OpsFlux.
+
+Période effective : {{ delegation.start_date }} -> {{ delegation.end_date }}
+Nombre de permissions reçues : {{ delegation.permissions | length }}
+Motif : {{ delegation.reason }}
+
+Ces permissions sont désormais actives sur votre compte jusqu'au {{ delegation.end_date }}.
+Le certificat de délégation est joint à cet email (PDF avec empreinte SHA-256).
+
+Empreinte du certificat : {{ content_hash | default('—') }}

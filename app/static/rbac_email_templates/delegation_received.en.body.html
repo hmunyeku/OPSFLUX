@@ -1,0 +1,10 @@
+<p>Hello {{ delegate.full_name }},</p>
+<p><strong>{{ delegator.full_name }}</strong> ({{ delegator.email }}) has granted you a permissions delegation on your OpsFlux account.</p>
+<ul>
+  <li><strong>Effective period:</strong> {{ delegation.start_date }} → {{ delegation.end_date }}</li>
+  <li><strong>Number of permissions received:</strong> {{ delegation.permissions | length }}</li>
+  <li><strong>Reason:</strong> {{ delegation.reason }}</li>
+</ul>
+<p>These permissions are now active on your account until <strong>{{ delegation.end_date }}</strong>.</p>
+<p>The delegation certificate is attached to this email (PDF with SHA-256 fingerprint).</p>
+<p style="color: #64748b; font-size: 11px;">Certificate fingerprint: {{ content_hash | default('—') }}</p>

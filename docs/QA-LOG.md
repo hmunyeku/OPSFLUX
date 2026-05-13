@@ -898,3 +898,63 @@ Brut : **306 endpoints / 1176** (~26%). **Chiffre sur-compté** : beaucoup utili
 #### Onboarding dialog dupliqué — **FAUX POSITIF**
 Initialement suspecté : "Vous êtes déjà bien configuré" affiché 2x dans innerText. Investigation : Radix `Dialog.Title` (sr-only pour a11y) + `<h2>` visible donnent 2 occurrences dans `innerText`, mais visuellement (CSS `sr-only`) seul le h2 est visible. **Pas de bug à corriger**.
 
+
+---
+
+## Session 14 — diagnostic prod down + CI trigger + smoke final
+
+**Commits déployés** :
+
+| SHA | Sujet |
+|---|---|
+| `665fc6fc` | fix(pwa) — `maximumFileSizeToCacheInBytes` 5 MiB (bundle JS i18n) |
+| `50fa9286` | ci — trigger push main aussi |
+
+### Bug critique #31 : Prod en `composeStatus: error` depuis commit i18n
+
+Utilisateur signale "check dokploy on est down". Diagnostic :
+- Front /dashboard répondait quand même (200) — Docker servait l'**image cached** du build précédent
+- API OK
+- Mais `composeStatus: error` depuis `7ad0605c` (i18n finalisation)
+- **3 deploys consécutifs échoués**
+
+**Cause racine** : bundle `index-*.js` est passé à **2.12 MiB** à cause des 6455 clés FR + 6455 EN inlinées dans le JS. **PWA Workbox** refuse par défaut de précacher > 2 MiB → `vite build` crash :
+```
+error during build:
+  Configure "workbox.maximumFileSizeToCacheInBytes" to change the limit:
+  the default value is 2 MiB.
+```
+
+**Fix** (commit `665fc6fc`) : `apps/main/vite.config.ts` → `maximumFileSizeToCacheInBytes: 5 * 1024 * 1024`.
+
+**Pourquoi le CI n'a pas catché ?** Workflow `ci.yml` tournait uniquement sur PR et push develop. Push direct main pas vérifié. **Fix prévention** (commit `50fa9286`) : ajout `main` au trigger push. Recommandation : Bastien doit configurer branch protection sur main pour interdire push direct.
+
+### Vague VV — Smoke browser final post-fix
+
+✅ Mode FR : dashboard charge proprement
+✅ Mode EN : sidebar EN, titres widgets EN, **AUCUNE clé brute visible**
+⚠️ Hardcodes FR dans TSX persistent (backlog connu)
+
+### Vague WW — Chasse bugs résiduels
+
+19 endpoints supplémentaires stress-testés : **0 crash 500**, 4 cas 422 (params manquants).
+
+### Bilan session 14
+- 2 commits déployés
+- **1 bug critique #31** corrigé (PWA bundle)
+- **1 amélioration CI** (trigger push main)
+- **19 endpoints supplémentaires** validés (0 nouveau 500)
+
+### Bilan global cumulé sessions 1-14 (TRULY FINAL)
+
+| Métrique | Valeur |
+|---|---|
+| **Commits déployés** | **35** |
+| Bugs identifiés | 31 |
+| Bugs corrigés et déployés | 25 |
+| Tickets support résolus | 3 |
+| Endpoints validés | **85** |
+| Scripts pérennes | 10 |
+| Migrations alembic | 6 |
+| CI workflows | 2 + trigger push main |
+| Clés i18n synchronisées | 12 910 |

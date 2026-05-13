@@ -1213,6 +1213,7 @@ class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     __table_args__ = (
         Index("idx_attachments_owner", "owner_type", "owner_id"),
         Index("idx_attachments_entity", "entity_id"),
+        Index("idx_attachments_category", "category"),
     )
 
     owner_type: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -1223,6 +1224,13 @@ class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     size_bytes: Mapped[int] = mapped_column(nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # SUP-bug : migration 139 a cree attachments.category en BDD mais le
+    # modele Attachment l'avait perdu (probable revert accidentel). Toute
+    # tentative d'INSERT via Attachment(category=...) crashait avec
+    # TypeError, et les SELECT qui filtraient sur la colonne (ex:
+    # moc_service.reconcile_inline_images) cassaient les PATCH MOC qui
+    # touchaient un champ rich-text.
+    category: Mapped[str | None] = mapped_column(String(40), nullable=True)
     uploaded_by: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )

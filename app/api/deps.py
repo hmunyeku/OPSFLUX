@@ -283,6 +283,18 @@ def require_module_enabled(module_slug: str):
                     entity_id = result.scalar_one_or_none()
 
         if entity_id is None:
+            # SUP-secu : si l'appelant n'est pas authentifie ET aucun
+            # mecanisme de route publique n'a resolu une entity, la cause
+            # racine est l'absence de token -- on remonte un 401 propre
+            # avec WWW-Authenticate header plutot qu'un 400 trompeur.
+            # Avant : 4 endpoints (projects/pax/ads/planner/activities/tiers)
+            # repondaient 400 sans token, ce qui masquait l'auth en cause.
+            if current_user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No entity context for module check",

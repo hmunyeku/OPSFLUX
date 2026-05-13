@@ -857,6 +857,13 @@ class OAuthAuthorizationRead(OpsFluxSchema):
 # ─── Addresses (polymorphic) ────────────────────────────────────────────────
 
 class AddressCreate(BaseModel):
+    # SUP-bug : cohérence de nommage. D'autres modèles (Tier, UserHealth,
+    # PaxLog…) utilisent `zip_code` + `is_primary` au lieu de `postal_code`
+    # + `is_default`. On accepte les deux en entrée via populate_by_name :
+    # le client peut envoyer `zip_code` (alias) qui sera reçu comme
+    # `postal_code`, et `is_primary` (alias) sera reçu comme `is_default`.
+    # Évite les 422 "Field required" injustifiés selon l'origine du client.
+    model_config = {"populate_by_name": True}
     owner_type: str = Field(..., min_length=1, max_length=50)
     owner_id: UUID
     label: str = Field(..., min_length=1, max_length=50)
@@ -864,24 +871,25 @@ class AddressCreate(BaseModel):
     address_line2: str | None = None
     city: str = Field(..., min_length=1, max_length=100)
     state_province: str | None = None
-    postal_code: str | None = None
+    postal_code: str | None = Field(default=None, alias="zip_code")
     country: str = Field(..., min_length=1, max_length=100)
     latitude: float | None = None
     longitude: float | None = None
-    is_default: bool = False
+    is_default: bool = Field(default=False, alias="is_primary")
 
 
 class AddressUpdate(BaseModel):
+    model_config = {"populate_by_name": True}
     label: str | None = None
     address_line1: str | None = None
     address_line2: str | None = None
     city: str | None = None
     state_province: str | None = None
-    postal_code: str | None = None
+    postal_code: str | None = Field(default=None, alias="zip_code")
     country: str | None = None
     latitude: float | None = None
     longitude: float | None = None
-    is_default: bool | None = None
+    is_default: bool | None = Field(default=None, alias="is_primary")
 
 
 class AddressRead(OpsFluxSchema):

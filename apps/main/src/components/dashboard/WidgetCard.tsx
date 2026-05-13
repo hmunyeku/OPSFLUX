@@ -71,8 +71,73 @@ import { useDashboardFilters } from './DashboardFilterContext'
 
 
 
-// ── Common label translations (enum values → French) ────────────
-// Centralised mapping so all charts/tables display translated labels
+// ── Common label translations (enum values → French / English) ──
+// SUP : avant on n'avait que LABEL_FR donc les widgets affichaient les
+// statuts/priorites en FR meme en mode EN. Pour vrai bilinguisme :
+// LABEL_FR + LABEL_EN + selection runtime via i18n.language.
+const LABEL_EN: Record<string, string> = {
+  // Statuses
+  open: 'Open', closed: 'Closed', resolved: 'Resolved', pending: 'Pending',
+  active: 'Active', inactive: 'Inactive', archived: 'Archived',
+  draft: 'Draft', planned: 'Planned', cancelled: 'Cancelled',
+  todo: 'To do', in_progress: 'In progress', review: 'Review', done: 'Done',
+  valid: 'Valid', expired: 'Expired', non_compliant: 'Non-compliant',
+  approved: 'Approved', rejected: 'Rejected', submitted: 'Submitted',
+  validated: 'Validated', completed: 'Completed',
+  // Cargo / logistics statuses
+  registered: 'Registered', ready: 'Ready', ready_for_loading: 'Ready for loading',
+  loaded: 'Loaded', in_transit: 'In transit', delivered: 'Delivered',
+  delivered_intermediate: 'Delivered (stopover)', delivered_final: 'Delivered (final)',
+  return_declared: 'Return declared', return_in_transit: 'Return in transit',
+  returned: 'Returned', reintegrated: 'Reintegrated', scrapped: 'Scrapped',
+  damaged: 'Damaged', missing: 'Missing',
+  // Voyage statuses
+  scheduled: 'Scheduled', boarding: 'Boarding', departed: 'Departed', arrived: 'Arrived',
+  // PaxLog AdS statuses
+  pending_project_review: 'Project review pending', pending_compliance: 'Compliance pending',
+  pending_validation: 'Validation pending', pending_initiator_review: 'Initiator review pending',
+  requires_review: 'Requires review',
+  // Priorities
+  low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical',
+  // Types
+  client: 'Client', supplier: 'Supplier', subcontractor: 'Subcontractor',
+  partner: 'Partner', prospect: 'Prospect',
+  bug: 'Bug', improvement: 'Improvement', question: 'Question', feature: 'Feature',
+  // Weather
+  sunny: 'Sunny', cloudy: 'Cloudy', rainy: 'Rainy', stormy: 'Stormy',
+  // Boolean / misc
+  true: 'Yes', false: 'No', yes: 'Yes', no: 'No', oui: 'Yes', non: 'No',
+  unknown: 'Unknown', inconnu: 'Unknown', n_a: 'N/A', none: '—',
+  male: 'Male', female: 'Female',
+  internal: 'Internal', external: 'External',
+  // KPI detail keys
+  total: 'Total', avg_progress: 'Avg progress', total_budget: 'Total budget',
+  tasks_in_progress: 'Tasks in progress', tasks_overdue: 'Tasks overdue',
+  tasks_critical: 'Critical tasks', tasks_done: 'Tasks done',
+  compliant: 'Compliant', non_compliant_count: 'Non-compliant',
+  expiring_soon: 'Expiring soon', total_active: 'Total active',
+  overdue: 'Overdue', on_time: 'On time', ahead: 'Ahead',
+  pending_count: 'Pending', open_count: 'Open',
+  mfa_enabled: 'MFA enabled', mfa_disabled: 'MFA disabled',
+  total_users: 'Users', active_users: 'Active',
+  helice: 'Helicopter', bateau: 'Boat', vehicule: 'Vehicle',
+  helicopter: 'Helicopter', boat: 'Boat', vehicle: 'Vehicle',
+  offshore: 'Offshore', onshore: 'Onshore',
+  online: 'Online',
+  fields: 'Fields', sites: 'Sites', installations: 'Installations',
+  equipment: 'Equipment', pipelines: 'Pipelines',
+  clients: 'Clients', suppliers: 'Suppliers', subcontractors: 'Subcontractors',
+  contacts: 'Contacts', partners: 'Partners',
+  in_review: 'In review', revisions: 'Revisions',
+  forms: 'Forms', links: 'Active links',
+  pending_submissions: 'Submissions', failed_dispatches: 'Failed dispatches',
+  total_pax: 'Total PAX',
+  active_requests: 'Active requests', blocked_requests: 'Blocked requests',
+  cargo_count: 'Packages', total_weight_kg: 'Weight (kg)',
+  in_motion: 'In transit', incidents: 'Incidents',
+  active_articles: 'Active articles', hazmat_articles: 'HAZMAT',
+}
+
 const LABEL_FR: Record<string, string> = {
   // Statuses
   open: 'Ouvert', closed: 'Fermé', resolved: 'Résolu', pending: 'En attente',
@@ -142,10 +207,17 @@ const LABEL_FR: Record<string, string> = {
   active_articles: 'Articles actifs', hazmat_articles: 'HAZMAT',
 }
 
-/** Translate a raw label to French if a mapping exists */
+/** Translate a raw label according to the user's active language.
+ * Falls back to the raw value if no mapping exists for either language. */
 function tLabel(raw: string): string {
+  if (!raw) return raw
   const key = raw.toLowerCase().replace(/[\s-]+/g, '_')
-  return LABEL_FR[key] || raw
+  // Determine active language from i18next (or default to fr)
+  const lang = (typeof window !== 'undefined' && window.localStorage)
+    ? (window.localStorage.getItem('language') || 'fr').toLowerCase().slice(0, 2)
+    : 'fr'
+  const dict = lang === 'en' ? LABEL_EN : LABEL_FR
+  return dict[key] || raw
 }
 
 /** Translate labels in chart data arrays (xField values) */

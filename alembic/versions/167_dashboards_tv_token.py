@@ -49,8 +49,23 @@ def upgrade() -> None:
             ),
         )
 
+    # tv_refresh_seconds : aussi declaree dans Mapped[int] non nullable
+    # avec default 60. Manquait aussi en BDD.
+    if "tv_refresh_seconds" not in existing_cols:
+        op.add_column(
+            "dashboards",
+            sa.Column(
+                "tv_refresh_seconds",
+                sa.Integer(),
+                nullable=False,
+                server_default="60",
+                comment="Auto-refresh interval for TV mode (seconds)",
+            ),
+        )
+
 
 def downgrade() -> None:
+    op.drop_column("dashboards", "tv_refresh_seconds")
     op.drop_index("ix_dashboards_tv_token", table_name="dashboards")
     op.drop_column("dashboards", "tv_token_expires_at")
     op.drop_column("dashboards", "tv_token")

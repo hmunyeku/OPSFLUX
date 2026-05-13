@@ -100,6 +100,7 @@ from app.api.routes.core.roles import router as roles_router
 from app.api.routes.core.groups import router as groups_router
 from app.api.routes.core.rbac.delegations import router as rbac_delegations_router
 from app.api.routes.core.rbac.exports import router as rbac_exports_router
+from app.api.routes.core.rbac.defaults import router as rbac_defaults_router
 from app.api.routes.modules.paxlog import router as paxlog_router
 from app.api.routes.modules.planner import router as planner_router
 from app.api.routes.modules.travelwiz import router as travelwiz_router
@@ -401,6 +402,7 @@ app.include_router(roles_router)
 app.include_router(groups_router)
 app.include_router(rbac_delegations_router)
 app.include_router(rbac_exports_router)
+app.include_router(rbac_defaults_router)
 app.include_router(references_router)
 app.include_router(mcp_router)
 app.include_router(mcp_gateway_router)

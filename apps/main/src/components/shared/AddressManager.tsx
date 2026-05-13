@@ -479,7 +479,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
 
       {/* Empty state */}
       {!isLoading && !showForm && addresses.length === 0 && (
-        <EmptyState icon={MapPin} title="Aucune adresse" description={t('shared.addresses.empty_description')} size="compact" />
+        <EmptyState icon={MapPin} title={t('shared.addresses.empty')} description={t('shared.addresses.empty_description')} size="compact" />
       )}
     </div>
   )

@@ -5,11 +5,18 @@ import pytest
 from sqlalchemy import select
 from app.models.common import RbacAuditEvent
 
-# These tests require the columns added by migration 170 (PR-A phase 1).
-# Until migration 170 is applied to the test DB, they will fail with UndefinedColumn.
+# Group 1 tests require the test DB schema to include the new PR-A columns/tables
+# (Permission.namespace/resource/action/deprecated/deprecated_for/sensitive and the
+# rbac_audit_events table). The schema is populated either by:
+#   (a) conftest's Base.metadata.create_all() picking up the new model definitions, or
+#   (b) running alembic migration 171 (PR-A Group 2) against the test DB.
+# Set RBAC_PR_A_MIGRATION_APPLIED=1 once you've verified the schema is current.
 pytestmark = pytest.mark.skipif(
     os.getenv("RBAC_PR_A_MIGRATION_APPLIED") != "1",
-    reason="Awaits alembic migration 170 (PR-A Group 2). Set RBAC_PR_A_MIGRATION_APPLIED=1 once applied.",
+    reason="Group 1 tests require the test DB schema to include PR-A columns/tables. "
+           "These come from either (a) running alembic migration 171 (PR-A Group 2) or "
+           "(b) ensuring conftest's create_all picks up the new model definitions. "
+           "Set RBAC_PR_A_MIGRATION_APPLIED=1 once you've verified the schema is current.",
 )
 
 

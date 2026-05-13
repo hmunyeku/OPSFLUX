@@ -1294,6 +1294,7 @@ const GANTT_STATUS_COLORS: Record<string, string> = {
 }
 
 function GanttWidget({ data }: { data: unknown[] }) {
+  const { t } = useTranslation()
   const activities = (data as Record<string, unknown>[])
     .filter((a) => a.start_date || a.end_date)
     .slice(0, 14)
@@ -1311,8 +1312,9 @@ function GanttWidget({ data }: { data: unknown[] }) {
 
     // Build reversed for display (last = top)
     const reversed = [...activities].reverse()
+    const fallbackActivityLabel = t('dashboard.widget.gantt.fallback_activity')
     const categories = reversed.map((a) =>
-      String(a.title || a.asset_name || 'Activité').slice(0, 26)
+      String(a.title || a.asset_name || fallbackActivityLabel).slice(0, 26)
     )
 
     const seriesData = reversed.map((a, idx) => {
@@ -1342,16 +1344,14 @@ function GanttWidget({ data }: { data: unknown[] }) {
           const [start, end, , progress] = params.value
           const fmt = (ts: number) => new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
           const dur = Math.ceil((end - start) / 86400000)
-          const statusLabel: Record<string, string> = {
-            draft: 'Brouillon', submitted: 'Soumis', validated: 'Validé',
-            in_progress: 'En cours', completed: 'Terminé', done: 'Terminé',
-            cancelled: 'Annulé', planned: 'Planifié',
-          }
-          const st = statusLabel[params.data?.status] || params.data?.status || ''
+          // Reuse the bilingual tLabel function for status translation
+          // (handles FR/EN selon localStorage.language).
+          const st = tLabel(params.data?.status || '') || params.data?.status || ''
+          const statusFieldLabel = t('common.status')
           return [
             `<div style="font-size:12px;font-weight:600;margin-bottom:4px">${params.name}</div>`,
             `<div style="font-size:11px;color:#94a3b8">${fmt(start)} → ${fmt(end)} <b style="color:#64748b">(${dur}j)</b></div>`,
-            st ? `<div style="font-size:11px;margin-top:3px">Statut : <b>${st}</b></div>` : '',
+            st ? `<div style="font-size:11px;margin-top:3px">${statusFieldLabel} : <b>${st}</b></div>` : '',
             progress > 0 ? `<div style="font-size:11px">Avancement : <b>${progress}%</b></div>` : '',
           ].filter(Boolean).join('')
         },
@@ -1511,8 +1511,8 @@ function GanttWidget({ data }: { data: unknown[] }) {
     return (
       <WidgetEmptyState
         icon={GanttChart}
-        title="Aucune activité planifiée"
-        hint="Les activités planifiées apparaîtront sur la frise chronologique"
+        title={t('dashboard.widget.gantt.empty_title')}
+        hint={t('dashboard.widget.gantt.empty_hint')}
       />
     )
   }
@@ -1520,16 +1520,16 @@ function GanttWidget({ data }: { data: unknown[] }) {
   return (
     <div className="flex flex-col h-full">
       <ReactECharts option={option} style={{ height: '100%', width: '100%', touchAction: 'pan-y' }} opts={{ renderer: 'svg' }} />
-      {/* Status legend — ultra-compact */}
+      {/* Status legend — uses tLabel for bilingual EN/FR support */}
       <div className="flex items-center gap-2 flex-wrap px-1 pb-0.5 shrink-0 border-t border-border/40 pt-0.5 mt-0.5">
-        {([['in_progress', 'En cours'], ['completed', 'Terminé'], ['planned', 'Planifié'], ['draft', 'Brouillon']] as [string, string][]).map(([k, l]) => (
+        {(['in_progress', 'completed', 'planned', 'draft']).map((k) => (
           <span key={k} className="flex items-center gap-1 text-[8.5px] text-muted-foreground/70">
             <span className="inline-block h-1.5 w-2.5 rounded-[2px]" style={{ backgroundColor: GANTT_STATUS_COLORS[k] || '#94a3b8', opacity: 0.82 }} />
-            {l}
+            {tLabel(k)}
           </span>
         ))}
         <span className="flex items-center gap-1 text-[8.5px] text-red-400/80 ml-auto">
-          <span className="inline-block h-2.5 w-px bg-red-400" />Auj.
+          <span className="inline-block h-2.5 w-px bg-red-400" />{t('dashboard.widget.gantt.today_short')}
         </span>
       </div>
     </div>
@@ -2026,6 +2026,7 @@ interface MapWidgetProps {
 }
 
 function MapWidget({ config, data }: MapWidgetProps) {
+  const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const tileRef = useRef<L.TileLayer | null>(null)
@@ -2137,10 +2138,10 @@ function MapWidget({ config, data }: MapWidgetProps) {
     return (
       <WidgetEmptyState
         icon={MapPin}
-        title={hasItemsWithoutCoords ? 'Coordonnées manquantes' : 'Aucune position'}
+        title={hasItemsWithoutCoords ? t('dashboard.widget.map.no_coords_title') : t('dashboard.widget.map.no_position_title')}
         hint={hasItemsWithoutCoords
-          ? 'Les éléments retournés ne contiennent pas de latitude/longitude'
-          : 'Aucun point géolocalisé pour le moment'}
+          ? t('dashboard.widget.map.no_coords_hint')
+          : t('dashboard.widget.map.no_position_hint')}
         compact
       />
     )

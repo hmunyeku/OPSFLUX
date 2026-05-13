@@ -2286,7 +2286,21 @@
       "type_unknown": "Type unknown"
     },
     "recent_activity_count": "Recent activity",
-    "active_workflows": "Active workflows"
+    "active_workflows": "Active workflows",
+    "widget": {
+      "gantt": {
+        "empty_title": "No planned activity",
+        "empty_hint": "Planned activities will appear on the timeline",
+        "fallback_activity": "Activity",
+        "today_short": "Today"
+      },
+      "map": {
+        "no_coords_title": "Missing coordinates",
+        "no_coords_hint": "Returned items have no latitude/longitude",
+        "no_position_title": "No position",
+        "no_position_hint": "No geolocated point yet"
+      }
+    }
   },
   "workflow": {
     "title": "Workflows",

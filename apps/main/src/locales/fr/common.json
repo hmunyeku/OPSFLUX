@@ -2382,6 +2382,20 @@
       "gantt_title": "Aucune activité planifiée",
       "kpi_calm": "Tout est calme",
       "type_unknown": "Type de widget inconnu"
+    },
+    "widget": {
+      "gantt": {
+        "empty_title": "Aucune activité planifiée",
+        "empty_hint": "Les activités planifiées apparaîtront sur la frise chronologique",
+        "fallback_activity": "Activité",
+        "today_short": "Auj."
+      },
+      "map": {
+        "no_coords_title": "Coordonnées manquantes",
+        "no_coords_hint": "Les éléments retournés ne contiennent pas de latitude/longitude",
+        "no_position_title": "Aucune position",
+        "no_position_hint": "Aucun point géolocalisé pour le moment"
+      }
     }
   },
   "workflow": {

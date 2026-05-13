@@ -1,0 +1,30 @@
+<main style="padding: 8mm 12mm;">
+  <h1>{{ _('RBAC_PERMISSION_CATALOG') }}</h1>
+  <p>{{ tenant.name }} — {{ permission_count }} {{ _('RBAC_COUNT_PERMISSIONS') }}</p>
+
+  {% for group in permissions_by_module %}
+    <h2>{{ group.group }}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 30%;">{{ _('RBAC_LABEL_CODE') }}</th>
+          <th>{{ _('RBAC_LABEL_NAME') }}</th>
+          <th style="width: 12%;">{{ _('RBAC_LABEL_NAMESPACE') }}</th>
+          <th style="width: 14%;">{{ _('RBAC_LABEL_RESOURCE') }}</th>
+          <th style="width: 12%;">{{ _('RBAC_LABEL_ACTION') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for perm in group.permissions %}
+          <tr>
+            <td><span class="perm-code">{{ perm.code }}</span> {% if perm.sensitive %}<span class="badge-rgpd">RGPD</span>{% endif %}</td>
+            <td>{{ perm.name }}</td>
+            <td>{{ perm.namespace | default('—') }}</td>
+            <td>{{ perm.resource | default('—') }}</td>
+            <td>{{ perm.action | default('—') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endfor %}
+</main>

@@ -234,6 +234,34 @@ def mock_send_email():
 
 
 @pytest_asyncio.fixture
+async def async_client(client):
+    """Alias for the existing `client` fixture, named for new tests."""
+    return client
+
+
+# TODO: Replace with real auth fixture when auth flow is wired into tests.
+# Current placeholder is sufficient since the test module is gated by pytestmark
+# skipif RBAC_PR_A_MIGRATION_APPLIED != "1".
+@pytest_asyncio.fixture
+async def auth_headers_user_with_perms(user_with_asset_read, sample_entity):
+    """Headers that authenticate as a user with asset.asset.read permission."""
+    return {
+        "X-Entity-ID": str(sample_entity.id),
+        "X-Test-User-Id": str(user_with_asset_read.id),
+    }
+
+
+# TODO: Replace with real auth fixture when auth flow is wired into tests.
+@pytest_asyncio.fixture
+async def auth_headers_pax(another_user, sample_entity):
+    """Headers for a user with no special perms (like a PAX role)."""
+    return {
+        "X-Entity-ID": str(sample_entity.id),
+        "X-Test-User-Id": str(another_user.id),
+    }
+
+
+@pytest_asyncio.fixture
 async def set_tenant_setting(db_session):
     """Factory fixture to set or update a tenant-scoped setting."""
     from sqlalchemy import select

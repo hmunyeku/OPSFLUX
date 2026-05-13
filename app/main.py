@@ -98,6 +98,7 @@ from app.api.routes.core.workflow import router as workflow_router
 from app.api.routes.core.dashboard import router as dashboard_router
 from app.api.routes.core.roles import router as roles_router
 from app.api.routes.core.groups import router as groups_router
+from app.api.routes.core.rbac.delegations import router as rbac_delegations_router
 from app.api.routes.modules.paxlog import router as paxlog_router
 from app.api.routes.modules.planner import router as planner_router
 from app.api.routes.modules.travelwiz import router as travelwiz_router
@@ -397,6 +398,7 @@ app.include_router(workflow_router)
 app.include_router(dashboard_router)
 app.include_router(roles_router)
 app.include_router(groups_router)
+app.include_router(rbac_delegations_router)
 app.include_router(references_router)
 app.include_router(mcp_router)
 app.include_router(mcp_gateway_router)

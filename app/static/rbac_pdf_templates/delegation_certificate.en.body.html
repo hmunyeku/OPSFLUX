@@ -1,0 +1,92 @@
+{# Certificat de délégation — A4 portrait, format légal ISO 27001 §A.9.2.5/6. #}
+<style>
+  @page { size: A4 portrait; }
+  body { font-family: Georgia, 'Times New Roman', serif; }
+  .cert-title { text-align: center; font-size: 24pt; letter-spacing: 0.05em; color: #0f172a; margin: 0; }
+  .cert-subtitle { text-align: center; color: #64748b; margin: 2mm 0 12mm 0; font-size: 11pt; }
+  .parties-table { width: 100%; margin-bottom: 8mm; }
+  .parties-table td { vertical-align: top; padding: 2mm 0; border: none; background: none; }
+  .party-label { font-size: 9pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; }
+  .party-name { font-size: 14pt; font-weight: 700; color: #0f172a; }
+  .party-email { font-size: 10pt; color: #475569; }
+  .party-meta { font-size: 9pt; color: #64748b; }
+  .period-block { border: 2px solid #1e293b; padding: 6mm; margin-bottom: 8mm; }
+  .period-label { font-size: 9pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; }
+  .period-value { font-size: 16pt; font-weight: 700; text-align: center; margin: 2mm 0; }
+  .period-duration { text-align: center; font-size: 9pt; color: #64748b; }
+  .perms-list { font-size: 10pt; column-count: 2; column-gap: 6mm; padding: 0; list-style: none; }
+  .perms-list li { margin-bottom: 2mm; break-inside: avoid; }
+  .perm-code { font-family: monospace; font-size: 8pt; color: #475569; }
+  .reason-block { padding: 4mm; background: #f8fafc; border-left: 3px solid #2563eb; margin-top: 2mm; }
+  .revocation-block { margin-top: 8mm; padding: 4mm; background: #fef2f2; border: 1px solid #dc2626; }
+  .revocation-title { color: #991b1b; font-weight: 700; font-size: 11pt; margin-bottom: 2mm; }
+  .audit-footer { margin-top: 12mm; padding-top: 4mm; border-top: 1px solid #cbd5e1; font-size: 8pt; color: #64748b; }
+  .iso-clause { margin-top: 2mm; font-style: italic; }
+</style>
+
+<main style="padding: 20mm 25mm;">
+  <h1 class="cert-title">{{ _('RBAC_DELEGATION_TITLE') }}</h1>
+  <p class="cert-subtitle">{{ _('RBAC_DELEGATION_SUBTITLE') }}</p>
+
+  <table class="parties-table">
+    <tr>
+      <td style="width: 50%;">
+        <div class="party-label">{{ _('RBAC_LABEL_DELEGATOR') }}</div>
+        <div class="party-name">{{ delegator.full_name }}</div>
+        <div class="party-email">{{ delegator.email }}</div>
+        {% if delegator.roles_at_date %}
+          <div class="party-meta">{{ _('RBAC_LABEL_ROLES_AT_DATE') }} : {{ delegator.roles_at_date | join(', ') }}</div>
+        {% endif %}
+      </td>
+      <td style="width: 50%;">
+        <div class="party-label">{{ _('RBAC_LABEL_DELEGATE') }}</div>
+        <div class="party-name">{{ delegate.full_name }}</div>
+        <div class="party-email">{{ delegate.email }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="period-block">
+    <div class="period-label">{{ _('RBAC_LABEL_PERIOD') }}</div>
+    <div class="period-value">{{ delegation.start_date }} → {{ delegation.end_date }}</div>
+    <div class="period-duration">{{ _('RBAC_LABEL_DURATION') }} : {{ delegation_duration_days }} {{ _('RBAC_LABEL_DAYS') }}</div>
+  </div>
+
+  <h3>{{ _('RBAC_DELEGATION_PERMISSIONS_DELEGATED') }}</h3>
+  <ul class="perms-list">
+    {% for perm in delegation.permissions_full %}
+      <li>
+        <span class="perm-code">{{ perm.code }}</span><br>
+        <span>{{ perm.name }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+
+  <h3 style="margin-top: 6mm;">{{ _('RBAC_LABEL_REASON') }}</h3>
+  <div class="reason-block">{{ delegation.reason }}</div>
+
+  {% if revocation %}
+    <div class="revocation-block">
+      <div class="revocation-title">{{ _('RBAC_DELEGATION_REVOCATION_BLOCK') }}</div>
+      <div><strong>{{ _('RBAC_DELEGATION_REVOKED_BY') }} :</strong> {{ revocation.actor_email }}</div>
+      <div><strong>{{ _('RBAC_DELEGATION_REVOKED_AT') }} :</strong> {{ revocation.revoked_at }}</div>
+      <div style="margin-top: 2mm;"><strong>{{ _('RBAC_LABEL_REASON') }} :</strong> {{ revocation.reason }}</div>
+    </div>
+  {% endif %}
+
+  {% if expiry_phase == 'j3' %}
+    <p style="margin-top: 6mm; padding: 3mm; background: #fef3c7; color: #92400e; border-radius: 2mm;">
+      ⚠ {{ _('RBAC_DELEGATION_EXPIRY_J3_NOTICE') }}
+    </p>
+  {% elif expiry_phase == 'j0' %}
+    <p style="margin-top: 6mm; padding: 3mm; background: #fee2e2; color: #991b1b; border-radius: 2mm;">
+      ⚠ {{ _('RBAC_DELEGATION_EXPIRY_J0_NOTICE') }}
+    </p>
+  {% endif %}
+
+  <div class="audit-footer">
+    <div><strong>{{ _('RBAC_AUDIT_EVENT') }} :</strong> <span style="font-family: monospace;">{{ audit_event_id | default('—') }}</span></div>
+    <div><strong>{{ _('RBAC_CONTENT_HASH') }} :</strong> <span style="font-family: monospace;">{{ content_hash | default('—') }}</span></div>
+    <p class="iso-clause">{{ _('RBAC_ISO_CLAUSE_REVIEW') }}</p>
+  </div>
+</main>

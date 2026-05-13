@@ -145,7 +145,7 @@ async def _notify_security_officers(
     db: AsyncSession,
     entity_id: UUID,
     cert_vars: dict,
-    attachments: list,
+    attachments: list[dict],
 ) -> None:
     """Send the granted email to each SECURITY_OFFICER in the tenant."""
     from app.models.common import UserGroup, UserGroupMember, UserGroupRole
@@ -242,7 +242,11 @@ async def create_delegation(
     await db.refresh(delegation)
 
     # 5. Send emails (granted + received), with cert PDF attached if available
-    attachments = [("certificate.pdf", cert_pdf)] if cert_pdf else []
+    attachments = (
+        [{"filename": "certificate.pdf", "content": cert_pdf, "mime_type": "application/pdf"}]
+        if cert_pdf
+        else []
+    )
 
     await render_and_send_email(
         db,
@@ -328,7 +332,11 @@ async def revoke_delegation(
     await db.commit()
     await db.refresh(delegation)
 
-    attachments = [("certificate.pdf", cert_pdf)] if cert_pdf else []
+    attachments = (
+        [{"filename": "certificate.pdf", "content": cert_pdf, "mime_type": "application/pdf"}]
+        if cert_pdf
+        else []
+    )
     for to_email, lang in [
         (delegator.email, delegator.language or "fr"),
         (delegate.email, delegate.language or "fr"),

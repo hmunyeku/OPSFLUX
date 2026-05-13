@@ -2612,6 +2612,7 @@ async def render_and_send_email(
     user_id: UUID | None = None,
     category: str | None = None,
     event_type: str | None = None,
+    attachments: list[dict] | None = None,
 ) -> bool:
     """Resolve, render, and send a templated email.
 
@@ -2619,6 +2620,11 @@ async def render_and_send_email(
     (by user_id or email) with a 'fr' fallback — so every caller
     that used to pass `language="fr"` now gets the recipient's
     preferred language without changing its call site.
+
+    `attachments` is forwarded as-is to `send_email`. Each entry must
+    be a dict of {filename: str, content: bytes, mime_type: str}
+    (the same shape `send_email` expects); use "application/pdf" for
+    PDFs, "application/octet-stream" as the safe default.
 
     Returns True if sent, False if template not found/disabled.
     """
@@ -2661,6 +2667,7 @@ async def render_and_send_email(
         category=inferred_category,
         channel="email",
         event_type=event_type or slug,
+        attachments=attachments,
     )
     return True
 

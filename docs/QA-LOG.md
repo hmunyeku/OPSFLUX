@@ -237,6 +237,46 @@ Smoke test 13/13 endpoints HTTP 200 :
 
 **Prod stable** : 15/15 endpoints clés HTTP 200.
 
+---
+
+## Session 6 — suite : tickets support nouveaux
+
+Découverte de **3 nouveaux tickets** créés ce matin pendant la session :
+- SUP-0041 (06:25) : Bug general dans visual search query datatable
+- SUP-0042 (06:27) : Bug scroll vertical dashboard support
+- SUP-0043 (06:33) : Annonce publié mais n'apparaît nulle part
+
+**Commits supplémentaires** :
+
+| SHA | Sujet |
+|---|---|
+| `b115e12c` | fix(support) — **SUP-0042 résolu** : wrapper `flex-1 overflow-y-auto min-h-0` autour ModuleDashboard |
+
+**Actions tickets** :
+- ✅ **SUP-0040 résolu API** (resolved status + resolution_notes commit `bf93d759`)
+- ✅ **SUP-0042 résolu API** (resolved status + resolution_notes commit `b115e12c`)
+- ⏸️ **SUP-0041** : refonte majeure visual search query (fuzzy + visual builder + persistance DB). Hors scope nuit autonome — backlog refacto.
+- ⏸️ **SUP-0043** : refonte annonces avec ciblage groupe/rôle/user/page/module. Hors scope nuit.
+- ⏸️ **SUP-0039** : déjà partiellement traité (avatar/poste/entreprise + CSV + équipes).
+- ⏸️ **SUP-0038** : refonte transfert employé. Hors scope nuit.
+- ⏸️ **SUP-0007** : UX mineur position tâches. Bas priorité.
+
+### Bilan tickets support session 6
+- **2 résolus** : SUP-0040 + SUP-0042
+- **2 ouverts restants** : SUP-0041, SUP-0007
+- **3 in_progress** : SUP-0043, SUP-0039, SUP-0038
+
+### Bilan global cumulé sessions 1-6 (final)
+
+- **20 commits déployés sur main** (4 nouveaux session 6 incluant `b115e12c`)
+- **23 bugs identifiés** : **18 corrigés et déployés**, **5 en backlog**, **1 invalidé**
+- **Tickets support résolus officiellement via API** : SUP-0040 + SUP-0042
+- **Prod stable** : 15/15 endpoints HTTP 200
+
+### Fin de la nuit autonome
+
+État final : prod opérationnelle, tickets actifs correctement priorisés, refontes majeures (SUP-0041/0043/0038) documentées en backlog pour reprise humaine.
+
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 
 **Couverture du protocole 200 étapes** :

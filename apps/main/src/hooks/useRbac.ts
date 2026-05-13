@@ -303,6 +303,7 @@ export function useCreateDelegation() {
     mutationFn: (payload: DelegationCreatePayload) => createDelegation(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rbac', 'delegations'] })
+      qc.invalidateQueries({ queryKey: ['rbac', 'delegation'] })  // singular — detail queries
     },
   })
 }
@@ -314,6 +315,7 @@ export function useUpdateDelegation() {
       updateDelegation(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rbac', 'delegations'] })
+      qc.invalidateQueries({ queryKey: ['rbac', 'delegation'] })  // singular — detail queries
     },
   })
 }
@@ -324,6 +326,7 @@ export function useRevokeDelegation() {
     mutationFn: ({ id, reason }: { id: string; reason: string }) => revokeDelegation(id, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rbac', 'delegations'] })
+      qc.invalidateQueries({ queryKey: ['rbac', 'delegation'] })  // singular — detail queries
     },
   })
 }

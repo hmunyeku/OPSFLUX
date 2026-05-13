@@ -60,7 +60,10 @@ function KpiCards({ delegations }: { delegations: DelegationListItem[] }) {
         if (endDate <= in7days) expiringSoon++
       } else if (d.status === 'expired' && endDate >= thirty_ago) {
         expired30d++
-      } else if (d.status === 'revoked') {
+      } else if (d.status === 'revoked' && endDate >= thirty_ago) {
+        // end_date is used as a proxy for "recently revoked" since
+        // revoked_at is not exposed on DelegationListItem. A revoked
+        // delegation whose end_date is older than 30 days is not counted.
         revoked30d++
       }
     }
@@ -246,14 +249,14 @@ export function RbacDelegationsTab() {
               Le délégué perdra immédiatement ces permissions. Cette action est tracée dans l'audit ISO.
             </p>
             <label className="block text-sm">
-              <span className="mb-1 block text-slate-700">Motif (obligatoire)</span>
+              <span className="mb-1 block text-slate-700">Motif (obligatoire, minimum 10 caractères — exigence ISO 27001 §A.9.2.6)</span>
               <textarea
                 value={revokeReason}
                 onChange={e => setRevokeReason(e.target.value)}
                 rows={3}
-                minLength={5}
+                minLength={10}
                 className="w-full rounded-md border border-slate-300 p-2 text-sm"
-                placeholder="Ex: Demande du délégué, fin de mission, etc."
+                placeholder="Ex: Demande explicite du délégué, fin de mission, etc."
               />
             </label>
             <div className="mt-3 flex justify-end gap-2">
@@ -267,7 +270,7 @@ export function RbacDelegationsTab() {
               <button
                 type="button"
                 onClick={handleRevoke}
-                disabled={revokeReason.trim().length < 5 || revokeMutation.isPending}
+                disabled={revokeReason.trim().length < 10 || revokeMutation.isPending}
                 className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {revokeMutation.isPending ? 'Révocation…' : 'Révoquer'}

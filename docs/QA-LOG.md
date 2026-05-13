@@ -277,6 +277,52 @@ Découverte de **3 nouveaux tickets** créés ce matin pendant la session :
 
 État final : prod opérationnelle, tickets actifs correctement priorisés, refontes majeures (SUP-0041/0043/0038) documentées en backlog pour reprise humaine.
 
+---
+
+## Session 7 — "lancons cela" : SUP-0039 + chasse bugs cachés
+
+**Commits déployés** :
+
+| SHA | Sujet |
+|---|---|
+| `12413a9e` | fix(api) — `/settings` + `/dashboards` 500 fix défensif row-par-row |
+| `6deec3b3` | fix(dashboards) — migration 167 : `tv_token` + `tv_token_expires_at` |
+| `58f231c2` | fix(dashboards) — ajoute `tv_refresh_seconds` à migration 167 |
+| `6799874c` | fix(dashboards) — migration 168 : `tv_refresh_seconds` (167 déjà appliquée) |
+
+**Bugs résolus** :
+
+24. **GET /settings?scope=tenant → 500** : SettingRead.value strict `dict[str, Any]` mais BDD avait des rows legacy avec `value=None`. Fix : validation row-par-row, skip rows invalides avec log warning. **Résolu**.
+
+25. **GET /dashboards → 500** : 3 colonnes manquaient en BDD (`tv_token`, `tv_token_expires_at`, `tv_refresh_seconds`) — déclarées dans le modèle Dashboard mais aucune migration ne les avait créées. Découverte en lisant les logs Dokploy après un fix défensif inutile (l'erreur était niveau SQL avant sérialisation Pydantic). Fix : migrations 167 + 168 (167 déjà appliquée quand on a découvert `tv_refresh_seconds` manquant). **Résolu**.
+
+**Tickets résolus via API** (status=resolved + resolution_notes) :
+- ✅ **SUP-0040** "Bug sur Creation nouvel ADS" (commit `bf93d759`)
+- ✅ **SUP-0042** "Bug de scroll verticale sur le dashboard support" (commit `b115e12c`)
+- ✅ **SUP-0039** "Avatar, poste et nom de tiers sur liste pax dans ADS" — vérifié implémenté + déployé (PaxAvatar fallback initiales, regroupement entreprise, CSV import, suggestions algo)
+
+### Bilan session 7
+- 4 nouveaux commits déployés
+- **2 bugs racine BDD** identifiés et corrigés (colonnes manquantes — bug critique latent qui aurait pu rester silencieux longtemps)
+- 17/17 endpoints HTTP 200
+- 3 tickets support résolus officiellement (SUP-0040 + SUP-0042 + SUP-0039)
+
+### Bilan global cumulé sessions 1-7 (final-final)
+
+- **24 commits déployés sur main**
+- **25 bugs identifiés**, **20 corrigés et déployés**, **5 en backlog**
+- **Tickets support résolus** : 3 (SUP-0040, SUP-0042, SUP-0039)
+- **Tickets en backlog** : 4 refontes majeures (SUP-0041 visual search / SUP-0043 annonces / SUP-0038 transfert employé / SUP-0007 UX mineur)
+- **Prod stable** : 17/17 endpoints HTTP 200
+
+### Pattern d'erreurs récurrent identifié
+
+Au-delà des fixes ponctuels, 2 patterns récurrents méritent attention :
+
+1. **Colonnes BDD vs Modèle SQLAlchemy désynchronisées** : 3 colonnes Dashboard manquaient. Recommandation : `alembic check` en CI/CD pour bloquer un push si le modèle a divergé de la BDD migrée.
+
+2. **500 silencieux sur listes** : plusieurs endpoints retournaient 500 plutôt qu'un ignore-row. Recommandation : refactor générique du pattern "valider Pydantic row-par-row dans la pagination" pour les listes critiques.
+
 ⚠️ **Incident** : commit `14a18da5` a fait crasher l'API au boot (Depends imbriqué dans audit.py). Détecté via 502 persistant, fix `85e19fda` déployé en 2 min. API live confirmée par smoke test sur 5 endpoints clés (projects/ads/activities/teams/audit-log → tous HTTP 200). Apprentissage : `require_permission()` retourne déjà un `Depends`, ne pas l'encadrer.
 
 **Couverture du protocole 200 étapes** :

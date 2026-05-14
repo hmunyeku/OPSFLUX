@@ -1959,3 +1959,93 @@ Reportée à itération séparée (refactor des 2 composants core =
   progressive via `t('common.no_results')` hard-coded en defaults.
 - Étendre `extra="forbid"` aux 18 autres Update schemas
 - Phase 8-9 UI tests réels via Chrome MCP
+
+---
+
+## Session 24 — Bug #85 React #310 AdsDetailPanel (CRITIQUE prod)
+
+### Symptôme rapporté par l'utilisateur
+
+Console browser :
+```
+Error: Minified React error #310; visit https://reactjs.org/docs/error-decoder.html?invariant=310
+    at xe (react-vendor-CSUqsyIh.js:22:17533)
+    at Object.ks [as useCallback] (react-vendor-CSUqsyIh.js:22:21056)
+    at S.useCallback (query-BMYO413A.js:9:5633)
+    at en (PaxLogPage-BscD8roD.js:2:115848)
+```
+
+ErrorBoundary attrapait et affichait "Une erreur est survenue" à l'écran.
+
+### Reproduction via Chrome MCP
+
+1. Login admin@opsflux.io
+2. Navigate `/paxlog` → dashboard OK
+3. Cliquer onglet "Avis de séjour" → liste 8 ADS OK
+4. **Cliquer sur une row ADS** → 💥 crash, page d'erreur ErrorBoundary
+
+### Diagnostic — Violation Rules of Hooks
+
+Scan AST de `apps/main/src/pages/paxlog/panels/AdsDetailPanel.tsx` (1700+ lignes,
+37 hooks au total) :
+
+* **Early returns** aux lignes **171** (`if (isLoading) return ...`) et
+  **179** (`if (isError || !ads) return ...`)
+* **4 useCallback APRÈS ces early returns** :
+  - L556 `parseCsvPreview`
+  - L588 `handleCsvFileSelected`
+  - L598 `handleCsvDownloadTemplate`
+  - L617 `closeCsvModal`
+
+→ Render 1 (`isLoading=true`) : composant return tôt, hooks 556+ **NON appelés**
+→ Render 2 (`isLoading=false`) : data chargée, hooks 556+ **appelés**
+→ React voit **4 hooks DE PLUS** au render 2 → erreur #310
+
+Commit fautif : `75e17577` (SUP-0039 refonte UI import CSV) qui a ajouté
+ces 4 useCallback sans les placer en haut.
+
+### Fix (commit `ad091594`)
+
+Déplacement des 4 useCallback CSV **AVANT** le premier early return, juste
+après le dernier `useEffect` à L169. Tous les hooks sont maintenant au
+top-level inconditionnel comme l'exigent les Rules of Hooks.
+
+Validation :
+* `npx tsc --noEmit` : compile OK
+* Scan AST : 0 hooks restants après les early returns (était 4)
+* Reproduction Chrome MCP post-deploy : panel détail s'ouvre normalement,
+  console clean, plus d'ErrorBoundary catch.
+
+### Note opérationnelle — frontend container
+
+Lors du redeploy automatique via webhook, le container `opsflux-3gj1u6-frontend-1`
+est resté en état **`Created` mais pas Up** pendant ~20 minutes. Cause
+probable : healthcheck loop ou ordre de boot avec docs container. Fix
+manuel : `docker start opsflux-3gj1u6-frontend-1 opsflux-3gj1u6-docs-1`
+puis verify les bundles servis ont changé (`PaxLogPage-DIuc-m4E.js` →
+`PaxLogPage-DHAUFR2Y.js`). À investiguer dans Dokploy si récurrent.
+
+### Bilan cumulé sessions 1-24
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **82** (+2 : `ad091594` fix #85, `4c4944b9` doc) |
+| Bugs corrigés effectifs | **47** (+1 : #85 critique frontend) |
+| Bugs réels documentés | **24** |
+| Bugs critiques restants | **0** ✓ |
+| Phases QA v3 validées | **0-7/9** API + détail panel AdsDetailPanel UI |
+
+### Leçon — règle métier à formaliser
+
+Ce bug est devenu prod parce que :
+1. Pas de **test E2E** sur l'ouverture du panel détail ADS
+2. Pas de **lint rule** `react-hooks/rules-of-hooks` activée en CI (Vite +
+   ESLint react-hooks plugin)
+3. Le développeur SUP-0039 a ajouté les hooks au "bon endroit logique"
+   (proche de leur usage CSV plus bas) sans réaliser qu'ils tombaient
+   après les early returns.
+
+**Recommandation** : activer `react-hooks/rules-of-hooks: 'error'` dans la
+config ESLint du repo + ajouter un test Vitest pour `AdsDetailPanel` qui
+mount avec `isLoading=true` puis simule la résolution de la query (couvre
+exactement ce pattern hook-conditionnel).

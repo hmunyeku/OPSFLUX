@@ -87,7 +87,18 @@ class MOCCreate(BaseModel):
 
 
 class MOCUpdate(BaseModel):
-    """Update any MOC field — access controlled by status+role in service."""
+    """Update any MOC field — access controlled by status+role in service.
+
+    Bug #125 (QA v3 round 7) : `status` n'est volontairement PAS un champ
+    de ce schema (les transitions de statut passent par /moc/{id}/transitions
+    avec MOCTransition). Avant le fix, un PATCH /moc/{id} avec body
+    `{"status":"...."}` etait silencieusement ignore par Pydantic (extra
+    fields permis par defaut), donnant l'illusion que le statut avait
+    change. `extra="forbid"` rejette maintenant ce cas avec un 422 explicite
+    qui pointe vers le bon endpoint.
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
     title: str | None = Field(default=None, max_length=200)
     nature: str | None = Field(default=None, pattern="^(OPTIMISATION|SECURITE)$")

@@ -488,10 +488,13 @@ class TierRead(OpsFluxSchema):
 # module eval time; keeping TierContactCreate above TierCreate avoids
 # needing forward refs + model_rebuild().
 class TierContactCreate(BaseModel):
+    """Bug #142 (QA v3 round 38) : email accepte n'importe quelle string
+    sans format check. Maintenant : EmailStr pour validation RFC propre."""
+
     civility: str | None = None
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: str = Field(..., min_length=1, max_length=100)
-    email: str | None = Field(None, max_length=255)
+    email: EmailStr | None = Field(None, max_length=255)
     phone: str | None = Field(None, max_length=50)
     position: str | None = None
     department: str | None = None

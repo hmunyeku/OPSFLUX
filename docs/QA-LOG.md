@@ -2087,6 +2087,96 @@ audit/cleanup dédié.
 | **Prévention installée** | ESLint `rules-of-hooks: error` actif en CI |
 | Phases QA v3 validées | **0-7/9** API + 2 panels UI vérifiés (Ads, Rule) |
 
+---
+
+## Session 26 — Bug #89 picker UX dynamic owner_id (Conformité)
+
+### Symptôme (rapporté par utilisateur, screenshot annoté)
+
+Panel "Nouvel enregistrement / Conformité" → champ "Identifiant propriétaire *"
+affichait un **UUID brut** (`2f31924f-6328-4a06-a858-1d63dc46a448`) avec
+hint "Patrick ABE" en dessous. Pour un champ obligatoire, l'utilisateur
+devait copier-coller un UUID à la main — UX inacceptable, surtout en
+production face client.
+
+### Cause
+
+`apps/main/src/pages/conformite/panels/CreateComplianceRecordPanel.tsx`
+ligne 176 utilisait un simple `<input type="text">` pour saisir l'UUID,
+alors que le composant pickers existant (`UserPicker`, `ContactPicker`,
+`AssetPicker`) auraient pu être utilisés conditionnellement selon
+`owner_type` déjà sélectionné en haut du form.
+
+### Fix (commit `01b9171c`)
+
+Picker dynamique conditionnel sur `owner_type` :
+
+| `owner_type` | Composant rendu |
+|---|---|
+| `user` | `<UserPicker />` (autocomplete user) |
+| `tier_contact` | `<ContactPicker />` (autocomplete contact) |
+| `asset` | `<AssetPicker />` (autocomplete asset) |
+| `job_position` | `<SearchableSelect>` + `useJobPositions` (200 max) |
+| (vide) | input disabled + hint "Sélectionnez d'abord un type" |
+
+Imports ajoutés : `UserPicker`, `ContactPicker`, `AssetPicker`,
+`useJobPositions`. `prefillOwnerLabel` conservé pour les flows
+pré-remplis.
+
+### Vérification prod (Chrome MCP)
+
+Bundle rebuild : `index-6j5UEqON.js` → `index-CmRGUste.js`.
+
+1. Navigate `/conformite?tab=enregistrements`
+2. Click bouton "Nouvel enregistrement" → panel s'ouvre
+3. État initial (owner_type vide) :
+   ```
+   {labelText: "Identifiant propriétaire*",
+    elements: [{tag:"INPUT", disabled:true, placeholder:"Owner id"}],
+    has_hint: true}
+   ```
+   ✅ Input disabled + hint visible
+4. Click "User" dans TagSelector Propriétaire :
+   ```
+   {elements: [{tag:"BUTTON", disabled:false, hasIcon:true}]}
+   ```
+   ✅ UserPicker (button avec icône, ouvre dropdown au click)
+5. Click "Asset" :
+   ```
+   {elements: [{tag:"BUTTON", hasIcon:true}]}
+   ```
+   ✅ AssetPicker bascule
+
+Switch entre owner_types fonctionne correctement, l'élément passe
+de INPUT(disabled) à BUTTON(picker) selon le contexte.
+
+### Audit du repo
+
+`grep` exhaustif `owner_id` brut → bug **isolé** à ce seul panel,
+aucun autre CreatePanel à corriger.
+
+TODO existant détecté dans `CreateTransferPanel.tsx:49` : migration
+job positions vers `JobPositionPicker` basé sur `EntityPickerBase`
+quand un tenant aura > 100 job positions. Pour l'instant
+`SearchableSelect` + page_size:200 suffit.
+
+### Bilan cumulé sessions 1-26
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **87** (+2 : `01b9171c` fix #89, `05218609` rebase) |
+| Bugs corrigés effectifs | **51** (+1 : #89 UX picker) |
+| Bugs réels documentés | **24** |
+| Bugs critiques restants | **0** ✓ |
+| Phases QA v3 validées | 0-7/9 + 3 panels UI (Ads, Rule, ComplianceRecord) |
+
+### Reste à arbitrer
+
+- (a) Phase 8-9 UI suite (autres panels à valider via Chrome MCP)
+- (b) `extra="forbid"` sur 18 autres Update schemas (durcissement API)
+- (c) Migration job positions vers `JobPositionPicker` proper
+  (cf TODO `CreateTransferPanel.tsx:49`)
+
 ### Leçon — règle métier à formaliser
 
 Ce bug est devenu prod parce que :

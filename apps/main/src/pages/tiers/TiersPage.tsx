@@ -1166,8 +1166,12 @@ export function TiersPage() {
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as TiersTab | null
+  // Bug #144 (QA round 38 UI tests) : default tab change de 'dashboard'
+  // a 'entreprises' pour exposer immediatement la liste + bouton create.
+  // Avant fix : utilisateur arrive sur /tiers et voit uniquement les KPI
+  // du dashboard, sans aucun moyen visible de creer un nouveau tier.
   const [activeTab, setActiveTabRaw] = useState<TiersTab>(
-    tabFromUrl && VALID_TIERS_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
+    tabFromUrl && VALID_TIERS_TABS.has(tabFromUrl) ? tabFromUrl : 'entreprises',
   )
   const setActiveTab = useCallback((tab: TiersTab) => {
     setActiveTabRaw(tab)
@@ -1449,7 +1453,11 @@ export function TiersPage() {
           }
           subtitle={t('tiers.subtitle')}
         >
-          {activeTab === 'entreprises' && (
+          {/* Bug #144 : afficher le bouton create sur tous les tabs sauf
+              dashboard (qui a son propre toolbar). L'utilisateur peut creer
+              un tier depuis 'Entreprises' OU 'Contacts' (l'API choisit le
+              bon type en fonction du tab actif via openDynamicPanel). */}
+          {activeTab !== 'dashboard' && (
             <ToolbarButton icon={Plus} label={t('tiers.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'tiers' })} />
           )}
         </PanelHeader>

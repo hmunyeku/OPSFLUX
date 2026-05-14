@@ -115,6 +115,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
     return (
       <button
         key={item.path}
+        type="button"
         onClick={() => { navigate(item.path); onClose?.() }}
         onMouseEnter={() => { import('@/lib/routePrefetch').then(m => m.prefetchRoute(item.path)).catch(() => {}) }}
         onFocus={() => { import('@/lib/routePrefetch').then(m => m.prefetchRoute(item.path)).catch(() => {}) }}
@@ -168,6 +169,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         {filteredAdminItems.map(renderNavItem)}
 
         <button
+          type="button"
           onClick={onToggle}
           className={cn('nav-item', collapsed && 'is-collapsed')}
           title={collapsed ? t('nav.expand') : t('nav.collapse')}

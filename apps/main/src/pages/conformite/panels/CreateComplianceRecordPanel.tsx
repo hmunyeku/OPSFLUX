@@ -15,11 +15,17 @@ import {
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
-import { useComplianceTypes, useCreateComplianceRecord } from '@/hooks/useConformite'
+import { useComplianceTypes, useCreateComplianceRecord, useJobPositions } from '@/hooks/useConformite'
 import { attachmentsService } from '@/services/settingsService'
 import type { ComplianceRecordCreate } from '@/types/api'
 import { useConformiteDictionaryState } from '../shared'
 import { SearchableSelect } from '../components'
+// Bug #89 (QA v3) : le champ "Identifiant proprietaire" exposait un UUID
+// brut a l'utilisateur, qui devait le copier-coller a la main. Inacceptable
+// UX. Maintenant un picker dynamique est rendu selon `owner_type` selectionne.
+import { UserPicker } from '@/components/shared/UserPicker'
+import { ContactPicker } from '@/components/shared/ContactPicker'
+import { AssetPicker } from '@/components/shared/AssetPicker'
 
 export function CreateComplianceRecordPanel() {
   return (
@@ -80,6 +86,20 @@ function CreateComplianceRecordInner() {
       { value: 'job_position', label: t('conformite.records.owner_types.job_position') },
     ],
     [t],
+  )
+
+  // Bug #89 : fetch job positions pour le picker (lazy -- seulement quand
+  // owner_type='job_position'). useJobPositions est lui aussi un useQuery
+  // donc le hook s'execute toujours, mais on l'utilise conditionnellement
+  // dans le render.
+  const { data: jobPositionsData } = useJobPositions({ page_size: 200 })
+  const jobPositionOptions = useMemo(
+    () =>
+      (jobPositionsData?.items ?? []).map((jp) => ({
+        value: jp.id,
+        label: `${jp.code} — ${jp.name}`,
+      })),
+    [jobPositionsData?.items],
   )
 
   const handleCreate = async () => {
@@ -174,13 +194,50 @@ function CreateComplianceRecordInner() {
               />
             </DynamicPanelField>
             <DynamicPanelField label={t('conformite.records.fields.owner_id')} required span="full">
-              <input
-                type="text"
-                value={form.owner_id}
-                onChange={(e) => setForm({ ...form, owner_id: e.target.value })}
-                className={panelInputClass}
-                placeholder={t('conformite.records.placeholders.owner_id')}
-              />
+              {/* Bug #89 (QA v3) : picker dynamique selon owner_type plutot
+                  qu'un input UUID brut. Si owner_type est vide, on retombe
+                  sur l'input texte (cas legacy + flexibilite pour types
+                  futurs non couverts). */}
+              {form.owner_type === 'user' ? (
+                <UserPicker
+                  value={form.owner_id || null}
+                  onChange={(id) => setForm({ ...form, owner_id: id || '' })}
+                  placeholder={t('conformite.records.placeholders.owner_id')}
+                />
+              ) : form.owner_type === 'tier_contact' ? (
+                <ContactPicker
+                  value={form.owner_id || null}
+                  onChange={(id) => setForm({ ...form, owner_id: id || '' })}
+                  placeholder={t('conformite.records.placeholders.owner_id')}
+                />
+              ) : form.owner_type === 'asset' ? (
+                <AssetPicker
+                  value={form.owner_id || null}
+                  onChange={(id) => setForm({ ...form, owner_id: id || '' })}
+                  placeholder={t('conformite.records.placeholders.owner_id')}
+                />
+              ) : form.owner_type === 'job_position' ? (
+                <SearchableSelect
+                  value={form.owner_id}
+                  onChange={(id) => setForm({ ...form, owner_id: id })}
+                  options={jobPositionOptions}
+                  placeholder={t('conformite.records.placeholders.owner_id')}
+                />
+              ) : (
+                <input
+                  type="text"
+                  value={form.owner_id}
+                  onChange={(e) => setForm({ ...form, owner_id: e.target.value })}
+                  className={panelInputClass}
+                  placeholder={t('conformite.records.placeholders.owner_id')}
+                  disabled
+                />
+              )}
+              {!form.owner_type && (
+                <p className="mt-1 text-[10px] text-muted-foreground italic">
+                  {t('conformite.records.placeholders.owner_type_first', 'Sélectionnez d\'abord un type de propriétaire ci-dessus')}
+                </p>
+              )}
               {prefillOwnerLabel && (
                 <p className="mt-1 text-[10px] text-muted-foreground">{prefillOwnerLabel}</p>
               )}

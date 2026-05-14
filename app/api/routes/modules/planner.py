@@ -906,6 +906,86 @@ async def get_activity(
     return await _enrich_activity(db, activity)
 
 
+@router.get("/activities/{activity_id}/ical", response_class=Response)
+async def export_activity_ical(
+    activity_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export une activite en format iCalendar (RFC 5545).
+
+    Bug #80 (QA v3 Phase 4) : endpoint manquant, le protocole le mentionnait
+    mais n'existait pas. Implementation minimale RFC 5545 -- import direct
+    dans Google Calendar / Outlook / Apple Calendar via le .ics retourne.
+    """
+    from datetime import datetime, UTC
+    activity = await _get_activity_or_404(db, activity_id, entity_id)
+
+    def _fmt_dt(dt: datetime | None) -> str:
+        """Format datetime en UTC iCal (YYYYMMDDTHHMMSSZ)."""
+        if dt is None:
+            return ""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+
+    def _escape(text: str | None) -> str:
+        """RFC 5545 escaping : \\ , ; -> \\\\ \\, \\; et \\n -> \\n litteral."""
+        if not text:
+            return ""
+        return (text.replace("\\", "\\\\")
+                .replace(",", "\\,")
+                .replace(";", "\\;")
+                .replace("\n", "\\n"))
+
+    now = _fmt_dt(datetime.now(UTC))
+    dtstart = _fmt_dt(activity.start_date) or now
+    dtend = _fmt_dt(activity.end_date) or dtstart
+    summary = _escape(activity.title)
+    description = _escape(activity.description)
+    location = _escape(f"asset:{activity.asset_id}")
+    uid = f"activity-{activity.id}@opsflux.io"
+    status_map = {
+        "draft": "TENTATIVE", "submitted": "TENTATIVE",
+        "validated": "CONFIRMED", "in_progress": "CONFIRMED",
+        "completed": "CONFIRMED", "cancelled": "CANCELLED",
+        "rejected": "CANCELLED",
+    }
+    status = status_map.get(activity.status, "TENTATIVE")
+
+    # RFC 5545 line endings = CRLF
+    ical_lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//OpsFlux//Planner//FR",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{now}",
+        f"DTSTART:{dtstart}",
+        f"DTEND:{dtend}",
+        f"SUMMARY:{summary}",
+        f"DESCRIPTION:{description}",
+        f"LOCATION:{location}",
+        f"STATUS:{status}",
+        f"CATEGORIES:{activity.type.upper()}",
+        f"PRIORITY:{ {'low':9,'medium':5,'high':3,'critical':1}.get(activity.priority, 5) }",
+        "END:VEVENT",
+        "END:VCALENDAR",
+    ]
+    ical_content = "\r\n".join(ical_lines) + "\r\n"
+
+    return Response(
+        content=ical_content,
+        media_type="text/calendar; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="activity-{activity.id}.ics"',
+        },
+    )
+
+
 @router.patch("/activities/{activity_id}", response_model=ActivityRead)
 async def update_activity(
     activity_id: UUID,

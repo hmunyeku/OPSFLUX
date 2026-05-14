@@ -194,6 +194,17 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    # Bug #84 (QA v3 Phase 8) : durcissement strict mode -- avant ce fix
+    # UserUpdate etait en mode permissif par defaut (extra="ignore" Pydantic),
+    # ce qui silently dropait tout champ inconnu. Combine avec bug #65 (le
+    # champ password n'existait pas) ca laissait passer des reset password
+    # avec 200 sans aucun effet. Maintenant extra="forbid" force un 422 sur
+    # tout champ inconnu -- les bugs de protocole sont detectes au plus tot.
+    # A appliquer progressivement aux autres Update schemas (TierUpdate,
+    # ProjectUpdate, etc.) apres audit frontend pour identifier les champs
+    # que l'UI envoyait inutilement.
+    model_config = ConfigDict(extra="forbid")
+
     email: EmailStr | None = None
     first_name: str | None = None
     last_name: str | None = None

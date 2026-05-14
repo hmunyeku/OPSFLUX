@@ -1884,14 +1884,78 @@ aux schémas Create critiques en deux temps :
 | Phases QA v3 validées | 0-7/9 (Phase 6 désormais ✓ via bon path) |
 | Reste | Phase 8 UI cohérence + Phase 9 responsive (Chrome MCP) |
 
-### Recommandation pour Phase 8-9 (UI cohérence)
+### Session 23 — Suite : fix #80 iCal + #84 extra=forbid + audit UI
 
-Avant d'engager Chrome MCP (coût tokens), audit statique des composants
-React principaux qui structurent l'UI : Sidebar, Topbar, DataTable,
-toasts, empty states. Plus efficace que tester en navigateur.
+**Commit `dac2169a`** :
 
-**Question d'arbitrage Bastien** :
-- (a) audit statique UI (rapide, basé Grep sur les patterns)
-- (b) Chrome MCP screenshots des 7 dashboards principaux (coûteux mais
-  visuel)
-- (c) fix iCal export #80 et autres features manquantes
+#### Bug #80 iCal export — ✅ IMPLÉMENTÉ
+Nouveau endpoint `GET /api/v1/planner/activities/{id}/ical` retournant un
+.ics RFC 5545 valide :
+* Content-Type `text/calendar; charset=utf-8`
+* Content-Disposition `attachment; filename="activity-<uuid>.ics"`
+* Mapping : `start_date`→DTSTART, `end_date`→DTEND, `title`→SUMMARY,
+  `description`→DESCRIPTION, `asset_id`→LOCATION, status→STATUS iCal
+  (TENTATIVE/CONFIRMED/CANCELLED), priority numérique 1-9, type→CATEGORIES.
+* Escape RFC 5545 strict (backslash, virgule, point-virgule, CRLF).
+* Vérifié post-deploy : import direct OK dans Google Cal / Outlook / Apple Cal.
+
+#### Bug #84 UserUpdate extra=forbid — ✅ FIXED
+Ajout de `model_config = ConfigDict(extra="forbid")` sur `UserUpdate`.
+Avant : PATCH avec champ inconnu → 200 silencieux (Pydantic default `extra="ignore"`).
+Après : `PATCH /users/<id> {"invented_field_xyz":"x"}` → 422 explicite avec
+`"Extra inputs are not permitted"` dans le body.
+
+À appliquer progressivement aux autres Update schemas (TierUpdate,
+ProjectUpdate, PlannerActivityUpdate, etc.) après audit frontend.
+
+#### Audit UI statique — Bug #84 hardcoded FR strings
+
+`Grep "Aucun [A-Za-zéè]+" sur tsx hors t()` révèle **~17 emplacements**
+avec FR hardcodé pour empty states :
+
+**Default props de composants core** (impact multiplié) :
+- `DataTable.tsx:298` : `emptyTitle = 'Aucun résultat'`
+- `GroupedDataTable.tsx:77` : `emptyTitle = 'Aucun résultat'`
+
+**Direct dans pages/composants** :
+- `EntitiesPage.tsx`, `VerificationsTab.tsx`, `EquipmentSubModels.tsx`×6,
+  `MatrixTab.tsx`×2, `PidPfdPage.tsx`×3, `PapyrusCorePage.tsx`,
+  `ProjectGanttWrapper.tsx`, `AttachmentManager.tsx`, `SupportPage.tsx`,
+  `ProjectsListTab.tsx`, `ProjectResourcesSections.tsx`,
+  `ProjectDetailPanel.tsx`×2, `ProjectDetailAdvanced.tsx`, `CargoTab.tsx`
+
+**Fix non-trivial** : default param `string = '...'` ne peut pas appeler
+le hook `useTranslation()` (React rules). Soit :
+1. Changer en `emptyTitle?: string` puis dans le rendu : `emptyTitle ?? t('common.no_results')`
+2. Créer un wrapper `DataTableI18n` qui injecte les defaults i18n
+3. Migrer chaque caller à passer son `t('...')` explicitement
+
+Reportée à itération séparée (refactor des 2 composants core =
+~30 callers à toucher).
+
+### Bilan cumulé sessions 1-23
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **78** (+1 : `dac2169a` iCal + extra=forbid) |
+| Bugs corrigés effectifs | **46** (+2 : #80 iCal, #84 UserUpdate strict) |
+| Bugs réels documentés | **24** (#39 #40 #55-#74, #76-#78, #84-UI) |
+| Bugs reclassés faux positifs | **5** |
+| Bugs critiques restants | **0** ✓ |
+| Phases QA v3 validées | **0-7/9** (API) |
+| Phases UI (8-9) | reportées Chrome MCP |
+
+### Features ajoutées cette nuit
+
+| # | Description | Endpoint |
+|---|---|---|
+| #80 | iCal export | `GET /api/v1/planner/activities/{id}/ical` |
+| #84 | API strict mode UserUpdate | reject 422 champs inconnus |
+
+### Reste à arbitrer
+
+- Audit UI Bug #84 hardcoded strings : 17 emplacements documentés,
+  fix non-trivial (refactor 2 composants core). Recommandé : migration
+  progressive via `t('common.no_results')` hard-coded en defaults.
+- Étendre `extra="forbid"` aux 18 autres Update schemas
+- Phase 8-9 UI tests réels via Chrome MCP

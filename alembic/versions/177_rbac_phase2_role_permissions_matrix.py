@@ -249,7 +249,16 @@ INTEGRATION_BOT_EXTRA = [
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _grant_explicit(role_code: str, codes: list[str]) -> None:
-    """Grant a fixed list of permissions to a role (idempotent)."""
+    """Grant a fixed list of permissions to a role (idempotent + FK-safe).
+
+    Fix (session 20 v3) : si une perm listee dans `codes` n'existe pas dans
+    la table `permissions` (par ex. renommee/deplacee), l'INSERT direct
+    plantait avec ForeignKeyViolation au lieu de l'ignorer silencieusement.
+    Resultat : alembic upgrade head bloquait au boot du backend container,
+    qui restart-loopait. Maintenant on filtre via INNER JOIN -- seules les
+    perms existantes en BDD sont inserees, les codes obsoletes sont skip
+    silencieusement (un audit pourrait les lister ulterieurement).
+    """
     if not codes:
         return
     # SQL-quote each code (escape single quotes by doubling)
@@ -258,7 +267,9 @@ def _grant_explicit(role_code: str, codes: list[str]) -> None:
     )
     op.execute(f"""
         INSERT INTO role_permissions (role_code, permission_code)
-        VALUES {values_rows}
+        SELECT v.role_code, v.permission_code
+        FROM (VALUES {values_rows}) AS v(role_code, permission_code)
+        WHERE v.permission_code IN (SELECT code FROM permissions)
         ON CONFLICT DO NOTHING
     """)
 

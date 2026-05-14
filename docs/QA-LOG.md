@@ -2526,3 +2526,107 @@ Le pattern "DBAPIError handler expose la classe Python" etait insidieux :
 str(exc.orig) renvoie le repr complet de l'exception avec sa classe.
 Tout handler qui catch un wrapping d'exception doit appeler `.args[0]` ou
 extraire le message proprement, pas `str()` qui peut inclure le wrap.
+
+---
+
+## Session 32 - Round 6 final + Bug #122 frontend overflow (QA v3, 14 mai 2026 ~22h)
+
+### Bug #114-115 v3 — Resolution finale via debug exposure
+
+Apres 2 tentatives infructueuses (v1 handler `json.JSONDecodeError`, v2
+heuristique sur nom/message d'exception), exposition du type d'exception
+dans la response 500 a revele la cause :
+
+```
+TypeError: Object of type bytes is not JSON serializable
+```
+
+**Mecanique exacte** :
+1. POST avec Content-Type non-JSON (text/plain, application/xml, ou absent)
+2. FastAPI lit le body comme `bytes`
+3. Pydantic V2 echoue la validation et inclut le body BRUT (bytes) dans
+   `errors()[i].input`
+4. `_validation_error_handler` retourne `JSONResponse(content=...)` qui
+   appelle `json.dumps` en interne
+5. `json.dumps(bytes)` -> `TypeError`
+6. L'exception remonte au global handler -> 500
+
+**Fix definitif (commit `ec045c87`)** :
+Nouvelle fonction `_sanitize_error_input()` qui scrubbe les `input` fields
+non-JSON-native (bytes, set, et tout type hors str/int/float/bool/None/
+list/dict). Les bytes sont remplaces par `<bytes: b'...'>` dans la
+response.
+
+**Verification prod** :
+```
+text/plain  -> 422 {"detail":[{"type":"model_attributes_type","input":"<bytes: b'not json'>"}]}
+no CT       -> 422 idem
+xml         -> 422 idem
+regression  -> 422 missing field (toujours OK)
+```
+
+### Bug #122 — Overflow horizontal panel detail Projet
+
+Screenshots utilisateur 14 mai 21:42 + 22:00 : sur le panel detail Projet,
+les colonnes 'ASSIGNÉ' + 'actions (...)' debordaient du panel a droite.
+Pareillement onglet Planification : carte 'MARGE MOYENNE' + colonne 'Marge'
+de la table CPM debordaient.
+
+**Causes (3 distinctes)** :
+
+1. **TaskTable wrapper** : `overflow-hidden` cachait l'overflow MAIS le
+   grid CSS interne forcait la largeur intrinseque min-content, etirant
+   le wrap au-dela du parent. Fix v1 `min-w-0 w-full overflow-x-auto`
+   n'a pas suffit car le grid sommait ~722px minimum (drag 20 + wbs 56
+   + status 24 + title 120min + start 74 + due 74 + dur 46 + % 52 +
+   meteo 24 + planner 34 + assignee 110 + actions 28 + gaps 44 +
+   padding 16). assignee.hideBelow=720 activait des 720px container.
+
+   **Fix v2 (commit `cd055454`)** : reduction systematique :
+   - wbs 56->48, status 24->20, start/due 74->64, dur 46->38, % 52->44
+   - meteo 24->20, planner 34->30, assignee 110->88, actions 28->24
+   - title min 120->80
+   - assignee.hideBelow 720->760 (marge anti-debordement)
+   - Nouveau total : 512px sans assignee, 600px avec.
+
+2. **CPM stats cards** : `sm:grid-cols-4` se base sur viewport global
+   (640px+), donc 4 colonnes meme dans panel etroit. Fix : container
+   queries `@container` + `@[280px]:grid-cols-2 @[560px]:grid-cols-4`.
+
+3. **CPM table** : grid `64px minmax(180px,1fr) 78px 78px 56px minmax(180px,360px) 50px 50px`
+   sommait 736px minimum. Reduit Tache min 120, Timeline min 100 + wrap
+   `overflow-x-auto`.
+
+**Verification deploy** : bundle JS prod `ProjetsPage-YWpr3EUx.js` contient
+bien `hideBelow:760` (nouveau code), pas `hideBelow:720` (ancien).
+
+**Lecon CSS** : `overflow-hidden` sur un container qui contient un grid
+CSS avec largeurs fixes ne previent PAS l'expansion intrinseque min-content.
+Il faut combiner avec `min-w-0` sur le parent pour casser cette regle.
+
+### Bilan cumule sessions 1-32
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **113** (+5 round 6 final) |
+| Bugs corriges effectifs | **67** (+5 : #111 #114 #115 + #122 frontend) |
+| Faux positifs identifies | **6** (#102 #104 #105 #106 #107 #109 #110) |
+| Bugs critiques restants | **0** ✓ |
+| Exception handlers globaux | **4** (RequestValidation+sanitize, ValueError, DBAPIError, Generic) |
+| Pydantic v2 input scrubbing | **bytes/set/non-JSON-native** |
+
+### Decouverte technique importante
+
+**Pydantic v2 `errors()` peut inclure des objets non-JSON-serializable**.
+Tout handler qui retourne `JSONResponse(content={"detail": exc.errors()})`
+doit scrubber les inputs avant. Sinon : crash sur n'importe quel body
+qui n'est pas un dict Python valide (bytes, set, lambda, etc.).
+
+Pattern correct :
+```python
+errors = [{k:v for k,v in err.items()} for err in exc.errors()]
+for e in errors:
+    if "input" in e and not isinstance(e["input"], (str,int,float,bool,type(None),list,dict)):
+        e["input"] = f"<{type(e['input']).__name__}>"
+return JSONResponse(status_code=422, content={"detail": errors})
+```

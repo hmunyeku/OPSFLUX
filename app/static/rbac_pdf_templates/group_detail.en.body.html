@@ -8,7 +8,7 @@
     <thead><tr><th>{{ _('RBAC_LABEL_CODE') }}</th><th>{{ _('RBAC_LABEL_NAME') }}</th><th>{{ _('RBAC_LABEL_MODULE') }}</th></tr></thead>
     <tbody>
       {% for role in roles %}
-        <tr><td><strong>{{ role.code }}</strong></td><td>{{ role.name }}</td><td>{{ role.module | default('—') }}</td></tr>
+        <tr><td><strong>{{ role.code }}</strong></td><td>{{ role.name }}</td><td>{{ role.module or '—' }}</td></tr>
       {% endfor %}
     </tbody>
   </table>

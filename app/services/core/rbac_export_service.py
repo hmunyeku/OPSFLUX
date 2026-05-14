@@ -263,29 +263,54 @@ async def build_matrix_group_permissions_variables(
     permissions = await _list_permissions(db, entity_id, include_disabled)
     disabled_mods = await _disabled_modules_for_entity(db, entity_id)
 
-    # For each group, compute effective permissions (role + overrides)
-    # Note: delegations are per-user, not per-group, so not relevant here
+    # For each group, compute effective permissions (role + overrides).
+    # The `source` field reflects the WINNING layer for that (group, perm)
+    # pair so the matrix can colour-code it via the same legend as the
+    # other matrices (role / group / delegation). Delegations don't apply
+    # to groups — they're per-user.
     grants_with_source: list[dict] = []
     from app.models.common import GroupPermissionOverride
     for g in groups:
-        # Layer 2: role perms via UserGroupRole + RolePermission
+        # Layer 2 (lower priority): role perms via UserGroupRole + RolePermission
         role_perms_stmt = (
             select(RolePermission.permission_code)
             .join(UserGroupRole, UserGroupRole.role_code == RolePermission.role_code)
             .where(UserGroupRole.group_id == g.id)
         )
         role_perms = {row[0] for row in (await db.execute(role_perms_stmt)).all()}
-        # Layer 1: group overrides
-        go_stmt = select(GroupPermissionOverride.permission_code, GroupPermissionOverride.granted).where(
-            GroupPermissionOverride.group_id == g.id
-        )
+
+        # Layer 1 (higher priority): group overrides — track them separately
+        # so we can attribute the right source in the matrix cell.
+        go_stmt = select(
+            GroupPermissionOverride.permission_code,
+            GroupPermissionOverride.granted,
+        ).where(GroupPermissionOverride.group_id == g.id)
+        override_grants: set[str] = set()
+        override_revokes: set[str] = set()
         for pcode, granted in (await db.execute(go_stmt)).all():
             if granted:
-                role_perms.add(pcode)
+                override_grants.add(pcode)
             else:
-                role_perms.discard(pcode)
-        for pcode in role_perms:
-            grants_with_source.append({"group_id": str(g.id), "perm_code": pcode, "source": "role_or_override"})
+                override_revokes.add(pcode)
+
+        # Compose effective set: role perms ∪ override grants \ override revokes
+        effective = (role_perms | override_grants) - override_revokes
+
+        for pcode in effective:
+            if pcode in override_grants and pcode not in role_perms:
+                # Granted explicitly by an override, not present at role level
+                source = "group"
+            elif pcode in override_grants and pcode in role_perms:
+                # Both layers agree — show the override (higher priority) so
+                # admins see that the override is what guarantees the grant
+                source = "group"
+            else:
+                source = "role"
+            grants_with_source.append({
+                "group_id": str(g.id),
+                "perm_code": pcode,
+                "source": source,
+            })
 
     return {
         "tenant": await _build_tenant_block(db, entity_id),

@@ -6,9 +6,24 @@ All endpoints:
 - Accept ?include_disabled_modules=false
 - Log a RbacAuditEvent with file_hash_sha256
 - Return application/pdf in sync, or 202 + poll URL in async
+
+Content hash strategy
+─────────────────────
+Two distinct hashes are computed:
+
+1. **Data hash** — `sha256(canonical_json(variables))`. Stable for given inputs
+   (same data → same hash). Injected into the rendered PDF footer so any
+   verifier can recompute it from the underlying data and confirm the
+   document hasn't been forged. This is the value visible in the footer
+   (`SHA-256: <16 hex chars>`).
+
+2. **File hash** — `sha256(pdf_bytes)`. Captured AFTER render and stored on
+   the `RbacAuditEvent` for transit integrity / forensics. Returned in the
+   `X-Content-Hash` response header. Not embedded in the PDF (chicken-and-egg).
 """
 import hashlib
 import io
+import json
 from datetime import datetime, timezone
 from typing import Awaitable, Callable
 from uuid import UUID
@@ -83,6 +98,16 @@ async def _render_and_audit(
         await db.commit()
         raise
 
+    # Compute the DATA hash before rendering so it can be embedded in the
+    # footer. We canonicalise the variables dict (sorted keys, ASCII fallback,
+    # UTC-stable) and exclude the `content_hash` field itself (which is empty
+    # at this point) so the hash is reproducible: hashing the same data
+    # always yields the same value, regardless of when the PDF is generated.
+    hashable_vars = {k: v for k, v in variables.items() if k != "content_hash"}
+    canonical = json.dumps(hashable_vars, sort_keys=True, default=str, ensure_ascii=False)
+    data_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    variables["content_hash"] = data_hash
+
     pdf_bytes = await render_pdf(
         db, slug=slug, entity_id=entity_id, language=lang, variables=variables
     )
@@ -97,12 +122,18 @@ async def _render_and_audit(
             message=f"PDF template '{slug}' is not seeded yet. Deploy PR-B.",
         )
 
-    content_hash = hashlib.sha256(pdf_bytes).hexdigest()
-    audit.file_hash_sha256 = content_hash
+    # File-level hash for audit / transit integrity (different purpose
+    # from `data_hash` above — this one changes if any byte of the PDF
+    # changes, including non-deterministic WeasyPrint metadata).
+    file_hash = hashlib.sha256(pdf_bytes).hexdigest()
+    audit.file_hash_sha256 = file_hash
     audit.status = "success"
     audit.completed_at = datetime.now(timezone.utc)
     audit.duration_ms = int((audit.completed_at - start).total_seconds() * 1000)
-    audit.result_summary = {"size_bytes": len(pdf_bytes)}
+    audit.result_summary = {
+        "size_bytes": len(pdf_bytes),
+        "data_hash_sha256": data_hash,
+    }
     await db.commit()
 
     return StreamingResponse(
@@ -111,7 +142,8 @@ async def _render_and_audit(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "X-Audit-Event-Id": str(audit.id),
-            "X-Content-Hash": content_hash,
+            "X-Content-Hash": file_hash,
+            "X-Data-Hash": data_hash,
         },
     )
 

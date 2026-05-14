@@ -1,6 +1,11 @@
-{# RBAC PDF shared footer — page counter via CSS `counter(page)` and content_hash from audit. #}
+{# RBAC PDF shared footer — page counter via CSS `counter(page)` and
+   content_hash from audit. The hash is a deterministic sha256 of the
+   underlying data (not the PDF bytes) computed by _render_and_audit
+   before render — see app/api/routes/core/rbac/exports.py. #}
 <footer style="padding:6mm 12mm; border-top:1px solid #cbd5e1; font-family:Arial, Helvetica, sans-serif; font-size:8pt; color:#64748b; display:flex; justify-content:space-between;">
   <div>{{ _('RBAC_PAGE') }} <span class="page-number"></span> {{ _('RBAC_OF') }} <span class="total-pages"></span></div>
   <div style="text-align:center;">{{ document_subtitle | default('') }}</div>
-  <div style="font-family:monospace; font-size:7pt;">SHA-256: {{ content_hash[:16] if content_hash else '' }}…</div>
+  <div style="font-family:monospace; font-size:7pt;">
+    {% if content_hash %}SHA-256: {{ content_hash[:16] }}…{{ content_hash[-8:] }}{% endif %}
+  </div>
 </footer>

@@ -19,9 +19,12 @@
           <tr>
             <td><span class="perm-code">{{ perm.code }}</span> {% if perm.sensitive %}<span class="badge-rgpd">RGPD</span>{% endif %}</td>
             <td>{{ perm.name }}</td>
-            <td>{{ perm.namespace | default('—') }}</td>
-            <td>{{ perm.resource | default('—') }}</td>
-            <td>{{ perm.action | default('—') }}</td>
+            {# `or '—'` (not `default('—')`) — default only fires on undefined,
+               but the DB returns Python None for legacy 2-segment codes
+               that don't fit the new namespace/resource/action split. #}
+            <td>{{ perm.namespace or '—' }}</td>
+            <td>{{ perm.resource or '—' }}</td>
+            <td>{{ perm.action or '—' }}</td>
           </tr>
         {% endfor %}
       </tbody>

@@ -2636,23 +2636,35 @@ async def check_profile_duplicates(
 @router.get("/profiles/{profile_id}", response_model=PaxProfileRead)
 async def get_profile(
     profile_id: UUID,
-    pax_source: str = Query("user", pattern=r"^(user|contact)$"),
+    pax_source: str | None = Query(None, pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.profile.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a PAX profile by ID. Use pax_source=user or pax_source=contact."""
-    entity, company_name, resolved_entity_id = await _resolve_pax_identity(
-        db,
-        profile_id,
-        pax_source,
-        entity_id=entity_id,
-        current_user=current_user,
-    )
-    if pax_source == "user":
-        return _user_to_pax_read(entity, company_name)  # type: ignore[arg-type]
-    return _contact_to_pax_read(entity, company_name, entity_id=resolved_entity_id)  # type: ignore[arg-type]
+    """Get a PAX profile by ID. Auto-detects pax_source if omitted (tries user then contact).
+
+    Bug #156 (QA200 round 39) : Avant fix, pax_source default 'user' donnait
+    un 404 confus quand le profil etait en realite un contact (cas frequent
+    pour les pax externes). Auto-detection : si pas precise, on essaie
+    `user` puis fallback `contact` avant de retourner 404. Cela permet a un
+    URL bookmark `/profiles/<uuid>` de fonctionner peu importe la nature
+    de la PAX.
+    """
+    sources_to_try = [pax_source] if pax_source else ["user", "contact"]
+    last_exc = None
+    for src in sources_to_try:
+        try:
+            entity, company_name, resolved_entity_id = await _resolve_pax_identity(
+                db, profile_id, src, entity_id=entity_id, current_user=current_user,
+            )
+            if src == "user":
+                return _user_to_pax_read(entity, company_name)  # type: ignore[arg-type]
+            return _contact_to_pax_read(entity, company_name, entity_id=resolved_entity_id)  # type: ignore[arg-type]
+        except StructuredHTTPException as e:
+            last_exc = e
+            continue
+    raise last_exc or StructuredHTTPException(404, code="PAX_NOT_FOUND", message="PAX profile not found")
 
 
 @router.get("/profiles/{profile_id}/site-presence-history", response_model=list[PaxSitePresenceRead])

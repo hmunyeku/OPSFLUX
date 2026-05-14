@@ -2140,13 +2140,18 @@ class ProjectSituationRead(OpsFluxSchema):
 
 
 class ProjectTaskCreate(BaseModel):
+    """Bug #154 (QA200 round 39) : priority + status sans pattern Pydantic
+    -> 'INVALID' acceptait silencieusement (insertion DB OK car les colonnes
+    sont String sans CheckConstraint). Maintenant : patterns regex pour
+    rejeter en 422 et garantir coherence enums."""
+
     parent_id: UUID | None = None
     wbs_node_id: UUID | None = None
     code: str | None = None
     title: str = Field(..., min_length=1, max_length=300)
     description: str | None = None
-    status: str = "todo"
-    priority: str = "medium"
+    status: str = Field(default="todo", pattern=r"^(todo|in_progress|review|done|cancelled)$")
+    priority: str = Field(default="medium", pattern=r"^(low|medium|high|critical)$")
     assignee_id: UUID | None = None
     start_date: datetime | None = None
     due_date: datetime | None = None

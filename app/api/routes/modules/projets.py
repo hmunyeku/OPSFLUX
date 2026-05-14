@@ -26,7 +26,7 @@ from app.models.common import (
     ProjectTaskDependency, ProjectWBSNode, CostCenter,
     ProjectTaskAssignee, ProjectComment, ProjectStatusHistory,
     ProjectSituation,
-    User, Tier,
+    User, Tier, TierContact,
 )
 from app.models.asset_registry import Installation, OilSite
 from app.schemas.common import (
@@ -984,6 +984,19 @@ async def add_project_member(
         raise HTTPException(status_code=422, detail="Either user_id or contact_id is required")
     if body.user_id and body.contact_id:
         raise HTTPException(status_code=422, detail="Provide user_id OR contact_id, not both")
+
+    # Bug #155 (QA200 round 39) : avant fix, POST avec user_id inexistant
+    # crashait sur IntegrityError FK violation -> 500. Maintenant : check
+    # explicite existence avant insertion -> 404 propre.
+    if body.user_id:
+        check_user = await db.execute(select(User.id).where(User.id == body.user_id).limit(1))
+        if check_user.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail=f"User {body.user_id} not found")
+    if body.contact_id:
+        check_contact = await db.execute(select(TierContact.id).where(TierContact.id == body.contact_id).limit(1))
+        if check_contact.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail=f"Contact {body.contact_id} not found")
+
     payload = body.model_dump()
     # Default member's currency to the project's currency if not provided.
     if not payload.get("currency"):

@@ -926,7 +926,12 @@ class AddressCreate(BaseModel):
 
 
 class AddressUpdate(BaseModel):
-    model_config = {"populate_by_name": True}
+    # Bug #84 followup (session 28) : extra="forbid" sur schemas Update
+    # simples valides apres audit FE/BE (AddressCreate FE expose
+    # exactement les memes champs que AddressUpdate BE). Tout champ
+    # inconnu envoye par le frontend declenche maintenant un 422 explicite
+    # au lieu d'etre silently dropped.
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
     label: str | None = None
     address_line1: str | None = None
     address_line2: str | None = None
@@ -968,6 +973,8 @@ class TagCreate(BaseModel):
 
 
 class TagUpdate(BaseModel):
+    # Bug #84 followup (session 28) : extra="forbid" sur schemas Update simples.
+    model_config = ConfigDict(extra="forbid")
     name: str | None = None
     color: str | None = None
     visibility: str | None = None
@@ -1012,6 +1019,8 @@ class PhoneCreate(BaseModel):
 
 
 class PhoneUpdate(BaseModel):
+    # Bug #84 followup (session 28) : extra="forbid" sur schemas Update simples.
+    model_config = ConfigDict(extra="forbid")
     label: str | None = None
     number: str | None = None
     country_code: str | None = None
@@ -1042,6 +1051,8 @@ class ContactEmailCreate(BaseModel):
 
 
 class ContactEmailUpdate(BaseModel):
+    # Bug #84 followup (session 28) : extra="forbid" sur schemas Update simples.
+    model_config = ConfigDict(extra="forbid")
     label: str | None = None
     email: EmailStr | None = None
     is_default: bool | None = None

@@ -387,12 +387,41 @@ try:
             'date/time field value out of range',
             'numeric field overflow',
         )):
+            # Bug #111 (QA v3 round 6) : `str(exc.orig)` exposait la classe
+            # Python brute `<class 'asyncpg.exceptions.CharacterNotInRepertoireError'>:`
+            # dans la reponse, fuite d'info technique (stack interne).
+            # On retire le prefix classe pour ne garder que le message PG.
+            import re as _re
+            msg = _re.sub(r"^<class\s+'[^']+'>:\s*", "", msg)
             return _JSONResponse(status_code=422, content={"detail": f"Donnée invalide : {msg[:200]}"})
         # IntegrityError sur unique constraint -> 409 deja gere ailleurs.
         # Autres DBAPIError -> remonte au handler generique 500.
         raise exc
 except ImportError:
     pass
+
+
+# Bug #114-115 (QA v3 round 6) : POST avec Content-Type mal forme (`text/plain`,
+# `application/xml`, ou absence du header) faisait remonter un `json.JSONDecodeError`
+# au handler generique -> 500 + Sentry pollue. C'est pourtant un cas client trivial
+# (un dev qui forge un curl sans `-H "Content-Type: application/json"`). On le
+# traite en 422 propre.
+import json as _json
+
+@app.exception_handler(_json.JSONDecodeError)
+async def _json_decode_error_handler(request, exc):  # type: ignore[no-untyped-def]
+    from starlette.responses import JSONResponse as _JSONResponse
+    return _JSONResponse(
+        status_code=422,
+        content={
+            "detail": [{
+                "type": "json_invalid",
+                "loc": ["body"],
+                "msg": f"Corps JSON invalide : {exc.msg}",
+                "ctx": {"error": exc.msg, "pos": exc.pos},
+            }]
+        },
+    )
 
 
 @app.exception_handler(Exception)

@@ -2035,6 +2035,58 @@ puis verify les bundles servis ont changé (`PaxLogPage-DIuc-m4E.js` →
 | Bugs critiques restants | **0** ✓ |
 | Phases QA v3 validées | **0-7/9** API + détail panel AdsDetailPanel UI |
 
+---
+
+## Session 25 — ESLint activation + 22 violations latentes Rules of Hooks
+
+### Découverte clé : AUCUNE config ESLint dans le repo
+
+Le commit `7867f3d3` (et son rebase `1419f1d7`) installe enfin une config
+ESLint minimaliste `apps/main/.eslintrc.json`. **Avant ce commit, le script
+`npm run lint` échouait silencieusement** faute de config — c'est pour ça que
+le bug #85 (React #310 prod) avait slip en prod sans détection. Maintenant
+`react-hooks/rules-of-hooks: 'error'` bloque tout commit violant les Rules.
+
+### Audit révèle 22 violations latentes identiques au #85
+
+| Bug | Composant | Violations | Sévérité |
+|---|---|---|---|
+| **#86** | `DynamicPanel.tsx` (composant **core** de tous les panels app) | **16** hooks docked-mode après `if (inline) return` | Latent — `inline` prop ne change pas typiquement |
+| **#87** | `ConflictClusterDetailPanel.tsx` | **5** hooks après `if (!cluster) return` | Latent |
+| **#88** | `EditRulePanel.tsx` | **1** useMemo après `if (!rule) return null` | Latent |
+
+Tous résolus en déplaçant les hooks **avant** les early returns + gardes
+`if (!x) return` dans les handlers pour la sûreté TypeScript.
+
+### Validation prod (Chrome MCP post-deploy)
+
+Bundle frontend rebuildé : `index-CIgzxerL.js` → `index-CI6oXLs3.js`.
+
+| Bug | Test live | Résultat |
+|---|---|---|
+| #85 AdsDetailPanel | Click row ADS-2026-0016 | ✅ Panel détail ouvre clean, 0 erreur React #310 |
+| #86 DynamicPanel | Utilisé par tous panels testés ci-dessus + ci-dessous | ✅ implicite |
+| #87 ConflictClusterDetailPanel | Planner > Conflits | ⚠️ 0 conflit en BDD pour reproduire ; page Conflits charge clean (pas de crash spontané) ; fix structurel correct |
+| #88 EditRulePanel | Conformité > Règles > click règle ATEX | ✅ Panel "Modifier la règle" ouvre clean avec sections Général + Validité, 0 erreur console |
+
+### Audit exhaustive-deps
+
+Activation temporaire de `react-hooks/exhaustive-deps: 'warn'` révèle **218
+warnings** dans le repo. Majorité = missing dep `'t'` (translation hook, stable
+en pratique). Trop bruyant pour activer maintenant — gardé `'off'` jusqu'à
+audit/cleanup dédié.
+
+### Bilan cumulé sessions 1-25
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **85** (+3 : `7867f3d3` fix lint, `1419f1d7` rebase, et docs à venir) |
+| Bugs corrigés effectifs | **50** (+3 : #86 #87 #88 Rules of Hooks) |
+| Bugs réels documentés | **24** |
+| Bugs critiques restants | **0** ✓ |
+| **Prévention installée** | ESLint `rules-of-hooks: error` actif en CI |
+| Phases QA v3 validées | **0-7/9** API + 2 panels UI vérifiés (Ads, Rule) |
+
 ### Leçon — règle métier à formaliser
 
 Ce bug est devenu prod parce que :

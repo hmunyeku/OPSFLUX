@@ -268,6 +268,15 @@ async def build_matrix_group_permissions_variables(
     # pair so the matrix can colour-code it via the same legend as the
     # other matrices (role / group / delegation). Delegations don't apply
     # to groups — they're per-user.
+    #
+    # Defense in depth (security review 2026-05-14 — finding C1): each
+    # inner query re-joins through `UserGroup` and re-filters by
+    # `entity_id`. `groups` is already filtered above, but `UserGroupRole`
+    # and `GroupPermissionOverride` carry no `entity_id` column of their
+    # own — without the join, any future code path that bypasses the
+    # outer filter (refactor, super-admin-style route) would silently
+    # leak overrides/role-bindings across tenants. The join is cheap (PK
+    # lookup) and makes tenant isolation explicit at every layer.
     grants_with_source: list[dict] = []
     from app.models.common import GroupPermissionOverride
     for g in groups:
@@ -275,16 +284,27 @@ async def build_matrix_group_permissions_variables(
         role_perms_stmt = (
             select(RolePermission.permission_code)
             .join(UserGroupRole, UserGroupRole.role_code == RolePermission.role_code)
-            .where(UserGroupRole.group_id == g.id)
+            .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
+            .where(
+                UserGroupRole.group_id == g.id,
+                UserGroup.entity_id == entity_id,
+            )
         )
         role_perms = {row[0] for row in (await db.execute(role_perms_stmt)).all()}
 
         # Layer 1 (higher priority): group overrides — track them separately
         # so we can attribute the right source in the matrix cell.
-        go_stmt = select(
-            GroupPermissionOverride.permission_code,
-            GroupPermissionOverride.granted,
-        ).where(GroupPermissionOverride.group_id == g.id)
+        go_stmt = (
+            select(
+                GroupPermissionOverride.permission_code,
+                GroupPermissionOverride.granted,
+            )
+            .join(UserGroup, UserGroup.id == GroupPermissionOverride.group_id)
+            .where(
+                GroupPermissionOverride.group_id == g.id,
+                UserGroup.entity_id == entity_id,
+            )
+        )
         override_grants: set[str] = set()
         override_revokes: set[str] = set()
         for pcode, granted in (await db.execute(go_stmt)).all():
@@ -425,6 +445,27 @@ async def build_user_detail_variables(
     if not target:
         raise ValueError("User not found")
 
+    # Tenant-scope guard (security review 2026-05-14, finding C1).
+    # `target_user_id` is taken from a URL path parameter; without an
+    # explicit scope check, a tenant-A admin holding `core.user.audit_export`
+    # could fetch a tenant-B user's full profile + perms + overrides by
+    # guessing/learning a UUID. We require the target user to either have
+    # this entity as their default OR to be a member of at least one of
+    # this entity's groups. Either is sufficient evidence that the user
+    # belongs to the caller's tenant.
+    if target.default_entity_id != entity_id:
+        membership_stmt = (
+            select(UserGroupMember.user_id)
+            .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+            .where(
+                UserGroupMember.user_id == target_user_id,
+                UserGroup.entity_id == entity_id,
+            )
+            .limit(1)
+        )
+        if (await db.execute(membership_stmt)).first() is None:
+            raise ValueError("User not found")  # opaque on purpose — no tenant disclosure
+
     # Groups
     groups_stmt = (
         select(UserGroup).join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
@@ -436,8 +477,22 @@ async def build_user_detail_variables(
     sources = await get_user_permissions_with_sources(target_user_id, entity_id, db)
     effective = [{"code": code, "source": src} for code, src in sorted(sources.items())]
 
-    # User overrides
-    overrides_stmt = select(UserPermissionOverride).where(UserPermissionOverride.user_id == target_user_id)
+    # User overrides — defense in depth (security review 2026-05-14, C1):
+    # UserPermissionOverride carries no `entity_id` column. Even though the
+    # target user has been scope-checked above, every query that touches
+    # an override table should also re-assert tenant isolation so a future
+    # refactor can't silently leak. The membership join below enforces that
+    # the override row's user belongs to a group in the same entity.
+    overrides_stmt = (
+        select(UserPermissionOverride)
+        .join(UserGroupMember, UserGroupMember.user_id == UserPermissionOverride.user_id)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            UserPermissionOverride.user_id == target_user_id,
+            UserGroup.entity_id == entity_id,
+        )
+        .distinct()
+    )
     overrides = [
         {"code": o.permission_code, "granted": o.granted}
         for o in (await db.execute(overrides_stmt)).scalars().all()

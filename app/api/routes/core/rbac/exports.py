@@ -232,13 +232,19 @@ async def export_matrix_user_permissions(
         threshold = await _get_tenant_setting(db, entity_id, "rbac.export.async_threshold_users", 500)
         if total_users > int(threshold):
             # Defer: log audit pending and return 202 (full async wiring is out of scope for PR-A;
-            # for now, we still return JSON 202 to signal the limit was hit)
+            # for now, we still return JSON 202 to signal the limit was hit).
+            # Capture client_ip + user_agent (security review 2026-05-14, W2):
+            # the sync path at _render_and_audit logs them, the async one
+            # was missing them — same forensic value, same data, no reason
+            # for the asymmetry.
             audit = RbacAuditEvent(
                 tenant_id=entity_id,
                 event_type="export.matrix_user",
                 target="matrix_user_permissions",
                 params={"reason": "async_threshold_exceeded", "user_count": total_users, "threshold": threshold},
                 actor_user_id=current_user.id,
+                client_ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
                 status="pending",
             )
             db.add(audit)

@@ -210,19 +210,27 @@ async def sync_permissions_and_roles() -> None:
 
     async with async_session_factory() as db:
         # ── Collect all permissions across all modules ──
+        # PR-G: translate legacy codes (asset.read) to namespaced (asset.asset.read)
+        # at collection time using DEPRECATED_PERMISSION_MAPPING. Manifests still
+        # declare the legacy form for backward compatibility, but only the
+        # namespaced code is actually seeded.
         all_permissions: list[dict] = []
         for module in modules:
             for perm_code in module.permissions:
-                # Derive a human-readable name from the code
-                name = perm_code.replace(".", " › ").replace("_", " ").title()
+                # Translate legacy → namespaced if applicable
+                effective_code = DEPRECATED_PERMISSION_MAPPING.get(perm_code, perm_code)
+                # Derive a human-readable name from the effective code
+                name = effective_code.replace(".", " › ").replace("_", " ").title()
                 all_permissions.append({
-                    "code": perm_code,
+                    "code": effective_code,
                     "name": name,
                     "module": module.slug,
                 })
 
-        # Add core RBAC permissions (not declared by any module)
-        core_permissions = [
+        # Add core RBAC permissions (not declared by any module).
+        # PR-G: legacy codes (admin.*, user.*, department.*, cost_center.*, etc.)
+        # are also translated via DEPRECATED_PERMISSION_MAPPING.
+        core_permissions_raw = [
             {"code": "admin.system", "name": "Admin System", "module": "core"},
             {"code": "admin.users.read", "name": "Admin Read Users", "module": "core"},
             {"code": "admin.users.create", "name": "Admin Create Users", "module": "core"},
@@ -254,7 +262,13 @@ async def sync_permissions_and_roles() -> None:
             {"code": "imputation.assignment.manage", "name": "Manage Imputation Assignments", "module": "core"},
             {"code": "*", "name": "All Permissions (Super Admin)", "module": "core"},
         ]
-        all_permissions.extend(core_permissions)
+        # Translate legacy codes → namespaced
+        for perm in core_permissions_raw:
+            effective_code = DEPRECATED_PERMISSION_MAPPING.get(perm["code"], perm["code"])
+            if effective_code != perm["code"]:
+                perm["code"] = effective_code
+                perm["name"] = effective_code.replace(".", " › ").replace("_", " ").title()
+        all_permissions.extend(core_permissions_raw)
 
         # Upsert permissions
         if all_permissions:
@@ -280,7 +294,11 @@ async def sync_permissions_and_roles() -> None:
                     "module": module.slug,
                 })
                 if "permissions" in role_def:
-                    role_permissions_map[code] = role_def["permissions"]
+                    # PR-G: translate legacy codes in role.permissions → namespaced
+                    role_permissions_map[code] = [
+                        DEPRECATED_PERMISSION_MAPPING.get(c, c)
+                        for c in role_def["permissions"]
+                    ]
 
         # Add core system roles (always present)
         system_roles = [

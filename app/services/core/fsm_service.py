@@ -613,8 +613,8 @@ class FSMService:
         )
         actor_roles = {row[0] for row in result.all()}
 
-        # SUPER_ADMIN bypasses all role checks
-        if "SUPER_ADMIN" in actor_roles:
+        # SUPER_ADMIN / PLATFORM_ADMIN (alias) bypass all role checks
+        if actor_roles & {"SUPER_ADMIN", "PLATFORM_ADMIN"}:
             return True
 
         # Wildcard permission (* in user permissions) also bypasses

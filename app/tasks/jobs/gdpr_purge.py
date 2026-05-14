@@ -139,7 +139,7 @@ async def gdpr_retention_purge() -> None:
                     AND id NOT IN (
                         SELECT user_id FROM user_group_members ugm
                         JOIN user_group_roles ugr ON ugr.group_id = ugm.group_id
-                        WHERE ugr.role_code = 'SUPER_ADMIN'
+                        WHERE ugr.role_code IN ('SUPER_ADMIN', 'PLATFORM_ADMIN')
                     )
                 """),
                 {"cutoff": cutoff},

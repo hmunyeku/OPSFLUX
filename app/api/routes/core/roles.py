@@ -358,12 +358,13 @@ async def delete_role(
             message="Role not found",
         )
 
-    # Prevent deleting built-in SUPER_ADMIN role
-    if role_code == "SUPER_ADMIN":
+    # Prevent deleting built-in system roles (legacy + new namespaced aliases)
+    PROTECTED_ROLES = {"SUPER_ADMIN", "PLATFORM_ADMIN", "TENANT_ADMIN", "READER"}
+    if role_code in PROTECTED_ROLES:
         raise StructuredHTTPException(
             400,
-            code="CANNOT_DELETE_SUPER_ADMIN_ROLE",
-            message="Cannot delete the SUPER_ADMIN role",
+            code="CANNOT_DELETE_SYSTEM_ROLE",
+            message=f"Cannot delete the built-in system role '{role_code}'",
         )
 
     # Snapshot role attrs before delete for audit trail.

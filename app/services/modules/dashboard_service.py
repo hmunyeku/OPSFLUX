@@ -529,8 +529,8 @@ def get_widget_catalog(user_roles: list[str]) -> list[dict[str, Any]]:
     role_set = set(user_roles)
     result: list[dict[str, Any]] = []
 
-    # SUPER_ADMIN and TENANT_ADMIN see all widgets
-    is_admin = bool(role_set.intersection({"SUPER_ADMIN", "TENANT_ADMIN", "SYS_ADMIN"}))
+    # SUPER_ADMIN / PLATFORM_ADMIN (alias) / TENANT_ADMIN / SYS_ADMIN see all widgets
+    is_admin = bool(role_set.intersection({"SUPER_ADMIN", "PLATFORM_ADMIN", "TENANT_ADMIN", "SYS_ADMIN"}))
 
     for wid, entry in WIDGET_CATALOG.items():
         # "*" means all roles have access; admins see everything

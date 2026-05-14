@@ -85,18 +85,23 @@ export interface TaskTableColumn {
 export const DEFAULT_COLUMNS: TaskTableColumn[] = [
   // First column = drag handle. Hidden on narrow viewports where the
   // user wouldn't have hover affordance anyway.
+  // Bug #122 v2 (QA v3 round 6) : largeurs originelles sommaient ~722px
+  // hors title -> debordait du panel detail ~700-720px (assignee.hideBelow=720
+  // active assignee trop tot). Reduction de TOUTES les largeurs fixes pour
+  // tenir sous 600px hors title. Et `assignee.hideBelow` releve a 760 pour
+  // que la breakpoint laisse une vraie marge (anti-debordement).
   { id: 'drag',         width: '20px',          label: '',          align: 'center',         hideBelow: 480 },
-  { id: 'wbs',          width: '56px',          label: 'WBS',                                hideBelow: 540 },
-  { id: 'status',       width: '24px' },
-  { id: 'title',        width: 'minmax(120px, 1fr)', label: 'Tâche' },
-  { id: 'start_date',   width: '74px',          label: 'Début',     align: 'right',          hideBelow: 380 },
-  { id: 'due_date',     width: '74px',          label: 'Fin',       align: 'right' },
-  { id: 'duration',     width: '46px',          label: 'Dur.',      align: 'right',          hideBelow: 460 },
-  { id: 'progress',     width: '52px',          label: '%',         align: 'right' },
-  { id: 'meteo',        width: '24px',          label: '',          align: 'center',         hideBelow: 360 },
-  { id: 'planner',      width: '34px',          label: '',          align: 'center',         hideBelow: 320 },
-  { id: 'assignee',     width: '110px',         label: 'Assigné',                            hideBelow: 720 },
-  { id: 'actions',      width: '28px',          label: '',          align: 'center' },
+  { id: 'wbs',          width: '48px',          label: 'WBS',                                hideBelow: 540 },
+  { id: 'status',       width: '20px' },
+  { id: 'title',        width: 'minmax(80px, 1fr)', label: 'Tâche' },
+  { id: 'start_date',   width: '64px',          label: 'Début',     align: 'right',          hideBelow: 380 },
+  { id: 'due_date',     width: '64px',          label: 'Fin',       align: 'right' },
+  { id: 'duration',     width: '38px',          label: 'Dur.',      align: 'right',          hideBelow: 460 },
+  { id: 'progress',     width: '44px',          label: '%',         align: 'right' },
+  { id: 'meteo',        width: '20px',          label: '',          align: 'center',         hideBelow: 360 },
+  { id: 'planner',      width: '30px',          label: '',          align: 'center',         hideBelow: 320 },
+  { id: 'assignee',     width: '88px',          label: 'Assigné',                            hideBelow: 760 },
+  { id: 'actions',      width: '24px',          label: '',          align: 'center' },
 ]
 
 // ──────────────────────────────────────────────────────────────────────

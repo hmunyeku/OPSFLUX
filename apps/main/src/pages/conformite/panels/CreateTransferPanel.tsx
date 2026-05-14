@@ -14,7 +14,10 @@ import {
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
-import { useCreateTransfer, useJobPositions } from '@/hooks/useConformite'
+import { useCreateTransfer } from '@/hooks/useConformite'
+// Session 27 : remplace useJobPositions bulk par JobPositionPicker
+// (server-side debounced search via EntityPickerBase). Ferme le TODO L49.
+import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 import { useTierContacts } from '@/hooks/useTiers'
 import { CompanyPicker } from '@/components/shared/CompanyPicker'
 import type { TierContactTransferCreate } from '@/types/api'
@@ -40,15 +43,11 @@ function CreateTransferInner() {
   const prefillFromTierId = (dynamicPanel?.meta?.from_tier_id as string | undefined) ?? ''
   const { toast } = useToast()
 
-  // Source + destination tier sont maintenant gerees par CompanyPicker
-  // (server-side typeahead via EntityPickerBase) — plus de bulk-fetch des
-  // tiers. Cf. SUP-0038 followup: avant on chargeait jusqu'a 500/1000/10000
-  // tiers en une fois, tronques silencieusement au-dela. Maintenant le user
-  // tape, le picker fetch ?search=q debounced 300ms.
-  // Job positions: encore en bulk pour l'instant (typiquement <100 par tenant).
-  // TODO: si un tenant arrive a >100 job positions, migrer aussi vers un
-  // JobPositionPicker base sur EntityPickerBase.
-  const { data: jobPositionsData } = useJobPositions({ page_size: 100 })
+  // Source + destination tier sont gerees par CompanyPicker (server-side
+  // typeahead via EntityPickerBase). Cf SUP-0038 followup.
+  // Job positions : migrees aussi vers JobPositionPicker server-side debounced
+  // (session 27, ferme l'ancien TODO -- tenants avec >100 fiches de poste
+  // ne sont plus silencieusement tronques).
 
   const [selectedContactTierId, setSelectedContactTierId] = useState<string>(prefillFromTierId)
 
@@ -117,7 +116,7 @@ function CreateTransferInner() {
   ], [t, closeDynamicPanel, createTransfer.isPending])
 
   const contacts = Array.isArray(contactsData) ? contactsData : []
-  const jobPositions = jobPositionsData?.items ?? []
+  // jobPositions retire -- gere par JobPositionPicker directement (session 27)
 
   return (
     <DynamicPanelShell
@@ -207,18 +206,15 @@ function CreateTransferInner() {
             help={{ description: t('conformite.transfers.new_job_position_help') }}
           >
             <DynamicPanelField label={t('conformite.transfers.new_job_position_label')}>
-              <select
-                value={form.new_job_position_id ?? ''}
-                onChange={(e) => setForm({ ...form, new_job_position_id: e.target.value || null })}
-                className={panelInputClass}
-              >
-                <option value="">-- {t('conformite.transfers.keep_current_position')} --</option>
-                {jobPositions.map((jp) => (
-                  <option key={jp.id} value={jp.id}>
-                    {jp.name} ({jp.code}){jp.department ? ` - ${jp.department}` : ''}
-                  </option>
-                ))}
-              </select>
+              {/* Session 27 : <select> bulk remplace par JobPositionPicker
+                  (server-side debounced search). Conserve la semantique
+                  "garder le poste actuel" via clearable=true + value null. */}
+              <JobPositionPicker
+                value={form.new_job_position_id ?? null}
+                onChange={(id) => setForm({ ...form, new_job_position_id: id })}
+                placeholder={t('conformite.transfers.keep_current_position', 'Garder le poste actuel...')}
+                clearable={true}
+              />
             </DynamicPanelField>
           </SmartFormSection>
 

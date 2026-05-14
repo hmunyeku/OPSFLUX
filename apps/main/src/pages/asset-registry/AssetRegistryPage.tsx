@@ -192,7 +192,7 @@ function FieldsTab() {
   const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { hasPermission } = usePermission()
-  const canDelete = hasPermission('asset.delete')
+  const canDelete = hasPermission('asset.asset.delete')
   const { toast } = useToast()
   const deleteField = useDeleteField()
 
@@ -316,7 +316,7 @@ function SitesTab() {
   const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { hasPermission } = usePermission()
-  const canDelete = hasPermission('asset.delete')
+  const canDelete = hasPermission('asset.asset.delete')
   const { toast } = useToast()
   const deleteSite = useDeleteSite()
 
@@ -454,7 +454,7 @@ function InstallationsTab() {
   const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { hasPermission } = usePermission()
-  const canDelete = hasPermission('asset.delete')
+  const canDelete = hasPermission('asset.asset.delete')
   const { toast } = useToast()
   const deleteInstallation = useDeleteInstallation()
 
@@ -584,7 +584,7 @@ function EquipmentTab() {
   const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { hasPermission } = usePermission()
-  const canDelete = hasPermission('asset.delete')
+  const canDelete = hasPermission('asset.asset.delete')
   const { toast } = useToast()
   const deleteEquipment = useDeleteEquipment()
 
@@ -741,7 +741,7 @@ function PipelinesTab() {
   const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { hasPermission } = usePermission()
-  const canDelete = hasPermission('asset.delete')
+  const canDelete = hasPermission('asset.asset.delete')
   const { toast } = useToast()
   const deletePipeline = useDeletePipeline()
 
@@ -874,7 +874,7 @@ export function AssetRegistryPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { hasPermission } = usePermission()
-  const canCreate = hasPermission('asset.create')
+  const canCreate = hasPermission('asset.asset.create')
   const canReadImputations = hasPermission('imputation.read')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)

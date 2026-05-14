@@ -327,7 +327,7 @@ function SheetFormatCard({ format }: { format: string }) {
 function PIDDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canEditPid = hasPermission('pid.edit')
+  const canEditPid = hasPermission('pid.diagram.update')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
 
@@ -804,7 +804,7 @@ export function PidPfdPage() {
 
   // ── Permissions ──
   const { hasPermission } = usePermission()
-  const canCreate = hasPermission('pid.create')
+  const canCreate = hasPermission('pid.diagram.create')
   // canEdit / canDelete checked in sub-panels (PIDDetailPanel, EquipmentDetailPanel) via their own usePermission() calls
   const canImport = hasPermission('pid.tags.import')
   const [activeTab, setActiveTab] = useState<PidPfdTab>('dashboard')

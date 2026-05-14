@@ -102,7 +102,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         icon: Wrench,
         route: '/moc',
         module: 'moc',
-        permission: 'moc.create',
+        permission: 'moc.change.create',
         keywords: ['management of change', 'modification', 'mot'],
       },
       {
@@ -280,7 +280,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         icon: Map,
         route: '/assets',
         module: 'ar-field',
-        permission: 'asset.create',
+        permission: 'asset.asset.create',
         keywords: ['champ', 'field'],
       },
       {
@@ -290,7 +290,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         icon: Landmark,
         route: '/assets',
         module: 'ar-site',
-        permission: 'asset.create',
+        permission: 'asset.asset.create',
         keywords: ['site'],
       },
       {
@@ -300,7 +300,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         icon: Factory,
         route: '/assets',
         module: 'ar-installation',
-        permission: 'asset.create',
+        permission: 'asset.asset.create',
         keywords: ['plateforme', 'platform'],
       },
       {
@@ -310,7 +310,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         icon: Wrench,
         route: '/assets',
         module: 'ar-equipment',
-        permission: 'asset.create',
+        permission: 'asset.asset.create',
         keywords: ['equipement', 'equipment'],
       },
       {
@@ -320,7 +320,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         icon: Route,
         route: '/assets',
         module: 'ar-pipeline',
-        permission: 'asset.create',
+        permission: 'asset.asset.create',
         keywords: ['pipe', 'ligne'],
       },
     ],
@@ -338,7 +338,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         icon: Building2,
         route: '/tiers',
         module: 'tiers',
-        permission: 'tier.create',
+        permission: 'tier.tier.create',
         keywords: ['entreprise', 'company', 'third party'],
       },
     ],
@@ -378,7 +378,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         route: '/conformite',
         module: 'conformite',
         meta: { subtype: 'job-position' },
-        permission: 'conformite.jobposition.create',
+        permission: 'conformite.job_position.create',
         keywords: ['poste', 'function', 'job'],
       },
       {
@@ -426,8 +426,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         icon: Users,
         route: '/users',
         module: 'users',
-        // Backend registers the perm as 'user.create' (no 'core.' prefix).
-        permission: 'user.create',
+        permission: 'core.user.create',
         keywords: ['user', 'utilisateur', 'compte'],
       },
       {
@@ -480,7 +479,7 @@ const CATEGORIES: QuickCreateCategory[] = [
         icon: FileText,
         route: '/papyrus',
         module: 'papyrus',
-        permission: 'document.create',
+        permission: 'papyrus.document.create',
         keywords: ['document', 'papyrus', 'report'],
       },
     ],

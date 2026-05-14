@@ -53,7 +53,7 @@ interface ModuleDashboardProps {
 export function ModuleDashboard({ module, title, className, children, toolbarPortalId }: ModuleDashboardProps) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canEdit = hasPermission('dashboard.customize') || hasPermission('dashboard.admin')
+  const canEdit = hasPermission('dashboard.dashboard.customize') || hasPermission('dashboard.dashboard.manage')
 
   const { data: tabsData, isLoading: tabsLoading } = useDashboardTabs(module)
   const { data: catalog } = useWidgetCatalog()

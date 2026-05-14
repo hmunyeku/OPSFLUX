@@ -91,7 +91,7 @@ export function MOCPage() {
     [t],
   )
 
-  const canCreate = hasPermission('moc.create')
+  const canCreate = hasPermission('moc.change.create')
 
   return (
     <div className="flex h-full">

@@ -38,7 +38,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Personnaliser le dashboard',
-        requiredAnyPermissions: ['dashboard.customize', 'dashboard.admin'],
+        requiredAnyPermissions: ['dashboard.dashboard.customize', 'dashboard.dashboard.manage'],
         steps: [
           'Cliquez sur "Modifier" en haut à droite',
           'Glissez-déposez les widgets pour les réorganiser',
@@ -62,7 +62,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Créer un utilisateur',
-        requiredAnyPermissions: ['user.create', 'core.users.manage'],
+        requiredAnyPermissions: ['core.user.create', 'core.users.manage'],
         steps: [
           'Cliquez "+ Nouvel utilisateur"',
           'Renseignez nom, prénom, email',
@@ -441,7 +441,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Ajouter une entreprise',
-        requiredAnyPermissions: ['tier.create', 'tier.read'],
+        requiredAnyPermissions: ['tier.tier.create', 'tier.tier.read'],
         steps: [
           'Cliquez "+ Nouveau tiers"',
           'Renseignez la raison sociale, SIRET, type',
@@ -487,7 +487,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: "Vérifier la conformité d'un PAX",
-        requiredAnyPermissions: ['conformite.verify', 'conformite.record.read'],
+        requiredAnyPermissions: ['conformite.record.verify', 'conformite.record.read'],
         steps: [
           'Allez dans l\'onglet Vérifications',
           'Recherchez le PAX par nom',
@@ -548,7 +548,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Naviguer dans la hiérarchie',
-        requiredAnyPermissions: ['asset.read'],
+        requiredAnyPermissions: ['asset.asset.read'],
         steps: [
           "Sélectionnez un site ou une installation dans l'arborescence à gauche",
           'Consultez les détails, capacités et équipements dans le panneau principal',
@@ -557,7 +557,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
       },
       {
         title: 'Configurer les capacités',
-        requiredAnyPermissions: ['asset.update', 'asset.capacity.manage'],
+        requiredAnyPermissions: ['asset.asset.update', 'asset.capacity.manage'],
         steps: [
           "Sélectionnez l'asset dans l'arborescence",
           'Allez dans l\'onglet "Capacités"',
@@ -902,7 +902,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Configurer une entité',
-        requiredAnyPermissions: ['entity.manage', 'entity.admin'],
+        requiredAnyPermissions: ['core.entity.update', 'entity.admin'],
         steps: [
           "Sélectionnez l'entité dans la liste",
           "Renseignez les informations légales et l'adresse",
@@ -965,7 +965,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Créer et soumettre un MOC',
-        requiredPermission: 'moc.create',
+        requiredPermission: 'moc.change.create',
         steps: [
           'Cliquez sur "Nouveau MOC" depuis la liste',
           'Remplissez titre, description, justification métier',
@@ -977,7 +977,7 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
       },
       {
         title: 'Valider ou rejeter un MOC',
-        requiredAnyPermissions: ['moc.validate', 'moc.approve'],
+        requiredAnyPermissions: ['moc.change.validate', 'moc.approve'],
         steps: [
           'Ouvrez le MOC depuis votre corbeille ou depuis la liste',
           'Revoyez l\'analyse de risques, les pièces jointes, l\'impact opérationnel',

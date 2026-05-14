@@ -201,8 +201,8 @@ function ChildLink({ icon: Icon, label, count, isLoading, onClick, iconColor }: 
 export function FieldDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canUpdate = hasPermission('asset.update')
-  const canDelete = hasPermission('asset.delete')
+  const canUpdate = hasPermission('asset.asset.update')
+  const canDelete = hasPermission('asset.asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const statusOptions = useArStatusOptions()
   const { data: field } = useField(id)
@@ -394,8 +394,8 @@ export function FieldDetailPanel({ id }: { id: string }) {
 export function SiteDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canUpdate = hasPermission('asset.update')
-  const canDelete = hasPermission('asset.delete')
+  const canUpdate = hasPermission('asset.asset.update')
+  const canDelete = hasPermission('asset.asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const statusOptions = useArStatusOptions()
   const { data: site } = useSite(id)
@@ -645,8 +645,8 @@ export function SiteDetailPanel({ id }: { id: string }) {
 export function InstallationDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canUpdate = hasPermission('asset.update')
-  const canDelete = hasPermission('asset.delete')
+  const canUpdate = hasPermission('asset.asset.update')
+  const canDelete = hasPermission('asset.asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const statusOptions = useArStatusOptions()
   const { data: inst } = useInstallation(id)

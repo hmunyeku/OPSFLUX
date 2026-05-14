@@ -65,22 +65,22 @@ export interface NavItemDef {
 
 const moduleNavItems: NavItemDef[] = [
   { path: '/home', icon: LayoutGrid, labelKey: 'nav.home', module: 'core', order: 5 },
-  { path: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', module: 'dashboard', order: 10, requiredPermission: 'dashboard.read' },
-  { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', module: 'tiers', order: 30, requiredPermission: 'tier.read' },
+  { path: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', module: 'dashboard', order: 10, requiredPermission: 'dashboard.dashboard.read' },
+  { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', module: 'tiers', order: 30, requiredPermission: 'tier.tier.read' },
   { path: '/projets', icon: FolderKanban, labelKey: 'nav.projets', module: 'projets', order: 38, requiredPermission: 'project.read' },
   { path: '/planner', icon: CalendarClock, labelKey: 'nav.planner', module: 'planner', order: 39, requiredPermission: 'planner.activity.read' },
   { path: '/paxlog', icon: Users, labelKey: 'nav.paxlog', module: 'paxlog', order: 40, requiredAnyPermissions: ['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.approve', 'paxlog.avm.read', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete', 'paxlog.profile.read', 'paxlog.compliance.read'] },
   { path: '/travelwiz', icon: Ship, labelKey: 'nav.travelwiz', module: 'travelwiz', order: 42, requiredPermission: 'travelwiz.voyage.read' },
   { path: '/packlog', icon: Package, labelKey: 'nav.packlog', module: 'packlog', order: 43, requiredPermission: 'packlog.cargo.read' },
   { path: '/imputations', icon: Coins, labelKey: 'nav.imputations', module: 'core', order: 44, requiredPermission: 'imputation.read' },
-  { path: '/papyrus', icon: FileText, labelKey: 'nav.papyrus', module: 'papyrus', order: 55, requiredPermission: 'document.read' },
-  { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid_pfd', order: 58, requiredPermission: 'pid.read' },
-  { path: '/moc', icon: ClipboardList, labelKey: 'nav.moc', module: 'moc', order: 62, requiredPermission: 'moc.read' },
+  { path: '/papyrus', icon: FileText, labelKey: 'nav.papyrus', module: 'papyrus', order: 55, requiredPermission: 'papyrus.document.read' },
+  { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid_pfd', order: 58, requiredPermission: 'pid.diagram.read' },
+  { path: '/moc', icon: ClipboardList, labelKey: 'nav.moc', module: 'moc', order: 62, requiredPermission: 'moc.change.read' },
 ]
 
 const adminNavItems: NavItemDef[] = [
   { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', module: 'conformite', order: 82, requiredPermission: 'conformite.record.read' },
-  { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset_registry', order: 85, requiredPermission: 'asset.read' },
+  { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset_registry', order: 85, requiredPermission: 'asset.asset.read' },
   { path: '/entities', icon: Globe, labelKey: 'nav.entities', module: 'core', order: 88, requiredPermission: 'core.entity.read' },
   { path: '/users', icon: UserCog, labelKey: 'nav.accounts', module: 'core', order: 90, requiredPermission: 'core.users.read' },
   { path: '/support', icon: LifeBuoy, labelKey: 'nav.support', module: 'support', order: 92, requiredPermission: 'support.ticket.read' },

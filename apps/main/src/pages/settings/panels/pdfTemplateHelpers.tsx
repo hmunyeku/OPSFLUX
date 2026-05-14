@@ -177,7 +177,7 @@ export function buildSampleVariables(
       ],
     }
   }
-  if (slug === 'pid.export') {
+  if (slug === 'pid.diagram.export') {
     return {
       ...base,
       document_code: 'PID-OPS-014',

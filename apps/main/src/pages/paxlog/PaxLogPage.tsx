@@ -59,9 +59,9 @@ export function PaxLogPage() {
   const { hasPermission, hasAny } = usePermission()
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'paxlog'
-  const isAdmin = hasPermission('*') || hasPermission('admin.system')
+  const isAdmin = hasPermission('*') || hasPermission('system.platform.admin')
   const isRequesterProfile = !isAdmin && hasAny(['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.avm.create', 'paxlog.avm.update']) &&
-    !hasAny(['paxlog.profile.read', 'paxlog.compliance.read', 'paxlog.rotation.manage', 'paxlog.profile_type.manage', 'paxlog.credtype.manage'])
+    !hasAny(['paxlog.profile.read', 'paxlog.compliance.read', 'paxlog.rotation.manage', 'paxlog.profile_type.manage', 'paxlog.credential_type.manage'])
   const isValidatorProfile = !isAdmin && !isRequesterProfile && hasAny(['paxlog.ads.approve', 'paxlog.compliance.read', 'paxlog.avm.approve', 'paxlog.avm.complete'])
 
   const visibleTabs = useMemo(() => {

@@ -66,23 +66,23 @@ interface Tile {
 }
 
 const OPERATIONS: Tile[] = [
-  { path: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', descKey: 'home.desc.dashboard', module: 'dashboard', requiredPermission: 'dashboard.read', tint: 'blue' },
+  { path: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', descKey: 'home.desc.dashboard', module: 'dashboard', requiredPermission: 'dashboard.dashboard.read', tint: 'blue' },
   { path: '/projets', icon: FolderKanban, labelKey: 'nav.projets', descKey: 'home.desc.projets', module: 'projets', requiredPermission: 'project.read', tint: 'emerald' },
   { path: '/planner', icon: CalendarClock, labelKey: 'nav.planner', descKey: 'home.desc.planner', module: 'planner', requiredPermission: 'planner.activity.read', tint: 'cyan' },
   { path: '/paxlog', icon: Users, labelKey: 'nav.paxlog', descKey: 'home.desc.paxlog', module: 'paxlog', requiredAnyPermissions: ['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.approve', 'paxlog.avm.read', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete', 'paxlog.profile.read', 'paxlog.compliance.read'], tint: 'blue' },
   { path: '/travelwiz', icon: Ship, labelKey: 'nav.travelwiz', descKey: 'home.desc.travelwiz', module: 'travelwiz', requiredPermission: 'travelwiz.voyage.read', tint: 'indigo' },
   { path: '/packlog', icon: Package, labelKey: 'nav.packlog', descKey: 'home.desc.packlog', module: 'packlog', requiredPermission: 'packlog.cargo.read', tint: 'amber' },
-  { path: '/moc', icon: ClipboardList, labelKey: 'nav.moc', descKey: 'home.desc.moc', module: 'moc', requiredPermission: 'moc.read', tint: 'rose' },
-  { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', descKey: 'home.desc.tiers', module: 'tiers', requiredPermission: 'tier.read', tint: 'slate' },
+  { path: '/moc', icon: ClipboardList, labelKey: 'nav.moc', descKey: 'home.desc.moc', module: 'moc', requiredPermission: 'moc.change.read', tint: 'rose' },
+  { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', descKey: 'home.desc.tiers', module: 'tiers', requiredPermission: 'tier.tier.read', tint: 'slate' },
 ]
 
 const TRANSVERSE: Tile[] = [
   { path: '/imputations', icon: Coins, labelKey: 'nav.imputations', descKey: 'home.desc.imputations', module: 'core', requiredPermission: 'imputation.read', tint: 'amber' },
-  { path: '/papyrus', icon: FileText, labelKey: 'nav.papyrus', descKey: 'home.desc.papyrus', module: 'papyrus', requiredPermission: 'document.read', tint: 'indigo' },
-  { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', descKey: 'home.desc.pid_pfd', module: 'pid_pfd', requiredPermission: 'pid.read', tint: 'cyan' },
+  { path: '/papyrus', icon: FileText, labelKey: 'nav.papyrus', descKey: 'home.desc.papyrus', module: 'papyrus', requiredPermission: 'papyrus.document.read', tint: 'indigo' },
+  { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', descKey: 'home.desc.pid_pfd', module: 'pid_pfd', requiredPermission: 'pid.diagram.read', tint: 'cyan' },
   { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', descKey: 'home.desc.workflow', module: 'workflow', requiredPermission: 'workflow.definition.read', tint: 'violet' },
   { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', descKey: 'home.desc.conformite', module: 'conformite', requiredPermission: 'conformite.record.read', tint: 'emerald' },
-  { path: '/assets', icon: Landmark, labelKey: 'nav.assets', descKey: 'home.desc.assets', module: 'asset_registry', requiredPermission: 'asset.read', tint: 'slate' },
+  { path: '/assets', icon: Landmark, labelKey: 'nav.assets', descKey: 'home.desc.assets', module: 'asset_registry', requiredPermission: 'asset.asset.read', tint: 'slate' },
 ]
 
 const ADMINISTRATION: Tile[] = [

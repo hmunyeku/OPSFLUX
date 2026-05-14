@@ -172,24 +172,24 @@ export function MOCDetailPanel({ id }: Props) {
 
   const allAllowedFsm = fsm?.transitions[moc.status] ?? []
   const allowedTransitions = allAllowedFsm.filter(
-    (tr) => hasPermission(tr.permission) || hasPermission('moc.manage'),
+    (tr) => hasPermission(tr.permission) || hasPermission('moc.change.manage'),
   )
   // ── Permission helpers — each UI affordance is gated against the
   // backend permission actually checked on the route it triggers. A
   // missing or mismatched gate causes a 403 after click, which we want
   // to avoid by hiding the affordance upfront.
-  const canValidate = hasPermission('moc.validate') || hasPermission('moc.manage')
-  const canDelete = hasPermission('moc.delete') || hasPermission('moc.manage')
-  const canUpdateFlags = hasPermission('moc.update') || hasPermission('moc.manage')
+  const canValidate = hasPermission('moc.change.validate') || hasPermission('moc.change.manage')
+  const canDelete = hasPermission('moc.change.delete') || hasPermission('moc.change.manage')
+  const canUpdateFlags = hasPermission('moc.change.update') || hasPermission('moc.change.manage')
   // Dedicated, granular gates
   const canInviteValidator =
-    hasPermission('moc.validator.invite') || hasPermission('moc.manage')
+    hasPermission('moc.validator.invite') || hasPermission('moc.change.manage')
   const canPromoteToProject =
-    hasPermission('moc.promote') || hasPermission('moc.manage')
+    hasPermission('moc.change.approve') || hasPermission('moc.change.manage')
   const canProductionValidate =
-    hasPermission('moc.production.validate') || hasPermission('moc.manage')
+    hasPermission('moc.production.validate') || hasPermission('moc.change.manage')
   const canDirectorAccord =
-    hasPermission('moc.director.validate_study') || hasPermission('moc.manage')
+    hasPermission('moc.director.validate_study') || hasPermission('moc.change.manage')
   // Note: CDS "close" is gated at the FSM layer via `moc.site_chief.close`,
   // which is already filtered inside `allowedTransitions` above. Signing
   // the close slot is gated per-slot via `canSignSlot('close')`.
@@ -212,7 +212,7 @@ export function MOCDetailPanel({ id }: Props) {
       | 'dg'
       | 'close',
   ): boolean => {
-    if (hasPermission('moc.manage')) return true
+    if (hasPermission('moc.change.manage')) return true
     if (!moc) return false
     // Self-service: the FK owner always signs their own slot.
     const selfMap: Record<string, string | null | undefined> = {
@@ -230,8 +230,8 @@ export function MOCDetailPanel({ id }: Props) {
     // User.id lookup — we don't have current user id readily; fall back
     // to the role-permission check and let the backend enforce it.
     const permMap: Record<string, string> = {
-      initiator: 'moc.create',
-      hierarchy_reviewer: 'moc.update',
+      initiator: 'moc.change.create',
+      hierarchy_reviewer: 'moc.change.update',
       site_chief: 'moc.site_chief.approve',
       production: 'moc.production.validate',
       director: 'moc.director.confirm',

@@ -140,8 +140,8 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { hasPermission } = usePermission()
-  const canCustomize = hasPermission('dashboard.customize')
-  const canAdmin = hasPermission('dashboard.admin') // reserved for system-wide dashboard management
+  const canCustomize = hasPermission('dashboard.dashboard.customize')
+  const canAdmin = hasPermission('dashboard.dashboard.manage') // reserved for system-wide dashboard management
   void canAdmin
   const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en'
 

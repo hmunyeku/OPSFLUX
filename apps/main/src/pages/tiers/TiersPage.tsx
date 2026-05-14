@@ -563,7 +563,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
   const { data: tier } = useTier(id)
   const updateTier = useUpdateTier()
   const { hasPermission } = usePermission()
-  const canEdit = hasPermission('tier.update')
+  const canEdit = hasPermission('tier.tier.update')
   const tierTypeOptions = useDictionaryOptions('tier_type')
   const legalFormOptions = useDictionaryOptions('legal_form')
   const countryOptions = useDictionaryOptions('country')
@@ -1411,8 +1411,8 @@ export function TiersPage() {
   } : undefined
 
   // Import/Export config
-  const canExport = hasPermission('tier.export') || hasPermission('tier.read')
-  const canImport = hasPermission('tier.import') || hasPermission('tier.create')
+  const canExport = hasPermission('tier.export') || hasPermission('tier.tier.read')
+  const canImport = hasPermission('tier.import') || hasPermission('tier.tier.create')
 
   const importExportConfig = useMemo<ImportExportConfig | undefined>(() => {
     if (!canExport && !canImport) return undefined

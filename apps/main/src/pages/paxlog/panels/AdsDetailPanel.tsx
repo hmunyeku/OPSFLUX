@@ -309,7 +309,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
   const canGenerateLink = ['draft', 'requires_review', 'approved', 'in_progress'].includes(ads.status)
   const hasAllowedCompaniesForExternalLink = (allowedCompaniesDraft?.length ?? 0) > 0
   const stayProgramsEnabled = ['draft', 'requires_review', 'approved', 'in_progress'].includes(ads.status)
-  const canManageStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.create')
+  const canManageStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay_program.create')
   const canApproveStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.approve')
   const canEditAllowedCompanies = ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update')
   const adsSubmissionChecklist = [

@@ -104,10 +104,10 @@ export function ConformitePage() {
   const canCreateType = hasPermission('conformite.type.create')
   const canCreateRecord = hasPermission('conformite.record.create')
   const canCreateRule = hasPermission('conformite.rule.create')
-  const canCreateJP = hasPermission('conformite.jobposition.create')
+  const canCreateJP = hasPermission('conformite.job_position.create')
   const canCreateExemption = hasPermission('conformite.exemption.create')
   const canApproveExemption = hasPermission('conformite.exemption.approve')
-  const canVerify = hasPermission('conformite.verify')
+  const canVerify = hasPermission('conformite.record.verify')
   const canCreateTransfer = hasPermission('conformite.transfer.create')
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
@@ -425,7 +425,7 @@ export function ConformitePage() {
             if (tab.id === 'exemptions') return canCreateExemption || canApproveExemption || hasPermission('conformite.exemption.read')
             if (tab.id === 'referentiel') return hasPermission('conformite.type.read')
             if (tab.id === 'enregistrements') return hasPermission('conformite.record.read')
-            if (tab.id === 'fiches') return hasPermission('conformite.jobposition.read')
+            if (tab.id === 'fiches') return hasPermission('conformite.job_position.read')
             if (tab.id === 'regles') return hasPermission('conformite.rule.read')
             if (tab.id === 'transferts') return hasPermission('conformite.transfer.read')
             return true

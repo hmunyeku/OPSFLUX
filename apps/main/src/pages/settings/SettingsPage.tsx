@@ -226,15 +226,15 @@ registerSettingsSection({ id: 'packlog-config',   label: 'PackLog',   icon: Boxe
 registerSettingsSection({ id: 'moc-config',       label: 'MOCTrack',  icon: ClipboardList,  component: MOCConfigTab,       category: 'general', parentId: 'grp-modules', order: 60, requiredPermission: 'core.settings.manage' })
 
 // Group 4: Sécurité & Conformité — auth policy, data protection, retention
-registerSettingsSection({ id: 'security-policy',  label: 'Sécurité & Authentification',  icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', parentId: 'grp-security', order: 10, requiredPermission: 'admin.system' })
-registerSettingsSection({ id: 'gdpr',             label: 'RGPD / Protection des données', icon: Shield,     component: GdprTab,           category: 'general', parentId: 'grp-security', order: 20, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'security-policy',  label: 'Sécurité & Authentification',  icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', parentId: 'grp-security', order: 10, requiredPermission: 'system.platform.admin' })
+registerSettingsSection({ id: 'gdpr',             label: 'RGPD / Protection des données', icon: Shield,     component: GdprTab,           category: 'general', parentId: 'grp-security', order: 20, requiredPermission: 'system.platform.admin' })
 registerSettingsSection({ id: 'delete-policies',  label: 'Politiques de suppression',    icon: Trash2,      component: DeletePoliciesTab, category: 'general', parentId: 'grp-security', order: 30, requiredPermission: 'core.settings.manage' })
 
 // Group 5: Système — technical / rarely touched, at the bottom
 registerSettingsSection({ id: 'system',      label: 'Système',          icon: Activity, component: SystemTab,      category: 'general', parentId: 'grp-system', order: 10, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'modules',     label: 'Modules',          icon: Boxes,    component: ModulesTab,     category: 'general', parentId: 'grp-system', order: 20, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'maintenance', label: 'Maintenance',      icon: Wrench,   component: MaintenanceTab, category: 'general', parentId: 'grp-system', order: 25, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'adminer',     label: 'Base de données',  icon: Database, component: AdminerTab,     category: 'general', parentId: 'grp-system', order: 30, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'adminer',     label: 'Base de données',  icon: Database, component: AdminerTab,     category: 'general', parentId: 'grp-system', order: 30, requiredPermission: 'system.platform.admin' })
 
 registerPanelRenderer('settings-pdf-template', (view) => (
   <EditPdfTemplatePanel

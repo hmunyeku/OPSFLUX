@@ -54,7 +54,7 @@ export function DelegationsTab() {
   const [reason, setReason] = useState('')
 
   const { data: candidates = [] } = useDelegationCandidates(candidateSearch)
-  const canSimulate = permissions.includes('*') || permissions.includes('admin.system')
+  const canSimulate = permissions.includes('*') || permissions.includes('system.platform.admin')
   const { data: simulationCandidates = [] } = useSimulationCandidates(simulationSearch, canSimulate)
 
   const permissionOptions = useMemo(

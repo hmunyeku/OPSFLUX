@@ -445,9 +445,9 @@ function RevisionDiffViewer({
 function DocumentDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canDeleteDoc = hasPermission('document.delete')
-  const canPublishDoc = hasPermission('document.publish')
-  const canApproveDoc = hasPermission('document.approve')
+  const canDeleteDoc = hasPermission('papyrus.document.delete')
+  const canPublishDoc = hasPermission('papyrus.document.publish')
+  const canApproveDoc = hasPermission('papyrus.document.approve')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
 
@@ -1019,7 +1019,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 <PapyrusFormRunner
                   schema={linkedPapyrusForm.schema_json}
                   value={currentRevision?.form_data as Record<string, unknown> | undefined}
-                  readOnly={doc.status !== 'draft' || !hasPermission('document.edit')}
+                  readOnly={doc.status !== 'draft' || !hasPermission('papyrus.document.update')}
                   isSaving={saveDraft.isPending}
                   attachmentOwnerType="document"
                   attachmentOwnerId={doc.id}
@@ -1441,8 +1441,8 @@ function DocumentDetailPanel({ id }: { id: string }) {
 export function ReportEditorPage() {
   // ── Permissions ──
   const { hasPermission } = usePermission()
-  const canCreate = hasPermission('document.create')
-  const canAdminPapyrus = hasPermission('document.admin')
+  const canCreate = hasPermission('papyrus.document.create')
+  const canAdminPapyrus = hasPermission('papyrus.document.manage')
   // canEdit / canDelete / canPublish / canApprove checked in DocumentDetailPanel via its own usePermission() call
 
   const [activeTab, setActiveTab] = useState<ReportEditorTab>('dashboard')

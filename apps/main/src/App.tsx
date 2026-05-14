@@ -134,11 +134,11 @@ export default function App() {
                   <Route path="/comptes" element={<Navigate to="/users" replace />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/search" element={<SearchPage />} />
-                  <Route path="/assets/*" element={<RequireModuleEnabled module="asset_registry"><RequirePermission permission="asset.read"><AssetRegistryPage /></RequirePermission></RequireModuleEnabled>} />
-                  <Route path="/assets-legacy/*" element={<RequireModuleEnabled module="asset_registry"><RequirePermission permission="asset.read"><AssetsPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/assets/*" element={<RequireModuleEnabled module="asset_registry"><RequirePermission permission="asset.asset.read"><AssetRegistryPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/assets-legacy/*" element={<RequireModuleEnabled module="asset_registry"><RequirePermission permission="asset.asset.read"><AssetsPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/entities/*" element={<RequirePermission permission="core.entity.read"><EntitiesPage /></RequirePermission>} />
                   <Route path="/users/*" element={<RequirePermission permission="core.users.read"><UsersPage /></RequirePermission>} />
-                  <Route path="/tiers/*" element={<RequireModuleEnabled module="tiers"><RequirePermission permission="tier.read"><TiersPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/tiers/*" element={<RequireModuleEnabled module="tiers"><RequirePermission permission="tier.tier.read"><TiersPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/conformite/*" element={<RequireModuleEnabled module="conformite"><RequirePermission permission="conformite.record.read"><ConformitePage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/projets/*" element={<RequireModuleEnabled module="projets"><RequirePermission permission="project.read"><ProjetsPage /></RequirePermission></RequireModuleEnabled>} />
                   {/* English-language alias redirects so /projects, /companies, /compliance,
@@ -155,12 +155,12 @@ export default function App() {
                   <Route path="/packlog/*" element={<RequireModuleEnabled module="packlog"><RequirePermission permission="packlog.cargo.read"><PackLogPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/imputations/*" element={<RequirePermission permission="imputation.read"><ImputationsPage /></RequirePermission>} />
                   <Route path="/report-editor/*" element={<Navigate to="/papyrus" replace />} />
-                  <Route path="/papyrus/*" element={<RequireModuleEnabled module="papyrus"><RequirePermission permission="document.read"><PapyrusPage /></RequirePermission></RequireModuleEnabled>} />
-                  <Route path="/pid-pfd/*" element={<RequireModuleEnabled module="pid_pfd"><RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/papyrus/*" element={<RequireModuleEnabled module="papyrus"><RequirePermission permission="papyrus.document.read"><PapyrusPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/pid-pfd/*" element={<RequireModuleEnabled module="pid_pfd"><RequirePermission permission="pid.diagram.read"><PidPfdPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<LoaderFallback />}><FileManagerPage /></Suspense></RequirePermission>} />
                   <Route path="/support/satisfaction/:ticketId" element={<RequireModuleEnabled module="support"><SatisfactionPage /></RequireModuleEnabled>} />
                   <Route path="/support/*" element={<RequireModuleEnabled module="support"><RequirePermission permission="support.ticket.read"><SupportPage /></RequirePermission></RequireModuleEnabled>} />
-                  <Route path="/moc/*" element={<RequireModuleEnabled module="moc"><RequirePermission permission="moc.read"><MOCPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/moc/*" element={<RequireModuleEnabled module="moc"><RequirePermission permission="moc.change.read"><MOCPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="/settings/*" element={<SettingsPage />} />
                   {/* French path aliases → redirect to canonical English paths */}

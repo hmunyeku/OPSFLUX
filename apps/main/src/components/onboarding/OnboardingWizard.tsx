@@ -167,8 +167,8 @@ export function OnboardingWizard({ open, onClose }: Props) {
     if (hasPermission('core.entity.update')) steps.push(2)
     if (hasPermission('core.users.create')) steps.push(3)
     if (hasPermission('core.settings.manage')) steps.push(4)
-    if (hasPermission('tier.create')) steps.push(5)
-    if (hasPermission('asset.create')) steps.push(6)
+    if (hasPermission('tier.tier.create')) steps.push(5)
+    if (hasPermission('asset.asset.create')) steps.push(6)
     steps.push(7) // Recap toujours
     return steps
   }, [hasPermission])

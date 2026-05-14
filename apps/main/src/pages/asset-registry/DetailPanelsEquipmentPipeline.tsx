@@ -207,8 +207,8 @@ function CraneSubModelSections({ equipmentId, canEdit }: { equipmentId: string; 
 export function EquipmentDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canUpdate = hasPermission('asset.update')
-  const canDelete = hasPermission('asset.delete')
+  const canUpdate = hasPermission('asset.asset.update')
+  const canDelete = hasPermission('asset.asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const statusOptions = useArStatusOptions()
   const { data: equip } = useEquipmentItem(id)
@@ -503,8 +503,8 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
 export function PipelineDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canUpdate = hasPermission('asset.update')
-  const canDelete = hasPermission('asset.delete')
+  const canUpdate = hasPermission('asset.asset.update')
+  const canDelete = hasPermission('asset.asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const statusOptions = useArStatusOptions()
   const pipeServiceDict = useDictionaryOptions('pipeline_service')

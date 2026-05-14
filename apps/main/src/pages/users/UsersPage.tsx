@@ -458,7 +458,7 @@ export function UsersPage() {
   const confirm = useConfirm()
   const { hasPermission } = usePermission()
   const canManageUsers = hasPermission('core.users.manage')
-  const canCreateUser = hasPermission('user.create') || canManageUsers
+  const canCreateUser = hasPermission('core.user.create') || canManageUsers
   const canManageRbac = hasPermission('core.rbac.manage')
   const canManageEntities = hasPermission('core.entity.update')
   const [batchGroupUserIds, setBatchGroupUserIds] = useState<string[] | null>(null)

@@ -1671,7 +1671,7 @@ class TierContactTransfer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 # ─── Projects / Projets ─────────────────────────────────────────────────────
 
 
-class Project(UUIDPrimaryKeyMixin, TimestampMixin, AuditUserMixin, Base):
+class Project(UUIDPrimaryKeyMixin, TimestampMixin, AuditUserMixin, SoftDeleteMixin, Base):
     """Projet — inspire de Gouti.
 
     SUP-bug session 10 : migration 024 a ajoute created_by + updated_by en
@@ -1735,7 +1735,11 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, AuditUserMixin, Base):
     # for the recursive WBS roll-up implementation.
     progress_weight_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Bug E2E #54 : ancien code redeclarait `archived` localement et n'avait pas
+    # de `deleted_at`. Maintenant herite de SoftDeleteMixin (cf classe parente
+    # ligne 1674) qui fournit archived + deleted_at horodate pour audit ISO.
+    # Migration 174_project_soft_delete_repair ajoute la colonne deleted_at si
+    # manquante en BDD (idempotente).
 
     manager: Mapped["User | None"] = relationship(foreign_keys=[manager_id])
     parent: Mapped["Project | None"] = relationship(remote_side="Project.id", foreign_keys=[parent_id])

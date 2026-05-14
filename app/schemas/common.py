@@ -639,6 +639,11 @@ class TierContactWithTier(TierContactRead):
 
 
 class TierContactUpdate(BaseModel):
+    """Bug #135 (QA v3 round 11) : extra=forbid pour fail-fast sur
+    champs immuables (tier_id, id, created_at) et typos."""
+
+    model_config = ConfigDict(extra="forbid")
+
     civility: str | None = None
     first_name: str | None = None
     last_name: str | None = None
@@ -2149,6 +2154,11 @@ class ProjectTaskCreate(BaseModel):
 
 
 class ProjectTaskUpdate(BaseModel):
+    """Bug #134 (QA v3 round 11) : extra=forbid pour fail-fast sur typos
+    et champs immuables (id, project_id, created_at)."""
+
+    model_config = ConfigDict(extra="forbid")
+
     parent_id: UUID | None = None
     wbs_node_id: UUID | None = None
     code: str | None = None

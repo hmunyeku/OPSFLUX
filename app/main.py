@@ -317,6 +317,29 @@ async def _validation_error_handler(request, exc):  # type: ignore[no-untyped-de
     )
 
 
+@app.exception_handler(ValueError)
+async def _value_error_handler(request, exc):  # type: ignore[no-untyped-def]
+    """Bug #94 followup -- audit revele 115 `raise ValueError` dans le
+    service layer, dont une fraction non-attrapee remontait en 500 avec
+    stack trace via le `global_exception_handler` plus bas. Maintenant tout
+    ValueError leve dans une route handler ou un service est traduit en
+    HTTPException 422 (semantique Pydantic-compatible : validation metier).
+
+    Ne touche PAS au `HTTPException` qui restent geres par FastAPI default
+    (status code preserve). Ne touche PAS aux autres exceptions (toujours
+    geres par global_exception_handler en 500 + Sentry).
+
+    Concrete fix pour #94 incident_create (incidents.py:82) + couvre
+    automatiquement les 114 autres raises ValueError sans toucher chaque
+    route.
+    """
+    from starlette.responses import JSONResponse as _JSONResponse
+    return _JSONResponse(
+        status_code=422,
+        content={"detail": str(exc)},
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):  # type: ignore[no-untyped-def]
     import logging as _logging

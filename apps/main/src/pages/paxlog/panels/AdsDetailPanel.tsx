@@ -168,6 +168,81 @@ export function AdsDetailPanel({ id }: { id: string }) {
     }
   }, [eligibleExternalRecipients, externalLinkRecipientKey])
 
+  // ── CSV import handlers (SUP-0039) — MUST be declared BEFORE any early
+  // return (Bug #85 React #310 : auparavant ces 4 useCallback etaient
+  // declares vers la L556, APRES les early returns `if (isLoading) return`
+  // et `if (isError) return`. Au 1er render isLoading=true, ces 4 hooks
+  // n'etaient pas appeles ; au 2eme render isLoading=false, ils l'etaient
+  // -- React voyait 4 hooks DE PLUS au 2eme render -> #310 "Rendered more
+  // hooks than during the previous render". Le panel crashait des qu'on
+  // ouvrait le detail d'une ADS. Fix : tous les hooks doivent etre au
+  // top-level INCONDITIONNEL avant tout return.
+  const parseCsvPreview = useCallback((file: File) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = (e.target?.result as string) || ''
+      // Strip BOM utf-8-sig que Excel ajoute systematiquement
+      const cleaned = text.replace(/^﻿/, '')
+      const lines = cleaned.split(/\r?\n/).filter((l) => l.trim().length > 0)
+      if (lines.length === 0) {
+        setCsvPreview({ headers: [], rows: [], emailColumnFound: false })
+        return
+      }
+      // Detection separateur sur la 1ere ligne (header)
+      const header = lines[0]
+      const counts: Record<string, number> = {
+        ',': (header.match(/,/g) || []).length,
+        ';': (header.match(/;/g) || []).length,
+        '\t': (header.match(/\t/g) || []).length,
+        '|': (header.match(/\|/g) || []).length,
+      }
+      const sep = (Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]) || ','
+      const splitCsv = (line: string) => line.split(sep).map((c) => c.trim().replace(/^"|"$/g, ''))
+      const headers = splitCsv(header)
+      const emailColumnFound = headers.some((h) => h.toLowerCase() === 'email')
+      // Take 5 first data rows for preview
+      const rows = lines.slice(1, 6).map(splitCsv)
+      setCsvPreview({ headers, rows, emailColumnFound })
+    }
+    reader.onerror = () => setCsvPreview(null)
+    reader.readAsText(file, 'utf-8')
+  }, [])
+
+  const handleCsvFileSelected = useCallback((file: File | null) => {
+    setCsvFile(file)
+    setCsvImportResult(null)
+    if (file) {
+      parseCsvPreview(file)
+    } else {
+      setCsvPreview(null)
+    }
+  }, [parseCsvPreview])
+
+  const handleCsvDownloadTemplate = useCallback(() => {
+    const csv = '﻿' + [
+      'email,first_name,last_name',
+      'jean.dupont@example.com,Jean,Dupont',
+      'marie.martin@example.com,Marie,Martin',
+    ].join('\n') + '\n'
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'modele-import-pax.csv'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }, [])
+
+  const closeCsvModal = useCallback(() => {
+    setShowCsvImportModal(false)
+    setCsvFile(null)
+    setCsvPreview(null)
+    setCsvImportResult(null)
+    setCsvDragging(false)
+  }, [])
+
   if (isLoading) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<ClipboardList size={14} className="text-primary" />}>
@@ -550,77 +625,9 @@ export function AdsDetailPanel({ id }: { id: string }) {
     })
   }
 
-  // SUP-0039 — CSV import : parse client-side pour preview + validation
-  // avant upload. Detecte separateur (, ; tab |) et colonne 'email'.
-  // Si BOM utf-8-sig, on le strip.
-  const parseCsvPreview = useCallback((file: File) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const text = (e.target?.result as string) || ''
-      // Strip BOM utf-8-sig que Excel ajoute systematiquement
-      const cleaned = text.replace(/^﻿/, '')
-      const lines = cleaned.split(/\r?\n/).filter((l) => l.trim().length > 0)
-      if (lines.length === 0) {
-        setCsvPreview({ headers: [], rows: [], emailColumnFound: false })
-        return
-      }
-      // Detection separateur sur la 1ere ligne (header)
-      const header = lines[0]
-      const counts: Record<string, number> = {
-        ',': (header.match(/,/g) || []).length,
-        ';': (header.match(/;/g) || []).length,
-        '\t': (header.match(/\t/g) || []).length,
-        '|': (header.match(/\|/g) || []).length,
-      }
-      const sep = (Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]) || ','
-      const splitCsv = (line: string) => line.split(sep).map((c) => c.trim().replace(/^"|"$/g, ''))
-      const headers = splitCsv(header)
-      const emailColumnFound = headers.some((h) => h.toLowerCase() === 'email')
-      // Take 5 first data rows for preview
-      const rows = lines.slice(1, 6).map(splitCsv)
-      setCsvPreview({ headers, rows, emailColumnFound })
-    }
-    reader.onerror = () => setCsvPreview(null)
-    // Use utf-8 + cp1252 fallback handled by browser FileReader
-    reader.readAsText(file, 'utf-8')
-  }, [])
-
-  const handleCsvFileSelected = useCallback((file: File | null) => {
-    setCsvFile(file)
-    setCsvImportResult(null)
-    if (file) {
-      parseCsvPreview(file)
-    } else {
-      setCsvPreview(null)
-    }
-  }, [parseCsvPreview])
-
-  const handleCsvDownloadTemplate = useCallback(() => {
-    // Generate a minimal CSV template inline (no backend call needed).
-    // Header line + 2 sample rows. BOM utf-8-sig pour Excel FR.
-    const csv = '﻿' + [
-      'email,first_name,last_name',
-      'jean.dupont@example.com,Jean,Dupont',
-      'marie.martin@example.com,Marie,Martin',
-    ].join('\n') + '\n'
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'modele-import-pax.csv'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }, [])
-
-  const closeCsvModal = useCallback(() => {
-    setShowCsvImportModal(false)
-    setCsvFile(null)
-    setCsvPreview(null)
-    setCsvImportResult(null)
-    setCsvDragging(false)
-  }, [])
+  // Bug #85 (React #310) - les 4 useCallback CSV import ont ete deplaces
+  // au-dessus des early returns (cf commentaire dans la section hooks).
+  // Ne PAS les remettre ici sinon le composant crash en boucle au mount.
 
   // SUP-0039 — CSV import + history-based suggestion handlers
   const handleCsvImport = () => {

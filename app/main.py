@@ -337,14 +337,19 @@ async def _value_error_handler(request, exc):  # type: ignore[no-untyped-def]
     (status code preserve). Ne touche PAS aux autres exceptions (toujours
     geres par global_exception_handler en 500 + Sentry).
     """
-    # Bug #100 followup : laisser passer les ValidationError Pydantic au
-    # _validation_error_handler qui les formate correctement.
+    # Bug #100 followup v2 : `re-raise` ne fonctionne pas en FastAPI
+    # exception_handler (l'exception remonte au handler generique 500
+    # au lieu d'aller au handler specifique). On call le bon handler
+    # explicitement.
     if isinstance(exc, _RequestValidationError):
-        raise exc
+        return await _validation_error_handler(request, exc)
     try:
         from pydantic import ValidationError as _PydanticValidationError
         if isinstance(exc, _PydanticValidationError):
-            raise exc
+            # Convertir en RequestValidationError pour reutiliser le handler
+            return await _validation_error_handler(
+                request, _RequestValidationError(errors=exc.errors())
+            )
     except ImportError:
         pass
 

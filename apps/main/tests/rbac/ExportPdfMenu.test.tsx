@@ -7,6 +7,17 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
 
+// Mock the Toast hook — the real one requires a ToastProvider ancestor.
+vi.mock('@/components/ui/Toast', () => ({
+  useToast: () => ({ toast: vi.fn() }),
+}))
+
+// Mock downloadPdf — the test in question doesn't exercise it,
+// and the real one tries to fetch with auth headers.
+vi.mock('@/lib/downloadPdf', () => ({
+  downloadPdf: vi.fn(),
+}))
+
 describe('ExportPdfMenu', () => {
   const baseItem = {
     key: 'matrix',
@@ -46,9 +57,8 @@ describe('ExportPdfMenu', () => {
     const item = { ...baseItem, buildUrl: spy }
 
     // We can't trigger window.location.href in JSDOM cleanly, so mock it
-    const originalLocation = window.location
-    delete (window as any).location
-    ;(window as any).location = { ...originalLocation, href: '' }
+    const mockLocation = { ...window.location, href: '' }
+    vi.stubGlobal('location', mockLocation)
 
     render(<ExportPdfMenu items={[item]} context="roles" defaultLang="en" defaultIncludeDisabledModules={true} />)
     fireEvent.click(screen.getByRole('button', { name: /rbac\.export\.button/i }))
@@ -56,6 +66,6 @@ describe('ExportPdfMenu', () => {
 
     expect(spy).toHaveBeenCalledWith({ lang: 'en', includeDisabledModules: true, selectedIds: [] })
 
-    ;(window as any).location = originalLocation
+    vi.unstubAllGlobals()
   })
 })

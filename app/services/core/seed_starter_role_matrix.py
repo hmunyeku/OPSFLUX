@@ -461,9 +461,29 @@ async def seed_starter_role_matrix(db: AsyncSession) -> None:
     # ── INTEGRATION_BOT: no reads, just integration callbacks ──
     total += await _grant_explicit(db, "INTEGRATION_BOT", INTEGRATION_BOT_EXTRA)
 
+    # ── Mirror legacy code liaisons to their namespaced replacement ──
+    # PR-E pre-requisite: for each (role, legacy_code) pair, ensure
+    # (role, new_namespaced_code) is also granted. Routes refactored to use the
+    # new code (`require_permission("asset.asset.read")`) then succeed.
+    # Reads from permissions.deprecated_for (filled by permission_sync) so we
+    # don't duplicate the mapping table here.
+    mirror_sql = """
+        INSERT INTO role_permissions (role_code, permission_code)
+        SELECT rp.role_code, p.deprecated_for
+        FROM role_permissions rp
+        JOIN permissions p ON p.code = rp.permission_code
+        WHERE p.deprecated = true
+          AND p.deprecated_for IS NOT NULL
+        ON CONFLICT DO NOTHING
+    """
+    mirror_result = await db.execute(text(mirror_sql))
+    mirrored = mirror_result.rowcount or 0
+    total += mirrored
+
     await db.commit()
     logger.info(
-        "Starter role matrix seeded: ~%d role-permission liaisons inserted/skipped "
-        "(idempotent ON CONFLICT)",
+        "Starter role matrix seeded: ~%d role-permission liaisons total "
+        "(of which %d mirrored from legacy → namespaced via deprecated_for, idempotent)",
         total,
+        mirrored,
     )

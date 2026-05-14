@@ -115,6 +115,53 @@ DEPRECATED_PERMISSION_MAPPING: dict[str, str] = {
 }
 
 
+async def _seed_namespaced_aliases(db) -> None:
+    """Create the new namespaced codes (`asset.asset.read` etc.) in the permissions table.
+
+    For each (old, new) entry in ``DEPRECATED_PERMISSION_MAPPING``, ensures the
+    NEW code exists with parsed namespace/resource/action. Without this, routes
+    refactored to use the new code would 403 (FK on role_permissions would skip
+    the link silently).
+
+    Idempotent: ON CONFLICT DO NOTHING — never overwrites existing codes.
+    """
+    if not DEPRECATED_PERMISSION_MAPPING:
+        return
+    rows: list[dict[str, str | None]] = []
+    for old_code, new_code in DEPRECATED_PERMISSION_MAPPING.items():
+        parts = new_code.split(".")
+        if len(parts) == 3:
+            namespace, resource, action = parts
+        elif len(parts) == 2:
+            namespace, resource, action = parts[0], None, parts[1]
+        else:
+            # Unexpected shape; skip gracefully
+            continue
+        # Auto-derive a human-readable name
+        name = new_code.replace(".", " › ").replace("_", " ").title()
+        rows.append({
+            "code": new_code,
+            "name": name,
+            "namespace": namespace,
+            "resource": resource,
+            "action": action,
+            # module field is filled best-effort from the namespace
+            "module": namespace,
+        })
+    if not rows:
+        return
+    # Bulk upsert via pg_insert ... ON CONFLICT DO NOTHING (preserves any
+    # admin customisation on existing rows)
+    stmt = pg_insert(Permission).values(rows)
+    stmt = stmt.on_conflict_do_nothing(index_elements=["code"])
+    result = await db.execute(stmt)
+    logger.info(
+        "Permission sync: seeded %d namespaced alias codes (%d in mapping)",
+        result.rowcount or 0,
+        len(DEPRECATED_PERMISSION_MAPPING),
+    )
+
+
 async def _mark_deprecated_permissions(db) -> None:
     """Flag legacy permission codes as deprecated, pointing to their replacement.
 
@@ -309,6 +356,14 @@ async def sync_permissions_and_roles() -> None:
                 "Permission sync: upserted %d role-permission associations",
                 len(all_role_perms),
             )
+
+        # ── Seed new namespaced alias codes (PR-E pre-requisite) ──
+        # Creates rows like asset.asset.read alongside asset.read so routes
+        # refactored to use the new code can find the perm in DB.
+        try:
+            await _seed_namespaced_aliases(db)
+        except Exception as exc:
+            logger.exception("Failed to seed namespaced aliases (non-fatal): %s", exc)
 
         # ── Flag deprecated legacy permission codes (PR-G prep) ──
         # Idempotent: marks codes like `asset.read` as deprecated_for=`asset.asset.read`.

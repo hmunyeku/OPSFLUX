@@ -177,3 +177,13 @@ async def sync_permissions_and_roles() -> None:
 
         await db.commit()
         logger.info("Permission sync: completed successfully")
+
+        # ── Seed the starter role × permission matrix (PR-D runtime variant) ──
+        # Runs AFTER permissions are upserted, so it can actually link the codes
+        # added dynamically by module manifests. Idempotent (ON CONFLICT DO NOTHING).
+        try:
+            from app.services.core.seed_starter_role_matrix import seed_starter_role_matrix
+            await seed_starter_role_matrix(db)
+        except Exception as exc:
+            # Don't block app startup if the seed fails — log and continue.
+            logger.exception("Starter role matrix seed failed (non-fatal): %s", exc)

@@ -366,7 +366,12 @@ async def seed_starter_role_matrix(db: AsyncSession) -> None:
     total = 0
 
     # ── Aliases: clone perms from legacy roles ──
+    # PLATFORM_ADMIN is the new SUPER_ADMIN — clone perms so both work.
     total += await _clone_role_perms(db, "SUPER_ADMIN", "PLATFORM_ADMIN")
+    # PAX_COORD / HSE_MGR are the new names; the clones below propagated
+    # in the wrong direction (FROM empty legacy → TO new) so legacy roles
+    # ended up with 0 perms. Kept for documentation but they are no-ops
+    # in the current model — see the inverse clones below.
     total += await _clone_role_perms(db, "PAX_ADMIN", "PAX_COORD")
     total += await _clone_role_perms(db, "HSE_ADMIN", "HSE_MGR")
 
@@ -460,6 +465,33 @@ async def seed_starter_role_matrix(db: AsyncSession) -> None:
 
     # ── INTEGRATION_BOT: no reads, just integration callbacks ──
     total += await _grant_explicit(db, "INTEGRATION_BOT", INTEGRATION_BOT_EXTRA)
+
+    # ── Backfill legacy admin roles so they aren't empty in prod ──
+    # Audit 2026-05-14 found 4 starter/legacy roles with 0 permissions in prod
+    # (`HSE_ADMIN`, `PAX_ADMIN`, `SYS_ADMIN`, `TIER_ADMIN`). The original
+    # clone calls at the top of this function point FROM the legacy role
+    # TO the modern equivalent — which is a no-op when the legacy role
+    # has no source perms. Reverse the direction here so legacy roles
+    # inherit from the modern equivalents and any user/group still bound
+    # to a legacy role keeps working.
+    total += await _clone_role_perms(db, "HSE_MGR", "HSE_ADMIN")
+    total += await _clone_role_perms(db, "PAX_COORD", "PAX_ADMIN")
+    total += await _clone_role_perms(db, "TENANT_ADMIN", "SYS_ADMIN")
+
+    # TIER_ADMIN has no obvious modern equivalent — grant the full
+    # tier-domain admin scope explicitly. Permission codes verified
+    # against prod (2026-05-14): tier module exposes tier/contact/portal
+    # resources with mostly `.manage` actions plus `.create/.update/.delete`
+    # on tier entities themselves. Conformite/dashboard/messaging are
+    # adjacent read-only domains a tier admin typically needs.
+    total += await _grant_namespace_reads(db, "TIER_ADMIN", [
+        "tier", "conformite", "dashboard", "messaging",
+    ])
+    total += await _grant_explicit(db, "TIER_ADMIN", [
+        "tier.tier.create", "tier.tier.update", "tier.tier.delete",
+        "tier.contact.manage", "tier.portal.manage",
+        "tier.export", "tier.import",
+    ])
 
     # ── Mirror legacy code liaisons to their namespaced replacement ──
     # PR-E pre-requisite: for each (role, legacy_code) pair, ensure

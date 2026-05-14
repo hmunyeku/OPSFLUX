@@ -152,6 +152,28 @@ class UserAdminRead(UserRead):
     lock_remaining_minutes: int | None = None
 
 
+class UserListItem(OpsFluxSchema):
+    """Minimal user view for list endpoints (autocomplete, mention picker, etc.).
+
+    Bug #67 (QA v3) : `UserRead` exposait passport, medical, body measurements,
+    addresses, etc. à tout caller ayant `user.read` (présent dans READER role).
+    Conséquence : un user en lecture seule pouvait dump la PII de tous les
+    comptes via GET /users. Ce schéma ne contient QUE les champs publics
+    nécessaires à l'identification d'un user (autocomplete, assigné à, etc.).
+    Pour la vue complète, il faut soit être le user lui-même (/auth/me) soit
+    avoir `admin.users.read` (vue admin).
+    """
+    id: UUID
+    email: str
+    first_name: str
+    last_name: str
+    active: bool
+    avatar_url: str | None = None
+    default_entity_id: UUID | None = None
+    user_type: str = "internal"
+    job_position_name: str | None = None
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     first_name: str = Field(..., min_length=1, max_length=100)

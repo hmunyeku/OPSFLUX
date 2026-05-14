@@ -16,7 +16,9 @@
           <tr>
             <td><span class="perm-code">{{ perm.code }}</span></td>
             <td>{{ perm.name }} {% if perm.sensitive %}<span class="badge-rgpd">RGPD</span>{% endif %}</td>
-            <td>{{ perm.action }}</td>
+            {# `or '—'` — perm.action is Python None for legacy 2-segment
+               codes; Jinja would render the literal string "None" otherwise. #}
+            <td>{{ perm.action or '—' }}</td>
           </tr>
         {% endfor %}
       </tbody>

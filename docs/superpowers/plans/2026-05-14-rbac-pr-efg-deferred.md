@@ -1,6 +1,27 @@
-# RBAC PR-E / PR-F / PR-G — Note technique de report
+# RBAC PR-E / PR-F / PR-G — Note technique (RÉSOLU)
 
-**Statut** : ❌ NON FAIT — différé à une session dédiée
+> **🟢 Mise à jour 2026-05-14 18:35** : PR-E / PR-F / PR-G ont finalement
+> été réalisées dans la session du 2026-05-14, en sortant du plan de
+> report initial. La note ci-dessous reste utile comme **archive
+> historique** du raisonnement qui a mené au report initial.
+>
+> **Commits qui ont fait le travail** :
+>
+> | PR | Commit(s) | Contenu |
+> |----|-----------|---------|
+> | Phase 0 (prereq) | `8babf007` | Seed des codes namespacés en alias + mirroir des liaisons rôle (Phase A) |
+> | PR-E (backend) | `2bc2756a` | 323 remplacements `require_permission()` legacy → namespacé sur 17 fichiers |
+> | PR-F (frontend) | `c9b2b560` | 109 remplacements `usePermission/hasPerm` sur 26 fichiers |
+> | PR-G (cleanup) | `1c543238` + migration `178` | Traduction au collection-time dans `permission_sync.py` + DELETE des codes legacy |
+> | Cosmétique PDF | `5a9a166e`, `6dd2e098`, `e5828c00` + migrations 179/180/181 | Fixes rendu PDF (SHA-256, source labels, None cells, page break, ? symbol) |
+>
+> **Vérification prod** : 196 permissions exposées (177 namespacées 3-segments + 19 module-level non-mappables), 0 code `deprecated=true` restant en DB. Audit `/api/v1/users/me/permissions` (admin) confirme.
+>
+> Le document original suit pour mémoire.
+
+---
+
+**Statut initial** : ❌ NON FAIT — différé à une session dédiée
 **Date** : 2026-05-14
 **Contexte** : ces 3 PRs étaient prévues dans `2026-05-13-rbac-bootstrap-overview.md` mais l'analyse en cours de session a révélé une dépendance que l'overview sous-estimait.
 

@@ -2231,6 +2231,60 @@ tiennent en prod sans régression sur les autres modules.
 | TODO clos | "JobPositionPicker base sur EntityPickerBase" |
 | Prévention | ESLint `rules-of-hooks: error` actif en CI |
 
+---
+
+## Session 28 — Phase 9 raccourcis clavier + bug #90 shortcut `/`
+
+### Audit Phase 9 raccourcis clavier via Chrome MCP
+
+Tests synthétiques `KeyboardEvent` dispatched + audit du code source des
+handlers :
+
+| Raccourci | État | Localisation source |
+|---|---|---|
+| `Cmd/Ctrl+K` | ✅ implémenté | `Topbar.tsx:336` → CommandPalette |
+| `?` | ✅ implémenté | `HelpSystem.tsx:278` → toggleHelp |
+| `Escape` | ✅ implémenté | `DynamicPanel.tsx:164` (close panels) + `Topbar.tsx:316` (mobile search) |
+| `/` (focus search) | ❌ **manquant** | — |
+| `Tab` (cycle inputs) | ✅ natif browser | — |
+
+### Bug #90 — Shortcut `/` focus search global (FIXED)
+
+Commit `504cb2e2` : ajout d'un useEffect dans `Topbar.tsx` qui écoute
+`/` sur `document.keydown` et focus `searchInputRef`. Guards :
+* Skip si tape dans INPUT/TEXTAREA/SELECT (évite hijack saisie)
+* Skip si `isContentEditable` (Tiptap RichTextField)
+* Skip si dans `.ProseMirror` (éditeur avancé)
+* `preventDefault()` empêche l'insertion du `/` dans le focus recipient
+
+Pattern UX courant (GitHub, Linear, Stripe, X). Avant ce fix, les
+power-users devaient utiliser Cmd/Ctrl+K (qui ouvre la CommandPalette,
+différent de la search contextuelle).
+
+### Tests responsive via Chrome MCP — limitation
+
+Chrome MCP `resize_window` ne modifie pas `window.innerWidth` côté JS
+(reste 1536 même demandé 375). Test indirect via `CSS.supports` et
+détection des classes Tailwind responsive dans le DOM :
+* `usesMobileBreakpoints: true` (classes `sm:`, `md:`, `lg:`, `xl:`
+  présentes dans le bundle)
+* `containerQuerySupport: true` (navigateur supporte)
+* `usesContainerQueries: false` (l'app ne les utilise pas — design
+  basé sur breakpoints Tailwind, c'est OK)
+
+Validation responsive **live** nécessite un vrai resize browser hors
+MCP. Reportée à itération dédiée si besoin.
+
+### Bilan cumulé sessions 1-28
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **94** (+3 : `504cb2e2` fix #90, `bc6a2a6c` rebase, doc à venir) |
+| Bugs corrigés effectifs | **53** (+1 : #90 shortcut `/`) |
+| Bugs critiques restants | **0** ✓ |
+| Raccourcis clavier validés | 4/5 (`/` ajouté, reste `Tab` natif) |
+| Phases QA v3 validées | 0-9/9 (UI tests via Chrome MCP) |
+
 ### Leçon — règle métier à formaliser
 
 Ce bug est devenu prod parce que :

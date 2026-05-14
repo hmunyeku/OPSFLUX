@@ -7990,11 +7990,12 @@
       "deactivate": "Désactiver"
     },
     "export": {
-      "button": "Exporter PDF",
+      "button": "PDF",
       "close": "Fermer",
       "lang": "Langue :",
       "include_disabled_modules": "Inclure modules désactivés",
-      "selection_required": "Sélection requise"
+      "selection_required": "Sélection requise",
+      "error": "Erreur"
     },
     "delegations": {
       "title": "Délégations",

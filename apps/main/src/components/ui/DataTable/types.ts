@@ -108,6 +108,28 @@ export interface AvatarCellConfig {
 }
 
 // ── Import/Export ──────────────────────────────────────────
+
+/**
+ * Single PDF export entry shown in the DataTable's Export dropdown.
+ *
+ * The `buildUrl` callback receives the current dropdown state (selected
+ * language, include-disabled-modules toggle, current row selection) and
+ * returns the API URL to download. Return `null` to disable the entry
+ * dynamically (e.g. when a required selection is empty).
+ *
+ * This mirrors the shape used by the older standalone `ExportPdfMenu`
+ * component — by accepting the same item type here, callers can drop the
+ * standalone menu and surface the same PDFs inside the table's Export
+ * dropdown without rewriting their item definitions.
+ */
+export interface PdfExportItem {
+  key: string
+  label: string
+  description?: string
+  buildUrl: (params: { lang: 'fr' | 'en'; includeDisabledModules: boolean; selectedIds: string[] }) => string | null
+  requiresSelection?: boolean
+}
+
 export interface ImportExportConfig {
   /** Which export formats to enable. */
   exportFormats?: ExportFormat[]
@@ -125,6 +147,18 @@ export interface ImportExportConfig {
   advancedExport?: boolean
   /** Callback after successful import. */
   onImport?: (rows: Record<string, unknown>[]) => void | Promise<void>
+  /**
+   * Optional list of PDF exports surfaced inside the same Export dropdown
+   * as the CSV/XLSX formats. When present, a "PDF" section is appended to
+   * the dropdown with an FR/EN switcher and an "include disabled modules"
+   * toggle. The standalone ExportPdfMenu component should NOT also be
+   * rendered next to the table — duplicate buttons clutter the toolbar.
+   */
+  pdfExports?: PdfExportItem[]
+  /** Row IDs currently selected — used by PDF items with `requiresSelection`. */
+  pdfSelectedIds?: string[]
+  /** Optional default language for the FR/EN switch (defaults to 'fr'). */
+  pdfDefaultLang?: 'fr' | 'en'
   /**
    * Import template configuration.
    * When set, a "Télécharger le modèle" button appears in the import menu.

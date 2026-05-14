@@ -22,6 +22,8 @@ import {
 } from 'lucide-react'
 import type { DataTableBatchAction } from './types'
 import { cn } from '@/lib/utils'
+import { downloadPdf } from '@/lib/downloadPdf'
+import { useToast } from '@/components/ui/Toast'
 import type {
   ViewMode, DataTableFilterDef, ImportExportConfig, ExportFormat,
   FilterOperator, FilterCombinator,
@@ -214,8 +216,14 @@ export function DataTableToolbar({
   toolbarRight,
 }: ToolbarProps) {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const [dropdown, setDropdown] = useState<DropdownState>({ type: 'closed' })
   const [filterSearch, setFilterSearch] = useState('')
+  // PDF export sub-state (lang + include-disabled-modules) — only used when
+  // importExport.pdfExports is non-empty. Kept inside the toolbar so the
+  // dropdown content can render the FR/EN switch alongside the items.
+  const [pdfLang, setPdfLang] = useState<'fr' | 'en'>(importExport?.pdfDefaultLang ?? 'fr')
+  const [pdfIncludeDisabled, setPdfIncludeDisabled] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -232,8 +240,38 @@ export function DataTableToolbar({
     return () => document.removeEventListener('mousedown', handler)
   }, [dropdown.type])
 
-  const hasExport = importExport?.exportFormats && importExport.exportFormats.length > 0
+  const hasExportFormats = importExport?.exportFormats && importExport.exportFormats.length > 0
+  const hasPdfExports = (importExport?.pdfExports?.length ?? 0) > 0
+  // The Export button (download icon) appears when either CSV/XLSX formats
+  // OR PDF items are configured — both share the same dropdown.
+  const hasExport = hasExportFormats || hasPdfExports
   const hasFilters = filters && filters.length > 0
+
+  const handlePdfClick = async (
+    item: NonNullable<ImportExportConfig['pdfExports']>[number],
+  ): Promise<void> => {
+    const selectedIds = importExport?.pdfSelectedIds ?? []
+    if (item.requiresSelection && selectedIds.length === 0) return
+    const url = item.buildUrl({
+      lang: pdfLang,
+      includeDisabledModules: pdfIncludeDisabled,
+      selectedIds,
+    })
+    if (!url) return
+    setDropdown({ type: 'closed' })
+    try {
+      // Authenticated download — Bearer token is attached by the shared
+      // axios instance, which a raw window.location.href would bypass.
+      await downloadPdf(url)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast({
+        title: t('rbac.export.error', 'Erreur'),
+        description: msg,
+        variant: 'error',
+      })
+    }
+  }
 
   // Resolve active tokens
   const activeTokens = resolveTokens(filters ?? [], activeFilters ?? {})
@@ -864,34 +902,113 @@ export function DataTableToolbar({
               <Download size={13} />
             </button>
             {dropdown.type === 'action' && dropdown.id === '_export' && (
-              <div className="absolute right-0 top-full mt-1 z-50 min-w-[150px] max-w-[calc(100vw-1.5rem)] max-h-[min(65vh,30rem)] overflow-y-auto rounded-md border bg-popover shadow-lg py-1">
-                <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border/50 mb-0.5">
-                  Exporter en
-                </p>
-                {importExport!.exportFormats!.map((fmt) => {
-                  const config = EXPORT_FORMAT_CONFIG[fmt]
-                  const Icon = config.icon
-                  return (
-                    <button
-                      key={fmt}
-                      onClick={() => { onExport?.(fmt); setDropdown({ type: 'closed' }) }}
-                      className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent text-left text-foreground"
-                    >
-                      <Icon size={12} className="text-muted-foreground" />
-                      <span>{config.label}</span>
-                    </button>
-                  )
-                })}
-                {onAdvancedExport && (
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[200px] max-w-[calc(100vw-1.5rem)] max-h-[min(65vh,30rem)] overflow-y-auto rounded-md border bg-popover shadow-lg py-1">
+                {hasExportFormats && (
                   <>
-                    <div className="border-t border-border/50 my-0.5" />
-                    <button
-                      onClick={() => { onAdvancedExport(); setDropdown({ type: 'closed' }) }}
-                      className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent text-left text-primary font-medium"
-                    >
-                      <Settings2 size={12} />
-                      <span>{t('ui.export_avance')}</span>
-                    </button>
+                    <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border/50 mb-0.5">
+                      Exporter en
+                    </p>
+                    {importExport!.exportFormats!.map((fmt) => {
+                      const config = EXPORT_FORMAT_CONFIG[fmt]
+                      const Icon = config.icon
+                      return (
+                        <button
+                          key={fmt}
+                          onClick={() => { onExport?.(fmt); setDropdown({ type: 'closed' }) }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent text-left text-foreground"
+                        >
+                          <Icon size={12} className="text-muted-foreground" />
+                          <span>{config.label}</span>
+                        </button>
+                      )
+                    })}
+                    {onAdvancedExport && (
+                      <>
+                        <div className="border-t border-border/50 my-0.5" />
+                        <button
+                          onClick={() => { onAdvancedExport(); setDropdown({ type: 'closed' }) }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent text-left text-primary font-medium"
+                        >
+                          <Settings2 size={12} />
+                          <span>{t('ui.export_avance')}</span>
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+
+                {/* PDF exports — appended below CSV/XLSX with a separator and
+                    a tiny FR/EN switch + include-disabled toggle. */}
+                {hasPdfExports && (
+                  <>
+                    {hasExportFormats && <div className="border-t border-border/50 my-0.5" />}
+                    <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border/50 mb-0.5">
+                      PDF
+                    </p>
+                    <div className="px-3 py-1.5 flex flex-col gap-1.5 border-b border-border/50">
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="text-muted-foreground">{t('rbac.export.lang', 'Langue')}</span>
+                        <div className="inline-flex rounded-md border border-border overflow-hidden">
+                          {(['fr', 'en'] as const).map((l) => (
+                            <button
+                              key={l}
+                              type="button"
+                              onClick={() => setPdfLang(l)}
+                              className={cn(
+                                'px-2 py-0.5 text-[10px] uppercase transition-colors',
+                                pdfLang === l
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'hover:bg-accent text-foreground',
+                              )}
+                            >
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={pdfIncludeDisabled}
+                          onChange={(e) => setPdfIncludeDisabled(e.target.checked)}
+                          className="h-3 w-3"
+                        />
+                        <span>{t('rbac.export.include_disabled_modules', 'Inclure modules désactivés')}</span>
+                      </label>
+                    </div>
+                    {importExport!.pdfExports!.map((item) => {
+                      const selectedIds = importExport?.pdfSelectedIds ?? []
+                      const disabled = item.requiresSelection && selectedIds.length === 0
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => handlePdfClick(item)}
+                          disabled={disabled}
+                          className={cn(
+                            'w-full px-3 py-1.5 text-left text-xs',
+                            disabled
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'hover:bg-accent text-foreground',
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <FileText size={12} className="text-muted-foreground shrink-0" />
+                            <span className="font-medium">{item.label}</span>
+                          </div>
+                          {item.description && (
+                            <div className="mt-0.5 ml-5 text-[10px] text-muted-foreground leading-tight">
+                              {item.description}
+                            </div>
+                          )}
+                          {disabled && (
+                            <div className="mt-0.5 ml-5 text-[10px] text-amber-600 dark:text-amber-400">
+                              {t('rbac.export.selection_required', 'Sélection requise')}
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
                   </>
                 )}
               </div>

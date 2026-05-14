@@ -50,6 +50,7 @@ import { PermissionMatrix, RolePicker, SOURCE_BADGE, type PermSource } from './R
 import { RbacDelegationsTab } from './RbacDelegationsTab'
 import { RbacSettingsTab } from './RbacSettingsTab'
 import { ExportPdfMenu, type ExportPdfItem } from '@/components/shared/ExportPdfMenu'
+import type { PdfExportItem } from '@/components/ui/DataTable/types'
 import {
   exportMatrixRolePermissionsUrl,
   exportRoleDetailUrl,
@@ -469,22 +470,15 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
         created_at: 'Créé le',
         updated_at: 'Modifié le',
       },
+      // PDF exports appear inside the same Export dropdown as CSV/XLSX
+      // (single canonical "Exporter" button — no extra UI clutter).
+      pdfExports: ROLES_EXPORT_ITEMS as PdfExportItem[],
+      pdfSelectedIds: selectedRole ? [selectedRole] : [],
     },
     emptyTitle: search ? t('rbac.empty.role_search') : t('rbac.empty.role_none'),
     emptyIcon: ShieldCheck,
     storageKey: 'rbac-roles',
   }
-
-  // ExportPdfMenu lives in the DataTable's toolbarRight slot so it
-  // aligns horizontally with the Importer/Export CSV actions instead
-  // of floating in a separate row above the filters.
-  const rolesExportPdf = (
-    <ExportPdfMenu
-      items={ROLES_EXPORT_ITEMS}
-      selectedIds={selectedRole ? [selectedRole] : []}
-      context="roles"
-    />
-  )
 
   // When controlled (inside UsersPage), render DataTable directly
   if (isControlled) {
@@ -494,7 +488,6 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
         <DataTable
           {...dataTableProps}
           onSearchChange={() => { /* search driven by topbar */ }}
-          toolbarRight={rolesExportPdf}
         />
       </>
     )
@@ -507,7 +500,6 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
         <DataTable
           {...dataTableProps}
           onSearchChange={(v) => setInternalSearch(v)}
-          toolbarRight={rolesExportPdf}
         />
       </div>
 
@@ -1075,16 +1067,26 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
     }
   }, [onOpenPanel, selectedGroup])
 
-  // ExportPdfMenu lives in the DataTable's toolbarRight slot so it
-  // aligns horizontally with the Importer/Export CSV actions instead
-  // of floating in a separate row above the filters.
-  const groupsExportPdf = (
-    <ExportPdfMenu
-      items={GROUPS_EXPORT_ITEMS}
-      selectedIds={selectedGroup ? [selectedGroup] : []}
-      context="groups"
-    />
-  )
+  // Shared import/export config — PDF exports live in the same Export
+  // dropdown as CSV/XLSX (single canonical Exporter button).
+  const groupsImportExport = {
+    exportFormats: ['csv', 'xlsx'] as ExportFormat[],
+    advancedExport: true,
+    filenamePrefix: 'groupes',
+    importWizardTarget: 'group' as const,
+    exportHeaders: {
+      name: 'Nom',
+      role: 'Rôle',
+      member_count: 'Membres',
+      scope: 'Scope',
+      entity_name: 'Entité',
+      active: 'Statut',
+      created_at: 'Créé le',
+      updated_at: 'Modifié le',
+    },
+    pdfExports: GROUPS_EXPORT_ITEMS as PdfExportItem[],
+    pdfSelectedIds: selectedGroup ? [selectedGroup] : [],
+  }
 
   // When controlled (inside UsersPage), render DataTable directly without extra wrappers
   if (isControlled) {
@@ -1114,24 +1116,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
           columnPinning
           defaultPinnedColumns={{ left: ['name'] }}
 
-          importExport={{
-            exportFormats: ['csv', 'xlsx'] as ExportFormat[],
-            advancedExport: true,
-            filenamePrefix: 'groupes',
-            importWizardTarget: 'group',
-            exportHeaders: {
-              name: 'Nom',
-              role: 'Rôle',
-              member_count: 'Membres',
-              scope: 'Scope',
-              entity_name: 'Entité',
-              active: 'Statut',
-              created_at: 'Créé le',
-              updated_at: 'Modifié le',
-            },
-          }}
-
-          toolbarRight={groupsExportPdf}
+          importExport={groupsImportExport}
 
           emptyTitle={search ? t('rbac.empty.group_search') : t('rbac.empty.group_none')}
           emptyIcon={Users}
@@ -1171,23 +1156,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
           columnPinning
           defaultPinnedColumns={{ left: ['name'] }}
 
-          importExport={{
-            exportFormats: ['csv', 'xlsx'] as ExportFormat[],
-            advancedExport: true,
-            filenamePrefix: 'groupes',
-            exportHeaders: {
-              name: 'Nom',
-              role: 'Rôle',
-              member_count: 'Membres',
-              scope: 'Scope',
-              entity_name: 'Entité',
-              active: 'Statut',
-              created_at: 'Créé le',
-              updated_at: 'Modifié le',
-            },
-          }}
-
-          toolbarRight={groupsExportPdf}
+          importExport={groupsImportExport}
 
           emptyTitle={search ? t('rbac.empty.group_search') : t('rbac.empty.group_none')}
           emptyIcon={Users}

@@ -7865,7 +7865,12 @@
       "refused": "Refused"
     },
     "type_permanent": "Type permanent",
-    "type_temporary": "Type temporary"
+    "type_temporary": "Type temporary",
+    "priority": {
+      "1": "P1 — Critical",
+      "2": "P2 — Normal",
+      "3": "P3 — Low"
+    }
   },
   "quick_create": {
     "title": "Title",

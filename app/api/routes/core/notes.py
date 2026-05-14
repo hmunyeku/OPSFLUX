@@ -157,10 +157,15 @@ async def create_note(
     db.add(note)
     await db.commit()
     await db.refresh(note, attribute_names=["author"])
-    return NoteRead(
-        **NoteRead.model_validate(note).model_dump(),
-        author_name=current_user.full_name,
-    )
+    # Bug #74 (QA v3 Phase 2) : model_dump() inclut deja author_name=None
+    # (defini dans NoteRead avec default None), donc passer author_name= en
+    # kwarg supplementaire declenchait TypeError "multiple values for keyword
+    # argument 'author_name'" et 500 cote client. Le note etait quand meme
+    # cree en BDD (le crash etait au serializer de retour). Fix : mettre la
+    # valeur dans le dict avant l'unpacking, pas en kwarg separe.
+    note_dict = NoteRead.model_validate(note).model_dump()
+    note_dict["author_name"] = current_user.full_name
+    return NoteRead(**note_dict)
 
 
 @router.patch("/{note_id}", response_model=NoteRead)

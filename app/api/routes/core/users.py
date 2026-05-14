@@ -694,6 +694,17 @@ async def update_user(
 
     update_data = body.model_dump(exclude_unset=True)
 
+    # Bug #65 (QA v3) : password doit etre hashe en hashed_password
+    # avant le setattr loop. UserUpdate accepte maintenant le champ
+    # `password` (cf schema) -- ici on l'extrait, on le hashe, et on injecte
+    # dans la cle reelle de colonne `hashed_password`. Mise a jour de
+    # password_changed_at pour audit.
+    if "password" in update_data:
+        new_password = update_data.pop("password")
+        if new_password:
+            update_data["hashed_password"] = hash_password(new_password)
+            update_data["password_changed_at"] = datetime.now(UTC)
+
     # Identity lock: if identity is verified, changing identity fields requires conformite.verify
     IDENTITY_FIELDS = {"first_name", "last_name", "gender", "nationality", "birth_country", "birth_date", "birth_city", "passport_name"}
     if user.identity_verified and (IDENTITY_FIELDS & set(update_data.keys())):

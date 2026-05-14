@@ -475,21 +475,26 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     storageKey: 'rbac-roles',
   }
 
+  // ExportPdfMenu lives in the DataTable's toolbarRight slot so it
+  // aligns horizontally with the Importer/Export CSV actions instead
+  // of floating in a separate row above the filters.
+  const rolesExportPdf = (
+    <ExportPdfMenu
+      items={ROLES_EXPORT_ITEMS}
+      selectedIds={selectedRole ? [selectedRole] : []}
+      context="roles"
+    />
+  )
+
   // When controlled (inside UsersPage), render DataTable directly
   if (isControlled) {
     return (
       <>
         {showCreate && <CreateRoleForm onClose={() => setShowCreate(false)} />}
-        <div className="flex justify-end mb-2">
-          <ExportPdfMenu
-            items={ROLES_EXPORT_ITEMS}
-            selectedIds={selectedRole ? [selectedRole] : []}
-            context="roles"
-          />
-        </div>
         <DataTable
           {...dataTableProps}
           onSearchChange={() => { /* search driven by topbar */ }}
+          toolbarRight={rolesExportPdf}
         />
       </>
     )
@@ -499,16 +504,10 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     <div className="flex gap-0 min-h-[500px]">
       <div className={cn('flex-1 min-w-0', selectedRole && 'max-w-[calc(100%-360px)]')}>
         {showCreate && <CreateRoleForm onClose={() => setShowCreate(false)} />}
-        <div className="flex justify-end mb-2">
-          <ExportPdfMenu
-            items={ROLES_EXPORT_ITEMS}
-            selectedIds={selectedRole ? [selectedRole] : []}
-            context="roles"
-          />
-        </div>
         <DataTable
           {...dataTableProps}
           onSearchChange={(v) => setInternalSearch(v)}
+          toolbarRight={rolesExportPdf}
         />
       </div>
 
@@ -1076,18 +1075,22 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
     }
   }, [onOpenPanel, selectedGroup])
 
+  // ExportPdfMenu lives in the DataTable's toolbarRight slot so it
+  // aligns horizontally with the Importer/Export CSV actions instead
+  // of floating in a separate row above the filters.
+  const groupsExportPdf = (
+    <ExportPdfMenu
+      items={GROUPS_EXPORT_ITEMS}
+      selectedIds={selectedGroup ? [selectedGroup] : []}
+      context="groups"
+    />
+  )
+
   // When controlled (inside UsersPage), render DataTable directly without extra wrappers
   if (isControlled) {
     return (
       <>
         {showCreate && <CreateGroupForm onClose={() => setShowCreate(false)} />}
-        <div className="flex justify-end mb-2">
-          <ExportPdfMenu
-            items={GROUPS_EXPORT_ITEMS}
-            selectedIds={selectedGroup ? [selectedGroup] : []}
-            context="groups"
-          />
-        </div>
         <DataTable
           columns={groupColumns}
           data={groups}
@@ -1128,6 +1131,8 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
             },
           }}
 
+          toolbarRight={groupsExportPdf}
+
           emptyTitle={search ? t('rbac.empty.group_search') : t('rbac.empty.group_none')}
           emptyIcon={Users}
           storageKey="rbac-groups"
@@ -1142,14 +1147,6 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
       <div className={cn('flex-1 min-w-0', selectedGroup && 'max-w-[calc(100%-360px)]')}>
 
         {showCreate && <CreateGroupForm onClose={() => setShowCreate(false)} />}
-
-        <div className="flex justify-end mb-2">
-          <ExportPdfMenu
-            items={GROUPS_EXPORT_ITEMS}
-            selectedIds={selectedGroup ? [selectedGroup] : []}
-            context="groups"
-          />
-        </div>
 
         <DataTable
           columns={groupColumns}
@@ -1189,6 +1186,8 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
               updated_at: 'Modifié le',
             },
           }}
+
+          toolbarRight={groupsExportPdf}
 
           emptyTitle={search ? t('rbac.empty.group_search') : t('rbac.empty.group_none')}
           emptyIcon={Users}

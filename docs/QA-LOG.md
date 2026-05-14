@@ -2630,3 +2630,73 @@ for e in errors:
         e["input"] = f"<{type(e['input']).__name__}>"
 return JSONResponse(status_code=422, content={"detail": errors})
 ```
+
+---
+
+## Session 33 - Round 7 chasse autonome MOC + sous-entites (QA v3, 14 mai 2026 ~22h30)
+
+### Zones testees
+- MOC core (list, get, transitions, PATCH status)
+- Sous-entites Tiers polymorphes (/addresses, /phones, /contact-emails)
+- RBAC (/rbac/matrix, /roles, /groups)
+- Workflows (/workflows, /workflows/definitions)
+
+### Bugs detectes (3)
+
+| Bug | Gravite | Description | Detection |
+|---|---|---|---|
+| **#123** | `POST /addresses` accepte `country: "NOT-A-ISO"` -> 201 | Test valeur invalide |
+| **#124** | `POST /phones` accepte `number: "abcd"` -> 201 (pas de E.164) | Test valeur invalide |
+| **#125** | `PATCH /moc/{id}` body `{status:"approved"}` -> 200 silencieux (champ silencieusement ignore) | Test PATCH status |
+
+### Verifie positivement
+
+- ✅ Email validation tres stricte (`a@b` -> 422 'period required')
+- ✅ Mega email -> 422 too long
+- ✅ Empty number -> 422 min_length
+- ✅ 200x '+' -> 422 max_length=50
+- ✅ Bad owner_type ('INVALID_TYPE') -> 400 'Unsupported owner type'
+- ✅ Fake owner UUID -> 404 (cross-entity protection)
+- ✅ Missing required fields -> 422 propre
+- ✅ MOC list + get OK
+- ✅ /moc/types disponible (vide pour ce tenant)
+
+### Endpoints/transitions inexistants
+
+- POST /moc/{id}/{submit,approve,reject,close,review,validate} -> 404
+- /rbac/matrix, /roles, /groups -> 404 (RBAC inaccessible direct)
+- /workflows, /workflows/definitions -> 404 (workflows admin non expose)
+- /mocs (pluriel) -> 404 (path correct = /moc singulier)
+
+### Fix applique (commit `0584cd60`)
+
+**Bug #125** : `MOCUpdate.model_config = ConfigDict(extra="forbid")`.
+Tout PATCH avec champ inconnu (status, champs typo, anciens noms apres
+refactor) renverra desormais 422 avec message Pydantic explicite au lieu
+d'un 200 silencieux qui ne change rien.
+
+### Bugs documents (a confirmer business)
+
+**#123** Address country code : pas de validation ISO-3166-1 alpha-2/3.
+Risque : valeurs incoherentes en BDD ('USA' vs 'US' vs 'United States').
+Decision business requise avant validation stricte (peut casser des
+adresses existantes avec format custom).
+
+**#124** Phone E.164 : `pattern=r"^\+?[0-9\s\-\(\)\.]{1,50}$"` accepte
+'abcd' (pas de regex en place). Necessite decision business :
+- E.164 strict (`^\+[1-9][0-9]{1,14}$`) -> rejette extensions internes type "3001"
+- E.164 permissif (laisse passer +, -, espaces, parens) -> permet '+33 1 23 45 67 89' mais pas 'abcd'
+
+Recommandation : appliquer regex permissive `^[\+]?[\d\s\-\.\(\)]+$` 
+pour rejeter au moins les lettres pures, sans casser les numeros formates.
+
+### Bilan cumule sessions 1-33
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **114** (+1 round 7) |
+| Bugs corriges effectifs | **68** (+1 : #125) |
+| Bugs documentes (a confirmer business) | **2** (#123 #124) |
+| Faux positifs | **6** |
+| Bugs critiques restants | **0** ✓ |
+| extra="forbid" applique sur | 4 schemas (UserUpdate, TierCreate, MOCUpdate, AddressUpdate*) |

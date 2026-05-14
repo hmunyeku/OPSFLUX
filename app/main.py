@@ -429,8 +429,30 @@ async def global_exception_handler(request, exc):  # type: ignore[no-untyped-def
     import logging as _logging
     from starlette.responses import JSONResponse as _JSONResponse
     _logging.getLogger("app.main").exception(
-        "Unhandled exception on %s %s", request.method, request.url.path
+        "Unhandled exception on %s %s | type=%s module=%s mro=%s",
+        request.method, request.url.path,
+        type(exc).__name__, type(exc).__module__,
+        [c.__name__ for c in type(exc).__mro__[:5]],
     )
+
+    # Bug #114-115 followup : si l'exception ressemble a un body parse error
+    # qui a echappe aux handlers specifiques (a cause de BaseHTTPMiddleware
+    # qui swallow les exceptions, ou autre cas exotique), on retourne 422
+    # avec un message generique. Mieux que 500 + stack trace expose.
+    exc_name = type(exc).__name__.lower()
+    exc_msg = str(exc).lower()
+    if any(kw in exc_name for kw in ("decode", "parse", "validation", "json")) or \
+       any(kw in exc_msg for kw in ("json decode", "expecting value", "extra inputs are not permitted", "input should be")):
+        return _JSONResponse(
+            status_code=422,
+            content={
+                "detail": [{
+                    "type": "body_parse_error",
+                    "loc": ["body"],
+                    "msg": "Le corps de la requete n'a pas pu etre parse. Verifiez le Content-Type (application/json) et le format.",
+                }]
+            },
+        )
     # SUP-secu : ne JAMAIS refleter une origine arbitraire en CORS sur 500.
     # Auparavant tout origin commencant par "https://" etait accepte, ce qui
     # permettait a https://attacker.com de recuperer la reponse + cookies via

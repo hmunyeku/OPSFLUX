@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.common import OpsFluxSchema
 
@@ -31,6 +31,9 @@ class VectorCreate(BaseModel):
 
 
 class VectorUpdate(BaseModel):
+    """Bug #137 (QA v3 round 12) : extra=forbid pour fail-fast sur typos."""
+    model_config = ConfigDict(extra="forbid")
+
     registration: str | None = None
     name: str | None = None
     type: str | None = None
@@ -167,6 +170,9 @@ class VoyageCreate(BaseModel):
 
 
 class VoyageUpdate(BaseModel):
+    """Bug #138 (QA v3 round 12) : extra=forbid pour fail-fast sur typos."""
+    model_config = ConfigDict(extra="forbid")
+
     vector_id: UUID | None = None
     departure_base_id: UUID | None = None
     scheduled_departure: datetime | None = None

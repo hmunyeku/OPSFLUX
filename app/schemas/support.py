@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.common import OpsFluxSchema
 
@@ -14,10 +14,15 @@ from app.schemas.common import OpsFluxSchema
 
 
 class TicketCreate(BaseModel):
+    """Bug #136 (QA v3 round 12) : ticket_type/priority sans pattern Pydantic
+    -> valeurs invalides passaient Pydantic puis crashaient sur le
+    CheckConstraint Postgres au INSERT -> 500. Maintenant rejet propre
+    en 422 cote Pydantic avant tout I/O DB."""
+
     title: str = Field(..., min_length=3, max_length=300)
     description: str | None = None
-    ticket_type: str = Field(default="bug")
-    priority: str = Field(default="medium")
+    ticket_type: str = Field(default="bug", pattern=r"^(bug|improvement|question|other)$")
+    priority: str = Field(default="medium", pattern=r"^(low|medium|high|critical)$")
     source_url: str | None = None
     browser_info: dict | None = None
     tags: list[str] | None = None
@@ -27,11 +32,16 @@ class TicketCreate(BaseModel):
 
 
 class TicketUpdate(BaseModel):
-    title: str | None = None
+    """Bug #136/#140 : extra=forbid + patterns enum pour eviter les 500
+    sur valeurs hors-enum et les silent-drops sur typos."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, min_length=3, max_length=300)
     description: str | None = None
-    ticket_type: str | None = None
-    priority: str | None = None
-    status: str | None = None
+    ticket_type: str | None = Field(default=None, pattern=r"^(bug|improvement|question|other)$")
+    priority: str | None = Field(default=None, pattern=r"^(low|medium|high|critical)$")
+    status: str | None = Field(default=None, pattern=r"^(open|in_progress|waiting_info|resolved|closed|rejected)$")
     assignee_id: UUID | None = None
     resolution_notes: str | None = None
     tags: list[str] | None = None

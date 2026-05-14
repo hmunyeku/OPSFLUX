@@ -8,7 +8,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.common import OpsFluxSchema
 
@@ -308,6 +308,9 @@ class CargoRequestCreate(BaseModel):
 
 
 class CargoRequestUpdate(BaseModel):
+    """Bug #139 (QA v3 round 12) : extra=forbid pour fail-fast sur typos."""
+    model_config = ConfigDict(extra="forbid")
+
     title: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     status: str | None = Field(None, pattern=r"^(draft|submitted|approved|assigned|in_progress|closed|cancelled)$")

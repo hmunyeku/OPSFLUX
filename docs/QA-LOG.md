@@ -2350,6 +2350,72 @@ Plus de 500 silencieux.
 | Exception handlers globaux | 3 (RequestValidation, ValueError, Generic) |
 | Service layer `raise ValueError` couverts | 115 (via handler global) |
 
+---
+
+## Session 30 — Round 4 chasse autonome : 4 bugs validation edge case
+
+### Bugs détectés en chasse autonome
+
+| # | Description | Méthode détection |
+|---|---|---|
+| **#98** CRITIQUE | NUL byte `\x00` dans string → 500 PostgreSQL `CharacterNotInRepertoireError` | Edge case input |
+| **#99** | `capital=-1000` accepté silencieusement → tier créé avec capital négatif | Edge case input |
+| **#100** | `founded_date=2099-12-31` accepté → tier fondé dans le futur | Edge case input |
+| **#101** | 144 clés i18n utilisées dans .tsx mais non définies dans `fr/common.json` | Audit statique grep |
+
+### Tests négatifs réussis (pas de bug)
+
+- ✅ SQL injection `' OR 1=1--` → 200 string-only, pas exécuté
+- ✅ XSS `<script>alert(1)</script>` → 200 échappé
+- ✅ Path traversal `../../etc/passwd` → 200 validation entrée OK
+- ✅ Log4j JNDI → 200 (n/a Python)
+- ✅ Long name 1000 chars → 422 max 200
+- ✅ Concurrent updates × 5 → tous 200 (pas de race condition)
+- ✅ Cross-entity isolation : admin accès cross-entity OK (acting_context legit)
+
+### Fixes appliqués (4 commits)
+
+**Commit `3690fd8e`** — Première vague :
+- **#98** : Nouveau `@app.exception_handler(DBAPIError)` qui filtre 6 patterns PostgreSQL → 422 propre :
+  - `invalid byte sequence`, `character not in repertoire`
+  - `value too long`, `invalid input syntax`
+  - `date/time field value out of range`, `numeric field overflow`
+- **#99** : `Field(default=None, ge=0)` sur `TierCreate.capital`
+- **#100** : `@field_validator("founded_date")` avec ValueError
+
+**Commit `4483173c`** — Followup #100 v2 :
+Le ValueError du validator était shadowed par `_value_error_handler` global (RequestValidationError → ValidationError → ValueError). Tentative de `raise exc` dans le handler ValueError → ne fonctionne pas en FastAPI (l'exception remonte au générique 500).
+
+**Commit `08fdd866`** — Followup #100 v2.1 :
+Tentative `await _validation_error_handler(request, exc)` direct → toujours 500.
+
+**Commit `84891159`** — #100 v3 final (✅ verified prod) :
+Retiré le `field_validator`, déplacé le check dans la route `create_tier()` avec `raise HTTPException(422, detail=[{...}])` au format standard FastAPI/Pydantic. Garanti d'aboutir au 422 propre.
+
+### Découverte technique importante (à éviter)
+
+**Pattern à éviter** : `@app.exception_handler(ValueError)` global est risqué en Pydantic v2 car :
+```
+RequestValidationError ↪ pydantic.ValidationError ↪ ValueError
+```
+Le handler ValueError intercepte aussi les erreurs Pydantic et perd la structure riche (loc, type, ctx). isinstance check + re-raise/delegate ne fonctionne pas en FastAPI (le routing d'exception_handler ne re-route pas).
+
+**Solution privilégiée** : `raise HTTPException(422, detail=[{...}])` direct dans les routes, OU validation au niveau Pydantic schema field (sans validator custom).
+
+### Bilan cumulé sessions 1-30
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **108** (+4 : #98/#99/#100 + 3 followups #100) |
+| Bugs corrigés effectifs | **62** (+3 : #98 #99 #100) |
+| Bugs documentés (non fixés) | **1** (#101 i18n 144 keys -- refactor selectif) |
+| Bugs critiques restants | **0** ✓ |
+| Exception handlers globaux | **4** (RequestValidation, ValueError, DBAPIError, Generic) |
+| Patterns PostgreSQL → 422 | **6** |
+| Validators Pydantic ajoutés | **1** (capital ge=0) |
+| Validations route ajoutées | **1** (founded_date < today) |
+| Étapes QA v3 testées | ~150/200 (75%) |
+
 ### Reste à investiguer
 
 - Bug #69 (`/me/delegations` GET 405) : créer endpoint dédié

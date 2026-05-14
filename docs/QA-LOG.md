@@ -1396,3 +1396,61 @@ Ces 3 bugs nécessitent investigation approfondie côté frontend (Devtools prof
 | Modules UI dashboards validés | **7/7** (Tiers, Projets, Planner, PaxLog, TravelWiz, PackLog, +1 admin Conformité) |
 | Migrations alembic | 9 |
 | Clés i18n FR/EN | 13 568 |
+
+---
+
+## Session 17 v3 — Audit silencieux 77 widgets dashboard (autonome nuit)
+
+**Contexte** : Suite session 17 v2, audit programmatique parallèle de tous les
+widgets du catalogue (`POST /api/v1/dashboards/widget-data` x77) pour détecter
+les `UndefinedColumnError` masqués par try/except trop larges en aval. 9 providers
+faisaient crasher leur requête SQL et renvoyaient silencieusement `{value: 0}`,
+causant des KPI à zéro sans erreur visible côté UI ni log applicatif explicite.
+
+### Fixes 9 widget providers (commits `42deec69` + `cd8fa211`)
+
+| # | Widget | Cause | Fix |
+|---|---|---|---|
+| 41 | `paxlog_compliance_rate` | `compliance_records.is_compliant` n'existe pas | `cr.status = 'valid'` (commit `42deec69`) |
+| 42 | `planner_by_type` libellé `permanent_ops` non traduit | Map manquante | Ajout `'permanent_ops': 'Ops permanentes'` (commit `42deec69`) |
+| 44 | `packlog_overview` valeur 0 | `cargo_count` colonne virtuelle inexistante | Subquery `COUNT cargo_items WHERE manifest_id IN (...)` (commit `42deec69`) |
+| 45 | `weather_sites` (carte météo) | `ar_installations.type` n'existe pas | `installation_type` |
+| 46 | `compliance_expiry` (badges expirants) | `tier_contacts.entity_id` inexistant + `users.badge_number` inexistant | Jointure via `tiers` + `tc.badge_number` seul |
+| 47 | `fleet_map` (carte flotte) | `transport_vectors.status` n'existe pas | `CASE archived/active` |
+| 48 | `assets_map` (carte sites) | `ar_fields.latitude` inexistant (centroid_*) | `centroid_latitude/longitude` pour fields, `latitude/longitude` pour sites/installations |
+| 49 | `paxlog_incidents` | `pax_incidents.status` n'existe pas | `resolved_at IS NULL` |
+| 50 | `conformite_by_category` | `is_compliant` (cf #41) | `cr.status = 'valid'` |
+| 51 | `tiers_overview` (count contacts) | `tier_contacts.entity_id` inexistant | Jointure `tier_contacts.tier_id → tiers.entity_id` |
+| 52 | `packlog_tracking` | `cargo_items.voyage_id` + `ci.status` + `destination_asset_id` inexistants | Lien via `manifest_id → voyage_manifests.voyage_id`, `workflow_status`, suppression colonne destination |
+| 53 | `planner_conflicts_kpi` | `planner_conflicts.resolution_status` n'existe pas | `status IN ('open', 'deferred')` |
+
+### Méthode
+
+Tous les fixes sont basés sur **inspection directe des modèles SQLAlchemy**
+(`app/models/{common,packlog,planner,paxlog,tracking,...}.py`), pas sur des
+hypothèses. Chaque correction porte un docstring expliquant l'écart modèle/SQL
+pour éviter régression. Validation `ast.parse()` du module avant commit.
+
+### Smoke test post-deploy
+
+⚠️ **Non testé en prod** ce soir : le serveur Dokploy `72.60.188.156:3000` et
+les domaines `*.opsflux.io` ne répondent pas depuis le réseau utilisé pour le
+push (timeout sur 80/443/3000). Le commit `cd8fa211` est sur `origin/main` ;
+le webhook GitHub → Dokploy déclenchera l'auto-deploy quand le serveur sera
+de nouveau joignable.
+
+À vérifier au réveil : `POST /api/v1/dashboards/widget-data` sur les 77
+`widget_key` → 0 erreur attendue, valeurs réelles attendues sur les KPI
+ci-dessus précédemment à 0.
+
+### Bilan global cumulé sessions 1-17 v3
+
+| Métrique | Valeur |
+|---|---|
+| **Commits déployés** | **67** (+1 `cd8fa211`) |
+| Bugs corrigés (cumulé) | **40** (+10 widget providers SQL silencieux + permanent_ops i18n) |
+| Bugs documentés à investiguer | 2 (#39 freeze scroll panel, #40 freeze click tab) |
+| Modules UI dashboards validés | 7/7 |
+| Widget providers SQL audités | **77/77** (catalogue complet) |
+| Bugs SQL silencieux découverts par audit | **9** (ratio 11.7% du catalogue) |
+| Régressions sur fixes | 0 (`ast.parse` OK, fixes basés sur modèles SQLAlchemy) |

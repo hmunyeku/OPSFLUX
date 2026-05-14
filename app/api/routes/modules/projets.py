@@ -578,18 +578,24 @@ async def create_project(
     # end_date, parent_id (None pour racine). Le reste est rempli plus
     # tard via le panel detail.
     if initial_tasks:
+        # Bug #143 (QA v3 round 38) : avant fix, on passait `entity_id=entity_id`
+        # et `end_date=...` a ProjectTask qui n'a NI l'un NI l'autre comme
+        # colonne (entity_id resolu via project_id->projects.entity_id,
+        # date de fin = `due_date`). Resultait en TypeError ProjectTask() got
+        # an unexpected keyword argument 'entity_id' -> 500 silencieux a la
+        # creation de projet avec initial_tasks.
         from app.models.common import ProjectTask
         for idx, t_data in enumerate(initial_tasks):
             t_dict = t_data if isinstance(t_data, dict) else t_data.model_dump()
             db.add(ProjectTask(
                 project_id=project.id,
-                entity_id=entity_id,
                 title=t_dict.get("title", "Tache sans titre"),
                 status=t_dict.get("status", "todo"),
                 priority=t_dict.get("priority", "medium"),
                 assignee_id=t_dict.get("assignee_id"),
                 start_date=t_dict.get("start_date"),
-                end_date=t_dict.get("end_date"),
+                due_date=t_dict.get("due_date") or t_dict.get("end_date"),
+                estimated_hours=t_dict.get("estimated_hours"),
                 parent_id=t_dict.get("parent_id"),
                 order=idx,
                 active=True,

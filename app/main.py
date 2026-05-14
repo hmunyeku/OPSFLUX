@@ -325,14 +325,29 @@ async def _value_error_handler(request, exc):  # type: ignore[no-untyped-def]
     ValueError leve dans une route handler ou un service est traduit en
     HTTPException 422 (semantique Pydantic-compatible : validation metier).
 
+    IMPORTANT (bug #100 followup) : `RequestValidationError` herite de
+    `pydantic.ValidationError` qui herite de `ValueError`. Sans le
+    isinstance check ci-dessous, ce handler attrapait AUSSI les erreurs de
+    validation Pydantic (field_validator, etc.) et perdait la structure
+    riche (loc, type, ctx) au profit d'un simple `str(exc)` opaque.
+    Maintenant on re-raise les RequestValidationError pour qu'ils
+    atteignent `_validation_error_handler` plus haut.
+
     Ne touche PAS au `HTTPException` qui restent geres par FastAPI default
     (status code preserve). Ne touche PAS aux autres exceptions (toujours
     geres par global_exception_handler en 500 + Sentry).
-
-    Concrete fix pour #94 incident_create (incidents.py:82) + couvre
-    automatiquement les 114 autres raises ValueError sans toucher chaque
-    route.
     """
+    # Bug #100 followup : laisser passer les ValidationError Pydantic au
+    # _validation_error_handler qui les formate correctement.
+    if isinstance(exc, _RequestValidationError):
+        raise exc
+    try:
+        from pydantic import ValidationError as _PydanticValidationError
+        if isinstance(exc, _PydanticValidationError):
+            raise exc
+    except ImportError:
+        pass
+
     from starlette.responses import JSONResponse as _JSONResponse
     return _JSONResponse(
         status_code=422,

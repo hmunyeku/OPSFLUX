@@ -1587,3 +1587,125 @@ correctement vers Hostinger (changer Wifi, VPN, ou hotspot mobile).
 | Audit dynamique Phase 1 | ✅ 12/15 étapes (3 bloquées par UI) |
 | Audit dynamique Phase 2 | ⛔ bloqué étape 28 (#72) |
 | Audit dynamique Phases 3-9 | 🔜 enchaîner après fix critiques |
+
+---
+
+## Session 20 — Fix 3 bugs critiques + reclassement #72
+
+### Investigation & fixes (commit `c0a32e7a`)
+
+**Bug #72 — FAUX POSITIF (reclassé MINEUR)** :
+Le Tier `QA-DEMO-001` était bien créé (id `bc950f97`) mais sous le code
+`TIR-2026-0013` (auto-généré server-side). Commentaire ligne 123 dans
+`app/api/routes/modules/tiers.py` : `# Auto-generate code server-side
+(client never provides it)`. Le `code` envoyé par le client est ignoré
+silencieusement.
+→ Vrai bug : Pydantic schema devrait rejeter (422) au lieu d'ignorer.
+→ Action : à voir plus tard, non bloquant.
+
+**Bug #74 — POST /notes 500 — ✅ FIXED**
+TypeError `NoteRead() got multiple values for keyword argument 'author_name'`.
+`app/api/routes/core/notes.py:160` faisait `NoteRead(**model_dump(),
+author_name=...)` mais `model_dump()` incluait déjà `author_name=None`
+(default du schema). La note était quand même créée en BDD (le crash
+était au serializer). Fix : set dans le dict avant unpacking.
+Vérifié post-deploy : POST /notes → 201.
+
+**Bug #65 — PATCH /users password silent ignore — ✅ FIXED**
+`UserUpdate` schema n'avait pas de champ `password`. Pydantic ignorait
+silencieusement le champ inconnu, route retournait 200 sans changement.
+Fix : ajout `password: str | None = Field(None, min_length=8)` au schema +
+traitement explicite dans `update_user` (extract → hash_password →
+setattr hashed_password + update password_changed_at).
+Vérifié post-deploy : PATCH password → 200 + login OK avec nouveau pwd.
+
+**Bug #67 — IDOR users — ⚠️ FIX PARTIEL**
+Retrait de `admin.users.read`, `core.rbac.read`, `audit.*`, `rbac.*`
+du rôle READER via denylist explicite dans `permission_sync.py`.
+Cleanup BDD prod réalisé manuellement (DELETE FROM role_permissions
+WHERE role_code='READER' AND permission_code matchait les patterns).
+✅ Viewer n'a plus les perms admin dans `/me/permissions`.
+⚠️ **MAIS** : la route `GET /users` requiert seulement `user.read`
+(générique pour autocomplete, présent dans READER) — pas `admin.users.read`.
+Le serializer `UserRead` retourne TOUS les champs incluant PII
+(passport, medical, addresses, body measurements, etc.) à tout caller
+ayant `user.read`. → Fix complet à faire :
+- (a) introduire un schema `UserListItem` minimaliste pour `/users` (email,
+  first_name, last_name, avatar_url, default_entity_id uniquement)
+- (b) garder `UserRead` complet UNIQUEMENT pour le caller lui-même
+  (`/me`) ou pour les callers avec `admin.users.read`
+- (c) appliquer le scrub côté response (FastAPI response_model dynamic).
+
+Documenté pour itération séparée.
+
+### Bug #71 — `metadata` field POST /tiers
+
+Confirmé : même avec le nom correct `metadata` (vs `metadata_`), le champ
+n'est ni accepté ni retourné. La colonne BDD existe et est vide. Probable
+exclusion du schema Pydantic `TierCreate`/`TierRead`. À investiguer.
+
+### Bug #73 — naming inconsistent endpoints polymorphiques
+
+Détails :
+| Endpoint | Field attendu | Field documenté/payload usuel |
+|---|---|---|
+| `/addresses` | `address_line1` | `line1` |
+| `/emails` | `email` | `address` |
+| `/notes` | `content` | `body` |
+| `/legal-identifiers` | introuvable (404) | endpoint absent |
+
+L'incohérence force le client à apprendre 4 conventions différentes. À
+unifier en suivant une convention unique (proposition : `line1`, `address`,
+`body`, et créer `/legal-identifiers` ou alias `/identifiers`).
+
+### Bug #75 — endpoint `/legal-identifiers` 404
+
+Tous les paths testés retournent 404 :
+- `/api/v1/legal-identifiers`, `/api/v1/legal-ids`, `/api/v1/identifiers`,
+  `/api/v1/legal_identifiers`, `/api/v1/tiers/{id}/legal-identifiers`,
+  `/api/v1/tiers/{id}/identifiers`
+
+L'endpoint est complètement manquant alors que le modèle SQLAlchemy
+existe. À implémenter.
+
+### Bilan post-fixes session 20
+
+| Bug | Statut |
+|---|---|
+| #54 Project soft-delete | ✅ FIXED (session 18) |
+| #65 PATCH password silent | ✅ FIXED |
+| #67 IDOR READER | ⚠️ Fix partiel (perms admin retirées) - serializer conditionnel à faire |
+| #71 metadata Tier | ❌ Documenté, fix séparé |
+| #72 Tier persistence | ⚠️ Reclassé mineur (auto-gen code volontaire) |
+| #73 naming inconsistent | ❌ Documenté, refactor APIs |
+| #74 POST /notes 500 | ✅ FIXED |
+| #75 legal-identifiers 404 | ❌ Endpoint à créer |
+
+### Phase 2 état avancé (Tier QA-DEMO-001 = TIR-2026-0013 = `bc950f97`)
+
+| Sous-entité | Statut | Commentaire |
+|---|---|---|
+| Tier core (37 champs) | ✅ persisted | metadata vide (#71) |
+| Addresses | ✅ 2 créées | via `/addresses` polymorphic + `address_line1` |
+| Phones | ✅ 3 créées | via `/phones` polymorphic + `number` |
+| Emails | ✅ 2 créées | via `/emails` polymorphic + `email` |
+| Tags | ✅ 5 créés | via `/tags` polymorphic + `name` |
+| Notes | ✅ 1+ post-fix | bug #74 fixed |
+| Contact | ✅ 1 créé | + phones/emails OK |
+| Legal IDs | ❌ bloqué #75 | endpoint absent |
+| Compliance records | ⏭️ non testé |
+| Attachments | ⏭️ non testé |
+| External refs | ⏭️ non testé |
+| Imputations | ⏭️ non testé |
+
+### Bilan cumulé sessions 1-20
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **73** (+1 cette session : `c0a32e7a` 3 fixes critiques) |
+| Bugs corrigés | **43** (+2 : #65 password, #74 notes 500) |
+| Bugs documentés à arbitrer | **22** (#39 #40 #55-#75) |
+| Bugs CRITIQUES non corrigés | **1** (#67 PII leak via serializer) |
+| Phase 1 (auth) | ✅ 13/15 (UI bloquée pour 2) |
+| Phase 2 (Tiers) | ✅ 6/10 sous-entités (legal-ids #75) |
+| Phases 3-9 | 🔜 next session |

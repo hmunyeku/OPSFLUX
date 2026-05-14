@@ -437,16 +437,17 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'Tiers — Entreprises & Contacts',
     icon: '🏢',
     description:
-      'Annuaire des entreprises partenaires, fournisseurs, sous-traitants et leurs contacts. Portail externe pour les tiers.',
+      'Annuaire des entreprises partenaires, fournisseurs, sous-traitants et leurs contacts. Portail externe pour les tiers. La liste affiche les entreprises (tab Entreprises) ou les employés (tab Contacts).',
     workflows: [
       {
         title: 'Ajouter une entreprise',
         requiredAnyPermissions: ['tier.tier.create', 'tier.tier.read'],
         steps: [
-          'Cliquez "+ Nouveau tiers"',
-          'Renseignez la raison sociale, SIRET, type',
-          'Ajoutez les contacts (personnes)',
-          "Liez l'entreprise aux utilisateurs concernés",
+          'Cliquez "+ Nouveau tiers" en haut à droite (ou utilisez le menu "Création rapide" du header)',
+          'Renseignez au minimum le **Nom** (obligatoire, max 200 caractères) — le code TIR est généré automatiquement',
+          'Optionnellement : type (client/fournisseur/sous-traitant/partenaire), forme juridique, SIRET, capital, devise',
+          "Adresse, téléphone, email, site web — utiles pour le portail externe et les rapports PDF",
+          'Validez avec "Créer" — vous serez redirigé vers la fiche détail',
         ],
       },
       {
@@ -475,7 +476,11 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
       'Un tiers peut être fournisseur ET sous-traitant (types multiples)',
       'Les contacts tiers sont utilisés comme PAX externes dans PaxLog',
       'Le portail externe permet aux tiers de soumettre des documents directement',
-      'Le blocage d\'un tiers empêche la création de nouveaux AdS pour ses contacts',
+      'Le blocage d\'un tiers (bouton "Bloquer") empêche la création de nouveaux AdS pour ses contacts et marque la raison',
+      'Les emails de contacts sont validés au format RFC — `jean@dupont` est rejeté, `jean@dupont.fr` accepté',
+      'Le code TIR-AAAA-NNNN est immuable après création (pour préserver les références croisées)',
+      'Un contact peut être promu en utilisateur OPSFLUX via "Promouvoir en utilisateur" — l\'email devient le login',
+      'External refs (SAP, ERP tiers) permettent de mapper un tier OPSFLUX vers d\'autres systèmes via leur code externe',
     ],
     elementHelp: {},
   },

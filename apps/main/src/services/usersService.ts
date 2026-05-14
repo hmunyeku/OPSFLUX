@@ -161,3 +161,21 @@ export interface RecentActivityResponse {
   groups: RecentGroupItem[]
   roles: RecentRoleItem[]
 }
+
+// ── Delegation / simulation candidates (purpose-built endpoints) ──
+
+export interface UserBriefRead {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  avatar_url: string | null
+}
+
+/** List up to 50 active users in the current entity, excluding self.
+ *  Optimised for delegation pickers — avoids loading the whole user table. */
+export async function listDelegationCandidates(search?: string): Promise<UserBriefRead[]> {
+  const params = search ? { search } : {}
+  const { data } = await api.get<UserBriefRead[]>('/api/v1/users/me/delegation-candidates', { params })
+  return data
+}

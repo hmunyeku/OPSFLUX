@@ -2,9 +2,24 @@
  * React Query hooks for users.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { usersService } from '@/services/usersService'
+import { usersService, listDelegationCandidates } from '@/services/usersService'
 import type { UserCreate, UserUpdate } from '@/types/api'
 import { useAuthStore } from '@/stores/authStore'
+
+/**
+ * List up to 50 active users in the current entity (excluding self),
+ * optimised for delegation/simulation pickers. Backend endpoint:
+ * GET /api/v1/users/me/delegation-candidates
+ */
+export function useDelegationCandidates(search?: string) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
+  return useQuery({
+    queryKey: ['delegation-candidates', currentEntityId, search ?? ''],
+    queryFn: () => listDelegationCandidates(search),
+    enabled: Boolean(currentEntityId),
+    staleTime: 30_000,
+  })
+}
 
 export function useUsers(params: { page?: number; page_size?: number; search?: string; active?: boolean; user_type?: string; mfa_enabled?: boolean } = {}) {
   const currentEntityId = useAuthStore((state) => state.currentEntityId)

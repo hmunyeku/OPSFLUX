@@ -7,9 +7,9 @@
  * 3. Period (datepicker) + Reason (textarea)
  */
 import { useState } from 'react'
-import { ChevronRight, ChevronLeft, X, Loader2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, X, Loader2, Search } from 'lucide-react'
 import { useCreateDelegation } from '@/hooks/useRbac'
-import { useUsers } from '@/hooks/useUsers'
+import { useDelegationCandidates } from '@/hooks/useUsers'
 import { usePermissions } from '@/hooks/useRbac'
 import { useToast } from '@/components/ui/Toast'
 
@@ -31,9 +31,13 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
     new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16)
   )
   const [reason, setReason] = useState<string>('')
+  const [delegateSearch, setDelegateSearch] = useState<string>('')
 
-  const { data: usersResp } = useUsers({ page: 1, page_size: 200 })
-  const users = usersResp?.items ?? []
+  // Backed by GET /api/v1/users/me/delegation-candidates — top 50 active users
+  // in current entity, excludes self. Search-aware (server-side filter).
+  const { data: users = [], isLoading: usersLoading } = useDelegationCandidates(
+    delegateSearch.trim() || undefined
+  )
   const { data: allPerms = [] } = usePermissions()
 
   const canNext1 = !!delegateId
@@ -77,19 +81,70 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
           {/* Step 1: Delegate picker */}
           {step === 1 && (
             <div>
-              <label className="block text-sm font-medium mb-2">Délégué (qui reçoit la délégation)</label>
-              <select
-                value={delegateId}
-                onChange={e => setDelegateId(e.target.value)}
-                className="w-full rounded-md border border-slate-300 p-2 text-sm"
-              >
-                <option value="">— Sélectionner un utilisateur —</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.first_name} {u.last_name} ({u.email})
-                  </option>
-                ))}
-              </select>
+              <label className="block text-sm font-medium mb-2">
+                Délégué (qui reçoit la délégation)
+              </label>
+              <p className="mb-3 text-xs text-slate-500">
+                Top 50 utilisateurs actifs de votre tenant. Tapez pour filtrer par nom/email.
+              </p>
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={delegateSearch}
+                  onChange={e => setDelegateSearch(e.target.value)}
+                  placeholder="Rechercher un utilisateur…"
+                  className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 text-sm dark:border-slate-600 dark:bg-slate-900"
+                />
+              </div>
+
+              {usersLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                </div>
+              ) : users.length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-500">
+                  Aucun utilisateur ne correspond.
+                </p>
+              ) : (
+                <ul className="max-h-72 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-1 dark:border-slate-700">
+                  {users.map(u => {
+                    const selected = u.id === delegateId
+                    return (
+                      <li key={u.id}>
+                        <button
+                          type="button"
+                          onClick={() => setDelegateId(u.id)}
+                          className={
+                            'flex w-full items-center gap-3 rounded px-2 py-1.5 text-left text-sm ' +
+                            (selected
+                              ? 'bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-blue-100'
+                              : 'hover:bg-slate-50 dark:hover:bg-slate-700')
+                          }
+                        >
+                          {u.avatar_url ? (
+                            <img
+                              src={u.avatar_url}
+                              alt=""
+                              className="h-6 w-6 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700 dark:bg-slate-600 dark:text-slate-100">
+                              {(u.first_name?.[0] ?? '?').toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-medium">
+                              {u.first_name} {u.last_name}
+                            </div>
+                            <div className="truncate text-xs text-slate-500">{u.email}</div>
+                          </div>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </div>
           )}
 

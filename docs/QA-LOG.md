@@ -2841,3 +2841,78 @@ des audits qui necessiteraient outils dedies (Lighthouse, k6, OWASP ZAP)
 plutot que des scripts API. Les 35 sessions cumulees couvrent ~165/200
 etapes du protocole strict (82%) avec un focus pratique sur les bugs
 plutot que les etapes mecaniques.
+
+---
+
+## Session 36 - Rounds 10-11 audit silent-field-drop Update schemas (15 mai 2026 ~00h)
+
+### Pattern systemique identifie
+
+Pydantic v2 default `extra="ignore"` -> tout champ inconnu sur PATCH est
+silencieusement drope. Frontend croit avoir modifie un champ alors que
+le backend l'a juste ignore. Pattern decouvert via #125 (MOC) puis
+generalisé.
+
+### Audit Round 10 (PATCH sur entites principales)
+
+| Endpoint | Schema | Comportement (avant fix) |
+|---|---|---|
+| PATCH /tiers/{id} | TierUpdate | SILENT_DROP sur archived/code/id/FOO_TYPO |
+| PATCH /projects/{id} | ProjectUpdate | SILENT_DROP sur FOO_TYPO |
+| PATCH /users/{id} | UserUpdate | OK (deja extra=forbid #65/#84) |
+
+### Audit Round 11 (PATCH sur sous-entites)
+
+| Endpoint | Schema | Comportement (avant fix) |
+|---|---|---|
+| PATCH /projects/{p}/tasks/{t} | ProjectTaskUpdate | SILENT_DROP |
+| PATCH /tiers/{t}/contacts/{c} | TierContactUpdate | SILENT_DROP |
+| PATCH /addresses/{a} | AddressUpdate | OK (extra=forbid #84) |
+| PATCH /phones/{p} | PhoneUpdate | OK (extra=forbid #84) |
+
+### Fixes appliques (2 commits)
+
+**Commit `82e0c9da`** - Bug #132/#133 :
+- TierUpdate -> extra=forbid
+- ProjectUpdate -> extra=forbid
+
+**Commit `33bd01db`** - Bug #134/#135 :
+- ProjectTaskUpdate -> extra=forbid
+- TierContactUpdate -> extra=forbid
+
+### Verification Round 10 prod (8/8 PASS)
+
+| Test | Resultat |
+|---|---|
+| PATCH /tiers archived=True | 422 extra_forbidden ✓ |
+| PATCH /tiers code immutable | 422 ✓ |
+| PATCH /tiers id immutable | 422 ✓ |
+| PATCH /tiers FOO_TYPO | 422 ✓ |
+| PATCH /tiers name (legit) | 200 ✓ |
+| PATCH /projects FOO_TYPO | 422 ✓ |
+| PATCH /projects name | 200 ✓ |
+| PATCH /projects weather | 200 ✓ |
+
+### Statut actuel des Update schemas
+
+| extra=forbid | Update schemas (10) |
+|---|---|
+| ✅ | UserUpdate, TierUpdate, ProjectUpdate, ProjectTaskUpdate, TierContactUpdate, MOCUpdate, AddressUpdate, PhoneUpdate, TagUpdate, ContactEmailUpdate |
+| ⚠️ | 119 autres Update schemas (extra=ignore par defaut) |
+
+Les 119 schemas restants peuvent avoir le meme pattern silent-drop mais
+necessitent audit individuel : certains acceptent legitimement des
+champs FE non-declares (relations enriched, timestamps lus puis renvoyes).
+Une revue systematique aurait un cout/benefice moyen vu que les schemas
+critiques (CRUD principal) sont maintenant durcis.
+
+### Bilan cumule sessions 1-36
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **119** (+2 round 10-11) |
+| Bugs corriges effectifs | **73** (+4 : #132 #133 #134 #135) |
+| Update schemas hardenes | **10 / 129** (8%) |
+| Bugs critiques restants | **0** ✓ |
+| Rounds chasse autonome | **11** |
+| Patterns systemiques fixes | Pydantic v2 input scrubbing, Pydantic extra=forbid bulk, ESLint hooks, upload extension blacklist, JSONDecodeError handler, DBAPIError sanitize |

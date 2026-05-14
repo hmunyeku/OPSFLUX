@@ -7,7 +7,9 @@
   .synthesis-box { margin-top: 30mm; padding: 8mm; background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 0 2mm 2mm 0; }
   .synthesis-box h3 { margin-top: 0; }
   .synthesis-box ul { margin: 0; padding-left: 4mm; }
-  .compliance-note { margin-top: 20mm; font-size: 9pt; color: #64748b; }
+  /* page-break-inside:avoid keeps the two paragraphs together so the
+     audit reference doesn't end up alone on its own page. */
+  .compliance-note { margin-top: 12mm; font-size: 9pt; color: #64748b; page-break-inside: avoid; }
   .compliance-note p { margin: 1mm 0; }
   .toc { page-break-after: always; }
   .toc h2 { border-bottom: 2px solid #1e293b; padding-bottom: 2mm; }

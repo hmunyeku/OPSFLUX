@@ -512,26 +512,47 @@ async def build_role_modules_variables(
     levels: list[dict] = []
     modules_in_use = sorted({m for m in perm_module.values()})
 
+    # Hierarchical access-level classifier — highest match wins. Tiers are
+    # designed to match the legend baked into role_modules.{fr,en}.body.html
+    # (ADM / MGR / RWA / RWS / RW / R / —). The previous version produced
+    # the literal "?" for roles whose granted actions didn't fall in the
+    # narrow (approve|validate|submit|create|update|delete|read) bucket —
+    # e.g. roles that only have "manage", "import", "publish"… The new
+    # buckets cover the 24 distinct actions present in prod (2026-05).
+    APPROVE_ACTIONS = {"approve", "validate", "validate_afc", "verify"}
+    SUBMIT_ACTIONS = {"submit", "reject", "transition", "apply", "cancel"}
+    WRITE_ACTIONS = {
+        "create", "update", "delete", "publish", "customize", "reorder",
+        "share", "declare", "import", "export", "check", "receive", "resolve",
+    }
+
     for r in roles:
         for mod in modules_in_use:
             mod_perms = {p.code for p in permissions if perm_module[p.code] == mod}
             granted = rp_map.get(r.code, set()) & mod_perms
             if not granted:
-                level = "-"
+                # Use en-dash (U+2013) to match the template's empty marker
+                # (`level == '–'` check in role_modules.{fr,en}.body.html).
+                level = "–"
             elif granted == mod_perms:
                 level = "ADM"
             else:
                 actions = {p.action for p in permissions if p.code in granted}
-                if "approve" in actions or "validate" in actions:
+                if "manage" in actions:
+                    level = "MGR"
+                elif actions & APPROVE_ACTIONS:
                     level = "RWA"
-                elif "submit" in actions:
+                elif actions & SUBMIT_ACTIONS:
                     level = "RWS"
-                elif "create" in actions or "update" in actions or "delete" in actions:
+                elif actions & WRITE_ACTIONS:
                     level = "RW"
                 elif "read" in actions:
                     level = "R"
                 else:
-                    level = "?"
+                    # No recognised action and no read either — show the
+                    # neutral en-dash marker instead of "?" which looked
+                    # like a rendering glitch in past PDFs.
+                    level = "–"
             levels.append({"role_code": r.code, "module": mod, "level": level})
 
     return {

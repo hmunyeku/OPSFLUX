@@ -15,7 +15,7 @@ import {
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
-import { useComplianceTypes, useCreateComplianceRecord, useJobPositions } from '@/hooks/useConformite'
+import { useComplianceTypes, useCreateComplianceRecord } from '@/hooks/useConformite'
 import { attachmentsService } from '@/services/settingsService'
 import type { ComplianceRecordCreate } from '@/types/api'
 import { useConformiteDictionaryState } from '../shared'
@@ -26,6 +26,11 @@ import { SearchableSelect } from '../components'
 import { UserPicker } from '@/components/shared/UserPicker'
 import { ContactPicker } from '@/components/shared/ContactPicker'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+// Session 27 : remplace le SearchableSelect + useJobPositions bulk par un
+// vrai picker base sur EntityPickerBase, server-side search debounced. Scale
+// aux tenants avec milliers de fiches de poste (ferme TODO existant dans
+// CreateTransferPanel.tsx:49).
+import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 
 export function CreateComplianceRecordPanel() {
   return (
@@ -88,19 +93,8 @@ function CreateComplianceRecordInner() {
     [t],
   )
 
-  // Bug #89 : fetch job positions pour le picker (lazy -- seulement quand
-  // owner_type='job_position'). useJobPositions est lui aussi un useQuery
-  // donc le hook s'execute toujours, mais on l'utilise conditionnellement
-  // dans le render.
-  const { data: jobPositionsData } = useJobPositions({ page_size: 200 })
-  const jobPositionOptions = useMemo(
-    () =>
-      (jobPositionsData?.items ?? []).map((jp) => ({
-        value: jp.id,
-        label: `${jp.code} — ${jp.name}`,
-      })),
-    [jobPositionsData?.items],
-  )
+  // Session 27 : useJobPositions/jobPositionOptions retire -- JobPositionPicker
+  // gere son propre fetch server-side debounced. Plus de useMemo bulk.
 
   const handleCreate = async () => {
     if (!form.compliance_type_id || !form.owner_type || !form.owner_id) {
@@ -217,10 +211,9 @@ function CreateComplianceRecordInner() {
                   placeholder={t('conformite.records.placeholders.owner_id')}
                 />
               ) : form.owner_type === 'job_position' ? (
-                <SearchableSelect
-                  value={form.owner_id}
-                  onChange={(id) => setForm({ ...form, owner_id: id })}
-                  options={jobPositionOptions}
+                <JobPositionPicker
+                  value={form.owner_id || null}
+                  onChange={(id) => setForm({ ...form, owner_id: id || '' })}
                   placeholder={t('conformite.records.placeholders.owner_id')}
                 />
               ) : (

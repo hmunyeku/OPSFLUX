@@ -7988,9 +7988,7 @@
     "actions": {
       "activate": "Activate",
       "deactivate": "Deactivate"
-    }
-  },
-  "rbac": {
+    },
     "export": {
       "button": "Export PDF",
       "close": "Close",
@@ -8000,7 +7998,85 @@
     },
     "delegations": {
       "title": "Delegations",
-      "coming_soon": "Coming soon."
+      "coming_soon": "Coming soon.",
+      "empty": "No delegation",
+      "status": {
+        "active": "Active",
+        "programmed": "Scheduled",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      },
+      "kpi": {
+        "active": "Active",
+        "expiring_soon": "Expiring in 7d",
+        "expired_30d": "Expired (30d)",
+        "revoked_30d": "Revoked (30d)"
+      },
+      "filter": {
+        "all": "All statuses",
+        "active": "Active",
+        "programmed": "Scheduled",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      },
+      "toolbar": {
+        "export_registry": "Export registry",
+        "create": "Create delegation"
+      },
+      "columns": {
+        "delegator": "Delegator",
+        "delegate": "Delegate",
+        "period": "Period",
+        "perms": "Perms",
+        "status": "Status"
+      },
+      "actions": {
+        "download_certificate": "Download PDF certificate",
+        "revoke": "Revoke"
+      },
+      "toast": {
+        "revoked": "Delegation revoked",
+        "error": "Error"
+      },
+      "revoke": {
+        "title": "Revoke this delegation?",
+        "warning": "The delegate will immediately lose these permissions. This action is logged in the ISO audit trail.",
+        "reason_label": "Reason (required, minimum 10 characters — ISO 27001 §A.9.2.6 requirement)",
+        "reason_placeholder": "E.g. Explicit request from delegate, end of mission, etc.",
+        "cancel": "Cancel",
+        "confirm": "Revoke",
+        "in_progress": "Revoking…"
+      },
+      "wizard": {
+        "title": "Create a delegation — Step {{step}}/3",
+        "previous": "Previous",
+        "next": "Next",
+        "submit": "Create the delegation",
+        "submitting": "Creating…",
+        "toast": {
+          "created_title": "Delegation created",
+          "created_desc": "2 emails sent (you + delegate)",
+          "error_title": "Creation failed",
+          "unknown_error": "Unknown error"
+        },
+        "step1": {
+          "label": "Delegate (who receives the delegation)",
+          "hint": "Top 50 active users in your tenant. Type to filter by name/email.",
+          "search_placeholder": "Search a user…",
+          "no_match": "No user matches."
+        },
+        "step2": {
+          "label": "Permissions to delegate ({{count}} selected)",
+          "hint": "Note: you can only delegate permissions you effectively hold (excluding received delegations)."
+        },
+        "step3": {
+          "start": "Start",
+          "end": "End",
+          "reason_label": "Reason (required, minimum 10 characters — ISO 27001 requirement)",
+          "reason_placeholder": "E.g. Vacation from Aug 1st to 15th — delegate MOC validation",
+          "reason_counter": "{{count}}/500 characters, minimum 10"
+        }
+      }
     },
     "settings": {
       "saved": "Settings saved",

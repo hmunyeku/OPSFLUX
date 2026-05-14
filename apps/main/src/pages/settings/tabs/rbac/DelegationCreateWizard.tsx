@@ -7,6 +7,7 @@
  * 3. Period (datepicker) + Reason (textarea)
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronRight, ChevronLeft, X, Loader2, Search } from 'lucide-react'
 import { useCreateDelegation } from '@/hooks/useRbac'
 import { useDelegationCandidates } from '@/hooks/useUsers'
@@ -21,6 +22,7 @@ interface Props {
 type Step = 1 | 2 | 3
 
 export function DelegationCreateWizard({ onClose, onCreated }: Props) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createMutation = useCreateDelegation()
   const [step, setStep] = useState<Step>(1)
@@ -54,15 +56,15 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
         reason: reason.trim(),
       })
       toast({
-        title: 'Délégation créée',
-        description: '2 emails envoyés (vous + délégué)',
+        title: t('rbac.delegations.wizard.toast.created_title', 'Délégation créée'),
+        description: t('rbac.delegations.wizard.toast.created_desc', '2 emails envoyés (vous + délégué)'),
         variant: 'success',
       })
       onCreated()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: { message?: string } } }; message?: string }
-      const errMsg = e?.response?.data?.detail?.message ?? e?.message ?? 'Erreur inconnue'
-      toast({ title: 'Échec de la création', description: errMsg, variant: 'error' })
+      const errMsg = e?.response?.data?.detail?.message ?? e?.message ?? t('rbac.delegations.wizard.toast.unknown_error', 'Erreur inconnue')
+      toast({ title: t('rbac.delegations.wizard.toast.error_title', 'Échec de la création'), description: errMsg, variant: 'error' })
     }
   }
 
@@ -71,7 +73,7 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
       <div className="w-[600px] max-h-[80vh] overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-800">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-700">
-          <h2 className="text-lg font-semibold">Créer une délégation — Étape {step}/3</h2>
+          <h2 className="text-lg font-semibold">{t('rbac.delegations.wizard.title', 'Créer une délégation — Étape {{step}}/3', { step })}</h2>
           <button onClick={onClose} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700">
             <X className="h-5 w-5" />
           </button>
@@ -82,10 +84,10 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
           {step === 1 && (
             <div>
               <label className="block text-sm font-medium mb-2">
-                Délégué (qui reçoit la délégation)
+                {t('rbac.delegations.wizard.step1.label', 'Délégué (qui reçoit la délégation)')}
               </label>
               <p className="mb-3 text-xs text-slate-500">
-                Top 50 utilisateurs actifs de votre tenant. Tapez pour filtrer par nom/email.
+                {t('rbac.delegations.wizard.step1.hint', 'Top 50 utilisateurs actifs de votre tenant. Tapez pour filtrer par nom/email.')}
               </p>
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -93,7 +95,7 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
                   type="text"
                   value={delegateSearch}
                   onChange={e => setDelegateSearch(e.target.value)}
-                  placeholder="Rechercher un utilisateur…"
+                  placeholder={t('rbac.delegations.wizard.step1.search_placeholder', 'Rechercher un utilisateur…')}
                   className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 text-sm dark:border-slate-600 dark:bg-slate-900"
                 />
               </div>
@@ -104,7 +106,7 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
                 </div>
               ) : users.length === 0 ? (
                 <p className="py-6 text-center text-sm text-slate-500">
-                  Aucun utilisateur ne correspond.
+                  {t('rbac.delegations.wizard.step1.no_match', 'Aucun utilisateur ne correspond.')}
                 </p>
               ) : (
                 <ul className="max-h-72 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-1 dark:border-slate-700">
@@ -152,10 +154,10 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
           {step === 2 && (
             <div>
               <label className="block text-sm font-medium mb-2">
-                Permissions à déléguer ({permissions.length} sélectionnées)
+                {t('rbac.delegations.wizard.step2.label', 'Permissions à déléguer ({{count}} sélectionnées)', { count: permissions.length })}
               </label>
               <p className="mb-2 text-xs text-slate-500">
-                Note : vous ne pouvez déléguer que les permissions que vous possédez effectivement (hors délégations reçues).
+                {t('rbac.delegations.wizard.step2.hint', 'Note : vous ne pouvez déléguer que les permissions que vous possédez effectivement (hors délégations reçues).')}
               </p>
               <div className="max-h-80 overflow-y-auto rounded border border-slate-200 p-2 dark:border-slate-700">
                 {allPerms.map((p) => (
@@ -186,7 +188,7 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <label>
-                  <span className="block text-sm font-medium mb-1">Début</span>
+                  <span className="block text-sm font-medium mb-1">{t('rbac.delegations.wizard.step3.start', 'Début')}</span>
                   <input
                     type="datetime-local"
                     value={startDate}
@@ -195,7 +197,7 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
                   />
                 </label>
                 <label>
-                  <span className="block text-sm font-medium mb-1">Fin</span>
+                  <span className="block text-sm font-medium mb-1">{t('rbac.delegations.wizard.step3.end', 'Fin')}</span>
                   <input
                     type="datetime-local"
                     value={endDate}
@@ -206,17 +208,17 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
               </div>
               <label>
                 <span className="block text-sm font-medium mb-1">
-                  Motif (obligatoire, minimum 10 caractères — exigence ISO 27001)
+                  {t('rbac.delegations.wizard.step3.reason_label', 'Motif (obligatoire, minimum 10 caractères — exigence ISO 27001)')}
                 </span>
                 <textarea
                   value={reason}
                   onChange={e => setReason(e.target.value)}
                   rows={4}
                   className="w-full rounded-md border border-slate-300 p-2 text-sm"
-                  placeholder="Ex: Vacances du 1er au 15 août — déléguer la validation des MOC"
+                  placeholder={t('rbac.delegations.wizard.step3.reason_placeholder', 'Ex: Vacances du 1er au 15 août — déléguer la validation des MOC')}
                 />
                 <span className="mt-1 block text-xs text-slate-500">
-                  {reason.length}/500 caractères, minimum 10
+                  {t('rbac.delegations.wizard.step3.reason_counter', '{{count}}/500 caractères, minimum 10', { count: reason.length })}
                 </span>
               </label>
             </div>
@@ -232,7 +234,7 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
             className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-30 dark:hover:bg-slate-700"
           >
             <ChevronLeft className="h-4 w-4" />
-            Précédent
+            {t('rbac.delegations.wizard.previous', 'Précédent')}
           </button>
 
           {step < 3 ? (
@@ -242,7 +244,7 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
               disabled={(step === 1 && !canNext1) || (step === 2 && !canNext2)}
               className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Suivant
+              {t('rbac.delegations.wizard.next', 'Suivant')}
               <ChevronRight className="h-4 w-4" />
             </button>
           ) : (
@@ -255,10 +257,10 @@ export function DelegationCreateWizard({ onClose, onCreated }: Props) {
               {createMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Création…
+                  {t('rbac.delegations.wizard.submitting', 'Création…')}
                 </>
               ) : (
-                'Créer la délégation'
+                t('rbac.delegations.wizard.submit', 'Créer la délégation')
               )}
             </button>
           )}

@@ -78,6 +78,12 @@ function useSubTabs(): { key: RbacSubTab; label: string; icon: React.ElementType
 }
 
 // ── PDF export menu items (PR-C Task 4.2) ─────────────────────────
+// TODO i18n: these *_EXPORT_ITEMS constants are at module scope and cannot
+// call useTranslation(). To translate, convert each into a hook (e.g.
+// useRolesExportItems()) returning the array with t() calls, then update
+// callers (RolesTab, GroupsTab, PermissionsTab). For now, labels and
+// descriptions remain French-only — they only render inside the
+// ExportPdfMenu dropdown in admin contexts. Tracked under I1.
 
 const ROLES_EXPORT_ITEMS: ExportPdfItem[] = [
   {

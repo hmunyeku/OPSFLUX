@@ -7998,7 +7998,85 @@
     },
     "delegations": {
       "title": "Délégations",
-      "coming_soon": "À venir."
+      "coming_soon": "À venir.",
+      "empty": "Aucune délégation",
+      "status": {
+        "active": "Active",
+        "programmed": "Programmée",
+        "expired": "Expirée",
+        "revoked": "Révoquée"
+      },
+      "kpi": {
+        "active": "Actives",
+        "expiring_soon": "Expirent dans 7j",
+        "expired_30d": "Expirées (30j)",
+        "revoked_30d": "Révoquées (30j)"
+      },
+      "filter": {
+        "all": "Tous statuts",
+        "active": "Actives",
+        "programmed": "Programmées",
+        "expired": "Expirées",
+        "revoked": "Révoquées"
+      },
+      "toolbar": {
+        "export_registry": "Export registre",
+        "create": "Créer une délégation"
+      },
+      "columns": {
+        "delegator": "Délégant",
+        "delegate": "Délégué",
+        "period": "Période",
+        "perms": "Perms",
+        "status": "Statut"
+      },
+      "actions": {
+        "download_certificate": "Télécharger le certificat PDF",
+        "revoke": "Révoquer"
+      },
+      "toast": {
+        "revoked": "Délégation révoquée",
+        "error": "Erreur"
+      },
+      "revoke": {
+        "title": "Révoquer cette délégation ?",
+        "warning": "Le délégué perdra immédiatement ces permissions. Cette action est tracée dans l'audit ISO.",
+        "reason_label": "Motif (obligatoire, minimum 10 caractères — exigence ISO 27001 §A.9.2.6)",
+        "reason_placeholder": "Ex: Demande explicite du délégué, fin de mission, etc.",
+        "cancel": "Annuler",
+        "confirm": "Révoquer",
+        "in_progress": "Révocation…"
+      },
+      "wizard": {
+        "title": "Créer une délégation — Étape {{step}}/3",
+        "previous": "Précédent",
+        "next": "Suivant",
+        "submit": "Créer la délégation",
+        "submitting": "Création…",
+        "toast": {
+          "created_title": "Délégation créée",
+          "created_desc": "2 emails envoyés (vous + délégué)",
+          "error_title": "Échec de la création",
+          "unknown_error": "Erreur inconnue"
+        },
+        "step1": {
+          "label": "Délégué (qui reçoit la délégation)",
+          "hint": "Top 50 utilisateurs actifs de votre tenant. Tapez pour filtrer par nom/email.",
+          "search_placeholder": "Rechercher un utilisateur…",
+          "no_match": "Aucun utilisateur ne correspond."
+        },
+        "step2": {
+          "label": "Permissions à déléguer ({{count}} sélectionnées)",
+          "hint": "Note : vous ne pouvez déléguer que les permissions que vous possédez effectivement (hors délégations reçues)."
+        },
+        "step3": {
+          "start": "Début",
+          "end": "Fin",
+          "reason_label": "Motif (obligatoire, minimum 10 caractères — exigence ISO 27001)",
+          "reason_placeholder": "Ex: Vacances du 1er au 15 août — déléguer la validation des MOC",
+          "reason_counter": "{{count}}/500 caractères, minimum 10"
+        }
+      }
     },
     "settings": {
       "saved": "Réglages sauvés",

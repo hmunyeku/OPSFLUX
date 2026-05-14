@@ -2916,3 +2916,83 @@ critiques (CRUD principal) sont maintenant durcis.
 | Bugs critiques restants | **0** ✓ |
 | Rounds chasse autonome | **11** |
 | Patterns systemiques fixes | Pydantic v2 input scrubbing, Pydantic extra=forbid bulk, ESLint hooks, upload extension blacklist, JSONDecodeError handler, DBAPIError sanitize |
+
+---
+
+## Session 37 - Round 12 chasse + regression + hotfix (15 mai 2026 ~00h45)
+
+### Zones testees
+- TravelWiz vectors, voyages, cargo-requests
+- Support tickets (POST + PATCH)
+- PaxLog incidents + ADS
+- Edge cases enums/typos
+
+### Bugs detectes Round 12 (5)
+
+| Bug | Gravite | Description |
+|---|---|---|
+| **#136** CRITIQUE | POST /support/tickets priority='INVALID' -> **500** (CheckConstraint PG crash) |
+| **#137** | PATCH /travelwiz/vectors silent-drop FOO_TYPO |
+| **#138** | PATCH /travelwiz/voyages silent-drop |
+| **#139** | PATCH /travelwiz/cargo-requests silent-drop |
+| **#140** | PATCH /support/tickets silent-drop (tentative fix -> regression) |
+
+### Fix initial (commit `d5f58102`)
+
+- TicketCreate : patterns regex sur priority/ticket_type alignes sur DB enum
+- TicketUpdate : patterns + `extra="forbid"` + min_length=3 sur title
+- VectorUpdate/VoyageUpdate/CargoRequestUpdate : `extra="forbid"`
+
+### REGRESSION DETECTEE en verification PROD
+
+`PATCH /support/tickets/{id}` avec body non-empty -> **500** !
+- Empty body `{}` -> 200 OK
+- Body `{"priority":"high"}` -> 500
+- Body `{"description":"x"}` -> 500
+- Sur TOUS les tickets, meme ceux non-touches par tests precedents
+
+**Cause probable** : interaction entre `extra="forbid"` sur TicketUpdate
+et la route `update_ticket` qui retourne `_enrich_ticket(ticket, umap)`
+- un dict ETENDU (reporter_name, assignee_name, comment_count) destine
+au `response_model=TicketRead`. Le mismatch des chemins de validation
+ou un side-effect de Pydantic v2 ConfigDict casse le serialisation chain.
+
+### Hotfix (commit `94a2bcfb`)
+
+- ✅ **Garde** patterns priority/status/ticket_type sur TicketCreate ET
+  TicketUpdate (fix #136 critique maintenu)
+- ❌ **Retire** `extra="forbid"` + `min_length` sur TicketUpdate
+
+**Verification 6/6 PASS** :
+- PATCH ticket priority=high -> 200 (regression resolue)
+- POST priority='INVALID' -> 422 (#136 maintenu)
+- PATCH priority='INVALID' -> 422 (#136 PATCH side)
+- Vector/Voyage/Cargo typo -> 422 (#137-#139)
+
+### Lecon - quand `extra="forbid"` est dangereux
+
+Le pattern `extra="forbid"` est sur (1) ce qui RENTRE (PATCH body),
+mais affecte indirectement (2) ce qui SORT (response_model validation).
+
+Quand la route fait un enrichissement custom (`_enrich_ticket` retourne
+un dict avec des fields non-presents dans le schema Update), Pydantic v2
+peut interpreter la presence du config comme s'appliquant aux deux sens,
+ou caractere strict des response_model_validate suffix... a investiguer
+en profondeur.
+
+**Regle pragmatique** : pour les Update schemas dont la route retourne
+un dict-enrichi via fonction custom, **eviter extra="forbid"** sauf si
+on cleanup la fonction d'enrichissement pour matcher exactement le
+schema Read.
+
+### Bilan cumule sessions 1-37
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **122** (+3 round 12 : initial + hotfix + docs) |
+| Bugs corriges effectifs | **77** (+4 round 12 : #136 #137 #138 #139, #140 abandonne) |
+| Update schemas hardenes (extra=forbid) | **14 / 129** (~11%) |
+| Patterns enum DB ajoutes (Pydantic) | **3** (TicketCreate priority/ticket_type, TicketUpdate priority/ticket_type/status) |
+| Bugs critiques restants | **0** ✓ |
+| Rounds chasse autonome | **12** |
+| Regressions detectees + hotfixees | **1** (TicketUpdate extra=forbid -> revert) |

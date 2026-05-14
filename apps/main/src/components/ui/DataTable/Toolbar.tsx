@@ -215,14 +215,21 @@ export function DataTableToolbar({
   toolbarLeft,
   toolbarRight,
 }: ToolbarProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { toast } = useToast()
   const [dropdown, setDropdown] = useState<DropdownState>({ type: 'closed' })
   const [filterSearch, setFilterSearch] = useState('')
-  // PDF export sub-state (lang + include-disabled-modules) — only used when
-  // importExport.pdfExports is non-empty. Kept inside the toolbar so the
-  // dropdown content can render the FR/EN switch alongside the items.
-  const [pdfLang, setPdfLang] = useState<'fr' | 'en'>(importExport?.pdfDefaultLang ?? 'fr')
+  // PDF export sub-state — only the "include disabled modules" toggle is
+  // user-facing. Language is taken from the active i18n locale: no switch
+  // shown, the exported PDF matches the UI language. Falls back to the
+  // optional `pdfDefaultLang` when the active locale isn't supported by
+  // the backend templates (currently fr/en only) or when i18n is mocked
+  // without a language field (test contexts).
+  const activePdfLang = i18n?.language?.toLowerCase() ?? ''
+  const pdfLang: 'fr' | 'en' =
+    activePdfLang.startsWith('en') ? 'en'
+      : activePdfLang.startsWith('fr') ? 'fr'
+      : (importExport?.pdfDefaultLang ?? 'fr')
   const [pdfIncludeDisabled, setPdfIncludeDisabled] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -937,35 +944,17 @@ export function DataTableToolbar({
                   </>
                 )}
 
-                {/* PDF exports — appended below CSV/XLSX with a separator and
-                    a tiny FR/EN switch + include-disabled toggle. */}
+                {/* PDF exports — appended below CSV/XLSX with a separator.
+                    Language is taken automatically from the active i18n
+                    locale (no FR/EN switch shown). Only the "include
+                    disabled modules" toggle remains user-facing. */}
                 {hasPdfExports && (
                   <>
                     {hasExportFormats && <div className="border-t border-border/50 my-0.5" />}
                     <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border/50 mb-0.5">
-                      PDF
+                      {t('rbac.export.section_title', 'Matrice Permissions (PDF)')}
                     </p>
-                    <div className="px-3 py-1.5 flex flex-col gap-1.5 border-b border-border/50">
-                      <div className="flex items-center gap-2 text-[11px]">
-                        <span className="text-muted-foreground">{t('rbac.export.lang', 'Langue')}</span>
-                        <div className="inline-flex rounded-md border border-border overflow-hidden">
-                          {(['fr', 'en'] as const).map((l) => (
-                            <button
-                              key={l}
-                              type="button"
-                              onClick={() => setPdfLang(l)}
-                              className={cn(
-                                'px-2 py-0.5 text-[10px] uppercase transition-colors',
-                                pdfLang === l
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'hover:bg-accent text-foreground',
-                              )}
-                            >
-                              {l}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                    <div className="px-3 py-1.5 border-b border-border/50">
                       <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
                         <input
                           type="checkbox"

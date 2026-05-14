@@ -7991,6 +7991,7 @@
     },
     "export": {
       "button": "PDF",
+      "section_title": "Permissions Matrix (PDF)",
       "close": "Close",
       "lang": "Language:",
       "include_disabled_modules": "Include disabled modules",

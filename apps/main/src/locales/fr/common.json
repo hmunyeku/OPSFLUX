@@ -7991,6 +7991,7 @@
     },
     "export": {
       "button": "PDF",
+      "section_title": "Matrice Permissions (PDF)",
       "close": "Fermer",
       "lang": "Langue :",
       "include_disabled_modules": "Inclure modules désactivés",

@@ -47,10 +47,17 @@ export function ExportPdfMenu({
   defaultIncludeDisabledModules = false,
   hasPermission = true,
 }: ExportPdfMenuProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
-  const [lang, setLang] = useState<'fr' | 'en'>(defaultLang)
+  // Language follows the active i18n locale — no FR/EN switch shown.
+  // Falls back to `defaultLang` when the active locale isn't supported
+  // OR when i18n is mocked without a language field (test contexts).
+  const activeLang = i18n?.language?.toLowerCase() ?? ''
+  const lang: 'fr' | 'en' =
+    activeLang.startsWith('en') ? 'en'
+      : activeLang.startsWith('fr') ? 'fr'
+      : defaultLang
   const [includeDisabledModules, setIncludeDisabledModules] = useState(defaultIncludeDisabledModules)
 
   if (!hasPermission) return null
@@ -91,27 +98,13 @@ export function ExportPdfMenu({
             aria-label={t('rbac.export.close')}
           />
           <div className="absolute right-0 z-20 mt-1 w-80 rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
-            {/* Header: language + disabled modules toggle */}
+            {/* Section header + include-disabled toggle. Language is taken
+                from the active i18n locale (no FR/EN switch shown). */}
             <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-500">{t('rbac.export.lang')}</span>
-                <div className="inline-flex rounded-md border border-slate-300 dark:border-slate-600">
-                  {(['fr', 'en'] as const).map(l => (
-                    <button
-                      key={l}
-                      type="button"
-                      onClick={() => setLang(l)}
-                      className={cn(
-                        'px-2 py-0.5 text-xs uppercase',
-                        lang === l ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-transparent'
-                      )}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <label className="mt-2 flex items-center gap-2 text-xs">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                {t('rbac.export.section_title', 'Matrice Permissions (PDF)')}
+              </p>
+              <label className="flex items-center gap-2 text-xs">
                 <input
                   type="checkbox"
                   checked={includeDisabledModules}

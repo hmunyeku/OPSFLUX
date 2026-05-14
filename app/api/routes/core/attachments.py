@@ -25,6 +25,51 @@ from app.core.errors import StructuredHTTPException
 router = APIRouter(prefix="/api/v1/attachments", tags=["attachments"])
 
 
+# Bug #126 (QA v3 round 8) : ANY file extension was accepted (including
+# malware.exe, script.sh, safe.pdf.exe with double extension). Vraie
+# vulnerabilite : un user peut hoster du contenu malveillant sur notre
+# domaine (S3/local), avec URL signee partageable. Blacklist explicite
+# des extensions dangereuses + check du **dernier** segment apres dot
+# pour attraper les double-extensions (safe.pdf.exe -> .exe).
+_BLOCKED_EXTENSIONS = {
+    # Executables Windows
+    "exe", "msi", "bat", "cmd", "com", "scr", "pif", "dll", "sys", "drv",
+    # Scripts
+    "sh", "bash", "zsh", "ksh", "csh", "ps1", "psm1", "vbs", "vbe", "wsf", "wsh",
+    # macOS / Linux executables
+    "app", "dmg", "pkg", "deb", "rpm", "run", "bin",
+    # Java / cross-platform
+    "jar", "class",
+    # Web shells / server-side scripts
+    "php", "phtml", "php3", "php4", "php5", "php7", "asp", "aspx", "jsp", "jspx", "cgi", "pl", "py",
+    # Office macros (Word/Excel) — dangerous template files
+    "xlm", "docm", "dotm", "xlsm", "xltm", "pptm", "potm", "ppsm",
+    # Misc
+    "reg", "lnk", "url", "iso", "img", "vhd", "vhdx",
+}
+
+
+def _validate_extension(filename: str) -> None:
+    """Bug #126 : raise HTTPException 415 if filename has a blocked extension.
+
+    Checks ALL extensions (e.g. `safe.pdf.exe` -> blocked on `.exe`).
+    """
+    if not filename:
+        return  # caller already defaults to "file"
+    parts = filename.lower().rsplit(".", 4)  # check up to 4 dotted segments
+    extensions = parts[1:] if len(parts) > 1 else []
+    for ext in extensions:
+        if ext in _BLOCKED_EXTENSIONS:
+            raise HTTPException(
+                status_code=415,
+                detail=(
+                    f"Extension de fichier '.{ext}' interdite pour des raisons "
+                    "de securite. Extensions bloquees : executables, scripts, "
+                    "fichiers d'installation."
+                ),
+            )
+
+
 @router.get("", response_model=list[AttachmentRead])
 async def list_attachments(
     owner_type: str = Query(..., description="Object type: user, tier, asset, entity"),
@@ -71,6 +116,9 @@ async def upload_attachment(
     """Upload a file attachment linked to any object."""
     parsed_owner_id = UUID(owner_id)
     await check_polymorphic_owner_access(owner_type, parsed_owner_id, current_user, db, request, write=True)
+
+    # Bug #126 : valider l'extension avant tout (early reject sans I/O).
+    _validate_extension(file.filename or "")
 
     content = await file.read()
 

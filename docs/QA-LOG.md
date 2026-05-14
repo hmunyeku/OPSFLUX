@@ -1454,3 +1454,70 @@ ci-dessus précédemment à 0.
 | Widget providers SQL audités | **77/77** (catalogue complet) |
 | Bugs SQL silencieux découverts par audit | **9** (ratio 11.7% du catalogue) |
 | Régressions sur fixes | 0 (`ast.parse` OK, fixes basés sur modèles SQLAlchemy) |
+
+---
+
+## Session 18 — QA v3 Phase 0 (recon code statique, autonome nuit)
+
+**Contexte** : protocole v3 `QA-PROTOCOL-200-v3.md` créé pendant la nuit
+(commit `1a8cde3a`). FAI local ne route plus `72.60.188.156` (vérifié via
+check-host : 4 nodes externes UP). Donc Phases 1-9 (browser-driven) bloquées.
+Phase 0 (recon code statique) **exécutée**.
+
+### Résultats Phase 0 — 10 étapes
+
+| # | Action | Résultat | Tag |
+|---|---|---|---|
+| 1 | Grep `TODO\|FIXME\|HACK\|XXX` | 4 hits (cible < 30) — 3 placeholders doc, 1 TODO documenté | ✅ PASS |
+| 2 | Grep `console.log/warn/error` côté front | 10 hits (cible < 10) — tous légitimes (ErrorBoundary, warn réseau Leaflet) | ✅ PASS |
+| 3 | Grep `: any` ou `<any>` TypeScript | **78 hits** (cible < 50) — hotspots `useAssetRegistry` (18), `useFileManager` (6), `ProjectPicker` (6) | ⚠️ WARN |
+| 4 | Grep `dangerouslySetInnerHTML` | 9 hits — 7/9 safe (DOMPurify + SVG mermaid + markdown escapé), 2 admin-only (`EditEmailTemplatePanel`, `VectorDeckPlanTab`) | ⚠️ WARN |
+| 5 | Storage `token/password` | 2 hits — `access_token` + `refresh_token` dans `localStorage` (pattern SPA-JWT, risque XSS connu) | ⚠️ WARN |
+| 6 | Clés i18n FR | 6 787 clés dans `fr/common.json` (single-namespace) — analyse orphelines reportée (besoin runtime) | ℹ️ INFO |
+| 7 | Routes définies vs sidebar | 1 route potentiellement morte : `/assets-legacy/*` → `AssetsPage` (remplacée par `/assets` → `AssetRegistryPage`) | ⚠️ WARN |
+| 8 | Logs serveur password/token | 1 fuite potentielle : `auth.py:1415` log `token_resp.text[:500]` en cas d'échec SSO | ⚠️ WARN |
+| 9 | SoftDeleteMixin compliance (37 anomalies grep, 1 vrai bug) | **Bug #54 : `Project` a `archived` sans SoftDeleteMixin → pas de `deleted_at`** | ❌ FAIL |
+| 10 | Alembic heads = 1 | **5 heads** (4 pré-existants : `095_project_debt_cleanup`, `096_add_pickup_stop_assignments`, `146_migrate_legacy_milestones`, `157_project_situations` + `174` légitime) | ⚠️ WARN |
+
+### Bug #54 — Project sans SoftDeleteMixin ✅ FIXED (commit `eb0fe4f6`)
+
+* Modèle `Project` hérite désormais de `SoftDeleteMixin`
+* Migration `174_project_soft_delete_repair.py` ajoute `deleted_at` (idempotente, inspector check)
+* Index partiel `idx_projects_deleted_at` pour requêtes projets archivés récents
+* Service générique `delete_entity` gère déjà le timestamp — aucune autre modif requise
+* Impact : restaure la traçabilité ISO de l'archivage des projets (audit 9001/27001)
+
+### Bugs documentés (non fixés cette nuit, à arbitrer)
+
+| # | Description | Sévérité | Action |
+|---|---|---|---|
+| 55 | 78 `any` TypeScript — dette typage modérée | mineur | refactor par batch dans hotspots |
+| 56 | 2 `dangerouslySetInnerHTML` admin-only sans sanitize visible (`EditEmailTemplatePanel`, `VectorDeckPlanTab`) | mineur (admin only) | vérifier sanitize backend côté upload SVG plans de pont |
+| 57 | Tokens JWT dans `localStorage` (XSS-readable) | majeur connu | refactor vers cookie HttpOnly (gros chantier) |
+| 58 | Route morte `/assets-legacy/*` → `AssetsPage` | nettoyage | supprimer route + composant si vraiment non utilisé |
+| 59 | SSO error log peut leak partial OAuth token (`auth.py:1415`) | mineur | redact `token_resp.text` en cas d'erreur |
+| 60 | 4 heads alembic morts | majeur (audit) | fusion manuelle prudente avec BDD prod stamped en sécurité |
+
+### Phase 1-9 — BLOQUÉ réseau
+
+Le FAI local (route via Maroc Telecom 41.x) ne joint plus l'IP `72.60.188.156` :
+* ICMP ping : KO
+* TCP 22, 80, 443, 3000 : tous timeout
+* Traceroute s'arrête au hop 19 dans la range Hostinger
+
+**Vérif externe via check-host.net** : 4 nodes EU + USA confirment `api.opsflux.io`
+HTTP 200 et Dokploy port 3000 ouvert (50-480 ms). **Serveur UP, problème = mon FAI**.
+
+→ Exécution des phases 1-9 reportée à la prochaine connexion sur réseau qui route
+correctement vers Hostinger (changer Wifi, VPN, ou hotspot mobile).
+
+### Bilan cumulé sessions 1-18
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **70** (+3 cette nuit : `1a8cde3a`, `eb0fe4f6`, et 2 doc) |
+| Bugs corrigés | **41** (+1 bug #54 Project soft-delete) |
+| Bugs documentés à arbitrer | **8** (#39 #40 #55 #56 #57 #58 #59 #60) |
+| Audit statique passes | 7/10 (Phase 0 v3) |
+| Audit dynamique | bloqué (réseau) |
+| Migrations alembic | 10 (head principal `174`) |

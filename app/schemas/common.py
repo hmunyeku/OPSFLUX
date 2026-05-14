@@ -566,6 +566,13 @@ class TierCreate(BaseModel):
 
 
 class TierUpdate(BaseModel):
+    """Bug #132 (QA v3 round 10) : `extra="forbid"` pour fail-fast sur
+    champs immuables (id, code, entity_id, created_at) et typos. Avant
+    fix : `PATCH {"code":"TIR-HACKED"}` -> 200 silencieux (code drop)
+    laissant croire au client que la modification a abouti."""
+
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = None
     alias: str | None = None
     trade_name: str | None = None
@@ -1849,6 +1856,13 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
+    """Bug #133 (QA v3 round 10) : `extra="forbid"` pour fail-fast sur
+    champs typo. Avant fix : `PATCH {"FOO":"x"}` -> 200 silencieux. Le
+    status est protege par RBAC route-level (transitions via permission
+    check) mais les champs typo passaient silencieusement."""
+
+    model_config = ConfigDict(extra="forbid")
+
     code: str | None = None
     name: str | None = None
     description: str | None = None

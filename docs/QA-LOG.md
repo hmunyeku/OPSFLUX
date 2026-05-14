@@ -1709,3 +1709,116 @@ existe. À implémenter.
 | Phase 1 (auth) | ✅ 13/15 (UI bloquée pour 2) |
 | Phase 2 (Tiers) | ✅ 6/10 sous-entités (legal-ids #75) |
 | Phases 3-9 | 🔜 next session |
+
+---
+
+## Session 21 — Fix #67 complet + Phases 3-7 + migration 177 FK-safe
+
+### Commits poussés cette session
+
+* `58f49046` — fix(security): #67 complet, schéma `UserListItem` minimaliste pour
+  `GET /users` + restriction `GET /users/{id}` à self/admin pour la PII
+  complète. Vérifié post-deploy : viewer GET /users → 9 keys, 0 PII.
+* `09c9b44b` — fix(alembic): migration 177 (Bastien commit `bd691e98`)
+  plantait en FK violation (`moc.change.*` perms inexistantes).
+  `_grant_explicit` change INSERT VALUES → INSERT SELECT WHERE EXISTS.
+  Permet au backend de redémarrer après l'avoir bloqué en restart loop.
+
+### Phase 3 — Projets ✅ partiel
+
+* Step 56-57 : Project `PRJ-QA-V3-001` créé (id `a42ddc1c`) sur asset `ASP1`.
+  ⚠️ **5 champs ignorés silencieusement** : `sponsor_id`, `actual_start`,
+  `progress_pct`, `tags`, `custom_fields`. → **Bug #76**.
+* Step 58 : 5 tasks créées (T1, T2, M1 milestone, T3, T4) ✓
+* Step 65 : Activities liées au project = 0 (cohérent)
+* Step 69 : CPM (chemin critique) retourne `project_duration_days`,
+  `critical_path_task_ids`, `tasks`, `has_cycles`, `warnings` ✓
+* Step 70 : Liste filtrée (status, priority) ✓
+* Step 75 : qa.viewer (READER) → GET /projects 200 ✓, POST /projects 403 ✓
+
+### Widget data smoke test ✅ — 9 fixes nuit validés
+
+POST `/dashboards/widget-data` avec **`widget_id` ET `widget_type`** (les
+deux nécessaires, → Bug #77 naming peu intuitif).
+
+| Widget | row_count | Sample data |
+|---|---|---|
+| projets_kpis | OK | KPIs |
+| planner_overview | OK | overview |
+| planner_conflicts_kpi | OK | post-fix nuit |
+| paxlog_compliance_rate | OK | **`unit: '%'` confirmé** (fix #41) |
+| packlog_overview | OK | post-fix nuit (#44) |
+| fleet_map | 1 | markers (post-fix #47) |
+| assets_map | 1 | markers (post-fix #48) |
+| weather_sites | 1 | sites (post-fix #45) |
+| packlog_tracking | OK | post-fix #52 |
+
+→ **Mes 9 fixes SQL nuit validés en prod** ✅✅
+
+### Phase 4 — Planner ✅ partiel
+
+* Step 86-87 : Activity `ACT-QA-V3-001` créée (id `2a76dd33`). 🚨 **12 champs
+  ignorés** : `code`, `start_at`, `end_at`, `all_day`, `owner_id`, `pax_count`,
+  `shift`, `risk_level`, `permit_required`, `permit_number`, `tags`,
+  `custom_fields`. → **Bug #79** beaucoup trop.
+* Naming : POST attend `type` (pas `activity_type`) → **Bug #78**
+* PATCH status=cancelled → 200 ✓
+* GET /planner/activities/<id>/ical → 404 → **Bug #80**
+* Filtres GET (type, status, priority, owner_id) → 200 ✓
+
+### Phase 5 — PaxLog ✅ partiel
+
+* Step 111-112 : PaxProfile créé (id `cdb4b4d5`). 🚨 **11 champs ignorés** :
+  `civility`, `date_of_birth`, `gender`, `employee_number`, `position`,
+  `department`, `emergency_contact`, `medical_status`, `last_medical_at`,
+  `next_medical_at`, `notes`. → **Bug #81**. Champs essentiels d'un PAX
+  juste perdus à la création.
+* Step 115 : POST `/pax/<id>/movements` → 404 endpoint introuvable.
+* Step 124 : Liste profiles → 25 items ✓
+* Step 145 : Widget paxlog_compliance_rate → `unit: '%'` ✓ (régression
+  nuit non revenue)
+
+### Phase 6 — PackLog ⚠️ bloquée
+
+* `/packlog/requests` (CargoRequest) → **404** sur tous les paths testés.
+* `/packlog/cargo` → 200 (items individuels uniquement).
+* → **Bug #82** : concept CargoRequest absent de l'API alors qu'il était
+  documenté dans le protocole v3 et utilisé en UI. À investiguer côté code.
+
+### Phase 7 — TravelWiz ✅ découverte (massive naming inconsistency)
+
+* `/travelwiz/vectors` GET → 200 ✓
+* POST naming totalement différent du protocole v3 :
+  | Protocole v3 | API réelle |
+  |---|---|
+  | `code` | `registration` |
+  | `capacity_pax` | `pax_capacity` |
+  | `capacity_cargo_kg` | `weight_capacity_kg` |
+  | `mmsi` | `mmsi_number` |
+  | `operator_id` | `home_base_id` |
+  | `home_port` | (absent) |
+  → **Bug #83** : massive incohérence vector schema vs documentation.
+
+### Bugs documentés cette session (8 nouveaux)
+
+| # | Sévérité | Description |
+|---|---|---|
+| 76 | mineur | POST `/projects` : 5 champs silencieusement ignorés (`sponsor_id`, `actual_start`, `progress_pct`, `tags`, `custom_fields`) |
+| 77 | mineur | `/dashboards/widget-data` veut **les deux** `widget_id` ET `widget_type` (probablement instance unique sur un dashboard) — un seul devrait suffire |
+| 78 | mineur | POST `/planner/activities` attend `type` (pas `activity_type`) |
+| 79 | majeur | POST `/planner/activities` : **12 champs ignorés** (essentiels : `start_at`, `end_at`, `owner_id`, `pax_count`, `permit_*`, etc.) |
+| 80 | mineur | GET `/planner/activities/{id}/ical` → 404 (export iCal absent) |
+| 81 | **majeur** | POST `/pax/profiles` : **11 champs essentiels ignorés** dont `date_of_birth`, `gender`, `medical_status`, dates médicales |
+| 82 | majeur | `/packlog/requests` (CargoRequest) endpoint absent sur tous paths — concept manquant côté API |
+| 83 | majeur | `/travelwiz/vectors` POST : naming totalement inconsistant vs doc (`code→registration`, 5 autres champs) |
+
+### Bilan cumulé sessions 1-21
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **75** (+2 : `58f49046` UserListItem, `09c9b44b` 177 FK-safe) |
+| Bugs corrigés | **44** (+1 : #67 complet) |
+| Bugs documentés | **30** (#39 #40 #55-#83) |
+| Phases QA v3 testées | 0-7/9 (Phase 8 UI cohérence + 9 responsive restent en UI Chrome MCP) |
+| Widgets dashboard | ✅ 9/9 fixes nuit validés en prod |
+| Critique non corrigé | 0 (#67 désormais FIXED) |

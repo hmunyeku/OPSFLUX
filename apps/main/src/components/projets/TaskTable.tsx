@@ -627,7 +627,15 @@ export function TaskTable({
     <div
       ref={wrapRef}
       className={cn(
-        'border border-border rounded-md overflow-hidden bg-card/30 flex flex-col',
+        // Bug #122 (QA v3 round 6) : le wrap avait `overflow-hidden` mais
+        // sans `min-w-0 w-full`, son parent flex/grid laissait le grid
+        // interne pousser la largeur intrinseque -> table debordait du
+        // panel detail Projet (cf screenshots utilisateur 14 mai 2026).
+        // `min-w-0` casse la largeur intrinseque min-content du flex item ;
+        // `w-full` ancre la largeur au parent. Le `overflow-x-auto` permet
+        // un fallback scroll horizontal si jamais le ResizeObserver rate
+        // une transition (au lieu de cacher avec overflow-hidden).
+        'border border-border rounded-md bg-card/30 flex flex-col w-full min-w-0 overflow-x-auto overflow-y-hidden',
         className,
       )}
       style={{ maxHeight }}

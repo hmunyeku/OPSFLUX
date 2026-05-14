@@ -291,9 +291,15 @@ export function CpmSection({ projectId }: { projectId: string }) {
         </div>
       )}
       {cpm && cpm.tasks.length > 0 && (
-        <div className="space-y-2">
-          {/* Stats row — 4 KPIs: durée projet, tâches critiques, total, marge moyenne */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+        <div className="@container space-y-2">
+          {/* Stats row — 4 KPIs: durée projet, tâches critiques, total, marge moyenne.
+              Bug #122 (QA v3 round 6) : `sm:grid-cols-4` se base sur le viewport
+              global, donc meme dans un panel detail etroit (~500px) le layout
+              forcait 4 colonnes -> derniere carte "MARGE MOYENNE" debordait du
+              panel a droite. Solution : container query Tailwind (@container
+              parent + @[NNpx]:grid-cols-X enfant) pour adapter au container reel.
+              Seuils : 280px = 2 col, 560px = 4 col (sinon 1 col par defaut). */}
+          <div className="grid grid-cols-1 @[280px]:grid-cols-2 @[560px]:grid-cols-4 gap-2 text-[11px]">
             <div className="border border-primary/30 bg-primary/5 rounded p-2">
               <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.advanced.cpm.total_duration', 'Durée totale')}</div>
               <div className="text-lg font-semibold tabular-nums text-primary">{cpm.project_duration_days} j</div>
@@ -399,9 +405,15 @@ export function CpmSection({ projectId }: { projectId: string }) {
             // Progression · Timeline · Marge · Durée. The timeline is
             // capped (was 1fr — way too wide on big screens); the
             // tâche column gets the leftover flex space.
-            const GRID = '64px minmax(180px,1fr) 78px 78px 56px minmax(180px,360px) 50px 50px'
+            // Bug #122 (QA v3 round 6) : minimums originaux (Tâche min 180 +
+            // Timeline min 180 + le reste fixes) sommaient ~736px -> debordait
+            // dans le panel detail (~500-700px). Reduit `Tâche` a 120, `Timeline`
+            // a 100 + on garde le scroll horizontal en wrapper pour les cas
+            // extremes. Le wrapper passe en `overflow-x-auto` (au lieu de
+            // `overflow-hidden` qui coupait sans recours pour l'utilisateur).
+            const GRID = '56px minmax(120px,1fr) 70px 70px 48px minmax(100px,300px) 50px 50px'
             return (
-              <div className="border border-border rounded overflow-hidden">
+              <div className="border border-border rounded w-full min-w-0 overflow-x-auto">
                 <div
                   className="grid gap-2 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground"
                   style={{ gridTemplateColumns: GRID }}

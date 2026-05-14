@@ -468,12 +468,19 @@ async def global_exception_handler(request, exc):  # type: ignore[no-untyped-def
             "Access-Control-Allow-Credentials": "true",
             "Vary": "Origin",
         }
+    # DEBUG TEMPORAIRE (bug #114-115 v3) : expose le type exact d'exception
+    # dans la reponse pour identifier la classe qui passe au travers des
+    # handlers specifiques. A retirer une fois la cause identifiee.
     return _JSONResponse(
         status_code=500,
         content={
             "error": "internal_server_error",
             "message": "Une erreur interne est survenue.",
             "path": request.url.path,
+            "_debug_exc_type": type(exc).__name__,
+            "_debug_exc_module": type(exc).__module__,
+            "_debug_exc_mro": [c.__name__ for c in type(exc).__mro__[:6]],
+            "_debug_exc_msg": str(exc)[:300],
         },
         headers=cors_headers,
     )

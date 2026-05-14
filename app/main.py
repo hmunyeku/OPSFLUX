@@ -301,19 +301,47 @@ def _scrub_validation_errors(errors: list) -> list:
     return out
 
 
+def _sanitize_error_input(errors: list) -> list:
+    """Bug #114-115 v3 (QA v3 round 6) : Pydantic v2 errors() inclut le
+    champ `input` dans chaque erreur, et si l'input est `bytes` (cas
+    typique d'un POST avec Content-Type non-JSON ou body binaire),
+    `json.dumps` echoue avec `TypeError: Object of type bytes is not JSON
+    serializable`. L'exception remonte au global handler -> 500 au lieu
+    de 422 propre.
+
+    Solution : remplacer tout `input` non-JSON-serializable par sa repr
+    tronquee, et le marquer pour clarte. Couvre bytes, set, et autres
+    types Python qui ne sont pas dans le JSON natif (str, int, float,
+    bool, None, list, dict).
+    """
+    import json as _json
+    _JSON_NATIVE = (str, int, float, bool, type(None), list, dict)
+    out = []
+    for err in errors:
+        cleaned = dict(err)
+        if "input" in cleaned:
+            inp = cleaned["input"]
+            if not isinstance(inp, _JSON_NATIVE):
+                # Force string repr, tronque a 200 chars.
+                cleaned["input"] = f"<{type(inp).__name__}: {repr(inp)[:200]}>"
+        out.append(cleaned)
+    return out
+
+
 @app.exception_handler(_RequestValidationError)
 async def _validation_error_handler(request, exc):  # type: ignore[no-untyped-def]
     from starlette.responses import JSONResponse as _JSONResponse
 
+    errors = _sanitize_error_input(list(exc.errors()))
     if _is_sensitive_route(request.url.path):
         return _JSONResponse(
             status_code=422,
-            content={"detail": _scrub_validation_errors(list(exc.errors()))},
+            content={"detail": _scrub_validation_errors(errors)},
         )
     # Default behavior for non-auth routes (FastAPI's default format).
     return _JSONResponse(
         status_code=422,
-        content={"detail": list(exc.errors())},
+        content={"detail": errors},
     )
 
 
@@ -468,19 +496,12 @@ async def global_exception_handler(request, exc):  # type: ignore[no-untyped-def
             "Access-Control-Allow-Credentials": "true",
             "Vary": "Origin",
         }
-    # DEBUG TEMPORAIRE (bug #114-115 v3) : expose le type exact d'exception
-    # dans la reponse pour identifier la classe qui passe au travers des
-    # handlers specifiques. A retirer une fois la cause identifiee.
     return _JSONResponse(
         status_code=500,
         content={
             "error": "internal_server_error",
             "message": "Une erreur interne est survenue.",
             "path": request.url.path,
-            "_debug_exc_type": type(exc).__name__,
-            "_debug_exc_module": type(exc).__module__,
-            "_debug_exc_mro": [c.__name__ for c in type(exc).__mro__[:6]],
-            "_debug_exc_msg": str(exc)[:300],
         },
         headers=cors_headers,
     )

@@ -2700,3 +2700,86 @@ pour rejeter au moins les lettres pures, sans casser les numeros formates.
 | Faux positifs | **6** |
 | Bugs critiques restants | **0** ✓ |
 | extra="forbid" applique sur | 4 schemas (UserUpdate, TierCreate, MOCUpdate, AddressUpdate*) |
+
+---
+
+## Session 34 - Round 8 chasse autonome SECU upload + race + tenant (QA v3, 14 mai 2026 ~22h45)
+
+### Zones testees
+- Search global cross-module
+- Attachments multipart (upload reel avec fichiers binaires)
+- Concurrent updates (10 PATCH parallel)
+- Sort/order params (SQL injection vector)
+- Tenant header injection
+- PaxLog incidents
+
+### Bug critique SECU detecte (#126)
+
+**`POST /attachments` acceptait toutes extensions** y compris :
+- `malware.exe` (executable Windows)
+- `script.sh` (shell script)
+- `safe.pdf.exe` (double extension trompeuse)
+- `evil.bat`, `shell.php`, `macro.docm` (web shell, macro Office)
+
+**Impact** : un utilisateur authentifie pouvait hoster du malware sur le
+domaine OPSFLUX (S3 ou local) avec URL signee partageable. Vraie
+vulnerabilite de file upload arbitraire.
+
+**Fix (commit `b4fd8da5`)** : `_validate_extension()` blackliste 50+ ext :
+- Executables Windows : exe, msi, bat, cmd, com, scr, dll, sys, drv...
+- Scripts : sh, ps1, vbs, wsf, py, pl, cgi...
+- macOS/Linux installers : app, dmg, pkg, deb, rpm...
+- Java : jar, class
+- Web shells : php, asp, aspx, jsp, jspx
+- Office macros : docm, xlsm, pptm, dotm...
+- Misc : reg, lnk, iso, img, vhd...
+
+**Check recursif** : `foo.pdf.exe` bloque sur `.exe` (dernier segment).
+**Reponse** : 415 Unsupported Media Type avec message FR explicite.
+
+**Verification prod (9/9 PASS)** :
+- malware.exe -> 415, script.sh -> 415, safe.pdf.exe -> 415
+- evil.bat -> 415, shell.php -> 415, macro.docm -> 415
+- legit.txt -> 201, photo.jpg -> 201, doc.pdf -> 201
+
+**Cleanup post-fix** : 5 attachments dangereux uploades pendant tests
+(malware.exe, script.sh, safe.pdf.exe, big.bin, test.txt) supprimes via
+DELETE /attachments/{id}.
+
+### Verifie positivement
+
+- ✅ Search global propre (validation `q` min 2 chars, q=%00 -> 422)
+- ✅ X-Tenant SQL injection (`public; DROP TABLE`) -> 400 'Invalid tenant identifier'
+- ✅ Race condition : 10 PATCH concurrent -> 10×200, pas de deadlock
+- ✅ Upload 5MB -> 201 (limit 50MB par defaut)
+- ✅ Upload sans fichier -> 422
+- ✅ Sort/order `DROP TABLE` -> 200 (param ignore silencieusement, pas execute)
+
+### Anomalies UX (non-bugs)
+
+- **#127** : `X-Tenant: nonexistent_tenant` -> 200 avec data tenant courant.
+  Securite OK (pas de leak), mais UX confuse (devrait retourner 404).
+- **#128** : `sort/order` params ignores silencieusement quand colonne
+  inexistante. Acceptable mais peu friendly.
+
+### Bilan cumule sessions 1-34
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **116** (+2 round 8) |
+| Bugs corriges effectifs | **69** (+1 : #126 CRITIQUE SECU) |
+| Vulnerabilites SECU detectees | 1 (#126 upload arbitraire) |
+| Vulnerabilites SECU corrigees | 1 (#126) |
+| Bugs critiques restants | **0** ✓ |
+
+### Lecon SECU
+
+Tout endpoint qui accepte un upload doit valider l'extension **avant**
+toute I/O. Blacklist > whitelist quand on ne peut pas enumerer tous les
+formats legitimes (l'app accepte .pdf, .docx, .xlsx, .png, .jpg, .mp4,
+.dwg, .step, .csv, etc). Verification **recursive** sur les dotted
+segments pour attraper les double extensions (`payload.pdf.exe`).
+
+Bonus possible (non implemente pour l'instant) : MIME sniffing via
+`python-magic` pour detecter les fichiers maquilles (vrai .exe nomme
+.pdf). Plus complet mais necessite dependency native.

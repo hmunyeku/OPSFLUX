@@ -1521,3 +1521,69 @@ correctement vers Hostinger (changer Wifi, VPN, ou hotspot mobile).
 | Audit statique passes | 7/10 (Phase 0 v3) |
 | Audit dynamique | bloqué (réseau) |
 | Migrations alembic | 10 (head principal `174`) |
+
+---
+
+## Session 19 — QA v3 Phase 1+2 (auth/perms/délégation + Tiers création)
+
+**Contexte** : accès prod retrouvé (l'incident "system down" matin = OOM container backend après 4 builds chaînés, résolu via `compose down` + Dokploy API deploy). Tous services UP, alembic head=174, bug #54 verified in prod.
+
+### Phase 1 — Auth/MFA/Délégations/Permissions (étapes 11-25)
+
+| # | Action | Résultat | Bug |
+|---|---|---|---|
+| 11 | GET /auth/login/config | ✅ HTTP 200, MFA trust device cfg exposée (30 jours max), CSP+X-Frame-Options présents | - |
+| 12 | POST /login admin avec remember_device=true | ✅ 200, token + refresh_token. Note : `user: None` dans réponse, et `Set-Cookie` vide quand MFA pas actif (cohérent, MFA-only) | - |
+| 13 | GET /auth/me | ⚠️ 200 mais **`roles`, `permissions`, `is_superuser` NON exposés**. Endpoints séparés `/auth/me/permissions` et `/users/me/permissions` (2 formats différents) | #61 |
+| 14-15 | Création qa.viewer + qa.manager via POST /api/v1/users | ✅ 201 ; `role_codes:["READER"]` accepté à la création (PATCH ultérieur ne marche pas — voir #65) | - |
+| 17 | qa.viewer POST /tiers | ✅ 403 (perm `tier.create` enforced correctement) | - |
+| 18 | qa.viewer GET /users/<mgr_id> | 🚨 **200 IDOR** : viewer voit email + PII de tous les autres users. Rôle READER inclut `admin.users.read` qui donne accès à TOUS les comptes (16 users + champs passport, medical, etc.) | **#67 critique** |
+| 19 | Admin POST /me/delegations | ✅ 201 après correction des noms de champs (`delegate_id` pas `delegatee_id`, `start_date` pas `starts_at`) | #68 naming inconsistent |
+| 20 | viewer GET /me/delegations (liste reçues) | ❌ **405** sur tous les paths (`/sent`, `/received`, `/active`). POST OK, GET non implémenté | **#69** |
+| 21 | Viewer w/ délégation tier.create active | ❌ POST /tiers → 403 et `/me/permissions` ne contient pas `tier.create`. **Délégation accordée mais sans effet sur les permissions** (start_date demain ? ou bug de merge perms) | **#70** |
+| 22 | DELETE délégation | ✅ 204, soft-delete (à confirmer via list — bloqué par #69) | - |
+
+### Phase 2 — Tiers (étapes 26-30)
+
+| # | Action | Résultat | Bug |
+|---|---|---|---|
+| 26-27 | Création Tier QA-DEMO-001 avec 37 champs (alias, trade_name, logo_url, type, website, phone, fax, email, legal_form, registration_number, tax_id, vat_number, capital, currency, fiscal_year_start, industry, founded_date, payment_terms, incoterm, incoterm_city, description, address_line1/2, city, state, zip_code, country, timezone, language, active, social_networks, opening_hours, notes, is_blocked, scope, entity_id) | ⚠️ **201 retourné avec ID `bc950f97`** mais : (a) champ `metadata_` silencieusement ignoré (probablement à renommer `metadata`), (b) **Tier ABSENT de la BDD post-INSERT** (vérifié via `SELECT * FROM tiers WHERE code='QA-DEMO-001'` → 0 rows) | **#71 metadata + #72 critique** |
+
+### Bugs détectés (12 nouveaux, #61-#72)
+
+| # | Sévérité | Description | Tag |
+|---|---|---|---|
+| 61 | mineur | `/auth/me` n'expose pas roles/permissions (le front doit appeler `/me/permissions` séparé). Non-bloquant mais ergonomique. | `[ergo-bad]` |
+| 62 | moyen | 8 rôles core/tiers avec **0 permissions** : `HSE_ADMIN`, `LOG_COORD`, `MAINT_MGR`, `PAX_ADMIN`, `PROJ_MGR`, `SITE_MGR`, `SYS_ADMIN`, `TIER_ADMIN`. Stubs jamais finalisés ou obsolètes. | `[broken]` |
+| 63 | moyen | **Module `paxlog` n'a AUCUN rôle défini** dans `/rbac/roles?limit=200` alors que c'est un module principal. Les users PaxLog s'appuient sur `READER`/`TRANSP_COORD` faute de rôle dédié. | `[broken]` |
+| 64 | mineur | `/api/v1/rbac/roles` retourne `code, name, description, module, permission_count` mais **PAS l'ID** des rôles. Difficile pour les outils tiers. | `[ergo-bad]` |
+| 65 | critique | **`PATCH /users/{id}` avec `password` retourne 200 mais NE l'APPLIQUE PAS** (silently ignored). Aucune erreur retournée. Bug d'audit : on ne sait pas qu'un reset a échoué. Workaround : passer par DB direct ou recréer le user. | `[broken]` `[no-feedback]` |
+| 66 | mineur | `DELETE /users/{id}` → 409 sans détailler la cascade requise. | `[no-feedback]` |
+| 67 | 🚨 **CRITIQUE** | **IDOR** : un user avec rôle `READER` (le rôle "lecture seule" standard) a `admin.users.read` → peut lire **TOUS les emails + PII (passport, medical, addresses, phone, etc.) de TOUS les comptes** via `/users` + `/users/<id>`. Le rôle READER n'aurait jamais dû inclure `admin.users.read`. | **`[perm-leak]` `[xss-risk]` critique** |
+| 68 | mineur | `POST /me/delegations` : champ user appelé `delegate_id` (pas `delegatee_id` usuel), dates `start_date`/`end_date` (pas `starts_at`/`ends_at`). Incohérent avec le reste de l'API qui utilise `_at`. | `[ui-inconsistent]` |
+| 69 | majeur | `GET /me/delegations*` retourne **405 Method Not Allowed** sur `/sent`, `/received`, `/active`. POST fonctionne (création), GET (lecture) absent. Impossible pour un user de voir ses propres délégations actives via API. | `[broken]` |
+| 70 | majeur | Délégation créée et active mais : (a) le délégataire **n'a PAS la permission supplémentaire** dans `/me/permissions`, (b) il **ne peut pas effectuer l'action déléguée** (POST /tiers → 403). Soit bug effet immédiat, soit start_date 1 jour futur (à confirmer). | `[broken]` |
+| 71 | mineur | `POST /tiers` accepte le payload `metadata_` (200) mais le champ est silencieusement ignoré, jamais retourné. Probablement renommer `metadata` ou normaliser. | `[no-feedback]` |
+| 72 | 🚨 **CRITIQUE** | **`POST /api/v1/tiers` retourne 201 + ID + body complet MAIS ne persiste rien en BDD**. Vérifié : 32 tiers existaient, après création 32 toujours, QA-DEMO-001 introuvable via `SELECT ... FROM tiers WHERE code='QA-DEMO-001'` (0 rows). **Possible auto-archivage immédiat post-INSERT, ou rollback silencieux dans un event handler post-create.** Bug d'intégrité majeur. | **`[broken]` `[data]` critique** |
+
+### Phase 1+2 — En suspens (à investiguer/fix)
+
+| Étape | Raison du suspend |
+|---|---|
+| 16 | UI sidebar dégradée — Chrome MCP requis |
+| 20 | viewer voit délégation reçue — endpoint GET inexistant (#69) |
+| 23-25 | MFA TOTP activation + login flow — UI requise (génération QR) |
+| 30-55 | Sous-entités Tier (addresses, phones, emails, IDs, tags, notes, contacts, compliance, attachments) — **dépend du fix de #72** : impossible de créer des sous-ressources d'un Tier qui ne persiste pas en BDD |
+
+### Bilan cumulé sessions 1-19
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **72** (Phase 2 cleanup compose Dokploy + fix bug #54 verified) |
+| Bugs corrigés | **41** |
+| Bugs documentés à arbitrer | **20** (#39 #40 #55-#72) |
+| Bugs CRITIQUES non corrigés | **3** (#65 password silent, #67 IDOR users, #72 Tier persistence) |
+| Audit statique | ✅ Phase 0 complet |
+| Audit dynamique Phase 1 | ✅ 12/15 étapes (3 bloquées par UI) |
+| Audit dynamique Phase 2 | ⛔ bloqué étape 28 (#72) |
+| Audit dynamique Phases 3-9 | 🔜 enchaîner après fix critiques |

@@ -2438,3 +2438,91 @@ Ce bug est devenu prod parce que :
 config ESLint du repo + ajouter un test Vitest pour `AdsDetailPanel` qui
 mount avec `isLoading=true` puis simule la résolution de la query (couvre
 exactement ce pattern hook-conditionnel).
+
+---
+
+## Session 31 - Round 6 chasse autonome (QA v3, 14 mai 2026 ~21h)
+
+Chasse continuée à partir des zones moins testées : pagination edge cases,
+JWT edge cases, filtres date/UUID, search global, HTTP method mismatch,
+Content-Type wrong, audit/webhooks/health endpoints, rate limit.
+
+### Vrais bugs detectes (3, tous fixes en 1 commit)
+
+| Bug | Gravite | Description | Detection |
+|---|---|---|---|
+| **#114** CRITIQUE | POST avec `Content-Type: text/plain` -> 500 avec stack trace (au lieu de 422) | Test forge curl |
+| **#115** CRITIQUE | POST sans header `Content-Type` -> 500 idem | Test forge curl |
+| **#111** | DBAPIError handler expose `<class 'asyncpg.exceptions.X'>:` brut dans response | Test `?search=%00` |
+
+### Faux positifs detectes au cours du round 6 (verifies)
+
+| Suspecte | Realite |
+|---|---|
+| **#102** PUT `/settings/{key}` 404 | Bon chemin = `PUT /settings` body `{key,value}` -> 200 OK |
+| **#104** /auth/me 3077ms | Latence reseau Cameroon->Lituania ~1000ms RTT baseline (verifie via /api/health no-auth no-db) |
+| **#105** `?limit=0` -> 200 | Le bon param est `page_size`. Avec `page_size=0` -> 422. Le `?limit=` est silently ignored (comportement FastAPI standard pour params inconnus) |
+| **#106-107** | Idem, param `limit` inexistant |
+| **#109** `?created_after=invalid-date` | Param `created_after` n'existe pas dans route tiers, silently ignored |
+| **#110** `?id=invalid-uuid` | Idem, param non declare |
+
+### Endpoints manquants identifies (features, pas bugs)
+
+- `/audit/logs`, `/audit-logs`, `/audit/events`, `/admin/audit` -> 404 (pas d'API audit publique pour le moment)
+- `/webhooks`, `/admin/webhooks`, `/integrations/webhooks` -> 404 (pas d'API webhooks gerees par l'utilisateur)
+- `/files`, `/uploads`, `/media` -> 404 (l'API est `/attachments`)
+- `/health`, `/metrics`, `/version` -> 404 (seul `/admin/health` existe + besoin auth)
+- `/notifications/unread`, `/notifications/preferences` GET -> 405 (n'existent qu'en POST/PUT) - cf bug #95
+
+### Verifie positivement
+
+- Pagination correctement validee : `page_size=0/-5/99999/abc` tous 422
+- JWT edge cases : tous renvoient 401 propre (corrupt/empty/null/no-Bearer/Basic)
+- Path UUID invalide : `tiers/not-a-uuid` -> 422 uuid_parsing propre
+- Path UUID zero : `tiers/00000000-...` -> 404 TIER_NOT_FOUND propre
+- HTTP method mismatch : DELETE/PATCH/PUT sur listes -> 405 propre
+- Rate limiting auth actif : 429 apres 5 tentatives wrong password
+- Validation auth (email format, champs manquants, JSON malforme) -> 422 propres
+- SQL injection, XSS, path traversal -> tous renvoyes 200 mais string treates comme literal (pas execute)
+
+### Fix applique (commit `487be6fa`)
+
+**Handler `json.JSONDecodeError`** (bugs #114-#115) :
+```python
+@app.exception_handler(_json.JSONDecodeError)
+async def _json_decode_error_handler(request, exc):
+    return _JSONResponse(status_code=422, content={
+        "detail": [{
+            "type": "json_invalid",
+            "loc": ["body"],
+            "msg": f"Corps JSON invalide : {exc.msg}",
+            "ctx": {"error": exc.msg, "pos": exc.pos},
+        }]
+    })
+```
+
+**Sanitize DBAPIError msg** (bug #111) :
+```python
+msg = re.sub(r"^<class\s+'[^']+'>:\s*", "", msg)
+```
+Retire le prefix `<class 'asyncpg.exceptions.X'>:` du message avant exposition au client.
+
+### Bilan cumule sessions 1-31
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **109** (+1 round 6) |
+| Bugs corriges effectifs | **65** (+3 : #111 #114 #115) |
+| Faux positifs identifies | **6** (#102 #104 #105 #106 #107 #109 #110) |
+| Bugs critiques restants | **0** ✓ |
+| Exception handlers globaux | **5** (RequestValidation, ValueError, DBAPIError, JSONDecodeError, Generic) |
+| Patterns PG -> 422 | **6** |
+| Validators Pydantic | **1** |
+| Endpoints manquants documentes | **8** (audit, webhooks, /health, /me/notifications, etc.) |
+
+### Leçon - regle metier a formaliser
+
+Le pattern "DBAPIError handler expose la classe Python" etait insidieux :
+str(exc.orig) renvoie le repr complet de l'exception avec sa classe.
+Tout handler qui catch un wrapping d'exception doit appeler `.args[0]` ou
+extraire le message proprement, pas `str()` qui peut inclure le wrap.

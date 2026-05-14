@@ -340,6 +340,41 @@ async def _value_error_handler(request, exc):  # type: ignore[no-untyped-def]
     )
 
 
+# Bug #98 (QA round 4) : envoi d'un caractere null (\x00) dans un champ
+# string Pydantic n'etait pas filtre, atteignait asyncpg qui levait
+# `CharacterNotInRepertoireError: invalid byte sequence for encoding "UTF8":
+# 0x00`. SQLAlchemy wrap en DBAPIError -> remonte au global_exception_handler
+# -> 500 avec stack trace pollue Sentry. C'est pourtant une erreur
+# d'**input client** (l'utilisateur a colle quelque chose contenant \x00),
+# donc semantiquement un 422 propre est attendu.
+#
+# Handler dedie SQLAlchemy DBAPIError pour traduire les erreurs de
+# validation PostgreSQL en 422.
+try:
+    from sqlalchemy.exc import DBAPIError as _DBAPIError
+
+    @app.exception_handler(_DBAPIError)
+    async def _dbapi_error_handler(request, exc):  # type: ignore[no-untyped-def]
+        from starlette.responses import JSONResponse as _JSONResponse
+        msg = str(exc.orig) if hasattr(exc, 'orig') and exc.orig else str(exc)
+        # Erreurs de validation PG (caractere invalide, contrainte CHECK,
+        # FK manquante en cours de transaction…) -> 422.
+        if any(p in msg.lower() for p in (
+            'invalid byte sequence',
+            'character not in repertoire',
+            'value too long',
+            'invalid input syntax',
+            'date/time field value out of range',
+            'numeric field overflow',
+        )):
+            return _JSONResponse(status_code=422, content={"detail": f"Donnée invalide : {msg[:200]}"})
+        # IntegrityError sur unique constraint -> 409 deja gere ailleurs.
+        # Autres DBAPIError -> remonte au handler generique 500.
+        raise exc
+except ImportError:
+    pass
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):  # type: ignore[no-untyped-def]
     import logging as _logging

@@ -5,7 +5,7 @@ from datetime import date  # backwards compat for non-shadowing usages
 from typing import Any, Generic, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 T = TypeVar("T")
 
@@ -515,11 +515,19 @@ class TierCreate(BaseModel):
     registration_number: str | None = None
     tax_id: str | None = None
     vat_number: str | None = None
-    capital: float | None = None
+    # Bug #99 (QA v3 round 4) : capital negatif acceptait silencieusement,
+    # mais un capital negatif n'a aucun sens metier (montant en monnaie
+    # toujours positif ou zero). ge=0 rejette en 422 cote Pydantic.
+    capital: float | None = Field(default=None, ge=0)
     # Currency: optional — backend defaults to entity.currency on create.
     currency: str | None = None
     fiscal_year_start: int = 1
     industry: str | None = None
+    # Bug #100 (QA v3 round 4) : founded_date 2099-12-31 (futur) acceptait
+    # alors que c'est par definition impossible (une entreprise ne peut pas
+    # avoir ete fondee dans le futur). On compare a date.today() au moment
+    # de la validation. Note : pas de borne min car certaines entreprises
+    # tres anciennes (Lloyd's of London 1688, etc.) sont legitimes.
     founded_date: date | None = None
     payment_terms: str | None = None
     incoterm: str | None = None
@@ -548,6 +556,17 @@ class TierCreate(BaseModel):
     # the same transaction as the tier. Rarely more than a handful;
     # additional contacts can be added later via the detail panel.
     contacts: list[TierContactCreate] = Field(default_factory=list)
+
+    @field_validator("founded_date")
+    @classmethod
+    def _founded_date_not_in_future(cls, v: date | None) -> date | None:
+        # Bug #100 : refuse les dates de fondation futures (impossible
+        # qu'une entreprise ait ete fondee apres aujourd'hui).
+        if v is not None and v > _date_t.today():
+            raise ValueError(
+                f"founded_date ({v}) ne peut pas etre dans le futur (aujourd'hui : {_date_t.today()})"
+            )
+        return v
 
 
 class TierUpdate(BaseModel):

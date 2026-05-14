@@ -1,7 +1,7 @@
 """RBAC seed PDF templates, email templates, and i18n translations.
 
-Revision ID: 172_rbac_seed_pdf_email_templates
-Revises: 171_rbac_bootstrap_phase1
+Revision ID: 176_rbac_seed_pdf_email_templates
+Revises: 175_rbac_bootstrap_phase1
 Create Date: 2026-05-13 18:00:00
 
 This migration is ADDITIVE: it inserts seed data only. No DDL changes.
@@ -62,8 +62,8 @@ from pathlib import Path
 from alembic import op
 
 # revision identifiers
-revision = "172_rbac_seed_pdf_email_templates"
-down_revision = "171_rbac_bootstrap_phase1"
+revision = "176_rbac_seed_pdf_email_templates"
+down_revision = "175_rbac_bootstrap_phase1"
 branch_labels = None
 depends_on = None
 

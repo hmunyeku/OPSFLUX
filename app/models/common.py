@@ -404,7 +404,7 @@ class Permission(Base):
     module: Mapped[str | None] = mapped_column(String(50))
     description: Mapped[str | None] = mapped_column(Text)
 
-    # PR-A extensions (migration 171)
+    # PR-A extensions (migration 175 — renumbered from 171 to avoid collision with main)
     namespace: Mapped[str | None] = mapped_column(String(50), index=True)
     resource: Mapped[str | None] = mapped_column(String(50))
     action: Mapped[str | None] = mapped_column(String(50))

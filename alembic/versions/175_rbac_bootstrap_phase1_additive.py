@@ -1,7 +1,7 @@
 """RBAC bootstrap phase 1 — additive (extend Permission, create RbacAuditEvent, seed new perms/roles/settings).
 
-Revision ID: 171_rbac_bootstrap_phase1
-Revises: 170_papyrus_ext_created_at
+Revision ID: 175_rbac_bootstrap_phase1
+Revises: 174_project_soft_delete_repair
 Create Date: 2026-05-13 12:00:00
 
 This migration is ADDITIVE: no existing code path is broken. Old permission codes coexist
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 # revision identifiers
-revision = "171_rbac_bootstrap_phase1"
-down_revision = "170_papyrus_ext_created_at"
+revision = "175_rbac_bootstrap_phase1"
+down_revision = "174_project_soft_delete_repair"
 branch_labels = None
 depends_on = None
 

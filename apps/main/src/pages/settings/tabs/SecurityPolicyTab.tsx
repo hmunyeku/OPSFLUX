@@ -261,6 +261,63 @@ export function SecurityPolicyTab() {
         </div>
       </CollapsibleSection>
 
+      {/* ── MFA obligatoire (#6) ──
+          Quand active, tous les users sans MFA voient un overlay
+          bloquant a la connexion qui les force a configurer leur MFA
+          (cf MFAEnforceOverlay.tsx). Setting lu via /auth/mfa-policy. */}
+      <CollapsibleSection
+        id="mfa-policy"
+        title={t('settings.mfa_policy_title', 'Authentification à deux facteurs (MFA)')}
+        description={t(
+          'settings.mfa_policy_description',
+          'Politique de sécurité MFA appliquée à tous les utilisateurs.',
+        )}
+        storageKey="settings.security-policy.collapse"
+      >
+        <div className="mt-2 space-y-0">
+          <SettingRow
+            label={t('settings.mfa_required_for_all_label', 'Exiger le MFA pour tous les utilisateurs')}
+            description={t(
+              'settings.mfa_required_for_all_description',
+              "Lorsqu'activé, tout utilisateur sans MFA configuré est forcé de le configurer avant d'accéder à l'application (overlay bloquant). Les utilisateurs déjà inscrits gardent leur session active mais doivent configurer le MFA au prochain chargement.",
+            )}
+          >
+            <Toggle
+              checked={s.mfa_required_for_all ?? false}
+              onChange={(v) => save('mfa_required_for_all', v)}
+            />
+          </SettingRow>
+          <SettingRow
+            label={t('settings.mfa_trust_device_enabled_label', 'Autoriser "Se souvenir de cet appareil"')}
+            description={t(
+              'settings.mfa_trust_device_enabled_description',
+              "Permet aux utilisateurs de cocher une case sur la page MFA pour ne plus saisir leur code OTP à chaque connexion depuis cet appareil. Le délai max est configuré ci-dessous.",
+            )}
+          >
+            <Toggle
+              checked={s.mfa_trust_device_enabled ?? true}
+              onChange={(v) => save('mfa_trust_device_enabled', v)}
+            />
+          </SettingRow>
+          {(s.mfa_trust_device_enabled ?? true) && (
+            <SettingRow
+              label={t('settings.mfa_trust_device_max_days_label', 'Durée maximale (jours)')}
+              description={t(
+                'settings.mfa_trust_device_max_days_description',
+                "Nombre maximum de jours pendant lesquels un appareil peut être considéré comme de confiance. Recommandé : 30 jours. Maximum sécurisé : 90.",
+              )}
+            >
+              <NumberInput
+                value={s.mfa_trust_device_max_days ?? 30}
+                onChange={(v) => save('mfa_trust_device_max_days', v)}
+                min={1}
+                max={365}
+              />
+            </SettingRow>
+          )}
+        </div>
+      </CollapsibleSection>
+
       {/* ── Conformité ── */}
       <CollapsibleSection
         id="compliance-policy"

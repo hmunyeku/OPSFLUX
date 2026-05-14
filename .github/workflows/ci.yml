@@ -3,8 +3,13 @@ name: CI — Lint & Test
 on:
   pull_request:
     branches: [main, develop]
+  # SUP : ajout main pour catcher les push directs et eviter qu'un commit
+  # qui casse le build (cf bug PWA i18n bundle > 2 MiB) ne soit pas
+  # detecte avant le deploy Dokploy. Idealement on devrait interdire le
+  # push direct sur main via branch protection, mais ce trigger
+  # garantit au moins un signal CI rouge en cas de regression.
   push:
-    branches: [develop]
+    branches: [develop, main]
 
 jobs:
   backend:
@@ -59,6 +64,56 @@ jobs:
           ENVIRONMENT: development
         run: pytest tests/ -x --tb=short -q
 
+  # SUP : audit du schema BDD pour catcher les bugs de drift modele/migration
+  # (decouvert pendant les sessions QA-LOG :
+  #   bug #25 dashboards.tv_token         - colonne modele manquante en BDD
+  #   bug #26 ar_pumps.api_type_designation - colonne modele manquante en BDD
+  #   bug #29 Attachment.category         - colonne BDD manquante au modele
+  #   bug #30 Project AuditUserMixin      - mixin orphelin avec code usage
+  # ).
+  # Job dedie : tourne alembic upgrade head sur une BDD vierge puis croise
+  # les colonnes BDD vs les modeles Python. Echec si nouveau drift detecte.
+  db-schema-audit:
+    name: DB schema drift audit
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: opsflux
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: opsflux_audit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://opsflux:test@localhost:5432/opsflux_audit
+          SECRET_KEY: test-secret-key
+          JWT_SECRET_KEY: test-jwt-secret
+          ENVIRONMENT: development
+        run: alembic upgrade head
+
+      - name: Run schema audit (strict)
+        env:
+          DATABASE_URL: postgresql+asyncpg://opsflux:test@localhost:5432/opsflux_audit
+        run: python scripts/db_schema_audit.py --strict
+
   frontend:
     name: Frontend (TypeScript)
     runs-on: ubuntu-latest
@@ -85,3 +140,20 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # SUP : verifie que toutes les cles t() appelees dans le code TSX/TS
+  # sont definies dans locales/fr/common.json ET locales/en/common.json.
+  # Empeche les regressions type "cle brute affichee dans l'UI"
+  # (cf bugs i18n session 1 : 1133 cles t() manquantes en FR ajoutees
+  # session i18n-finalize).
+  i18n-check:
+    name: i18n coherence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check t() calls coherence FR/EN
+        run: python scripts/i18n_check.py

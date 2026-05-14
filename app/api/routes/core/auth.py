@@ -17,12 +17,13 @@ SSO:
 """
 
 import logging
+import secrets
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from uuid import UUID
 
 import pyotp
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from app.core.errors import StructuredHTTPException
 from fastapi.responses import RedirectResponse
@@ -48,7 +49,18 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models.common import Entity, RefreshToken, Setting, User, UserGroup, UserGroupMember, UserGroupRole, UserSession, UserSSOProvider
+from app.models.common import (
+    Entity,
+    MFATrustedDevice,
+    RefreshToken,
+    Setting,
+    User,
+    UserGroup,
+    UserGroupMember,
+    UserGroupRole,
+    UserSession,
+    UserSSOProvider,
+)
 from app.schemas.common import (
     ActingContextRead,
     ActingContextStatusRead,
@@ -228,6 +240,115 @@ async def _issue_tokens(
     )
 
 
+# ── MFA Trusted Device helpers (suite #6) ────────────────────────────────────
+# Cookie HTTP-only longue durée qui permet à un user de skip le challenge MFA
+# pendant une période choisie (jusqu'à mfa_trust_device_max_days).
+
+MFA_TRUST_COOKIE_NAME = "opsflux_mfa_trust"
+
+
+async def _check_mfa_trust_cookie(
+    request: Request,
+    user_id: UUID,
+    db: AsyncSession,
+) -> bool:
+    """Return True si l'appareil est connu et valide pour ce user.
+
+    Lookup en BDD via le hash du token cookie. Met à jour last_used_at.
+    """
+    token = request.cookies.get(MFA_TRUST_COOKIE_NAME)
+    if not token:
+        return False
+
+    token_hash = sha256(token.encode()).hexdigest()
+    result = await db.execute(
+        select(MFATrustedDevice).where(
+            MFATrustedDevice.token_hash == token_hash,
+            MFATrustedDevice.user_id == user_id,
+            MFATrustedDevice.revoked == False,  # noqa: E712
+            MFATrustedDevice.expires_at > datetime.now(UTC),
+        )
+    )
+    device = result.scalar_one_or_none()
+    if not device:
+        return False
+
+    # Met à jour last_used_at sans bloquer le flow
+    device.last_used_at = datetime.now(UTC)
+    return True
+
+
+async def _create_mfa_trust_device(
+    user_id: UUID,
+    request: Request,
+    db: AsyncSession,
+    duration_days: int,
+    max_days: int,
+) -> str:
+    """Crée un nouvel appareil de confiance MFA. Retourne le token clear-text.
+
+    Le token clear-text est censé être envoyé au browser dans un cookie
+    HTTP-only. Seul son SHA-256 est stocké en BDD.
+    """
+    # Clamp duration au max admin
+    duration_days = max(1, min(int(duration_days), int(max_days)))
+
+    clear_token = secrets.token_urlsafe(48)
+    token_hash = sha256(clear_token.encode()).hexdigest()
+
+    expires_at = datetime.now(UTC) + timedelta(days=duration_days)
+
+    # Parse user agent pour metadata (simple heuristique)
+    ua = request.headers.get("user-agent", "")
+    browser = None
+    os_name = None
+    if "Firefox/" in ua:
+        browser = "Firefox"
+    elif "Edg/" in ua:
+        browser = "Edge"
+    elif "Chrome/" in ua:
+        browser = "Chrome"
+    elif "Safari/" in ua and "Chrome/" not in ua:
+        browser = "Safari"
+    if "Windows" in ua:
+        os_name = "Windows"
+    elif "Mac OS X" in ua or "Macintosh" in ua:
+        os_name = "macOS"
+    elif "Linux" in ua:
+        os_name = "Linux"
+    elif "Android" in ua:
+        os_name = "Android"
+    elif "iPhone" in ua or "iPad" in ua:
+        os_name = "iOS"
+
+    device = MFATrustedDevice(
+        user_id=user_id,
+        token_hash=token_hash,
+        expires_at=expires_at,
+        ip_address=request.client.host if request.client else None,
+        user_agent=ua[:2000] if ua else None,
+        browser=browser,
+        os=os_name,
+    )
+    db.add(device)
+    await db.flush()
+    return clear_token
+
+
+def _set_mfa_trust_cookie(response, token: str, duration_days: int) -> None:
+    """Set le cookie HTTP-only pour le device trust."""
+    max_age = duration_days * 24 * 3600
+    response.set_cookie(
+        key=MFA_TRUST_COOKIE_NAME,
+        value=token,
+        max_age=max_age,
+        httponly=True,
+        secure=True,  # HTTPS only en prod
+        samesite="lax",
+        path="/api/v1/auth",
+    )
+
+
 # ── Login ────────────────────────────────────────────────────────────────────
 
 @router.post("/login", response_model=LoginResponse)
@@ -364,6 +485,30 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
 
     # ── MFA gate ─────────────────────────────────────────────────
     if user.mfa_enabled and user.totp_secret:
+        # Suite #6 MFA admin config — si le user a "remember device" actif
+        # via cookie HTTP-only valide, on skip le MFA challenge.
+        trust_enabled = bool(auth_cfg.get("mfa_trust_device_enabled", True))
+        if trust_enabled:
+            try:
+                is_trusted = await _check_mfa_trust_cookie(request, user.id, db)
+            except Exception as exc:
+                # Ne casse jamais le login pour une erreur de check cookie
+                logger.warning("MFA trust check failed for %s: %s", user.email, exc)
+                is_trusted = False
+            if is_trusted:
+                await record_audit(
+                    db,
+                    action="mfa_skipped_trust_device",
+                    resource_type="user",
+                    resource_id=str(user.id),
+                    user_id=user.id,
+                    ip_address=request.client.host if request.client else None,
+                    user_agent=request.headers.get("user-agent"),
+                )
+                await db.commit()
+                logger.info("MFA skipped via trust cookie for %s", user.email)
+                return await _issue_tokens(user, request, db)
+
         mfa_token = create_mfa_token(user_id=user.id)
         logger.info("MFA challenge issued for user %s", user.email)
         return LoginResponse(mfa_required=True, mfa_token=mfa_token)
@@ -374,7 +519,7 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
 
 @router.get("/login/config")
 async def login_config(db: AsyncSession = Depends(get_db)):
-    """Return public login configuration (CAPTCHA settings, etc.)."""
+    """Return public login configuration (CAPTCHA settings, MFA trust opts, ...)."""
     auth_cfg = await get_security_settings(db)
     return {
         "captcha_enabled": auth_cfg["captcha_enabled"],
@@ -382,6 +527,10 @@ async def login_config(db: AsyncSession = Depends(get_db)):
         "captcha_site_key": auth_cfg["captcha_site_key"] if auth_cfg["captcha_enabled"] else None,
         "max_failed_attempts": auth_cfg["max_failed_attempts"],
         "lockout_duration_min": auth_cfg["lockout_duration_min"],
+        # Suite #6 — exposé publiquement car le frontend a besoin de
+        # ces flags AVANT que l'user soit auth (sur la page MFA challenge).
+        "mfa_trust_device_enabled": bool(auth_cfg.get("mfa_trust_device_enabled", True)),
+        "mfa_trust_device_max_days": int(auth_cfg.get("mfa_trust_device_max_days", 30)),
     }
 
 
@@ -391,9 +540,15 @@ async def login_config(db: AsyncSession = Depends(get_db)):
 async def mfa_verify_login(
     body: MFALoginRequest,
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ):
-    """Second step of login: verify TOTP or backup code and return full tokens."""
+    """Second step of login: verify TOTP or backup code and return full tokens.
+
+    Si body.remember_days > 0 et setting mfa_trust_device_enabled actif,
+    crée un appareil de confiance MFA et set un cookie HTTP-only pour
+    skip le MFA challenge au prochain login depuis cet appareil.
+    """
     # Decode MFA token
     try:
         payload = decode_token(body.mfa_token)
@@ -419,6 +574,39 @@ async def mfa_verify_login(
             message="Invalid MFA session",
         )
 
+    async def _maybe_create_trust_device() -> None:
+        """Si demandé + autorisé, crée le trust device + set cookie."""
+        if body.remember_days <= 0:
+            return
+        auth_cfg = await get_security_settings(db)
+        if not auth_cfg.get("mfa_trust_device_enabled", True):
+            return
+        max_days = int(auth_cfg.get("mfa_trust_device_max_days", 30))
+        try:
+            clear_token = await _create_mfa_trust_device(
+                user_id=user.id,
+                request=request,
+                db=db,
+                duration_days=body.remember_days,
+                max_days=max_days,
+            )
+        except Exception as exc:
+            logger.warning("Failed to create trust device for %s: %s", user.email, exc)
+            return
+        # Clamp pareil que le helper pour la max_age du cookie
+        duration = max(1, min(int(body.remember_days), max_days))
+        _set_mfa_trust_cookie(response, clear_token, duration)
+        await record_audit(
+            db,
+            action="mfa_trust_device_created",
+            resource_type="user",
+            resource_id=str(user.id),
+            user_id=user.id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            details={"duration_days": duration},
+        )
+
     # Try TOTP
     totp = pyotp.TOTP(user.totp_secret)
     if totp.verify(body.code, valid_window=1):
@@ -431,6 +619,7 @@ async def mfa_verify_login(
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        await _maybe_create_trust_device()
         await db.commit()
         return await _issue_tokens(user, request, db)
 
@@ -442,7 +631,6 @@ async def mfa_verify_login(
             updated_codes = stored_codes.copy()
             updated_codes.pop(idx)
             user.mfa_backup_codes = updated_codes
-            await db.commit()
 
             await record_audit(
                 db,
@@ -454,6 +642,7 @@ async def mfa_verify_login(
                 user_agent=request.headers.get("user-agent"),
                 details={"remaining_backup_codes": len(updated_codes)},
             )
+            await _maybe_create_trust_device()
             await db.commit()
             return await _issue_tokens(user, request, db)
 
@@ -550,6 +739,49 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get current authenticated user profile."""
     return current_user
+
+
+class MFAPolicyResponse(BaseModel):
+    """Reponse de /auth/mfa-policy — informe le frontend des politiques MFA.
+
+    Champs :
+    - required_for_all : MFA obligatoire pour tous (overlay bloquant)
+    - current_user_mfa_enabled : etat MFA du user courant
+    - current_user_must_setup : doit forcer le setup MFA
+    - trust_device_enabled : option "remember this device" disponible
+    - trust_device_max_days : duree max autorisée par l'admin (jours)
+    """
+
+    required_for_all: bool
+    current_user_mfa_enabled: bool
+    current_user_must_setup: bool
+    trust_device_enabled: bool = True
+    trust_device_max_days: int = 30
+
+
+@router.get("/mfa-policy", response_model=MFAPolicyResponse)
+async def get_mfa_policy(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retourne la politique MFA pour l'utilisateur courant.
+
+    Lit le setting 'auth.mfa_required_for_all' (scope=tenant) via
+    get_security_settings (cache Redis 60s).
+    Si actif et le user n'a pas MFA, current_user_must_setup=true.
+    Le frontend MFAEnforceOverlay utilise ce flag pour bloquer l'app
+    et forcer la page de setup MFA.
+    """
+    cfg = await get_security_settings(db)
+    required = bool(cfg.get("mfa_required_for_all", False))
+    mfa_enabled = bool(current_user.mfa_enabled)
+    return MFAPolicyResponse(
+        required_for_all=required,
+        current_user_mfa_enabled=mfa_enabled,
+        current_user_must_setup=required and not mfa_enabled,
+        trust_device_enabled=bool(cfg.get("mfa_trust_device_enabled", True)),
+        trust_device_max_days=int(cfg.get("mfa_trust_device_max_days", 30)),
+    )
 
 
 @router.get("/me/permissions", response_model=list[str])

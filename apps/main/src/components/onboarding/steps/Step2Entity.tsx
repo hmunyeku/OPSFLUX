@@ -1,14 +1,19 @@
 /**
  * Step 2 — Entity (tenant) info: name, address, currency, timezone.
  *
- * Pre-fills from the current entity on mount, then saves via
- * useUpdateEntity. The wizard reads currentEntityId from authStore.
+ * Pre-remplit depuis l'entite courante puis sauve via useUpdateEntity.
+ * L'utilisateur est TOUJOURS rattache a une entite existante : il ne
+ * peut donc pas la creer ni la "changer" depuis ce step — uniquement
+ * editer ses infos (et seulement s'il a core.entity.update).
+ *
+ * Affiche un banner "Vous editez l'entite X" pour rappeler le contexte.
  */
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Building2, Loader2, Check } from 'lucide-react'
+import { Building2, Loader2, Check, Lock, Info } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useEntity, useUpdateEntity } from '@/hooks/useEntities'
+import { usePermission } from '@/hooks/usePermission'
 import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
 
@@ -43,6 +48,8 @@ const COMMON_TIMEZONES = [
 
 export function Step2Entity({ value, onChange }: Props) {
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
+  const canEdit = hasPermission('core.entity.update')
   const currentEntityId = useAuthStore((s) => s.currentEntityId)
   const { data: entity } = useEntity(currentEntityId || undefined)
   const updateEntity = useUpdateEntity()
@@ -100,11 +107,30 @@ export function Step2Entity({ value, onChange }: Props) {
         <p className="text-xs text-muted-foreground mt-1">{t('onboarding.step2.subtitle')}</p>
       </div>
 
+      {/* Banner contexte : rappelle l'utilisateur a quelle entite il est rattache.
+          Pas possible de changer ici (rattachement gere via /entities admin). */}
+      <div className="flex items-start gap-2 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-xs">
+        <Info size={14} className="mt-0.5 shrink-0 text-info" />
+        <div className="flex-1">
+          <p className="text-foreground">
+            {t('onboarding.step2.editing_entity', 'Vous êtes rattaché à l’entité')}{' '}
+            <span className="font-semibold">{entity?.name ?? '—'}</span>
+            {entity?.code && <span className="text-muted-foreground"> ({entity.code})</span>}
+          </p>
+          <p className="text-muted-foreground mt-0.5">
+            {canEdit
+              ? t('onboarding.step2.editing_entity_hint', 'Vous pouvez compléter ses informations ci-dessous.')
+              : t('onboarding.step2.readonly_hint', 'Vous n’avez pas la permission de modifier cette entité. Contactez votre administrateur.')}
+          </p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="gl-label-sm" htmlFor="ob-entity-name">
             {t('onboarding.step2.name')}
             <span className="text-destructive ml-0.5">*</span>
+            {!canEdit && <Lock size={10} className="inline ml-1.5 text-muted-foreground" />}
           </label>
           <input
             id="ob-entity-name"
@@ -112,6 +138,8 @@ export function Step2Entity({ value, onChange }: Props) {
             value={value.name}
             onChange={(e) => onChange({ name: e.target.value })}
             placeholder={t('onboarding.step2.name_ph')}
+            disabled={!canEdit}
+            readOnly={!canEdit}
           />
         </div>
         <div className="sm:col-span-2">

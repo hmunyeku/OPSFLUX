@@ -186,11 +186,14 @@ async def provider_weather_sites(
     import asyncio
     import httpx
     import json as _json
+    # Bug fix : ar_installations.type n'existe pas, le bon nom est
+    # installation_type. Et SoftDeleteMixin utilise deleted_at + archived
+    # (boolean), donc check archived = FALSE OK.
     result = await db.execute(text("""
         SELECT id, code, name, latitude, longitude
         FROM ar_installations
         WHERE entity_id = :entity_id
-          AND type IN ('site', 'platform', 'base')
+          AND installation_type IN ('site', 'platform', 'base')
           AND archived = FALSE
         ORDER BY name
         LIMIT 20
@@ -391,6 +394,10 @@ async def provider_compliance_expiry(
     user: Any, db: AsyncSession,
 ) -> dict:
     """Get credentials expiring in next 30 days."""
+    # Bug fix : tier_contacts n'a pas de colonne entity_id direct (acces
+    # via tier_id -> tiers.entity_id). Ni archived (utilise active).
+    # users.badge_number n'existe pas non plus -- seul tier_contacts a
+    # badge_number. On simplifie le COALESCE en consequence.
     days_ahead = config.get("days_ahead", 30)
     result = await db.execute(text("""
         SELECT
@@ -399,7 +406,7 @@ async def provider_compliance_expiry(
                 u.first_name || ' ' || u.last_name,
                 tc.first_name || ' ' || tc.last_name
             ) AS pax_name,
-            COALESCE(u.badge_number, tc.badge_number) AS badge_number,
+            tc.badge_number,
             ct.name AS credential_name,
             ct.category,
             pc.expiry_date,
@@ -408,9 +415,10 @@ async def provider_compliance_expiry(
         FROM pax_credentials pc
         LEFT JOIN users u ON u.id = pc.user_id
         LEFT JOIN tier_contacts tc ON tc.id = pc.contact_id
+        LEFT JOIN tiers t ON t.id = tc.tier_id
         JOIN credential_types ct ON ct.id = pc.credential_type_id
-        WHERE COALESCE(u.default_entity_id, tc.entity_id) = :entity_id
-          AND COALESCE(u.archived, tc.archived) = FALSE
+        WHERE COALESCE(u.default_entity_id, t.entity_id) = :entity_id
+          AND COALESCE(u.active, tc.active) = TRUE
           AND pc.expiry_date IS NOT NULL
           AND pc.expiry_date BETWEEN CURRENT_DATE AND CURRENT_DATE + :days_ahead
           AND pc.status IN ('valid', 'pending_validation')
@@ -781,6 +789,9 @@ async def provider_fleet_map(
 
     Uses DISTINCT ON to get only the most recent position per vector.
     """
+    # Bug fix : transport_vectors n'a PAS de colonne `status`. Le statut
+    # operationnel est derive de active + archived. On expose un status
+    # synthetique pour le widget map (active / inactive / archived).
     result = await db.execute(text("""
         SELECT DISTINCT ON (tv.id)
             tv.id AS vector_id,
@@ -790,7 +801,11 @@ async def provider_fleet_map(
             vp.longitude,
             vp.speed_knots,
             vp.heading,
-            tv.status,
+            CASE
+                WHEN tv.archived = TRUE THEN 'archived'
+                WHEN tv.active = TRUE THEN 'active'
+                ELSE 'inactive'
+            END AS status,
             vp.recorded_at
         FROM transport_vectors tv
         LEFT JOIN vector_positions vp ON vp.vector_id = tv.id
@@ -997,21 +1012,28 @@ async def provider_assets_map(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
 ) -> dict:
-    """Geographic markers for fields, sites, installations."""
+    """Geographic markers for fields, sites, installations.
+
+    Bug fix : ar_fields utilise centroid_latitude/centroid_longitude (ligne
+    244 du modele), ar_sites + ar_installations utilisent latitude/longitude.
+    L'ancien provider faisait un SELECT latitude sur ar_fields -> crash.
+    Maintenant on selectionne les bonnes colonnes selon la table.
+    """
     markers = []
-    for tbl, label, color in [
-        ("ar_fields", "Champ", "#4f46e5"),
-        ("ar_sites", "Site", "#06b6d4"),
-        ("ar_installations", "Installation", "#f59e0b"),
-    ]:
+    table_configs = [
+        ("ar_fields", "Champ", "#4f46e5", "centroid_latitude", "centroid_longitude"),
+        ("ar_sites", "Site", "#06b6d4", "latitude", "longitude"),
+        ("ar_installations", "Installation", "#f59e0b", "latitude", "longitude"),
+    ]
+    for tbl, label, color, lat_col, lng_col in table_configs:
         r = await db.execute(text(f"""
-            SELECT code, name, latitude, longitude
+            SELECT code, name, {lat_col} AS lat, {lng_col} AS lng
             FROM {tbl} WHERE entity_id = :eid AND deleted_at IS NULL
-              AND latitude IS NOT NULL AND longitude IS NOT NULL
+              AND {lat_col} IS NOT NULL AND {lng_col} IS NOT NULL
         """), {"eid": str(entity_id)})
         for row in r.mappings().all():
             markers.append({
-                "lat": float(row["latitude"]), "lng": float(row["longitude"]),
+                "lat": float(row["lat"]), "lng": float(row["lng"]),
                 "label": f'{row["code"]} — {row["name"]}', "type": label, "color": color,
             })
     return {"markers": markers}
@@ -1026,12 +1048,19 @@ async def provider_paxlog_compliance_rate(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
 ) -> dict:
-    """PaxLog compliance rate and breakdown."""
+    """PaxLog compliance rate and breakdown.
+
+    Bug #41 fix : la colonne `is_compliant` n'existe PAS dans compliance_records.
+    Le vrai field est `status` (valeurs : valid/expired/pending/rejected).
+    L'ancienne query plantait silencieusement -> widget retournait null
+    -> KPI affichait '0' sans le % (frontend perdait l'unit).
+    Aligne sur provider_conformite_kpis (1130) qui utilise déjà status.
+    """
     r = await db.execute(text("""
         SELECT
             COUNT(*) AS total,
-            COUNT(*) FILTER (WHERE is_compliant = TRUE) AS compliant,
-            COUNT(*) FILTER (WHERE expires_at < NOW()) AS expired,
+            COUNT(*) FILTER (WHERE status = 'valid' AND (expires_at IS NULL OR expires_at > NOW())) AS compliant,
+            COUNT(*) FILTER (WHERE expires_at IS NOT NULL AND expires_at < NOW()) AS expired,
             COUNT(*) FILTER (WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '30 days') AS expiring_soon
         FROM compliance_records
         WHERE entity_id = :eid AND active = TRUE
@@ -1105,10 +1134,14 @@ async def provider_paxlog_incidents(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
 ) -> dict:
-    """Active incident count."""
+    """Active incident count.
+
+    Bug fix : pax_incidents n'a PAS de colonne `status`. L'etat resolu/
+    actif se derive de `resolved_at` (NULL = actif, non-NULL = resolu).
+    """
     r = await db.execute(text("""
         SELECT COUNT(*) AS cnt FROM pax_incidents
-        WHERE entity_id = :eid AND status NOT IN ('closed','resolved')
+        WHERE entity_id = :eid AND resolved_at IS NULL
     """), {"eid": str(entity_id)})
     row = r.mappings().first() or {}
     return {"value": row.get("cnt", 0), "label": "Incidents actifs", "unit": "incidents"}
@@ -1154,12 +1187,16 @@ async def provider_conformite_by_category(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
 ) -> dict:
-    """Conformité records grouped by type category."""
+    """Conformité records grouped by type category.
+
+    Bug fix : same as provider_paxlog_compliance_rate -- cr.is_compliant
+    n'existe pas, utiliser cr.status = 'valid'.
+    """
     r = await db.execute(text("""
         SELECT ct.category AS name,
                COUNT(*) AS total,
-               COUNT(*) FILTER (WHERE cr.is_compliant = TRUE AND (cr.expires_at IS NULL OR cr.expires_at > NOW())) AS valid,
-               COUNT(*) FILTER (WHERE cr.expires_at < NOW()) AS expired
+               COUNT(*) FILTER (WHERE cr.status = 'valid' AND (cr.expires_at IS NULL OR cr.expires_at > NOW())) AS valid,
+               COUNT(*) FILTER (WHERE cr.expires_at IS NOT NULL AND cr.expires_at < NOW()) AS expired
         FROM compliance_records cr
         JOIN compliance_types ct ON ct.id = cr.compliance_type_id
         WHERE cr.entity_id = :eid AND cr.active = TRUE
@@ -1195,8 +1232,13 @@ async def provider_tiers_overview(
         FROM tiers WHERE entity_id = :eid AND archived = FALSE
     """), {"eid": str(entity_id)})
     row = r.mappings().first() or {}
+    # tier_contacts n'a pas de colonne entity_id ; on filtre via la table tiers
+    # (jointure sur tier_id) — bug E2E #45 SQL silencieux.
     rc = await db.execute(text("""
-        SELECT COUNT(*) AS cnt FROM tier_contacts WHERE entity_id = :eid AND active = TRUE
+        SELECT COUNT(*) AS cnt
+        FROM tier_contacts tc
+        INNER JOIN tiers t ON t.id = tc.tier_id
+        WHERE t.entity_id = :eid AND tc.active = TRUE AND t.archived = FALSE
     """), {"eid": str(entity_id)})
     contacts = (rc.mappings().first() or {}).get("cnt", 0)
     return {
@@ -1255,12 +1297,23 @@ async def provider_packlog_overview(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
 ) -> dict:
+    # Bug #44 fix : `cargo_count` n'est PAS une colonne reelle de cargo_requests,
+    # c'est une virtuelle calculee via jointure cargo_items (cf packlog_shared.py
+    # ligne 285). L'ancienne query plantait avec UndefinedColumnError -> widget
+    # retournait null -> KPI affichait 0 malgre 7 demandes existantes.
+    # Fix : sous-requete correlated qui compte les cargo_items lies.
     requests = await db.execute(text("""
         SELECT
             COUNT(*) AS total_requests,
             COUNT(*) FILTER (WHERE status IN ('draft', 'submitted', 'approved', 'assigned', 'in_progress')) AS active_requests,
             COUNT(*) FILTER (WHERE status = 'draft') AS blocked_requests,
-            COALESCE(SUM(cargo_count), 0) AS cargo_count
+            COALESCE(
+                (SELECT COUNT(*) FROM cargo_items ci
+                 WHERE ci.request_id IN (SELECT id FROM cargo_requests
+                                          WHERE entity_id = :eid AND active = TRUE)
+                   AND ci.active = TRUE),
+                0
+            ) AS cargo_count
         FROM cargo_requests
         WHERE entity_id = :eid AND active = TRUE
     """), {"eid": str(entity_id)})
@@ -1321,19 +1374,24 @@ async def provider_packlog_tracking(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
 ) -> dict:
+    # Bug fix : cargo_items n'a PAS voyage_id direct, le lien passe par
+    # manifest_id -> voyage_manifests.voyage_id (cf models/packlog.py:164).
+    # Aussi : ci.status n'existe pas (le bon champ est workflow_status).
+    # Aussi : ci.destination_asset_id n'existe pas (passe par request_id
+    # -> cargo_requests.destination_asset_id) -- on simplifie en n'affichant
+    # pas la destination si pas trivial.
     r = await db.execute(text("""
         SELECT
             ci.tracking_code,
             ci.description,
-            ci.status,
-            v.code AS voyage_code,
-            COALESCE(ai.name, ci.receiver_name) AS destination_name,
-            COALESCE(ci.received_at, ci.created_at) AS updated_at
+            ci.workflow_status AS status,
+            v.voyage_code,
+            ci.created_at AS updated_at
         FROM cargo_items ci
-        LEFT JOIN voyages v ON v.id = ci.voyage_id
-        LEFT JOIN ar_installations ai ON ai.id = ci.destination_asset_id
+        LEFT JOIN voyage_manifests vm ON vm.id = ci.manifest_id
+        LEFT JOIN voyages v ON v.id = vm.voyage_id
         WHERE ci.entity_id = :eid AND ci.active = TRUE
-        ORDER BY COALESCE(ci.received_at, ci.created_at) DESC
+        ORDER BY ci.created_at DESC
         LIMIT 12
     """), {"eid": str(entity_id)})
     return {
@@ -1844,10 +1902,13 @@ async def provider_planner_by_type(
     """), {"eid": str(entity_id)})
     # Translate enum codes to FR labels for the chart legend (cf E2E bug #22).
     # Untranslated codes fall through unchanged.
+    # Bug #42 fix : 'permanent_ops' manquait du map -> affichait l'enum brut
+    # au milieu des autres types FR ("Projet, Inspection, ..., permanent_ops").
     type_labels = {
         "project": "Projet", "workover": "Workover", "drilling": "Forage",
         "integrity": "Intégrité", "maintenance": "Maintenance",
         "inspection": "Inspection", "event": "Événement",
+        "permanent_ops": "Ops permanentes",
     }
     return {"data": [
         {**dict(row), "name": type_labels.get(row["name"], row["name"])}
@@ -1878,11 +1939,16 @@ async def provider_planner_conflicts_kpi(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
 ) -> dict:
-    """KPI: active conflicts count."""
+    """KPI: active conflicts count.
+
+    Bug fix : la colonne est `status` (open/resolved/deferred), pas
+    `resolution_status` (qui n'existe pas). Confer modele PlannerConflict
+    ligne 187 de app/models/planner.py.
+    """
     r = await db.execute(text("""
         SELECT COUNT(*) AS cnt
         FROM planner_conflicts
-        WHERE entity_id = :eid AND resolution_status IN ('unresolved', 'deferred')
+        WHERE entity_id = :eid AND status IN ('open', 'deferred')
     """), {"eid": str(entity_id)})
     row = r.mappings().first()
     return {

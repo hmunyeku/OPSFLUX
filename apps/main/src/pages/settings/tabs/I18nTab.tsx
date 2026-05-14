@@ -309,12 +309,12 @@ export default function I18nTab() {
       {/* List */}
       {messagesLoading ? (
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-          <Loader2 size={16} className="animate-spin" /> Chargement...
+          <Loader2 size={16} className="animate-spin" /> {t('common.loading')}
         </div>
       ) : messages.length === 0 && !showAddKey ? (
         <EmptyState
           icon={Globe}
-          title="Aucune traduction"
+          title={t('settings.i18n.empty_title', 'Aucune traduction')}
           description={t('settings.importez_un_catalogue_ou_ajoutez_des_cle')}
         />
       ) : (
@@ -421,7 +421,7 @@ function MessageRow({ message }: { message: I18nMessage }) {
                 onClick={save}
                 disabled={upsert.isPending}
                 className="btn btn-primary text-primary"
-                title="Enregistrer"
+                title={t('common.save')}
               >
                 {upsert.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
               </button>
@@ -432,7 +432,7 @@ function MessageRow({ message }: { message: I18nMessage }) {
                   setNotes(message.notes ?? '')
                 }}
                 className="p-1.5 rounded hover:bg-muted text-muted-foreground"
-                title="Annuler"
+                title={t('common.cancel')}
               >
                 <X size={14} />
               </button>
@@ -442,14 +442,14 @@ function MessageRow({ message }: { message: I18nMessage }) {
               <button
                 onClick={() => setEditing(true)}
                 className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-                title="Modifier"
+                title={t('common.edit', 'Modifier')}
               >
                 <Pencil size={14} />
               </button>
               <button
                 onClick={handleDelete}
                 className="btn btn-danger"
-                title="Supprimer"
+                title={t('common.delete')}
               >
                 <Trash2 size={14} />
               </button>
@@ -795,7 +795,7 @@ function LanguagesPanel({
                   await remove.mutateAsync(lang.code)
                 }}
                 className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                title="Supprimer"
+                title={t('common.delete')}
               >
                 <Trash2 size={14} />
               </button>

@@ -14,7 +14,7 @@ import { paxlogService } from '@/services/paxlogService'
 import { cn } from '@/lib/utils'
 import { ReadOnlyRow, DynamicPanelShell, DynamicPanelField, FormGrid, FormSection, PanelActionButton, DangerConfirmButton, DetailFieldGrid, PanelContentLayout, panelInputClass } from '@/components/layout/DynamicPanel'
 import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
-import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag, Info, Users, BedDouble, BookOpen, FileSpreadsheet, Sparkles, History, Users2 } from 'lucide-react'
+import { CheckCircle2, XCircle, RefreshCw, ClipboardList, Loader2, Link2, Download, ThumbsUp, ThumbsDown, Send, LogOut, Clock, Plus, Search, X, Trash2, Flag, Info, Users, BedDouble, BookOpen, FileSpreadsheet, Sparkles, History, Users2, UploadCloud, FileCheck2, AlertCircle } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
@@ -100,6 +100,8 @@ export function AdsDetailPanel({ id }: { id: string }) {
   // SUP-0039 — CSV import + history suggestions
   const [showCsvImportModal, setShowCsvImportModal] = useState(false)
   const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [csvPreview, setCsvPreview] = useState<{ headers: string[]; rows: string[][]; emailColumnFound: boolean } | null>(null)
+  const [csvDragging, setCsvDragging] = useState(false)
   const [csvImportResult, setCsvImportResult] = useState<AdsPaxCsvImportResult | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
   // SUP-0040 — Teams
@@ -548,6 +550,78 @@ export function AdsDetailPanel({ id }: { id: string }) {
     })
   }
 
+  // SUP-0039 — CSV import : parse client-side pour preview + validation
+  // avant upload. Detecte separateur (, ; tab |) et colonne 'email'.
+  // Si BOM utf-8-sig, on le strip.
+  const parseCsvPreview = useCallback((file: File) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = (e.target?.result as string) || ''
+      // Strip BOM utf-8-sig que Excel ajoute systematiquement
+      const cleaned = text.replace(/^﻿/, '')
+      const lines = cleaned.split(/\r?\n/).filter((l) => l.trim().length > 0)
+      if (lines.length === 0) {
+        setCsvPreview({ headers: [], rows: [], emailColumnFound: false })
+        return
+      }
+      // Detection separateur sur la 1ere ligne (header)
+      const header = lines[0]
+      const counts: Record<string, number> = {
+        ',': (header.match(/,/g) || []).length,
+        ';': (header.match(/;/g) || []).length,
+        '\t': (header.match(/\t/g) || []).length,
+        '|': (header.match(/\|/g) || []).length,
+      }
+      const sep = (Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]) || ','
+      const splitCsv = (line: string) => line.split(sep).map((c) => c.trim().replace(/^"|"$/g, ''))
+      const headers = splitCsv(header)
+      const emailColumnFound = headers.some((h) => h.toLowerCase() === 'email')
+      // Take 5 first data rows for preview
+      const rows = lines.slice(1, 6).map(splitCsv)
+      setCsvPreview({ headers, rows, emailColumnFound })
+    }
+    reader.onerror = () => setCsvPreview(null)
+    // Use utf-8 + cp1252 fallback handled by browser FileReader
+    reader.readAsText(file, 'utf-8')
+  }, [])
+
+  const handleCsvFileSelected = useCallback((file: File | null) => {
+    setCsvFile(file)
+    setCsvImportResult(null)
+    if (file) {
+      parseCsvPreview(file)
+    } else {
+      setCsvPreview(null)
+    }
+  }, [parseCsvPreview])
+
+  const handleCsvDownloadTemplate = useCallback(() => {
+    // Generate a minimal CSV template inline (no backend call needed).
+    // Header line + 2 sample rows. BOM utf-8-sig pour Excel FR.
+    const csv = '﻿' + [
+      'email,first_name,last_name',
+      'jean.dupont@example.com,Jean,Dupont',
+      'marie.martin@example.com,Marie,Martin',
+    ].join('\n') + '\n'
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'modele-import-pax.csv'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }, [])
+
+  const closeCsvModal = useCallback(() => {
+    setShowCsvImportModal(false)
+    setCsvFile(null)
+    setCsvPreview(null)
+    setCsvImportResult(null)
+    setCsvDragging(false)
+  }, [])
+
   // SUP-0039 — CSV import + history-based suggestion handlers
   const handleCsvImport = () => {
     if (!csvFile) return
@@ -556,7 +630,7 @@ export function AdsDetailPanel({ id }: { id: string }) {
       {
         onSuccess: (result) => {
           setCsvImportResult(result)
-          setCsvFile(null)
+          // Garde le csvFile pour que l'user voie quel fichier a ete importe
           const { added, errors, skipped } = result.summary
           toast({
             title: t('paxlog.ads_detail.csv_import.success_title') || 'Import terminé',
@@ -1421,93 +1495,290 @@ export function AdsDetailPanel({ id }: { id: string }) {
             </div>
           )}
 
-          {/* SUP-0039 — Modal import CSV (email column obligatoire). Affiche
-              le rapport en bas apres traitement : added/skipped/errors avec
-              detail des lignes erronees. */}
+          {/* SUP-0039 — Modal import CSV refondue (Bastien : "champ d'import
+              implemente tres mal"). Vraie modale fullscreen avec :
+              - Drag & drop zone propre
+              - Bouton de download template CSV (inline blob, pas de backend)
+              - Preview des 5 premieres lignes parsees + detection auto
+                de la colonne 'email' avec badge visible
+              - Rapport d'import structure (added/skipped/errors) en grille
+              - Erreurs detaillees avec lignes copiables */}
           {showCsvImportModal && (
-            <div className="mb-3">
-              <div className="space-y-2 p-2 rounded-md border border-border bg-card">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold">
-                    <FileSpreadsheet size={12} className="text-primary" />
-                    {t('paxlog.ads_detail.csv_import.title') || 'Importer des passagers depuis CSV'}
+            <div
+              className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in-0 duration-200"
+              role="dialog"
+              aria-modal="true"
+              onClick={() => !importPaxCsv.isPending && closeCsvModal()}
+            >
+              <div
+                className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/20">
+                  <div className="p-2 rounded-lg bg-primary/10 ring-1 ring-primary/20 text-primary shrink-0">
+                    <FileSpreadsheet size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {t('paxlog.csv_import.title', 'Importer des passagers depuis un CSV')}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t('paxlog.csv_import.subtitle', "Une seule colonne obligatoire : email. Le fichier peut contenir d'autres colonnes (ignorées).")}
+                    </p>
                   </div>
                   <button
-                    className="p-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      setShowCsvImportModal(false)
-                      setCsvFile(null)
-                      setCsvImportResult(null)
-                    }}
-                    title={t('common.close')}
+                    type="button"
+                    onClick={closeCsvModal}
+                    disabled={importPaxCsv.isPending}
+                    aria-label={t('common.close') as string}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50"
                   >
-                    <X size={14} />
+                    <X size={16} />
                   </button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {t('paxlog.ads_detail.csv_import.instructions') || 'Le fichier CSV doit contenir au minimum une colonne "email". Séparateurs supportés : , ; tab. Encodages : UTF-8 ou CP1252 (Excel FR).'}
-                </p>
-                <input
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) {
-                      setCsvFile(file)
-                      setCsvImportResult(null)
-                    }
-                  }}
-                  className={panelInputClass}
-                />
-                {csvFile && (
-                  <div className="flex items-center gap-2">
+
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                  {/* Template downloader */}
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <BookOpen size={14} className="text-muted-foreground shrink-0" />
+                      <span className="text-xs text-foreground">
+                        {t('paxlog.csv_import.need_template', "Pas sûr du format ? Téléchargez un modèle prêt à remplir.")}
+                      </span>
+                    </div>
                     <button
-                      className="btn btn-primary h-6 px-2 text-[10px]"
-                      disabled={importPaxCsv.isPending}
+                      type="button"
+                      onClick={handleCsvDownloadTemplate}
+                      className="btn btn-tertiary h-7 px-2.5 text-xs inline-flex items-center gap-1.5 shrink-0"
+                    >
+                      <Download size={12} />
+                      {t('paxlog.csv_import.download_template', 'Modèle')}
+                    </button>
+                  </div>
+
+                  {/* Drag & drop zone */}
+                  {!csvFile ? (
+                    <label
+                      className={cn(
+                        'block rounded-xl border-2 border-dashed transition-colors cursor-pointer text-center px-6 py-10',
+                        csvDragging
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/40 hover:bg-muted/30',
+                      )}
+                      onDragOver={(e) => { e.preventDefault(); setCsvDragging(true) }}
+                      onDragLeave={() => setCsvDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        setCsvDragging(false)
+                        const f = e.dataTransfer.files?.[0]
+                        if (f && (f.name.toLowerCase().endsWith('.csv') || f.type === 'text/csv')) {
+                          handleCsvFileSelected(f)
+                        } else {
+                          toast({
+                            title: t('paxlog.csv_import.bad_file_type', 'Fichier non supporté'),
+                            description: t('paxlog.csv_import.bad_file_type_desc', 'Seuls les fichiers .csv sont acceptés.'),
+                            variant: 'error',
+                          })
+                        }
+                      }}
+                    >
+                      <UploadCloud size={32} className="mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm font-medium text-foreground">
+                        {t('paxlog.csv_import.drop_or_click', 'Glissez votre fichier CSV ici, ou cliquez pour parcourir')}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t('paxlog.csv_import.format_hint', 'Encodages : UTF-8, CP1252 (Excel FR) · Séparateurs : , ; tab |')}
+                      </p>
+                      <input
+                        type="file"
+                        accept=".csv,text/csv"
+                        className="sr-only"
+                        onChange={(e) => handleCsvFileSelected(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Selected file pill */}
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <FileCheck2 size={18} className="text-emerald-500 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{csvFile.name}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {(csvFile.size / 1024).toFixed(1)} Ko
+                              {csvPreview ? ` · ${csvPreview.headers.length} colonne(s) détectée(s)` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCsvFileSelected(null)}
+                          disabled={importPaxCsv.isPending}
+                          aria-label={t('common.remove', 'Retirer') as string}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      {/* Email column status */}
+                      {csvPreview && (
+                        <div
+                          className={cn(
+                            'flex items-start gap-2 rounded-lg border p-2.5 text-xs',
+                            csvPreview.emailColumnFound
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300'
+                              : 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300',
+                          )}
+                        >
+                          {csvPreview.emailColumnFound ? (
+                            <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
+                          ) : (
+                            <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                          )}
+                          <div>
+                            <p className="font-medium">
+                              {csvPreview.emailColumnFound
+                                ? t('paxlog.csv_import.email_found', "Colonne 'email' détectée — prêt à importer.")
+                                : t('paxlog.csv_import.email_missing', "Colonne 'email' manquante.")}
+                            </p>
+                            {!csvPreview.emailColumnFound && csvPreview.headers.length > 0 && (
+                              <p className="mt-0.5 text-[11px] opacity-90">
+                                {t('paxlog.csv_import.headers_found', 'Colonnes trouvées : ')}{csvPreview.headers.join(', ')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Preview table */}
+                      {csvPreview && csvPreview.rows.length > 0 && (
+                        <div className="rounded-lg border border-border bg-card overflow-hidden">
+                          <div className="px-3 py-2 border-b border-border bg-muted/30 text-[11px] text-muted-foreground">
+                            {t('paxlog.csv_import.preview', 'Aperçu (5 premières lignes)')}
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead className="bg-muted/20">
+                                <tr>
+                                  {csvPreview.headers.map((h, i) => (
+                                    <th
+                                      key={i}
+                                      className={cn(
+                                        'text-left font-medium px-3 py-1.5 border-b border-border whitespace-nowrap',
+                                        h.toLowerCase() === 'email' ? 'text-primary' : 'text-muted-foreground',
+                                      )}
+                                    >
+                                      {h}
+                                      {h.toLowerCase() === 'email' && (
+                                        <span className="ml-1.5 inline-block rounded bg-primary/10 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
+                                          {t('paxlog.csv_import.required', 'requis')}
+                                        </span>
+                                      )}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {csvPreview.rows.map((row, ri) => (
+                                  <tr key={ri} className="border-b border-border/40 last:border-b-0">
+                                    {row.map((cell, ci) => (
+                                      <td key={ci} className="px-3 py-1.5 text-foreground whitespace-nowrap">
+                                        {cell || <span className="text-muted-foreground/50">—</span>}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Result after import */}
+                      {csvImportResult && (
+                        <div className="rounded-lg border border-border bg-card overflow-hidden">
+                          <div className="px-3 py-2 border-b border-border bg-muted/30 text-xs font-semibold text-foreground">
+                            {t('paxlog.csv_import.result_title', "Résultat de l'import")}
+                          </div>
+                          <div className="grid grid-cols-3 divide-x divide-border">
+                            <div className="px-3 py-3 text-center">
+                              <div className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                {csvImportResult.summary.added}
+                              </div>
+                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5">
+                                {t('paxlog.csv_import.added_label', 'Ajoutés')}
+                              </div>
+                            </div>
+                            <div className="px-3 py-3 text-center">
+                              <div className="text-2xl font-semibold text-amber-600 dark:text-amber-400 tabular-nums">
+                                {csvImportResult.summary.skipped}
+                              </div>
+                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5">
+                                {t('paxlog.csv_import.skipped_label', 'Doublons')}
+                              </div>
+                            </div>
+                            <div className="px-3 py-3 text-center">
+                              <div className={cn(
+                                'text-2xl font-semibold tabular-nums',
+                                csvImportResult.summary.errors > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground',
+                              )}>
+                                {csvImportResult.summary.errors}
+                              </div>
+                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5">
+                                {t('paxlog.csv_import.errors_label', 'Erreurs')}
+                              </div>
+                            </div>
+                          </div>
+                          {csvImportResult.summary.errors > 0 && (
+                            <div className="border-t border-border bg-red-50/40 dark:bg-red-950/10 px-3 py-2 max-h-32 overflow-y-auto">
+                              <p className="text-[11px] font-medium text-red-700 dark:text-red-400 mb-1">
+                                {t('paxlog.csv_import.errors_details', 'Détails des erreurs :')}
+                              </p>
+                              <ul className="space-y-0.5">
+                                {csvImportResult.errors.map((err, idx) => (
+                                  <li key={idx} className="text-[11px] text-foreground">
+                                    <span className="font-mono text-muted-foreground">L.{err.row}</span>{' '}
+                                    {err.error}
+                                    {err.email ? <span className="ml-1 text-muted-foreground">({err.email})</span> : ''}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border bg-muted/20">
+                  <button
+                    type="button"
+                    onClick={closeCsvModal}
+                    disabled={importPaxCsv.isPending}
+                    className="btn btn-secondary h-8 px-3 text-xs"
+                  >
+                    {csvImportResult ? t('common.close') : t('common.cancel')}
+                  </button>
+                  {!csvImportResult && (
+                    <button
+                      type="button"
                       onClick={handleCsvImport}
+                      disabled={!csvFile || !csvPreview?.emailColumnFound || importPaxCsv.isPending}
+                      className="btn btn-primary h-8 px-3 text-xs inline-flex items-center gap-1.5 disabled:opacity-50"
                     >
                       {importPaxCsv.isPending ? (
-                        <><Loader2 size={10} className="animate-spin mr-1" /> {t('common.importing') || 'Import…'}</>
+                        <><Loader2 size={12} className="animate-spin" />{t('paxlog.csv_import.importing', 'Import en cours…')}</>
                       ) : (
-                        <>{t('common.import') || 'Importer'}</>
+                        <><UploadCloud size={12} />{t('paxlog.csv_import.import_btn', 'Importer')}</>
                       )}
                     </button>
-                    <button
-                      className="btn btn-tertiary h-6 px-2 text-[10px]"
-                      onClick={() => setCsvFile(null)}
-                    >
-                      {t('common.cancel')}
-                    </button>
-                    <span className="text-[10px] text-muted-foreground truncate">{csvFile.name}</span>
-                  </div>
-                )}
-                {csvImportResult && (
-                  <div className="mt-2 space-y-1 p-2 rounded border bg-muted/30 text-[11px]">
-                    <p className="font-semibold">
-                      {t('paxlog.ads_detail.csv_import.result_title') || 'Résultat'}
-                    </p>
-                    <p className="text-emerald-600 dark:text-emerald-400">
-                      ✓ {csvImportResult.summary.added} {t('paxlog.ads_detail.csv_import.added') || 'ajouté(s)'}
-                    </p>
-                    {csvImportResult.summary.skipped > 0 && (
-                      <p className="text-amber-600 dark:text-amber-400">
-                        ⚠ {csvImportResult.summary.skipped} {t('paxlog.ads_detail.csv_import.skipped') || 'déjà présent(s)'}
-                      </p>
-                    )}
-                    {csvImportResult.summary.errors > 0 && (
-                      <div className="text-red-600 dark:text-red-400">
-                        <p>✗ {csvImportResult.summary.errors} {t('paxlog.ads_detail.csv_import.errors') || 'erreur(s)'}</p>
-                        <div className="mt-1 max-h-24 overflow-y-auto space-y-0.5">
-                          {csvImportResult.errors.map((err, idx) => (
-                            <p key={idx} className="text-[10px]">
-                              Ligne {err.row}: {err.error} {err.email ? `(${err.email})` : ''}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           )}

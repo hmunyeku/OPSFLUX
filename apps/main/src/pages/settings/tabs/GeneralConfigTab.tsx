@@ -178,7 +178,7 @@ export function GeneralConfigTab() {
       {/* ── Cartographie ── */}
       <CollapsibleSection
         id="cartographie"
-        title="Cartographie"
+        title={t('settings.gconfig.section_cartography', 'Cartographie')}
         description={t('settings.position_par_defaut_de_la_carte_cliquez')}
         storageKey="settings.general-config.collapse"
       >
@@ -188,7 +188,7 @@ export function GeneralConfigTab() {
       {/* ── Notifications ── */}
       <CollapsibleSection
         id="notifications-config"
-        title="Notifications"
+        title={t('settings.gconfig.section_notifications', 'Notifications')}
         description={t('settings.parametres_par_defaut_des_notifications')}
         storageKey="settings.general-config.collapse"
       >
@@ -246,8 +246,8 @@ export function GeneralConfigTab() {
       {/* ── Emails ── (dernière section depuis la suppression du doublon Cartographie) */}
       <CollapsibleSection
         id="emails-config"
-        title="Emails"
-        description="Personnalisation de l'apparence des emails envoyés par OpsFlux."
+        title={t('settings.gconfig.section_emails', 'Emails')}
+        description={t('settings.gconfig.section_emails_desc', "Personnalisation de l'apparence des emails envoyés par OpsFlux.")}
         storageKey="settings.general-config.collapse"
         showSeparator={false}
       >

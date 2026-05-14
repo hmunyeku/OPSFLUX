@@ -4505,6 +4505,270 @@ DEFAULT_PDF_TEMPLATES[12]["default_versions"]["fr"]["body_html"] = _PLANNER_CONF
 DEFAULT_PDF_TEMPLATES[12]["default_versions"]["en"]["body_html"] = _PLANNER_CONFLICT_RESOLUTION_BODY_EN
 
 
+# ── Delegation traceability (ISO) ──────────────────────────────────────────
+# Bastien : "Il faut un mail et un PDF (en utilisant les systeme core) pour
+# informer qu'on a recu une delegation, ou qu'on a donne une delegation; etc.
+# Dans le cadre de l'ISO toute delegation doit etre tracable."
+
+_DELEGATION_CERTIFICATE_BODY_FR = """\
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<style>
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #1a1a1a; line-height: 1.55; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 18px; }
+  .header h1 { font-size: 22px; margin: 0; color: #1e3a5f; letter-spacing: 0.5px; }
+  .header .iso-badge { background: #1e3a5f; color: white; padding: 4px 10px; border-radius: 3px; font-size: 9px; font-weight: 700; letter-spacing: 1px; }
+  .subtitle { color: #6b7280; font-size: 12px; margin-top: 4px; }
+  h2 { font-size: 13px; margin: 18px 0 8px 0; color: #1e3a5f; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+  th { background: #f3f4f6; font-weight: 600; text-align: left; padding: 8px 10px; border: 1px solid #d1d5db; font-size: 10px; }
+  td { padding: 8px 10px; border: 1px solid #e5e7eb; }
+  td.label { background: #fafafa; font-weight: 600; width: 35%; color: #374151; }
+  .perm-list { background: #f9fafb; border-left: 3px solid #1e3a5f; padding: 10px 14px; margin: 8px 0; font-size: 10px; }
+  .perm-list code { font-family: 'Courier New', monospace; background: white; padding: 1px 4px; border: 1px solid #e5e7eb; border-radius: 2px; font-size: 9px; }
+  .signatures { display: flex; gap: 24px; margin-top: 30px; }
+  .sig-block { flex: 1; border-top: 2px solid #1a1a1a; padding-top: 6px; font-size: 10px; }
+  .sig-block .name { font-weight: 600; }
+  .sig-block .role { color: #6b7280; font-size: 9px; }
+  .qr-section { text-align: center; margin-top: 20px; padding: 12px; background: #fafafa; border: 1px dashed #d1d5db; }
+  .qr-section img { width: 80px; height: 80px; }
+  .qr-section .ref { font-family: monospace; font-size: 9px; color: #6b7280; margin-top: 4px; }
+  .footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 9px; color: #6b7280; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Certificat de délégation</h1>
+      <div class="subtitle">{{ entity.name | default('OpsFlux') }} — Traçabilité conforme ISO</div>
+    </div>
+    <div class="iso-badge">ISO TRAÇABILITÉ</div>
+  </div>
+
+  <h2>Référence</h2>
+  <table>
+    <tr><td class="label">N° de délégation</td><td><strong>{{ delegation_id }}</strong></td></tr>
+    <tr><td class="label">Émis le</td><td>{{ generated_at }}</td></tr>
+    <tr><td class="label">Entité</td><td>{{ entity.name }} ({{ entity.code | default('—') }})</td></tr>
+    <tr><td class="label">Statut</td><td><strong>{{ status_label | default('ACTIVE') }}</strong></td></tr>
+  </table>
+
+  <h2>Délégant (donneur)</h2>
+  <table>
+    <tr><td class="label">Nom complet</td><td><strong>{{ delegator.full_name }}</strong></td></tr>
+    <tr><td class="label">Email</td><td>{{ delegator.email }}</td></tr>
+    {% if delegator.position %}<tr><td class="label">Poste</td><td>{{ delegator.position }}</td></tr>{% endif %}
+  </table>
+
+  <h2>Délégataire (bénéficiaire)</h2>
+  <table>
+    <tr><td class="label">Nom complet</td><td><strong>{{ delegate.full_name }}</strong></td></tr>
+    <tr><td class="label">Email</td><td>{{ delegate.email }}</td></tr>
+    {% if delegate.position %}<tr><td class="label">Poste</td><td>{{ delegate.position }}</td></tr>{% endif %}
+  </table>
+
+  <h2>Période de validité</h2>
+  <table>
+    <tr><td class="label">Du</td><td><strong>{{ start_date }}</strong></td></tr>
+    <tr><td class="label">Au</td><td><strong>{{ end_date }}</strong></td></tr>
+    {% if duration_days %}<tr><td class="label">Durée</td><td>{{ duration_days }} jour(s)</td></tr>{% endif %}
+  </table>
+
+  <h2>Permissions déléguées ({{ permissions_count }})</h2>
+  <div class="perm-list">
+    {% if permissions_list %}
+      {% for perm in permissions_list %}<code>{{ perm }}</code> {% endfor %}
+    {% else %}
+      <em>Aucune permission spécifique</em>
+    {% endif %}
+  </div>
+
+  {% if reason %}
+  <h2>Motif</h2>
+  <p>{{ reason }}</p>
+  {% endif %}
+
+  <div class="signatures">
+    <div class="sig-block">
+      <div class="name">{{ delegator.full_name }}</div>
+      <div class="role">Délégant</div>
+    </div>
+    <div class="sig-block">
+      <div class="name">{{ delegate.full_name }}</div>
+      <div class="role">Délégataire</div>
+    </div>
+  </div>
+
+  <div class="qr-section">
+    {% if qr_data_url %}<img src="{{ qr_data_url }}" alt="QR" />{% endif %}
+    <div class="ref">{{ delegation_id }}</div>
+    <div style="font-size:9px;color:#6b7280;margin-top:2px">Scannez pour vérifier l'authenticité dans OpsFlux</div>
+  </div>
+
+  <div class="footer">
+    Document généré automatiquement par OpsFlux le {{ generated_at }} —
+    Archivé conformément aux exigences ISO de traçabilité.
+    Ne peut être modifié manuellement.
+  </div>
+</body>
+</html>
+"""
+
+_DELEGATION_CERTIFICATE_BODY_EN = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<style>
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #1a1a1a; line-height: 1.55; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 18px; }
+  .header h1 { font-size: 22px; margin: 0; color: #1e3a5f; letter-spacing: 0.5px; }
+  .header .iso-badge { background: #1e3a5f; color: white; padding: 4px 10px; border-radius: 3px; font-size: 9px; font-weight: 700; letter-spacing: 1px; }
+  .subtitle { color: #6b7280; font-size: 12px; margin-top: 4px; }
+  h2 { font-size: 13px; margin: 18px 0 8px 0; color: #1e3a5f; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+  th { background: #f3f4f6; font-weight: 600; text-align: left; padding: 8px 10px; border: 1px solid #d1d5db; font-size: 10px; }
+  td { padding: 8px 10px; border: 1px solid #e5e7eb; }
+  td.label { background: #fafafa; font-weight: 600; width: 35%; color: #374151; }
+  .perm-list { background: #f9fafb; border-left: 3px solid #1e3a5f; padding: 10px 14px; margin: 8px 0; font-size: 10px; }
+  .perm-list code { font-family: 'Courier New', monospace; background: white; padding: 1px 4px; border: 1px solid #e5e7eb; border-radius: 2px; font-size: 9px; }
+  .signatures { display: flex; gap: 24px; margin-top: 30px; }
+  .sig-block { flex: 1; border-top: 2px solid #1a1a1a; padding-top: 6px; font-size: 10px; }
+  .sig-block .name { font-weight: 600; }
+  .sig-block .role { color: #6b7280; font-size: 9px; }
+  .qr-section { text-align: center; margin-top: 20px; padding: 12px; background: #fafafa; border: 1px dashed #d1d5db; }
+  .qr-section img { width: 80px; height: 80px; }
+  .qr-section .ref { font-family: monospace; font-size: 9px; color: #6b7280; margin-top: 4px; }
+  .footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 9px; color: #6b7280; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Delegation Certificate</h1>
+      <div class="subtitle">{{ entity.name | default('OpsFlux') }} — ISO compliant traceability</div>
+    </div>
+    <div class="iso-badge">ISO TRACEABILITY</div>
+  </div>
+
+  <h2>Reference</h2>
+  <table>
+    <tr><td class="label">Delegation ID</td><td><strong>{{ delegation_id }}</strong></td></tr>
+    <tr><td class="label">Issued on</td><td>{{ generated_at }}</td></tr>
+    <tr><td class="label">Entity</td><td>{{ entity.name }} ({{ entity.code | default('—') }})</td></tr>
+    <tr><td class="label">Status</td><td><strong>{{ status_label | default('ACTIVE') }}</strong></td></tr>
+  </table>
+
+  <h2>Delegator (grantor)</h2>
+  <table>
+    <tr><td class="label">Full name</td><td><strong>{{ delegator.full_name }}</strong></td></tr>
+    <tr><td class="label">Email</td><td>{{ delegator.email }}</td></tr>
+    {% if delegator.position %}<tr><td class="label">Position</td><td>{{ delegator.position }}</td></tr>{% endif %}
+  </table>
+
+  <h2>Delegate (beneficiary)</h2>
+  <table>
+    <tr><td class="label">Full name</td><td><strong>{{ delegate.full_name }}</strong></td></tr>
+    <tr><td class="label">Email</td><td>{{ delegate.email }}</td></tr>
+    {% if delegate.position %}<tr><td class="label">Position</td><td>{{ delegate.position }}</td></tr>{% endif %}
+  </table>
+
+  <h2>Validity period</h2>
+  <table>
+    <tr><td class="label">From</td><td><strong>{{ start_date }}</strong></td></tr>
+    <tr><td class="label">To</td><td><strong>{{ end_date }}</strong></td></tr>
+    {% if duration_days %}<tr><td class="label">Duration</td><td>{{ duration_days }} day(s)</td></tr>{% endif %}
+  </table>
+
+  <h2>Delegated permissions ({{ permissions_count }})</h2>
+  <div class="perm-list">
+    {% if permissions_list %}
+      {% for perm in permissions_list %}<code>{{ perm }}</code> {% endfor %}
+    {% else %}
+      <em>No specific permission</em>
+    {% endif %}
+  </div>
+
+  {% if reason %}
+  <h2>Reason</h2>
+  <p>{{ reason }}</p>
+  {% endif %}
+
+  <div class="signatures">
+    <div class="sig-block">
+      <div class="name">{{ delegator.full_name }}</div>
+      <div class="role">Delegator</div>
+    </div>
+    <div class="sig-block">
+      <div class="name">{{ delegate.full_name }}</div>
+      <div class="role">Delegate</div>
+    </div>
+  </div>
+
+  <div class="qr-section">
+    {% if qr_data_url %}<img src="{{ qr_data_url }}" alt="QR" />{% endif %}
+    <div class="ref">{{ delegation_id }}</div>
+    <div style="font-size:9px;color:#6b7280;margin-top:2px">Scan to verify authenticity in OpsFlux</div>
+  </div>
+
+  <div class="footer">
+    Document automatically generated by OpsFlux on {{ generated_at }} —
+    Archived for ISO traceability compliance.
+    Cannot be manually edited.
+  </div>
+</body>
+</html>
+"""
+
+DEFAULT_PDF_TEMPLATES.append({
+    "slug": "delegation.certificate",
+    "name": "Delegation ISO Traceability Certificate",
+    "description": "ISO traceability certificate for user permission delegations. "
+                   "Generated automatically on delegation creation and archived.",
+    "object_type": "delegation",
+    "page_size": "A4",
+    "orientation": "portrait",
+    "margin_top": 15,
+    "margin_right": 12,
+    "margin_bottom": 15,
+    "margin_left": 12,
+    "variables_schema": {
+        "delegation_id": "UUID of the delegation",
+        "delegator.full_name": "Full name of the delegator",
+        "delegator.email": "Email of the delegator",
+        "delegator.position": "Position of the delegator (optional)",
+        "delegate.full_name": "Full name of the delegate",
+        "delegate.email": "Email of the delegate",
+        "delegate.position": "Position of the delegate (optional)",
+        "start_date": "Start date (formatted)",
+        "end_date": "End date (formatted)",
+        "duration_days": "Duration in days",
+        "permissions_count": "Number of permissions",
+        "permissions_list": "List of permission codes",
+        "reason": "Reason / motive (optional)",
+        "status_label": "ACTIVE / REVOKED / EXPIRED",
+        "entity.name": "Entity name",
+        "entity.code": "Entity code",
+        "generated_at": "PDF generation timestamp",
+        "qr_data_url": "Base64-encoded QR code (data:image/png;base64,...)",
+    },
+    "default_versions": {
+        "fr": {
+            "body_html": _DELEGATION_CERTIFICATE_BODY_FR,
+            "header_html": None,
+            "footer_html": None,
+        },
+        "en": {
+            "body_html": _DELEGATION_CERTIFICATE_BODY_EN,
+            "header_html": None,
+            "footer_html": None,
+        },
+    },
+})
+
+
 # ── Rendering helpers ────────────────────────────────────────────────────
 
 def render_template_string(template_str: str, variables: dict) -> str:

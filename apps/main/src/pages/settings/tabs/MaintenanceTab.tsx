@@ -327,14 +327,14 @@ export function MaintenanceTab() {
         title={t('settings.maintenance.reset.title', 'Réinitialisation des données')}
         description={t(
           'settings.maintenance.reset.description',
-          "Vide les données opérationnelles de l'entité par domaine. Conserve obligatoirement les utilisateurs, RBAC, paramètres, dictionnaires, traductions, MCP, types de fichiers, modèles PDF et types de conformité.",
+          "Vide les données opérationnelles de l'entité par domaine. La configuration (utilisateurs, rôles, paramètres) est toujours préservée.",
         )}
       >
         <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 mb-4">
           <div className="flex items-start gap-3">
             <ShieldAlert size={18} className="text-destructive shrink-0 mt-0.5" />
-            <div className="text-xs text-foreground">
-              <p className="font-medium mb-1">
+            <div className="text-xs text-foreground space-y-1.5">
+              <p className="font-medium">
                 {t('settings.maintenance.reset.warning_title', 'Action irréversible')}
               </p>
               <p className="text-muted-foreground">
@@ -342,6 +342,9 @@ export function MaintenanceTab() {
                   'settings.maintenance.reset.warning_body',
                   "La suppression est immédiate et définitive (pas de corbeille). Les domaines cochés sont vidés pour l'entité courante uniquement — les autres entités ne sont pas affectées.",
                 )}
+              </p>
+              <p className="text-muted-foreground">
+                {t('settings.maintenance.reset.preserved_hint')}
               </p>
             </div>
           </div>
@@ -375,31 +378,37 @@ export function MaintenanceTab() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 mb-4">
-            {scopes.map((scope) => (
-              <label
-                key={scope.key}
-                className={cn(
-                  'flex items-start gap-2.5 p-2.5 rounded-md border cursor-pointer transition-colors',
-                  selectedScopes.has(scope.key)
-                    ? 'bg-destructive/5 border-destructive/30'
-                    : 'bg-card border-border hover:bg-accent/50',
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedScopes.has(scope.key)}
-                  onChange={() => toggleScope(scope.key)}
-                  className="mt-0.5 shrink-0"
-                  disabled={resetMutation.isPending}
-                />
-                <div className="min-w-0">
-                  <div className="text-sm text-foreground">{scope.label}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono">
-                    {scope.key} · {scope.table_count} {t('settings.maintenance.reset.tables', 'tables')}
+            {scopes.map((scope) => {
+              // Cherche un libellé i18n dans settings.maintenance.scopes_map.<key>
+              // pour bilingue. Si non trouvé, fallback sur le label brut du
+              // backend (cas d'un nouveau scope ajouté sans i18n encore).
+              const localizedLabel = t(`settings.maintenance.scopes_map.${scope.key}`, scope.label)
+              return (
+                <label
+                  key={scope.key}
+                  className={cn(
+                    'flex items-start gap-2.5 p-2.5 rounded-md border cursor-pointer transition-colors',
+                    selectedScopes.has(scope.key)
+                      ? 'bg-destructive/5 border-destructive/30'
+                      : 'bg-card border-border hover:bg-accent/50',
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedScopes.has(scope.key)}
+                    onChange={() => toggleScope(scope.key)}
+                    className="mt-0.5 shrink-0"
+                    disabled={resetMutation.isPending}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-sm text-foreground">{localizedLabel}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono">
+                      {scope.key} · {scope.table_count} {t('settings.maintenance.reset.tables', 'tables')}
+                    </div>
                   </div>
-                </div>
-              </label>
-            ))}
+                </label>
+              )
+            })}
           </div>
         )}
 
@@ -465,7 +474,7 @@ export function MaintenanceTab() {
                     .map((s) => (
                       <li key={s.key} className="text-xs text-foreground flex items-center gap-1.5">
                         <CheckCircle2 size={11} className="text-destructive shrink-0" />
-                        {s.label}
+                        {t(`settings.maintenance.scopes_map.${s.key}`, s.label)}
                       </li>
                     ))}
                 </ul>

@@ -66,7 +66,7 @@ export function EmailsTab() {
     <>
       <CollapsibleSection
         id="emails-list"
-        title="Adresses email"
+        title={t('settings.emails.section_title', 'Adresses email')}
         description={t('settings.gerez_les_adresses_email_liees_a_votre_c')}
         storageKey="settings.emails.collapse"
       >

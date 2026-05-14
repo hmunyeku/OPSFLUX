@@ -24,7 +24,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin, VerifiableMixin
+from app.models.base import AuditUserMixin, Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin, VerifiableMixin
 
 
 # ─── Entities ────────────────────────────────────────────────────────────────
@@ -585,6 +585,53 @@ class RefreshToken(UUIDPrimaryKeyMixin, Base):
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
+# ─── MFA Trusted Devices ─────────────────────────────────────────────────────
+# Suite #6 MFA admin config — permet a un user de "se souvenir" de son
+# appareil pour ne pas saisir l'OTP a chaque connexion. La duree max
+# est controlee par le setting auth.mfa_trust_device_max_days.
+
+class MFATrustedDevice(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "mfa_trusted_devices"
+    __table_args__ = (
+        Index("idx_mfa_trusted_devices_user", "user_id"),
+        Index("idx_mfa_trusted_devices_expires", "expires_at"),
+        Index("idx_mfa_trusted_devices_token", "token_hash", unique=True),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # SHA-256 hash du token clear-text envoye dans le cookie HTTP-only.
+    # Le clear-text n'est jamais stocke en BDD pour limiter l'impact
+    # d'une fuite SQL.
+    token_hash: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Metadata pour audit + affichage dans Settings > Devices
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    browser: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    os: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    revoked: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 # ─── Reference Sequences ────────────────────────────────────────────────────
@@ -1682,8 +1729,18 @@ class TierContactTransfer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 # ─── Projects / Projets ─────────────────────────────────────────────────────
 
 
-class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Projet — inspire de Gouti."""
+class Project(UUIDPrimaryKeyMixin, TimestampMixin, AuditUserMixin, SoftDeleteMixin, Base):
+    """Projet — inspire de Gouti.
+
+    SUP-bug session 10 : migration 024 a ajoute created_by + updated_by en
+    BDD via le pattern AuditUserMixin, mais le modele ne l'avait jamais
+    branche -- l'attribut Project.created_by etait perdu. Impact : le code
+    de suppression user (users.py:1572-1574) faisait
+    `getattr(Project, "created_by", None)` qui retournait None et SKIPPAIT
+    silencieusement la check de dependances (un user supprime laissait
+    ses projets sans verification). Bug logique sans crash, mais correct
+    bugfix.
+    """
     __tablename__ = "projects"
     __table_args__ = (
         Index("idx_projects_entity", "entity_id"),
@@ -1736,7 +1793,11 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # for the recursive WBS roll-up implementation.
     progress_weight_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Bug E2E #54 : ancien code redeclarait `archived` localement et n'avait pas
+    # de `deleted_at`. Maintenant herite de SoftDeleteMixin (cf classe parente
+    # ligne 1674) qui fournit archived + deleted_at horodate pour audit ISO.
+    # Migration 174_project_soft_delete_repair ajoute la colonne deleted_at si
+    # manquante en BDD (idempotente).
 
     manager: Mapped["User | None"] = relationship(foreign_keys=[manager_id])
     parent: Mapped["Project | None"] = relationship(remote_side="Project.id", foreign_keys=[parent_id])
@@ -1925,6 +1986,15 @@ class ProjectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     pob_quota: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # SUP-bug #37 : migration 145 (orpheline, dans branche morte alembic)
+    # ajoutait is_milestone, mais le head main passe par 158 → 170 sans
+    # toucher au modele. Schema Pydantic ProjectTaskCreate exposait
+    # is_milestone -> body.model_dump() passe la cle a ProjectTask() ->
+    # AttributeError -> 500. Fix : ajout au modele + migration 173
+    # idempotente qui creates la colonne si manquante.
+    is_milestone: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False,
+    )
 
     project: Mapped["Project"] = relationship(back_populates="tasks")
     parent: Mapped["ProjectTask | None"] = relationship(remote_side="ProjectTask.id", foreign_keys=[parent_id])

@@ -98,7 +98,7 @@ export function GdprTab() {
         description={t('settings.durees_de_conservation_appliquees_automa')}
         storageKey="settings.gdpr.collapse">
         <div className="mt-2 space-y-0">
-          <SettingRow label="Logs d'audit" description="Durée de conservation des logs d'audit (en mois).">
+          <SettingRow label={t('settings.gdpr_admin.audit_logs_label')} description={t('settings.gdpr_admin.audit_logs_desc')}>
             <div className="flex items-center gap-2">
               <input type="number" min={6} max={120} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_audit_months'] as number) ?? 36}
@@ -106,7 +106,7 @@ export function GdprTab() {
               <span className="text-xs text-muted-foreground">mois</span>
             </div>
           </SettingRow>
-          <SettingRow label={t('settings.sessions_de_connexion')} description="Duree de conservation de l'historique des sessions.">
+          <SettingRow label={t('settings.sessions_de_connexion')} description={t('settings.gdpr_admin.sessions_desc')}>
             <div className="flex items-center gap-2">
               <input type="number" min={1} max={24} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_sessions_months'] as number) ?? 6}
@@ -114,7 +114,7 @@ export function GdprTab() {
               <span className="text-xs text-muted-foreground">mois</span>
             </div>
           </SettingRow>
-          <SettingRow label="Comptes inactifs" description={t('settings.delai_avant_anonymisation_automatique_de')}>
+          <SettingRow label={t('settings.gdpr_admin.inactive_accounts_label')} description={t('settings.delai_avant_anonymisation_automatique_de')}>
             <div className="flex items-center gap-2">
               <input type="number" min={6} max={60} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_inactive_accounts_months'] as number) ?? 24}
@@ -142,11 +142,11 @@ export function GdprTab() {
       </CollapsibleSection>
 
       {/* Consent Configuration */}
-      <CollapsibleSection id="gdpr-consent" title="Consentement"
+      <CollapsibleSection id="gdpr-consent" title={t('settings.gdpr_admin.consent_section')}
         description={t('settings.configuration_des_demandes_de_consenteme')}
         storageKey="settings.gdpr.collapse">
         <div className="mt-2 space-y-0">
-          <SettingRow label="Banniere cookies" description={t('settings.afficher_la_banniere_de_consentement_coo')}>
+          <SettingRow label={t('settings.gdpr_admin.cookie_banner_label')} description={t('settings.afficher_la_banniere_de_consentement_coo')}>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" className="sr-only peer"
                 checked={(s['gdpr.cookie_banner_enabled'] as boolean) ?? true}

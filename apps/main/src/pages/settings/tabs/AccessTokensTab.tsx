@@ -138,8 +138,8 @@ export function AccessTokensTab() {
   return (
     <CollapsibleSection
       id="access-tokens"
-      title="Jetons d'accès personnel"
-      description="Créez des jetons d'accès pour les applications qui ont besoin d'accéder à l'API OpsFlux."
+      title={t('settings.tokens.section_title', "Jetons d'accès personnel")}
+      description={t('settings.tokens.section_desc', "Créez des jetons d'accès pour les applications qui ont besoin d'accéder à l'API OpsFlux.")}
       storageKey="settings.tokens.collapse"
       showSeparator={false}
     >
@@ -149,7 +149,7 @@ export function AccessTokensTab() {
           onClick={() => openDynamicPanel({ type: 'create', module: 'settings-token' })}
         >
           <Plus size={14} />
-          Créer un jeton
+          {t('settings.tokens.create_btn', 'Créer un jeton')}
         </button>
       </div>
 

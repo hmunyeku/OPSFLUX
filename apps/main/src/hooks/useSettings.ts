@@ -547,6 +547,30 @@ export function useMFARegenerateCodes() {
   })
 }
 
+/**
+ * #6 MFA admin policy : verifie si l'admin a active "MFA obligatoire pour tous"
+ * et si le user courant doit forcer le setup MFA avant tout autre acces.
+ *
+ * Polling toutes les 5 min pour detecter un changement de policy admin
+ * sans avoir besoin de refresh la page. Cache 1 min (staleTime).
+ */
+export function useMfaPolicy() {
+  return useQuery({
+    queryKey: ['mfa-policy'],
+    queryFn: async () => {
+      const api = (await import('@/lib/api')).default
+      const { data } = await api.get<{
+        required_for_all: boolean
+        current_user_mfa_enabled: boolean
+        current_user_must_setup: boolean
+      }>('/api/v1/auth/mfa-policy')
+      return data
+    },
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  })
+}
+
 // ═════════════════════════════════════════════════════════════
 // TAGS (polymorphic — reusable for any object type)
 // ═════════════════════════════════════════════════════════════

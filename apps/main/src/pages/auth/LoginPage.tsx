@@ -83,6 +83,10 @@ export function LoginPage() {
   const [mfaError, setMfaError] = useState('')
   const [mfaLoading, setMfaLoading] = useState(false)
   const mfaInputRef = useRef<HTMLInputElement>(null)
+  // #6 MFA trust device — "se souvenir de cet appareil"
+  const [trustEnabled, setTrustEnabled] = useState(false)
+  const [trustDays, setTrustDays] = useState(30)
+  const [trustConfig, setTrustConfig] = useState<{ enabled: boolean; max_days: number }>({ enabled: true, max_days: 30 })
 
   // SSO state
   const [ssoProviders, setSsoProviders] = useState<SSOProvider[]>([])
@@ -101,6 +105,16 @@ export function LoginPage() {
       .catch(() => {
         setServerStatus('offline')
       })
+    // #6 MFA trust device — config publique (peut etre desactivee par admin)
+    api.get('/api/v1/auth/login/config')
+      .then(res => {
+        const enabled = Boolean(res.data?.mfa_trust_device_enabled)
+        const maxDays = Number(res.data?.mfa_trust_device_max_days || 30)
+        setTrustConfig({ enabled, max_days: maxDays })
+        // Default trust duration : 30 jours OU max si plus petit
+        setTrustDays(Math.min(30, maxDays))
+      })
+      .catch(() => { /* ignore — login marche meme sans config */ })
   }, [])
 
   // ── Handle SSO callback tokens from URL ──────────────────
@@ -206,7 +220,10 @@ export function LoginPage() {
     setMfaError('')
     setMfaLoading(true)
     try {
-      await verifyMfa(code)
+      // Si "se souvenir" coché et trust enabled cote serveur, on envoie
+      // le nombre de jours. Le serveur clamp au max admin.
+      const remember = (trustConfig.enabled && trustEnabled) ? Math.max(1, Math.min(trustDays, trustConfig.max_days)) : 0
+      await verifyMfa(code, remember)
       navigate(ROUTES.dashboard)
     } catch {
       setMfaError(t('auth.invalid_mfa_code', 'Code invalide. Veuillez réessayer.'))
@@ -215,7 +232,7 @@ export function LoginPage() {
     } finally {
       setMfaLoading(false)
     }
-  }, [mfaCode, verifyMfa, navigate, t])
+  }, [mfaCode, verifyMfa, navigate, t, trustConfig, trustEnabled, trustDays])
 
   // ── Back to login (cancel MFA) ────────────────────────
   const handleBackToLogin = () => {
@@ -447,6 +464,52 @@ export function LoginPage() {
                   className={cn(inputClass, 'text-center font-mono tracking-[0.3em] text-lg')}
                 />
               </div>
+
+              {/* #6 MFA trust device — "Se souvenir de cet appareil"
+                  Visible uniquement si l'admin a active l'option
+                  (mfa_trust_device_enabled). Sinon la checkbox est cachee
+                  et le user doit saisir l'OTP a chaque fois. */}
+              {trustConfig.enabled && (
+                <div className="rounded-md border border-border/60 bg-muted/20 p-2.5 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={trustEnabled}
+                      onChange={(e) => setTrustEnabled(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded"
+                    />
+                    <span className="text-xs text-foreground font-medium">
+                      {t('auth.mfa_remember_device', 'Se souvenir de cet appareil')}
+                    </span>
+                  </label>
+                  {trustEnabled && (
+                    <div className="flex items-center gap-2 pl-5.5">
+                      <span className="text-[11px] text-muted-foreground">
+                        {t('auth.mfa_remember_duration', 'Pendant')}
+                      </span>
+                      <select
+                        value={trustDays}
+                        onChange={(e) => setTrustDays(Number(e.target.value))}
+                        className="h-7 rounded border border-border bg-background px-1.5 text-xs"
+                      >
+                        {[7, 14, 30, 60, 90, 180, 365]
+                          .filter((d) => d <= trustConfig.max_days)
+                          .map((d) => (
+                            <option key={d} value={d}>
+                              {d >= 365 ? '1 an' : d >= 30 ? `${Math.round(d / 30)} mois` : `${d} jours`}
+                            </option>
+                          ))}
+                      </select>
+                      <span className="text-[10px] text-muted-foreground/70">
+                        {t('auth.mfa_max_days_hint', { max: trustConfig.max_days })}
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground/80 pl-5.5">
+                    {t('auth.mfa_remember_hint', "Sur cet appareil, vous n'aurez plus à saisir le code à chaque connexion.")}
+                  </p>
+                </div>
+              )}
 
               <button
                 type="submit"

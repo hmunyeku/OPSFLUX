@@ -4,7 +4,7 @@ from datetime import datetime, UTC
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import String, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -15,7 +15,13 @@ from app.api.deps import (
 )
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
-from app.models.common import User
+from app.models.common import (
+    User,
+    UserGroupMember,
+    UserGroupRole,
+    Permission,
+    RolePermission,
+)
 from app.models.messaging import (
     Announcement,
     AnnouncementReceipt,
@@ -78,7 +84,43 @@ async def list_announcements(
             )
         )
 
-    # Target filtering
+    # ── SUP-0043 : filtrage cible correct ────────────────────────────────
+    # Avant ce fix, role/module passaient sans filtre = tout le monde
+    # voyait toutes les annonces role/module. Maintenant chaque type est
+    # filtre correctement via sous-requete SQL.
+    #
+    # Une annonce ciblee 'role' est visible si le user appartient a un
+    # groupe qui a ce role attache.
+    # Une annonce ciblee 'group' est visible si le user est membre du
+    # groupe cible.
+    # Une annonce ciblee 'module' est visible si le user a au moins une
+    # permission rattachee a ce module (via ses groupes -> roles ->
+    # permissions). On joint via subquery pour eviter un cross-join.
+    # Une annonce ciblee 'page' est laissee passer cote serveur : le
+    # filtrage par route active se fait cote frontend (cf Banner.tsx).
+    user_role_codes_sq = (
+        select(UserGroupRole.role_code)
+        .join(UserGroupMember, UserGroupMember.group_id == UserGroupRole.group_id)
+        .where(UserGroupMember.user_id == current_user.id)
+        .scalar_subquery()
+    )
+    user_group_ids_sq = (
+        select(UserGroupMember.group_id)
+        .where(UserGroupMember.user_id == current_user.id)
+        .scalar_subquery()
+    )
+    user_module_codes_sq = (
+        select(Permission.module)
+        .join(RolePermission, RolePermission.permission_code == Permission.code)
+        .join(UserGroupRole, UserGroupRole.role_code == RolePermission.role_code)
+        .join(UserGroupMember, UserGroupMember.group_id == UserGroupRole.group_id)
+        .where(
+            UserGroupMember.user_id == current_user.id,
+            Permission.module.isnot(None),
+        )
+        .scalar_subquery()
+    )
+
     stmt = stmt.where(
         or_(
             Announcement.target_type == "all",
@@ -90,8 +132,25 @@ async def list_announcements(
                 Announcement.target_type == "user",
                 Announcement.target_value == str(current_user.id),
             ),
-            # Role-based and module-based require permission checks
-            Announcement.target_type.in_(["role", "module"]),
+            and_(
+                Announcement.target_type == "role",
+                Announcement.target_value.in_(user_role_codes_sq),
+            ),
+            and_(
+                Announcement.target_type == "group",
+                # Cast group_id UUID -> text pour comparer
+                Announcement.target_value.in_(
+                    select(func.cast(UserGroupMember.group_id, String))
+                    .where(UserGroupMember.user_id == current_user.id)
+                    .scalar_subquery()
+                ),
+            ),
+            and_(
+                Announcement.target_type == "module",
+                Announcement.target_value.in_(user_module_codes_sq),
+            ),
+            # 'page' : pass-through. Filtrage cote frontend via location.
+            Announcement.target_type == "page",
         )
     )
 
@@ -314,14 +373,19 @@ async def dismiss_announcement(
     db: AsyncSession = Depends(get_db),
 ):
     """Mark an announcement as read/dismissed by the current user."""
-    # Tenant isolation: without the entity_id filter any authenticated
-    # user could probe for — and mark as dismissed — announcements
-    # belonging to sibling tenants. Low severity leak (marks read on
-    # their own receipt only) but violates cloisonnement contract.
+    # SUP-0043 fix : autoriser le dismiss aussi pour les annonces globales
+    # (entity_id IS NULL). L'ancien filtre strict cassait le dismiss des
+    # annonces 'all' qui sont par definition cross-tenant.
+    # Tenant isolation : l'annonce doit etre de l'entite courante OU
+    # globale (NULL). Le receipt cree est scope au user, donc pas de
+    # leak inter-tenant possible.
     result = await db.execute(
         select(Announcement).where(
             Announcement.id == announcement_id,
-            Announcement.entity_id == entity_id,
+            or_(
+                Announcement.entity_id == entity_id,
+                Announcement.entity_id.is_(None),
+            ),
         )
     )
     if not result.scalar_one_or_none():

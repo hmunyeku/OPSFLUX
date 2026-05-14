@@ -8,7 +8,9 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Eye, EyeOff, Loader2, ShieldCheck, ShieldOff, Copy, Check, RefreshCw, KeyRound } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Eye, EyeOff, Loader2, ShieldCheck, ShieldOff, Copy, Check, RefreshCw, KeyRound, Monitor, Smartphone, Trash2 } from 'lucide-react'
+import api from '@/lib/api'
 import { useChangePassword, useMFAStatus, useMFASetup, useMFAVerifySetup, useMFADisable, useMFARegenerateCodes } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
@@ -31,11 +33,146 @@ export function SecurityTab() {
         title={t('settings.authentification_a_deux_facteurs')}
         description="Renforcez la sécurité de votre compte en activant l'authentification à deux facteurs (TOTP)."
         storageKey="settings.security.collapse"
-        showSeparator={false}
       >
         <MFASection />
       </CollapsibleSection>
+
+      <CollapsibleSection
+        id="trusted-devices"
+        title={t('settings.trusted_devices_title', 'Appareils de confiance MFA')}
+        description={t(
+          'settings.trusted_devices_description',
+          'Liste des appareils où vous avez choisi "Se souvenir de cet appareil". Vous pouvez révoquer un appareil pour forcer la saisie du code MFA au prochain login.',
+        )}
+        storageKey="settings.security.collapse"
+        showSeparator={false}
+      >
+        <TrustedDevicesSection />
+      </CollapsibleSection>
     </>
+  )
+}
+
+/* ── Trusted Devices Section (#6 MFA) ── */
+interface TrustedDevice {
+  id: string
+  created_at: string
+  expires_at: string
+  last_used_at: string | null
+  ip_address: string | null
+  browser: string | null
+  os: string | null
+  label: string | null
+  is_current: boolean
+}
+
+function TrustedDevicesSection() {
+  const { t } = useTranslation()
+  const { toast } = useToast()
+  const qc = useQueryClient()
+
+  const { data: devices, isLoading } = useQuery({
+    queryKey: ['mfa-trusted-devices'],
+    queryFn: async () => {
+      const { data } = await api.get<TrustedDevice[]>('/api/v1/mfa/trusted-devices')
+      return data
+    },
+  })
+
+  const revokeOne = useMutation({
+    mutationFn: (id: string) => api.post(`/api/v1/mfa/trusted-devices/${id}/revoke`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['mfa-trusted-devices'] })
+      toast({ title: t('settings.trusted_devices_revoked', 'Appareil révoqué.'), variant: 'success' })
+    },
+  })
+
+  const revokeAll = useMutation({
+    mutationFn: () => api.post('/api/v1/mfa/trusted-devices/revoke-all'),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['mfa-trusted-devices'] })
+      toast({
+        title: t('settings.trusted_devices_revoked_all', '{{count}} appareil(s) révoqué(s).', {
+          count: (res.data as { count?: number })?.count ?? 0,
+        }),
+        variant: 'success',
+      })
+    },
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Loader2 size={14} className="animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!devices || devices.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground py-3">
+        {t('settings.trusted_devices_empty', 'Aucun appareil de confiance pour le moment.')}
+      </p>
+    )
+  }
+
+  const fmtDate = (d: string | null) => d
+    ? new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '—'
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">
+          {devices.length} {t('settings.trusted_devices_count', { count: devices.length })}
+        </span>
+        <button
+          type="button"
+          onClick={() => revokeAll.mutate()}
+          disabled={revokeAll.isPending}
+          className="text-xs text-destructive hover:underline disabled:opacity-50"
+        >
+          {revokeAll.isPending ? <Loader2 size={12} className="inline animate-spin" /> : t('settings.trusted_devices_revoke_all', 'Tout révoquer')}
+        </button>
+      </div>
+      <div className="space-y-1.5">
+        {devices.map((d) => {
+          const Icon = (d.os === 'iOS' || d.os === 'Android') ? Smartphone : Monitor
+          return (
+            <div
+              key={d.id}
+              className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2"
+            >
+              <Icon size={16} className="text-muted-foreground shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {d.browser || 'Navigateur inconnu'} · {d.os || 'OS inconnu'}
+                  {d.is_current && (
+                    <span className="ml-2 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                      {t('common.current', 'En cours')}
+                    </span>
+                  )}
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {d.ip_address ? `IP ${d.ip_address} · ` : ''}
+                  {t('settings.trusted_devices_expires', 'expire le')} {fmtDate(d.expires_at)}
+                  {d.last_used_at ? ` · ${t('settings.trusted_devices_last_used', 'utilisé')} ${fmtDate(d.last_used_at)}` : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => revokeOne.mutate(d.id)}
+                disabled={revokeOne.isPending}
+                aria-label={t('common.revoke', 'Révoquer') as string}
+                className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

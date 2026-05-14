@@ -78,9 +78,10 @@ function SecretField({
 
 // ── Integration status badge ──
 function StatusBadge({ configured }: { configured: boolean }) {
+  const { t } = useTranslation()
   return (
     <span className={`chip ${configured ? 'chip-success' : ''}`}>
-      {configured ? 'Configuré' : 'Non configuré'}
+      {configured ? t('settings.integrations.configured') : t('settings.integrations.not_configured')}
     </span>
   )
 }
@@ -88,15 +89,18 @@ function StatusBadge({ configured }: { configured: boolean }) {
 // ── Connector status (richer than StatusBadge) ──
 type ConnectorStatusType = 'idle' | 'configured' | 'connected' | 'error'
 
-function formatRelativeTime(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return "à l'instant"
-  if (minutes < 60) return `il y a ${minutes}min`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `il y a ${hours}h`
-  const days = Math.floor(hours / 24)
-  return `il y a ${days}j`
+function useRelativeTimeFormatter() {
+  const { t } = useTranslation()
+  return (isoDate: string): string => {
+    const diff = Date.now() - new Date(isoDate).getTime()
+    const minutes = Math.floor(diff / 60000)
+    if (minutes < 1) return t('settings.integrations.time_just_now')
+    if (minutes < 60) return t('settings.integrations.time_minutes_ago', { count: minutes })
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return t('settings.integrations.time_hours_ago', { count: hours })
+    const days = Math.floor(hours / 24)
+    return t('settings.integrations.time_days_ago', { count: days })
+  }
 }
 
 function ConnectorStatus({ status, lastTestedAt, lastError }: {
@@ -104,6 +108,8 @@ function ConnectorStatus({ status, lastTestedAt, lastError }: {
   lastTestedAt?: string
   lastError?: string
 }) {
+  const { t } = useTranslation()
+  const formatRelativeTime = useRelativeTimeFormatter()
   const styles: Record<ConnectorStatusType, string> = {
     idle: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400',
     configured: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
@@ -111,10 +117,10 @@ function ConnectorStatus({ status, lastTestedAt, lastError }: {
     error: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
   }
   const labels: Record<ConnectorStatusType, string> = {
-    idle: 'Non configuré',
-    configured: 'Configuré',
-    connected: 'Connecté',
-    error: 'Erreur',
+    idle: t('settings.integrations.not_configured'),
+    configured: t('settings.integrations.configured'),
+    connected: t('settings.integrations.connected'),
+    error: t('settings.integrations.error'),
   }
 
   return (

@@ -36,7 +36,9 @@
     "imputations": "Imputations",
     "help": "Help",
     "collapse": "Collapse",
-    "expand": "Expand"
+    "expand": "Expand",
+    "admin_section_label": "Admin section label",
+    "home": "Home"
   },
   "auth": {
     "login": "Login",
@@ -81,7 +83,12 @@
     "server_online": "Server connected",
     "server_offline": "Server unreachable",
     "verification_d_email": "Vérification d'email",
-    "verification_en_cours": "Vérification en cours..."
+    "verification_en_cours": "Vérification en cours...",
+    "server_offline_hint": "Server offline hint",
+    "mfa_max_days_hint": "(max {{max}} days)",
+    "mfa_remember_device": "Remember this device",
+    "mfa_remember_duration": "For",
+    "mfa_remember_hint": "On this device, you won't need to enter the code at every login."
   },
   "topbar": {
     "acting_as": "Acting context",
@@ -227,7 +234,228 @@
     "mode": "Mode",
     "created_by": "Created by",
     "created_at_label": "Created at",
-    "no_data_available": "No data to display"
+    "no_data_available": "No data to display",
+    "activity": "Activity",
+    "approve": "Approve",
+    "certification": "Certification",
+    "city": "City",
+    "contact": "Contact",
+    "deleted": "Deleted",
+    "documents": "Documents",
+    "draft": "Draft",
+    "exemption": "Exemption",
+    "maintenance": "Maintenance",
+    "modification": "Updated",
+    "packages": "Cargo",
+    "public": "Public",
+    "rotation": "Rotation",
+    "site": "Site",
+    "task": "Task",
+    "to": "To",
+    "user": "User",
+    "workflow": "Workflow",
+    "active_female": "Active female",
+    "active_until": "Active until",
+    "actual_end": "Actual end",
+    "add_at_least_one_recipient": "Add at least one recipient",
+    "add_cc": "Add cc",
+    "addresses": "Addresses",
+    "appearance": "Appearance",
+    "application": "Application",
+    "archived_count": "Archived count",
+    "associations": "Associations",
+    "attached_files": "Attached files",
+    "attachment_section": "Attachment section",
+    "availability": "Availability",
+    "blocks": "Blocks",
+    "boarded": "Boarded",
+    "body_measurements": "Body measurements",
+    "capacities": "Capacities",
+    "cargo_compliance": "Cargo compliance",
+    "classification": "Classification",
+    "columns": "Columns",
+    "commissioning_date": "Commissioning date",
+    "complete": "Complete",
+    "completeness": "Completeness",
+    "conditions": "Conditions",
+    "confidential": "Confidential",
+    "configuration": "Configuration",
+    "constant": "Constant",
+    "contact_info": "Contact info",
+    "contact_phone": "Contact phone",
+    "content": "Content",
+    "created_at_female": "Created at female",
+    "creating": "Creating",
+    "critical_priority": "Critical priority",
+    "current": "Current",
+    "daily": "Daily",
+    "damaged": "Damaged",
+    "dates": "Dates",
+    "deleted_female": "Deleted female",
+    "delivered": "Delivered",
+    "dependencies": "Dependencies",
+    "designation": "Designation",
+    "destination_installation": "Destination installation",
+    "detail": "Detail",
+    "dictionary": "Dictionary",
+    "discipline": "Discipline",
+    "display": "Display",
+    "distribution": "Distribution",
+    "document_prepared_on": "Document prepared on",
+    "document_type": "Document type",
+    "draw_hint": "Draw hint",
+    "drilling_details": "Drilling details",
+    "drilling_program_ref": "Drilling program ref",
+    "email_attachments_intro": "Email attachments intro",
+    "email_body_placeholder": "Email body placeholder",
+    "empty_state": "Empty state",
+    "expected_return_date": "Expected return date",
+    "filters": "Filters",
+    "first_name": "First name",
+    "fluid": "Fluid",
+    "formula": "Formula",
+    "free_contact_name": "Free contact name",
+    "free_requester": "Free requester",
+    "general": "General",
+    "hazmat_validation": "Hazmat validation",
+    "health": "Health",
+    "height_cm": "Height cm",
+    "high_priority": "High priority",
+    "home_base": "Home base",
+    "identity": "Identity",
+    "importing": "Importing",
+    "imputations": "Imputations",
+    "internal_sensitivity": "Internal sensitivity",
+    "invalid_code": "Invalid code",
+    "inventory_reference": "Inventory reference",
+    "label_field": "Label field",
+    "label_long": "Label long",
+    "last_modified": "Last modified",
+    "last_name": "Last name",
+    "legal": "Legal",
+    "length_cm": "Length cm",
+    "license_concession": "License concession",
+    "lifting_points_certified": "Lifting points certified",
+    "lifting_provided_by": "Lifting provided by",
+    "list_type": "List type",
+    "loading_zone": "Loading zone",
+    "location": "Location",
+    "logistics_context": "Logistics context",
+    "logistics_preparation": "Logistics preparation",
+    "low_priority": "Low priority",
+    "maintenance_details": "Maintenance details",
+    "management": "Management",
+    "manufacturer": "Manufacturer",
+    "map_preview": "Map preview",
+    "material_ownership": "Material ownership",
+    "max_recipients_reached": "Max recipients reached",
+    "measurement": "Measurement",
+    "medium_priority": "Medium priority",
+    "message": "Message",
+    "missing": "Missing",
+    "modified_female": "Modified female",
+    "modules": "Modules",
+    "monthly": "Monthly",
+    "motive": "Motive",
+    "motive_ellipsis": "Motive ellipsis",
+    "name_ellipsis": "Name ellipsis",
+    "name_en": "Name en",
+    "name_fr": "Name fr",
+    "new_female": "New female",
+    "no_history_available": "No history available",
+    "no_permission_available": "No permission available",
+    "no_preset": "No preset",
+    "no_widget_found": "No widget found",
+    "nomenclature": "Nomenclature",
+    "none_option": "None option",
+    "not_found": "Not found",
+    "notes_documents": "Notes documents",
+    "number_type": "Number type",
+    "object_type": "Object type",
+    "operational": "Operational",
+    "options": "Options",
+    "orientation": "Orientation",
+    "orientation_deg": "Orientation deg",
+    "owner": "Owner",
+    "package_count": "Package count",
+    "package_type": "Package type",
+    "packaging": "Packaging",
+    "paragraph": "Paragraph",
+    "parameters": "Parameters",
+    "pax_quota": "Pax quota",
+    "period": "Period",
+    "periodicity": "Periodicity",
+    "photos_documents": "Photos documents",
+    "picker_truncated": "Picker truncated",
+    "pickup_evidence": "Pickup evidence",
+    "pickup_location": "Pickup location",
+    "pob_mode": "Pob mode",
+    "presets": "Presets",
+    "recipients_placeholder": "Recipients placeholder",
+    "recurrence": "Recurrence",
+    "registration": "Registration",
+    "regulatory_reference": "Regulatory reference",
+    "rename": "Rename",
+    "restricted": "Restricted",
+    "reusable_package": "Reusable package",
+    "rig_name": "Rig name",
+    "root": "Root",
+    "sap_article": "Sap article",
+    "save_failed": "Save failed",
+    "saved": "Saved",
+    "schedule_hours": "Schedule hours",
+    "scopes": "Scopes",
+    "search_settings": "Search settings",
+    "send": "Send",
+    "send_email": "Send email",
+    "sender": "Sender",
+    "sender_company": "Sender company",
+    "sending": "Sending",
+    "shipment_request": "Shipment request",
+    "shipment_request_label": "Shipment request label",
+    "spud_date": "Spud date",
+    "stackable": "Stackable",
+    "standard": "Standard",
+    "stops": "Stops",
+    "subject": "Subject",
+    "subject_placeholder": "Subject placeholder",
+    "subtype": "Subtype",
+    "tab_dashboard": "Tab dashboard",
+    "tab_overview": "Tab overview",
+    "tag_field": "Tag field",
+    "tags_notes": "Tags notes",
+    "tags_notes_files": "Tags notes files",
+    "target_depth_m": "Target depth m",
+    "targeting": "Targeting",
+    "templates": "Templates",
+    "text_type": "Text type",
+    "total_area_m2": "Total area m2",
+    "tracking_label": "Tracking label",
+    "transport": "Transport",
+    "unknown": "Unknown",
+    "up": "Up",
+    "use_email_as_is": "Use email as is",
+    "user_contact": "User contact",
+    "user_unavailable": "User unavailable",
+    "value_ellipsis": "Value ellipsis",
+    "verification": "Verification",
+    "verified": "Verified",
+    "verified_on": "Verified on",
+    "version": "Version",
+    "volume_m3": "Volume m3",
+    "water_depth_m": "Water depth m",
+    "weekly": "Weekly",
+    "weight_kg": "Weight kg",
+    "weight_ticket": "Weight ticket",
+    "well_reference": "Well reference",
+    "width_cm": "Width cm",
+    "work_order": "Work order",
+    "workover_details": "Workover details",
+    "revoke": "Revoke",
+    "contact_company": "Company contact",
+    "duration_days": "Duration (days)",
+    "parent_task": "Parent task",
+    "team_singular": "Team"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -848,7 +1076,52 @@
     "no_stats": "No statistics available",
     "history": "History",
     "no_changes": "No changes recorded",
-    "recent_changes": "Recent Changes"
+    "recent_changes": "Recent Changes",
+    "columns": {
+      "tag": "Tag",
+      "pipeline_id": "Pipeline ID",
+      "dn_in": "DN (in)"
+    },
+    "kmz": {
+      "description": "Description",
+      "title": "Title",
+      "commit_button": "Commit button",
+      "commit_confirm_message": "Commit confirm message",
+      "commit_confirm_title": "Commit confirm title",
+      "commit_field_label": "Commit field label",
+      "commit_field_placeholder": "Commit field placeholder",
+      "commit_hint": "Commit hint",
+      "dropzone_hint": "Dropzone hint",
+      "dropzone_title": "Dropzone title",
+      "errors": {
+        "export_failed": "Export failed",
+        "import_failed": "Import failed",
+        "not_kmz": "Not kmz",
+        "parse_failed": "Parse failed"
+      },
+      "export_button": "Export button",
+      "export_ready": "Export ready",
+      "history_button": "History button",
+      "history_empty": "History empty",
+      "history_rolled_back": "History rolled back",
+      "history_title": "History title",
+      "import_ready_hint": "Import ready hint",
+      "import_success": "Import success",
+      "preview_ready": "Preview ready",
+      "report_created": "Report created",
+      "report_errors": "Report errors",
+      "report_matched": "Report matched",
+      "report_reset": "Report reset",
+      "report_skipped": "Report skipped",
+      "report_title": "Report title",
+      "report_warnings_title": "Report warnings title",
+      "rollback_button": "Rollback button",
+      "rollback_confirm_message": "Rollback confirm message",
+      "rollback_confirm_title": "Rollback confirm title",
+      "uploading": "Uploading"
+    },
+    "children": "Children",
+    "no_hierarchy_data": "No hierarchy data"
   },
   "tiers": {
     "title": "Companies",
@@ -874,7 +1147,14 @@
         "access": "External access",
         "contact_details": "Employee contact details",
         "compliance": "References & compliance",
-        "notes_documents": "Notes & documents"
+        "notes_documents": "Notes & documents",
+        "addresses": "Addresses",
+        "emails": "Emails",
+        "legal_ids": "Legal ids",
+        "opening_hours": "Opening hours",
+        "phones": "Phones",
+        "socials": "Socials",
+        "tags": "Tags"
       },
       "auto_generated": "Auto-generated on creation",
       "trade_name": "Primary trade name",
@@ -960,8 +1240,24 @@
         "payment_terms": "Net 30 days",
         "description": "Free description..."
       },
-      "blocking_section": "Blocking"
-    }
+      "blocking_section": "Blocking",
+      "contact_department": "Contact department",
+      "contact_position": "Contact position",
+      "no_related_projects": "No related projects"
+    },
+    "tab_dashboard": "Dashboard",
+    "contact_form": {
+      "errors": {
+        "name_required": "Name required"
+      },
+      "is_primary": "Is primary",
+      "placeholders": {
+        "first_name": "First name",
+        "last_name": "Last name"
+      }
+    },
+    "select_company": "Select company",
+    "select_contact": "Select contact"
   },
   "users": {
     "title": "Users",
@@ -1087,8 +1383,123 @@
     "affecter_a_un_groupe": "Affecter à un groupe",
     "affecter_a_une_entite": "Affecter à une entité",
     "toast": {
-      "permission_error": "Error"
-    }
+      "permission_error": "Error",
+      "delete_error": "Error deleting",
+      "deleted": "Deleted",
+      "delete_blocked": "Delete blocked",
+      "avatar_updated": "Avatar updated",
+      "avatar_upload_error": "Avatar upload error",
+      "reset_email_sent": "Reset email sent",
+      "reset_email_error": "Reset email error",
+      "permission_granted": "Permission granted",
+      "permission_revoked": "Permission revoked"
+    },
+    "user": "User",
+    "groups_subtitle": "Groups subtitle",
+    "overview_subtitle": "Overview subtitle",
+    "rechercher_une_entite": "Rechercher une entite",
+    "roles_subtitle": "Roles subtitle",
+    "sections": {
+      "admin": "Admin",
+      "admin_help": "Admin help",
+      "auth": "Auth",
+      "auth_help": "Auth help",
+      "entity_access": "Entity access",
+      "entity_access_help": "Entity access help",
+      "identity": "Identity",
+      "identity_help": "Identity help"
+    },
+    "select_user": "Select user",
+    "badges": {
+      "locked": "Locked",
+      "expired": "Expired",
+      "active": "Active",
+      "archived": "Archived",
+      "external": "External",
+      "internal": "Internal"
+    },
+    "never_logged_in": "Never logged in",
+    "auth_methods": {
+      "email_password": "Email / Password",
+      "sso": "SSO",
+      "both": "Email + SSO"
+    },
+    "languages": {
+      "fr": "French",
+      "en": "English"
+    },
+    "gender": {
+      "male": "Male",
+      "female": "Female",
+      "other": "Other"
+    },
+    "actions": {
+      "reset_password": {
+        "label": "Reset password",
+        "confirm_title": "Reset password for {{count}} user(s)?",
+        "confirm_message": "A reset email will be sent to each selected user.",
+        "confirm_label": "Reset"
+      },
+      "activate": {
+        "label": "Activate"
+      },
+      "deactivate": {
+        "label": "Deactivate",
+        "confirm_title": "Deactivate {{count}} user(s)?",
+        "confirm_message": "Selected users will be archived and can no longer log in.",
+        "confirm_label": "Deactivate"
+      },
+      "unlock": {
+        "label": "Unlock"
+      },
+      "set_user_type": {
+        "label": "Change type",
+        "confirm_title": "Change type for {{count}} user(s)?",
+        "confirm_message": "Internal = entity access, External = limited access to linked companies.",
+        "confirm_label": "Internal",
+        "cancel_label": "External"
+      },
+      "assign_group": {
+        "label": "Assign to a group"
+      },
+      "assign_entity": {
+        "label": "Assign to an entity"
+      }
+    },
+    "filters": {
+      "status": {
+        "label": "Status",
+        "all": "All",
+        "active": "Active",
+        "archived": "Archived"
+      },
+      "user_type": {
+        "label": "Type",
+        "all": "All",
+        "internal": "Internal",
+        "external": "External"
+      },
+      "mfa": {
+        "label": "MFA",
+        "all": "All",
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      }
+    },
+    "batch_assign": {
+      "group_title": "Assign to a group",
+      "entity_title": "Assign to an entity",
+      "group_search": "Search a group…",
+      "entity_search": "Search an entity…",
+      "selected_count_one": "{{count}} user selected",
+      "selected_count_other": "{{count}} users selected",
+      "member_count_one": "{{count}} member",
+      "member_count_other": "{{count}} members",
+      "user_count_one": "{{count}} user",
+      "user_count_other": "{{count}} users",
+      "no_role": "No role"
+    },
+    "create_group_title": "New group"
   },
   "conformite": {
     "title": "Compliance",
@@ -1101,7 +1512,8 @@
       "exemptions": "Exemptions",
       "fiches_poste": "Job positions",
       "regles": "Rules",
-      "transferts": "Transfers"
+      "transferts": "Transfers",
+      "matrice": "Matrice"
     },
     "types": {
       "title": "Compliance types",
@@ -1128,7 +1540,45 @@
       "issued_at": "Issue date",
       "expires_at": "Expiry date",
       "issuer": "Issuer",
-      "reference_number": "Reference #"
+      "reference_number": "Reference #",
+      "fields": {
+        "notes": "Notes",
+        "status": "Status",
+        "type": "Type",
+        "expires_at": "Expires at",
+        "issued_at": "Issued at",
+        "issuer": "Issuer",
+        "owner_id": "Owner id",
+        "owner_type": "Owner type",
+        "reference_number": "Reference number"
+      },
+      "owner_types": {
+        "user": "User",
+        "asset": "Asset",
+        "job_position": "Job position",
+        "tier_contact": "Tier contact"
+      },
+      "placeholders": {
+        "notes": "Notes",
+        "type": "Type",
+        "owner_id": "Owner id"
+      },
+      "sections": {
+        "attachments": "Attachments",
+        "general": "General",
+        "owner": "Owner",
+        "reference": "Reference"
+      },
+      "attachment_required_hint": "Attachment required hint",
+      "attachment_upload_cta": "Attachment upload cta",
+      "attachments_help": "Attachments help",
+      "create_success": "Create success",
+      "detail_title": "Detail title",
+      "errors": {
+        "attachment_required": "Attachment required",
+        "attachment_upload_failed": "Attachment upload failed",
+        "missing_required": "Missing required"
+      }
     },
     "rules": {
       "title": "Compliance rules",
@@ -1244,7 +1694,24 @@
       "destination_help": "Company to which the employee will be transferred",
       "details": "Transfer details",
       "details_help": "Additional information about the transfer",
-      "reason_placeholder": "E.g.: Contract change, reorganization..."
+      "reason_placeholder": "E.g.: Contract change, reorganization...",
+      "new_job_position": "New job position",
+      "new_job_position_help": "New job position help",
+      "new_job_position_label": "New job position label",
+      "keep_current_position": "Keep current position",
+      "audit_section": "Audit section",
+      "compliance_active": "Compliance active",
+      "compliance_invalidated": "Compliance invalidated",
+      "compliance_invalidated_hint": "Compliance invalidated hint",
+      "compliance_invalidated_title": "Compliance invalidated title",
+      "detail_title": "Detail title",
+      "from_company": "From company",
+      "movement_section": "Movement section",
+      "timeline_empty": "Timeline empty",
+      "timeline_tab": "Timeline tab",
+      "timeline_title": "Timeline title",
+      "to_company": "To company",
+      "transferred_by": "Transferred by"
     },
     "check": {
       "compliant": "Compliant",
@@ -1287,7 +1754,10 @@
         "vaccine": "Vaccine",
         "driving_license": "Driving license",
         "medical_check": "Medical check"
-      }
+      },
+      "reject_prompt": "Reject prompt",
+      "reject_title": "Reject title",
+      "verify": "Verify"
     },
     "exemptions": {
       "title": "Exemptions",
@@ -1346,7 +1816,25 @@
       "transfer_created": "Transfer created successfully",
       "transfer_creation_error": "Error creating transfer",
       "error": "Error",
-      "rejected": "Rejected"
+      "rejected": "Rejected",
+      "exemption_creation_error": "Error creating user",
+      "verified": "Verified",
+      "type_created": "Type created",
+      "type_archived": "Type archived",
+      "select_record": "Select record",
+      "exemption_created": "Exemption created",
+      "exemption_approved": "Exemption approved",
+      "reject_reason_required": "Reject reason required",
+      "exemption_rejected": "Exemption rejected",
+      "exemption_archived": "Exemption archived",
+      "job_position_created": "Job position created",
+      "job_position_archived": "Job position archived",
+      "change_reason_required": "Change reason required",
+      "rule_updated": "Rule updated",
+      "rule_deleted": "Rule deleted",
+      "rule_created": "Rule created",
+      "document_verified": "Document verified",
+      "document_rejected": "Document rejected"
     },
     "columns": {
       "code": "Code",
@@ -1357,7 +1845,33 @@
       "date": "Date",
       "category": "Category",
       "department": "Department",
-      "priority": "Priority"
+      "priority": "Priority",
+      "validity": "Validity",
+      "mandatory": "Mandatory",
+      "object": "Purpose",
+      "expiration": "Expiry",
+      "issuer": "Issuer",
+      "owner": "Owner company",
+      "reason": "Reason",
+      "start_date": "Start",
+      "end_date": "End",
+      "approved_by": "Approved by",
+      "created_at": "Created at",
+      "title": "Title",
+      "target": "Target",
+      "value": "Value",
+      "employee": "Employee",
+      "from": "From",
+      "to": "To",
+      "type_code": "Type code",
+      "type_name": "Type name",
+      "applicability": "Applicability",
+      "effective_from": "From",
+      "effective_to": "Until",
+      "person": "Person",
+      "attachment": "Attachment",
+      "verified_by": "By",
+      "target_value": "Target value"
     }
   },
   "projets": {
@@ -1367,7 +1881,9 @@
     "tabs": {
       "projets": "Projects",
       "tableur": "Spreadsheet",
-      "planning": "Planning"
+      "planning": "Planning",
+      "dashboard": "Dashboard",
+      "kanban": "Kanban"
     },
     "fields": {
       "project_code": "Project code",
@@ -1547,7 +2063,17 @@
       "no_comments": "No comment yet",
       "add_comment_placeholder": "Add a comment…"
     },
-    "task": "Task",
+    "task": {
+      "planner": {
+        "already_linked": "Already linked",
+        "link_button": "Link button",
+        "sent": "Sent",
+        "unlink_button": "Unlink button",
+        "unlink_error": "Unlink error",
+        "unlinked": "Unlinked"
+      },
+      "view_project": "View project"
+    },
     "advanced": {
       "archive_node": "Archive node",
       "cpm_title": "Critical path (CPM)",
@@ -1578,14 +2104,176 @@
       "company": "Company",
       "deadline": "Due date",
       "task": "Task",
-      "assignee": "Manager"
+      "assignee": "Manager",
+      "weather": "Weather",
+      "start_date": "Start",
+      "due_date": "End",
+      "duration": "Duration",
+      "subtasks": "Subtasks",
+      "progress": "Progress",
+      "parent_project": "Parent project",
+      "ref": "Ref",
+      "estimated_hours": "Estimated hours",
+      "actual_hours": "Actual hours",
+      "predecessors": "Predecessors",
+      "completed_at": "Completed at"
     },
     "task_subtabs": {
       "actions": "Actions",
-      "history": "History"
+      "history": "History",
+      "dependencies": "Dependencies",
+      "deliverables": "Deliverables"
     },
     "toast": {
-      "error": "Error"
+      "error": "Error",
+      "modified": "Modified",
+      "drag_error": "Error while moving activity",
+      "project_created": "Project created",
+      "task_created": "Task created",
+      "dependency_added": "Dependency added",
+      "template_saved": "Template saved",
+      "template_save_error": "Template save error",
+      "project_created_from_template": "Project created from template",
+      "template_clone_error": "Template clone error",
+      "import_failed": "Import failed",
+      "default_filters_saved": "Default filters saved",
+      "no_project_selected": "No project selected",
+      "sync_completed": "Sync completed",
+      "sync_failed": "Sync failed",
+      "gouti_sync_completed": "Gouti sync completed",
+      "dependency_add_failed": "Dependency add failed",
+      "field_save_error": "Field save error",
+      "comment_error": "Comment error",
+      "deletion_error": "Deletion error",
+      "project_archived": "Project archived",
+      "project_resynchronized": "Project resynchronized",
+      "resync_failed": "Resync failed",
+      "wbs_node_created": "Wbs node created",
+      "creation_failed": "Creation failed",
+      "revision_creation_error": "Revision creation error",
+      "revision_apply_failed": "Revision apply failed",
+      "status_updated": "Status updated",
+      "update_error": "Update error",
+      "task_rescheduled": "Task rescheduled",
+      "task_rescheduled_cascade": "Task rescheduled cascade",
+      "start_modified": "Start modified",
+      "end_modified": "End modified",
+      "updated": "Updated",
+      "select_project": "Select project",
+      "milestone_created": "Milestone created",
+      "task_indented": "Task indented",
+      "task_outdented": "Task outdented",
+      "task_deleted": "Task deleted",
+      "pdf_generated": "Pdf generated",
+      "pdf_error": "Pdf error",
+      "comment_added": "Comment added",
+      "breakdown_resolved": "Breakdown resolved"
+    },
+    "placeholders": {
+      "description": "Description",
+      "clone_name": "Clone name",
+      "comment_with_mention": "Comment with mention",
+      "estimated_hours": "Estimated hours",
+      "lag_days": "Lag days",
+      "lot_budget": "Lot budget",
+      "lot_code": "Lot code",
+      "lot_name": "Lot name",
+      "milestone_name": "Milestone name",
+      "new_action": "New action",
+      "new_deliverable": "New deliverable",
+      "revision_desc_optional": "Revision desc optional",
+      "revision_name": "Revision name",
+      "select_site": "Select site",
+      "task_description": "Task description",
+      "task_title": "Task title",
+      "template_desc_optional": "Template desc optional",
+      "template_name": "Template name"
+    },
+    "select": "Select",
+    "dep_ff": "Dep ff",
+    "dep_fs": "Dep fs",
+    "dep_sf": "Dep sf",
+    "dep_ss": "Dep ss",
+    "errors": {
+      "asset_required": "Asset required"
+    },
+    "external_refs": "External refs",
+    "initial_tasks": "Initial tasks",
+    "is_milestone": "Is milestone",
+    "milestone": "Milestone",
+    "task_dependency_type": "Task dependency type",
+    "task_end_date": "Task end date",
+    "task_lag_days": "Task lag days",
+    "task_lag_days_hint": "Task lag days hint",
+    "task_milestone_date": "Task milestone date",
+    "task_predecessor": "Task predecessor",
+    "task_predecessor_none": "Task predecessor none",
+    "task_start_date": "Task start date",
+    "task_start_date_hint": "Task start date hint",
+    "task_title_placeholder": "Task title placeholder",
+    "task_label": "Task",
+    "detail": {
+      "tabs": {
+        "deps": "Dependencies",
+        "deliverables": "Deliverables",
+        "actions": "Actions",
+        "history": "History",
+        "metrics": "Metrics"
+      },
+      "task_actions": {
+        "add": "Add",
+        "add_task": "Add a task",
+        "task_after_select": "Select a task to create a subtask",
+        "task_after_short": "After",
+        "subtask_of": "Subtask of {{title}}",
+        "insert_after": "Insert a task after {{title}}",
+        "open_detail": "Open task full detail",
+        "go_to_task": "Go to task"
+      },
+      "team": {
+        "attach_team": "Attach a team",
+        "attach_failed": "Attach failed",
+        "no_team_attached": "No team attached",
+        "detach_team": "Detach team",
+        "view_team": "View team",
+        "attached": "Team attached"
+      },
+      "weather": {
+        "sunny": "On time",
+        "cloudy": "Slight delay",
+        "rainy": "Significant delay",
+        "stormy": "Overrun"
+      },
+      "task_filters": {
+        "done": "Done",
+        "cancelled": "Cancelled"
+      },
+      "duration": {
+        "undefined": "Duration not set"
+      },
+      "date_labels": {
+        "start": "Start",
+        "end_planned": "Planned end",
+        "end_actual": "Actual end"
+      },
+      "custom_fields_section": "Custom fields",
+      "task_tree_aria": "Task hierarchy",
+      "recalc_progress_hint": "Editing instantly recomputes progress.",
+      "inherit": "Inherit",
+      "system_user": "System",
+      "trend": {
+        "up": "Improving",
+        "down": "Degrading",
+        "stable": "Stable"
+      },
+      "task_fields": {
+        "start_date": "Start date",
+        "priority": "Priority",
+        "estimated_hours": "Estimated hours",
+        "actual_hours": "Actual hours",
+        "assignee": "Assignee",
+        "meteo": "Weather"
+      }
     }
   },
   "dashboard": {
@@ -1656,7 +2344,34 @@
     "empty": {
       "table_title": "No entries",
       "kpi_calm": "All quiet",
-      "chart_title": "No data to display"
+      "chart_title": "No data to display",
+      "map_title": "No position",
+      "text_title": "No content",
+      "chart_hint": "Chart hint",
+      "table_hint": "Table hint",
+      "map_hint": "Map hint",
+      "quick_access_title": "Quick access title",
+      "quick_access_hint": "Quick access hint",
+      "group_title": "Group title",
+      "group_hint": "Group hint",
+      "gantt_title": "Gantt title",
+      "type_unknown": "Type unknown"
+    },
+    "recent_activity_count": "Recent activity",
+    "active_workflows": "Active workflows",
+    "widget": {
+      "gantt": {
+        "empty_title": "No planned activity",
+        "empty_hint": "Planned activities will appear on the timeline",
+        "fallback_activity": "Activity",
+        "today_short": "Today"
+      },
+      "map": {
+        "no_coords_title": "Missing coordinates",
+        "no_coords_hint": "Returned items have no latitude/longitude",
+        "no_position_title": "No position",
+        "no_position_hint": "No geolocated point yet"
+      }
     }
   },
   "workflow": {
@@ -1863,7 +2578,9 @@
     "entity_option": {
       "avis_sejour": "Visit Notice (AdS)",
       "ads": "Visit Notice (FSM)"
-    }
+    },
+    "validation_errors": "Validation errors",
+    "validation_warnings": "Validation warnings"
   },
   "search": {
     "title": "Search",
@@ -1889,7 +2606,13 @@
     "command_palette": "Command palette",
     "navigate": "navigate",
     "open": "open",
-    "close": "close"
+    "close": "close",
+    "hint_enter_full": "Hint enter full",
+    "hint_enter_select": "Hint enter select",
+    "no_suggestions": "No suggestions",
+    "searching": "Searching",
+    "suggestions": "Suggestions",
+    "view_full_results": "View full results"
   },
   "imputations": {
     "page_title": "Imputations",
@@ -1923,7 +2646,8 @@
     },
     "columns": {
       "pax_name": "Name",
-      "imputation": "Imputation"
+      "imputation": "Imputation",
+      "pax": "Pax"
     },
     "status": {
       "generic": {
@@ -2077,6 +2801,17 @@
         "recent_ads": "Recent visit notices",
         "expiring_credentials": "Expiring credentials",
         "compliance_stats": "Compliance statistics"
+      },
+      "kpi": {
+        "active_incidents": "Active incidents",
+        "compliance_rate": "Compliance rate",
+        "compliant": "Compliant",
+        "expired": "Expired",
+        "expiring_soon": "Expiring soon",
+        "non_compliant": "Non compliant",
+        "pending_ads": "Pending ads",
+        "registered_pax": "Registered pax",
+        "total_pax": "Total pax"
       }
     },
     "requester": {
@@ -2215,7 +2950,9 @@
         "request": "Request",
         "type_destination": "Type and destination",
         "visit_details": "Visit details",
-        "allowed_companies": "Allowed companies"
+        "allowed_companies": "Allowed companies",
+        "passengers": "Passengers",
+        "imputations": "Imputations"
       },
       "checklist": {
         "destination": "Destination completed",
@@ -2254,7 +2991,26 @@
         "visit_purpose": "Describe the purpose of the visit..."
       },
       "footer_hint": "Passengers and imputations can be added after creation from the detail panel.",
-      "allowed_companies_help": "Use this scope to limit external autocomplete, public links, and audit visibility to the selected companies."
+      "allowed_companies_help": "Use this scope to limit external autocomplete, public links, and audit visibility to the selected companies.",
+      "help": {
+        "allowed_companies_description": "Allowed companies description",
+        "attachments_description": "Attachments description",
+        "imputations_description": "Imputations description",
+        "notes_description": "Notes description",
+        "passengers_description": "Passengers description",
+        "passengers_tip_external": "Passengers tip external",
+        "passengers_tip_search": "Passengers tip search",
+        "request_description": "Request description",
+        "request_tip_requester": "Request tip requester",
+        "type_destination_description": "Type destination description",
+        "type_individual": "Type individual",
+        "type_team": "Type team",
+        "visit_details_description": "Visit details description",
+        "visit_tip_category": "Visit tip category",
+        "visit_tip_dates": "Visit tip dates",
+        "visit_tip_purpose": "Visit tip purpose"
+      },
+      "search_pax_hint": "Search pax hint"
     },
     "create_avm": {
       "title": "New mission notice",
@@ -2307,6 +3063,10 @@
           "activity": "Ex: line inspection, project meeting, handover...",
           "notes": "Constraints, participants, dependencies..."
         }
+      },
+      "window": {
+        "end": "End",
+        "start": "Start"
       }
     },
     "ads_detail": {
@@ -2323,7 +3083,10 @@
         "remove_passenger": "Remove this passenger",
         "request_review": "Send back for correction",
         "resubmit": "Resubmit",
-        "request_stay_change": "Change stay"
+        "request_stay_change": "Change stay",
+        "import_csv": "Import CSV",
+        "suggestions": "Suggestions",
+        "suggestions_short": "Suggestions short"
       },
       "external_link": {
         "title": "External link recipient",
@@ -2362,7 +3125,9 @@
           "session_context_mismatch": "Browser context mismatch",
           "session_ip_changed": "IP changed",
           "public_access_rate_limited": "Public access rate limited"
-        }
+        },
+        "no_companies": "No companies.",
+        "no_companies_ads": "No companies ads"
       },
       "compliance": {
         "blocking_title": "Blocking compliance issues",
@@ -2557,7 +3322,32 @@
       "empty": {
         "pax_search": "No result for “{{search}}”",
         "passengers": "No passenger. Add PAX before you can submit the visit notice."
-      }
+      },
+      "csv_import": {
+        "title": "Title",
+        "added": "Added",
+        "error_title": "Error title",
+        "errors": "Errors",
+        "instructions": "Instructions",
+        "result_title": "Result title",
+        "skipped": "Skipped",
+        "success_title": "Success title"
+      },
+      "suggestions": {
+        "title": "Title",
+        "ads_count": "Ads count",
+        "count_suffix": "Count suffix",
+        "empty": "Empty",
+        "loading": "Loading",
+        "months": "Months"
+      },
+      "toasts": {
+        "submitted": "Submitted",
+        "submit_error": "Submit error"
+      },
+      "no_company": "No company",
+      "round_trip_no_overnight": "Round trip no overnight",
+      "synthesis": "Synthesis"
     },
     "avm_detail": {
       "not_found_title": "AVM not found",
@@ -2711,7 +3501,8 @@
       "status": {
         "resolved": "Resolved",
         "active": "Active"
-      }
+      },
+      "severity": "Severity"
     },
     "rotations_tab": {
       "columns": {
@@ -2721,7 +3512,8 @@
       "compliance": {
         "clear": "Compliant",
         "blocked_one": "1 blocker",
-        "blocked_other": "{{count}} blockers"
+        "blocked_other": "{{count}} blockers",
+        "blocked": "Blocked"
       },
       "cycle": "Cycle",
       "start": "Start",
@@ -2781,7 +3573,9 @@
       "boarding_status": "Boarding {{status}} on {{date}}",
       "completed_at": "Completed on {{date}}",
       "reference_evidence_help": "Add the profile and reference supporting files here, for example a medical certificate, attestations, qualifications, or any proof required for compliance verification.",
-      "add_compliance_record": "Add compliance record"
+      "add_compliance_record": "Add compliance record",
+      "back_to_ads": "Back to ads",
+      "open_full_profile": "Open full profile"
     },
     "records": {
       "create": "New record",
@@ -2849,6 +3643,31 @@
         "search_company": "Search for a company...",
         "search_group": "Search for a PAX group...",
         "description": "Describe the incident..."
+      },
+      "severity": {
+        "warning": "Warning",
+        "info": "Info",
+        "permanent_ban": "Permanent ban",
+        "site_ban": "Site ban",
+        "temp_ban": "Temp ban"
+      },
+      "help": {
+        "attachments_description": "Attachments description",
+        "ban_period_description": "Ban period description",
+        "concerned_description": "Concerned description",
+        "concerned_tip_company": "Concerned tip company",
+        "concerned_tip_group": "Concerned tip group",
+        "concerned_tip_pax": "Concerned tip pax",
+        "details_description": "Details description",
+        "details_tip_date": "Details tip date",
+        "details_tip_description": "Details tip description",
+        "notes_description": "Notes description",
+        "severity_description": "Severity description",
+        "severity_info": "Severity info",
+        "severity_permanent_ban": "Severity permanent ban",
+        "severity_site_ban": "Severity site ban",
+        "severity_temp_ban": "Severity temp ban",
+        "severity_warning": "Severity warning"
       }
     },
     "rotation_panel": {
@@ -2878,6 +3697,28 @@
       "due_soon": "Due in 7d",
       "blocked": "Compliance blocked",
       "total": "Total PAX"
+    },
+    "csv_import": {
+      "title": "Import passengers from CSV",
+      "subtitle": "Only one column is required: email. Other columns may be present (ignored).",
+      "need_template": "Not sure about the format? Download a ready-to-fill template.",
+      "download_template": "Template",
+      "drop_or_click": "Drop your CSV file here, or click to browse",
+      "format_hint": "Encodings: UTF-8, CP1252 (Excel FR) · Separators: , ; tab |",
+      "bad_file_type": "Unsupported file",
+      "bad_file_type_desc": "Only .csv files are accepted.",
+      "email_found": "Column 'email' detected — ready to import.",
+      "email_missing": "Column 'email' missing.",
+      "headers_found": "Columns found: ",
+      "preview": "Preview (first 5 rows)",
+      "required": "required",
+      "result_title": "Import result",
+      "added_label": "Added",
+      "skipped_label": "Duplicates",
+      "errors_label": "Errors",
+      "errors_details": "Error details:",
+      "importing": "Importing…",
+      "import_btn": "Import"
     }
   },
   "planner": {
@@ -2887,7 +3728,9 @@
       "timeline": "Timeline (Gantt)",
       "activities": "Activities",
       "conflicts": "Conflicts",
-      "capacity": "Capacity"
+      "capacity": "Capacity",
+      "dashboard": "Dashboard",
+      "scenarios": "Scenarios"
     },
     "timeline_empty_title": "Gantt Timeline",
     "timeline_empty_description": "The interactive Gantt view will be available here. Visualize your projects, tasks and milestones on a timeline.",
@@ -3007,7 +3850,17 @@
       "child_tasks_to_review": "{{count}} child task(s) to review in the detailed plan",
       "status_pending": "Pending",
       "status_responded": "Responded",
-      "status_forced": "Forced"
+      "status_forced": "Forced",
+      "accept_counter": "Accept counter",
+      "counter_accepted_success": "Counter accepted success",
+      "force_available_at": "Force available at",
+      "force_confirm": "Force confirm",
+      "force_description": "Force description",
+      "force_reason": "Force reason",
+      "force_reason_placeholder": "Force reason placeholder",
+      "force_title": "Force title",
+      "forced_success": "Forced success",
+      "section_title": "Section title"
     },
     "capacity": {
       "empty_title": "No data",
@@ -3155,7 +4008,16 @@
       },
       "toasts": {
         "rescheduled": "Activity rescheduled",
-        "drag_error": "Error while moving activity"
+        "drag_error": "Error while moving activity",
+        "duration_invalid": "Duration invalid.",
+        "dependency_deletion_error": "Error deleting",
+        "dates_invalid": "Dates invalid",
+        "dates_invalid_desc": "Dates invalid desc",
+        "pdf_generated": "Pdf generated",
+        "pdf_error": "Pdf error",
+        "dependency_modified": "Dependency modified",
+        "dependency_modification_error": "Dependency modification error",
+        "dependency_deleted": "Dependency deleted"
       }
     },
     "reinitialiser_tous_les_filtres": "Réinitialiser tous les filtres",
@@ -3239,7 +4101,14 @@
       "asset": "Asset",
       "type": "Type",
       "status": "Status",
-      "priority": "Priority"
+      "priority": "Priority",
+      "title": "Title",
+      "start_date": "Start",
+      "end_date": "End",
+      "resolution": "Resolution",
+      "pax": "Pax",
+      "conflict_date": "Conflict date",
+      "activities_involved": "Activities involved"
     },
     "simulation": {
       "label": "Simulation",
@@ -3330,17 +4199,95 @@
       "delete": "Delete",
       "submit": "Submit",
       "validate": "Validate",
-      "reject": "Reject"
+      "reject": "Reject",
+      "resolve": "Resolve",
+      "simulate": "Simulate",
+      "new_scenario": "New scenario",
+      "new_activity": "New activity",
+      "bulk_resolve": "Bulk resolve",
+      "promote": "Promote"
     },
     "toast": {
-      "error_generic": "Error"
+      "error_generic": "Error",
+      "update_error": "Error updating",
+      "cancellation_error": "Error cancelling",
+      "deletion_error": "Error deleting",
+      "creation_error": "Error creating activity",
+      "skipped_count": "{{count}} skipped",
+      "errors_short": "{{count}} error(s)",
+      "activity_submitted": "Activity submitted",
+      "activity_validated": "Activity validated",
+      "activity_rejected": "Activity rejected",
+      "scenario_created": "Scenario created",
+      "simulation_done": "Simulation done",
+      "simulation_failed": "Simulation failed",
+      "promote_failed": "Promote failed",
+      "submission_refused": "Submission refused",
+      "validation_refused": "Validation refused",
+      "rejection_refused": "Rejection refused",
+      "capacity_updated": "Capacity updated",
+      "field_updated": "Field updated",
+      "pob_plan_updated": "Pob plan updated",
+      "activity_updated": "Activity updated",
+      "activity_deleted": "Activity deleted",
+      "activity_cancelled": "Activity cancelled",
+      "dependency_added": "Dependency added",
+      "dependency_deleted": "Dependency deleted",
+      "dependency_modified": "Dependency modified",
+      "modification_error": "Modification error",
+      "recurrence_configured": "Recurrence configured",
+      "recurrence_deleted": "Recurrence deleted",
+      "priority_modified": "Priority modified",
+      "activity_created": "Activity created",
+      "reject_activity_title": "Reject activity title",
+      "addition_refused": "Addition refused",
+      "bulk_resolve_failed": "Bulk resolve failed",
+      "no_open_conflict": "No open conflict",
+      "no_open_conflict_desc": "No open conflict desc",
+      "conflicts_resolved": "Conflicts resolved",
+      "errors_count": "Errors count",
+      "activities_promoted": "Activities promoted",
+      "task_shifted": "Task shifted"
     },
     "filters": {
-      "reset": "Reset"
+      "reset": "Reset",
+      "all_types": "All types",
+      "all_priorities": "All priorities",
+      "all_assets": "All assets",
+      "all_projects": "All projects",
+      "period": "Period",
+      "pob_overflow": "Pob overflow",
+      "priority_clash": "Priority clash"
     },
     "stats": {
       "in_progress": "In progress",
-      "total": "Total"
+      "total": "Total",
+      "open": "Open",
+      "pending_validation": "Pending validation",
+      "pax_planned": "Pax planned",
+      "total_conflicts": "Total conflicts",
+      "resolved": "Resolved",
+      "deferred": "Deferred"
+    },
+    "activity": {
+      "help": {
+        "attachments_description": "Attachments description",
+        "description_description": "Description description",
+        "drilling_description": "Drilling description",
+        "general_description": "General description",
+        "general_tip_project": "General tip project",
+        "general_tip_site": "General tip site",
+        "general_tip_title": "General tip title",
+        "maintenance_description": "Maintenance description",
+        "notes_description": "Notes description",
+        "planning_description": "Planning description",
+        "tags_description": "Tags description",
+        "type_description": "Type description",
+        "type_tip_pob": "Type tip pob",
+        "workover_description": "Workover description"
+      },
+      "section_general": "Section general",
+      "section_type": "Section type"
     }
   },
   "travelwiz": {
@@ -3501,7 +4448,175 @@
       "export_request": "Request",
       "export_parcel": "Package",
       "weight": "Weight",
-      "origin": "Origin"
+      "origin": "Origin",
+      "mode": "Mode",
+      "total_weight": "Total weight",
+      "destination": "Destination",
+      "export_destination": "Destination",
+      "export_weight_kg": "Weight (kg)",
+      "registration": "Registration",
+      "pax_capacity": "Pax capacity",
+      "home_base": "Home base",
+      "base": "Base",
+      "voyage_code": "Voyage code",
+      "route": "Route",
+      "stops": "Stops",
+      "pax_count": "Pax count",
+      "pax_confirmed": "Pax confirmed",
+      "tracking": "Tracking",
+      "vehicle": "Vehicle",
+      "driver": "Driver",
+      "export_tracking": "Export tracking",
+      "export_cargo_status": "Export cargo status",
+      "export_workflow_status": "Export workflow status",
+      "export_qty_sent": "Export qty sent",
+      "export_qty_returned": "Export qty returned",
+      "export_return_coverage": "Export return coverage",
+      "export_return_status": "Export return status",
+      "export_base_disposition": "Export base disposition",
+      "export_damages": "Export damages",
+      "export_reception": "Export reception"
+    },
+    "toast": {
+      "voyage_update_error": "Error updating",
+      "voyage_deletion_error": "Error deleting",
+      "rotation_update_error": "Error updating",
+      "vector_update_error": "Error updating",
+      "vector_deletion_error": "Error deleting",
+      "voyage_created": "Voyage created",
+      "voyage_creation_error": "Voyage creation error",
+      "voyage_updated": "Voyage updated",
+      "voyage_deleted": "Voyage deleted",
+      "voyage_closed": "Voyage closed",
+      "voyage_close_error": "Voyage close error",
+      "pax_manifest_print_error": "Pax manifest print error",
+      "check_pax_manifest_pdf": "Check pax manifest pdf",
+      "cargo_manifest_print_error": "Cargo manifest print error",
+      "check_cargo_manifest_pdf": "Check cargo manifest pdf",
+      "rotation_created": "Rotation created",
+      "rotation_creation_error": "Rotation creation error",
+      "rotation_updated": "Rotation updated",
+      "vector_created": "Vector created",
+      "vector_creation_error": "Vector creation error",
+      "vector_updated": "Vector updated",
+      "vector_deleted": "Vector deleted",
+      "shipment_request_created": "Shipment request created",
+      "shipment_request_creation_error": "Shipment request creation error",
+      "select_request_first": "Select request first",
+      "parcel_created": "Parcel created",
+      "parcel_created_description": "Parcel created description",
+      "parcel_creation_error": "Parcel creation error",
+      "request_updated": "Request updated",
+      "request_incomplete": "Request incomplete",
+      "request_update_error": "Request update error",
+      "loading_applied": "Loading applied",
+      "loading_impossible": "Loading impossible",
+      "voyage_assignment_error": "Voyage assignment error",
+      "lt_print_error": "Lt print error",
+      "check_cargo_lt_pdf": "Check cargo lt pdf"
+    },
+    "vector": {
+      "deck_plan": {
+        "create": "Create",
+        "description": "Description",
+        "edit": "Edit",
+        "title": "Title",
+        "has_plan": "Has plan",
+        "invalid_url": "Invalid url",
+        "no_plan": "No plan",
+        "open_in_window": "Open in window",
+        "tab": "Tab"
+      }
+    },
+    "voyage": {
+      "rotation": "Rotation",
+      "actual_arrival": "Actual arrival",
+      "actual_departure": "Actual departure",
+      "delay_reason": "Delay reason",
+      "departure_base": "Departure base",
+      "events_count": "Events count",
+      "hazmat_items": "Hazmat items",
+      "kpi_section": "Kpi section",
+      "last_stop": "Last stop",
+      "late_min": "Late min",
+      "no_events": "No events",
+      "no_shows": "No shows",
+      "on_time": "On time",
+      "scheduled_arrival": "Scheduled arrival",
+      "scheduled_departure": "Scheduled departure",
+      "total_cargo": "Total cargo",
+      "total_pax": "Total pax"
+    },
+    "vector_types": {
+      "helicopter": "Helicopter",
+      "ship": "Ship",
+      "bus": "Bus",
+      "surfer": "Surfer",
+      "barge": "Barge",
+      "commercial_flight": "Commercial flight",
+      "vehicle": "Vehicle"
+    },
+    "dashboard": {
+      "kpi": {
+        "cargo_transit": "Cargo transit",
+        "no_shows_month": "No shows month",
+        "pax_transit": "Pax transit",
+        "voyages_today": "Voyages today"
+      }
+    },
+    "rotation": {
+      "base_placeholder": "Base placeholder",
+      "create_subtitle": "Create subtitle",
+      "create_title": "Create title",
+      "help_attachments": "Help attachments",
+      "help_identification": "Help identification",
+      "help_identification_tip_base": "Help identification tip base",
+      "help_identification_tip_name": "Help identification tip name",
+      "help_identification_tip_vector": "Help identification tip vector",
+      "help_notes": "Help notes",
+      "help_periodicity": "Help periodicity",
+      "help_periodicity_tip_cron": "Help periodicity tip cron",
+      "help_periodicity_tip_voyage": "Help periodicity tip voyage",
+      "name_placeholder": "Name placeholder",
+      "vector_placeholder": "Vector placeholder"
+    },
+    "cargo_request": {
+      "readiness": {
+        "title_label": "Operational request title",
+        "title_label_short": "Request title",
+        "description_label": "Operational description",
+        "sender_label": "Sender company",
+        "sender_short": "Sender",
+        "cargo_items_label": "At least one cargo attached",
+        "ready_for_input": "Ready for cargo input",
+        "in_preparation": "In preparation",
+        "ready_to_submit": "Ready to submit",
+        "to_complete": "To complete"
+      },
+      "fields": {
+        "filled": "Filled",
+        "optional": "Optional",
+        "to_specify": "To specify"
+      },
+      "placeholders": {
+        "title_example": "Drilling equipment shipment request",
+        "destination_install": "Select destination installation…",
+        "requester_name_fallback": "Fallback if requester not in reference data",
+        "parent_request_imposed": "Parent request enforced",
+        "parent_request_none": "No parent request",
+        "designation_short": "Short cargo designation",
+        "description_cargo": "Operational description of the cargo, unit or batch…",
+        "pickup_contact_fallback": "Fallback if outside reference data"
+      },
+      "detail": {
+        "section_operational": "Operational view",
+        "section_completeness": "Request completeness",
+        "vector_fallback": "Vector",
+        "can_load": "Loadable",
+        "cannot_load": "Blocked",
+        "ready_message": "The request is ready for submission.",
+        "not_ready_message": "The request is not ready for submission yet."
+      }
     }
   },
   "report_editor": {
@@ -3575,7 +4690,8 @@
       "add_field": "Add field",
       "save_schema": "Save schema",
       "saving": "Saving...",
-      "no_fields": "No fields. Add at least one field to build the form."
+      "no_fields": "No fields. Add at least one field to build the form.",
+      "fields_configured": "Fields configured"
     },
     "presets": {
       "title": "Papyrus presets",
@@ -3629,10 +4745,77 @@
       "type": "Type",
       "status": "Status",
       "date": "Date",
-      "number": "Number"
+      "number": "Number",
+      "title": "Title",
+      "revision": "Revision",
+      "creator": "Creator",
+      "classification": "Classification"
     },
     "toast": {
-      "error": "Error"
+      "error": "Error",
+      "new_revision_created": "New revision created",
+      "new_revision_error": "Error creating revision",
+      "document_delete_error": "Error deleting",
+      "document_submit_error": "Error submitting",
+      "document_reject_error": "Error rejecting",
+      "mdr_import_errors": "{{count}} error(s)",
+      "creation_failed": "Creation failed",
+      "transition_success": "Transition success",
+      "transition_error": "Transition error",
+      "document_deleted": "Document deleted",
+      "document_archived": "Document archived",
+      "document_archive_error": "Document archive error",
+      "document_submitted": "Document submitted",
+      "document_approved": "Document approved",
+      "document_approve_error": "Document approve error",
+      "reject_reason_required": "Reject reason required",
+      "document_rejected": "Document rejected",
+      "document_published": "Document published",
+      "document_publish_error": "Document publish error",
+      "share_link_copied": "Share link copied",
+      "share_link_error": "Share link error",
+      "papyrus_form_created": "Papyrus form created",
+      "papyrus_form_create_error": "Papyrus form create error",
+      "papyrus_form_required": "Papyrus form required",
+      "external_link_copied": "External link copied",
+      "external_link_error": "External link error",
+      "epicollect_imported": "Epicollect imported",
+      "epicollect_invalid_json": "Epicollect invalid json",
+      "papyrus_form_schema_saved": "Papyrus form schema saved",
+      "papyrus_form_save_error": "Papyrus form save error",
+      "epicollect_export_success": "Epicollect export success",
+      "epicollect_export_error": "Epicollect export error",
+      "schedule_saved": "Schedule saved",
+      "schedule_invalid": "Schedule invalid",
+      "dispatch_launched": "Dispatch launched",
+      "dispatch_error": "Dispatch error",
+      "mdr_import_title": "Mdr import title",
+      "mdr_import_types_created": "Mdr import types created",
+      "mdr_import_types_updated": "Mdr import types updated",
+      "mdr_import_docs_created": "Mdr import docs created",
+      "mdr_import_done": "Mdr import done",
+      "mdr_import_error_title": "Mdr import error title",
+      "mdr_import_error_default": "Mdr import error default",
+      "preset_select_project": "Preset select project",
+      "title_and_type_required": "Title and type required",
+      "document_created": "Document created",
+      "name_and_nomenclature_required": "Name and nomenclature required",
+      "doc_type_created": "Doc type created",
+      "template_name_required": "Template name required",
+      "template_created": "Template created",
+      "doc_type_updated": "Doc type updated",
+      "update_failed": "Update failed",
+      "template_updated": "Template updated"
+    },
+    "placeholders": {
+      "code_auto": "Code auto",
+      "discipline_example": "Discipline example",
+      "doctype_name_en_example": "Doctype name en example",
+      "doctype_name_fr_example": "Doctype name fr example",
+      "document_title": "Document title",
+      "nomenclature_example": "Nomenclature example",
+      "template_description": "Template description",
+      "template_name": "Template name"
     }
   },
   "pid_pfd": {
@@ -3706,7 +4889,20 @@
       "equipment_count": "Equipment",
       "equipment": "Equipment",
       "number": "Number",
-      "format": "Format"
+      "format": "Format",
+      "title": "Title",
+      "revision": "Revision",
+      "tag": "Tag",
+      "fluid": "Fluid",
+      "diameter": "Diameter",
+      "zone": "Area",
+      "service": "Service",
+      "pid_number": "Pid number",
+      "line_number": "Line number",
+      "schedule": "Schedule",
+      "spec_class": "Spec class",
+      "insulation": "Insulation",
+      "dcs_address": "Dcs address"
     }
   },
   "messaging": {
@@ -4110,7 +5306,9 @@
       "entity_section_description": "Fallback imputation for dossiers created in this entity when no higher-priority rule applies.",
       "entity_card_title": "Entity imputation rule",
       "entity_card_description": "This rule acts as the last fallback for AdS and other dossiers when neither a project, a user preference, nor a BU provides a usable imputation.",
-      "entity_card_hint": "Current AdS resolution order: dossier project -> user default -> requester BU -> entity default -> first active cost center fallback."
+      "entity_card_hint": "Current AdS resolution order: dossier project -> user default -> requester BU -> entity default -> first active cost center fallback.",
+      "entity_description": "Entity description",
+      "entity_title": "Entity title"
     },
     "imputation_manager": {
       "add": "Add imputation",
@@ -4493,13 +5691,196 @@
     "toast": {
       "error": "Error",
       "general": {
-        "setting_saved": "Setting saved"
+        "setting_saved": "Setting saved",
+        "setting_save_error": "Setting save error",
+        "logo_uploaded": "Logo uploaded"
       },
       "security_policy": {
-        "setting_saved": "Setting saved"
+        "setting_saved": "Setting saved",
+        "setting_save_error": "Setting save error"
       },
       "scheduler": {
-        "job_error": "Failure"
+        "job_error": "Failure",
+        "job_executed": "Job executed",
+        "job_paused": "Job paused",
+        "job_resumed": "Job resumed"
+      },
+      "deleted": "Deleted",
+      "profile": {
+        "avatar_invalid_format": "Invalid format",
+        "updated": "Updated",
+        "updated_desc": "Updated desc",
+        "update_error": "Update error",
+        "export_download_error": "Export download error",
+        "export_deleted": "Export deleted",
+        "export_deleted_desc": "Export deleted desc",
+        "export_delete_error": "Export delete error",
+        "avatar_invalid_format_desc": "Avatar invalid format desc",
+        "avatar_too_large": "Avatar too large",
+        "avatar_too_large_desc": "Avatar too large desc",
+        "avatar_updated": "Avatar updated",
+        "avatar_upload_error": "Avatar upload error",
+        "save_error": "Save error",
+        "export_requested": "Export requested",
+        "export_requested_desc": "Export requested desc",
+        "sso_linked": "Sso linked",
+        "sso_already_linked": "Sso already linked",
+        "sso_link_error": "Sso link error",
+        "sso_start_error": "Sso start error",
+        "sso_unlinked": "Sso unlinked"
+      },
+      "security": {
+        "password_changed": "Password changed",
+        "mfa_code_invalid": "Deck code invalid.",
+        "mfa_password_incorrect": "Incorrect password.",
+        "password_changed_desc": "Password changed desc",
+        "password_change_error": "Password change error",
+        "mfa_setup_error": "Mfa setup error",
+        "mfa_enabled": "Mfa enabled",
+        "mfa_enabled_desc": "Mfa enabled desc",
+        "mfa_disabled": "Mfa disabled",
+        "mfa_disabled_desc": "Mfa disabled desc",
+        "mfa_codes_regenerated": "Mfa codes regenerated",
+        "mfa_codes_regenerated_desc": "Mfa codes regenerated desc"
+      },
+      "emails": {
+        "verification_sent": "Email sent",
+        "added": "Added",
+        "added_desc": "Added desc",
+        "add_error": "Add error",
+        "removed": "Removed",
+        "remove_error": "Remove error",
+        "primary_set": "Primary set",
+        "primary_error": "Primary error",
+        "verification_sent_desc": "Verification sent desc",
+        "verification_send_error": "Verification send error"
+      },
+      "users": {
+        "deactivated": "Account disabled",
+        "unlocked": "Unlocked",
+        "unlock_error": "Unlock error",
+        "reset_sent": "Reset sent",
+        "reset_error": "Reset error",
+        "deactivate_error": "Deactivate error",
+        "reactivated": "Reactivated",
+        "reactivate_error": "Reactivate error"
+      },
+      "mcp": {
+        "name_required": "Name required.",
+        "token_created": "Token created",
+        "token_revoked": "Token revoked",
+        "token_deleted": "Token deleted"
+      },
+      "addresses": {
+        "gps_error": "GPS Error",
+        "save_error": "Could not save the address.",
+        "geolocation_unsupported": "Geolocation unsupported",
+        "geolocation_unsupported_desc": "Geolocation unsupported desc",
+        "position_obtained": "Position obtained",
+        "updated": "Updated",
+        "created": "Created"
+      },
+      "email_templates": {
+        "create_error": "Error creating.",
+        "toggled_enabled": "Template enabled",
+        "version_deleted": "Version deleted",
+        "created": "Created",
+        "updated": "Updated",
+        "deleted": "Deleted",
+        "toggled_disabled": "Toggled disabled",
+        "templates_seeded": "Templates seeded",
+        "templates_seeded_desc": "Templates seeded desc",
+        "no_templates_seeded": "No templates seeded",
+        "no_templates_seeded_desc": "No templates seeded desc",
+        "seed_error": "Seed error",
+        "version_created": "Version created",
+        "version_activated": "Version activated",
+        "version_duplicated": "Version duplicated",
+        "version_duplicated_desc": "Version duplicated desc",
+        "version_updated": "Version updated",
+        "preview_error": "Preview error"
+      },
+      "pdf_templates": {
+        "toggled_enabled": "Template enabled",
+        "created": "Created",
+        "created_desc": "Created desc",
+        "no_created": "No created",
+        "no_created_desc": "No created desc",
+        "seed_error": "Seed error",
+        "toggled_disabled": "Toggled disabled"
+      },
+      "saved": "Saved",
+      "rbac": {
+        "mode_additive": "Mode additive",
+        "mode_restrictive": "Mode restrictive",
+        "role_created": "Role created",
+        "permissions_updated": "Permissions updated",
+        "role_deleted": "Role deleted",
+        "group_created": "Group created",
+        "group_permissions_updated": "Group permissions updated",
+        "member_removed": "Member removed",
+        "member_added": "Member added",
+        "group_toggled_active": "Group toggled active",
+        "group_toggled_inactive": "Group toggled inactive",
+        "group_deleted": "Group deleted"
+      },
+      "integrations": {
+        "config_saved": "Config saved",
+        "config_save_error": "Config save error",
+        "connection_success": "Connection success",
+        "connection_failed": "Connection failed",
+        "connection_test_error": "Connection test error",
+        "test_sent": "Test sent",
+        "test_send_failed": "Test send failed",
+        "test_send_error": "Test send error"
+      },
+      "notifications": {
+        "prefs_saved": "Prefs saved",
+        "prefs_save_error": "Prefs save error",
+        "position_updated": "Position updated",
+        "position_updated_desc": "Position updated desc",
+        "duration_updated": "Duration updated",
+        "duration_updated_desc": "Duration updated desc",
+        "opacity_updated": "Opacity updated",
+        "opacity_updated_desc": "Opacity updated desc"
+      },
+      "gdpr": {
+        "saved": "Saved",
+        "incident_saved": "Incident saved"
+      },
+      "sessions": {
+        "revoked": "Revoked",
+        "revoked_all": "Revoked all"
+      },
+      "preferences": {
+        "language_updated": "Language updated",
+        "language_local_warning": "Language local warning",
+        "page_size": "Page size",
+        "page_size_max": "Page size max",
+        "channel_updated": "Channel updated"
+      },
+      "applications": {
+        "deactivated": "Deactivated",
+        "deactivate_error": "Deactivate error",
+        "auth_revoked": "Auth revoked",
+        "auth_revoke_error": "Auth revoke error"
+      },
+      "tokens": {
+        "revoked": "Revoked",
+        "revoked_desc": "Revoked desc",
+        "revoke_error": "Revoke error",
+        "created": "Created",
+        "created_desc": "Created desc",
+        "create_error": "Create error"
+      },
+      "apps": {
+        "created": "Created",
+        "created_desc": "Created desc",
+        "create_error": "Create error"
+      },
+      "adminer": {
+        "copied": "Copied",
+        "sql_error": "Sql error"
       }
     },
     "columns": {
@@ -4507,37 +5888,280 @@
         "name": "Name",
         "code": "Code",
         "description": "Description",
-        "users": "Users"
+        "users": "Users",
+        "permissions": "Permissions",
+        "groups": "Groups",
+        "created_at": "Created at",
+        "updated_at": "Updated",
+        "module": "Module"
       },
       "rbac_groups": {
         "name": "Name",
         "status": "Status",
-        "members": "Members"
+        "members": "Members",
+        "roles": "Roles",
+        "created_at": "Created at",
+        "updated_at": "Updated",
+        "scope": "Scope",
+        "entity": "Entity"
       },
       "sessions": {
-        "status": "Status"
+        "status": "Status",
+        "connection": "Login",
+        "device": "Device",
+        "browser_os": "Browser os",
+        "ip_address": "Ip address",
+        "last_access": "Last access"
       },
       "entities": {
         "code": "Code",
         "name": "Name",
         "status": "Status",
         "country": "Country",
-        "users": "Users"
+        "users": "Users",
+        "timezone": "Timezone",
+        "created_at": "Created at"
       },
       "audit": {
         "date": "Date",
         "action": "Action",
-        "user": "User"
+        "user": "User",
+        "object": "Purpose",
+        "module": "Module",
+        "details": "Details"
       },
       "tokens": {
         "name": "Name",
-        "status": "Status"
+        "status": "Status",
+        "expiration": "Expiry",
+        "scopes": "Scopes",
+        "last_used": "Last used"
       }
     },
     "maintenance": {
       "demo": {
-        "generate": "Generate"
+        "generate": "Generate",
+        "title": "Title",
+        "description": "Description",
+        "hint": "Hint",
+        "tiers": "Tiers",
+        "contacts": "Contacts",
+        "projects": "Projects",
+        "sites": "Sites",
+        "users": "Users",
+        "users_hint": "Users hint",
+        "total": "Total"
+      },
+      "reset": {
+        "select_all": "Select all",
+        "deselect_all": "Deselect all",
+        "title": "Title",
+        "description": "Description",
+        "warning_title": "Warning title",
+        "warning_body": "Warning body",
+        "scopes": "Scopes",
+        "tables": "Tables",
+        "purge": "Purge",
+        "preserved_hint": "Always preserved: users, roles/permissions, settings, dictionaries, translations, PDF templates, compliance types, MCP."
+      },
+      "modal": {
+        "title": "Title",
+        "body": "Body",
+        "type_phrase": "Type phrase",
+        "confirm": "Confirm"
+      },
+      "toast": {
+        "demo_generated": "Demo generated",
+        "demo_nothing": "Demo nothing",
+        "demo_error": "Demo error",
+        "reset_done": "Reset done",
+        "reset_summary": "Reset summary",
+        "reset_error": "Reset error",
+        "select_scope": "Select scope"
+      },
+      "scopes_map": {
+        "support_tickets": "Support tickets",
+        "moc": "MOC — Management of Change",
+        "paxlog": "PaxLog — ADS, AVM, missions, incidents",
+        "voyages": "TravelWiz — voyages, vectors, manifests",
+        "cargo": "PackLog — cargo, requests, scans",
+        "planner": "Planner — activities and conflicts",
+        "compliance_records": "Compliance — employee records",
+        "workflow_runtime": "Workflow — active instances",
+        "projects": "Projects and tasks",
+        "tiers": "Tiers — companies and contacts",
+        "assets": "Assets — installations and equipment",
+        "polymorphic": "Attachments, notes and tags",
+        "notifications": "Notifications",
+        "audit_log": "Audit log"
       }
+    },
+    "agent_ia": {
+      "btn": {
+        "reset": "Reset",
+        "send_now": "Send now"
+      },
+      "stat": {
+        "ready": "Ready",
+        "cb_active": "Cb active",
+        "consec_failures": "Consec failures",
+        "spent_month": "Spent month"
+      },
+      "tip": {
+        "no_email": "No email",
+        "reset_cb": "Reset cb",
+        "unsaved_email": "Unsaved email"
+      },
+      "title": "Title",
+      "autonomy": {
+        "autonomous": "Autonomous",
+        "observation": "Observation",
+        "recommendation": "Recommendation"
+      },
+      "confirm": {
+        "reset_cb": "Reset cb"
+      },
+      "hint": {
+        "allow_direct": "Allow direct",
+        "auto_trigger": "Auto trigger",
+        "enabled": "Enabled",
+        "forbidden": "Forbidden",
+        "window": "Window"
+      },
+      "last_send": "Last send",
+      "row": {
+        "agent_runner": "Agent runner",
+        "allow_direct": "Allow direct",
+        "auto_trigger": "Auto trigger",
+        "cb_cooldown": "Cb cooldown",
+        "cb_threshold": "Cb threshold",
+        "default_autonomy": "Default autonomy",
+        "dokploy_prod": "Dokploy prod",
+        "dokploy_staging": "Dokploy staging",
+        "email_to": "Email to",
+        "enabled": "Enabled",
+        "max_concurrent": "Max concurrent",
+        "max_lines": "Max lines",
+        "max_runs": "Max runs",
+        "monthly_budget": "Monthly budget",
+        "send_hour": "Send hour",
+        "window_end": "Window end",
+        "window_start": "Window start"
+      },
+      "section": {
+        "activation": "Activation",
+        "auto_mode": "Auto mode",
+        "budgets": "Budgets",
+        "connectors": "Connectors",
+        "daily_report": "Daily report",
+        "forbidden": "Forbidden"
+      },
+      "subtitle": "Subtitle",
+      "toast": {
+        "cb_reset": "Cb reset",
+        "cb_reset_failed": "Cb reset failed",
+        "digest_failed": "Digest failed",
+        "digest_sent": "Digest sent",
+        "digest_sent_desc": "Digest sent desc",
+        "saved": "Saved"
+      },
+      "warn": {
+        "unsaved": "Unsaved"
+      }
+    },
+    "scenarios": {
+      "field": {
+        "description": "Description",
+        "name": "Name",
+        "criticality": "Criticality",
+        "enabled": "Enabled",
+        "script": "Script",
+        "smoke": "Smoke",
+        "tags": "Tags",
+        "timeout": "Timeout"
+      },
+      "title": "Title",
+      "toast": {
+        "created": "Created",
+        "deleted": "Deleted",
+        "updated": "Updated"
+      },
+      "chars": "Chars",
+      "confirm": {
+        "delete_msg": "Delete msg",
+        "delete_title": "Delete title"
+      },
+      "crit": {
+        "critical": "Critical",
+        "important": "Important",
+        "nice_to_have": "Nice to have"
+      },
+      "disabled": "Disabled",
+      "empty": "Empty",
+      "new": "New",
+      "subtitle": "Subtitle",
+      "timeout_short": "Timeout short"
+    },
+    "no_match": "No match",
+    "mfa_policy_title": "Two-factor authentication (MFA)",
+    "mfa_policy_description": "MFA security policy applied to all users.",
+    "mfa_required_for_all_label": "Require MFA for all users",
+    "mfa_required_for_all_description": "When enabled, every user without MFA configured is forced to set it up before accessing the application (blocking overlay). Already logged-in users keep their active session but must configure MFA on next load.",
+    "mfa_trust_device_enabled_label": "Allow \"Remember this device\"",
+    "mfa_trust_device_enabled_description": "Lets users tick a box on the MFA page to skip entering the OTP at every login from this device. Max duration is configured below.",
+    "mfa_trust_device_max_days_label": "Maximum duration (days)",
+    "mfa_trust_device_max_days_description": "Maximum number of days a device can stay trusted. Recommended: 30 days. Safe maximum: 90.",
+    "trusted_devices_title": "MFA trusted devices",
+    "trusted_devices_description": "List of devices where you ticked \"Remember this device\". You can revoke a device to force MFA code entry at next login.",
+    "trusted_devices_empty": "No trusted device yet.",
+    "trusted_devices_count_one": "device",
+    "trusted_devices_count_other": "devices",
+    "trusted_devices_revoke_all": "Revoke all",
+    "trusted_devices_revoked": "Device revoked.",
+    "trusted_devices_revoked_all_one": "{{count}} device revoked.",
+    "trusted_devices_revoked_all_other": "{{count}} devices revoked.",
+    "trusted_devices_expires": "expires on",
+    "trusted_devices_last_used": "used",
+    "integrations": {
+      "configured": "Configured",
+      "not_configured": "Not configured",
+      "connected": "Connected",
+      "error": "Error",
+      "time_just_now": "just now",
+      "time_minutes_ago_one": "{{count}}min ago",
+      "time_minutes_ago_other": "{{count}}min ago",
+      "time_hours_ago_one": "{{count}}h ago",
+      "time_hours_ago_other": "{{count}}h ago",
+      "time_days_ago_one": "{{count}}d ago",
+      "time_days_ago_other": "{{count}}d ago"
+    },
+    "gconfig": {
+      "section_cartography": "Mapping",
+      "section_notifications": "Notifications",
+      "section_emails": "Emails",
+      "section_emails_desc": "Customize the appearance of emails sent by OpsFlux."
+    },
+    "gdpr_admin": {
+      "audit_logs_label": "Audit logs",
+      "audit_logs_desc": "Audit log retention period (in months).",
+      "sessions_desc": "Session history retention period.",
+      "inactive_accounts_label": "Inactive accounts",
+      "consent_section": "Consent",
+      "cookie_banner_label": "Cookie banner"
+    },
+    "tokens": {
+      "section_title": "Personal access tokens",
+      "section_desc": "Create access tokens for applications that need to access the OpsFlux API.",
+      "create_btn": "Create a token"
+    },
+    "applications": {
+      "section_title": "Applications"
+    },
+    "i18n": {
+      "empty_title": "No translation"
+    },
+    "emails": {
+      "section_title": "Email addresses"
     }
   },
   "help_system": {
@@ -4556,7 +6180,89 @@
     "mark_all_read": "Mark all read",
     "mark_read": "Mark as read",
     "empty": "No notifications",
-    "see_all": "View all notifications"
+    "see_all": "View all notifications",
+    "archive": "Archive",
+    "open": "Open",
+    "all_read": "All read",
+    "bell_label": "Bell label",
+    "category_all": "Category all",
+    "category_filter": "Category filter",
+    "empty_all_description": "Empty all description",
+    "empty_all_title": "Empty all title",
+    "empty_filtered_description": "Empty filtered description",
+    "empty_filtered_title": "Empty filtered title",
+    "filter_all": "Filter all",
+    "filter_read": "Filter read",
+    "filter_unread": "Filter unread",
+    "has_link": "Has link",
+    "no_body": "No body",
+    "page_title": "Page title",
+    "unread_count": "Unread count",
+    "view_all": "View all",
+    "levels": {
+      "participate": "Participate",
+      "watch": "Watch",
+      "mention": "Mention",
+      "disabled": "Disabled",
+      "global": "Global"
+    },
+    "level_desc": {
+      "participate": "Items you participate in",
+      "watch": "All notifications",
+      "mention": "Only when you are mentioned",
+      "disabled": "No notification"
+    },
+    "modules": {
+      "paxlog": "PaxLog",
+      "projects": "Projects",
+      "planner": "Planner",
+      "travelwiz": "TravelWiz",
+      "packlog": "PackLog",
+      "conformite": "Compliance",
+      "workflow": "Workflow",
+      "support": "Support",
+      "messaging": "Messaging",
+      "core": "System"
+    },
+    "events": {
+      "ads.submitted": "AdS submitted",
+      "ads.rejected": "AdS rejected",
+      "ads.compliance_failed": "AdS blocked by compliance",
+      "ads.approved": "AdS approved",
+      "planner.activity.validated": "Activity validated",
+      "planner.activity.cancelled": "Activity cancelled",
+      "planner.conflict.detected": "Capacity conflict detected",
+      "planner.revision.requested": "Revision requested",
+      "planner.revision.responded": "Revision answered",
+      "planner.revision.forced": "Revision forced",
+      "project.status.changed": "Project status changed",
+      "project.task.assigned": "Task assigned",
+      "project.task.planner_sync_required": "Planner revision suggested",
+      "conformite.record_verified": "Compliance verified / rejected",
+      "conformite.rule.changed": "Rule changed",
+      "conformite.record.expired": "Compliance expired",
+      "document.submitted": "Document submitted",
+      "document.approved": "Document approved",
+      "document.rejected": "Document rejected",
+      "document.published": "Document published",
+      "ticket.assigned": "Ticket assigned",
+      "ticket.commented": "Ticket commented",
+      "ticket.resolved": "Ticket resolved",
+      "travelwiz.pickup_reminder": "Pickup reminder"
+    },
+    "ui": {
+      "channel_allowed": "Allowed",
+      "module_header": "Module",
+      "event_header": "Event",
+      "channel_in_app": "In-app",
+      "channel_email": "Email",
+      "channel_digest": "Digest",
+      "channel_sms": "SMS",
+      "channel_whatsapp": "WhatsApp",
+      "groups_header": "Groups",
+      "groups_actions_section": "Groups & Actions",
+      "global_default_hint": "By default, all groups use the global notification level."
+    }
   },
   "export": {
     "wizard_title": "Export Assistant",
@@ -4940,7 +6646,19 @@
       "city": "City",
       "users": "Users",
       "email": "Email",
-      "currency": "Currency"
+      "currency": "Currency",
+      "legal_form": "Legal form",
+      "timezone": "Timezone",
+      "created_at": "Created at",
+      "groups": "Groups",
+      "trade_name": "Trade name"
+    },
+    "badges": {
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "filters": {
+      "archived": "Archived"
     }
   },
   "packlog": {
@@ -5016,6 +6734,20 @@
         "readiness": "Dossier readiness",
         "pickup_location": "Pickup location",
         "files": "Operational files"
+      },
+      "return": {
+        "disposition": {
+          "mixed": "Mixed",
+          "none": "None"
+        },
+        "empty": "Empty",
+        "section_title": "Section title",
+        "status": {
+          "full": "Full",
+          "no_elements": "No elements",
+          "none": "None",
+          "partial": "Partial"
+        }
       }
     },
     "tracking": {
@@ -5153,6 +6885,68 @@
       "hazmat_label": "Hazardous material",
       "hazmat_class": "HAZMAT class",
       "hazmat_class_placeholder": "Class 1, 2…"
+    },
+    "toast": {
+      "cargo_update_error": "Error updating",
+      "request_created": "Request created",
+      "request_create_error": "Request create error",
+      "request_updated": "Request updated",
+      "request_update_error": "Request update error",
+      "request_incomplete": "Request incomplete",
+      "loading_option_applied": "Loading option applied",
+      "loading_impossible": "Loading impossible",
+      "loading_assign_error": "Loading assign error",
+      "print_lt_error": "Print lt error",
+      "print_lt_error_description": "Print lt error description",
+      "select_request_first": "Select request first",
+      "cargo_created": "Cargo created",
+      "cargo_created_description": "Cargo created description",
+      "cargo_create_error": "Cargo create error",
+      "cargo_updated": "Cargo updated",
+      "cargo_must_have_request": "Cargo must have request",
+      "return_qualify": "Return qualify",
+      "return_qualify_description": "Return qualify description",
+      "workflow_updated": "Workflow updated",
+      "workflow_incomplete": "Workflow incomplete",
+      "workflow_change_error": "Workflow change error",
+      "element_return_saved": "Element return saved",
+      "element_return_error": "Element return error",
+      "disposition_applied": "Disposition applied",
+      "disposition_error": "Disposition error",
+      "back_cargo_initiated": "Back cargo initiated",
+      "back_cargo_error": "Back cargo error",
+      "article_created": "Article created",
+      "article_create_error": "Article create error",
+      "csv_import_success": "Csv import success",
+      "csv_import_error": "Csv import error"
+    },
+    "create_request": {
+      "title": "Title"
+    },
+    "request": {
+      "imputation": "Imputation",
+      "requester": "Requester",
+      "section": {
+        "completeness": "Completeness",
+        "parties": "Parties"
+      }
+    },
+    "placeholders": {
+      "cargo_description": "Cargo description",
+      "cargo_designation": "Cargo designation",
+      "lifting_provider_example": "Lifting provider example",
+      "phone_example": "Phone example",
+      "pickup_contact_fallback": "Pickup contact fallback",
+      "pickup_location_example": "Pickup location example",
+      "request_title_example": "Request title example",
+      "requester_fallback": "Requester fallback",
+      "sap_code_example": "Sap code example",
+      "select_company": "Select company",
+      "select_contact": "Select contact",
+      "select_destination_asset": "Select destination asset",
+      "select_imputation": "Select imputation",
+      "select_project": "Select project",
+      "select_user": "Select user"
     }
   },
   "support": {
@@ -5172,13 +6966,197 @@
     "columns": {
       "type": "Type",
       "status": "Status",
-      "priority": "Priority"
+      "priority": "Priority",
+      "ref": "Ref.",
+      "title": "Title",
+      "assignee": "Assignee",
+      "created_at": "Created at",
+      "reporter": "Reporter"
     },
     "announcements": {
       "columns": {
         "priority": "Priority",
-        "active": "Active"
+        "active": "Active",
+        "title": "Title",
+        "created_at": "Created at",
+        "location": "Location"
       }
+    },
+    "toast": {
+      "ticket_submit_error": "Error submitting",
+      "ticket_submitted": "Ticket submitted",
+      "ticket_archived": "Ticket archived",
+      "comment_added": "Comment added",
+      "todo_added": "Todo added",
+      "announcement_published": "Announcement published",
+      "announcement_publish_error": "Announcement publish error",
+      "announcement_deleted": "Announcement deleted",
+      "announcement_deactivated": "Announcement deactivated",
+      "announcement_activated": "Announcement activated"
+    },
+    "agent": {
+      "deploy": {
+        "failed": "Failed",
+        "done_title": "Done title",
+        "fail_title": "Fail title",
+        "ok": "Ok"
+      },
+      "reject": "Reject",
+      "title": "Title",
+      "toast": {
+        "cancelled": "Cancelled",
+        "rejected": "Rejected",
+        "launch_failed": "Launch failed",
+        "launched": "Launched",
+        "launched_desc": "Launched desc",
+        "merge_failed": "Merge failed",
+        "merged": "Merged"
+      },
+      "approval_desc": "Approval desc",
+      "approval_required": "Approval required",
+      "approve_merge": "Approve merge",
+      "cancel_run": "Cancel run",
+      "cb_desc": "Cb desc",
+      "cb_title": "Cb title",
+      "confirm": {
+        "approve_label": "Approve label",
+        "approve_msg": "Approve msg",
+        "approve_title": "Approve title",
+        "cancel_label": "Cancel label",
+        "cancel_msg": "Cancel msg",
+        "cancel_title": "Cancel title",
+        "deploy_label": "Deploy label",
+        "deploy_msg": "Deploy msg",
+        "deploy_title": "Deploy title",
+        "launch_label": "Launch label",
+        "launch_msg": "Launch msg",
+        "launch_title": "Launch title",
+        "reject_label": "Reject label",
+        "reject_msg": "Reject msg",
+        "reject_title": "Reject title"
+      },
+      "console_errors": "Console errors",
+      "cost": "Cost",
+      "critical_count": "Critical count",
+      "deploy_verify_btn": "Deploy verify btn",
+      "deployment_label": "Deployment label",
+      "disabled": "Disabled",
+      "disabled_desc": "Disabled desc",
+      "disabled_title": "Disabled title",
+      "enabled": "Enabled",
+      "last_run_proposal": "Last run proposal",
+      "launch": "Launch",
+      "loading_playwright": "Loading playwright",
+      "mode_label": "Mode label",
+      "no_active": "No active",
+      "phase": {
+        "deploy": "Deploy",
+        "diagnosis": "Diagnosis",
+        "fix": "Fix",
+        "report": "Report",
+        "reproduction": "Reproduction",
+        "triage": "Triage",
+        "verification": "Verification"
+      },
+      "playwright_check": "Playwright check",
+      "previous_runs": "Previous runs",
+      "tokens": "Tokens"
+    },
+    "review": {
+      "reject": "Reject",
+      "status": {
+        "completed": "Completed",
+        "failed": "Failed",
+        "rejected": "Rejected",
+        "awaiting_human": "Awaiting human"
+      },
+      "agent_warns": "Agent warns",
+      "files_modified": "Files modified",
+      "fix_ci": "Fix ci",
+      "logs_empty": "Logs empty",
+      "logs_loading": "Logs loading",
+      "logs_unavailable": "Logs unavailable",
+      "merge": "Merge",
+      "merging": "Merging",
+      "next_steps": "Next steps",
+      "post_exec_checks": "Post exec checks",
+      "pr_open_warning": "Pr open warning",
+      "reasoning": "Reasoning",
+      "rejecting": "Rejecting",
+      "retry_failed": "Retry failed",
+      "retry_launched": "Retry launched",
+      "retry_tooltip": "Retry tooltip",
+      "retrying": "Retrying",
+      "root_cause": "Root cause",
+      "view_logs": "View logs",
+      "view_pr": "View pr"
+    },
+    "satisfaction": {
+      "back": "Back",
+      "submit": "Submit",
+      "title": "Title",
+      "already_desc": "Already desc",
+      "already_title": "Already title",
+      "comment_label": "Comment label",
+      "comment_placeholder": "Comment placeholder",
+      "not_found_desc": "Not found desc",
+      "not_found_title": "Not found title",
+      "on_date": "On date",
+      "rating1": "Rating1",
+      "rating2": "Rating2",
+      "rating3": "Rating3",
+      "rating4": "Rating4",
+      "rating5": "Rating5",
+      "star_aria": "Star aria",
+      "thanks": "Thanks",
+      "ticket_label": "Ticket label",
+      "your_rating": "Your rating"
+    },
+    "github": {
+      "choose_connector": "Choose connector",
+      "create_and_link": "Create and link",
+      "last_sync": "Last sync",
+      "link_failed": "Link failed",
+      "linked_success": "Linked success",
+      "linked_to": "Linked to",
+      "no_connector": "No connector",
+      "not_linked_desc": "Not linked desc",
+      "pause": "Pause",
+      "paused": "Paused",
+      "resume": "Resume",
+      "select_connector": "Select connector",
+      "sync_active": "Sync active",
+      "sync_disabled": "Sync disabled",
+      "sync_resumed": "Sync resumed"
+    },
+    "supervision": {
+      "avg_cost": "Avg cost",
+      "avg_time": "Avg time",
+      "budget_over": "Budget over",
+      "cb_active": "Cb active",
+      "cb_active_short": "Cb active short",
+      "cb_label": "Cb label",
+      "cb_ok": "Cb ok",
+      "cb_triggered": "Cb triggered",
+      "completed_count": "Completed count",
+      "consec_failures": "Consec failures",
+      "daily_activity": "Daily activity",
+      "legend_failed": "Legend failed",
+      "legend_other": "Legend other",
+      "legend_success": "Legend success",
+      "monthly_budget": "Monthly budget",
+      "no_failures": "No failures",
+      "no_message": "No message",
+      "no_recent_failure": "No recent failure",
+      "no_runs_period": "No runs period",
+      "period_cost": "Period cost",
+      "phase_label": "Phase label",
+      "recent_failures": "Recent failures",
+      "runs_active": "Runs active",
+      "runs_total": "Runs total",
+      "status_breakdown": "Status breakdown",
+      "success_rate": "Success rate",
+      "tokens_total": "Tokens total"
     }
   },
   "asset_registry": {
@@ -5208,7 +7186,10 @@
     "points_courbe_de_charge": "Points courbe de charge",
     "selectionner_une_configuration": "Sélectionner une configuration...",
     "zones_de_levage": "Zones de levage",
-    "courbe_de_pompe": "Courbe de pompe"
+    "courbe_de_pompe": "Courbe de pompe",
+    "select_field": "Select field",
+    "select_installation": "Select installation",
+    "select_site": "Select site"
   },
   "legal": {
     "politique_de_confidentialite": "Politique de confidentialite",
@@ -5272,42 +7253,741 @@
     "deposer_les_fichiers_ici": "Déposer les fichiers ici",
     "les_fichiers_seront_uploades_dans_le_dos": "Les fichiers seront uploadés dans le dossier courant",
     "nouveau_dossier": "Nouveau dossier",
-    "supprimer_la_selection": "Supprimer la sélection"
+    "supprimer_la_selection": "Supprimer la sélection",
+    "filter": {
+      "documents": "Documents",
+      "archives": "Archives",
+      "audio": "Audio",
+      "images": "Images",
+      "videos": "Videos"
+    },
+    "racine": "Root",
+    "toast": {
+      "error": "Error",
+      "batch_deleted": "Batch deleted",
+      "create_folder_error_description": "Create folder error description",
+      "delete_confirm_batch": "Delete confirm batch",
+      "delete_confirm_file": "Delete confirm file",
+      "delete_confirm_folder": "Delete confirm folder",
+      "delete_confirm_label": "Delete confirm label",
+      "delete_confirm_title": "Delete confirm title",
+      "delete_error_description": "Delete error description",
+      "deleted_item": "Deleted item",
+      "folder_created": "Folder created",
+      "load_error_description": "Load error description",
+      "load_error_title": "Load error title",
+      "path_copied": "Path copied",
+      "rename_error_description": "Rename error description",
+      "renamed_to": "Renamed to",
+      "upload_error_description": "Upload error description",
+      "upload_error_title": "Upload error title"
+    },
+    "toolbar": {
+      "refresh": "Refresh",
+      "upload": "Upload",
+      "search_placeholder": "Search placeholder",
+      "selected_count": "Selected count",
+      "view_grid": "View grid",
+      "view_list": "View list"
+    },
+    "aucun_resultat": "Aucun resultat",
+    "dossier_vide": "Dossier vide",
+    "preview": {
+      "loadError": "LoadError"
+    }
   },
   "pidpfd": {
     "toast": {
       "error": "Error",
-      "success": "Success"
-    }
+      "success": "Success",
+      "diagram_save_error": "Error saving diagram",
+      "afc_validation_error": "Error validating",
+      "revision_created": "New revision created",
+      "revision_create_error": "Error creating revision",
+      "field_update_error": "Error updating",
+      "csv_import_error": "Error importing CSV",
+      "title_required": "Title is required",
+      "pid_created": "PID created",
+      "pid_create_error": "Creation failed",
+      "tag_required": "Tag is required",
+      "equipment_create_error": "Error creating user",
+      "equipment_delete_error": "Error deleting",
+      "line_number_required": "Line number is required",
+      "process_line_create_error": "Error creating user",
+      "tag_name_required": "Tag name is required",
+      "diagram_saved": "Diagram saved",
+      "afc_validation_success": "Afc validation success",
+      "afc_validation_failed": "Afc validation failed",
+      "lock_acquired": "Lock acquired",
+      "lock_acquire_error": "Lock acquire error",
+      "field_updated": "Field updated",
+      "csv_select_project": "Csv select project",
+      "csv_import_success": "Csv import success",
+      "equipment_created": "Equipment created",
+      "equipment_deleted": "Equipment deleted",
+      "process_line_created": "Process line created",
+      "dcs_tag_created": "Dcs tag created",
+      "dcs_tag_create_error": "Dcs tag create error"
+    },
+    "placeholders": {
+      "title": "Title"
+    },
+    "create_pid": "Create pid",
+    "sections": {
+      "drawing": "Drawing",
+      "drawing_help": "Drawing help",
+      "identity_help": "Identity help"
+    },
+    "select_equipment": "Select equipment"
   },
   "onboarding": {
     "step1": {
       "last_name": "Name",
-      "email": "Email"
+      "email": "Email",
+      "first_name": "First name",
+      "language": "Language",
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "first_name_ph": "First name ph",
+      "last_name_ph": "Last name ph",
+      "email_help": "Email help",
+      "avatar_upload": "Avatar upload",
+      "avatar_saved": "Avatar saved",
+      "save": "Save",
+      "saved": "Saved",
+      "error_required": "Error required"
     },
     "step3": {
       "last_name": "Name",
-      "email": "Email"
+      "email": "Email",
+      "first_name": "First name",
+      "add_row": "Add row",
+      "error_invalid_email": "Invalid email",
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "empty": "Empty",
+      "invite": "Invite",
+      "row_created": "Row created",
+      "hint": "Hint",
+      "error_empty": "Error empty",
+      "created": "Created",
+      "partial_fail": "Partial fail",
+      "bulk_title": "Several users to invite?",
+      "bulk_hint": "Import your directory (CSV/Excel) or sync from Azure AD / Keycloak.",
+      "bulk_btn": "Bulk import",
+      "bulk_imported": "Users imported successfully"
     },
     "step5": {
-      "type": "Type"
+      "type": "Type",
+      "tier_type_supplier": "Supplier",
+      "tier_type_partner": "Partner",
+      "tier_type_subcontractor": "Subcontractor",
+      "tier_type_other": "Other",
+      "email_help": "Optional.",
+      "created_short": "Created",
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "name": "Name",
+      "name_ph": "Name ph",
+      "tier_type_customer": "Tier type customer",
+      "email": "Email",
+      "email_ph": "Email ph",
+      "create": "Create",
+      "created": "Created",
+      "saved": "Saved",
+      "error_required": "Error required",
+      "bulk_title": "Several tiers to create?",
+      "bulk_hint": "Import your list from a CSV or Excel file — automatic column mapping.",
+      "bulk_btn": "Bulk import",
+      "bulk_imported": "Tiers imported successfully"
     },
     "step6": {
       "site_type": "Type",
-      "country": "Country"
+      "country": "Country",
+      "site_type_subsea": "Subsea",
+      "site_type_pipeline": "Pipeline",
+      "created_short": "Created",
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "name": "Name",
+      "name_ph": "Name ph",
+      "site_type_onshore": "Site type onshore",
+      "site_type_offshore_fixed": "Site type offshore fixed",
+      "site_type_offshore_floating": "Site type offshore floating",
+      "site_type_terminal": "Site type terminal",
+      "country_ph": "Country ph",
+      "create": "Create",
+      "created": "Created",
+      "saved": "Saved",
+      "hint": "Hint",
+      "error_required": "Error required",
+      "bulk_title": "Several sites/equipment to create?",
+      "bulk_hint": "Import your hierarchy from a CSV or Excel file.",
+      "bulk_btn": "Bulk import",
+      "bulk_imported": "Assets imported successfully",
+      "bulk_level_field": "Fields",
+      "bulk_level_site": "Sites",
+      "bulk_level_installation": "Installations",
+      "bulk_level_equipment": "Equipment"
     },
     "nav": {
       "previous": "Previous",
       "next": "Next",
-      "finish": "Completed"
+      "finish": "Completed",
+      "skip": "Skip"
     },
     "step2": {
       "address": "Address",
       "city": "City",
-      "country": "Country"
+      "country": "Country",
+      "timezone": "Timezone",
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "name": "Name",
+      "name_ph": "Name ph",
+      "address_ph": "Address ph",
+      "country_ph": "Country ph",
+      "currency": "Currency",
+      "save": "Save",
+      "saved": "Saved",
+      "error_required": "Error required",
+      "error_no_entity": "Error no entity",
+      "editing_entity": "You are linked to entity",
+      "editing_entity_hint": "You can fill in its details below.",
+      "readonly_hint": "You don’t have permission to edit this entity. Contact your administrator."
     },
     "recap": {
-      "skipped": "Past"
+      "skipped": "Past",
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "users_count": "Users count",
+      "modules_count": "Modules count",
+      "note": "Note"
+    },
+    "step4": {
+      "apply": "Apply",
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "protected": "Protected",
+      "depends": "Depends",
+      "missing": "Missing",
+      "saved": "Saved",
+      "no_change": "No change",
+      "applied": "Applied",
+      "partial_fail": "Partial fail"
+    },
+    "title": "Title",
+    "step_label": "Step label",
+    "cta": {
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "button": "Button"
+    },
+    "already": {
+      "title": "Title",
+      "desc": "Desc",
+      "dismiss": "Dismiss"
+    }
+  },
+  "errors": {
+    "access_denied": "Access denied.",
+    "authentication_required": "Authentication required.",
+    "permission_denied_activity_update": "You don't have permission to modify this activity.",
+    "admin_access_required": "Administrator access required.",
+    "pax_quota_must_greater_than_0": "PAX quota must be greater than 0 to submit a terminal activity (without sub-activities).",
+    "activity_not_found": "Activity not found.",
+    "activity_cannot_depend_itself": "An activity cannot depend on itself.",
+    "activity_must_either_predecessor_successor": "Activity must be predecessor or successor, not both.",
+    "cannot_submit_activity_status": "Cannot submit this activity in its current status.",
+    "cannot_validate_activity_status": "Cannot validate this activity in its current status.",
+    "cannot_reject_activity_status": "Cannot reject this activity in its current status.",
+    "cannot_cancel_activity_status": "Cannot cancel this activity in its current status.",
+    "cannot_modify_promoted_scenario": "Cannot modify a scenario promoted to reference.",
+    "cannot_promote_archived_scenario": "Cannot promote an archived scenario.",
+    "cannot_close_voyage_status": "Cannot close this voyage in its current status.",
+    "cannot_complete_ads_status": "Cannot complete this AdS in its current status.",
+    "cannot_add_passengers_non_draft_manifest": "Cannot add passengers to a non-draft manifest.",
+    "cannot_archive_field_active_site_s": "Cannot archive field: active sites are attached.",
+    "cannot_archive_installation_active_equipment_s": "Cannot archive installation: active equipment is attached.",
+    "cannot_archive_site_active_installation_s": "Cannot archive site: active installations are attached.",
+    "cannot_delete_root": "Cannot delete a root node.",
+    "cannot_delete_super_admin_role": "Cannot delete the Super Admin role.",
+    "cannot_approve_exemption_status": "Cannot approve this exemption in its current status.",
+    "address_not_found": "Address not found.",
+    "ads_not_found": "ADS not found.",
+    "ads_introuvable": "ADS not found.",
+    "attachment_not_found": "Attachment not found.",
+    "avm_not_found": "AVM not found.",
+    "project_not_found": "Project not found.",
+    "scenario_not_found": "Scenario not found.",
+    "task_not_found": "Task not found.",
+    "conflict_not_found": "Conflict not found.",
+    "installation_not_found": "Installation not found.",
+    "tier_not_found": "Companies not found.",
+    "vector_not_found": "Vector not found.",
+    "voyage_not_found": "Voyage not found.",
+    "not_found": {
+      "description": "Description",
+      "title": "Title"
+    },
+    "ads_has_unchecked_pax": "Ads has unchecked pax",
+    "asset_id_required": "Asset id required",
+    "asset_scope_not_found_entity": "Asset scope not found entity",
+    "assigned_user_must_active_belong_current": "Assigned user must active belong current",
+    "backend_not_configured": "Backend not configured",
+    "backend_not_found": "Backend not found",
+    "backend_not_found_inactive": "Backend not found inactive",
+    "business_unit_code_already_exists": "Business unit code already exists",
+    "business_unit_not_found": "Business unit not found",
+    "project_must_have_asset_assigned_push": "Project must have asset assigned push",
+    "scenario_already_promoted": "Scenario already promoted",
+    "scenario_activity_not_found": "Scenario activity not found",
+    "scenario_has_no_proposed_activities_simulate": "Scenario has no proposed activities simulate",
+    "dependency_not_found": "Dependency not found",
+    "conflict_already_status": "Conflict already status",
+    "conflict_id_mismatch": "Conflict id mismatch",
+    "apply_activity_not_in_conflict": "Apply activity not in conflict",
+    "apply_end_before_start": "Apply end before start",
+    "apply_quota_required": "Apply quota required",
+    "apply_set_window_required": "Apply set window required",
+    "apply_shift_days_required": "Apply shift days required",
+    "apply_shift_needs_window": "Apply shift needs window",
+    "anchor_lookup_failed": "Anchor lookup failed",
+    "counter_proposal_details_required": "Counter proposal details required",
+    "email_send_failed": "Email send failed",
+    "invalid_revision_decision_request": "Invalid revision decision request",
+    "invalid_revision_signal": "Invalid revision signal",
+    "no_eligible_project_manager_assignee_found": "No eligible project manager assignee found",
+    "no_reference_scenario_configured": "No reference scenario configured",
+    "no_response_accept_revision_decision_request": "No response accept revision decision request",
+    "only_maintenance_inspection_integrity_activities_can": "Only maintenance inspection integrity activities can",
+    "only_original_requester_can_accept_counter": "Only original requester can accept counter",
+    "only_promoted_scenario_can_restored": "Only promoted scenario can restored",
+    "only_targeted_reviewer_can_answer_revision": "Only targeted reviewer can answer revision",
+    "pdf_generation_failed": "Pdf generation failed",
+    "pdf_template_planner_conflict_not_found": "Pdf template planner conflict not found",
+    "pdf_template_planner_gantt_export_not": "Pdf template planner gantt export not",
+    "response_not_counter_proposal": "Response not counter proposal",
+    "revision_decision_request_already_resolved": "Revision decision request already resolved",
+    "revision_decision_request_not_found": "Revision decision request not found",
+    "revision_decision_request_not_yet_overdue": "Revision decision request not yet overdue",
+    "revision_signal_not_found": "Revision signal not found",
+    "start_date_end_date_required_submit": "Start date end date required submit",
+    "another_user_already_exists_email_use": "Another user already exists email use",
+    "ai_provider_not_configured_set_api": "Ai provider not configured set api",
+    "inactive_contacts_cannot_promoted": "Inactive contacts cannot promoted",
+    "contact_email_required_promotion": "Contact email required promotion",
+    "contact_already_linked_user": "Contact already linked user",
+    "pax_user_not_found": "Pax user not found",
+    "pax_contact_not_found": "Pax contact not found",
+    "pax_source_must_user_contact": "Pax source must user contact",
+    "ticket_not_found": "Ticket not found",
+    "destination_required": "Destination required",
+    "origin_required": "Origin required"
+  },
+  "assistant": {
+    "close": "Close",
+    "help": {
+      "workflows": "Workflows",
+      "none": "None",
+      "tips": "Tips"
+    },
+    "title": "Title",
+    "tabs": {
+      "chat": "Chat",
+      "help": "Help",
+      "ticket": "Ticket",
+      "tours": "Tours"
+    },
+    "ticket": {
+      "priorities": {
+        "critical": "Critical",
+        "high": "High",
+        "low": "Low",
+        "medium": "Medium"
+      },
+      "title_placeholder": "Title placeholder"
+    }
+  },
+  "integrations": {
+    "heavy": {
+      "description": "Description",
+      "title": "Title",
+      "no_connector": "No connector"
+    }
+  },
+  "moc": {
+    "approved": "Approved",
+    "columns": {
+      "priority": "Priority",
+      "site": "Site",
+      "status": "Status",
+      "created_at": "Created at",
+      "initiator": "Initiator",
+      "linked_project": "Linked project",
+      "linked_project_chip": "Linked project chip",
+      "manager": "Manager",
+      "manager_assigned": "Manager assigned",
+      "objectives": "Objectives",
+      "platform": "Platform",
+      "reference": "Reference"
+    },
+    "create": {
+      "failed": "Failed",
+      "title": "Title",
+      "section_initiator": "Section initiator",
+      "section_location": "Section location",
+      "section_objectives": "Section objectives",
+      "section_type": "Section type",
+      "section_validators": "Section validators",
+      "subtitle": "Subtitle",
+      "validators_hint": "Validators hint"
+    },
+    "detail_tab": {
+      "comments": "Comments",
+      "documents": "Documents",
+      "history": "History",
+      "validation": "Validation",
+      "execution": "Execution",
+      "fiche": "Fiche",
+      "production": "Production"
+    },
+    "fields": {
+      "comment": "Comment",
+      "completed": "Completed",
+      "description": "Description",
+      "installation": "Asset",
+      "priority": "Priority",
+      "role": "Role",
+      "site": "Site",
+      "status": "Status",
+      "title": "Title",
+      "comment_ph": "Comment ph",
+      "cost_bucket": "Cost bucket",
+      "created_at": "Created at",
+      "current_situation": "Current situation",
+      "duration_days": "Duration days",
+      "duration_days_hint": "Duration days hint",
+      "duration_days_optional_ph": "Duration days optional ph",
+      "external_function": "External function",
+      "external_function_ph": "External function ph",
+      "external_initiator_toggle": "External initiator toggle",
+      "external_name": "External name",
+      "external_name_ph": "External name ph",
+      "impact_analysis": "Impact analysis",
+      "impact_analysis_ph": "Impact analysis ph",
+      "initiator": "Initiator",
+      "initiator_email": "Initiator email",
+      "initiator_email_ph": "Initiator email ph",
+      "initiator_function": "Initiator function",
+      "initiator_function_ph": "Initiator function ph",
+      "initiator_signature": "Initiator signature",
+      "installation_hint_v2": "Installation hint v2",
+      "installation_ph": "Installation ph",
+      "invite_comment": "Invite comment",
+      "invite_comment_ph": "Invite comment ph",
+      "invitee": "Invitee",
+      "invitee_ph": "Invitee ph",
+      "is_real_change": "Is real change",
+      "level": "Level",
+      "linked_project": "Linked project",
+      "linked_project_view": "Linked project view",
+      "manager": "Manager",
+      "manager_ph": "Manager ph",
+      "manual_location_toggle": "Manual location toggle",
+      "metier_code": "Metier code",
+      "metiers": "Metiers",
+      "metiers_empty": "Metiers empty",
+      "moc_type": "Moc type",
+      "moc_type_hint": "Moc type hint",
+      "modification_type": "Modification type",
+      "nature": "Nature",
+      "necessary": "Necessary",
+      "objectives": "Objectives",
+      "objectives_ph": "Objectives ph",
+      "planned_date": "Planned date",
+      "platform": "Platform",
+      "production_signature": "Production signature",
+      "proposed_changes": "Proposed changes",
+      "reference": "Reference",
+      "required": "Required",
+      "return_reason": "Return reason",
+      "return_reason_ph": "Return reason ph",
+      "site_custom": "Site custom",
+      "site_custom_ph": "Site custom ph",
+      "temporary_end_date": "Temporary end date",
+      "temporary_period": "Temporary period",
+      "temporary_start_date": "Temporary start date",
+      "title_ph": "Title ph",
+      "transition_comment_ph": "Transition comment ph"
+    },
+    "rejected": "Rejected",
+    "section": {
+      "attachments": "Attachments",
+      "comments": "Comments",
+      "workflow": "Workflow",
+      "content": "Content",
+      "cost": "Cost",
+      "execution_accord": "Execution accord",
+      "flags": "Flags",
+      "identification": "Identification",
+      "invited_validators": "Invited validators",
+      "linked_project": "Linked project",
+      "metier_validations": "Metier validations",
+      "production_validation": "Production validation",
+      "signatures": "Signatures",
+      "timeline": "Timeline",
+      "validation_matrix": "Validation matrix",
+      "workflow_stepper": "Workflow stepper"
+    },
+    "settings": {
+      "reminders": {
+        "description": "Description",
+        "reset": "Reset",
+        "title": "Title",
+        "enabled_hint": "Enabled hint",
+        "enabled_label": "Enabled label",
+        "invalid_threshold": "Invalid threshold",
+        "thresholds_hint": "Thresholds hint",
+        "thresholds_label": "Thresholds label"
+      },
+      "types": {
+        "add": "Add",
+        "created": "Created",
+        "deleted": "Deleted",
+        "description": "Description",
+        "title": "Title",
+        "add_rule": "Add rule",
+        "code_ph": "Code ph",
+        "confirm_delete": "Confirm delete",
+        "confirm_delete_title": "Confirm delete title",
+        "empty": "Empty",
+        "label_ph": "Label ph",
+        "metier_ph": "Metier ph",
+        "rules_empty": "Rules empty",
+        "rules_title": "Rules title"
+      }
+    },
+    "stats": {
+      "pending": "Pending",
+      "closed": "Closed",
+      "in_progress": "In progress",
+      "total": "Total"
+    },
+    "toast": {
+      "created": "Created",
+      "deleted": "Deleted",
+      "accord_saved": "Accord saved",
+      "error_generic": "Error generic",
+      "pdf_failed": "Pdf failed",
+      "production_saved": "Production saved",
+      "promoted": "Promoted",
+      "return_sent": "Return sent",
+      "transitioned": "Transitioned",
+      "validator_invited": "Validator invited"
+    },
+    "actions": {
+      "accord": "Accord",
+      "download_pdf": "Download pdf",
+      "invite_validator": "Invite validator",
+      "new": "New",
+      "production_refuse": "Production refuse",
+      "production_validate": "Production validate",
+      "promote_to_project": "Promote to project",
+      "refuse": "Refuse",
+      "request_return": "Request return",
+      "save_signature": "Save signature",
+      "send_invite": "Send invite",
+      "send_return": "Send return"
+    },
+    "delete": {
+      "confirm_message": "Confirm message",
+      "confirm_title": "Confirm title"
+    },
+    "field": {
+      "approval_level_tooltip": "Approval level tooltip",
+      "platformPlaceholder": "PlatformPlaceholder"
+    },
+    "filters": {
+      "all_projects": "All projects",
+      "mine_as_manager": "Mine as manager",
+      "only_not_promoted": "Only not promoted",
+      "only_promoted": "Only promoted"
+    },
+    "flags": {
+      "environmental": "Environmental",
+      "esd_update": "Esd update",
+      "hazid": "Hazid",
+      "hazop": "Hazop",
+      "pid_update": "Pid update"
+    },
+    "help": {
+      "initiator_description": "Initiator description",
+      "initiator_tip_email": "Initiator tip email",
+      "initiator_tip_external": "Initiator tip external",
+      "initiator_tip_signature": "Initiator tip signature",
+      "location_description": "Location description",
+      "location_tip_fallback": "Location tip fallback",
+      "location_tip_installation": "Location tip installation",
+      "modtype_permanent": "Modtype permanent",
+      "modtype_temporary": "Modtype temporary",
+      "nature_optimisation": "Nature optimisation",
+      "nature_securite": "Nature securite",
+      "objectives_description": "Objectives description",
+      "objectives_tip_objectives": "Objectives tip objectives",
+      "objectives_tip_rich": "Objectives tip rich",
+      "objectives_tip_title": "Objectives tip title",
+      "role_gas_manager": "Role gas manager",
+      "role_hse": "Role hse",
+      "role_lead_process": "Role lead process",
+      "role_maintenance_manager": "Role maintenance manager",
+      "role_metier": "Role metier",
+      "role_process_engineer": "Role process engineer",
+      "role_production_manager": "Role production manager",
+      "type_description": "Type description",
+      "type_tip_metiers": "Type tip metiers",
+      "validators_description": "Validators description"
+    },
+    "invited_user_default": "Invited user default",
+    "nature": {
+      "OPTIMISATION": "OPTIMISATION",
+      "SECURITE": "SECURITE"
+    },
+    "page_subtitle": "Page subtitle",
+    "page_title": "Page title",
+    "priority_prefix": "Priority prefix",
+    "roles": {
+      "dg_full": "Dg full",
+      "do_full": "Do full"
+    },
+    "transition": {
+      "prereqs_missing": "Prereqs missing",
+      "refused": "Refused"
+    },
+    "type_permanent": "Type permanent",
+    "type_temporary": "Type temporary"
+  },
+  "quick_create": {
+    "title": "Title",
+    "hint_enter": "Hint enter",
+    "no_results": "No results",
+    "search_placeholder": "Search placeholder"
+  },
+  "shell": {
+    "reset": "Reset",
+    "atlas": "Atlas",
+    "default": "Default",
+    "default_hint": "Default hint",
+    "mode_aria": "Mode aria",
+    "operator": "Operator",
+    "save_error": "Save error"
+  },
+  "smart_form": {
+    "wizard": {
+      "next": "Next",
+      "previous": "Previous",
+      "step": "Step",
+      "finish": "Finish",
+      "help": "Help",
+      "help_full": "Help full",
+      "help_none": "Help none",
+      "help_see_full": "Help see full",
+      "help_short": "Help short",
+      "help_title": "Help title",
+      "help_values": "Help values",
+      "skip": "Skip",
+      "skip_hint": "Skip hint"
+    },
+    "mode": {
+      "advanced": "Advanced",
+      "simple": "Simple",
+      "wizard": "Wizard"
+    },
+    "show_advanced": "Show advanced",
+    "simple_hint": "Simple hint"
+  },
+  "teams": {
+    "created": "Created",
+    "error": {
+      "create": "Create",
+      "name_required": "Name required"
+    },
+    "field": {
+      "description": "Description",
+      "name": "Name",
+      "initial_members": "Initial members",
+      "visibility": "Visibility"
+    },
+    "placeholder": {
+      "description": "Description",
+      "name": "Name"
+    },
+    "visibility": {
+      "public": "Public",
+      "private": "Private",
+      "private_hint": "Private hint",
+      "public_hint": "Public hint"
+    },
+    "create_new": "Create new",
+    "select_team": "Select team"
+  },
+  "home": {
+    "greeting": {
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "morning": "Morning",
+      "night": "Night"
+    },
+    "no_modules": "No modules"
+  },
+  "rich_text": {
+    "image_insert": "Image insert",
+    "image_invalid_type": "Image invalid type",
+    "image_save_first": "Image save first",
+    "image_too_large": "Image too large",
+    "image_upload_failed": "Image upload failed"
+  },
+  "mfa": {
+    "enforce": {
+      "title": "Two-factor authentication required",
+      "description": "Your administrator has made two-factor authentication mandatory. You must configure MFA before using the application.",
+      "why_title": "Why?",
+      "why_description": "MFA protects your account if your password is compromised. It takes 2 minutes to configure with an app like Google Authenticator or Microsoft Authenticator.",
+      "cta": "Configure now",
+      "contact_admin": "If you have any issue, contact your administrator."
+    }
+  },
+  "rbac": {
+    "tabs": {
+      "roles": "Roles",
+      "groups": "Groups",
+      "permissions": "Permissions"
+    },
+    "filters": {
+      "roles_search": "Filter roles…",
+      "groups_search": "Filter groups…",
+      "permissions_search": "Filter permissions…",
+      "results_search": "Filter results…",
+      "all_roles": "All roles"
+    },
+    "empty": {
+      "role_search": "No role found.",
+      "role_none": "No role configured.",
+      "group_search": "No group found.",
+      "group_none": "No group configured.",
+      "permission_search": "No permission found.",
+      "permission_none": "No permission recorded.",
+      "no_role": "No role"
+    },
+    "columns": {
+      "role": "Role",
+      "entity": "Entity",
+      "created_at": "Created on",
+      "updated_at": "Updated on"
+    },
+    "actions": {
+      "activate": "Activate",
+      "deactivate": "Deactivate"
     }
   },
   "rbac": {

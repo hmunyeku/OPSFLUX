@@ -29,6 +29,7 @@ import { setToastAdminDefaults, syncToastPrefsFromServer, type ToastPosition } f
 import { applyUIScale, getUIScale, setUIScaleAdminDefault, syncUIScaleFromServer } from '@/lib/uiScale'
 import type { SettingRead } from '@/types/api'
 import { Banner, syncDismissedBannersFromServer } from '@/components/ui/Banner'
+import { MFAEnforceOverlay } from '@/components/shared/MFAEnforceOverlay'
 import { syncDatatablePrefsFromServer } from '@/components/ui/DataTable/utils'
 import { syncCollapseStatesFromServer } from '@/components/shared/CollapsibleSection'
 import { useWebSocket } from '@/hooks/useWebSocket'
@@ -62,10 +63,22 @@ const BANNER_VARIANT_MAP: Record<string, 'info' | 'warning' | 'danger' | 'succes
 function ActiveBanners() {
   const { data } = useActiveAnnouncements()
   const dismiss = useDismissAnnouncement()
+  const location = useLocation()
 
-  const banners = (data?.items ?? []).filter(
-    a => (a.display_location === 'banner' || a.display_location === 'all') && !a.is_read
-  )
+  // SUP-0043 : pour les annonces ciblees 'page', le backend passe-thru
+  // toutes les annonces de type page (cf messaging.py). On filtre cote
+  // client en matchant le pathname courant avec target_value en prefixe.
+  // Ex: target_value='/projets' matche /projets, /projets/abc, /projets/abc/tasks.
+  // Ex: target_value='/projets/<uuid>' matche uniquement ce projet specifique.
+  const banners = (data?.items ?? []).filter((a) => {
+    if (!(a.display_location === 'banner' || a.display_location === 'all')) return false
+    if (a.is_read) return false
+    if (a.target_type === 'page') {
+      if (!a.target_value) return false
+      return location.pathname.startsWith(a.target_value)
+    }
+    return true
+  })
 
   if (banners.length === 0) return null
 
@@ -207,6 +220,10 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <HelpProvider>
+    {/* #6 MFA admin config : overlay bloquant si MFA obligatoire et pas
+        active sur le user. Auto-masque sur /settings/security pour
+        permettre le setup lui-meme. */}
+    <MFAEnforceOverlay />
     {/*
       h-dvh (dynamic viewport height) instead of h-screen so the root
       layout follows the visible viewport on mobile browsers whose URL

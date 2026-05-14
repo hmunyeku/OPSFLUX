@@ -6,10 +6,11 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Briefcase, Loader2, Check } from 'lucide-react'
+import { Briefcase, Loader2, Check, Upload } from 'lucide-react'
 import { useCreateTier } from '@/hooks/useTiers'
 import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
+import { ImportWizard } from '@/components/shared/ImportWizard'
 
 export interface Step5Value {
   name: string
@@ -35,6 +36,7 @@ export function Step5FirstTier({ value, onChange }: Props) {
   const createTier = useCreateTier()
   const { toast } = useToast()
   const [createdId, setCreatedId] = useState<string | null>(null)
+  const [showImportWizard, setShowImportWizard] = useState(false)
 
   const handleCreate = async () => {
     if (!value.name.trim()) {
@@ -115,7 +117,7 @@ export function Step5FirstTier({ value, onChange }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={handleCreate}
           disabled={createTier.isPending || isCreated}
@@ -131,6 +133,41 @@ export function Step5FirstTier({ value, onChange }: Props) {
           </span>
         )}
       </div>
+
+      {/* Alternative: import en masse via wizard CSV/XLSX */}
+      <div className="rounded-md border border-dashed border-border bg-muted/20 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <Upload size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-foreground">
+                {t('onboarding.step5.bulk_title', 'Plusieurs tiers à créer ?')}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {t('onboarding.step5.bulk_hint', 'Importez votre liste depuis un fichier CSV ou Excel — mapping de colonnes automatique.')}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowImportWizard(true)}
+            className="btn btn-sm btn-secondary shrink-0"
+          >
+            <Upload size={12} />
+            {t('onboarding.step5.bulk_btn', 'Importer en masse')}
+          </button>
+        </div>
+      </div>
+
+      <ImportWizard
+        open={showImportWizard}
+        onClose={() => setShowImportWizard(false)}
+        targetObject="tier"
+        onImportComplete={() => {
+          setShowImportWizard(false)
+          toast({ title: t('onboarding.step5.bulk_imported', 'Tiers importés avec succès'), variant: 'success' })
+        }}
+      />
     </div>
   )
 }

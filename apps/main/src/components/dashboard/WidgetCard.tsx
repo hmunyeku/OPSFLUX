@@ -71,8 +71,73 @@ import { useDashboardFilters } from './DashboardFilterContext'
 
 
 
-// ── Common label translations (enum values → French) ────────────
-// Centralised mapping so all charts/tables display translated labels
+// ── Common label translations (enum values → French / English) ──
+// SUP : avant on n'avait que LABEL_FR donc les widgets affichaient les
+// statuts/priorites en FR meme en mode EN. Pour vrai bilinguisme :
+// LABEL_FR + LABEL_EN + selection runtime via i18n.language.
+const LABEL_EN: Record<string, string> = {
+  // Statuses
+  open: 'Open', closed: 'Closed', resolved: 'Resolved', pending: 'Pending',
+  active: 'Active', inactive: 'Inactive', archived: 'Archived',
+  draft: 'Draft', planned: 'Planned', cancelled: 'Cancelled',
+  todo: 'To do', in_progress: 'In progress', review: 'Review', done: 'Done',
+  valid: 'Valid', expired: 'Expired', non_compliant: 'Non-compliant',
+  approved: 'Approved', rejected: 'Rejected', submitted: 'Submitted',
+  validated: 'Validated', completed: 'Completed',
+  // Cargo / logistics statuses
+  registered: 'Registered', ready: 'Ready', ready_for_loading: 'Ready for loading',
+  loaded: 'Loaded', in_transit: 'In transit', delivered: 'Delivered',
+  delivered_intermediate: 'Delivered (stopover)', delivered_final: 'Delivered (final)',
+  return_declared: 'Return declared', return_in_transit: 'Return in transit',
+  returned: 'Returned', reintegrated: 'Reintegrated', scrapped: 'Scrapped',
+  damaged: 'Damaged', missing: 'Missing',
+  // Voyage statuses
+  scheduled: 'Scheduled', boarding: 'Boarding', departed: 'Departed', arrived: 'Arrived',
+  // PaxLog AdS statuses
+  pending_project_review: 'Project review pending', pending_compliance: 'Compliance pending',
+  pending_validation: 'Validation pending', pending_initiator_review: 'Initiator review pending',
+  requires_review: 'Requires review',
+  // Priorities
+  low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical',
+  // Types
+  client: 'Client', supplier: 'Supplier', subcontractor: 'Subcontractor',
+  partner: 'Partner', prospect: 'Prospect',
+  bug: 'Bug', improvement: 'Improvement', question: 'Question', feature: 'Feature',
+  // Weather
+  sunny: 'Sunny', cloudy: 'Cloudy', rainy: 'Rainy', stormy: 'Stormy',
+  // Boolean / misc
+  true: 'Yes', false: 'No', yes: 'Yes', no: 'No', oui: 'Yes', non: 'No',
+  unknown: 'Unknown', inconnu: 'Unknown', n_a: 'N/A', none: '—',
+  male: 'Male', female: 'Female',
+  internal: 'Internal', external: 'External',
+  // KPI detail keys
+  total: 'Total', avg_progress: 'Avg progress', total_budget: 'Total budget',
+  tasks_in_progress: 'Tasks in progress', tasks_overdue: 'Tasks overdue',
+  tasks_critical: 'Critical tasks', tasks_done: 'Tasks done',
+  compliant: 'Compliant', non_compliant_count: 'Non-compliant',
+  expiring_soon: 'Expiring soon', total_active: 'Total active',
+  overdue: 'Overdue', on_time: 'On time', ahead: 'Ahead',
+  pending_count: 'Pending', open_count: 'Open',
+  mfa_enabled: 'MFA enabled', mfa_disabled: 'MFA disabled',
+  total_users: 'Users', active_users: 'Active',
+  helice: 'Helicopter', bateau: 'Boat', vehicule: 'Vehicle',
+  helicopter: 'Helicopter', boat: 'Boat', vehicle: 'Vehicle',
+  offshore: 'Offshore', onshore: 'Onshore',
+  online: 'Online',
+  fields: 'Fields', sites: 'Sites', installations: 'Installations',
+  equipment: 'Equipment', pipelines: 'Pipelines',
+  clients: 'Clients', suppliers: 'Suppliers', subcontractors: 'Subcontractors',
+  contacts: 'Contacts', partners: 'Partners',
+  in_review: 'In review', revisions: 'Revisions',
+  forms: 'Forms', links: 'Active links',
+  pending_submissions: 'Submissions', failed_dispatches: 'Failed dispatches',
+  total_pax: 'Total PAX',
+  active_requests: 'Active requests', blocked_requests: 'Blocked requests',
+  cargo_count: 'Packages', total_weight_kg: 'Weight (kg)',
+  in_motion: 'In transit', incidents: 'Incidents',
+  active_articles: 'Active articles', hazmat_articles: 'HAZMAT',
+}
+
 const LABEL_FR: Record<string, string> = {
   // Statuses
   open: 'Ouvert', closed: 'Fermé', resolved: 'Résolu', pending: 'En attente',
@@ -142,10 +207,17 @@ const LABEL_FR: Record<string, string> = {
   active_articles: 'Articles actifs', hazmat_articles: 'HAZMAT',
 }
 
-/** Translate a raw label to French if a mapping exists */
+/** Translate a raw label according to the user's active language.
+ * Falls back to the raw value if no mapping exists for either language. */
 function tLabel(raw: string): string {
+  if (!raw) return raw
   const key = raw.toLowerCase().replace(/[\s-]+/g, '_')
-  return LABEL_FR[key] || raw
+  // Determine active language from i18next (or default to fr)
+  const lang = (typeof window !== 'undefined' && window.localStorage)
+    ? (window.localStorage.getItem('language') || 'fr').toLowerCase().slice(0, 2)
+    : 'fr'
+  const dict = lang === 'en' ? LABEL_EN : LABEL_FR
+  return dict[key] || raw
 }
 
 /** Translate labels in chart data arrays (xField values) */
@@ -1222,6 +1294,7 @@ const GANTT_STATUS_COLORS: Record<string, string> = {
 }
 
 function GanttWidget({ data }: { data: unknown[] }) {
+  const { t } = useTranslation()
   const activities = (data as Record<string, unknown>[])
     .filter((a) => a.start_date || a.end_date)
     .slice(0, 14)
@@ -1239,8 +1312,9 @@ function GanttWidget({ data }: { data: unknown[] }) {
 
     // Build reversed for display (last = top)
     const reversed = [...activities].reverse()
+    const fallbackActivityLabel = t('dashboard.widget.gantt.fallback_activity')
     const categories = reversed.map((a) =>
-      String(a.title || a.asset_name || 'Activité').slice(0, 26)
+      String(a.title || a.asset_name || fallbackActivityLabel).slice(0, 26)
     )
 
     const seriesData = reversed.map((a, idx) => {
@@ -1270,16 +1344,14 @@ function GanttWidget({ data }: { data: unknown[] }) {
           const [start, end, , progress] = params.value
           const fmt = (ts: number) => new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
           const dur = Math.ceil((end - start) / 86400000)
-          const statusLabel: Record<string, string> = {
-            draft: 'Brouillon', submitted: 'Soumis', validated: 'Validé',
-            in_progress: 'En cours', completed: 'Terminé', done: 'Terminé',
-            cancelled: 'Annulé', planned: 'Planifié',
-          }
-          const st = statusLabel[params.data?.status] || params.data?.status || ''
+          // Reuse the bilingual tLabel function for status translation
+          // (handles FR/EN selon localStorage.language).
+          const st = tLabel(params.data?.status || '') || params.data?.status || ''
+          const statusFieldLabel = t('common.status')
           return [
             `<div style="font-size:12px;font-weight:600;margin-bottom:4px">${params.name}</div>`,
             `<div style="font-size:11px;color:#94a3b8">${fmt(start)} → ${fmt(end)} <b style="color:#64748b">(${dur}j)</b></div>`,
-            st ? `<div style="font-size:11px;margin-top:3px">Statut : <b>${st}</b></div>` : '',
+            st ? `<div style="font-size:11px;margin-top:3px">${statusFieldLabel} : <b>${st}</b></div>` : '',
             progress > 0 ? `<div style="font-size:11px">Avancement : <b>${progress}%</b></div>` : '',
           ].filter(Boolean).join('')
         },
@@ -1439,8 +1511,8 @@ function GanttWidget({ data }: { data: unknown[] }) {
     return (
       <WidgetEmptyState
         icon={GanttChart}
-        title="Aucune activité planifiée"
-        hint="Les activités planifiées apparaîtront sur la frise chronologique"
+        title={t('dashboard.widget.gantt.empty_title')}
+        hint={t('dashboard.widget.gantt.empty_hint')}
       />
     )
   }
@@ -1448,16 +1520,16 @@ function GanttWidget({ data }: { data: unknown[] }) {
   return (
     <div className="flex flex-col h-full">
       <ReactECharts option={option} style={{ height: '100%', width: '100%', touchAction: 'pan-y' }} opts={{ renderer: 'svg' }} />
-      {/* Status legend — ultra-compact */}
+      {/* Status legend — uses tLabel for bilingual EN/FR support */}
       <div className="flex items-center gap-2 flex-wrap px-1 pb-0.5 shrink-0 border-t border-border/40 pt-0.5 mt-0.5">
-        {([['in_progress', 'En cours'], ['completed', 'Terminé'], ['planned', 'Planifié'], ['draft', 'Brouillon']] as [string, string][]).map(([k, l]) => (
+        {(['in_progress', 'completed', 'planned', 'draft']).map((k) => (
           <span key={k} className="flex items-center gap-1 text-[8.5px] text-muted-foreground/70">
             <span className="inline-block h-1.5 w-2.5 rounded-[2px]" style={{ backgroundColor: GANTT_STATUS_COLORS[k] || '#94a3b8', opacity: 0.82 }} />
-            {l}
+            {tLabel(k)}
           </span>
         ))}
         <span className="flex items-center gap-1 text-[8.5px] text-red-400/80 ml-auto">
-          <span className="inline-block h-2.5 w-px bg-red-400" />Auj.
+          <span className="inline-block h-2.5 w-px bg-red-400" />{t('dashboard.widget.gantt.today_short')}
         </span>
       </div>
     </div>
@@ -1954,6 +2026,7 @@ interface MapWidgetProps {
 }
 
 function MapWidget({ config, data }: MapWidgetProps) {
+  const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const tileRef = useRef<L.TileLayer | null>(null)
@@ -2065,10 +2138,10 @@ function MapWidget({ config, data }: MapWidgetProps) {
     return (
       <WidgetEmptyState
         icon={MapPin}
-        title={hasItemsWithoutCoords ? 'Coordonnées manquantes' : 'Aucune position'}
+        title={hasItemsWithoutCoords ? t('dashboard.widget.map.no_coords_title') : t('dashboard.widget.map.no_position_title')}
         hint={hasItemsWithoutCoords
-          ? 'Les éléments retournés ne contiennent pas de latitude/longitude'
-          : 'Aucun point géolocalisé pour le moment'}
+          ? t('dashboard.widget.map.no_coords_hint')
+          : t('dashboard.widget.map.no_position_hint')}
         compact
       />
     )

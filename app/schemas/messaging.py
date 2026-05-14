@@ -15,8 +15,12 @@ class AnnouncementCreate(BaseModel):
     body: str = Field(..., min_length=1)
     body_html: str | None = None
     priority: str = Field("info", pattern=r"^(info|warning|critical|maintenance)$")
-    target_type: str = Field("all", pattern=r"^(all|entity|role|module|user)$")
-    target_value: str | None = None
+    # SUP-0043 : target_type etendu avec 'group' (UserGroup) et 'page' (route URL)
+    target_type: str = Field(
+        "all",
+        pattern=r"^(all|entity|role|module|user|group|page)$",
+    )
+    target_value: str | None = Field(None, max_length=500)
     display_location: str = Field("dashboard", pattern=r"^(dashboard|login|banner|modal|logout|all)$")
     published_at: datetime | None = None
     expires_at: datetime | None = None
@@ -29,8 +33,11 @@ class AnnouncementUpdate(BaseModel):
     body: str | None = Field(None, min_length=1)
     body_html: str | None = None
     priority: str | None = Field(None, pattern=r"^(info|warning|critical|maintenance)$")
-    target_type: str | None = Field(None, pattern=r"^(all|entity|role|module|user)$")
-    target_value: str | None = None
+    target_type: str | None = Field(
+        None,
+        pattern=r"^(all|entity|role|module|user|group|page)$",
+    )
+    target_value: str | None = Field(None, max_length=500)
     display_location: str | None = Field(None, pattern=r"^(dashboard|login|banner|modal|logout|all)$")
     published_at: datetime | None = None
     expires_at: datetime | None = None

@@ -9,10 +9,11 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MapPin, Loader2, Check } from 'lucide-react'
+import { MapPin, Loader2, Check, Upload } from 'lucide-react'
 import { useCreateField, useCreateSite } from '@/hooks/useAssetRegistry'
 import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
+import { ImportWizard } from '@/components/shared/ImportWizard'
 
 export interface Step6Value {
   name: string
@@ -50,6 +51,8 @@ export function Step6FirstAsset({ value, onChange }: Props) {
   const { toast } = useToast()
   const [createdSiteId, setCreatedSiteId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [showImportWizard, setShowImportWizard] = useState(false)
+  const [importTarget, setImportTarget] = useState<'ar_field' | 'ar_site' | 'ar_installation' | 'ar_equipment'>('ar_site')
 
   const handleCreate = async () => {
     if (!value.name.trim() || !value.country.trim()) {
@@ -171,6 +174,51 @@ export function Step6FirstAsset({ value, onChange }: Props) {
       </div>
 
       <p className="text-[11px] text-muted-foreground leading-relaxed">{t('onboarding.step6.hint')}</p>
+
+      {/* Alternative: import en masse via wizard CSV/XLSX, par niveau */}
+      <div className="rounded-md border border-dashed border-border bg-muted/20 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <Upload size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-foreground">
+                {t('onboarding.step6.bulk_title', 'Plusieurs sites/équipements à créer ?')}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {t('onboarding.step6.bulk_hint', 'Importez votre hiérarchie depuis un fichier CSV ou Excel.')}
+              </p>
+            </div>
+          </div>
+          <select
+            value={importTarget}
+            onChange={(e) => setImportTarget(e.target.value as typeof importTarget)}
+            className="gl-form-input text-xs h-7 px-1.5 shrink-0"
+          >
+            <option value="ar_field">{t('onboarding.step6.bulk_level_field', 'Champs')}</option>
+            <option value="ar_site">{t('onboarding.step6.bulk_level_site', 'Sites')}</option>
+            <option value="ar_installation">{t('onboarding.step6.bulk_level_installation', 'Installations')}</option>
+            <option value="ar_equipment">{t('onboarding.step6.bulk_level_equipment', 'Équipements')}</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowImportWizard(true)}
+            className="btn btn-sm btn-secondary shrink-0"
+          >
+            <Upload size={12} />
+            {t('onboarding.step6.bulk_btn', 'Importer en masse')}
+          </button>
+        </div>
+      </div>
+
+      <ImportWizard
+        open={showImportWizard}
+        onClose={() => setShowImportWizard(false)}
+        targetObject={importTarget}
+        onImportComplete={() => {
+          setShowImportWizard(false)
+          toast({ title: t('onboarding.step6.bulk_imported', 'Actifs importés avec succès'), variant: 'success' })
+        }}
+      />
     </div>
   )
 }

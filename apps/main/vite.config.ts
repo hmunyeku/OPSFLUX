@@ -48,6 +48,12 @@ export default defineConfig({
         // from globPatterns, index.html is always fetched from the
         // network so the correct current JS chunks are loaded.
         globPatterns: ['**/*.{js,css,svg}'],
+        // SUP : le bundle index-*.js a depasse 2 MiB apres la
+        // synchronisation i18n (6455 cles FR + 6455 EN inlinees).
+        // Workbox refuse par defaut de precacher au-dela de 2 MiB
+        // -> build error. On remonte la limite a 5 MiB pour couvrir
+        // ce bundle + reserve de croissance, sans desactiver le PWA.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // Skip waiting + claim clients so a newly installed SW takes
         // over IMMEDIATELY, without needing a user gesture. Combined
         // with the controllerchange listener in usePWA, the page

@@ -45,7 +45,7 @@ export function ApplicationsTab() {
   return (
     <CollapsibleSection
       id="oauth-apps"
-      title="Applications"
+      title={t('settings.applications.section_title', 'Applications')}
       description={t('settings.gerez_les_applications_qui_peuvent_utili')}
       storageKey="settings.applications.collapse"
       showSeparator={false}

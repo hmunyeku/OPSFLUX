@@ -1,18 +1,21 @@
 """MFA routes — TOTP setup, verification, backup codes, disable."""
 
 import secrets
+from datetime import datetime, UTC
 from hashlib import sha256
+from uuid import UUID
 
 import pyotp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.security import verify_password
-from app.models.common import User
+from app.models.common import MFATrustedDevice, User
 
 router = APIRouter(prefix="/api/v1/mfa", tags=["mfa"])
 
@@ -289,6 +292,137 @@ async def mfa_disable(
     await db.commit()
 
     return {"detail": "Authentification à deux facteurs désactivée."}
+
+
+class MFATrustedDeviceRead(BaseModel):
+    """Vue d'un appareil de confiance MFA pour l'UI Settings > Security."""
+    id: UUID
+    created_at: datetime
+    expires_at: datetime
+    last_used_at: datetime | None = None
+    ip_address: str | None = None
+    browser: str | None = None
+    os: str | None = None
+    label: str | None = None
+    is_current: bool = False  # device utilise pour la session courante
+
+
+@router.get("/trusted-devices", response_model=list[MFATrustedDeviceRead])
+async def list_trusted_devices(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Liste les appareils de confiance MFA du user (non révoqués, non expirés)."""
+    now = datetime.now(UTC)
+    result = await db.execute(
+        select(MFATrustedDevice)
+        .where(
+            MFATrustedDevice.user_id == current_user.id,
+            MFATrustedDevice.revoked == False,  # noqa: E712
+            MFATrustedDevice.expires_at > now,
+        )
+        .order_by(MFATrustedDevice.last_used_at.desc().nullslast(), MFATrustedDevice.created_at.desc())
+    )
+    devices = result.scalars().all()
+
+    # Detecte le device courant via le cookie (sans le déclasser/exposer)
+    current_hash = None
+    cookie = request.cookies.get("opsflux_mfa_trust")
+    if cookie:
+        current_hash = sha256(cookie.encode()).hexdigest()
+
+    items: list[MFATrustedDeviceRead] = []
+    for d in devices:
+        items.append(MFATrustedDeviceRead(
+            id=d.id,
+            created_at=d.created_at,
+            expires_at=d.expires_at,
+            last_used_at=d.last_used_at,
+            ip_address=d.ip_address,
+            browser=d.browser,
+            os=d.os,
+            label=d.label,
+            is_current=(current_hash is not None and d.token_hash == current_hash),
+        ))
+    return items
+
+
+@router.post("/trusted-devices/{device_id}/revoke")
+async def revoke_trusted_device(
+    device_id: UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke un appareil de confiance MFA spécifique du user courant."""
+    result = await db.execute(
+        select(MFATrustedDevice).where(
+            MFATrustedDevice.id == device_id,
+            MFATrustedDevice.user_id == current_user.id,
+        )
+    )
+    device = result.scalar_one_or_none()
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Appareil non trouvé.",
+        )
+
+    if device.revoked:
+        return {"detail": "Déjà révoqué."}
+
+    device.revoked = True
+    device.revoked_at = datetime.now(UTC)
+
+    await record_audit(
+        db,
+        action="mfa_trust_device_revoked",
+        resource_type="user",
+        resource_id=str(current_user.id),
+        user_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={"device_id": str(device_id)},
+    )
+    await db.commit()
+
+    return {"detail": "Appareil révoqué."}
+
+
+@router.post("/trusted-devices/revoke-all")
+async def revoke_all_trusted_devices(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke tous les appareils de confiance MFA du user courant."""
+    from sqlalchemy import update
+    now = datetime.now(UTC)
+    result = await db.execute(
+        update(MFATrustedDevice)
+        .where(
+            MFATrustedDevice.user_id == current_user.id,
+            MFATrustedDevice.revoked == False,  # noqa: E712
+        )
+        .values(revoked=True, revoked_at=now)
+        .returning(MFATrustedDevice.id)
+    )
+    revoked_count = len(result.all())
+
+    await record_audit(
+        db,
+        action="mfa_trust_devices_revoked_all",
+        resource_type="user",
+        resource_id=str(current_user.id),
+        user_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={"count": revoked_count},
+    )
+    await db.commit()
+
+    return {"detail": f"{revoked_count} appareil(s) révoqué(s).", "count": revoked_count}
 
 
 @router.post("/regenerate-codes", response_model=MFARegenerateResponse)

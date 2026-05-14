@@ -2426,6 +2426,177 @@ DEFAULT_TEMPLATES: list[dict] = [
             },
         },
     },
+    # ── User Delegations (ISO traceability) ───────────────────────────────────
+    # Bastien : "Il faut un mail et un PDF (en utilisant les systeme core) pour
+    # informer qu'on a recu une delegation, ou qu'on a donne une delegation;
+    # etc. Dans le cadre de l'ISO toute delegation doit etre tracable."
+    {
+        "slug": "delegation_granted",
+        "name": "Délégation donnée (au délégant)",
+        "description": "Confirmation envoyée au délégant après création d'une délégation.",
+        "object_type": "delegation",
+        "variables_schema": {
+            "delegator.full_name": "Nom complet du délégant",
+            "delegate.full_name": "Nom complet du délégataire",
+            "delegate.email": "Email du délégataire",
+            "start_date": "Date de début (jj/mm/aaaa)",
+            "end_date": "Date de fin (jj/mm/aaaa)",
+            "permissions_count": "Nombre de permissions déléguées",
+            "permissions_list": "Liste des permissions",
+            "reason": "Motif de la délégation",
+            "entity.name": "Nom de l'entité",
+            "delegation_id": "UUID de la délégation",
+            "pdf_url": "Lien vers le PDF de traçabilité ISO",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Délégation confirmée à {{ delegate.full_name }}",
+                "body_html": (
+                    "<p>Bonjour {{ delegator.full_name }},</p>"
+                    "<p>Votre délégation à <strong>{{ delegate.full_name }}</strong> "
+                    "({{ delegate.email }}) a bien été enregistrée.</p>"
+                    "<table style='border-collapse:collapse;margin:12px 0'>"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Période</b></td>"
+                    "<td style='padding:4px 8px'>{{ start_date }} → {{ end_date }}</td></tr>"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Permissions</b></td>"
+                    "<td style='padding:4px 8px'>{{ permissions_count }} permission(s)</td></tr>"
+                    "{% if reason %}<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Motif</b></td>"
+                    "<td style='padding:4px 8px'>{{ reason }}</td></tr>{% endif %}"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Référence</b></td>"
+                    "<td style='padding:4px 8px;font-family:monospace'>{{ delegation_id }}</td></tr>"
+                    "</table>"
+                    "<p>Un certificat PDF (traçabilité ISO) a été généré et archivé dans votre dossier.</p>"
+                    "{% if pdf_url %}<p><a href=\"{{ pdf_url }}\">Télécharger le certificat PDF</a></p>{% endif %}"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Delegation to {{ delegate.full_name }} confirmed",
+                "body_html": (
+                    "<p>Hello {{ delegator.full_name }},</p>"
+                    "<p>Your delegation to <strong>{{ delegate.full_name }}</strong> "
+                    "({{ delegate.email }}) has been recorded.</p>"
+                    "<table style='border-collapse:collapse;margin:12px 0'>"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Period</b></td>"
+                    "<td style='padding:4px 8px'>{{ start_date }} → {{ end_date }}</td></tr>"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Permissions</b></td>"
+                    "<td style='padding:4px 8px'>{{ permissions_count }} permission(s)</td></tr>"
+                    "{% if reason %}<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Reason</b></td>"
+                    "<td style='padding:4px 8px'>{{ reason }}</td></tr>{% endif %}"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Reference</b></td>"
+                    "<td style='padding:4px 8px;font-family:monospace'>{{ delegation_id }}</td></tr>"
+                    "</table>"
+                    "<p>An ISO traceability PDF certificate has been generated and archived.</p>"
+                    "{% if pdf_url %}<p><a href=\"{{ pdf_url }}\">Download PDF certificate</a></p>{% endif %}"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "delegation_received",
+        "name": "Délégation reçue (au délégataire)",
+        "description": "Notification envoyée au délégataire qui reçoit la délégation.",
+        "object_type": "delegation",
+        "variables_schema": {
+            "delegator.full_name": "Nom complet du délégant",
+            "delegator.email": "Email du délégant",
+            "delegate.full_name": "Nom complet du délégataire",
+            "start_date": "Date de début (jj/mm/aaaa)",
+            "end_date": "Date de fin (jj/mm/aaaa)",
+            "permissions_count": "Nombre de permissions",
+            "permissions_list": "Liste des permissions",
+            "reason": "Motif de la délégation",
+            "entity.name": "Nom de l'entité",
+            "delegation_id": "UUID de la délégation",
+            "pdf_url": "Lien vers le PDF de traçabilité ISO",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Délégation reçue de {{ delegator.full_name }}",
+                "body_html": (
+                    "<p>Bonjour {{ delegate.full_name }},</p>"
+                    "<p><strong>{{ delegator.full_name }}</strong> ({{ delegator.email }}) "
+                    "vous a accordé une délégation de permissions dans OpsFlux.</p>"
+                    "<table style='border-collapse:collapse;margin:12px 0'>"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Période</b></td>"
+                    "<td style='padding:4px 8px'>{{ start_date }} → {{ end_date }}</td></tr>"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Permissions</b></td>"
+                    "<td style='padding:4px 8px'>{{ permissions_count }} permission(s)</td></tr>"
+                    "{% if reason %}<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Motif</b></td>"
+                    "<td style='padding:4px 8px'>{{ reason }}</td></tr>{% endif %}"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Référence</b></td>"
+                    "<td style='padding:4px 8px;font-family:monospace'>{{ delegation_id }}</td></tr>"
+                    "</table>"
+                    "<p>Vous pouvez désormais exercer les permissions déléguées pendant la période indiquée. "
+                    "Un certificat PDF (traçabilité ISO) est joint à ce mail.</p>"
+                    "{% if pdf_url %}<p><a href=\"{{ pdf_url }}\">Consulter dans OpsFlux</a></p>{% endif %}"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Delegation received from {{ delegator.full_name }}",
+                "body_html": (
+                    "<p>Hello {{ delegate.full_name }},</p>"
+                    "<p><strong>{{ delegator.full_name }}</strong> ({{ delegator.email }}) "
+                    "has granted you a permission delegation in OpsFlux.</p>"
+                    "<table style='border-collapse:collapse;margin:12px 0'>"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Period</b></td>"
+                    "<td style='padding:4px 8px'>{{ start_date }} → {{ end_date }}</td></tr>"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Permissions</b></td>"
+                    "<td style='padding:4px 8px'>{{ permissions_count }} permission(s)</td></tr>"
+                    "{% if reason %}<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Reason</b></td>"
+                    "<td style='padding:4px 8px'>{{ reason }}</td></tr>{% endif %}"
+                    "<tr><td style='padding:4px 8px;background:#f5f5f5'><b>Reference</b></td>"
+                    "<td style='padding:4px 8px;font-family:monospace'>{{ delegation_id }}</td></tr>"
+                    "</table>"
+                    "<p>You can now exercise the delegated permissions for the indicated period. "
+                    "An ISO traceability PDF certificate is attached.</p>"
+                    "{% if pdf_url %}<p><a href=\"{{ pdf_url }}\">View in OpsFlux</a></p>{% endif %}"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "delegation_revoked",
+        "name": "Délégation révoquée",
+        "description": "Envoyé au délégataire quand le délégant révoque sa délégation avant expiration.",
+        "object_type": "delegation",
+        "variables_schema": {
+            "delegator.full_name": "Nom complet du délégant",
+            "delegate.full_name": "Nom complet du délégataire",
+            "revoked_at": "Date/heure de révocation",
+            "entity.name": "Nom de l'entité",
+            "delegation_id": "UUID de la délégation",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Délégation révoquée par {{ delegator.full_name }}",
+                "body_html": (
+                    "<p>Bonjour {{ delegate.full_name }},</p>"
+                    "<p>La délégation de permissions que <strong>{{ delegator.full_name }}</strong> "
+                    "vous avait accordée a été <strong>révoquée</strong> le {{ revoked_at }}.</p>"
+                    "<p>Vous ne pouvez plus exercer ces permissions à compter de cette date. "
+                    "L'évènement a été tracé conformément à nos exigences ISO.</p>"
+                    "<p>Référence : <code>{{ delegation_id }}</code></p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Delegation revoked by {{ delegator.full_name }}",
+                "body_html": (
+                    "<p>Hello {{ delegate.full_name }},</p>"
+                    "<p>The permission delegation that <strong>{{ delegator.full_name }}</strong> "
+                    "had granted you has been <strong>revoked</strong> on {{ revoked_at }}.</p>"
+                    "<p>You can no longer exercise these permissions from this date. "
+                    "The event has been logged for ISO compliance.</p>"
+                    "<p>Reference: <code>{{ delegation_id }}</code></p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
 ]
 
 

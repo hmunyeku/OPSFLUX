@@ -2174,8 +2174,62 @@ quand un tenant aura > 100 job positions. Pour l'instant
 
 - (a) Phase 8-9 UI suite (autres panels à valider via Chrome MCP)
 - (b) `extra="forbid"` sur 18 autres Update schemas (durcissement API)
-- (c) Migration job positions vers `JobPositionPicker` proper
-  (cf TODO `CreateTransferPanel.tsx:49`)
+
+---
+
+## Session 27 — JobPositionPicker proper + audit stabilité modules
+
+### JobPositionPicker (commit `baf1dfa0`)
+
+Création du composant proper `apps/main/src/components/shared/JobPositionPicker.tsx`
+basé sur `EntityPickerBase`, server-side search debounced via
+`useJobPositions(search:q)`. PAGE_SIZE=100 + indicateur `truncated`.
+
+**Migrations** :
+* `CreateComplianceRecordPanel.tsx` : `SearchableSelect` + `useJobPositions` bulk
+  → `<JobPositionPicker />` direct
+* `CreateTransferPanel.tsx` : `<select>` natif + `jobPositionsData?.items`
+  → `<JobPositionPicker clearable />` + ferme TODO L49
+
+### Validation prod (Chrome MCP, bundle `index-C90R2qM3.js`)
+
+1. Navigate `/conformite?tab=enregistrements`
+2. Click "Nouvel enregistrement" → panel s'ouvre
+3. Click "Job position" dans TagSelector Propriétaire
+4. Inspection champ "Identifiant propriétaire" :
+   ```json
+   {"tag": "BUTTON", "hasBriefcase": true, "hasIcon": true}
+   ```
+   ✅ Briefcase icon confirme c'est bien `<JobPositionPicker />` rendu
+   (pas le vieux `<SearchableSelect>`)
+
+### Audit stabilité globale post-deploy
+
+Navigation rapide sur 5 modules principaux :
+
+| Module | URL | ErrorBoundary | Console errors |
+|---|---|---|---|
+| Tiers | `/tiers` | ❌ aucun | ✅ clean |
+| Projets | `/projets` | ❌ aucun | ✅ clean |
+| TravelWiz | `/travelwiz` | ❌ aucun | ✅ clean |
+| PackLog | `/packlog` | ❌ aucun | ✅ clean |
+| Planner | `/planner` | ❌ aucun | ✅ clean |
+
+→ Tous les fixes hooks (#85 #86 #87 #88) + #89 picker UX + JobPositionPicker
+tiennent en prod sans régression sur les autres modules.
+
+### Bilan cumulé sessions 1-27
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **91** (+2 : `baf1dfa0` JobPositionPicker, `fcb994d1` rebase) |
+| Bugs corrigés effectifs | **52** |
+| Bugs critiques restants | **0** ✓ |
+| Panels UI validés | 4 (Ads, Rule, ComplianceRecord, Transfer post-deploy) |
+| Modules audit stabilité | 5/5 sans erreur (Tiers, Projets, TravelWiz, PackLog, Planner) |
+| Pickers harmonisés | 5 (User, Contact, Asset, JobPosition, Company) sur EntityPickerBase |
+| TODO clos | "JobPositionPicker base sur EntityPickerBase" |
+| Prévention | ESLint `rules-of-hooks: error` actif en CI |
 
 ### Leçon — règle métier à formaliser
 

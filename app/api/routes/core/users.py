@@ -42,6 +42,7 @@ from app.schemas.common import (
     UserDelegationCreate,
     UserDelegationRead,
     UserDelegationUpdate,
+    UserListItem,
     UserRead,
     UserUpdate,
 )
@@ -254,7 +255,7 @@ def _serialize_delegation(
     )
 
 
-@router.get("", response_model=PaginatedResponse[UserRead])
+@router.get("", response_model=PaginatedResponse[UserListItem])
 async def list_users(
     search: str | None = None,
     active: bool | None = None,
@@ -265,7 +266,15 @@ async def list_users(
     _: None = require_permission("user.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    """List users with pagination and optional search/filters."""
+    """List users with pagination and optional search/filters.
+
+    Bug #67 (QA v3) : avant ce fix la response_model etait UserRead qui
+    exposait passport, medical, body measurements, addresses, etc. a tout
+    caller user.read (present dans le role READER). Maintenant on retourne
+    UserListItem minimaliste pour les listes -- pour le detail complet (PII)
+    le caller doit etre soit le user lui-meme (cf /auth/me) soit avoir
+    admin.users.read (cf GET /users/{id}).
+    """
     query = (
         select(User)
         .options(selectinload(User.job_position))
@@ -669,14 +678,27 @@ async def get_recent_activity(
     return {"users": users, "groups": groups, "roles": roles}
 
 
-@router.get("/{user_id}", response_model=UserRead)
+@router.get("/{user_id}", response_model=UserRead | UserListItem)
 async def get_user(
     user_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("user.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get user by ID."""
+    """Get user by ID.
+
+    Bug #67 (QA v3) : retourne UserRead complet (avec PII : passport,
+    medical, etc.) UNIQUEMENT si le caller est le user lui-meme ou s'il a
+    la permission admin.users.read. Sinon retourne UserListItem minimaliste
+    (autocomplete-grade) pour eviter la fuite de PII a tout user.read.
+    """
+    # Check if caller may see full PII
+    from app.core.rbac import check_permission
+    can_see_full = (
+        user_id == current_user.id
+        or await check_permission(current_user.id, entity_id, "admin.users.read", db)
+    )
     result = await db.execute(
         select(User)
         .options(selectinload(User.job_position))
@@ -689,7 +711,9 @@ async def get_user(
             code="USER_NOT_FOUND",
             message="User not found",
         )
-    return user
+    if can_see_full:
+        return UserRead.model_validate(user)
+    return UserListItem.model_validate(user)
 
 
 @router.patch("/{user_id}", response_model=UserRead)

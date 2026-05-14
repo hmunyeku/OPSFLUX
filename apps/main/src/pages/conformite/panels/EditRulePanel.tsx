@@ -51,9 +51,14 @@ export function EditRulePanel() {
   })
   const [changeReason, setChangeReason] = useState('')
 
-  if (!rule) return null
+  // Bug #88 (Rules of Hooks) : `actionItems = useMemo(...)` etait declare
+  // APRES `if (!rule) return null`. Le hook est maintenant declare AVANT
+  // le early return ; le mode rule=null le construit avec un set d'items
+  // par defaut (jamais utilise car early return juste apres) -- pas
+  // d'effet de bord, juste compliance avec les Rules of Hooks.
 
   const handleSave = async () => {
+    if (!rule) return
     if (!changeReason.trim()) {
       toast({ title: t('conformite.toast.change_reason_required'), variant: 'error' })
       return
@@ -84,6 +89,7 @@ export function EditRulePanel() {
   }
 
   const handleDelete = async () => {
+    if (!rule) return
     try {
       await deleteRule.mutateAsync({ id: rule.id })
       toast({ title: t('conformite.toast.rule_deleted'), variant: 'success' })
@@ -120,6 +126,9 @@ export function EditRulePanel() {
     }
     return items
   }, [canDelete, canUpdate, closeDynamicPanel, handleDelete, handleSave, updateRule.isPending, changeReason])
+
+  // Early return APRES tous les hooks (cf bug #88)
+  if (!rule) return null
 
   return (
     <DynamicPanelShell

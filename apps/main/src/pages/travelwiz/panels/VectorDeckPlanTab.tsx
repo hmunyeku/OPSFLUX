@@ -118,7 +118,14 @@ export function VectorDeckPlanTab({ vectorId }: { vectorId: string }) {
               style={{ maxHeight: 360 }}
               // SVG comes from our trusted Draw.io export pipeline. We intentionally
               // inline it — the canvas overlay later will reference shapes by id.
-              // eslint-disable-next-line react/no-danger
+              // (Le commentaire `eslint-disable react/no-danger` etait inutile :
+              // eslint-plugin-react n'est pas installe dans le repo, donc la regle
+              // n'existe pas. Suite a l'activation d'ESLint pour rules-of-hooks
+              // dans .eslintrc.json (cf commit Bug #85+), le disable-comment
+              // declenchait une erreur "rule not found". Nettoye pour eviter le
+              // bruit. Si on installe un jour eslint-plugin-react, il faudra
+              // remettre le disable -- mais l'usage est legitime (SVG sanitise
+              // cote serveur, source = export Draw.io controle).
               dangerouslySetInnerHTML={{ __html: plan.deck_plan_svg }}
             />
           </div>

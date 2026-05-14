@@ -296,6 +296,70 @@ export function ConflictClusterDetailPanel() {
     resolveConflict, bulkResolveConflicts, toast, t, closeDynamicPanel,
   ])
 
+  // Bug #87 (Rules of Hooks) : 5 hooks (latestDecision useMemo, emailModalOpen
+  // useState, handleOpenEmail useCallback, exportingPdf useState,
+  // handleDownloadPdf useCallback) etaient declares APRES le early return
+  // `if (!cluster) return ...`. Risque de #310 si cluster passe de undefined
+  // a defined entre 2 renders. Tous les hooks sont maintenant declares AVANT
+  // l'early return (cf section juste avant).
+
+  // Most recent NON-auto audit entry — that's the human-applied
+  // resolution we want to surface at the top in read-only mode. We
+  // fall back to any entry if the cluster was only auto-cleared.
+  const latestDecision = useMemo(() => {
+    if (!audit || audit.length === 0) return null
+    const sorted = [...audit].sort((a, b) =>
+      a.created_at < b.created_at ? 1 : -1,
+    )
+    return sorted.find((e) => e.context !== 'auto_cleared') ?? sorted[0] ?? null
+  }, [audit])
+
+  // PDF + email state
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const handleOpenEmail = useCallback(async () => {
+    const anchorId = cluster?.primary_conflict_id || cluster?.members[0]?.id
+    if (!anchorId) {
+      setEmailSuggestions({ to: [], cc: [] })
+      setEmailModalOpen(true)
+      return
+    }
+    setLoadingSuggestions(true)
+    try {
+      const res = await plannerService.getConflictEmailSuggestions(anchorId)
+      setEmailSuggestions({
+        to: res.to.map((r) => ({ email: r.email, label: r.label ?? undefined, source: 'user' })),
+        cc: res.cc.map((r) => ({ email: r.email, label: r.label ?? undefined, source: 'user' })),
+      })
+    } catch {
+      setEmailSuggestions({ to: [], cc: [] })
+    } finally {
+      setLoadingSuggestions(false)
+      setEmailModalOpen(true)
+    }
+  }, [cluster?.primary_conflict_id, cluster?.members])
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const handleDownloadPdf = useCallback(async () => {
+    if (!cluster) return
+    if (!cluster.primary_conflict_id && cluster.members.length === 0) return
+    const anchorId = cluster.primary_conflict_id || cluster.members[0]?.id
+    if (!anchorId) return
+    setExportingPdf(true)
+    try {
+      const blob = await plannerService.exportConflictPdf({ conflict_id: anchorId })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `arbitrage-conflit-${cluster.asset_name?.toLowerCase().replace(/\s+/g, '-') ?? 'asset'}-${cluster.start_date}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: 'PDF généré', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'Échec génération PDF', description: extractApiError(err), variant: 'error' })
+    } finally {
+      setExportingPdf(false)
+    }
+  }, [cluster, toast])
+
   // Defensive: if no cluster is in the store, render an empty shell
   // and close. This shouldn't happen in practice — ConflitsTab always
   // injects the cluster — but keeps TS / runtime safe.
@@ -321,79 +385,7 @@ export function ConflictClusterDetailPanel() {
   // deferred. The panel then becomes a historical view: no resolution
   // form, no Confirmer action — just summary, the most recent decision
   // surfaced at the top, calendar, audit timeline, and PDF/email.
-  // 'partial' clusters keep the editable surface (some members are
-  // still open and need a decision).
   const isReadOnly = cluster.status === 'resolved' || cluster.status === 'deferred'
-
-  // Most recent NON-auto audit entry — that's the human-applied
-  // resolution we want to surface at the top in read-only mode. We
-  // fall back to any entry if the cluster was only auto-cleared.
-  const latestDecision = useMemo(() => {
-    if (!audit || audit.length === 0) return null
-    const sorted = [...audit].sort((a, b) =>
-      a.created_at < b.created_at ? 1 : -1,
-    )
-    return sorted.find((e) => e.context !== 'auto_cleared') ?? sorted[0] ?? null
-  }, [audit])
-
-  // PDF + email: download the cluster as A4 portrait PDF, or send it
-  // as an attachment. Mirrors the real-world arbitration broadcast we
-  // see in operations emails ("voici l'arbitrage de la fenêtre du …").
-  const [emailModalOpen, setEmailModalOpen] = useState(false)
-
-  // Fetch suggested recipients (activity creators / project managers /
-  // task assignees) lazily when the user clicks the Email button. We
-  // keep the modal closed until suggestions land so the form opens
-  // already pre-filled — better than flashing the modal empty and then
-  // populating it as the response arrives.
-  const handleOpenEmail = useCallback(async () => {
-    const anchorId = cluster?.primary_conflict_id || cluster?.members[0]?.id
-    if (!anchorId) {
-      setEmailSuggestions({ to: [], cc: [] })
-      setEmailModalOpen(true)
-      return
-    }
-    setLoadingSuggestions(true)
-    try {
-      const res = await plannerService.getConflictEmailSuggestions(anchorId)
-      // Backend sources (activity_creator / project_manager / …) carry
-      // more meaning than the picker's 3-value enum. We keep the
-      // friendly label and tag them all as 'user' so the chip picks
-      // the people-icon that matches what they really are: known
-      // OpsFlux users pulled from the directory.
-      setEmailSuggestions({
-        to: res.to.map((r) => ({ email: r.email, label: r.label ?? undefined, source: 'user' })),
-        cc: res.cc.map((r) => ({ email: r.email, label: r.label ?? undefined, source: 'user' })),
-      })
-    } catch {
-      // Soft-fail: open with empty suggestions, the user can still type.
-      setEmailSuggestions({ to: [], cc: [] })
-    } finally {
-      setLoadingSuggestions(false)
-      setEmailModalOpen(true)
-    }
-  }, [cluster?.primary_conflict_id, cluster?.members])
-  const [exportingPdf, setExportingPdf] = useState(false)
-  const handleDownloadPdf = useCallback(async () => {
-    if (!cluster?.primary_conflict_id && cluster?.members.length === 0) return
-    const anchorId = cluster.primary_conflict_id || cluster.members[0]?.id
-    if (!anchorId) return
-    setExportingPdf(true)
-    try {
-      const blob = await plannerService.exportConflictPdf({ conflict_id: anchorId })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `arbitrage-conflit-${cluster.asset_name?.toLowerCase().replace(/\s+/g, '-') ?? 'asset'}-${cluster.start_date}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast({ title: 'PDF généré', variant: 'success' })
-    } catch (err) {
-      toast({ title: 'Échec génération PDF', description: extractApiError(err), variant: 'error' })
-    } finally {
-      setExportingPdf(false)
-    }
-  }, [cluster, toast])
 
   // Header actions: Cancel / Confirmer follow ScenarioDetailPanel
   // convention — surfaced in the panel toolbar so the user can act

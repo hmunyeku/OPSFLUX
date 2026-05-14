@@ -175,6 +175,90 @@ export function DynamicPanelShell({
       <>{actions}</>
     ) : null
 
+  // Bug #86 (Rules of Hooks) : tous les hooks docked-mode etaient declares
+  // APRES `if (inline) return` (L179) -- meme violation que #85 sur
+  // AdsDetailPanel mais latente parce que la prop `inline` ne change
+  // typiquement pas pour une meme instance. ESLint react-hooks/rules-of-hooks
+  // attrape ça, et le pattern devient un piege futur (ex : si on passe une
+  // logique conditionnelle qui flip `inline` cote parent). Tous les hooks
+  // sont maintenant top-level INCONDITIONNELS, le mode inline les evalue
+  // sans utilisation (cout < 1ms, pas d'effet de bord).
+
+  // Panel store integration (docked mode)
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const detachDynamicPanel = useUIStore((s) => s.detachDynamicPanel)
+  const detachDynamicPanelToWindow = useUIStore((s) => s.detachDynamicPanelToWindow)
+
+  // Panel layout state
+  const mode = useUIStore((s) => s.dynamicPanelMode)
+  const dockSide = useUIStore((s) => s.dynamicPanelDockSide)
+  const toggleMode = useUIStore((s) => s.toggleDynamicPanelMode)
+  const toggleDock = useUIStore((s) => s.toggleDockSide)
+  const setMode = useUIStore((s) => s.setDynamicPanelMode)
+
+  // Auto full-screen on mobile (< 768px)
+  useEffect(() => {
+    if (inline) return // hook executes but no-op en mode inline
+    const mq = window.matchMedia('(max-width: 767px)')
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches && mode !== 'full') setMode('full')
+    }
+    handler(mq)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [mode, setMode, inline])
+
+  // Navigation
+  const navItems = useUIStore((s) => s.dynamicPanelNavItems)
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const navigateToItem = useUIStore((s) => s.navigateToItem)
+
+  const [width, setWidth] = useState(getStoredWidth)
+  const isDragging = useRef(false)
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDragging.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const startX = e.clientX
+    const startWidth = width
+    const isLeftDock = dockSide === 'left'
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return
+      const delta = isLeftDock
+        ? ev.clientX - startX
+        : startX - ev.clientX
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta))
+      setWidth(newWidth)
+    }
+
+    const onMouseUp = () => {
+      isDragging.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [width, dockSide])
+
+  useEffect(() => {
+    if (inline) return
+    localStorage.setItem(STORAGE_KEY, String(width))
+  }, [width, inline])
+
+  // Computed locals for navigation (NOT hooks, OK to be after early return)
+  const currentId = dynamicPanel && 'id' in dynamicPanel ? (dynamicPanel as { id: string }).id : null
+  const currentIndex = currentId ? navItems.indexOf(currentId) : -1
+  const hasPrev = currentIndex > 0
+  const hasNext = currentIndex >= 0 && currentIndex < navItems.length - 1
+  const canNavigate = currentId !== null && navItems.length > 1
+
   // ── INLINE MODE — lightweight embedded panel ──
   if (inline) {
     return (
@@ -219,77 +303,7 @@ export function DynamicPanelShell({
     )
   }
 
-  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
-  const detachDynamicPanel = useUIStore((s) => s.detachDynamicPanel)
-  const detachDynamicPanelToWindow = useUIStore((s) => s.detachDynamicPanelToWindow)
-
-  // Panel layout state
-  const mode = useUIStore((s) => s.dynamicPanelMode)
-  const dockSide = useUIStore((s) => s.dynamicPanelDockSide)
-  const toggleMode = useUIStore((s) => s.toggleDynamicPanelMode)
-  const toggleDock = useUIStore((s) => s.toggleDockSide)
-  const setMode = useUIStore((s) => s.setDynamicPanelMode)
-
-  // Auto full-screen on mobile (< 768px)
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)')
-    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
-      if (e.matches && mode !== 'full') setMode('full')
-    }
-    handler(mq)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [mode, setMode])
-
-  // Navigation
-  const navItems = useUIStore((s) => s.dynamicPanelNavItems)
-  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
-  const navigateToItem = useUIStore((s) => s.navigateToItem)
-
-  const currentId = dynamicPanel && 'id' in dynamicPanel ? (dynamicPanel as { id: string }).id : null
-  const currentIndex = currentId ? navItems.indexOf(currentId) : -1
-  const hasPrev = currentIndex > 0
-  const hasNext = currentIndex >= 0 && currentIndex < navItems.length - 1
-  const canNavigate = currentId !== null && navItems.length > 1
-
-  const [width, setWidth] = useState(getStoredWidth)
-  const isDragging = useRef(false)
-
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    isDragging.current = true
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-
-    const startX = e.clientX
-    const startWidth = width
-    const isLeftDock = dockSide === 'left'
-
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!isDragging.current) return
-      // Left dock: drag right = increase; Right dock: drag left = increase
-      const delta = isLeftDock
-        ? ev.clientX - startX
-        : startX - ev.clientX
-      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta))
-      setWidth(newWidth)
-    }
-
-    const onMouseUp = () => {
-      isDragging.current = false
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-      document.removeEventListener('mousemove', onMouseMove)
-      document.removeEventListener('mouseup', onMouseUp)
-    }
-
-    document.addEventListener('mousemove', onMouseMove)
-    document.addEventListener('mouseup', onMouseUp)
-  }, [width, dockSide])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(width))
-  }, [width])
+  // (Hooks docked-mode deplaces AVANT `if (inline) return` -- cf bug #86)
 
   // Shared button style for header controls
   const hdrBtn = 'btn-sm btn-secondary flex h-6 w-6 !p-0 shrink-0'

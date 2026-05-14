@@ -51,7 +51,7 @@ def _user_access_predicate(entity_id: UUID):
 
 @router.get(
     "/health",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def system_health(
     current_user: User = Depends(get_current_user),
@@ -205,7 +205,7 @@ class DeletePolicyUpdate(BaseModel):
 
 @router.get(
     "/delete-policies",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def list_delete_policies(
     current_user: User = Depends(get_current_user),
@@ -235,7 +235,7 @@ async def list_delete_policies(
 
 @router.put(
     "/delete-policies/{entity_type}",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def update_delete_policy(
     entity_type: str,
@@ -290,7 +290,7 @@ async def update_delete_policy(
 
 @router.post(
     "/purge/{entity_type}",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def manual_purge(
     entity_type: str,
@@ -336,7 +336,7 @@ async def manual_purge(
 
 @router.get(
     "/delete-policies/stats",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def delete_policy_stats(
     current_user: User = Depends(get_current_user),
@@ -352,7 +352,7 @@ async def delete_policy_stats(
 
 @router.get(
     "/scheduler/jobs",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def list_scheduler_jobs(
     current_user: User = Depends(get_current_user),
@@ -415,7 +415,7 @@ class RunJobRequest(BaseModel):
 
 @router.post(
     "/scheduler/run",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def run_scheduler_job(
     body: RunJobRequest,
@@ -464,7 +464,7 @@ async def run_scheduler_job(
 
 @router.get(
     "/scheduler/history",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def list_scheduler_history(
     job_id: str | None = None,
@@ -514,7 +514,7 @@ class PauseJobRequest(BaseModel):
 
 @router.post(
     "/scheduler/pause",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def pause_scheduler_job(body: PauseJobRequest):
     """Pause a scheduled job (stops automatic execution)."""
@@ -535,7 +535,7 @@ async def pause_scheduler_job(body: PauseJobRequest):
 
 @router.post(
     "/scheduler/resume",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def resume_scheduler_job(body: PauseJobRequest):
     """Resume a paused scheduled job."""
@@ -561,7 +561,7 @@ async def resume_scheduler_job(body: PauseJobRequest):
 
 @router.get(
     "/security-settings",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def get_security_settings_admin(
     current_user: User = Depends(get_current_user),
@@ -587,7 +587,7 @@ class SecuritySettingsUpdate(BaseModel):
 
 @router.put(
     "/security-settings",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def update_security_settings_admin(
     body: SecuritySettingsUpdate,
@@ -644,7 +644,7 @@ async def update_security_settings_admin(
 
 @router.get(
     "/users",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def admin_list_users(
     status_filter: str | None = Query(None, description="locked | inactive | expired | active"),
@@ -720,7 +720,7 @@ async def admin_list_users(
 
 @router.post(
     "/users/{user_id}/unlock",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def admin_unlock_user(
     user_id: UUID,
@@ -766,7 +766,7 @@ async def admin_unlock_user(
 
 @router.post(
     "/users/{user_id}/force-password-reset",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def admin_force_password_reset(
     user_id: UUID,
@@ -831,7 +831,7 @@ async def admin_force_password_reset(
 
 @router.post(
     "/users/{user_id}/deactivate",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def admin_deactivate_user(
     user_id: UUID,
@@ -881,7 +881,7 @@ async def admin_deactivate_user(
 
 @router.post(
     "/users/{user_id}/reactivate",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("system.platform.admin")],
 )
 async def admin_reactivate_user(
     user_id: UUID,

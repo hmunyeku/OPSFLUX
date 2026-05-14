@@ -106,7 +106,7 @@ async def _get_provider_settings(db: AsyncSession, prefix: str) -> dict[str, str
 
 # ── Routes ────────────────────────────────────────────────────
 
-@router.get("/providers", response_model=list[ProviderInfo], dependencies=[require_permission("admin.users.read")])
+@router.get("/providers", response_model=list[ProviderInfo], dependencies=[require_permission("system.user.read")])
 async def list_providers(
     db: AsyncSession = Depends(get_db),
 ):
@@ -132,7 +132,7 @@ async def list_providers(
     return providers
 
 
-@router.post("/preview", response_model=PreviewResponse, dependencies=[require_permission("admin.users.create")])
+@router.post("/preview", response_model=PreviewResponse, dependencies=[require_permission("system.user.create")])
 async def preview_sync(
     body: PreviewRequest,
     db: AsyncSession = Depends(get_db),
@@ -193,7 +193,7 @@ async def preview_sync(
     )
 
 
-@router.post("/execute", response_model=ExecuteResponse, dependencies=[require_permission("admin.users.create")])
+@router.post("/execute", response_model=ExecuteResponse, dependencies=[require_permission("system.user.create")])
 async def execute_sync(
     body: ExecuteRequest,
     db: AsyncSession = Depends(get_db),

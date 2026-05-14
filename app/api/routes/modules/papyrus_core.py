@@ -41,7 +41,7 @@ router = APIRouter(prefix="/api/v1/documents", tags=["papyrus"], dependencies=[r
 
 @router.get(
     "/papyrus/presets",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List Papyrus report presets",
 )
 async def list_papyrus_presets():
@@ -52,7 +52,7 @@ async def list_papyrus_presets():
 
 @router.post(
     "/papyrus/presets/{preset_key}/instantiate",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Instantiate a Papyrus preset",
 )
 async def instantiate_papyrus_preset(
@@ -87,7 +87,7 @@ async def instantiate_papyrus_preset(
 
 @router.get(
     "/papyrus/forms",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List Papyrus forms",
 )
 async def list_papyrus_forms(
@@ -100,7 +100,7 @@ async def list_papyrus_forms(
 
 @router.post(
     "/papyrus/forms",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Create a Papyrus form",
 )
 async def create_papyrus_form(
@@ -118,7 +118,7 @@ async def create_papyrus_form(
 
 @router.post(
     "/papyrus/forms/import/epicollect",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Import an EpiCollect5 project into a Papyrus form",
 )
 async def import_epicollect_form(
@@ -136,7 +136,7 @@ async def import_epicollect_form(
 
 @router.get(
     "/papyrus/forms/{form_id}",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Get a Papyrus form",
 )
 async def get_papyrus_form(
@@ -150,7 +150,7 @@ async def get_papyrus_form(
 
 @router.get(
     "/papyrus/forms/{form_id}/export/epicollect",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Export a Papyrus form to EpiCollect5 JSON",
 )
 async def export_epicollect_form(
@@ -164,7 +164,7 @@ async def export_epicollect_form(
 
 @router.patch(
     "/papyrus/forms/{form_id}",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Update a Papyrus form",
 )
 async def update_papyrus_form(
@@ -182,7 +182,7 @@ async def update_papyrus_form(
 
 @router.get(
     "/papyrus/forms/{form_id}/submissions",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List Papyrus external submissions",
 )
 async def list_papyrus_submissions(
@@ -196,7 +196,7 @@ async def list_papyrus_submissions(
 
 @router.post(
     "/papyrus/forms/{form_id}/external-links",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Create a Papyrus external submission link",
 )
 async def create_papyrus_external_link(
@@ -221,7 +221,7 @@ async def create_papyrus_external_link(
 
 @router.delete(
     "/papyrus/forms/{form_id}/external-links/{token_id}",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Revoke a Papyrus external submission link",
 )
 async def revoke_papyrus_external_link(
@@ -278,7 +278,7 @@ async def submit_papyrus_external_form(
 
 @router.get(
     "/",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List documents",
 )
 async def list_documents(
@@ -312,7 +312,7 @@ async def list_documents(
 
 @router.post(
     "/",
-    dependencies=[require_permission("document.create")],
+    dependencies=[require_permission("papyrus.document.create")],
     summary="Create a new document",
 )
 async def create_document(
@@ -357,7 +357,7 @@ async def consume_share_link(
 
 @router.get(
     "/counts",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Get document status counts",
 )
 async def get_document_counts(
@@ -368,14 +368,14 @@ async def get_document_counts(
     return await svc_counts(entity_id=entity_id, db=db)
 
 
-@router.get("/templates", dependencies=[require_permission("document.read")], summary="List templates")
+@router.get("/templates", dependencies=[require_permission("papyrus.document.read")], summary="List templates")
 async def list_templates_early(
     doc_type_id: Optional[str] = None, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import list_templates as svc_list
     return await svc_list(entity_id=entity_id, doc_type_id=UUID(doc_type_id) if doc_type_id else None, db=db)
 
-@router.post("/templates", dependencies=[require_permission("template.create")], summary="Create a template")
+@router.post("/templates", dependencies=[require_permission("papyrus.template.create")], summary="Create a template")
 async def create_template_early(
     body: dict, entity_id: UUID = Depends(get_current_entity), current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db),
 ):
@@ -387,7 +387,7 @@ async def create_template_early(
 
 @router.get(
     "/types",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List document types",
 )
 async def list_doc_types(
@@ -400,7 +400,7 @@ async def list_doc_types(
 
 @router.post(
     "/types",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Create a document type",
 )
 async def create_doc_type(
@@ -423,7 +423,7 @@ async def create_doc_type(
 
 @router.patch(
     "/types/{type_id}",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Update a document type",
 )
 async def update_doc_type(
@@ -441,7 +441,7 @@ async def update_doc_type(
 
 @router.delete(
     "/types/{type_id}",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Soft-delete a document type (only if no documents reference it)",
 )
 async def delete_doc_type(
@@ -455,7 +455,7 @@ async def delete_doc_type(
 
 @router.post(
     "/types/mdr/import",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Import Master Document Register (CSV/XLSX)",
 )
 async def import_mdr(
@@ -483,7 +483,7 @@ async def import_mdr(
 
 @router.get(
     "/{doc_id}",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Get a document by ID",
 )
 async def get_document(
@@ -497,7 +497,7 @@ async def get_document(
 
 @router.patch(
     "/{doc_id}",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Update document metadata",
 )
 async def update_document(
@@ -520,7 +520,7 @@ async def update_document(
 
 @router.patch(
     "/{doc_id}/draft",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Save draft content (autosave)",
 )
 async def save_draft(
@@ -550,7 +550,7 @@ async def save_draft(
 
 @router.get(
     "/{doc_id}/revisions",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List revisions for a document",
 )
 async def list_revisions(
@@ -564,7 +564,7 @@ async def list_revisions(
 
 @router.get(
     "/{doc_id}/revisions/{revision_id}",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Get a specific revision",
 )
 async def get_revision(
@@ -579,7 +579,7 @@ async def get_revision(
 
 @router.post(
     "/{doc_id}/revisions",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Create a new revision (advance rev code)",
 )
 async def create_new_revision(
@@ -599,7 +599,7 @@ async def create_new_revision(
 
 @router.get(
     "/{doc_id}/diff",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Compare two revisions",
 )
 async def diff_revisions(
@@ -621,7 +621,7 @@ async def diff_revisions(
 
 @router.get(
     "/{doc_id}/papyrus",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Get the canonical Papyrus document",
 )
 async def get_papyrus_document(
@@ -636,7 +636,7 @@ async def get_papyrus_document(
 
 @router.get(
     "/{doc_id}/papyrus/versions",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List Papyrus technical versions for a document",
 )
 async def list_papyrus_versions(
@@ -650,7 +650,7 @@ async def list_papyrus_versions(
 
 @router.get(
     "/{doc_id}/papyrus/render",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Get a rendered Papyrus document with refs and formulas resolved",
 )
 async def get_rendered_papyrus_document(
@@ -665,7 +665,7 @@ async def get_rendered_papyrus_document(
 
 @router.get(
     "/{doc_id}/papyrus/schedule",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Get Papyrus automated dispatch schedule",
 )
 async def get_papyrus_schedule(
@@ -680,7 +680,7 @@ async def get_papyrus_schedule(
 
 @router.put(
     "/{doc_id}/papyrus/schedule",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Update Papyrus automated dispatch schedule",
 )
 async def update_papyrus_schedule(
@@ -705,7 +705,7 @@ async def update_papyrus_schedule(
 
 @router.get(
     "/{doc_id}/papyrus/dispatch-runs",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List Papyrus dispatch runs for a document",
 )
 async def list_papyrus_dispatch_runs(
@@ -721,7 +721,7 @@ async def list_papyrus_dispatch_runs(
 
 @router.post(
     "/{doc_id}/papyrus/dispatch-run-now",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Trigger Papyrus dispatch immediately",
 )
 async def run_papyrus_dispatch_now(
@@ -747,7 +747,7 @@ async def run_papyrus_dispatch_now(
 
 @router.get(
     "/{doc_id}/workflow-state",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Get workflow state, available transitions, and history",
 )
 async def get_workflow_state(
@@ -773,7 +773,7 @@ async def get_workflow_state(
 
 @router.post(
     "/{doc_id}/transition",
-    dependencies=[require_permission("document.edit")],
+    dependencies=[require_permission("papyrus.document.update")],
     summary="Execute a workflow transition",
 )
 async def execute_transition(
@@ -815,7 +815,7 @@ async def execute_transition(
 
 @router.post(
     "/{doc_id}/submit",
-    dependencies=[require_permission("document.submit")],
+    dependencies=[require_permission("papyrus.document.submit")],
     summary="Submit document for validation",
 )
 async def submit_document(
@@ -837,7 +837,7 @@ async def submit_document(
 
 @router.post(
     "/{doc_id}/approve",
-    dependencies=[require_permission("document.approve")],
+    dependencies=[require_permission("papyrus.document.approve")],
     summary="Approve document",
 )
 async def approve_document(
@@ -859,7 +859,7 @@ async def approve_document(
 
 @router.post(
     "/{doc_id}/reject",
-    dependencies=[require_permission("document.reject")],
+    dependencies=[require_permission("papyrus.document.reject")],
     summary="Reject document",
 )
 async def reject_document(
@@ -888,7 +888,7 @@ async def reject_document(
 
 @router.post(
     "/{doc_id}/publish",
-    dependencies=[require_permission("document.publish")],
+    dependencies=[require_permission("papyrus.document.publish")],
     summary="Publish document (D-083: manual after approval)",
 )
 async def publish_document(
@@ -912,7 +912,7 @@ async def publish_document(
 
 @router.post(
     "/{doc_id}/obsolete",
-    dependencies=[require_permission("document.publish")],
+    dependencies=[require_permission("papyrus.document.publish")],
     summary="Obsolete a published document",
 )
 async def obsolete_document(
@@ -939,7 +939,7 @@ async def obsolete_document(
 
 @router.get(
     "/{doc_id}/export/pdf",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Export document as PDF",
 )
 async def export_pdf(
@@ -1024,7 +1024,7 @@ async def export_pdf(
 
 @router.get(
     "/{doc_id}/export/docx",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="Export document as Word (.docx)",
 )
 async def export_docx(
@@ -1121,7 +1121,7 @@ async def export_docx(
 
 @router.patch(
     "/templates/{template_id}",
-    dependencies=[require_permission("template.edit")],
+    dependencies=[require_permission("papyrus.template.update")],
     summary="Update a template",
 )
 async def update_template(
@@ -1144,7 +1144,7 @@ async def update_template(
 
 @router.get(
     "/templates/{template_id}/fields",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List fields for a template",
 )
 async def list_template_fields(
@@ -1158,7 +1158,7 @@ async def list_template_fields(
 
 @router.post(
     "/templates/{template_id}/fields",
-    dependencies=[require_permission("template.create")],
+    dependencies=[require_permission("papyrus.template.create")],
     summary="Create a template field",
 )
 async def create_template_field(
@@ -1176,7 +1176,7 @@ async def create_template_field(
 
 @router.patch(
     "/templates/{template_id}/fields/{field_id}",
-    dependencies=[require_permission("template.edit")],
+    dependencies=[require_permission("papyrus.template.update")],
     summary="Update a template field",
 )
 async def update_template_field(
@@ -1197,7 +1197,7 @@ async def update_template_field(
 
 @router.delete(
     "/templates/{template_id}/fields/{field_id}",
-    dependencies=[require_permission("template.edit")],
+    dependencies=[require_permission("papyrus.template.update")],
     summary="Delete a template field",
 )
 async def delete_template_field(
@@ -1217,7 +1217,7 @@ async def delete_template_field(
 
 @router.get(
     "/distribution-lists",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="List distribution lists",
 )
 async def list_distribution_lists(
@@ -1235,7 +1235,7 @@ async def list_distribution_lists(
 
 @router.post(
     "/distribution-lists",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Create a distribution list",
 )
 async def create_distribution_list(
@@ -1253,7 +1253,7 @@ async def create_distribution_list(
 
 @router.patch(
     "/distribution-lists/{list_id}",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Update a distribution list",
 )
 async def update_distribution_list(
@@ -1271,7 +1271,7 @@ async def update_distribution_list(
 
 @router.delete(
     "/distribution-lists/{list_id}",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Soft-delete a distribution list",
 )
 async def delete_distribution_list(
@@ -1290,7 +1290,7 @@ async def delete_distribution_list(
 
 @router.get(
     "/arborescence/{project_id}",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List arborescence nodes for a project",
 )
 async def list_arborescence_nodes(
@@ -1304,7 +1304,7 @@ async def list_arborescence_nodes(
 
 @router.post(
     "/arborescence",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Create an arborescence node",
 )
 async def create_arborescence_node(
@@ -1326,7 +1326,7 @@ async def create_arborescence_node(
 
 @router.post(
     "/{doc_id}/share",
-    dependencies=[require_permission("document.share")],
+    dependencies=[require_permission("papyrus.document.share")],
     summary="Create a temporary share link",
 )
 async def create_share_link(
@@ -1375,7 +1375,7 @@ async def create_share_link(
 
 @router.get(
     "/{doc_id}/signatures",
-    dependencies=[require_permission("document.read")],
+    dependencies=[require_permission("papyrus.document.read")],
     summary="List all signatures for a document",
 )
 async def list_document_signatures(
@@ -1394,7 +1394,7 @@ async def list_document_signatures(
 
 @router.post(
     "/{doc_id}/archive",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Archive a document (any status → archived)",
 )
 async def archive_document(
@@ -1415,7 +1415,7 @@ async def archive_document(
 
 @router.delete(
     "/{doc_id}",
-    dependencies=[require_permission("document.delete")],
+    dependencies=[require_permission("papyrus.document.delete")],
     summary="Soft-delete a draft document (never submitted)",
 )
 async def delete_document(
@@ -1441,7 +1441,7 @@ async def delete_document(
 
 @router.post(
     "/nomenclature/validate",
-    dependencies=[require_permission("document.admin")],
+    dependencies=[require_permission("papyrus.document.manage")],
     summary="Validate a nomenclature pattern",
 )
 async def validate_nomenclature_pattern(body: dict):

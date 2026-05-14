@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin-tools"])
 @router.get("/adminer-config")
 async def get_adminer_config(
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return Adminer connection info and internal proxy URL."""
@@ -155,7 +155,7 @@ _FORBIDDEN_SQL_PATTERN_RE = re.compile(
 async def execute_sql(
     body: dict,
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     """Execute a read-only SQL query and return results.

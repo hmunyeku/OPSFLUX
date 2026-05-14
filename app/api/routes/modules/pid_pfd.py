@@ -31,7 +31,7 @@ router = APIRouter(prefix="/api/v1/pid", tags=["pid_pfd"], dependencies=[require
 
 @router.get(
     "/",
-    dependencies=[require_permission("pid.read")],
+    dependencies=[require_permission("pid.diagram.read")],
     summary="List PID documents",
 )
 async def list_pid_documents(
@@ -61,7 +61,7 @@ async def list_pid_documents(
 
 @router.post(
     "/",
-    dependencies=[require_permission("pid.create")],
+    dependencies=[require_permission("pid.diagram.create")],
     summary="Create a new PID document",
 )
 async def create_pid_document(
@@ -120,7 +120,7 @@ async def list_equipment_early(
 
 @router.post(
     "/equipment",
-    dependencies=[require_permission("pid.equipment.edit")],
+    dependencies=[require_permission("pid.equipment.update")],
     summary="Create equipment",
 )
 async def create_equipment_early(
@@ -155,7 +155,7 @@ async def get_equipment_early(
 
 @router.patch(
     "/equipment/{eq_id}",
-    dependencies=[require_permission("pid.equipment.edit")],
+    dependencies=[require_permission("pid.equipment.update")],
     summary="Update equipment",
 )
 async def update_equipment_early(
@@ -173,7 +173,7 @@ async def update_equipment_early(
 
 @router.delete(
     "/equipment/{eq_id}",
-    dependencies=[require_permission("pid.equipment.edit")],
+    dependencies=[require_permission("pid.equipment.update")],
     summary="Delete equipment",
     status_code=204,
 )
@@ -209,7 +209,7 @@ async def equipment_appearances_early(
 
 @router.get(
     "/lines",
-    dependencies=[require_permission("pid.read")],
+    dependencies=[require_permission("pid.diagram.read")],
     summary="List process lines",
 )
 async def list_lines_early(
@@ -232,7 +232,7 @@ async def list_lines_early(
 
 @router.post(
     "/lines",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Create process line",
 )
 async def create_line_early(
@@ -251,7 +251,7 @@ async def create_line_early(
 
 @router.post(
     "/lines/trace",
-    dependencies=[require_permission("pid.read")],
+    dependencies=[require_permission("pid.diagram.read")],
     summary="Trace a process line across PIDs",
 )
 async def trace_line_early(
@@ -267,7 +267,7 @@ async def trace_line_early(
 
 @router.patch(
     "/lines/{line_id}",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Update process line",
 )
 async def update_line_early(
@@ -285,7 +285,7 @@ async def update_line_early(
 
 @router.delete(
     "/lines/{line_id}",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Delete process line",
     status_code=204,
 )
@@ -305,7 +305,7 @@ async def delete_line_early(
 
 @router.get(
     "/tags",
-    dependencies=[require_permission("pid.tags.read")],
+    dependencies=[require_permission("pid.tag.read")],
     summary="List DCS tags",
 )
 async def list_tags_early(
@@ -329,7 +329,7 @@ async def list_tags_early(
 
 @router.post(
     "/tags",
-    dependencies=[require_permission("pid.tags.edit")],
+    dependencies=[require_permission("pid.tag.update")],
     summary="Create DCS tag",
 )
 async def create_tag_early(
@@ -348,7 +348,7 @@ async def create_tag_early(
 
 @router.patch(
     "/tags/{tag_id}",
-    dependencies=[require_permission("pid.tags.edit")],
+    dependencies=[require_permission("pid.tag.update")],
     summary="Update DCS tag",
 )
 async def update_tag_early(
@@ -366,7 +366,7 @@ async def update_tag_early(
 
 @router.delete(
     "/tags/{tag_id}",
-    dependencies=[require_permission("pid.tags.edit")],
+    dependencies=[require_permission("pid.tag.update")],
     summary="Delete DCS tag",
     status_code=204,
 )
@@ -381,19 +381,19 @@ async def delete_tag_early(
     await svc_delete(tag_id=tag_id, entity_id=entity_id, db=db)
 
 
-@router.post("/tags/suggest", dependencies=[require_permission("pid.tags.read")], summary="Suggest tag names")
+@router.post("/tags/suggest", dependencies=[require_permission("pid.tag.read")], summary="Suggest tag names")
 async def suggest_tags_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
     from app.services.modules.tag_service import suggest_tag_names as svc
     return await svc(entity_id=entity_id, equipment_type=body.get("equipment_type"), area=body.get("area"), db=db)
 
 
-@router.post("/tags/validate", dependencies=[require_permission("pid.tags.read")], summary="Validate tag name")
+@router.post("/tags/validate", dependencies=[require_permission("pid.tag.read")], summary="Validate tag name")
 async def validate_tag_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
     from app.services.modules.tag_service import validate_tag_name as svc
     return await svc(entity_id=entity_id, tag_name=body.get("tag_name", ""), db=db)
 
 
-@router.post("/tags/import", dependencies=[require_permission("pid.tags.edit")], summary="Import DCS tags from CSV")
+@router.post("/tags/import", dependencies=[require_permission("pid.tag.update")], summary="Import DCS tags from CSV")
 async def import_tags_early(
     project_id: str = Query(...), file: UploadFile = File(...),
     entity_id: UUID = Depends(get_current_entity), current_user=Depends(get_current_user),
@@ -403,13 +403,13 @@ async def import_tags_early(
     return await svc(entity_id=entity_id, project_id=project_id, file=file, created_by=current_user.id, db=db)
 
 
-@router.post("/tags/bulk-rename/preview", dependencies=[require_permission("pid.tags.edit")], summary="Preview bulk rename")
+@router.post("/tags/bulk-rename/preview", dependencies=[require_permission("pid.tag.update")], summary="Preview bulk rename")
 async def bulk_rename_preview_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
     from app.services.modules.tag_service import bulk_rename_preview as svc
     return await svc(entity_id=entity_id, find=body.get("find", ""), replace=body.get("replace", ""), db=db)
 
 
-@router.post("/tags/bulk-rename/execute", dependencies=[require_permission("pid.tags.edit")], summary="Execute bulk rename")
+@router.post("/tags/bulk-rename/execute", dependencies=[require_permission("pid.tag.update")], summary="Execute bulk rename")
 async def bulk_rename_execute_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
     from app.services.modules.tag_service import bulk_rename_execute as svc
     return await svc(entity_id=entity_id, find=body.get("find", ""), replace=body.get("replace", ""), db=db)
@@ -418,13 +418,13 @@ async def bulk_rename_execute_early(body: dict, entity_id: UUID = Depends(get_cu
 # ── Naming Rules (before /{pid_id}) ──────────────────────────────────────────
 
 
-@router.get("/naming-rules", dependencies=[require_permission("pid.tags.read")], summary="List naming rules")
+@router.get("/naming-rules", dependencies=[require_permission("pid.tag.read")], summary="List naming rules")
 async def list_naming_rules_early(entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
     from app.services.modules.tag_service import list_naming_rules as svc
     return await svc(entity_id=entity_id, db=db)
 
 
-@router.post("/naming-rules", dependencies=[require_permission("pid.tags.edit")], summary="Create naming rule")
+@router.post("/naming-rules", dependencies=[require_permission("pid.tag.update")], summary="Create naming rule")
 async def create_naming_rule_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
     from app.schemas.pid_pfd import TagNamingRuleCreate
     from app.services.modules.tag_service import create_naming_rule as svc
@@ -432,7 +432,7 @@ async def create_naming_rule_early(body: dict, entity_id: UUID = Depends(get_cur
     return await svc(body=parsed, entity_id=entity_id, db=db)
 
 
-@router.patch("/naming-rules/{rule_id}", dependencies=[require_permission("pid.tags.edit")], summary="Update naming rule")
+@router.patch("/naming-rules/{rule_id}", dependencies=[require_permission("pid.tag.update")], summary="Update naming rule")
 async def update_naming_rule_early(rule_id: str, body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
     from app.schemas.pid_pfd import TagNamingRuleUpdate
     from app.services.modules.tag_service import update_naming_rule as svc
@@ -451,7 +451,7 @@ async def list_library_items_early(
     from app.services.modules.pid_service import list_library_items as svc_list
     return await svc_list(entity_id=entity_id, category=category, search=search, db=db)
 
-@router.post("/library", dependencies=[require_permission("pid.library.edit")], summary="Create a process library item")
+@router.post("/library", dependencies=[require_permission("pid.library.update")], summary="Create a process library item")
 async def create_library_item_early(
     body: dict, entity_id: UUID = Depends(get_current_entity),
     current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db),
@@ -469,7 +469,7 @@ async def get_drawio_library_early(entity_id: UUID = Depends(get_current_entity)
 
 @router.patch(
     "/library/{item_id}",
-    dependencies=[require_permission("pid.library.edit")],
+    dependencies=[require_permission("pid.library.update")],
     summary="Update a process library item",
 )
 async def update_library_item(
@@ -488,7 +488,7 @@ async def update_library_item(
 
 @router.delete(
     "/library/{item_id}",
-    dependencies=[require_permission("pid.library.edit")],
+    dependencies=[require_permission("pid.library.update")],
     summary="Delete a process library item",
     status_code=204,
 )
@@ -505,7 +505,7 @@ async def delete_library_item(
 
 @router.get(
     "/{pid_id}",
-    dependencies=[require_permission("pid.read")],
+    dependencies=[require_permission("pid.diagram.read")],
     summary="Get a PID document by ID (includes XML)",
 )
 async def get_pid_document(
@@ -521,7 +521,7 @@ async def get_pid_document(
 
 @router.patch(
     "/{pid_id}",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Update PID document metadata",
 )
 async def update_pid_document(
@@ -540,7 +540,7 @@ async def update_pid_document(
 
 @router.delete(
     "/{pid_id}",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Delete a PID document (draft only)",
     status_code=204,
 )
@@ -562,7 +562,7 @@ async def delete_pid_document(
 
 @router.get(
     "/{pid_id}/workflow-state",
-    dependencies=[require_permission("pid.read")],
+    dependencies=[require_permission("pid.diagram.read")],
     summary="Get workflow state, available transitions, and history",
 )
 async def get_pid_workflow_state(
@@ -588,7 +588,7 @@ async def get_pid_workflow_state(
 
 @router.post(
     "/{pid_id}/transition",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Execute a workflow transition on a PID",
 )
 async def execute_pid_transition(
@@ -630,7 +630,7 @@ async def execute_pid_transition(
 
 @router.patch(
     "/{pid_id}/xml",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Save draw.io XML content",
 )
 async def save_pid_xml(
@@ -657,7 +657,7 @@ async def save_pid_xml(
 
 @router.post(
     "/{pid_id}/sync",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Parse draw.io XML and sync entities to DB",
 )
 async def sync_pid(
@@ -696,7 +696,7 @@ async def sync_pid(
 
 @router.get(
     "/{pid_id}/revisions",
-    dependencies=[require_permission("pid.read")],
+    dependencies=[require_permission("pid.diagram.read")],
     summary="List revisions for a PID document",
 )
 async def list_pid_revisions(
@@ -712,7 +712,7 @@ async def list_pid_revisions(
 
 @router.post(
     "/{pid_id}/revisions",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Create a revision snapshot",
 )
 async def create_pid_revision(
@@ -739,7 +739,7 @@ async def create_pid_revision(
 
 @router.get(
     "/{pid_id}/diff",
-    dependencies=[require_permission("pid.read")],
+    dependencies=[require_permission("pid.diagram.read")],
     summary="Diff two PID revisions",
 )
 async def diff_pid_revisions(
@@ -766,7 +766,7 @@ async def diff_pid_revisions(
 
 @router.get(
     "/{pid_id}/cell/{cell_id}",
-    dependencies=[require_permission("pid.read")],
+    dependencies=[require_permission("pid.diagram.read")],
     summary="Get DB entity for a draw.io cell",
 )
 async def get_cell_data(
@@ -793,7 +793,7 @@ async def get_cell_data(
 
 @router.post(
     "/{pid_id}/validate-afc",
-    dependencies=[require_permission("pid.validate_afc")],
+    dependencies=[require_permission("pid.diagram.validate_afc")],
     summary="Validate PID for Approved For Construction",
 )
 async def validate_afc(
@@ -819,7 +819,7 @@ async def validate_afc(
 
 @router.get(
     "/{pid_id}/export/svg",
-    dependencies=[require_permission("pid.export")],
+    dependencies=[require_permission("pid.diagram.export")],
     summary="Export PID as SVG",
 )
 async def export_svg(
@@ -842,7 +842,7 @@ async def export_svg(
 
 @router.get(
     "/{pid_id}/export/pdf",
-    dependencies=[require_permission("pid.export")],
+    dependencies=[require_permission("pid.diagram.export")],
     summary="Export PID as PDF",
 )
 async def export_pdf(
@@ -870,7 +870,7 @@ async def export_pdf(
 
 @router.post(
     "/{pid_id}/lock",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Acquire editing lock on PID",
 )
 async def acquire_lock(
@@ -887,7 +887,7 @@ async def acquire_lock(
 
 @router.delete(
     "/{pid_id}/lock",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Release editing lock on PID",
 )
 async def release_lock(
@@ -904,7 +904,7 @@ async def release_lock(
 
 @router.post(
     "/{pid_id}/lock/heartbeat",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Heartbeat to extend editing lock TTL",
 )
 async def lock_heartbeat(
@@ -921,7 +921,7 @@ async def lock_heartbeat(
 
 @router.post(
     "/{pid_id}/lock/force-release",
-    dependencies=[require_permission("pid.admin")],
+    dependencies=[require_permission("pid.diagram.manage")],
     summary="Force-release editing lock (admin)",
 )
 async def force_release_lock(
@@ -943,7 +943,7 @@ async def force_release_lock(
 
 @router.post(
     "/{pid_id}/xml-sync",
-    dependencies=[require_permission("pid.edit")],
+    dependencies=[require_permission("pid.diagram.update")],
     summary="Parse draw.io XML and sync equipment/lines to DB",
 )
 async def sync_xml_to_db(

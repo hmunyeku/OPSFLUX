@@ -315,7 +315,7 @@ user_router = APIRouter(
 
 @admin_router.get("/backends", response_model=list[BackendOut])
 async def list_backends(
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     async with async_session_factory() as pub_session:
@@ -329,7 +329,7 @@ async def list_backends(
 @admin_router.post("/backends", response_model=BackendOut, status_code=201)
 async def create_backend(
     body: BackendCreate,
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     async with async_session_factory() as pub_session:
@@ -352,7 +352,7 @@ async def create_backend(
 async def update_backend(
     backend_id: UUID,
     body: BackendUpdate,
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     async with async_session_factory() as pub_session:
@@ -390,7 +390,7 @@ async def update_backend(
 @admin_router.delete("/backends/{backend_id}", status_code=204)
 async def delete_backend(
     backend_id: UUID,
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     async with async_session_factory() as pub_session:
@@ -419,7 +419,7 @@ async def delete_backend(
 @admin_router.get("/backends/{backend_slug}/tools")
 async def list_backend_tools(
     backend_slug: str,
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the list of MCP tools exposed by a backend."""
@@ -481,7 +481,7 @@ async def list_backend_tools(
 
 @admin_router.get("/tokens", response_model=list[TokenOut])
 async def list_tokens(
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     async with async_session_factory() as pub_session:
@@ -497,7 +497,7 @@ async def list_tokens(
 async def create_token(
     body: TokenCreate,
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     raw_token = secrets.token_hex(32)
@@ -531,7 +531,7 @@ async def create_token(
 @admin_router.post("/tokens/{token_id}/revoke", status_code=200)
 async def revoke_token(
     token_id: UUID,
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     async with async_session_factory() as pub_session:
@@ -554,7 +554,7 @@ async def revoke_token(
 @admin_router.delete("/tokens/{token_id}", status_code=204)
 async def delete_token(
     token_id: UUID,
-    _: None = require_permission("admin.system"),
+    _: None = require_permission("system.platform.admin"),
     db: AsyncSession = Depends(get_db),
 ):
     async with async_session_factory() as pub_session:

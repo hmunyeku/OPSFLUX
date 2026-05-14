@@ -263,7 +263,7 @@ async def list_users(
     mfa_enabled: bool | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("user.read"),
+    _: None = require_permission("core.user.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List users with pagination and optional search/filters.
@@ -300,7 +300,7 @@ async def create_user(
     body: UserCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("user.create"),
+    _: None = require_permission("core.user.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new user and send an invitation email."""
@@ -683,7 +683,7 @@ async def get_user(
     user_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("user.read"),
+    _: None = require_permission("core.user.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get user by ID.
@@ -720,7 +720,7 @@ async def get_user(
 async def update_user(
     user_id: UUID,
     body: UserUpdate,
-    _: None = require_permission("user.update"),
+    _: None = require_permission("core.user.update"),
     db: AsyncSession = Depends(get_db),
 ):
     """Update user details."""
@@ -778,7 +778,7 @@ async def update_user(
 @router.post("/{user_id}/verify-identity", response_model=UserRead)
 async def verify_user_identity(
     user_id: UUID,
-    _: None = require_permission("conformite.verify"),
+    _: None = require_permission("conformite.record.verify"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -806,7 +806,7 @@ async def verify_user_identity(
 @router.post("/{user_id}/unverify-identity", response_model=UserRead)
 async def unverify_user_identity(
     user_id: UUID,
-    _: None = require_permission("conformite.verify"),
+    _: None = require_permission("conformite.record.verify"),
     db: AsyncSession = Depends(get_db),
 ):
     """Remove identity verification (unlocks identity fields)."""
@@ -853,7 +853,7 @@ class UserEntityAssign(BaseModel):
 @router.get(
     "/{user_id}/entities",
     response_model=list[UserEntityRead],
-    dependencies=[require_permission("user.read")],
+    dependencies=[require_permission("core.user.read")],
 )
 async def get_user_entities(
     user_id: UUID,
@@ -924,7 +924,7 @@ async def get_user_entities(
 
 @router.post(
     "/{user_id}/entities",
-    dependencies=[require_permission("user.update")],
+    dependencies=[require_permission("core.user.update")],
     status_code=201,
 )
 async def assign_user_to_entity(
@@ -971,7 +971,7 @@ async def assign_user_to_entity(
 
 @router.delete(
     "/{user_id}/entities/{entity_id}",
-    dependencies=[require_permission("user.update")],
+    dependencies=[require_permission("core.user.update")],
     status_code=204,
 )
 async def remove_user_from_entity(
@@ -1757,7 +1757,7 @@ async def admin_upload_avatar(
     file: UploadFile,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("user.update"),
+    _: None = require_permission("core.user.update"),
     db: AsyncSession = Depends(get_db),
 ):
     """Admin: upload avatar image for a specific user."""
@@ -1810,7 +1810,7 @@ async def admin_set_avatar_from_url(
     body: AvatarFromURLRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("user.update"),
+    _: None = require_permission("core.user.update"),
     db: AsyncSession = Depends(get_db),
 ):
     """Admin: set avatar from external URL (downloads the image)."""

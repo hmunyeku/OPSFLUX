@@ -177,7 +177,7 @@ async def _get_tenant_id(entity_id: UUID, db: AsyncSession) -> UUID:
     "/dashboards",
     response_model=DashboardRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def create_dashboard(
     body: DashboardCreate,
@@ -200,7 +200,7 @@ async def create_dashboard(
 @router.get(
     "/dashboards",
     response_model=list[DashboardRead],
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def list_dashboards(
     owner: UUID | None = None,
@@ -240,7 +240,7 @@ async def list_dashboards(
 @router.get(
     "/dashboards/widget-catalog",
     response_model=list[WidgetCatalogEntry],
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def widget_catalog(
     current_user: User = Depends(get_current_user),
@@ -262,7 +262,7 @@ async def widget_catalog(
 @router.get(
     "/dashboards/home",
     response_model=DashboardRead | None,
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def get_home_page(
     current_user: User = Depends(get_current_user),
@@ -292,7 +292,7 @@ async def get_home_page(
 @router.post(
     "/dashboards/home",
     response_model=HomePageSettingRead,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def set_home_page_setting(
     body: HomePageSettingCreate,
@@ -308,7 +308,7 @@ async def set_home_page_setting(
 @router.post(
     "/dashboards/widget-data",
     response_model=WidgetDataResponse,
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def fetch_widget_data(
     body: WidgetDataRequest,
@@ -339,7 +339,7 @@ async def fetch_widget_data(
 @router.post(
     "/dashboards/widget-sql",
     response_model=SQLWidgetResponse,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def execute_sql_widget(
     body: SQLWidgetRequest,
@@ -364,7 +364,7 @@ async def execute_sql_widget(
     "/dashboards/import",
     response_model=DashboardRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def import_dashboard(
     body: DashboardImport,
@@ -417,7 +417,7 @@ async def get_tv_dashboard(
 
 @router.get(
     "/dashboards/sse/{widget_type}",
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def sse_widget_stream(
     widget_type: str,
@@ -496,7 +496,7 @@ async def sse_widget_stream(
 @router.get(
     "/dashboards/{dashboard_id}",
     response_model=DashboardRead,
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def get_dashboard(
     dashboard_id: UUID,
@@ -527,7 +527,7 @@ async def get_dashboard(
 @router.put(
     "/dashboards/{dashboard_id}",
     response_model=DashboardRead,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def update_dashboard(
     dashboard_id: UUID,
@@ -544,7 +544,7 @@ async def update_dashboard(
 @router.delete(
     "/dashboards/{dashboard_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def delete_dashboard(
     dashboard_id: UUID,
@@ -559,7 +559,7 @@ async def delete_dashboard(
 @router.post(
     "/dashboards/{dashboard_id}/export",
     response_model=DashboardExport,
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def export_dashboard(
     dashboard_id: UUID,
@@ -574,7 +574,7 @@ async def export_dashboard(
 @router.post(
     "/dashboards/{dashboard_id}/tv-link",
     response_model=TVLinkRead,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def create_tv_link(
     dashboard_id: UUID,
@@ -597,7 +597,7 @@ async def create_tv_link(
 @router.delete(
     "/dashboards/{dashboard_id}/tv-link",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def delete_tv_link(
     dashboard_id: UUID,
@@ -647,7 +647,7 @@ async def _seed_default_user_tab(
 @router.get(
     "/dashboard/tabs",
     response_model=list[DashboardTabRead],
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def list_tabs(
     module: str | None = None,
@@ -773,7 +773,7 @@ async def list_tabs(
 @router.get(
     "/dashboard/module/{module_slug}/tabs",
     response_model=list[DashboardTabRead],
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def list_module_tabs(
     module_slug: str,
@@ -841,7 +841,7 @@ async def list_module_tabs(
     "/dashboard/tabs",
     response_model=PersonalTabRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[require_permission("dashboard.customize")],
+    dependencies=[require_permission("dashboard.dashboard.customize")],
 )
 async def create_personal_tab(
     body: PersonalTabCreate,
@@ -881,7 +881,7 @@ async def create_personal_tab(
 @router.put(
     "/dashboard/tabs/{tab_id}",
     response_model=PersonalTabRead,
-    dependencies=[require_permission("dashboard.customize")],
+    dependencies=[require_permission("dashboard.dashboard.customize")],
 )
 async def update_personal_tab(
     tab_id: UUID,
@@ -967,7 +967,7 @@ async def update_personal_tab(
 @router.delete(
     "/dashboard/tabs/{tab_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[require_permission("dashboard.customize")],
+    dependencies=[require_permission("dashboard.dashboard.customize")],
 )
 async def delete_personal_tab(
     tab_id: UUID,
@@ -1002,7 +1002,7 @@ async def delete_personal_tab(
 @router.get(
     "/dashboard/admin/tabs",
     response_model=list[AdminTabRead],
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def list_admin_tabs(
     module: str | None = None,
@@ -1036,7 +1036,7 @@ async def list_admin_tabs(
     "/dashboard/admin/tabs",
     response_model=AdminTabRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def create_admin_tab(
     body: AdminTabCreate,
@@ -1074,7 +1074,7 @@ async def create_admin_tab(
 @router.put(
     "/dashboard/admin/tabs/{tab_id}",
     response_model=AdminTabRead,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def update_admin_tab(
     tab_id: UUID,
@@ -1128,7 +1128,7 @@ async def update_admin_tab(
 @router.delete(
     "/dashboard/admin/tabs/{tab_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def delete_admin_tab(
     tab_id: UUID,
@@ -1161,7 +1161,7 @@ async def delete_admin_tab(
 @router.get(
     "/dashboard/widgets/stats",
     response_model=DashboardStats,
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def get_widget_stats(
     entity_id: UUID = Depends(get_current_entity),
@@ -1228,7 +1228,7 @@ async def get_widget_stats(
 @router.get(
     "/dashboard/widgets/activity",
     response_model=list[ActivityEntry],
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def get_widget_activity(
     limit: int = 20,
@@ -1248,7 +1248,7 @@ async def get_widget_activity(
 @router.get(
     "/dashboard/widgets/pending",
     response_model=list[PendingItem],
-    dependencies=[require_permission("dashboard.read")],
+    dependencies=[require_permission("dashboard.dashboard.read")],
 )
 async def get_widget_pending(
     current_user: User = Depends(get_current_user),
@@ -1292,7 +1292,7 @@ async def get_widget_pending(
 
 @router.patch(
     "/dashboards/{dashboard_id}/layout",
-    dependencies=[require_permission("dashboard.customize")],
+    dependencies=[require_permission("dashboard.dashboard.customize")],
     summary="Persist widget layout for a specific breakpoint",
 )
 async def update_dashboard_layout(
@@ -1368,7 +1368,7 @@ async def update_dashboard_layout(
 @router.post(
     "/dashboard/seed-tabs",
     status_code=201,
-    dependencies=[require_permission("dashboard.admin")],
+    dependencies=[require_permission("dashboard.dashboard.manage")],
 )
 async def seed_mandatory_dashboard_tabs(
     entity_id: UUID = Depends(get_current_entity),

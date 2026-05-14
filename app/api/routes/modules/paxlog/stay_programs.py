@@ -191,7 +191,7 @@ async def create_stay_program(
     contact_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.stay.create"),
+    _: None = require_permission("paxlog.stay_program.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a stay program (intra-field movement plan for a PAX in an AdS)."""
@@ -245,7 +245,7 @@ async def submit_stay_program(
     program_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.stay.create"),
+    _: None = require_permission("paxlog.stay_program.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Submit a stay program for approval."""

@@ -1030,7 +1030,7 @@ async def list_non_compliant_records(
 # ── Compliance Check ──────────────────────────────────────────────────────
 
 
-@router.get("/check/{owner_type}/{owner_id}", response_model=ComplianceCheckResult, dependencies=[require_permission("conformite.check")])
+@router.get("/check/{owner_type}/{owner_id}", response_model=ComplianceCheckResult, dependencies=[require_permission("conformite.record.check")])
 async def check_compliance(
     owner_type: str,
     owner_id: UUID,
@@ -1073,7 +1073,7 @@ async def check_compliance(
 # ── Job Positions (fiches de poste) ─────────────────────────────────────
 
 
-@router.get("/job-positions", response_model=PaginatedResponse[JobPositionRead], dependencies=[require_permission("conformite.jobposition.read")])
+@router.get("/job-positions", response_model=PaginatedResponse[JobPositionRead], dependencies=[require_permission("conformite.job_position.read")])
 async def list_job_positions(
     department: str | None = None,
     search: str | None = None,
@@ -1099,7 +1099,7 @@ async def list_job_positions(
 async def create_job_position(
     body: JobPositionCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("conformite.jobposition.create"),
+    _: None = require_permission("conformite.job_position.create"),
     db: AsyncSession = Depends(get_db),
 ):
     payload = body.model_dump()
@@ -1116,7 +1116,7 @@ async def update_job_position(
     jp_id: UUID,
     body: JobPositionUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("conformite.jobposition.update"),
+    _: None = require_permission("conformite.job_position.update"),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -1141,7 +1141,7 @@ async def delete_job_position(
     jp_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.jobposition.delete"),
+    _: None = require_permission("conformite.job_position.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -1679,7 +1679,7 @@ class VerifyAction(BaseModel):
 async def list_pending_verifications(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.verify"),
+    _: None = require_permission("conformite.record.verify"),
     db: AsyncSession = Depends(get_db),
 ):
     """List all records across verifiable models that are pending verification.
@@ -1871,7 +1871,7 @@ async def list_pending_verifications(
     return {"items": items, "total": len(items)}
 
 
-@router.get("/verification-history", dependencies=[require_permission("conformite.verify")])
+@router.get("/verification-history", dependencies=[require_permission("conformite.record.verify")])
 async def list_verification_history(
     page: int = 1,
     page_size: int = 50,
@@ -2045,7 +2045,7 @@ async def verify_record(
     body: VerifyAction,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("conformite.verify"),
+    _: None = require_permission("conformite.record.verify"),
     db: AsyncSession = Depends(get_db),
 ):
     """Verify or reject a pending record."""

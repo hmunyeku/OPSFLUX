@@ -217,7 +217,7 @@ async def _redact_signatures(
 
 @router.get(
     "",
-    dependencies=[require_permission("moc.read")],
+    dependencies=[require_permission("moc.change.read")],
 )
 async def list_mocs(
     pagination: PaginationParams = Depends(),
@@ -314,7 +314,7 @@ async def list_mocs(
     "",
     response_model=MOCRead,
     status_code=201,
-    dependencies=[require_permission("moc.create")],
+    dependencies=[require_permission("moc.change.create")],
 )
 async def create_moc(
     body: MOCCreate,
@@ -497,7 +497,7 @@ async def create_moc(
 @router.get(
     "/stats",
     response_model=MOCStatsSummary,
-    dependencies=[require_permission("moc.read")],
+    dependencies=[require_permission("moc.change.read")],
 )
 async def stats(
     entity_id: UUID = Depends(get_current_entity),
@@ -592,7 +592,7 @@ async def stats(
 # ─── FSM description (for the frontend) ───────────────────────────────────────
 
 
-@router.get("/fsm", dependencies=[require_permission("moc.read")])
+@router.get("/fsm", dependencies=[require_permission("moc.change.read")])
 async def fsm_description() -> dict:
     """Return the full FSM (read-only) so the frontend can render buttons."""
     return {
@@ -631,7 +631,7 @@ async def _get_type_or_404(
 @router.get(
     "/types",
     response_model=list[MOCTypeReadWithRules],
-    dependencies=[require_permission("moc.read")],
+    dependencies=[require_permission("moc.change.read")],
 )
 async def list_moc_types(
     include_inactive: bool = Query(False),
@@ -657,7 +657,7 @@ async def list_moc_types(
     "/types",
     response_model=MOCTypeReadWithRules,
     status_code=201,
-    dependencies=[require_permission("moc.manage")],
+    dependencies=[require_permission("moc.change.manage")],
 )
 async def create_moc_type(
     body: MOCTypeCreate,
@@ -695,7 +695,7 @@ async def create_moc_type(
 @router.get(
     "/types/{type_id}",
     response_model=MOCTypeReadWithRules,
-    dependencies=[require_permission("moc.read")],
+    dependencies=[require_permission("moc.change.read")],
 )
 async def get_moc_type(
     type_id: UUID,
@@ -708,7 +708,7 @@ async def get_moc_type(
 @router.patch(
     "/types/{type_id}",
     response_model=MOCTypeReadWithRules,
-    dependencies=[require_permission("moc.manage")],
+    dependencies=[require_permission("moc.change.manage")],
 )
 async def update_moc_type(
     type_id: UUID,
@@ -733,7 +733,7 @@ async def update_moc_type(
 @router.delete(
     "/types/{type_id}",
     status_code=204,
-    dependencies=[require_permission("moc.manage")],
+    dependencies=[require_permission("moc.change.manage")],
 )
 async def delete_moc_type(
     type_id: UUID,
@@ -760,7 +760,7 @@ async def delete_moc_type(
     "/types/{type_id}/rules",
     response_model=MOCTypeValidationRuleRead,
     status_code=201,
-    dependencies=[require_permission("moc.manage")],
+    dependencies=[require_permission("moc.change.manage")],
 )
 async def add_moc_type_rule(
     type_id: UUID,
@@ -803,7 +803,7 @@ async def add_moc_type_rule(
 @router.patch(
     "/types/{type_id}/rules/{rule_id}",
     response_model=MOCTypeValidationRuleRead,
-    dependencies=[require_permission("moc.manage")],
+    dependencies=[require_permission("moc.change.manage")],
 )
 async def update_moc_type_rule(
     type_id: UUID,
@@ -835,7 +835,7 @@ async def update_moc_type_rule(
 @router.delete(
     "/types/{type_id}/rules/{rule_id}",
     status_code=204,
-    dependencies=[require_permission("moc.manage")],
+    dependencies=[require_permission("moc.change.manage")],
 )
 async def delete_moc_type_rule(
     type_id: UUID,
@@ -871,7 +871,7 @@ async def delete_moc_type_rule(
 @router.get(
     "/{moc_id}",
     response_model=MOCReadWithDetails,
-    dependencies=[require_permission("moc.read")],
+    dependencies=[require_permission("moc.change.read")],
 )
 async def get_moc(
     moc_id: UUID,
@@ -945,7 +945,7 @@ async def get_moc(
 @router.patch(
     "/{moc_id}",
     response_model=MOCRead,
-    dependencies=[require_permission("moc.update")],
+    dependencies=[require_permission("moc.change.update")],
 )
 async def update_moc(
     moc_id: UUID,
@@ -1001,7 +1001,7 @@ async def update_moc(
 @router.delete(
     "/{moc_id}",
     status_code=204,
-    dependencies=[require_permission("moc.delete")],
+    dependencies=[require_permission("moc.change.delete")],
 )
 async def delete_moc(
     moc_id: UUID,
@@ -1032,7 +1032,7 @@ async def delete_moc(
 @router.post(
     "/{moc_id}/transition",
     response_model=MOCReadWithDetails,
-    dependencies=[require_permission("moc.transition")],
+    dependencies=[require_permission("moc.change.transition")],
 )
 async def transition_moc(
     moc_id: UUID,
@@ -1062,7 +1062,7 @@ async def transition_moc(
 @router.post(
     "/{moc_id}/validations",
     response_model=MOCValidationRead,
-    dependencies=[require_permission("moc.validate")],
+    dependencies=[require_permission("moc.change.validate")],
 )
 async def upsert_moc_validation(
     moc_id: UUID,
@@ -1110,7 +1110,7 @@ async def upsert_moc_validation(
 @router.get(
     "/{moc_id}/pdf",
     responses={200: {"content": {"application/pdf": {}}}},
-    dependencies=[require_permission("moc.read")],
+    dependencies=[require_permission("moc.change.read")],
 )
 async def export_moc_pdf(
     moc_id: UUID,
@@ -1509,7 +1509,7 @@ async def export_moc_pdf(
 @router.post(
     "/{moc_id}/return",
     response_model=MOCReadWithDetails,
-    dependencies=[require_permission("moc.update")],
+    dependencies=[require_permission("moc.change.update")],
 )
 async def request_moc_return(
     moc_id: UUID,
@@ -1673,7 +1673,7 @@ async def set_production_validation(
 @router.post(
     "/{moc_id}/signature",
     response_model=MOCReadWithDetails,
-    dependencies=[require_permission("moc.update")],
+    dependencies=[require_permission("moc.change.update")],
 )
 async def set_moc_signature(
     moc_id: UUID,
@@ -1722,7 +1722,7 @@ async def set_moc_signature(
 @router.post(
     "/{moc_id}/promote-to-project",
     response_model=MOCReadWithDetails,
-    dependencies=[require_permission("moc.promote")],
+    dependencies=[require_permission("moc.change.approve")],
 )
 async def promote_moc_to_project(
     moc_id: UUID,
@@ -1982,7 +1982,7 @@ async def set_execution_accord(
 @router.get(
     "/site-assignments",
     response_model=list[MOCSiteAssignmentRead],
-    dependencies=[require_permission("moc.read")],
+    dependencies=[require_permission("moc.change.read")],
 )
 async def list_site_assignments(
     site_label: str | None = Query(None),
@@ -2015,7 +2015,7 @@ async def list_site_assignments(
     "/site-assignments",
     response_model=MOCSiteAssignmentRead,
     status_code=201,
-    dependencies=[require_permission("moc.manage")],
+    dependencies=[require_permission("moc.change.manage")],
 )
 async def create_site_assignment(
     body: MOCSiteAssignmentCreate,
@@ -2063,7 +2063,7 @@ async def create_site_assignment(
 @router.delete(
     "/site-assignments/{assignment_id}",
     status_code=204,
-    dependencies=[require_permission("moc.manage")],
+    dependencies=[require_permission("moc.change.manage")],
 )
 async def delete_site_assignment(
     assignment_id: UUID,

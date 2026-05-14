@@ -59,7 +59,7 @@ async def list_business_units(
 async def create_business_unit(
     body: BusinessUnitCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("department.create"),
+    _: None = require_permission("imputation.department.create"),
     db: AsyncSession = Depends(get_db),
 ):
     existing = await db.execute(
@@ -85,7 +85,7 @@ async def update_business_unit(
     bu_id: UUID,
     body: BusinessUnitUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("department.update"),
+    _: None = require_permission("imputation.department.update"),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -111,7 +111,7 @@ async def delete_business_unit(
     bu_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("department.delete"),
+    _: None = require_permission("imputation.department.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -154,7 +154,7 @@ async def list_cost_centers(
 async def create_cost_center(
     body: CostCenterCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("cost_center.create"),
+    _: None = require_permission("imputation.cost_center.create"),
     db: AsyncSession = Depends(get_db),
 ):
     existing = await db.execute(
@@ -180,7 +180,7 @@ async def update_cost_center(
     cc_id: UUID,
     body: CostCenterUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("cost_center.update"),
+    _: None = require_permission("imputation.cost_center.update"),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -206,7 +206,7 @@ async def delete_cost_center(
     cc_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("cost_center.delete"),
+    _: None = require_permission("imputation.cost_center.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

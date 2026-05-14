@@ -230,7 +230,7 @@ async def list_teams(
     include_inactive: bool = False,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("teams.read"),
+    _: None = require_permission("teams.team.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Liste les equipes accessibles.
@@ -292,7 +292,7 @@ async def create_team(
     payload: TeamCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("teams.create"),
+    _: None = require_permission("teams.team.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Cree une equipe. Si `initial_members` est fourni, les ajoute en 1 transaction."""
@@ -362,7 +362,7 @@ async def get_team(
     team_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("teams.read"),
+    _: None = require_permission("teams.team.read"),
     db: AsyncSession = Depends(get_db),
 ):
     team = await _get_team_or_404(db, team_id, entity_id)
@@ -380,7 +380,7 @@ async def update_team(
     payload: TeamUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("teams.update"),
+    _: None = require_permission("teams.team.update"),
     db: AsyncSession = Depends(get_db),
 ):
     team = await _get_team_or_404(db, team_id, entity_id)
@@ -420,7 +420,7 @@ async def delete_team(
     team_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("teams.delete"),
+    _: None = require_permission("teams.team.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     team = await _get_team_or_404(db, team_id, entity_id)
@@ -626,7 +626,7 @@ async def get_team_history(
     team_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("teams.read"),
+    _: None = require_permission("teams.team.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Tous les membres (actifs + sortis), ordres chronologiquement DESC.

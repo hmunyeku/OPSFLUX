@@ -32,7 +32,7 @@ router = APIRouter(
 )
 
 
-@router.get("", dependencies=[require_permission("asset.read")])
+@router.get("", dependencies=[require_permission("asset.asset.read")])
 async def list_assets(
     search: str | None = None,
     status: str | None = None,
@@ -61,7 +61,7 @@ async def list_assets(
     return await paginate(db, query, pagination)
 
 
-@router.get("/tree", dependencies=[require_permission("asset.read")])
+@router.get("/tree", dependencies=[require_permission("asset.asset.read")])
 async def get_asset_tree(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -88,7 +88,7 @@ async def get_asset_tree(
     ]
 
 
-@router.get("/{asset_id}", dependencies=[require_permission("asset.read")])
+@router.get("/{asset_id}", dependencies=[require_permission("asset.asset.read")])
 async def get_asset(
     asset_id: UUID,
     entity_id: UUID = Depends(get_current_entity),

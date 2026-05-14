@@ -2797,7 +2797,7 @@ async def list_credential_types(
 async def create_credential_type(
     body: CredentialTypeCreate,
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.credtype.manage"),
+    _: None = require_permission("paxlog.credential_type.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a credential type."""

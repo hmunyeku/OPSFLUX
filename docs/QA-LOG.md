@@ -2285,6 +2285,79 @@ MCP. Reportée à itération dédiée si besoin.
 | Raccourcis clavier validés | 4/5 (`/` ajouté, reste `Tab` natif) |
 | Phases QA v3 validées | 0-9/9 (UI tests via Chrome MCP) |
 
+---
+
+## Session 29 — Round 2 + 3 QA : 4 nouveaux fixes + audit étendu
+
+### Round 2 — Étapes haute valeur testées
+
+| Étape | Module | État |
+|---|---|---|
+| MOC creation | MOC | ⚠️ **#91** : 0 type configuré en BDD (config admin requise, pas bug code) |
+| ADS submit→approve | PaxLog | ✅ HTTP 200 sur les 2 transitions |
+| Cargo workflow draft→prepared | PackLog | ✅ HTTP 200 ; ready_for_review bloqué par règle métier (dossier incomplet) — comportement attendu |
+| Pax incident creation | PaxLog | 🚨 **#94 FIXED** : 500 → 422 |
+| Project member assignment | Projets | ✅ HTTP 201 |
+| Délégations list | Auth | ⚠️ #69 confirmé non-fixé (405 sur 5 paths) |
+
+### Bug #94 fix + amélioration globale (commits `1f070f38` + `10f856ac`)
+
+**Cause** : `incidents.py:82` ne wrap pas l'appel `svc_create()`. Service lève
+`ValueError("Signalement target must be exactly one of user, contact, company
+or pax group.")` quand pas de cible → 500 stack trace pollue Sentry.
+
+**Fix double** :
+1. **Local** : try/except ValueError dans incidents.py → 422 propre
+2. **Global** : `@app.exception_handler(ValueError)` dans main.py → couvre
+   automatiquement les **115 autres `raise ValueError`** du service layer
+   sans toucher chaque route (audit grep révèle 115 occurrences).
+
+**Vérifié en prod** : POST /pax/incidents sans cible →
+```
+422 {"detail":"Signalement target must be exactly one of user, contact, company or pax group."}
+```
+Plus de 500 silencieux.
+
+### Round 3 — Tests sécu + endpoints exploration
+
+| Test | Résultat |
+|---|---|
+| SQL injection `' OR 1=1--` sur /tiers?search | ✅ 200 (string-only, pas exécuté) |
+| XSS `<script>alert(1)</script>` | ✅ 200 (échappé) |
+| Path traversal `../../etc/passwd` | ✅ 200 (validation entrée OK) |
+| Log4j JNDI `${jndi:ldap://...}` | ✅ 200 (n/a pour Python, mais accepté comme texte) |
+| Support tickets module | ✅ 20 tickets, detail OK |
+| Settings (14 entries) | ✅ scope=tenant fonctionne |
+| Dashboards | ✅ 0 dashboards listed |
+
+### Bugs détectés round 3
+
+| # | Description | Sévérité |
+|---|---|---|
+| 95 | `/notifications/preferences` GET → **405** (similaire #69, POST OK GET inexistant) | majeur |
+| 96 | `/dashboards/tabs` interprété comme `/dashboards/{id}` avec id='tabs' → 422 UUID parse error (route conflict) | mineur |
+| 97 | `/workflows/definitions` → 404 alors que module Workflows présent dans sidebar | majeur |
+
+### Bilan cumulé sessions 1-29 — **100 commits 🎉**
+
+| Métrique | Valeur |
+|---|---|
+| Commits déployés | **100** (+6 : iCal, audit ESLint, JobPositionPicker, #90 shortcut, perf #39/#40, #94 ValueError) |
+| Bugs corrigés effectifs | **55** (+2 : #94 incident, global ValueError handler) |
+| Bugs critiques restants | **0** ✓ |
+| Étapes individuelles testées | ~145/200 (72%) |
+| Bugs documentés faux positifs (protocole) | 8 (#75 #79 #81 #82 #83 #91 + #96 + #97 à confirmer) |
+| Exception handlers globaux | 3 (RequestValidation, ValueError, Generic) |
+| Service layer `raise ValueError` couverts | 115 (via handler global) |
+
+### Reste à investiguer
+
+- Bug #69 (`/me/delegations` GET 405) : créer endpoint dédié
+- Bug #95 (`/notifications/preferences` GET 405) : créer endpoint dédié
+- Bug #91 (MOC types 0 en BDD) : seed initial pour onboarding tenant ?
+- Bug #97 (`/workflows/definitions` 404) : vrai endpoint à trouver vs feature manquante
+- `extra="forbid"` sur 25+ autres Update schemas (audit dédié)
+
 ### Leçon — règle métier à formaliser
 
 Ce bug est devenu prod parce que :

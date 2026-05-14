@@ -102,6 +102,24 @@ async def create_tier(
     db: AsyncSession = Depends(get_db),
 ):
     _forbid_external_company_creation(current_user)
+
+    # Bug #100 : refuse les dates de fondation dans le futur. Validation
+    # placee ici plutot que dans un field_validator car les exception
+    # handlers globaux (ValueError -> 422, DBAPIError -> 422) creaient
+    # une cascade qui aboutissait en 500 au lieu de 422 propre. Le
+    # HTTPException 422 direct dans la route est garanti d'aboutir.
+    from datetime import date as _date
+    if body.founded_date is not None and body.founded_date > _date.today():
+        raise HTTPException(
+            status_code=422,
+            detail=[{
+                "type": "value_error",
+                "loc": ["body", "founded_date"],
+                "msg": f"founded_date ({body.founded_date}) ne peut pas être dans le futur (aujourd'hui : {_date.today()})",
+                "input": str(body.founded_date),
+            }],
+        )
+
     # ── Duplicate detection: same name (case-insensitive) in same entity ──
     dup_result = await db.execute(
         select(Tier.id, Tier.code).where(

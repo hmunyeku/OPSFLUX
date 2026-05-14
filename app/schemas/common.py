@@ -557,16 +557,12 @@ class TierCreate(BaseModel):
     # additional contacts can be added later via the detail panel.
     contacts: list[TierContactCreate] = Field(default_factory=list)
 
-    @field_validator("founded_date")
-    @classmethod
-    def _founded_date_not_in_future(cls, v: date | None) -> date | None:
-        # Bug #100 : refuse les dates de fondation futures (impossible
-        # qu'une entreprise ait ete fondee apres aujourd'hui).
-        if v is not None and v > _date_t.today():
-            raise ValueError(
-                f"founded_date ({v}) ne peut pas etre dans le futur (aujourd'hui : {_date_t.today()})"
-            )
-        return v
+    # Note Bug #100 : la validation de founded_date pas dans le futur a
+    # ete deplacee dans la route create_tier (app/api/routes/modules/tiers.py)
+    # car le field_validator + ValueError + handler global creait une
+    # cascade qui retournait 500 au lieu de 422 (probleme de routing
+    # d'exception_handler en FastAPI). Le check direct via HTTPException
+    # dans la route est garanti d'aboutir au 422 propre.
 
 
 class TierUpdate(BaseModel):

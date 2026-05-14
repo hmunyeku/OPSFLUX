@@ -175,6 +175,14 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     first_name: str | None = None
     last_name: str | None = None
+    # Bug #65 (QA v3 Phase 1) : avant ce fix, UserUpdate n'avait pas de
+    # champ `password` du tout. Quand un admin envoyait
+    # PATCH /users/<id> {"password":"..."}, Pydantic ignorait silencieusement
+    # le champ inconnu (mode permissif) et la route retournait 200 sans rien
+    # changer cote BDD -- impossible de detecter l'echec du reset depuis le
+    # client. Maintenant on accepte explicitement password + on le hashe dans
+    # la route avant le setattr loop.
+    password: str | None = Field(None, min_length=8, max_length=200)
     default_entity_id: UUID | None = None
     intranet_id: str | None = None
     language: str | None = None

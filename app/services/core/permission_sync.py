@@ -130,9 +130,17 @@ async def sync_permissions_and_roles() -> None:
         all_roles.extend(system_roles)
 
         # SUPER_ADMIN gets wildcard, READER gets all .read permissions
+        # EXCEPT admin.* perms (Bug #67 QA v3 : IDOR) - admin.users.read
+        # otherwise leaked PII (passport, medical, addresses) of all users to
+        # any reader. admin.* perms are by nature admin-only and must remain in
+        # SUPER_ADMIN / TENANT_ADMIN scope.
+        # rbac.* and audit.* are also pulled out for the same reason.
+        READER_DENYLIST_PREFIXES = ("admin.", "rbac.", "audit.", "core.rbac.")
         role_permissions_map["SUPER_ADMIN"] = ["*"]
         role_permissions_map["READER"] = [
-            p["code"] for p in all_permissions if p["code"].endswith(".read")
+            p["code"] for p in all_permissions
+            if p["code"].endswith(".read")
+            and not any(p["code"].startswith(prefix) for prefix in READER_DENYLIST_PREFIXES)
         ]
 
         # Upsert roles

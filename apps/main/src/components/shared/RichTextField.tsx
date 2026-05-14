@@ -386,52 +386,56 @@ export function RichTextField({
   // from "external update — reset editor to hydrated value".
   const lastEmittedCanonRef = useRef<string>('')
 
+  // Bug #39/#40 perf fix (session 28) : auparavant le tableau d'extensions
+  // Tiptap etait recree a CHAQUE render parent, et `onChange` (souvent une
+  // arrow inline dans le caller) changeait aussi a chaque render.
+  // Consequence : useEditor recreait totalement Tiptap (50-500ms par
+  // mount), causant les freeze 30s+ rapportes sur CreateTier (4 instances
+  // de RichTextField) et autres formulaires riches.
+  // Fix : stabiliser onChange via ref (le ref est mute mais identite stable),
+  // memoiser le tableau d'extensions (les configs sont serializables, pas
+  // de re-build a chaque render).
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
+  const extensions = useMemo(() => [
+    StarterKit.configure({
+      heading: { levels: [1, 2, 3] },
+      codeBlock: false,
+      link: {
+        openOnClick: false,
+        autolink: true,
+        HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
+      },
+    }),
+    Placeholder.configure({
+      placeholder: placeholder ?? '',
+    }),
+    ResizableImage.configure({
+      inline: false,
+      allowBase64: false,
+    }),
+    Table.configure({
+      resizable: true,
+      HTMLAttributes: { class: 'rt-table' },
+    }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    SlashCommands.configure({ suggestion: slashCommandsConfig }),
+  ], [placeholder])
+
   const editor = useEditor({
-    extensions: [
-      // StarterKit v3 already bundles Link, Heading, Bold, Italic, Strike,
-      // Code, BulletList, OrderedList, Blockquote, HorizontalRule, History.
-      // We only tune Link behaviour (external target, no auto-open on click).
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        codeBlock: false, // keep it simple — inline `code` only
-        link: {
-          openOnClick: false,
-          autolink: true,
-          HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
-        },
-      }),
-      Placeholder.configure({
-        placeholder: placeholder ?? '',
-      }),
-      ResizableImage.configure({
-        // Inline images are rarely useful inside paragraphs; keep them as
-        // block nodes so they get their own line and the reconciliation
-        // regex has a clean anchor.
-        inline: false,
-        allowBase64: false,
-      }),
-      Table.configure({
-        resizable: true,
-        HTMLAttributes: { class: 'rt-table' },
-      }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      SlashCommands.configure({ suggestion: slashCommandsConfig }),
-    ],
+    extensions,
     content: value || '',
     editable: !disabled,
     onUpdate: ({ editor: ed }) => {
       const html = ed.isEmpty ? '' : ed.getHTML()
-      // Canonicalise: every `<img data-attachment-id="X">` must carry
-      // `src="/api/v1/attachments/X/download"` regardless of whether
-      // the editor currently shows a blob URL (hydrated) or a raw
-      // `createObjectURL` just used for the in-flight preview.
       const canon = canonicaliseAttachmentUrls(html)
       lastEmittedCanonRef.current = canon
-      onChange(canon)
+      onChangeRef.current(canon)
     },
-  })
+  }, [extensions, disabled])
 
   // Sync the editor on external value changes (not our own roundtrip).
   // Images are hydrated asynchronously — we fetch each blob via the

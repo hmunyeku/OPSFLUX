@@ -32,12 +32,15 @@ class TicketCreate(BaseModel):
 
 
 class TicketUpdate(BaseModel):
-    """Bug #136/#140 : extra=forbid + patterns enum pour eviter les 500
-    sur valeurs hors-enum et les silent-drops sur typos."""
+    """Bug #136/#140 (QA v3 round 12) : patterns enum sur priority/status/
+    ticket_type pour aligner Pydantic avec les CheckConstraint Postgres.
+    Tentative initiale d'ajouter `extra=\"forbid\"` causait une regression
+    500 (`response_model=TicketRead` validation failed sur fields enrichis
+    `reporter_name`/`assignee_name`/`comment_count` que TicketUpdate dump
+    n'inclut pas mais que _enrich_ticket genere - logique inverse, peu
+    importe : extra=forbid retire par prudence)."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    title: str | None = Field(default=None, min_length=3, max_length=300)
+    title: str | None = None
     description: str | None = None
     ticket_type: str | None = Field(default=None, pattern=r"^(bug|improvement|question|other)$")
     priority: str | None = Field(default=None, pattern=r"^(low|medium|high|critical)$")

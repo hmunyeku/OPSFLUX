@@ -343,6 +343,27 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     return () => document.removeEventListener('keydown', handler)
   }, [setPaletteOpen])
 
+  // Bug #90 (QA v3 Phase 9) : `/` focus la recherche globale -- pattern UX
+  // courant (GitHub, Linear, Stripe, etc.). Audit Chrome MCP avait revele
+  // que seul Cmd/Ctrl+K etait implemente, manquait le shortcut `/` simple
+  // pour les utilisateurs sans clavier modifier. Skip si on est deja dans
+  // un input/textarea/contenteditable pour ne pas hijack la saisie.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== '/') return
+      const target = e.target as HTMLElement | null
+      if (!target) return
+      const tag = target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (target.isContentEditable) return
+      if (target.closest?.('.ProseMirror')) return
+      e.preventDefault()
+      searchInputRef.current?.focus()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
+
   // Clear search when navigating to a different page
   const { pathname } = useLocation()
   useEffect(() => {

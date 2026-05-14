@@ -79,26 +79,34 @@ async def create_incident(
     """Record a PAX incident."""
     from app.services.modules.paxlog_service import create_signalement as svc_create
 
-    result = await svc_create(
-        db,
-        entity_id=entity_id,
-        data={
-            "user_id": body.user_id,
-            "contact_id": body.contact_id,
-            "company_id": body.company_id,
-            "pax_group_id": body.pax_group_id,
-            "asset_id": body.asset_id,
-            "severity": body.severity,
-            "description": body.description,
-            "incident_date": body.incident_date,
-            "ban_start_date": body.ban_start_date,
-            "ban_end_date": body.ban_end_date,
-            "category": body.category,
-            "decision": body.decision,
-            "decision_duration_days": body.decision_duration_days,
-            "recorded_by": current_user.id,
-        },
-    )
+    # Bug #94 (QA v3 round 2) : avant ce fix, le service levait un ValueError
+    # quand aucune cible (user/contact/company/pax_group) n'etait fournie,
+    # et le route handler ne l'attrapait pas -> 500 Internal Server Error
+    # avec stack trace, au lieu d'un 422 informatif. Maintenant on traduit
+    # les erreurs de validation metier en HTTPException 422 explicit.
+    try:
+        result = await svc_create(
+            db,
+            entity_id=entity_id,
+            data={
+                "user_id": body.user_id,
+                "contact_id": body.contact_id,
+                "company_id": body.company_id,
+                "pax_group_id": body.pax_group_id,
+                "asset_id": body.asset_id,
+                "severity": body.severity,
+                "description": body.description,
+                "incident_date": body.incident_date,
+                "ban_start_date": body.ban_start_date,
+                "ban_end_date": body.ban_end_date,
+                "category": body.category,
+                "decision": body.decision,
+                "decision_duration_days": body.decision_duration_days,
+                "recorded_by": current_user.id,
+            },
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
     # Commit polymorphic children staged during the Create panel
     # (evidence photos, reports, witness statements…).

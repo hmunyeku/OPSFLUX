@@ -512,14 +512,17 @@ async def get_dashboard(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a single dashboard by ID."""
-    # Bug #163 (QA round 44) : GET /dashboards/{id} -> 500 alors que la
-    # creation (POST) et PUT marchent. Diagnostic cible (methode #160 :
-    # ne jamais supposer la cause) — capture type+module+msg exact.
     import logging as _lg
     _log = _lg.getLogger("app.dashboard")
     tenant_id = await _get_tenant_id(entity_id, db)
+    dashboard = await svc_get_dashboard(dashboard_id, tenant_id, db)
+
+    # Bug #163 : le log d'acces (audit, non-critique) ne doit JAMAIS
+    # faire echouer la lecture d'un dashboard. Avant fix, un mismatch de
+    # type sur dashboard_access_logs.ip_address (inet vs varchar)
+    # propageait un 500 sur GET. Defense en profondeur : best-effort +
+    # rollback du sous-echec pour ne pas empoisonner la transaction.
     try:
-        dashboard = await svc_get_dashboard(dashboard_id, tenant_id, db)
         ip_address = request.client.host if request.client else None
         await log_dashboard_access(
             dashboard_id=dashboard.id,
@@ -530,21 +533,11 @@ async def get_dashboard(
             db=db,
         )
         await db.commit()
-        return dashboard
-    except Exception as exc:  # noqa: BLE001
-        from fastapi import HTTPException as _HE
-        if isinstance(exc, _HE):
-            raise
-        _log.exception("get_dashboard failed")
-        raise _HE(
-            status_code=500,
-            detail={
-                "code": "DASHBOARD_GET_FAILED",
-                "_diag_type": type(exc).__name__,
-                "_diag_module": type(exc).__module__,
-                "_diag_msg": str(exc)[:300],
-            },
-        )
+    except Exception:  # noqa: BLE001
+        _log.warning("log_dashboard_access failed (non-blocking)", exc_info=True)
+        await db.rollback()
+
+    return dashboard
 
 
 @router.put(

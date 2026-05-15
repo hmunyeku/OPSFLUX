@@ -11,7 +11,7 @@ from datetime import datetime
 from uuid import UUID as PyUUID
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
@@ -295,7 +295,13 @@ class DashboardAccessLog(UUIDPrimaryKeyMixin, Base):
         String(20), nullable=False, default="view",
         comment="Type: 'view', 'edit', 'tv', 'export', 'api'",
     )
-    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    # Bug #163 : la colonne DB `dashboard_access_logs.ip_address` est de
+    # type PostgreSQL `inet` (cree ainsi par migration) mais le modele la
+    # declarait String(45) -> asyncpg envoyait un varchar ->
+    # DatatypeMismatchError (inet attendu) -> 500 sur GET /dashboards/{id}
+    # (le log d'acces faisait planter la lecture). Aligne sur INET pour
+    # que SQLAlchemy/asyncpg fasse le bon binding/cast.
+    ip_address: Mapped[str | None] = mapped_column(INET, nullable=True)
     session_duration_seconds: Mapped[int | None] = mapped_column(
         Integer, nullable=True
     )

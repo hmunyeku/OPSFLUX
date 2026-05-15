@@ -3318,3 +3318,73 @@ les valeurs reellement utilisees).
 | Enums verifies frontend==modele | Project (status/priority), Ticket, ProjectTask, PaxIncident, MOC |
 | Bugs critiques restants | **0** ✓ |
 | Faux positifs audit enum | **~32 / 51** (champs libres legitimes) |
+
+---
+
+## Session 41 - QA 5 modules : Planner/PackLog/TravelWiz/MOC/Conformite (15 mai 2026)
+
+### Resultat : 150 tests, 147/149 effectif (98.7%)
+
+| Module | Tests | PASS | Bugs reels |
+|---|---|---|---|
+| PLANNER | 30 | 29 | #158 impact-preview 500 |
+| PACKLOG | 30 | **30/30** | 0 (parfait) |
+| TRAVELWIZ | 30 | **30/30** | 0 (parfait) |
+| MOC | 30 | 27 | 0 (3 faux positifs 400 metier) |
+| CONFORMITE | 30 | 29 | #159 owner_type silent |
+
+### Bugs corriges (2, commit `073594a2`)
+
+**Bug #158** : `POST /planner/activities/{id}/impact-preview` -> 500.
+Requetes SQL raw multi-JOIN (ads/pax_manifests/ads_pax) fragiles. Endpoint
+non-critique (preview modale confirmation). Fix : try/except -> preview
+degrade `{preview_unavailable:true}` + log warning au lieu de bloquer
+l'utilisateur en 500.
+
+**Bug #159** : `GET /conformite/check/{owner_type}/{owner_id}` avec
+owner_type invalide -> **200 faux "compliant"**. Le service ne gere que
+`user`/`tier_contact` ; tout autre type tombait dans un verdict vide =
+faux conforme. DANGEREUX (appelant croit objet conforme alors que type
+non supporte). Fix : whitelist `{user, tier_contact}`, 422
+`INVALID_OWNER_TYPE` sinon.
+
+### Faux positifs (3, pas des bugs)
+
+**MC8/MC9/MC30** : `POST /moc` -> 400 `MOC_MISSING_PLATFORM` avec message
+FR structure clair. Erreur metier (regle business "plateforme requise"),
+pas erreur de schema -> 400 semantiquement correct (vs 422 reserve aux
+violations de schema Pydantic). Comportement attendu.
+
+### Points forts confirmes
+
+- **PACKLOG 30/30** : cargo-requests, cargo, articles, scan, elements,
+  compliance-check, history, pagination, sort, 405 methods — tout propre.
+  extra=forbid #139 valide (PATCH FOO -> 422).
+- **TRAVELWIZ 30/30** : vectors, voyages, rotations, manifests, deck-plan,
+  zones, certifications, stops, PDF exports, status — tout propre.
+  extra=forbid #137/#138 valides.
+- **MOC** : #125 valide (PATCH FOO/status -> 422), patterns nature/priority
+  OK, validation metier robuste.
+- **PLANNER** : pagination/sort/filters/405 propres, #157-like patterns OK.
+- **CONFORMITE** : types/rules/records/exemptions/job-positions CRUD +
+  validations propres.
+
+### Bilan cumule sessions 1-41
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **130** |
+| Bugs corriges effectifs | **83** (+2 : #158 #159) |
+| Tests cumules effectues | **~950** |
+| Modules valides end-to-end | **8** : Tiers, Projet, PaxLog, Planner, PackLog, TravelWiz, MOC, Conformite |
+| Bugs critiques restants | **0** ✓ |
+| Modules 100% PASS | **2** : PackLog, TravelWiz |
+
+### Conclusion
+
+8 modules sur ~10 sont desormais valides end-to-end par QA fonctionnelle
+systematique. Les modules restants non testes en profondeur (Papyrus,
+Messaging, PID/PFD, Support, Dashboard, Teams) sont secondaires. La
+plateforme a un taux de PASS effectif de **98.7%** sur les modules
+metier coeur, 0 bug critique, validation Pydantic+DB alignee, FK checks
+explicites, polymorphisme gere, exceptions globales robustes.

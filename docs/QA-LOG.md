@@ -3388,3 +3388,82 @@ Messaging, PID/PFD, Support, Dashboard, Teams) sont secondaires. La
 plateforme a un taux de PASS effectif de **98.7%** sur les modules
 metier coeur, 0 bug critique, validation Pydantic+DB alignee, FK checks
 explicites, polymorphisme gere, exceptions globales robustes.
+
+---
+
+## Session 42 - QA 6 modules secondaires + regression #140 enfin resolue (15 mai 2026)
+
+### 120 tests : Support/Teams/Messaging/PID/Papyrus/Dashboard
+
+| Module | PASS | Note |
+|---|---|---|
+| MESSAGING | **15/15** | parfait |
+| SUPPORT | 23/25 -> 25 | #160 fix |
+| TEAMS | 19/20 -> 20 | #161 fix |
+| DASHBOARD | 14/15 | 1 cosmetique (405 vs 404) |
+| PAPYRUS | 10/15 | 5 faux positifs (path /documents auth scope) |
+| PID | 5/15 | 10 faux positifs (paths multi-lignes mal extraits du scan) |
+
+### Bug #160 CRITIQUE - regression #140 ENFIN diagnostiquee
+
+`PATCH /support/tickets/{id}` body NON-vide -> 500 ; body vide -> 200.
+La regression detectee session 37 (#140) n'avait JAMAIS ete reellement
+resolue : le hotfix `94a2bcfb` retirait `extra="forbid"` de TicketUpdate
+en supposant que c'etait la cause -> faux. Le bug a survecu en prod
+pendant 5 sessions.
+
+**Vraie cause** (diagnostiquee session 42) : apres `db.commit()` avec un
+changement reel, `await db.refresh(ticket, ["comments"])` (refresh partiel
+d'une relation) laisse les colonnes scalaires dans un etat ou
+`_enrich_ticket` -> `getattr` -> lazy load async hors greenlet -> 500.
+Un ticket frais propre echouait AUSSI (preuve : pas un probleme de donnees
+legacy). La route CREATE faisait le meme refresh mais marchait car l'objet
+etait neuf (collection comments=[] initialisee, pas de lazy load).
+
+**Fix #160** : re-fetch explicite `select(SupportTicket).options(
+selectinload(SupportTicket.comments)).where(id==...)` apres commit, au
+lieu de `db.refresh(ticket, ["comments"])`. Pattern identique a la route
+GET /tickets/{id} qui retourne 200 de maniere fiable.
+
+**Lecon** : ne JAMAIS supposer la cause d'un bug sans diagnostic complet.
+Le hotfix #140 a traite un symptome suppose (extra=forbid) sans
+reproduire/isoler. Resultat : 5 sessions avec un 500 actif en prod sur
+toute modification de ticket. La methode correcte (#160) : reproduire
+(body vide vs non-vide), isoler (ticket frais vs legacy), identifier
+(refresh relation async), fixer (re-fetch selectinload), verifier.
+
+### Bug #161 - Team member FK check (pattern #155)
+
+`POST /teams/{id}/members` user_id/contact_id inexistant -> 500
+IntegrityError FK. Fix : check existence avant insertion -> 404. Meme
+correctif que #155 (project members) applique a teams.
+
+### Faux positifs (non-bugs)
+
+- PID 10 fails : routes `/pid/library`, `/pid/tags/*` n'ont pas le path
+  exact teste (decorateurs multi-lignes mal extraits par le scan sed).
+  Le module repond (pas de 500), juste 404 sur paths inexacts.
+- Papyrus 5 fails : `/documents` (sans /templates) -> 401, scope
+  permission specifique. Pas un bug, RBAC actif.
+- DASHBOARD DB10 : PATCH fake -> 405 au lieu de 404 (cosmetique, route
+  n'expose pas PATCH sur cet id).
+
+### Bilan cumule sessions 1-42
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **133** |
+| Bugs corriges effectifs | **85** (+2 : #160 #161) |
+| Regressions resolues (diagnostiquees correctement) | #140->#160 (apres 5 sessions) |
+| Tests cumules | **~1070** |
+| Modules valides end-to-end | **11** (8 coeur + Support/Teams/Messaging) |
+| Modules 100% PASS | **3** : PackLog, TravelWiz, Messaging |
+| Bugs critiques restants | **0** ✓ |
+
+### Pattern systemique identifie (a auditer ailleurs)
+
+`db.refresh(obj, ["relation"])` apres commit en SQLAlchemy async est
+fragile quand un serializer accede ensuite a d'autres attributs/relations.
+Pattern sur : support (fixe #160). A auditer : tout `db.refresh(x, [...])`
+suivi d'un `_enrich_*`/serialisation custom. Recommandation : preferer
+re-fetch `select().options(selectinload())` apres mutation.

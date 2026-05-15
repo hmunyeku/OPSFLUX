@@ -3296,10 +3296,12 @@ export function ProjectDetailPanel({ id }: { id: string }) {
     }
   }
 
+  // Ticket SUP-0051 (pt 3) : NOM du projet en grand (titre) + CODE en
+  // sous-titre gris/petit. Inversion de la presentation precedente.
   return (
     <DynamicPanelShell
-      title={project.code}
-      subtitle={project.name}
+      title={project.name}
+      subtitle={project.code}
       icon={<FolderKanban size={14} className="text-primary" />}
       actions={
         <>

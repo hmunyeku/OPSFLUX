@@ -167,7 +167,11 @@ function CreateTicketPanel() {
   const typeOptions = useDictionaryOptions('ticket_type')
   const priorityOptions = useDictionaryOptions('ticket_priority')
   const { stagingRef, stagingOwnerType } = useStagingRef('support_ticket')
-  const [form, setForm] = useState<TicketCreate>({
+  // Ticket SUP-0053 : le formulaire conservait le texte du ticket
+  // precedent apres soumission (le panel pouvait rester monte / etre
+  // rouvert sans remontage -> useState pas reinitialise). On factorise
+  // l'etat initial pour pouvoir le reappliquer explicitement apres succes.
+  const buildEmptyForm = (): TicketCreate => ({
     title: '',
     description: '',
     ticket_type: 'bug',
@@ -179,12 +183,17 @@ function CreateTicketPanel() {
       viewport: `${window.innerWidth}x${window.innerHeight}`,
     },
   })
+  const [form, setForm] = useState<TicketCreate>(buildEmptyForm)
 
   const handleSubmit = async () => {
     if (!form.title.trim()) return
     try {
       await createTicket.mutateAsync({ ...form, staging_ref: stagingRef } as TicketCreate & { staging_ref?: string })
       toast({ title: t('support.toast.ticket_submitted'), variant: 'success' })
+      // SUP-0053 : reset explicite AVANT fermeture pour garantir un
+      // formulaire vierge a la prochaine ouverture, meme si le composant
+      // n'est pas demonte par le gestionnaire de panel dynamique.
+      setForm(buildEmptyForm())
       closeDynamicPanel()
     } catch {
       toast({ title: t('support.toast.ticket_submit_error'), variant: 'error' })

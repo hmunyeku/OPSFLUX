@@ -3467,3 +3467,60 @@ fragile quand un serializer accede ensuite a d'autres attributs/relations.
 Pattern sur : support (fixe #160). A auditer : tout `db.refresh(x, [...])`
 suivi d'un `_enrich_*`/serialisation custom. Recommandation : preferer
 re-fetch `select().options(selectinload())` apres mutation.
+
+---
+
+## Session 43 - Audit transverse pattern #160 (db.refresh async fragile)
+
+Apres resolution #160 (PATCH support 500), audit proactif du pattern
+systemique sur tout le module support : `db.refresh(obj,["rel"])`
+post-commit suivi de `_enrich_ticket` (acces relation -> lazy load hors
+greenlet async -> 500).
+
+### Resultat audit
+
+7 routes support manipulent un ticket puis le serialisent :
+
+| Route | Etat avant | Action |
+|---|---|---|
+| create_ticket | vieux pattern (marchait par chance, objet neuf) | -> helper |
+| update_ticket (PATCH) | BUG #160 (fixe session 42) | -> helper |
+| **assign_ticket** | **BUG #160 ACTIF non detecte** | -> helper |
+| **satisfaction** | **BUG #160 ACTIF non detecte** | -> helper |
+| resolve_ticket | deja fixe (cas-par-cas anterieur) | laisse (OK) |
+| close_ticket | deja fixe | laisse (OK) |
+| reopen_ticket | deja fixe | laisse (OK) |
+
+**2 bugs #160-like ACTIFS supplementaires** (assign, satisfaction) trouves
+par audit transverse — non detectes par les 120 tests car ces workflows
+(assigner un ticket, noter la satisfaction) n'etaient pas dans le scope
+de test. L'audit proactif du pattern a permis de les attraper AVANT
+qu'un utilisateur ne tombe dessus.
+
+### Fix : helper centralise
+
+`_reload_ticket(db, ticket_id)` : re-fetch `select(SupportTicket).
+options(selectinload(comments)).where(id==...)`. Applique sur les 4
+routes a risque. DRY + garantit qu'aucune future route ticket ne
+retombe dans le piege. Les 3 routes deja correctes (resolve/close/
+reopen) laissees telles quelles (anti-slop : pas de refactor cosmetique
+sans valeur fonctionnelle).
+
+### Lecon meta
+
+Un bug systemique correctement diagnostique (#160) doit declencher un
+**audit transverse** du meme pattern, pas juste le fix ponctuel. Ici
+l'audit a trouve 2 bugs ACTIFS de plus (assign, satisfaction) que les
+tests fonctionnels n'avaient pas couverts. Le cout d'1 audit < le cout
+de 2 incidents prod futurs.
+
+### Bilan cumule sessions 1-43
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **135** |
+| Bugs corriges effectifs | **87** (+2 actifs : assign #160b, satisfaction #160c) |
+| Pattern systemique audite + centralise | db.refresh async -> _reload_ticket helper |
+| Tests cumules | **~1075** |
+| Modules valides end-to-end | **11** |
+| Bugs critiques restants | **0** ✓ |

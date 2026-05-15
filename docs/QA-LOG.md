@@ -3243,3 +3243,78 @@ s'executer independamment des etats anterieurs.
 **Etat actuel** : Plateforme stable, prod robuste, tous CRUD principaux
 fonctionnels avec validation Pydantic + Postgres alignees, FK checks
 explicites, polymorphisme PAX auto-detecte.
+
+---
+
+## Session 40 - Schema hardening cible : audit 51 enums sans pattern (15 mai 2026)
+
+### Demarche
+
+Audit systematique : scan de tous les schemas Create/Update pour
+detecter (a) 51 champs enum-like `str` sans `pattern` Pydantic, (b) 115
+schemas Update sans `extra="forbid"`.
+
+### Principe directeur (anti-regression, lecon #140)
+
+**Un pattern strict ne doit JAMAIS rejeter une valeur que le frontend
+envoie legitimement.** Avant d'appliquer un pattern sur un champ enum,
+verification obligatoire : `model commentaire == frontend api.ts type
+TS == enum reellement ferme`. Si divergence ou champ libre cote frontend
+(`string` au lieu d'union litterale) -> NE PAS patcher.
+
+### Batch 1 applique (commit `303928f6`) - Bug #157
+
+| Champ | Pattern | Verification |
+|---|---|---|
+| ProjectCreate.status | `^(draft\|planned\|active\|on_hold\|completed\|cancelled)$` | model L1763 == api.ts L1272 ✓ |
+| ProjectCreate.priority | `^(low\|medium\|high\|critical)$` | model L1764 == api.ts L1273 ✓ |
+| ProjectUpdate.status | idem | enum ferme confirme |
+| ProjectUpdate.priority | idem | enum ferme confirme |
+
+**Verification PROD 14/14 PASS** :
+- 6 status frontend (draft/planned/active/on_hold/completed/cancelled) -> 201 ✓ zero regression
+- 4 priority frontend (low/medium/high/critical) -> 201 ✓
+- status/priority='INVALID' POST -> 422 ✓
+- PATCH status='INVALID' -> 422, PATCH priority='high' -> 200 ✓
+
+### Champs volontairement NON patches (patch = regression)
+
+| Champ | Raison |
+|---|---|
+| LegalIdentifier.type | siret/rccm/niu/tva/nif/... liste OUVERTE multi-pays (frontend `string`) |
+| PaxIncident.category/decision | texte libre, pas d'enum frontend |
+| ComplianceType.category | frontend `string` - utilisateur cree ses propres categories |
+| ComplianceRule.priority | frontend `string` libre, pas d'enum modele |
+| asset_registry.* status (12 champs) | enums non verifiables sans donnees BDD reelles - audit dedie requis |
+| pid_pfd, planner ScenarioActivity, etc. | modules moins utilises - audit ulterieur par module |
+
+### Enums deja securises (sessions anterieures)
+
+- TicketCreate/Update priority/ticket_type/status (#136)
+- ProjectTaskCreate status/priority (#154)
+- PaxIncidentCreate severity (pattern pre-existant)
+- MOCUpdate (#125 extra=forbid)
+- TierUpdate/ProjectUpdate/ProjectTaskUpdate/TierContactUpdate
+  /VectorUpdate/VoyageUpdate/CargoRequestUpdate (#132-139 extra=forbid)
+
+### Conclusion methodologique
+
+L'audit "51 enums sans pattern" a un fort taux de **faux positifs** : la
+majorite sont des champs **volontairement libres** (categories user-
+definies, identifiants legaux multi-pays, champs texte). Appliquer 45
+patterns aveugles aurait casse le frontend. Position retenue : patcher
+UNIQUEMENT les enums fermes verifies frontend==modele. Les modules non
+testes (asset_registry, pid_pfd) feront l'objet d'un audit dedie quand
+ils seront en scope de QA fonctionnelle (acces donnees BDD pour confirmer
+les valeurs reellement utilisees).
+
+### Bilan cumule sessions 1-40
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **128** |
+| Bugs corriges effectifs | **81** (+1 : #157) |
+| Schemas hardenes (pattern OU extra=forbid) | **19 / 129** |
+| Enums verifies frontend==modele | Project (status/priority), Ticket, ProjectTask, PaxIncident, MOC |
+| Bugs critiques restants | **0** ✓ |
+| Faux positifs audit enum | **~32 / 51** (champs libres legitimes) |

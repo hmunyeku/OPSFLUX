@@ -5856,6 +5856,25 @@ async def add_pax_to_ads(
             detail="PAX can only be added to draft or review-pending AdS.",
         )
 
+    # Ticket SUP-0052 : un AdS de type "individual" ne doit contenir
+    # qu'UN SEUL passager (par definition metier). Avant ce garde-fou,
+    # on pouvait empiler 3 pax sur un AdS individuel (constate sur
+    # ADS-2026-0016 / ADS-2026-0013). Pour plusieurs pax -> type "team".
+    if ads.type == "individual":
+        existing_count = await db.execute(
+            select(func.count()).select_from(AdsPax).where(AdsPax.ads_id == ads_id)
+        )
+        if (existing_count.scalar() or 0) >= 1:
+            raise StructuredHTTPException(
+                400,
+                code="ADS_INDIVIDUAL_SINGLE_PAX",
+                message=(
+                    "Un AdS de type « individuel » ne peut contenir qu'un "
+                    "seul passager. Passez l'AdS en type « équipe » pour "
+                    "ajouter plusieurs passagers."
+                ),
+            )
+
     if not body.user_id and not body.contact_id:
         raise StructuredHTTPException(
             400,

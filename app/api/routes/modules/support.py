@@ -435,7 +435,20 @@ async def update_ticket(
         setattr(ticket, field, value)
 
     await db.commit()
-    await db.refresh(ticket, ["comments"])
+
+    # Bug #160 (QA modules round 42) : `db.refresh(ticket, ["comments"])`
+    # apres un commit AVEC changement reel provoquait un 500 (le PATCH avec
+    # body vide passait, body non-vide -> 500). Cause : refresh partiel
+    # d'une relation post-flush en contexte async SQLAlchemy, puis
+    # `_enrich_ticket` accede a `ticket.comments` -> lazy load hors greenlet.
+    # Fix : re-fetch explicite avec selectinload (pattern identique a la
+    # route GET /tickets/{id} qui, elle, retourne 200 de maniere fiable).
+    refreshed = await db.execute(
+        select(SupportTicket)
+        .options(selectinload(SupportTicket.comments))
+        .where(SupportTicket.id == ticket.id)
+    )
+    ticket = refreshed.scalar_one()
 
     user_ids = {ticket.reporter_id}
     if ticket.assignee_id:

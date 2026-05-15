@@ -475,6 +475,28 @@ async def add_team_member(
             message="Ce membre est deja actif dans cette equipe.",
         )
 
+    # Bug #161 (QA modules round 42) : user_id/contact_id inexistant ->
+    # IntegrityError FK violation au commit -> 500. Meme pattern que #155
+    # (project members). Check explicite avant insertion -> 404 propre.
+    if payload.user_id:
+        from app.models.common import User as _User
+        if (await db.execute(
+            select(_User.id).where(_User.id == payload.user_id).limit(1)
+        )).scalar_one_or_none() is None:
+            raise StructuredHTTPException(
+                404, code="USER_NOT_FOUND",
+                message=f"Utilisateur {payload.user_id} introuvable.",
+            )
+    if payload.contact_id:
+        from app.models.common import TierContact as _TierContact
+        if (await db.execute(
+            select(_TierContact.id).where(_TierContact.id == payload.contact_id).limit(1)
+        )).scalar_one_or_none() is None:
+            raise StructuredHTTPException(
+                404, code="CONTACT_NOT_FOUND",
+                message=f"Contact {payload.contact_id} introuvable.",
+            )
+
     member = TeamMember(
         team_id=team_id,
         user_id=payload.user_id, contact_id=payload.contact_id,

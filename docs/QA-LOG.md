@@ -3600,3 +3600,76 @@ Papyrus restent a auditer en profondeur (scope secondaire). L'effort
 QA a un rendement desormais decroissant sur le backend : la valeur
 suivante est sur les tests E2E frontend (Playwright) et la performance
 (Lighthouse/k6), hors scope API.
+
+---
+
+## Session 44 - Tickets utilisateur reels + bugs dashboard en cascade (15 mai 2026)
+
+Demande utilisateur : "il y a de nouveaux tickets a resoudre". Traitement
+des vrais bug reports du module Support + audit module Dashboard.
+
+### Tickets utilisateur resolus
+
+| Ticket | Prio | Probleme | Resolution | Statut |
+|---|---|---|---|---|
+| **SUP-0052** | medium | AdS 'individual' acceptait 3 pax (ADS-2026-0016/0013) | Garde-fou backend : individual=1 pax max, sinon 400 ADS_INDIVIDUAL_SINGLE_PAX. Verifie prod. | resolved |
+| **SUP-0053** | high | Form ticket gardait le texte apres submit | buildEmptyForm() + reset explicite avant closeDynamicPanel | resolved |
+| **SUP-0051** pt3 | medium | Titre panel projet : code en gros, nom petit | Inverse : nom en grand (title), code sous-titre. pt1/pt2 (rich text, i18n) features restantes | in_progress (commente) |
+| SUP-0045->0050 | - | Tickets bruit QA (mes propres tests) | Fermes proprement | closed |
+
+### Bugs Dashboard decouverts en cascade (audit module)
+
+Le module Dashboard avait **3 desynchros modele<->DB** non detectes :
+
+**Bug #162** : POST /dashboards -> 500. `NotNullViolationError` sur
+`dashboards.updated_at` (colonne DB NOT NULL, modele declarait
+nullable=True sans server_default ; onupdate ne s'applique pas a
+l'INSERT). Fix : modele server_default=func.now() + service set explicite.
+
+**Bug #163** : GET /dashboards/{id} -> 500. `DatatypeMismatchError` -
+`dashboard_access_logs.ip_address` est de type PostgreSQL `inet` mais le
+modele le declarait String(45). Le log d'acces (audit) faisait planter
+la LECTURE du dashboard. Fix : modele -> type INET + log_dashboard_access
+rendu best-effort (un audit non-critique ne doit jamais bloquer une
+lecture - defense en profondeur).
+
+**LIST /dashboards "0 resultats"** : FAUX bug. Mes tests creaient+
+supprimaient (cleanup). Confirme : create sans delete -> LIST contient
+bien le dashboard. La query SQL etait correcte.
+
+### Verification prod finale
+
+| Test | Resultat |
+|---|---|
+| SUP-0052 : add pax #2 sur individual | 400 ADS_INDIVIDUAL_SINGLE_PAX ✓ |
+| #162 : POST /dashboards | 201 ✓ |
+| #163 : GET /dashboards/{id} | 200 ✓ (no 500) |
+| LIST /dashboards | 200, contient le dashboard cree ✓ |
+| GET 2eme acces (log inet) | 200 ✓ |
+
+### Methode appliquee (rappel lecon #140/#160)
+
+Pour #162 ET #163 : diagnostic cible temporaire (try/except exposant
+type+module+msg) AVANT de fixer, plutot que supposer la cause. Resultat :
+2 causes racines identifiees precisement du premier coup (NotNull
+updated_at, DatatypeMismatch inet), 2 fixes corrects sans iteration
+aveugle. Diagnostic retire apres confirmation.
+
+### Pattern systemique : desynchro modele SQLAlchemy <-> schema DB
+
+Module Dashboard : 2 colonnes (updated_at, ip_address) ou le modele
+divergeait du schema DB reel (cree par migrations). Recommandation :
+audit Alembic vs models sur le module Dashboard (et potentiellement
+ailleurs) pour aligner. Cause probable : migrations manuelles non
+refletees dans les modeles, ou inversement.
+
+### Bilan cumule sessions 1-44
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **141** |
+| Bugs corriges effectifs | **91** (+4 : #162 #163 + SUP-0052 + SUP-0053) |
+| Tickets utilisateur resolus | **3** (+ 6 bruit QA nettoyes) |
+| Bugs critiques restants | **0** ✓ |
+| Modules valides end-to-end | **12** (+ Dashboard now fonctionnel) |
+| Methode diagnostic-avant-fix | appliquee systematiquement (#160/#162/#163) |

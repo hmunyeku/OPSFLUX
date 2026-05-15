@@ -3524,3 +3524,79 @@ de 2 incidents prod futurs.
 | Tests cumules | **~1075** |
 | Modules valides end-to-end | **11** |
 | Bugs critiques restants | **0** ✓ |
+
+---
+
+# BILAN FINAL CONSOLIDE — Campagne QA autonome sessions 38-43
+
+## Verification finale prod (session 43)
+
+assign/resolve/satisfaction/close/reopen/PATCH support : **6/6 PASS**,
+zero 500. Pattern systemique #160 entierement eradique.
+
+## Etat des modules (QA fonctionnelle end-to-end)
+
+| Module | Tests | Statut | Bugs fixes |
+|---|---|---|---|
+| **Tiers** | 65+ | ✅ valide | #142 #144 |
+| **Projet** | 70+ | ✅ valide | #143 #154 #155 #157 |
+| **PaxLog** | 65+ | ✅ valide | #156 |
+| **Planner** | 30 | ✅ valide | #158 |
+| **PackLog** | 30 | ✅ **100%** | 0 |
+| **TravelWiz** | 30 | ✅ **100%** | 0 |
+| **MOC** | 30 | ✅ valide | 0 (validation metier OK) |
+| **Conformite** | 30 | ✅ valide | #159 |
+| **Support** | 25 | ✅ valide | #160 #160b #160c |
+| **Teams** | 20 | ✅ valide | #161 |
+| **Messaging** | 15 | ✅ **100%** | 0 |
+| Dashboard/PID/Papyrus | 45 | ⚠️ partiel | faux positifs paths |
+
+**11 modules valides end-to-end. 3 modules 100% PASS.**
+
+## Synthese campagne (sessions 38-43)
+
+| Metrique | Valeur |
+|---|---|
+| Sessions QA | 6 (38-43) |
+| Tests effectues | **~1075** |
+| Bugs reels corriges | **18** (#142-#161) |
+| Faux positifs identifies | **~25** (payloads tests, decisions design) |
+| Regressions resolues | 1 majeure (#140 -> #160, active 5 sessions) |
+| Bugs latents attrapes par audit | 2 (#160b assign, #160c satisfaction) |
+| Patterns systemiques durcis | 4 (FK check, db.refresh async, enum patterns, extra=forbid) |
+| Commits deployes | **135** |
+| Bugs critiques restants | **0** ✓ |
+
+## Patterns systemiques durcis (reutilisables)
+
+1. **FK check avant insert** (#155 projects, #161 teams) : verifier
+   existence User/TierContact AVANT db.add -> 404 propre vs 500 IntegrityError.
+2. **db.refresh async fragile** (#160 + helper _reload_ticket) : re-fetch
+   select+selectinload apres mutation, jamais db.refresh(obj,[rel]) avant
+   serialisation custom.
+3. **Patterns enum Pydantic** (#136 #154 #157) : aligner regex sur
+   CheckConstraint DB / commentaire modele / frontend api.ts (verifie).
+4. **extra=forbid cible** (#125 #132-140) : sur Update schemas a enum
+   ferme verifie, jamais aveugle (regression #140 = lecon).
+
+## Lecons meta documentees
+
+- Ne JAMAIS supposer la cause d'un bug sans reproduire/isoler (#140 mal
+  diagnostique -> 5 sessions de 500 actif en prod).
+- Un bug systemique correctement diagnostique declenche un AUDIT
+  TRANSVERSE du pattern (#160 -> 2 bugs latents attrapes).
+- Un pattern strict (regex/forbid) ne doit JAMAIS rejeter une valeur
+  legitime du frontend (verification frontend==modele obligatoire).
+- Faux positifs de tests (mauvais payloads) != bugs : toujours
+  distinguer erreur de test vs bug applicatif.
+
+## Conclusion
+
+La plateforme OPSFLUX a un socle backend **robuste et valide** sur les
+11 modules metier principaux : validation Pydantic+DB alignee, FK checks
+explicites, polymorphisme PAX gere, exceptions globales (5 handlers),
+serialisation async safe, 0 bug critique. Les modules Dashboard/PID/
+Papyrus restent a auditer en profondeur (scope secondaire). L'effort
+QA a un rendement desormais decroissant sur le backend : la valeur
+suivante est sur les tests E2E frontend (Playwright) et la performance
+(Lighthouse/k6), hors scope API.

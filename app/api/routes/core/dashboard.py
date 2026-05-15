@@ -186,36 +186,21 @@ async def create_dashboard(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new dashboard with GridStack layout."""
-    # Bug #162 (QA modules round 44) : POST /dashboards -> 500 avec un name
-    # valide. Diagnostic cible : capture le type+message d'exception exact
-    # pour identifier la cause racine (svc_create_dashboard commit/refresh
-    # OU serialisation response_model=DashboardRead, comme le SUP-bug
-    # connu sur GET /dashboards). A remplacer par le vrai fix une fois
-    # la cause confirmee.
-    import logging as _lg
-    _log = _lg.getLogger("app.dashboard")
+    # Bug #162 (QA modules round 44) RESOLU : POST /dashboards -> 500.
+    # Cause identifiee via diagnostic : NotNullViolationError sur
+    # dashboards.updated_at (colonne DB NOT NULL, modele declarait
+    # nullable=True sans server_default, onupdate ne s'applique pas a
+    # l'INSERT). Fix : modele Dashboard.updated_at server_default=now()
+    # + service create_dashboard set updated_at explicitement.
     tenant_id = await _get_tenant_id(entity_id, db)
-    try:
-        dashboard = await svc_create_dashboard(
-            data=body,
-            owner_id=current_user.id,
-            tenant_id=tenant_id,
-            entity_id=entity_id,
-            db=db,
-        )
-        return dashboard
-    except Exception as exc:  # noqa: BLE001
-        _log.exception("create_dashboard failed")
-        from fastapi import HTTPException as _HE
-        raise _HE(
-            status_code=500,
-            detail={
-                "code": "DASHBOARD_CREATE_FAILED",
-                "_diag_type": type(exc).__name__,
-                "_diag_module": type(exc).__module__,
-                "_diag_msg": str(exc)[:300],
-            },
-        )
+    dashboard = await svc_create_dashboard(
+        data=body,
+        owner_id=current_user.id,
+        tenant_id=tenant_id,
+        entity_id=entity_id,
+        db=db,
+    )
+    return dashboard
 
 
 @router.get(

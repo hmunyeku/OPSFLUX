@@ -152,8 +152,16 @@ class Dashboard(UUIDPrimaryKeyMixin, SoftDeleteMixin, Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), onupdate=func.now(), nullable=True
+    # Bug #162 : colonne DB `dashboards.updated_at` est NOT NULL mais le
+    # modele declarait nullable=True sans server_default. `onupdate` ne se
+    # declenche QUE sur UPDATE -> a l'INSERT updated_at=NULL ->
+    # NotNullViolationError -> 500 sur POST /dashboards. Ajout
+    # server_default=func.now() (le service set aussi explicitement).
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
 

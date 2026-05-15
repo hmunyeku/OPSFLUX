@@ -692,6 +692,11 @@ async def create_dashboard(
         layout_desktop=data.layout_desktop,
         widgets=data.widgets,
         tv_refresh_seconds=data.tv_refresh_seconds,
+        # Bug #162 : la colonne DB est NOT NULL et l'INSERT ne beneficiait
+        # pas de l'onupdate (UPDATE seulement). On set explicitement a la
+        # creation pour garantir une valeur meme si le server_default du
+        # modele n'est pas encore reflete cote schema DB (pas de migration).
+        updated_at=datetime.now(timezone.utc),
     )
     db.add(dashboard)
     await db.commit()

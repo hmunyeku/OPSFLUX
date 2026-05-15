@@ -1824,8 +1824,12 @@ class ProjectCreate(BaseModel):
     description: str | None = None
     project_type: str = "project"
     department_id: UUID | None = None
-    status: str = "draft"
-    priority: str = "medium"
+    # Bug #157 (QA schema hardening) : status/priority sans pattern ->
+    # valeurs hors-enum acceptees silencieusement. Patterns alignes sur
+    # le modele Project (commentaire colonne) ET frontend api.ts (types
+    # TS identiques verifies). Enum FERME, pas de divergence.
+    status: str = Field(default="draft", pattern=r"^(draft|planned|active|on_hold|completed|cancelled)$")
+    priority: str = Field(default="medium", pattern=r"^(low|medium|high|critical)$")
     weather: str = "sunny"
     trend: str = Field(default="flat", pattern=r"^(up|flat|down)$")
     color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
@@ -1874,8 +1878,11 @@ class ProjectUpdate(BaseModel):
     code: str | None = None
     name: str | None = None
     description: str | None = None
-    status: str | None = None
-    priority: str | None = None
+    # Bug #157 : patterns enum (cf ProjectCreate). status reste librement
+    # PATCHable au niveau Pydantic (les transitions metier sont gerees par
+    # RBAC route-level) mais une valeur hors-enum est desormais rejetee.
+    status: str | None = Field(default=None, pattern=r"^(draft|planned|active|on_hold|completed|cancelled)$")
+    priority: str | None = Field(default=None, pattern=r"^(low|medium|high|critical)$")
     weather: str | None = None
     trend: str | None = Field(default=None, pattern=r"^(up|flat|down)$")
     color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")

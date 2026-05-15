@@ -63,6 +63,24 @@ def _enrich_ticket(ticket: SupportTicket, users_map: dict[UUID, str]) -> dict:
     return d
 
 
+async def _reload_ticket(db: AsyncSession, ticket_id: UUID) -> SupportTicket:
+    """Bug #160 (QA modules round 42) : re-fetch propre d'un ticket apres
+    mutation+commit, avec `comments` eager-load.
+
+    Remplace le pattern fragile `await db.refresh(ticket, ["comments"])`
+    qui, apres un commit avec changement reel, laissait `_enrich_ticket`
+    declencher un lazy load de relation hors greenlet async -> 500.
+    Toute route qui mute un ticket puis le serialise via `_enrich_ticket`
+    DOIT utiliser ce helper (pattern identique a la route GET fiable).
+    """
+    res = await db.execute(
+        select(SupportTicket)
+        .options(selectinload(SupportTicket.comments))
+        .where(SupportTicket.id == ticket_id)
+    )
+    return res.scalar_one()
+
+
 async def _users_map(db: AsyncSession, user_ids: set[UUID]) -> dict[UUID, str]:
     """Fetch user display names by IDs."""
     if not user_ids:
@@ -327,7 +345,7 @@ async def create_ticket(
         )
 
     await db.commit()
-    await db.refresh(ticket, ["comments"])
+    ticket = await _reload_ticket(db, ticket.id)  # Bug #160 hardening
 
     umap = await _users_map(db, {acting_user_id})
     await _notify_ticket_event(db, "created", ticket, entity_id, acting_user_id)
@@ -436,19 +454,9 @@ async def update_ticket(
 
     await db.commit()
 
-    # Bug #160 (QA modules round 42) : `db.refresh(ticket, ["comments"])`
-    # apres un commit AVEC changement reel provoquait un 500 (le PATCH avec
-    # body vide passait, body non-vide -> 500). Cause : refresh partiel
-    # d'une relation post-flush en contexte async SQLAlchemy, puis
-    # `_enrich_ticket` accede a `ticket.comments` -> lazy load hors greenlet.
-    # Fix : re-fetch explicite avec selectinload (pattern identique a la
-    # route GET /tickets/{id} qui, elle, retourne 200 de maniere fiable).
-    refreshed = await db.execute(
-        select(SupportTicket)
-        .options(selectinload(SupportTicket.comments))
-        .where(SupportTicket.id == ticket.id)
-    )
-    ticket = refreshed.scalar_one()
+    # Bug #160 (QA modules round 42) : refresh partiel de relation post-commit
+    # -> _enrich_ticket lazy-load hors greenlet -> 500. Voir _reload_ticket.
+    ticket = await _reload_ticket(db, ticket.id)
 
     user_ids = {ticket.reporter_id}
     if ticket.assignee_id:
@@ -515,7 +523,7 @@ async def assign_ticket(
         await _log_status_change(db, ticket.id, old, "in_progress", current_user.id, "Assigné")
 
     await db.commit()
-    await db.refresh(ticket, ["comments"])
+    ticket = await _reload_ticket(db, ticket.id)  # Bug #160 hardening (assign route)
 
     user_ids = {ticket.reporter_id, body.assignee_id}
     umap = await _users_map(db, user_ids)
@@ -1287,7 +1295,7 @@ async def submit_satisfaction(
         ticket.satisfaction_feedback = (body.feedback or "").strip() or None
         ticket.satisfaction_submitted_at = datetime.now(UTC)
         await db.commit()
-        await db.refresh(ticket, ["comments"])
+        ticket = await _reload_ticket(db, ticket.id)  # Bug #160 hardening (satisfaction route)
 
     user_ids = {ticket.reporter_id}
     if ticket.assignee_id:

@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils'
 import { ProjectInsightsBar } from './ProjectInsightsBar'
 import { FormSection, panelInputClass } from '@/components/layout/DynamicPanel'
 import { useToast } from '@/components/ui/Toast'
+import { RichTextField } from '@/components/shared/RichTextField'
 import {
   useProjectSituations, useCreateProjectSituation,
   useUpdateProject,
@@ -100,19 +101,7 @@ function hoursToJH(h: number): number {
   return Math.round((h / 8) * 10) / 10
 }
 
-const WEATHER_OPTIONS: { value: string; label: string; icon: typeof Sun; tone: string }[] = [
-  { value: 'sunny',  label: 'Ensoleillé', icon: Sun,           tone: 'text-amber-500' },
-  { value: 'partly', label: 'Partiel',    icon: CloudSun,      tone: 'text-amber-400' },
-  { value: 'cloudy', label: 'Nuageux',    icon: Cloud,         tone: 'text-zinc-400' },
-  { value: 'rainy',  label: 'Pluvieux',   icon: CloudRain,     tone: 'text-blue-500' },
-  { value: 'stormy', label: 'Orageux',    icon: CloudLightning,tone: 'text-red-500' },
-]
-
-const TREND_OPTIONS: { value: string; label: string; icon: typeof TrendingUp; tone: string }[] = [
-  { value: 'up',   label: 'En amélioration', icon: TrendingUp,   tone: 'text-green-600' },
-  { value: 'flat', label: 'Stable',          icon: Minus,        tone: 'text-muted-foreground' },
-  { value: 'down', label: 'En dégradation',  icon: TrendingDown, tone: 'text-red-600' },
-]
+// Weather and trend options are now translated via i18n in the component
 
 // ──────────────────────────────────────────────────────────────────────
 // Component
@@ -134,6 +123,21 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
   const [situationText, setSituationText] = useState('')
 
   const lastSituation = situations[0] // newest first from backend
+
+  // Weather and trend options with i18n translations
+  const WEATHER_OPTIONS = [
+    { value: "sunny",  label: t("projets.metrics.weather_sunny"), icon: Sun,           tone: "text-amber-500" },
+    { value: "partly", label: t("projets.metrics.weather_partly"), icon: CloudSun,      tone: "text-amber-400" },
+    { value: "cloudy", label: t("projets.metrics.weather_cloudy"), icon: Cloud,         tone: "text-zinc-400" },
+    { value: "rainy",  label: t("projets.metrics.weather_rainy"), icon: CloudRain,     tone: "text-blue-500" },
+    { value: "stormy", label: t("projets.metrics.weather_stormy"), icon: CloudLightning,tone: "text-red-500" },
+  ]
+
+  const TREND_OPTIONS = [
+    { value: "up",   label: t("projets.metrics.trend_up"), icon: TrendingUp,   tone: "text-green-600" },
+    { value: "flat", label: t("projets.metrics.trend_flat"), icon: Minus,        tone: "text-muted-foreground" },
+    { value: "down", label: t("projets.metrics.trend_down"), icon: TrendingDown, tone: "text-red-600" },
+  ]
 
   // ── Deltas vs older snapshots ──
   // Find the most recent snapshot older than 7 / 28 days.
@@ -180,10 +184,10 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
       { projectId: project.id, payload: { situation_text: situationText.trim() || null } },
       {
         onSuccess: () => {
-          toast({ title: 'Situation enregistrée', variant: 'success' })
-          setSituationText('')
+          toast({ title: t("projets.metrics.situation_saved"), variant: "success" })
+          setSituationText("")
         },
-        onError: () => toast({ title: 'Échec de l’enregistrement', variant: 'error' }),
+        onError: () => toast({ title: t("projets.metrics.save_failed"), variant: "error" }),
       },
     )
   }
@@ -318,25 +322,25 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
         </div>
       </FormSection>
 
-      {/* ─── ROW 5 ── Situation projet (textarea + météo + tendance + save) ─── */}
-      <FormSection title={t('projets.metrics.project_status', 'Situation projet')} defaultExpanded>
+      {/* ─── ROW 5 ── Situation projet (rich text editor + météo + tendance + save) ─── */}
+      <FormSection title={t("projets.metrics.project_status", "Situation projet")} defaultExpanded>
         <div className="space-y-3">
           {/* Editor */}
           <div>
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">
-              Situation générale
+              {t("projets.metrics.general_situation")}
             </label>
-            <textarea
+            <RichTextField
               value={situationText}
-              onChange={(e) => setSituationText(e.target.value)}
-              placeholder={lastSituation?.situation_text || 'Décrivez en quelques mots l’état actuel du projet…'}
+              onChange={setSituationText}
+              placeholder={lastSituation?.situation_text || t("projets.metrics.situation_placeholder")}
               rows={3}
-              className={cn(panelInputClass, 'w-full text-xs resize-y')}
+              compact={true}
             />
             <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground gap-3">
               <span className="truncate">
-                Dernière capture : <span className="text-foreground/80">{fmtDateTime(lastSituation?.captured_at)}</span>
-                {lastSituation?.captured_by_name && <span className="ml-1 italic">par {lastSituation.captured_by_name}</span>}
+                {t("projets.metrics.last_capture")} : <span className="text-foreground/80">{fmtDateTime(lastSituation?.captured_at)}</span>
+                {lastSituation?.captured_by_name && <span className="ml-1 italic">{t("projets.metrics.by")} {lastSituation.captured_by_name}</span>}
               </span>
               <button
                 type="button"
@@ -345,7 +349,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
                 className="inline-flex items-center gap-1 px-2 h-7 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors text-[11px] font-medium shrink-0"
               >
                 {createSituation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                Enregistrer la situation
+                {t("projets.metrics.save_situation")}
               </button>
             </div>
           </div>
@@ -353,7 +357,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           {/* Qualitative selectors — météo + tendance side by side */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">Météo</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">{t("projets.metrics.weather")}</span>
               <div className="flex gap-1.5 flex-wrap">
                 {WEATHER_OPTIONS.map(({ value, label, icon: Icon, tone }) => {
                   const active = project.weather === value
@@ -378,7 +382,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
               </div>
             </div>
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">Tendance</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">{t("projets.metrics.trend")}</span>
               <div className="flex gap-1.5 flex-wrap">
                 {TREND_OPTIONS.map(({ value, label, icon: Icon, tone }) => {
                   const active = (project.trend ?? 'flat') === value
@@ -408,18 +412,18 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           <div>
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium">
-                Historique ({situations.length})
+                {t("projets.metrics.history")} ({situations.length})
               </span>
             </div>
             {isLoading ? (
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground py-2">
-                <Loader2 size={12} className="animate-spin" /> Chargement…
+                <Loader2 size={12} className="animate-spin" /> {t("common.loading", "Chargement")}…
               </div>
             ) : situations.length === 0 ? (
               <div className="flex items-start gap-1.5 text-[10px] p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200">
                 <History size={11} className="mt-0.5 shrink-0" />
                 <span>
-                  Aucune situation enregistrée. Les Δ ne s’affichent qu’après plusieurs captures — enregistrez la situation chaque semaine pour voir l’évolution.
+                  {t("projets.metrics.no_situation_recorded")}
                 </span>
               </div>
             ) : (

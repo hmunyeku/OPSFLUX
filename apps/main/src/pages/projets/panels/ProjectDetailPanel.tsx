@@ -3298,8 +3298,8 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
   return (
     <DynamicPanelShell
-      title={project.code}
-      subtitle={project.name}
+      title={project.name}
+      subtitle={project.code}
       icon={<FolderKanban size={14} className="text-primary" />}
       actions={
         <>

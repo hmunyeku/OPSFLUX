@@ -3235,13 +3235,37 @@ async def impact_preview(
     from app.services.modules.planner_service import get_impact_preview
 
     activity = await _get_activity_or_404(db, activity_id, entity_id)
-    return await get_impact_preview(
-        db, activity_id, entity_id,
-        new_start=new_start,
-        new_end=new_end,
-        new_pax_quota=new_pax_quota,
-        new_status=new_status,
-    )
+    # Bug #158 (QA modules round 41) : get_impact_preview fait des requetes
+    # SQL raw multi-JOIN (ads / pax_manifests / ads_pax). Une divergence
+    # de schema ou une donnee inattendue faisait remonter l'exception au
+    # global handler -> 500 sur un endpoint pourtant non-critique (preview
+    # de modale de confirmation). On degrade proprement : best-effort, et
+    # si le calcul echoue on retourne un preview partiel + flag plutot
+    # qu'un 500 qui bloque l'utilisateur dans son flux de modification.
+    try:
+        return await get_impact_preview(
+            db, activity_id, entity_id,
+            new_start=new_start,
+            new_end=new_end,
+            new_pax_quota=new_pax_quota,
+            new_status=new_status,
+        )
+    except Exception as exc:  # noqa: BLE001
+        import logging as _lg
+        _lg.getLogger("app.planner").warning(
+            "impact_preview degraded for activity %s: %s", activity_id, exc,
+            exc_info=True,
+        )
+        return {
+            "activity_id": str(activity_id),
+            "activity_title": activity.title,
+            "ads_affected": None,
+            "manifests_affected": None,
+            "potential_conflict_days": None,
+            "changes": {},
+            "preview_unavailable": True,
+            "detail": "Calcul d'impact indisponible — la modification reste possible mais sans aperçu chiffré.",
+        }
 
 
 # ── Installation Capacities (historized — never UPDATE, always INSERT) ───────────

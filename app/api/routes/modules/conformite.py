@@ -1051,6 +1051,22 @@ async def check_compliance(
     Records with verification_status != 'verified' count as unverified — they don't
     contribute to compliance even if their status is 'valid'.
     """
+    # Bug #159 (QA modules round 41) : owner_type non valide ('INVALID',
+    # 'tier', 'asset', typo…) passait silencieusement -> le service ne
+    # matche aucune branche -> verdict vide -> faux "compliant" en 200.
+    # Dangereux : un appelant pourrait croire un objet conforme alors que
+    # le type n'est tout simplement pas supporte. On rejette explicitement.
+    _VALID_COMPLIANCE_OWNER_TYPES = {"user", "tier_contact"}
+    if owner_type not in _VALID_COMPLIANCE_OWNER_TYPES:
+        raise StructuredHTTPException(
+            422,
+            code="INVALID_OWNER_TYPE",
+            message=(
+                f"owner_type '{owner_type}' non supporte pour le check de "
+                f"conformite. Valeurs acceptees : {', '.join(sorted(_VALID_COMPLIANCE_OWNER_TYPES))}."
+            ),
+        )
+
     await _assert_external_owner_access(
         db,
         current_user,

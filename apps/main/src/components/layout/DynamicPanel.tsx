@@ -368,9 +368,16 @@ export function DynamicPanelShell({
           {/* Inline actions — desktop only (mobile uses sticky bottom bar).
               flex-1 lets the bar take all remaining horizontal space so the
               ResponsiveActionBar can keep labels visible (its own measure
-              logic will collapse to icon-only only when truly out of room). */}
+              logic will collapse to icon-only only when truly out of room).
+              Bug #164 : sans overflow-x-auto, les actions legacy (ReactNode
+              opaque non-responsive, ex AdS : Lien externe / PDF / Demarrer
+              sejour / Renvoyer en correction) debordaient hors ecran et
+              poussaient les controles panel (shrink-0) au-dela du bord droit
+              — le bouton X de fermeture sortait du cadre. overflow-x-auto
+              + flex-nowrap confine les actions dans leur budget flex-1 et
+              scrolle horizontalement au lieu de deborder. */}
           {actionsNode && (
-            <div className="hidden sm:flex items-center gap-1.5 flex-1 min-w-0 pl-2 border-l border-border/60">
+            <div className="hidden sm:flex items-center gap-1.5 flex-1 min-w-0 pl-2 border-l border-border/60 overflow-x-auto flex-nowrap whitespace-nowrap [scrollbar-width:thin]">
               {actionsNode}
             </div>
           )}

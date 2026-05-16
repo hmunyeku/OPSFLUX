@@ -3673,3 +3673,68 @@ refletees dans les modeles, ou inversement.
 | Bugs critiques restants | **0** ✓ |
 | Modules valides end-to-end | **12** (+ Dashboard now fonctionnel) |
 | Methode diagnostic-avant-fix | appliquee systematiquement (#160/#162/#163) |
+
+---
+
+## Session 45 - Bug #164 : overflow barre d'actions DynamicPanel (systemique UI)
+
+Bug rapporte avec screenshot (AdS-2026-0016) : la barre d'actions du
+panneau detail debordait du cadre, le bouton X de fermeture sortait de
+l'ecran -> panel inutilisable. "A corriger ici et partout."
+
+### Cause racine
+
+`DynamicPanelShell` : les actions metier "legacy" (prop `actions` =
+ReactNode opaque, NON-responsive contrairement a `ResponsiveActionBar`
+utilise quand `actionItems` est fourni) etaient inlinees dans le header
+avec un wrapper qui ne confinait pas l'overflow :
+- **Mode docked** : wrapper `shrink-0` -> les actions ne retrecissaient
+  jamais, poussaient les controles panel (reduire/detacher/fermer) hors champ.
+- **Mode full** : wrapper `flex-1 min-w-0` MAIS sans `overflow-x-auto` ->
+  les boutons enfants debordaient visuellement hors viewport, le X de
+  fermeture etait coupe.
+
+Affecte TOUS les panels avec >2 actions legacy (AdS, et potentiellement
+projets/tiers/etc. selon le nombre de boutons).
+
+### Fix (2 commits)
+
+**`78ccbcf3`** - mode docked : actions deplacees dans une barre DEDIEE
+sous le header (pattern deja eprouve dans les modes floating/mobile du
+meme composant) ; controles panel en groupe shrink-0 TOUJOURS visible
+dans le header.
+
+**`6d0fe8df`** - mode full : ajout `overflow-x-auto flex-nowrap
+whitespace-nowrap [scrollbar-width:thin]` sur le wrapper actionsNode.
+Les actions restent dans leur budget flex-1 et scrollent horizontalement
+au lieu de deborder ; controles panel shrink-0 toujours visibles.
+
+### Verification visuelle prod (Brave / Chrome MCP)
+
+Panel AdS-2026-0016 ouvert en mode full :
+- AVANT : actions + controles se chevauchaient, X de fermeture coupe
+  hors ecran, "cor..." (Renvoyer en correction) tronque dans le vide.
+- APRES : actions confinees avec scrollbar horizontale visible ;
+  controles panel (reduire/detacher/fermer) TOUS visibles dans le
+  viewport ; bouton X accessible. Debordement elimine.
+
+Les 3 modes (docked / full / mobile) gerent desormais l'overflow de la
+barre d'actions de maniere coherente.
+
+### Recommandation suivi
+
+Migrer progressivement les panels utilisant `actions` (ReactNode opaque)
+vers `actionItems` (ResponsiveActionBar) — ce dernier collapse
+intelligemment les boutons excedentaires dans un menu "..." plutot que
+de scroller. Le fix #164 garantit deja l'absence de debordement ; la
+migration vers actionItems serait une amelioration UX (menu vs scroll).
+
+### Bilan cumule sessions 1-45
+
+| Metrique | Valeur |
+|---|---|
+| Commits deployes | **145** |
+| Bugs corriges effectifs | **92** (+1 : #164 systemique UI) |
+| Bugs critiques restants | **0** ✓ |
+| Modules valides end-to-end | **12** |
+| Verification visuelle Brave | #164 confirme corrige en prod |

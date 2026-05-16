@@ -498,48 +498,49 @@ export function DynamicPanelShell({
             </div>
           )}
 
-          {/* Inline actions (e.g. Désactiver) — embedded in header for docked mode */}
-          {actionsNode && (
-            <>
-              <div className="w-px h-4 bg-border/60 shrink-0" />
-              <div className="flex items-center gap-1.5 shrink-0 min-w-0">
-                {actionsNode}
-              </div>
-            </>
-          )}
-
           {/* headerRight — custom content before panel controls */}
           {headerRight}
 
-          {/* Dock side toggle */}
-          <button
-            onClick={toggleDock}
-            className={hdrBtn}
-            title={isLeft ? 'Déplacer à droite' : 'Déplacer à gauche'}
-          >
-            {isLeft ? <PanelRight size={12} /> : <PanelLeft size={12} />}
-          </button>
-
-          {/* Expand to full */}
-          <button onClick={toggleMode} className={hdrBtn} title="Agrandir en pleine largeur">
-            <Maximize2 size={12} />
-          </button>
-
-          {/* Detach to OS window */}
-          <button onClick={detachDynamicPanelToWindow} className={hdrBtn} title={t('layout.detacher_en_fenetre', 'Détacher en fenêtre')}>
-            <AppWindow size={12} />
-          </button>
-
-          {/* Detach */}
-          <button onClick={detachDynamicPanel} className={hdrBtn} title={t('layout.detacher_en_modal_flottant')}>
-            <ExternalLink size={12} />
-          </button>
-
-          {/* Close */}
-          <button onClick={closeDynamicPanel} className={hdrBtn} aria-label={t('layout.fermer_le_panneau')}>
-            <X size={14} />
-          </button>
+          {/* Panel controls — TOUJOURS visibles (priorite absolue : la
+              fermeture du panel ne doit jamais sortir du cadre). Groupe
+              shrink-0 ; les actions metier sont desormais dans une barre
+              dediee SOUS le header (cf bug UI : en docked, actionsNode
+              inline avec shrink-0 poussait ces controles hors champ
+              quand il y avait beaucoup de boutons — ex AdS : Lien externe
+              / PDF / Demarrer sejour / Renvoyer en correction / Mod...). */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              onClick={toggleDock}
+              className={hdrBtn}
+              title={isLeft ? 'Déplacer à droite' : 'Déplacer à gauche'}
+            >
+              {isLeft ? <PanelRight size={12} /> : <PanelLeft size={12} />}
+            </button>
+            <button onClick={toggleMode} className={hdrBtn} title="Agrandir en pleine largeur">
+              <Maximize2 size={12} />
+            </button>
+            <button onClick={detachDynamicPanelToWindow} className={hdrBtn} title={t('layout.detacher_en_fenetre', 'Détacher en fenêtre')}>
+              <AppWindow size={12} />
+            </button>
+            <button onClick={detachDynamicPanel} className={hdrBtn} title={t('layout.detacher_en_modal_flottant')}>
+              <ExternalLink size={12} />
+            </button>
+            <button onClick={closeDynamicPanel} className={hdrBtn} aria-label={t('layout.fermer_le_panneau')}>
+              <X size={14} />
+            </button>
+          </div>
         </div>
+
+        {/* Barre d'actions metier dediee — sous le header (pattern
+            identique aux modes floating/mobile). Resout le debordement :
+            les actions ne sont plus en competition d'espace avec le titre
+            et les controles panel. overflow-x-auto = fallback scroll si
+            vraiment trop de boutons pour la largeur du panel docked. */}
+        {actionsNode && (
+          <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 shrink-0 bg-background-subtle/40 overflow-x-auto flex-nowrap whitespace-nowrap [scrollbar-width:thin]">
+            {actionsNode}
+          </div>
+        )}
 
         {/* Scrollable content (container query scope) */}
         <div className="flex-1 overflow-y-auto @container">

@@ -472,3 +472,95 @@ export function AllowedCompaniesPicker({
     </div>
   )
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+//  AdS — Pajamas++ visual primitives (inspirés du mockup ADS Detail v2).
+//  Tokens OPSFLUX natifs (pas de HSL custom du mockup), densité ERP.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Ordre linéaire principal du cycle de vie d'un AdS (cf CHECK constraint). */
+const ADS_STEPPER_ORDER = [
+  'draft', 'submitted', 'pending_project_review', 'pending_compliance',
+  'pending_validation', 'pending_arbitration', 'approved', 'in_progress', 'completed',
+]
+const ADS_TERMINAL_NEGATIVE = ['rejected', 'cancelled']
+
+/**
+ * AdsWorkflowStepper — barre d'étapes horizontale du workflow AdS.
+ * `status` = ads.status courant, `labels` = map status→libellé (i18n).
+ * Statuts hors-ligne (requires_review, pending_initiator_review) : on
+ * retombe sur 'submitted' comme position d'ancrage. Terminal négatif
+ * (rejected/cancelled) : tout en pending sauf 'draft', + libellé d'état.
+ */
+export function AdsWorkflowStepper({ status, labels }: { status: string; labels: Record<string, string> }) {
+  const isNegative = ADS_TERMINAL_NEGATIVE.includes(status)
+  let cur = ADS_STEPPER_ORDER.indexOf(status)
+  if (cur === -1 && !isNegative) cur = ADS_STEPPER_ORDER.indexOf('submitted') // requires_review / pending_initiator_review
+  return (
+    <div className="flex items-center gap-0 overflow-x-auto py-2 px-3 bg-muted/40 border-b border-border [scrollbar-width:none]">
+      {ADS_STEPPER_ORDER.map((s, i) => {
+        const state = isNegative
+          ? (s === 'draft' ? 'done' : 'pending')
+          : i < cur ? 'done' : i === cur ? 'current' : 'pending'
+        return (
+          <div key={s} className="flex items-center shrink-0">
+            <div className={cn(
+              'flex items-center gap-1.5 text-[10.5px] font-semibold whitespace-nowrap',
+              state === 'done' && 'text-foreground',
+              state === 'current' && 'text-primary',
+              state === 'pending' && 'text-muted-foreground',
+            )}>
+              <span className={cn(
+                'flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-bold border',
+                state === 'done' && 'bg-success border-success text-white',
+                state === 'current' && 'bg-primary border-primary text-white ring-2 ring-primary/20',
+                state === 'pending' && 'bg-muted border-border text-transparent',
+              )}>
+                {state === 'done' ? '✓' : state === 'current' ? '●' : ''}
+              </span>
+              {labels[s] || s}
+            </div>
+            {i < ADS_STEPPER_ORDER.length - 1 && (
+              <span className={cn('w-3 h-px mx-1 shrink-0', i < cur && !isNegative ? 'bg-success' : 'bg-border')} />
+            )}
+          </div>
+        )
+      })}
+      {isNegative && (
+        <span className="chip chip-danger ml-3 shrink-0">{labels[status] || status}</span>
+      )}
+    </div>
+  )
+}
+
+/**
+ * AdsComplianceStrip — bande de stats compacte (Passagers / Conformes /
+ * À vérifier / Bloqués). Compteurs déjà calculés côté panel.
+ */
+export function AdsComplianceStrip({ total, compliant, pending, blocked }: {
+  total: number; compliant: number; pending: number; blocked: number
+}) {
+  const { t } = useTranslation()
+  const items: { num: number; label: string; tone?: 'success' | 'warning' | 'danger' }[] = [
+    { num: total, label: t('paxlog.ads_detail.strip.passengers', 'Passagers') },
+    { num: compliant, label: t('paxlog.ads_detail.strip.compliant', 'Conformes'), tone: 'success' },
+    { num: pending, label: t('paxlog.ads_detail.strip.to_check', 'À vérifier'), tone: 'warning' },
+    { num: blocked, label: t('paxlog.ads_detail.strip.blocked', 'Bloqués'), tone: 'danger' },
+  ]
+  return (
+    <div className="flex items-stretch bg-muted/40 border border-border rounded-md overflow-hidden mb-3">
+      {items.map((it, i) => (
+        <div key={it.label} className={cn('flex flex-col px-3 py-1.5 flex-1 min-w-0', i < items.length - 1 && 'border-r border-border')}>
+          <span className={cn(
+            'text-base font-bold leading-none tabular-nums',
+            it.tone === 'success' && 'text-success',
+            it.tone === 'warning' && 'text-warning',
+            it.tone === 'danger' && 'text-destructive',
+            !it.tone && 'text-foreground',
+          )}>{it.num}</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mt-0.5 truncate">{it.label}</span>
+        </div>
+      ))}
+    </div>
+  )
+}

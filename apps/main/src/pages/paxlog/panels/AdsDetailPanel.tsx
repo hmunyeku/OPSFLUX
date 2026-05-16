@@ -27,7 +27,7 @@ import { AdsExternalLinksAudit } from '@/pages/paxlog/components/AdsExternalLink
 import { TagManager } from '@/components/shared/TagManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { NoteManager } from '@/components/shared/NoteManager'
-import { ADS_STATUS_LABELS_FALLBACK, ADS_STATUS_BADGES, ADS_PAX_STATUS_LABELS_FALLBACK, ADS_PAX_STATUS_BADGES, formatDate, formatDateTime, StatusBadge, AllowedCompaniesPicker, buildExternalRecipientOptions } from '../shared'
+import { ADS_STATUS_LABELS_FALLBACK, ADS_STATUS_BADGES, ADS_PAX_STATUS_LABELS_FALLBACK, ADS_PAX_STATUS_BADGES, formatDate, formatDateTime, StatusBadge, AllowedCompaniesPicker, buildExternalRecipientOptions, AdsWorkflowStepper, AdsComplianceStrip } from '../shared'
 import type { AllowedCompanySelection } from '../shared'
 
 export function AdsDetailPanel({ id }: { id: string }) {
@@ -721,7 +721,13 @@ export function AdsDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={ads.reference}
-      subtitle={`${t('paxlog.ads_label')} — ${visitCategoryLabels[ads.visit_category] || ads.visit_category}`}
+      subtitle={[
+        ads.visit_purpose,
+        visitCategoryLabels[ads.visit_category] || ads.visit_category,
+        ads.site_name || null,
+        (ads.start_date && ads.end_date) ? `${formatDate(ads.start_date)} → ${formatDate(ads.end_date)}` : null,
+        ads.requester_name ? `${t('paxlog.ads_detail.requester', 'Demandeur')}: ${ads.requester_name}` : null,
+      ].filter(Boolean).join('  ·  ')}
       icon={<ClipboardList size={14} className="text-primary" />}
       actions={
         <div className="flex items-center gap-1">
@@ -810,7 +816,17 @@ export function AdsDetailPanel({ id }: { id: string }) {
         </div>
       }
     >
+      {/* Pajamas++ : stepper workflow + bande stats, en tête de panel
+          (inspiré du mockup ADS Detail v2). Réutilise la logique/data
+          existante du v1 (ads.status, adsStatusLabels, compteurs pax). */}
+      <AdsWorkflowStepper status={ads.status} labels={adsStatusLabels} />
       <PanelContentLayout>
+        <AdsComplianceStrip
+          total={adsPax?.length ?? 0}
+          compliant={compliantPaxCount}
+          pending={pendingPaxCount}
+          blocked={nonCompliantPaxCount}
+        />
         {showExternalLinkForm && (
           <div className="border border-primary/30 rounded-lg bg-primary/5 p-3 space-y-3">
             <div className="space-y-1">

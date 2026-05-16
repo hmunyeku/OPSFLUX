@@ -1045,31 +1045,11 @@ export function AdsDetailPanel({ id }: { id: string }) {
                 </span>
               </div>
             )}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-border/60 bg-card">
-                <span className="text-base font-bold tabular-nums font-display text-foreground">{adsPax?.length ?? 0}</span>
-                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.passengers')}</span>
-              </div>
-              {/* SUP-0035: stats lisibles meme quand tous les PAX sont en attente.
-                  Avant on voyait "0 conformes / 0 ecarts" avec 6 passagers,
-                  ce qui semblait dire qu'il n'y avait rien a verifier.
-                  Maintenant on affiche les ratios "X/Y" et un cadran
-                  "a verifier" quand des PAX sont en attente. */}
-              <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-border/60 bg-card">
-                <span className="text-base font-bold tabular-nums font-display text-emerald-600">{compliantPaxCount}<span className="text-muted-foreground/60 font-normal text-sm">/{adsPax?.length ?? 0}</span></span>
-                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.compliant_pax')}</span>
-              </div>
-              <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-border/60 bg-card">
-                <span className={cn('text-base font-bold tabular-nums font-display', nonCompliantPaxCount > 0 ? 'text-rose-600' : 'text-foreground')}>{nonCompliantPaxCount}</span>
-                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.compliance_gaps')}</span>
-              </div>
-              {pendingPaxCount > 0 && (
-                <div className="flex items-baseline gap-2 px-3 py-1.5 rounded-md border border-amber-400/40 bg-amber-50/30 dark:bg-amber-950/20">
-                  <span className="text-base font-bold tabular-nums font-display text-amber-600">{pendingPaxCount}</span>
-                  <span className="text-[11px] uppercase tracking-wide text-amber-700 dark:text-amber-400">{t('paxlog.ads_detail.kpis.pax_to_verify', 'a verifier')}</span>
-                </div>
-              )}
-            </div>
+            {/* Bande stats PAX (passagers / conformes / ecarts / a verifier)
+                deplacee en tete de panel via <AdsComplianceStrip>. Elle n'est
+                plus dupliquee ici (redondance signalee a la revue visuelle).
+                SUP-0035 reste couvert : la colonne "a verifier" du cstrip
+                affiche pendingPaxCount meme quand tous les PAX sont en attente. */}
             <p className="text-xs text-muted-foreground">{adsNextAction}</p>
           </div>
         </FormSection>

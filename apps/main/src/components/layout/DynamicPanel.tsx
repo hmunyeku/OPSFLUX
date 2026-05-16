@@ -94,14 +94,6 @@ interface DynamicPanelShellProps {
   /** Extra content rendered in the header bar (right side, before detach/close buttons). */
   headerRight?: React.ReactNode
   /**
-   * Hide the shell's own header + action bar entirely. The child component
-   * then owns its full chrome (header, controls, close). Used by the
-   * Paxlog v2 "Pajamas++" detail panels which render a rich custom header
-   * (stepper, chips, dense actions) and their own close button. Default
-   * false → unchanged behaviour for every other panel.
-   */
-  hideHeader?: boolean
-  /**
    * Inline mode — renders a lightweight panel without uiStore integration.
    * Use for embedded detail panels (e.g. settings inline detail, split pane).
    * Requires `onClose` prop.
@@ -124,7 +116,6 @@ export function DynamicPanelShell({
   actionItems,
   onActionConfirm,
   headerRight,
-  hideHeader = false,
   inline,
   onClose,
   inlineWidth = 360,
@@ -313,22 +304,6 @@ export function DynamicPanelShell({
   }
 
   // (Hooks docked-mode deplaces AVANT `if (inline) return` -- cf bug #86)
-
-  // ── hideHeader — the child owns its full chrome (Paxlog v2 detail
-  //    panels). We skip ALL shell header/action chrome and just provide a
-  //    full-height scroll container. Placed AFTER every hook (Rules of
-  //    Hooks — cf bug #86) and before the mode-specific returns. The
-  //    child (e.g. AdsDetailPanelV2) renders its own sticky header +
-  //    close button, so no panel control is lost. ──
-  if (hideHeader) {
-    return (
-      <div className={cn('flex flex-col h-full min-h-0 overflow-hidden bg-background', className)}>
-        <div className="flex-1 overflow-y-auto min-h-0 @container">
-          {children}
-        </div>
-      </div>
-    )
-  }
 
   // Shared button style for header controls
   const hdrBtn = 'btn-sm btn-secondary flex h-6 w-6 !p-0 shrink-0'

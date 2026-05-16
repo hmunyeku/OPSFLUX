@@ -16,11 +16,6 @@ import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer, renderRegisteredPanel } from '@/components/layout/DetachedPanelRenderer'
 import { usePermission } from '@/hooks/usePermission'
 
-// Paxlog "Pajamas++" v2 — refonte UI dense ERP. Active par defaut ;
-// kill-switch via le setting backend `paxlog.v2_enabled` (cf usePaxlogV2).
-import './styles/paxlog-shell.css'
-import { usePaxlogV2Enabled } from '@/hooks/usePaxlogV2'
-
 import { ALL_TABS } from './shared'
 import type { MainTabId } from './shared'
 
@@ -34,20 +29,10 @@ import { SignalementsTab } from './tabs/SignalementsTab'
 import { RotationsTab } from './tabs/RotationsTab'
 import { AvmTab } from './tabs/AvmTab'
 
-// v2 surfaces (rendered when usePaxlogV2Enabled() === true, i.e. default)
-import { DashboardTabV2 } from './tabs/DashboardTab.v2'
-import { AdsTabV2 } from './tabs/AdsTab.v2'
-import { WaitlistTabV2 } from './tabs/WaitlistTab.v2'
-import { ComplianceTabV2 } from './tabs/ComplianceTab.v2'
-import { SignalementsTabV2 } from './tabs/SignalementsTab.v2'
-import { RotationsTabV2 } from './tabs/RotationsTab.v2'
-import { AvmTabV2 } from './tabs/AvmTab.v2'
-
 import { CreateProfilePanel } from './panels/CreateProfilePanel'
 import { ProfileDetailPanel } from './panels/ProfileDetailPanel'
 import { CreateAdsPanel } from './panels/CreateAdsPanel'
 import { AdsDetailPanel } from './panels/AdsDetailPanel'
-import { AdsDetailPanelV2 } from './panels/AdsDetailPanel.v2'
 import { CreateIncidentPanel } from './panels/CreateIncidentPanel'
 import { CreateRotationPanel } from './panels/CreateRotationPanel'
 import { CreateAvmPanel } from './panels/CreateAvmPanel'
@@ -72,9 +57,6 @@ export function PaxLogPage() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
   const { hasPermission, hasAny } = usePermission()
-  // v2 ON par defaut ; passe a false uniquement si le setting backend
-  // `paxlog.v2_enabled` est explicitement desactive (rollback admin).
-  const v2 = usePaxlogV2Enabled()
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'paxlog'
   const isAdmin = hasPermission('*') || hasPermission('system.platform.admin')
@@ -145,25 +127,15 @@ export function PaxLogPage() {
               ? <RequesterHomeTab onCreateAds={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'ads' } })} onCreateAvm={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'avm' } })} onOpenAds={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })} onOpenAvm={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })} />
               : isValidatorProfile
                 ? <ValidatorHomeTab onOpenAds={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })} onOpenAvm={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })} />
-                : v2 ? <DashboardTabV2 /> : <ModuleDashboard module="paxlog" toolbarPortalId="dash-toolbar-paxlog" />
+                : <ModuleDashboard module="paxlog" toolbarPortalId="dash-toolbar-paxlog" />
           )}
-          {effectiveTab === 'ads' && (v2
-            ? <AdsTabV2 openDetail={handleOpenDetail} openCreate={handleCreate} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />
-            : <AdsTab openDetail={handleOpenDetail} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />)}
-          {effectiveTab === 'waitlist' && (v2
-            ? <WaitlistTabV2 openDetail={handleOpenDetail} />
-            : <WaitlistTab openDetail={handleOpenDetail} />)}
+          {effectiveTab === 'ads' && <AdsTab openDetail={handleOpenDetail} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />}
+          {effectiveTab === 'waitlist' && <WaitlistTab openDetail={handleOpenDetail} />}
           {effectiveTab === 'profiles' && <ProfilesTab openDetail={handleOpenDetail} />}
-          {effectiveTab === 'compliance' && (v2 ? <ComplianceTabV2 /> : <ComplianceTab />)}
-          {effectiveTab === 'signalements' && (v2
-            ? <SignalementsTabV2 openCreate={handleCreate} />
-            : <SignalementsTab />)}
-          {effectiveTab === 'rotations' && (v2
-            ? <RotationsTabV2 openCreate={handleCreate} />
-            : <RotationsTab />)}
-          {effectiveTab === 'avm' && (v2
-            ? <AvmTabV2 openDetail={handleOpenDetail} openCreate={handleCreate} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />
-            : <AvmTab openDetail={handleOpenDetail} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />)}
+          {effectiveTab === 'compliance' && <ComplianceTab />}
+          {effectiveTab === 'signalements' && <SignalementsTab />}
+          {effectiveTab === 'rotations' && <RotationsTab />}
+          {effectiveTab === 'avm' && <AvmTab openDetail={handleOpenDetail} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />}
         </div>
       )}
 
@@ -174,7 +146,7 @@ export function PaxLogPage() {
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'rotation' && <CreateRotationPanel />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'avm' && <CreateAvmPanel />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'profile' && <ProfileDetailPanel id={dynamicPanel.id} paxSource={(dynamicPanel.meta?.pax_source as 'user' | 'contact') || 'user'} adsId={dynamicPanel.meta?.from_ads_id as string | undefined} />}
-      {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'ads' && <AdsDetailPanelAuto id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'ads' && <AdsDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'avm' && <AvmDetailPanel id={dynamicPanel.id} />}
 
       {/* SUP-0037: slot de fallback pour les panels d'autres modules.
@@ -191,18 +163,6 @@ export function PaxLogPage() {
   )
 }
 
-/**
- * AdsDetailPanelAuto — wrapper resolvant v1/v2 via le kill-switch.
- * Necessaire car le renderer registry (registerPanelRenderer ci-dessous)
- * s'execute hors composant React et ne peut donc pas appeler le hook
- * usePaxlogV2Enabled directement. Ce composant l'encapsule et est
- * utilise a la fois en rendu inline et dans le registry.
- */
-function AdsDetailPanelAuto({ id }: { id: string }) {
-  const v2 = usePaxlogV2Enabled()
-  return v2 ? <AdsDetailPanelV2 id={id} /> : <AdsDetailPanel id={id} />
-}
-
 // ── Panel renderer registration ───────────────────────────────
 registerPanelRenderer('paxlog', (view) => {
   if (view.type === 'create') {
@@ -214,7 +174,7 @@ registerPanelRenderer('paxlog', (view) => {
   }
   if (view.type === 'detail' && 'id' in view) {
     if (view.meta?.subtype === 'profile') return <ProfileDetailPanel id={view.id} paxSource={(view.meta?.pax_source as 'user' | 'contact') || 'user'} adsId={view.meta?.from_ads_id as string | undefined} />
-    if (view.meta?.subtype === 'ads') return <AdsDetailPanelAuto id={view.id} />
+    if (view.meta?.subtype === 'ads') return <AdsDetailPanel id={view.id} />
     if (view.meta?.subtype === 'avm') return <AvmDetailPanel id={view.id} />
   }
   return null

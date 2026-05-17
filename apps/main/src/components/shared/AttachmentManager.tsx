@@ -327,6 +327,7 @@ export function AttachmentManager({
               <div className="flex items-center gap-1 shrink-0">
                 {hasPreview && (
                   <button
+                    type="button"
                     onClick={() => togglePreview(att.id)}
                     className={cn('p-1 rounded transition-colors', isExpanded ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted')}
                     title={isExpanded ? 'Masquer l\'aperçu' : 'Aperçu'}
@@ -335,6 +336,7 @@ export function AttachmentManager({
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => downloadFile(att.id, att.original_name)}
                   className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   title="Télécharger"
@@ -343,11 +345,11 @@ export function AttachmentManager({
                 </button>
                 {!readOnly && (isConfirming ? (
                   <div className="flex items-center gap-0.5">
-                    <button className="btn btn-danger text-[9px]" onClick={() => handleDelete(att.id)} disabled={deleteAttachment.isPending}>Oui</button>
-                    <button className="btn btn-secondary text-[9px]" onClick={() => setConfirmDeleteId(null)}>Non</button>
+                    <button type="button" className="btn btn-danger text-[9px]" onClick={() => handleDelete(att.id)} disabled={deleteAttachment.isPending}>Oui</button>
+                    <button type="button" className="btn btn-secondary text-[9px]" onClick={() => setConfirmDeleteId(null)}>Non</button>
                   </div>
                 ) : (
-                  <button className="btn btn-danger" onClick={() => setConfirmDeleteId(att.id)} title="Supprimer">
+                  <button type="button" className="btn btn-danger" onClick={() => setConfirmDeleteId(att.id)} title="Supprimer">
                     <Trash2 size={11} />
                   </button>
                 ))}

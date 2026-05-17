@@ -92,6 +92,8 @@ async def list_attachments(
             Attachment.owner_type == owner_type,
             Attachment.owner_id == owner_id,
             Attachment.entity_id == entity_id,
+            Attachment.archived.is_(False),
+            Attachment.deleted_at.is_(None),
         )
         .order_by(Attachment.created_at.desc())
     )
@@ -165,7 +167,12 @@ async def download_attachment(
 ):
     """Download a file attachment."""
     result = await db.execute(
-        select(Attachment).where(Attachment.id == attachment_id, Attachment.entity_id == entity_id)
+        select(Attachment).where(
+            Attachment.id == attachment_id,
+            Attachment.entity_id == entity_id,
+            Attachment.archived.is_(False),
+            Attachment.deleted_at.is_(None),
+        )
     )
     attachment = result.scalar_one_or_none()
     if not attachment:
@@ -208,7 +215,12 @@ async def delete_attachment(
 ):
     """Delete a file attachment."""
     result = await db.execute(
-        select(Attachment).where(Attachment.id == attachment_id, Attachment.entity_id == entity_id)
+        select(Attachment).where(
+            Attachment.id == attachment_id,
+            Attachment.entity_id == entity_id,
+            Attachment.archived.is_(False),
+            Attachment.deleted_at.is_(None),
+        )
     )
     attachment = result.scalar_one_or_none()
     if not attachment:

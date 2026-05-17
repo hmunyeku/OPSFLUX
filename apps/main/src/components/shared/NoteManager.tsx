@@ -124,37 +124,38 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleCreate()
           }}
         />
-        {content.trim() && (
-          <div className="flex items-center justify-between px-3 py-2 border-t border-border/40 bg-accent/30">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setVisibility(visibility === 'public' ? 'private' : 'public')}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors bg-accent text-muted-foreground border border-border/50 hover:border-border"
-                title={visibility === 'public' ? 'Visible par tous' : 'Visible par vous seul'}
-              >
-                {visibility === 'public' ? <Globe size={10} /> : <Lock size={10} />}
-                {visibility === 'public' ? 'Public' : 'Privé'}
-              </button>
-              <span className="text-[10px] text-muted-foreground/60">
-                Ctrl+Enter pour envoyer
-              </span>
-            </div>
+        <div className="flex items-center justify-between px-3 py-2 border-t border-border/40 bg-accent/30">
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleCreate}
-              disabled={!content.trim() || createNote.isPending}
-              className="btn-sm btn-primary"
+              onClick={() => setVisibility(visibility === 'public' ? 'private' : 'public')}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors bg-accent text-muted-foreground border border-border/50 hover:border-border"
+              title={visibility === 'public' ? 'Visible par tous' : 'Visible par vous seul'}
+              type="button"
             >
-              {createNote.isPending ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <>
-                  <Send size={12} />
-                  Envoyer
-                </>
-              )}
+              {visibility === 'public' ? <Globe size={10} /> : <Lock size={10} />}
+              {visibility === 'public' ? 'Public' : 'Privé'}
             </button>
+            <span className="text-[10px] text-muted-foreground/60">
+              Ctrl+Enter pour enregistrer
+            </span>
           </div>
-        )}
+          <button
+            onClick={handleCreate}
+            disabled={!content.trim() || createNote.isPending}
+            className="btn-sm btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!content.trim() ? "Saisissez une note avant d'enregistrer" : 'Enregistrer la note'}
+            type="button"
+          >
+            {createNote.isPending ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <>
+                <Send size={12} />
+                Enregistrer
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Loading */}

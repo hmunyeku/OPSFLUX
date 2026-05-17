@@ -51,6 +51,7 @@ from app.schemas.common import (
     ProjectSituationCreate, ProjectSituationRead,
 )
 from app.services.cpm_service import compute_cpm
+from app.services.modules.tier_guard import ensure_tier_contact_usable, ensure_tier_usable
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"], dependencies=[require_module_enabled("projets")])
 PROJECT_WORKFLOW_SLUG = "project"
@@ -562,6 +563,10 @@ async def create_project(
                     },
                 )
 
+    if payload.get("tier_id"):
+        tier = await db.get(Tier, payload["tier_id"])
+        await ensure_tier_usable(db, tier, entity_id=entity_id, operation="project")
+
     if not payload.get("code"):
         payload["code"] = await generate_reference("PRJ", db, entity_id=entity_id)
     # Default the project's currency to the entity's currency (not the literal
@@ -876,6 +881,9 @@ async def update_project(
         "progress_weight_method" in update_data
         and update_data["progress_weight_method"] != project.progress_weight_method
     )
+    if update_data.get("tier_id"):
+        tier = await db.get(Tier, update_data["tier_id"])
+        await ensure_tier_usable(db, tier, entity_id=entity_id, operation="project")
     for field, value in update_data.items():
         setattr(project, field, value)
     await db.commit()
@@ -993,9 +1001,10 @@ async def add_project_member(
         if check_user.scalar_one_or_none() is None:
             raise HTTPException(status_code=404, detail=f"User {body.user_id} not found")
     if body.contact_id:
-        check_contact = await db.execute(select(TierContact.id).where(TierContact.id == body.contact_id).limit(1))
-        if check_contact.scalar_one_or_none() is None:
+        contact = await db.get(TierContact, body.contact_id)
+        if contact is None:
             raise HTTPException(status_code=404, detail=f"Contact {body.contact_id} not found")
+        await ensure_tier_contact_usable(db, contact, entity_id=entity_id, operation="project")
 
     payload = body.model_dump()
     # Default member's currency to the project's currency if not provided.

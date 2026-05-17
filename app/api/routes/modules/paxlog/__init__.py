@@ -74,6 +74,7 @@ from app.models.paxlog import (
 )
 from app.models.planner import PlannerActivity
 from app.models.travelwiz import ManifestPassenger, Voyage, VoyageManifest
+from app.services.modules.tier_guard import ensure_tier_contact_usable
 from app.schemas.paxlog import (
     AdsBoardingContextRead,
     AdsBoardingManifestRead,
@@ -5788,7 +5789,13 @@ async def search_pax_candidates(
     contact_q = (
         select(TierContact)
         .join(Tier, Tier.id == TierContact.tier_id)
-        .where(Tier.entity_id == entity_id, TierContact.active == True)  # noqa: E712
+        .where(
+            Tier.entity_id == entity_id,
+            Tier.archived == False,  # noqa: E712
+            Tier.active == True,  # noqa: E712
+            Tier.is_blocked == False,  # noqa: E712
+            TierContact.active == True,  # noqa: E712
+        )
     )
     linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
     if linked_tier_ids is not None:
@@ -5911,13 +5918,14 @@ async def add_pax_to_ads(
         )
     else:
         c = await db.get(TierContact, body.contact_id)
-        if not c:
+        if not c or not c.active:
             raise StructuredHTTPException(
                 404,
                 code="CONTACT_NOT_FOUND",
                 message="Contact not found",
             )
         await _assert_external_tier_access(db, current_user, entity_id, c.tier_id)
+        await ensure_tier_contact_usable(db, c, entity_id=entity_id, operation="paxlog")
         pax_name = f"{c.first_name} {c.last_name}"
         existing = await db.execute(
             select(AdsPax.id).where(AdsPax.ads_id == ads_id, AdsPax.contact_id == body.contact_id)
@@ -6077,6 +6085,9 @@ async def import_pax_from_csv(
                     func.lower(TierContact.email) == email,
                     TierContact.active == True,  # noqa: E712
                     Tier.entity_id == entity_id,
+                    Tier.archived == False,  # noqa: E712
+                    Tier.active == True,  # noqa: E712
+                    Tier.is_blocked == False,  # noqa: E712
                 )
             )).scalar_one_or_none()
 

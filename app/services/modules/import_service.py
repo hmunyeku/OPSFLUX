@@ -437,7 +437,7 @@ class TierHandler(TargetObjectHandler):
     def get_fields(self) -> list[TargetFieldDef]:
         return [
             TargetFieldDef(key="name", label="Nom / Raison sociale", type="string", required=True, example="TotalEnergies"),
-            TargetFieldDef(key="code", label="Code", type="string", example="TRS-2026-0001"),
+            TargetFieldDef(key="code", label="Code", type="string", example="TIR-2026-0001"),
             TargetFieldDef(key="type", label="Type", type="string", example="supplier"),
             TargetFieldDef(key="alias", label="Nom commercial", type="string"),
             TargetFieldDef(key="website", label="Site web", type="string"),
@@ -505,7 +505,7 @@ class TierHandler(TargetObjectHandler):
     async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
         code = row.get("code")
         if not code:
-            code = await generate_reference("TRS", db, entity_id=entity_id)
+            code = await generate_reference("TIR", db, entity_id=entity_id)
         obj = Tier(
             entity_id=entity_id,
             code=str(code).strip(),
@@ -844,7 +844,7 @@ class ComplianceRecordHandler(TargetObjectHandler):
         return [
             TargetFieldDef(key="compliance_type_code", label="Code type conformité", type="lookup", required=True, lookup_target="compliance_type.code"),
             TargetFieldDef(key="owner_type", label="Type porteur", type="string", required=True, example="tier_contact"),
-            TargetFieldDef(key="owner_code", label="Code porteur", type="string", required=True, example="TRS-2026-0001"),
+            TargetFieldDef(key="owner_code", label="Code porteur", type="string", required=True, example="TIR-2026-0001"),
             TargetFieldDef(key="status", label="Statut", type="string", example="valid"),
             TargetFieldDef(key="issued_at", label="Date émission", type="datetime"),
             TargetFieldDef(key="expires_at", label="Date expiration", type="datetime"),

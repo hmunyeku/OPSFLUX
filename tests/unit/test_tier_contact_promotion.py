@@ -6,10 +6,13 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from app.api.routes.modules import tiers
+from app.api.routes.core import import_assistant
 from app.models.common import UserTierLink
-from app.schemas.common import TierContactPromoteUserRequest
+from app.schemas.common import TierBlockCreate, TierContactPromoteUserRequest, TierContactUpdate, TierUpdate
+from app.services.modules import import_service
 
 
 class FakeResult:
@@ -55,6 +58,102 @@ class FakeDB:
 
     async def refresh(self, obj):
         self.refreshed.append(obj)
+
+    async def get(self, model, obj_id):
+        if not self._results:
+            raise AssertionError("Unexpected get call")
+        result = self._results.pop(0)
+        return result.scalar_one_or_none()
+
+
+def test_tier_update_rejects_negative_capital():
+    with pytest.raises(ValidationError):
+        TierUpdate.model_validate({"capital": -1})
+
+
+def test_tier_contact_update_rejects_invalid_email():
+    with pytest.raises(ValidationError):
+        TierContactUpdate.model_validate({"email": "not-an-email"})
+
+
+def test_tier_block_create_rejects_end_date_before_start_date():
+    with pytest.raises(ValidationError):
+        TierBlockCreate.model_validate(
+            {
+                "reason": "Controle fournisseur",
+                "start_date": date(2026, 5, 17),
+                "end_date": date(2026, 5, 16),
+            }
+        )
+
+
+def test_import_assistant_uses_namespaced_tiers_permissions():
+    assert import_assistant._PERMISSION_MAP["tier"] == "tier.tier.create"
+    assert import_assistant._PERMISSION_MAP["contact"] == "tier.contact.manage"
+
+
+@pytest.mark.asyncio
+async def test_tier_import_auto_code_uses_tir_prefix(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    prefixes = []
+    db = FakeDB([])
+
+    async def _fake_generate_reference(prefix, db_arg, *, entity_id):
+        prefixes.append(prefix)
+        return f"{prefix}-2026-0001"
+
+    async def _fake_flush():
+        for obj in db.added:
+            if getattr(obj, "id", None) is None:
+                obj.id = uuid4()
+
+    monkeypatch.setattr(import_service, "generate_reference", _fake_generate_reference)
+    db.flush = _fake_flush
+
+    record_id = await import_service.TierHandler().create_record(
+        {"name": "ACME", "active": True},
+        entity_id,
+        user_id,
+        db,
+    )
+
+    assert prefixes == ["TIR"]
+    assert record_id is not None
+    assert db.added[0].code == "TIR-2026-0001"
+
+
+@pytest.mark.asyncio
+async def test_tier_guard_rejects_current_block():
+    from app.services.modules.tier_guard import ensure_tier_usable
+
+    entity_id = uuid4()
+    tier_id = uuid4()
+    tier = SimpleNamespace(
+        id=tier_id,
+        entity_id=entity_id,
+        active=True,
+        archived=False,
+        is_blocked=True,
+        name="Blocked supplier",
+    )
+    block = SimpleNamespace(
+        id=uuid4(),
+        tier_id=tier_id,
+        action="block",
+        active=True,
+        block_type="purchasing",
+        reason="Non conformite",
+        start_date=date(2026, 5, 1),
+        end_date=None,
+    )
+    db = FakeDB([FakeResult(scalar_one_or_none=block)])
+
+    with pytest.raises(HTTPException) as exc:
+        await ensure_tier_usable(db, tier, entity_id=entity_id, operation="paxlog")
+
+    assert exc.value.status_code == 409
+    assert "blocked" in str(exc.value.detail).lower()
 
 
 @pytest.mark.asyncio
@@ -266,6 +365,60 @@ async def test_get_tier_or_404_denies_external_user_outside_linked_tier():
         )
 
     assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_tier_or_404_hides_archived_tiers():
+    entity_id = uuid4()
+    tier_id = uuid4()
+    archived_tier = SimpleNamespace(id=tier_id, entity_id=entity_id, archived=True)
+    db = FakeDB([FakeResult(scalar_one_or_none=archived_tier)])
+
+    with pytest.raises(HTTPException) as exc:
+        await tiers._get_tier_or_404(
+            db,
+            tier_id,
+            entity_id,
+            current_user=SimpleNamespace(id=uuid4(), user_type="internal"),
+        )
+
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_tier_contact_deactivates_contact_instead_of_hard_delete(monkeypatch):
+    entity_id = uuid4()
+    tier_id = uuid4()
+    contact_id = uuid4()
+    tier = SimpleNamespace(id=tier_id, entity_id=entity_id, archived=False)
+    contact = SimpleNamespace(id=contact_id, tier_id=tier_id, active=True)
+    current_user = SimpleNamespace(id=uuid4(), user_type="internal")
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=tier),
+            FakeResult(scalar_one_or_none=contact),
+        ]
+    )
+    delete_calls = []
+
+    async def _fake_delete_entity(*args, **kwargs):
+        delete_calls.append((args, kwargs))
+
+    monkeypatch.setattr(tiers, "delete_entity", _fake_delete_entity)
+
+    result = await tiers.delete_tier_contact(
+        tier_id=tier_id,
+        contact_id=contact_id,
+        entity_id=entity_id,
+        current_user=current_user,
+        _=None,
+        db=db,
+    )
+
+    assert contact.active is False
+    assert delete_calls == []
+    assert db.commits == 1
+    assert result["detail"] == "Contact deactivated"
 
 
 @pytest.mark.asyncio

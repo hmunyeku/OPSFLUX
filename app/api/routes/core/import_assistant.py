@@ -40,8 +40,8 @@ router = APIRouter(prefix="/api/v1/import", tags=["import"])
 # Permission mapping: target_object -> required permission
 _PERMISSION_MAP: dict[str, str] = {
     "asset": "asset.create",
-    "tier": "tier.create",
-    "contact": "tier.create",
+    "tier": "tier.tier.create",
+    "contact": "tier.contact.manage",
     "pax_profile": "paxlog.ads.create",
     "project": "project.create",
     "planner_activity": "planner.activity.create",

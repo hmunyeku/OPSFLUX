@@ -1,5 +1,5 @@
 /**
- * React Query hooks for tiers (companies) + contacts + identifiers + blocks + refs + SAP import.
+ * React Query hooks for tiers (companies) + contacts + identifiers + blocks + refs.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tiersService } from '@/services/tiersService'
@@ -40,8 +40,9 @@ export function useUpdateTier() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Partial<TierCreate> }) =>
       tiersService.update(id, payload),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['tiers'] })
+      qc.invalidateQueries({ queryKey: ['tiers', id] })
     },
   })
 }
@@ -166,6 +167,7 @@ export function useBlockTier() {
     onSuccess: (_, { tierId }) => {
       qc.invalidateQueries({ queryKey: ['tier-blocks', tierId] })
       qc.invalidateQueries({ queryKey: ['tiers'] })
+      qc.invalidateQueries({ queryKey: ['tiers', tierId] })
     },
   })
 }
@@ -178,6 +180,7 @@ export function useUnblockTier() {
     onSuccess: (_, { tierId }) => {
       qc.invalidateQueries({ queryKey: ['tier-blocks', tierId] })
       qc.invalidateQueries({ queryKey: ['tiers'] })
+      qc.invalidateQueries({ queryKey: ['tiers', tierId] })
     },
   })
 }
@@ -199,6 +202,7 @@ export function useCreateTierExternalRef() {
       tiersService.createExternalRef(tierId, payload),
     onSuccess: (_, { tierId }) => {
       qc.invalidateQueries({ queryKey: ['tier-external-refs', tierId] })
+      qc.invalidateQueries({ queryKey: ['tiers', tierId] })
     },
   })
 }
@@ -210,18 +214,7 @@ export function useDeleteTierExternalRef() {
       tiersService.deleteExternalRef(tierId, refId),
     onSuccess: (_, { tierId }) => {
       qc.invalidateQueries({ queryKey: ['tier-external-refs', tierId] })
-    },
-  })
-}
-
-// ── SAP Import ──
-
-export function useImportSap() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (file: File) => tiersService.importSap(file),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tiers'] })
+      qc.invalidateQueries({ queryKey: ['tiers', tierId] })
     },
   })
 }

@@ -64,6 +64,7 @@ from app.services.modules.packlog_service import (
     update_packlog_cargo_status,
     try_packlog_workflow_transition,
 )
+from app.services.modules.tier_guard import ensure_tier_contact_usable, ensure_tier_usable
 from app.core.errors import StructuredHTTPException
 
 
@@ -162,6 +163,7 @@ async def _validate_cargo_dossier_refs(
                 code="CONTACT_D_ENL_VEMENT_INTROUVABLE_OU",
                 message="Contact d'enlèvement introuvable ou inactif",
             )
+        await ensure_tier_contact_usable(db, pickup_contact, entity_id=entity_id, operation="packlog")
     if getattr(payload, "planned_zone_id", None):
         zone = await db.get(TransportVectorZone, payload.planned_zone_id)
         if not zone or not zone.active:
@@ -241,6 +243,7 @@ async def _validate_cargo_request_refs(
                 code="ENTREPRISE_EXP_DITRICE_INTROUVABLE_OU_INACTIVE",
                 message="Entreprise expéditrice introuvable ou inactive",
             )
+        await ensure_tier_usable(db, sender_tier, entity_id=entity_id, operation="packlog")
     if requester_user_id:
         requester = await db.get(User, requester_user_id)
         if not requester or not requester.active or not await _user_has_access_to_entity(db, user_id=requester_user_id, entity_id=entity_id):
@@ -269,6 +272,7 @@ async def _validate_cargo_request_refs(
                 code="LE_CONTACT_ENTREPRISE_NE_CORRESPOND_PAS",
                 message="Le contact entreprise ne correspond pas à l'entreprise expéditrice",
             )
+        await ensure_tier_contact_usable(db, sender_contact, entity_id=entity_id, operation="packlog")
 
 
 async def list_cargo_requests_impl(

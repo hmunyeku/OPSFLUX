@@ -263,7 +263,7 @@ async def archive_tier(
     db: AsyncSession = Depends(get_db),
 ):
     tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
-    await delete_entity(tier, db, "tier", entity_id=tier.id, user_id=current_user.id)
+    await delete_entity(tier, db, "tier", entity_id=entity_id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Tier archived"}
 
@@ -489,9 +489,9 @@ async def delete_tier_contact(
 ):
     await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     contact = await _get_contact_or_404(db, contact_id, tier_id)
-    await delete_entity(contact, db, "tier_contact", entity_id=contact.id, user_id=current_user.id)
+    contact.active = False
     await db.commit()
-    return {"detail": "Contact deleted"}
+    return {"detail": "Contact deactivated"}
 
 
 @router.post("/{tier_id}/contacts/{contact_id}/promote-user", response_model=UserRead, status_code=201)
@@ -765,7 +765,7 @@ async def delete_external_ref(
             code="EXTERNAL_REFERENCE_NOT_FOUND",
             message="External reference not found",
         )
-    await delete_entity(ref, db, "external_reference", entity_id=ref.id, user_id=current_user.id)
+    await delete_entity(ref, db, "external_reference", entity_id=entity_id, user_id=current_user.id)
     await db.commit()
     return {"detail": "External reference deleted"}
 
@@ -782,10 +782,10 @@ async def _get_tier_or_404(
     if current_user is not None:
         await _assert_external_user_has_tier_access(db, current_user, entity_id, tier_id)
     result = await db.execute(
-        select(Tier).where(Tier.id == tier_id, Tier.entity_id == entity_id)
+        select(Tier).where(Tier.id == tier_id, Tier.entity_id == entity_id, Tier.archived == False)
     )
     tier = result.scalar_one_or_none()
-    if not tier:
+    if not tier or getattr(tier, "archived", False):
         raise StructuredHTTPException(
             404,
             code="TIER_NOT_FOUND",
@@ -847,7 +847,11 @@ async def _get_contact_or_404(
     *,
     include_promoted_user: bool = False,
 ) -> TierContact:
-    stmt = select(TierContact).where(TierContact.id == contact_id, TierContact.tier_id == tier_id)
+    stmt = select(TierContact).where(
+        TierContact.id == contact_id,
+        TierContact.tier_id == tier_id,
+        TierContact.active == True,  # noqa: E712
+    )
     if include_promoted_user:
         stmt = stmt.options(selectinload(TierContact.promoted_user))
     result = await db.execute(stmt)

@@ -29,6 +29,7 @@ from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
 from app.models.common import Attachment, AuditLog, ImputationReference, Tier, TierContact, User
 from app.services.core.fsm_service import fsm_service, FSMError
+from app.services.modules.tier_guard import ensure_tier_contact_usable
 from app.models.packlog import (
     CargoAttachmentEvidence,
     CargoItem,
@@ -437,6 +438,7 @@ async def _validate_cargo_dossier_refs(
                 code="CONTACT_D_ENLEVEMENT_INTROUVABLE_OU_INACTIF",
                 message="Contact d'enlevement introuvable ou inactif",
             )
+        await ensure_tier_contact_usable(db, pickup_contact, entity_id=entity_id, operation="travelwiz")
     if getattr(payload, "planned_zone_id", None):
         zone = await db.get(TransportVectorZone, payload.planned_zone_id)
         if not zone or not zone.active:

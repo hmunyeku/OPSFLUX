@@ -11,6 +11,7 @@
  */
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   ShieldCheck, ShieldAlert, Plus, Trash2, X,
   Loader2, AlertTriangle, Pencil, GraduationCap, Paperclip,
@@ -24,6 +25,7 @@ import {
   useComplianceRecords, useCreateComplianceRecord, useUpdateComplianceRecord,
   useDeleteComplianceRecord, useComplianceCheck, useComplianceTypes,
 } from '@/hooks/useConformite'
+import { useAttachments } from '@/hooks/useSettings'
 import type { ComplianceRecord } from '@/types/api'
 
 interface ReferentielManagerProps {
@@ -82,9 +84,14 @@ const EMPTY_FORM: FormData = {
   notes: '',
 }
 
+const STAGING_OWNER_TYPE = 'compliance_record_staging'
+
+const createStagingRef = () => globalThis.crypto?.randomUUID?.() ?? ''
+
 export function ReferentielManager({ ownerType, ownerId, compact, category }: ReferentielManagerProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const { data: records, isLoading: recordsLoading } = useComplianceRecords({
     owner_type: ownerType, owner_id: ownerId, page_size: 200, category,
   })
@@ -99,6 +106,12 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null)
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [stagingRef, setStagingRef] = useState(createStagingRef)
+  const { data: stagedAttachments } = useAttachments(
+    STAGING_OWNER_TYPE,
+    showForm && !editingId ? stagingRef : undefined,
+  )
+  const stagedAttachmentCount = stagedAttachments?.length ?? 0
 
   // Group records by category
   const grouped = useMemo(() => {
@@ -147,10 +160,15 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
     return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
   }
 
+  const resetCreateSession = () => {
+    setStagingRef(createStagingRef())
+  }
+
   const openCreate = (cat?: string) => {
     setForm(EMPTY_FORM)
     setEditingId(null)
     setActiveCategory(cat || null)
+    resetCreateSession()
     setShowForm(true)
   }
 
@@ -174,11 +192,20 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
     setForm({ ...EMPTY_FORM, compliance_type_id: typeId })
     setEditingId(null)
     setActiveCategory(String(detail.category || '') || null)
+    resetCreateSession()
     setShowForm(true)
   }
 
   const handleSubmit = async () => {
     if (!ownerId) return
+    if (!editingId && stagedAttachmentCount <= 0) {
+      toast({
+        title: 'Pièce justificative obligatoire',
+        description: 'Déposez au moins une PJ avant de créer le référentiel afin qu’il puisse être vérifié.',
+        variant: 'error',
+      })
+      return
+    }
     try {
       if (editingId) {
         await updateRecord.mutateAsync({
@@ -205,14 +232,17 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           issuer: form.issuer || null,
           reference_number: form.reference_number || null,
           notes: form.notes || null,
+          staging_ref: stagingRef,
         }) as any
-        toast({ title: 'Référentiel ajouté — vous pouvez ajouter des pièces jointes', variant: 'success' })
-        // Auto-expand attachments for the new record
+        await queryClient.invalidateQueries({ queryKey: ['compliance-records'] })
+        await queryClient.invalidateQueries({ queryKey: ['compliance-check', ownerType, ownerId] })
+        toast({ title: 'Référentiel ajouté avec sa pièce justificative', variant: 'success' })
         if (created?.id) setExpandedRecordId(created.id)
       }
       setShowForm(false)
       setEditingId(null)
       setForm(EMPTY_FORM)
+      resetCreateSession()
     } catch {
       toast({ title: t('common.error'), variant: 'error' })
     }
@@ -369,7 +399,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             <span className="text-[10px] font-medium text-primary">
               {editingId ? 'Modifier l\'enregistrement' : 'Nouvel enregistrement'}
             </span>
-            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground">
+            <button onClick={() => { setShowForm(false); setEditingId(null); resetCreateSession() }} className="p-0.5 rounded hover:bg-muted text-muted-foreground">
               <X size={10} />
             </button>
           </div>
@@ -425,14 +455,25 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             </div>
           </div>
 
+          {!editingId && (
+            <div className="rounded-md border border-border/70 bg-muted/20 p-2 space-y-2">
+              <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400">
+                <Paperclip size={11} />
+                <span>Pièce justificative obligatoire pour vérification et validation</span>
+              </div>
+              <AttachmentManager ownerType={STAGING_OWNER_TYPE} ownerId={stagingRef} compact />
+            </div>
+          )}
+
           <div className="flex justify-end gap-1.5">
-            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="btn btn-secondary">
+            <button onClick={() => { setShowForm(false); setEditingId(null); resetCreateSession() }} className="btn btn-secondary">
               Annuler
             </button>
             <button
               onClick={handleSubmit}
-              disabled={(!editingId && !form.compliance_type_id) || createRecord.isPending || updateRecord.isPending}
+              disabled={(!editingId && (!form.compliance_type_id || stagedAttachmentCount <= 0)) || createRecord.isPending || updateRecord.isPending}
               className="btn btn-primary"
+              title={!editingId && stagedAttachmentCount <= 0 ? 'Déposez la PJ obligatoire avant de créer le référentiel' : undefined}
             >
               {(createRecord.isPending || updateRecord.isPending) ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
               {editingId ? 'Enregistrer' : 'Créer'}

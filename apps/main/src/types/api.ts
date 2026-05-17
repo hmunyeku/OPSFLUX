@@ -1142,6 +1142,7 @@ export interface ComplianceRecordCreate {
   issuer?: string | null
   reference_number?: string | null
   notes?: string | null
+  staging_ref?: string | null
 }
 
 export interface ComplianceRecordUpdate {

@@ -713,6 +713,7 @@ async def create_compliance_record(
     db: AsyncSession = Depends(get_db),
 ):
     data = body.model_dump()
+    staging_ref = data.pop("staging_ref", None)
     await _assert_external_owner_access(
         db,
         current_user,
@@ -783,6 +784,18 @@ async def create_compliance_record(
         **data,
     )
     db.add(rec)
+    await db.flush()
+    if staging_ref:
+        from app.services.core.staging_service import commit_staging_children
+        await commit_staging_children(
+            db,
+            staging_owner_type="compliance_record_staging",
+            final_owner_type="compliance_record",
+            staging_ref=staging_ref,
+            final_owner_id=rec.id,
+            uploader_id=current_user.id,
+            entity_id=entity_id,
+        )
     await db.commit()
     await db.refresh(rec)
     # Enrich with type info
@@ -790,7 +803,7 @@ async def create_compliance_record(
     d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
     d["type_name"] = ct.name if ct else None
     d["type_category"] = ct.category if ct else None
-    d["attachment_count"] = 0
+    d["attachment_count"] = await _count_record_proof(db, record_type="compliance_record", record=rec)
     return d
 
 

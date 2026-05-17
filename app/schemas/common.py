@@ -1627,6 +1627,7 @@ class ComplianceRecordCreate(BaseModel):
     issuer: str | None = None
     reference_number: str | None = None
     notes: str | None = None
+    staging_ref: UUID | None = None
 
 
 class ComplianceRecordUpdate(BaseModel):

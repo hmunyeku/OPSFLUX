@@ -358,8 +358,8 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
       )}
 
       {/* Compact mode: text link style (same as PhoneManager/ContactEmailManager) */}
-      {compact && !hideAddButton && !showForm && !editingId && (
-        <div className="flex justify-end">
+      {compact && addresses.length > 0 && !hideAddButton && !showForm && !editingId && (
+        <div className="flex justify-start">
           <button
             onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
@@ -479,7 +479,24 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
 
       {/* Empty state */}
       {!isLoading && !showForm && addresses.length === 0 && (
-        <EmptyState icon={MapPin} title={t('shared.addresses.empty')} description={t('shared.addresses.empty_description')} size="compact" />
+        compact ? (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-dashed border-border/50 bg-muted/10 px-3 py-2">
+            <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+              <MapPin size={13} className="shrink-0" />
+              <span className="truncate">{t('shared.addresses.empty_description')}</span>
+            </div>
+            {!hideAddButton && !editingId && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+              >
+                <Plus size={12} /> Ajouter
+              </button>
+            )}
+          </div>
+        ) : (
+          <EmptyState icon={MapPin} title={t('shared.addresses.empty')} description={t('shared.addresses.empty_description')} size="compact" />
+        )
       )}
     </div>
   )

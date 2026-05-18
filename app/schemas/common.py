@@ -442,6 +442,7 @@ class TierRead(OpsFluxSchema):
     alias: str | None = None
     trade_name: str | None = None
     logo_url: str | None = None
+    logo_attachment_id: UUID | None = None
     type: str | None
     website: str | None = None
     # Legacy fields (prefer polymorphic phones/emails)

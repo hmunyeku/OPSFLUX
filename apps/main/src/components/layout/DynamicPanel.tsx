@@ -1318,7 +1318,7 @@ export function InlineEditableSelect({
 }: {
   label: string
   value: string
-  displayValue?: string
+  displayValue?: React.ReactNode
   options: { value: string; label: string }[]
   onSave: (newValue: string) => void
   disabled?: boolean

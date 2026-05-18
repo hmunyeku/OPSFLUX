@@ -26,6 +26,7 @@ import {
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef, ImportExportConfig, DataTableBatchAction } from '@/components/ui/DataTable/types'
+import { CountryFlag } from '@/components/ui/CountryFlag'
 import { cn } from '@/lib/utils'
 import { PageNavBar, TabBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
@@ -81,6 +82,7 @@ import { useStagingRef } from '@/hooks/useStagingRef'
 import { RichTextField } from '@/components/shared/RichTextField'
 import { ExternalRefManager } from '@/components/shared/ExternalRefManager'
 import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactWithTier } from '@/types/api'
+import api from '@/lib/api'
 
 import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
 import { ContactListSection, ContactDetailPanel, useContactColumns } from './TierContacts'
@@ -102,6 +104,88 @@ function getTextFilterValue(value: unknown): string | undefined {
     return typeof raw === 'string' ? raw.trim() || undefined : undefined
   }
   return undefined
+}
+
+function TierLogoMark({ tier }: { tier: Tier }) {
+  const [logoUrlFailed, setLogoUrlFailed] = useState(false)
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null)
+  const [attachmentFailed, setAttachmentFailed] = useState(false)
+  const shouldUseAttachment = !!tier.logo_attachment_id && (!tier.logo_url || logoUrlFailed)
+
+  useEffect(() => {
+    setLogoUrlFailed(false)
+  }, [tier.logo_url])
+
+  useEffect(() => {
+    let revokeUrl: string | null = null
+    let cancelled = false
+
+    setAttachmentUrl(null)
+    setAttachmentFailed(false)
+
+    if (!shouldUseAttachment || !tier.logo_attachment_id) {
+      return undefined
+    }
+
+    api.get(`/api/v1/attachments/${tier.logo_attachment_id}/download`, { responseType: 'blob' })
+      .then(({ data }) => {
+        if (cancelled) return
+        const objectUrl = URL.createObjectURL(data)
+        revokeUrl = objectUrl
+        setAttachmentUrl(objectUrl)
+      })
+      .catch(() => {
+        if (!cancelled) setAttachmentFailed(true)
+      })
+
+    return () => {
+      cancelled = true
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl)
+    }
+  }, [shouldUseAttachment, tier.logo_attachment_id])
+
+  const src = tier.logo_url && !logoUrlFailed ? tier.logo_url : attachmentUrl
+  if (src && !attachmentFailed) {
+    return (
+      <span className="flex h-7 w-8 shrink-0 items-center justify-center overflow-hidden rounded-sm">
+        <img
+          src={src}
+          alt=""
+          className="max-h-6 max-w-full object-contain"
+          loading="lazy"
+          onError={() => {
+            if (tier.logo_url && !logoUrlFailed) setLogoUrlFailed(true)
+            else setAttachmentFailed(true)
+          }}
+        />
+      </span>
+    )
+  }
+
+  return (
+    <div className={cn(
+      'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-muted-foreground',
+      tier.active ? 'border-primary/15 bg-primary/5' : 'border-border/60 bg-muted/40',
+    )}>
+      <Building2 size={13} />
+    </div>
+  )
+}
+
+function TierCountryDisplay({ code, labels, withLabel = false }: { code: string | null | undefined; labels: Record<string, string>; withLabel?: boolean }) {
+  if (!code) return <span className="text-muted-foreground/60">--</span>
+  const label = labels[code] || code
+  return (
+    <CountryFlag
+      code={code}
+      label={withLabel ? label : undefined}
+      size={withLabel ? 15 : 16}
+      className={cn(
+        withLabel ? 'text-sm text-foreground' : 'justify-center',
+        !withLabel && 'min-w-5',
+      )}
+    />
+  )
 }
 
 // -- Create Tier Panel --------------------------------------------------------
@@ -848,7 +932,13 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                   options={tierTypeOptions}
                   onSave={(v) => handleInlineSave('type', v)}
                 />
-                <InlineEditableSelect label={t('tiers.ui.country')} value={tier.country || ''} displayValue={tier.country ? (countryLabels[tier.country] || tier.country) : ''} options={countryOptions} onSave={(v) => handleInlineSave('country', v)} />
+                <InlineEditableSelect
+                  label={t('tiers.ui.country')}
+                  value={tier.country || ''}
+                  displayValue={tier.country ? <TierCountryDisplay code={tier.country} labels={countryLabels} withLabel /> : ''}
+                  options={countryOptions}
+                  onSave={(v) => handleInlineSave('country', v)}
+                />
                 <ReadOnlyRow
                   label={t('common.status')}
                   value={
@@ -1399,6 +1489,7 @@ export function TiersPage() {
   const tierTypeOptions = useDictionaryOptions('tier_type')
   const tierTypeLabels = useDictionaryLabels('tier_type')
   const countryOptions = useDictionaryOptions('country')
+  const countryLabels = useDictionaryLabels('country')
   const legalFormOptions = useDictionaryOptions('legal_form')
   const legalFormLabels = useDictionaryLabels('legal_form')
 
@@ -1657,12 +1748,7 @@ export function TiersPage() {
       header: t('common.name'),
       cell: ({ row }) => (
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className={cn(
-            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-muted-foreground',
-            row.original.active ? 'border-primary/15 bg-primary/5' : 'border-border/60 bg-muted/40',
-          )}>
-            <Building2 size={13} />
-          </div>
+          <TierLogoMark tier={row.original} />
           <div className="min-w-0">
             <span className="block truncate text-xs font-semibold text-foreground">{row.original.name}</span>
             {(row.original.alias || row.original.trade_name) && (
@@ -1689,8 +1775,11 @@ export function TiersPage() {
       header: t('common.country', 'Pays'),
       size: 70,
       cell: ({ row }) => row.original.country ? (
-        <span className="inline-flex h-5 min-w-8 items-center justify-center rounded border border-border/60 bg-background px-1.5 font-mono text-[10px] uppercase text-muted-foreground">
-          {row.original.country}
+        <span
+          className="inline-flex h-5 min-w-6 items-center justify-center"
+          title={countryLabels[row.original.country] || row.original.country}
+        >
+          <TierCountryDisplay code={row.original.country} labels={countryLabels} />
         </span>
       ) : <span className="text-muted-foreground">--</span>,
     },

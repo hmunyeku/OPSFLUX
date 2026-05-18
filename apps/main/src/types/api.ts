@@ -55,6 +55,7 @@ export interface Tier {
   alias: string | null
   trade_name: string | null
   logo_url: string | null
+  logo_attachment_id: string | null
   type: string | null
   website: string | null
   // Legacy convenience fields (prefer polymorphic phones/emails)

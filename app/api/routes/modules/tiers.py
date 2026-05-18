@@ -6,7 +6,7 @@ from datetime import date as date_type
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select, func as sqla_func, or_
+from sqlalchemy import and_, case, select, func as sqla_func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -19,7 +19,7 @@ from app.core.email_templates import render_and_send_email
 from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
-    Address, Entity, ExternalReference, Tag, Tier, TierBlock, TierContact, User, UserTierLink,
+    Address, Attachment, Entity, ExternalReference, Tag, Tier, TierBlock, TierContact, User, UserTierLink,
 )
 from app.schemas.common import (
     PaginatedResponse,
@@ -38,6 +38,29 @@ router = APIRouter(prefix="/api/v1/tiers", tags=["tiers"], dependencies=[require
 
 
 # ── Tier CRUD ────────────────────────────────────────────────────────────────
+
+def _tier_logo_attachment_sq(entity_id: UUID):
+    return (
+        select(
+            Attachment.owner_id.label("owner_id"),
+            Attachment.id.label("logo_attachment_id"),
+            sqla_func.row_number().over(
+                partition_by=Attachment.owner_id,
+                order_by=[
+                    case((Attachment.category == "logo", 0), else_=1),
+                    Attachment.created_at.desc(),
+                ],
+            ).label("rn"),
+        )
+        .where(
+            Attachment.owner_type == "tier",
+            Attachment.entity_id == entity_id,
+            Attachment.archived == False,
+            Attachment.deleted_at.is_(None),
+            Attachment.content_type.ilike("image/%"),
+        )
+        .subquery()
+    )
 
 
 @router.get("", response_model=PaginatedResponse[TierRead])
@@ -68,13 +91,19 @@ async def list_tiers(
         .group_by(TierContact.tier_id)
         .subquery()
     )
+    logo_attachment_sq = _tier_logo_attachment_sq(entity_id)
 
     query = (
         select(
             Tier,
             sqla_func.coalesce(contact_count_sq.c.contact_count, 0).label("contact_count"),
+            logo_attachment_sq.c.logo_attachment_id,
         )
         .outerjoin(contact_count_sq, Tier.id == contact_count_sq.c.tier_id)
+        .outerjoin(
+            logo_attachment_sq,
+            and_(Tier.id == logo_attachment_sq.c.owner_id, logo_attachment_sq.c.rn == 1),
+        )
         .where(Tier.entity_id == entity_id, Tier.archived == False)
     )
     if linked_tier_ids is not None:
@@ -119,8 +148,10 @@ async def list_tiers(
 def _tier_with_count(row) -> dict:
     tier = row[0] if hasattr(row, '__getitem__') else row.Tier
     count = row[1] if hasattr(row, '__getitem__') else row.contact_count
+    logo_attachment_id = row[2] if hasattr(row, '__getitem__') else getattr(row, "logo_attachment_id", None)
     d = {c.key: getattr(tier, c.key) for c in tier.__table__.columns}
     d["contact_count"] = count
+    d["logo_attachment_id"] = logo_attachment_id
     return d
 
 
@@ -264,8 +295,25 @@ async def get_tier(
         select(sqla_func.count()).select_from(TierContact)
         .where(TierContact.tier_id == tier_id, TierContact.active == True)
     )
+    logo_result = await db.execute(
+        select(Attachment.id)
+        .where(
+            Attachment.owner_type == "tier",
+            Attachment.owner_id == tier_id,
+            Attachment.entity_id == entity_id,
+            Attachment.archived == False,
+            Attachment.deleted_at.is_(None),
+            Attachment.content_type.ilike("image/%"),
+        )
+        .order_by(
+            case((Attachment.category == "logo", 0), else_=1),
+            Attachment.created_at.desc(),
+        )
+        .limit(1)
+    )
     d = {c.key: getattr(tier, c.key) for c in tier.__table__.columns}
     d["contact_count"] = count_result.scalar() or 0
+    d["logo_attachment_id"] = logo_result.scalar_one_or_none()
     return d
 
 

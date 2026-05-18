@@ -1165,7 +1165,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
         <FormSection title={`${t('tiers.ui.related_projects')} (${relatedProjects?.total ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-projets">
           {projectList.length > 0 ? (
             <div className="space-y-2">
-              <div className="flex gap-1.5 overflow-x-auto pb-1 text-[10px] text-muted-foreground sm:flex-wrap sm:overflow-visible">
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground sm:grid-cols-3 xl:grid-cols-5">
                 {[
                   { label: 'Projets', value: relatedProjects?.total ?? projectList.length, icon: FolderKanban },
                   { label: 'Actifs', value: projectSummary.active, icon: Activity },
@@ -1173,10 +1173,10 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                   { label: 'Sensibles', value: projectSummary.sensitive, icon: AlertTriangle },
                   { label: 'Budget', value: formatMoney(projectSummary.budget, projectSummary.currency), icon: CircleDollarSign },
                 ].map(({ label, value, icon: Icon }) => (
-                  <div key={label} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded border border-border/60 bg-background px-2">
+                  <div key={label} className="flex h-7 min-w-0 items-center gap-1.5 rounded border border-border/60 bg-background px-1.5">
                     <Icon size={10} className="text-muted-foreground" />
-                    <span className="uppercase">{label}</span>
-                    <span className="font-semibold tabular-nums text-foreground">{value}</span>
+                    <span className="min-w-0 flex-1 truncate uppercase">{label}</span>
+                    <span className="shrink-0 truncate font-semibold tabular-nums text-foreground">{value}</span>
                   </div>
                 ))}
               </div>

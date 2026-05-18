@@ -13,7 +13,7 @@ import {
   Calendar, User, Flag, CheckCircle2, Clock, ListTodo,
   MessageSquare, Link2, ChevronRight, FolderKanban,
   Send, X, ArrowRight, ArrowLeft,
-  FileText, AlertCircle, TrendingUp, Pencil, Check, Layers,
+  FileText, AlertCircle, TrendingUp, Pencil, Check, Layers, Plus,
 } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import {
@@ -40,7 +40,9 @@ import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { TabBar } from '@/components/ui/Tabs'
 import { TagManager } from '@/components/shared/TagManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
-import type { PlannerRevisionDecisionRequest, ProjectTask } from '@/types/api'
+import { VariablePobEditor } from '@/pages/planner/VariablePobEditor'
+import { ProjectTaskCreateInlineForm } from '@/components/projets/ProjectTaskCreateInlineForm'
+import type { PlannerRevisionDecisionRequest, ProjectTask, ProjectTaskUpdate } from '@/types/api'
 import { formatDate } from '@/lib/i18n'
 
 // ── Inline editable textarea (multiline) ─────────────────────
@@ -171,6 +173,80 @@ function priorityBadge(priority: string) {
 
 // ── Build task ancestry path ──────────────────────────────────
 
+function dateKeyFromISO(value: string | null | undefined): string | null {
+  if (!value) return null
+  return value.slice(0, 10)
+}
+
+function addDaysToDateKey(dateKey: string, days: number): string {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  const date = new Date(Date.UTC(year, (month ?? 1) - 1, day ?? 1))
+  date.setUTCDate(date.getUTCDate() + days)
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+function diffDateKeys(fromKey: string, toKey: string): number {
+  const [fy, fm, fd] = fromKey.split('-').map(Number)
+  const [ty, tm, td] = toKey.split('-').map(Number)
+  const from = Date.UTC(fy, (fm ?? 1) - 1, fd ?? 1)
+  const to = Date.UTC(ty, (tm ?? 1) - 1, td ?? 1)
+  return Math.round((to - from) / 86400000)
+}
+
+function relativePobToEditorDaily(
+  daily: Record<string, number> | null | undefined,
+  startDate: string | null | undefined,
+): Record<string, number> | null {
+  const startKey = dateKeyFromISO(startDate)
+  if (!daily || !startKey) return daily ?? null
+  const out: Record<string, number> = {}
+  for (const [key, value] of Object.entries(daily)) {
+    const cleaned = key.trim()
+    let editorKey: string | null = null
+    if (/^J\d+$/i.test(cleaned)) {
+      editorKey = addDaysToDateKey(startKey, Math.max(0, Number(cleaned.slice(1)) - 1))
+    } else if (/^\d+$/.test(cleaned)) {
+      editorKey = addDaysToDateKey(startKey, Math.max(0, Number(cleaned) - 1))
+    } else if (/^\d{4}-\d{2}-\d{2}/.test(cleaned)) {
+      editorKey = cleaned.slice(0, 10)
+    }
+    if (editorKey) out[editorKey] = Math.max(0, Math.round(Number(value) || 0))
+  }
+  return out
+}
+
+function editorDailyToRelativePob(
+  daily: Record<string, number>,
+  startDate: string | null | undefined,
+): Record<string, number> {
+  const startKey = dateKeyFromISO(startDate)
+  if (!startKey) return daily
+  const out: Record<string, number> = {}
+  for (const [dateKey, value] of Object.entries(daily)) {
+    const offset = diffDateKeys(startKey, dateKey.slice(0, 10))
+    if (offset >= 0) out[`J${offset + 1}`] = Math.max(0, Math.round(Number(value) || 0))
+  }
+  return out
+}
+
+function buildDefaultRelativePob(
+  startDate: string | null | undefined,
+  dueDate: string | null | undefined,
+  value: number,
+): Record<string, number> | null {
+  const startKey = dateKeyFromISO(startDate)
+  const dueKey = dateKeyFromISO(dueDate)
+  if (!startKey || !dueKey) return null
+  const days = diffDateKeys(startKey, dueKey)
+  if (days < 0) return null
+  const quota = Math.max(0, Math.round(Number(value) || 0))
+  const out: Record<string, number> = {}
+  for (let index = 0; index <= days && index < 3650; index += 1) {
+    out[`J${index + 1}`] = quota
+  }
+  return out
+}
+
 function buildAncestry(taskId: string, allTasks: ProjectTask[]): ProjectTask[] {
   const path: ProjectTask[] = []
   let current = allTasks.find(t => t.id === taskId)
@@ -201,6 +277,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TaskTab>('details')
+  const [showCreateSubtask, setShowCreateSubtask] = useState(false)
 
   // Spec §2.8: list of child tasks flagged pending manual breakdown
   // after a parent Planner revision was accepted. Used to badge the
@@ -272,15 +349,19 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
   // ── Save handler ──────────────────────────────────────────────
 
-  const handleSave = useCallback((field: string, value: string | number | null) => {
+  const handleSaveFields = useCallback((payload: ProjectTaskUpdate) => {
     updateTask.mutate(
-      { projectId, taskId, payload: { [field]: value } },
+      { projectId, taskId, payload },
       {
         onSuccess: () => toast({ title: t('projets.toast.updated'), variant: 'success' }),
         onError: () => toast({ title: t('projets.toast.error'), variant: 'error' }),
       },
     )
   }, [projectId, taskId, updateTask, toast, t])
+
+  const handleSave = useCallback((field: keyof ProjectTaskUpdate, value: ProjectTaskUpdate[keyof ProjectTaskUpdate]) => {
+    handleSaveFields({ [field]: value } as ProjectTaskUpdate)
+  }, [handleSaveFields])
 
   const handleAddComment = useCallback(() => {
     if (!commentText.trim()) return
@@ -374,6 +455,10 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
   }
 
   const statusInfo = STATUS_MAP[task.status] || { color: '#9ca3af', label: task.status }
+  const priorityInfo = PRIORITY_MAP[task.priority || 'medium'] || PRIORITY_MAP.medium
+  const progressValue = task.progress ?? 0
+  const taskPobMode = task.pob_quota_mode ?? 'constant'
+  const taskPobDailyForEditor = relativePobToEditorDaily(task.pob_quota_daily ?? null, task.start_date)
   const durationDays = task.start_date && task.due_date
     ? Math.ceil((new Date(task.due_date).getTime() - new Date(task.start_date).getTime()) / 86400000)
     : null
@@ -383,8 +468,8 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
   return (
     <DynamicPanelShell
-      title={task.code || taskId.slice(0, 8)}
-      subtitle={task.title}
+      title={task.title}
+      subtitle={task.code || taskId.slice(0, 8)}
       icon={
         <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: statusInfo.color + '20' }}>
           <CheckCircle2 size={14} style={{ color: statusInfo.color }} />
@@ -522,61 +607,94 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             <SectionColumns>
               <div className="@container space-y-5">
                 <FormSection title={t('projets.task_detail.state_priority', 'État & priorité')} collapsible defaultExpanded storageKey="task-detail-state">
-                  <DetailFieldGrid>
-                    <InlineEditableSelect
-                      label="Statut"
-                      value={task.status}
-                      displayValue={STATUS_MAP[task.status]?.label || task.status}
-                      options={STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
-                      onSave={(v) => handleSave('status', v)}
-                    />
-                    <InlineEditableSelect
-                      label="Priorité"
-                      value={task.priority || 'medium'}
-                      displayValue={PRIORITY_MAP[task.priority || 'medium']?.label || task.priority}
-                      options={PRIORITY_OPTIONS.map((p) => ({ value: p.value, label: p.label }))}
-                      onSave={(v) => handleSave('priority', v)}
-                    />
-                  </DetailFieldGrid>
+                  <div className="grid grid-cols-1 gap-2 @sm:grid-cols-2">
+                    <label className="group relative rounded-md border border-border/60 bg-background/40 px-3 py-2 transition-colors hover:border-primary/40">
+                      <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: statusInfo.color }} />
+                        Statut
+                      </span>
+                      <select
+                        value={task.status}
+                        onChange={(e) => handleSave('status', e.target.value)}
+                        className="w-full cursor-pointer appearance-none bg-transparent pr-6 text-sm font-semibold text-foreground outline-none"
+                        style={{ color: statusInfo.color }}
+                      >
+                        {STATUS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronRight size={13} className="pointer-events-none absolute bottom-2.5 right-3 rotate-90 text-muted-foreground/70 transition-colors group-hover:text-foreground" />
+                    </label>
 
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium flex items-center gap-1">
-                        <TrendingUp size={10} /> Avancement
+                    <label className="group relative rounded-md border border-border/60 bg-background/40 px-3 py-2 transition-colors hover:border-primary/40">
+                      <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: priorityInfo.color }} />
+                        Priorité
+                      </span>
+                      <select
+                        value={task.priority || 'medium'}
+                        onChange={(e) => handleSave('priority', e.target.value)}
+                        className="w-full cursor-pointer appearance-none bg-transparent pr-6 text-sm font-semibold text-foreground outline-none"
+                        style={{ color: priorityInfo.color }}
+                      >
+                        {PRIORITY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronRight size={13} className="pointer-events-none absolute bottom-2.5 right-3 rotate-90 text-muted-foreground/70 transition-colors group-hover:text-foreground" />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 rounded-md border border-border/60 bg-background/30 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="flex min-w-0 items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        <TrendingUp size={10} className="shrink-0" /> Avancement
                         {isParentTask && (
                           <span
-                            className="ml-1 text-[9px] font-normal text-muted-foreground/70 normal-case"
+                            className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-normal normal-case tracking-normal text-muted-foreground/80"
                             title={t('projets.task_detail.parent_progress_tooltip', 'Cette tâche est un parent — son avancement est calculé automatiquement à partir de ses sous-tâches selon la méthode de pondération du projet.')}
                           >
-                            (calculé)
+                            auto
                           </span>
                         )}
                       </p>
-                      <span className="text-sm font-semibold tabular-nums" style={{ color: statusInfo.color }}>
-                        {task.progress ?? 0}%
+                      <span
+                        className="rounded-full px-2 py-0.5 text-sm font-semibold tabular-nums"
+                        style={{ backgroundColor: statusInfo.color + '18', color: statusInfo.color }}
+                      >
+                        {progressValue}%
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div className="relative mt-3 h-5">
+                      <div className="absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-muted" />
+                      <div
+                        className="absolute left-0 top-1/2 h-2 -translate-y-1/2 rounded-full transition-all"
+                        style={{ width: `${progressValue}%`, backgroundColor: statusInfo.color }}
+                      />
                       <input
                         type="range" min={0} max={100} step={5}
-                        value={task.progress ?? 0}
+                        value={progressValue}
                         onChange={(e) => !isParentTask && handleSave('progress', Number(e.target.value))}
                         disabled={isParentTask}
-                        title={isParentTask ? 'Calculé depuis les sous-tâches — non modifiable manuellement' : undefined}
+                        title={isParentTask ? 'Calculé depuis les sous-tâches - non modifiable manuellement' : undefined}
                         className={cn(
-                          'flex-1 h-1.5 accent-primary',
-                          isParentTask && 'opacity-50 cursor-not-allowed',
+                          'absolute inset-0 h-5 w-full cursor-pointer appearance-none bg-transparent accent-primary',
+                          '[&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:appearance-none [&::-webkit-slider-runnable-track]:bg-transparent',
+                          '[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-background [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-sm',
+                          '[&::-moz-range-track]:h-2 [&::-moz-range-track]:bg-transparent',
+                          '[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-background [&::-moz-range-thumb]:bg-primary',
+                          isParentTask && 'cursor-not-allowed opacity-60',
                         )}
                       />
                     </div>
-                    <div className="mt-1.5 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${task.progress ?? 0}%`, backgroundColor: statusInfo.color }}
-                      />
-                    </div>
+
                     {isParentTask && (
-                      <p className="mt-1.5 text-[10px] text-muted-foreground/80 italic">
+                      <p className="mt-2 text-[10px] text-muted-foreground/80">
                         <AlertCircle size={10} className="inline mr-0.5" />
                         Avancement agrégé automatiquement depuis les {childTasks.length} sous-tâche{childTasks.length > 1 ? 's' : ''} selon la méthode du projet.
                       </p>
@@ -670,6 +788,34 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
                 <FormSection title={t('projets.task_detail.pob_workload', 'POB & Charge')} collapsible defaultExpanded storageKey="task-detail-pob">
                   <DetailFieldGrid>
+                    <InlineEditableSelect
+                      label="Mode POB"
+                      value={taskPobMode}
+                      displayValue={taskPobMode === 'variable' ? 'Variable (J1/J2)' : 'Fixe'}
+                      options={[
+                        { value: 'constant', label: 'Fixe' },
+                        { value: 'variable', label: 'Variable (J1/J2)' },
+                      ]}
+                      onSave={(v) => {
+                        const nextMode = v as 'constant' | 'variable'
+                        if (nextMode === 'constant') {
+                          handleSaveFields({ pob_quota_mode: nextMode, pob_quota_daily: null })
+                          return
+                        }
+                        const daily = task.pob_quota_daily && Object.keys(task.pob_quota_daily).length > 0
+                          ? task.pob_quota_daily
+                          : buildDefaultRelativePob(task.start_date, task.due_date, task.pob_quota || 1)
+                        if (!daily) {
+                          toast({
+                            title: 'Dates requises',
+                            description: 'Renseignez une date de début et une échéance avant de passer le POB en variable.',
+                            variant: 'error',
+                          })
+                          return
+                        }
+                        handleSaveFields({ pob_quota_mode: nextMode, pob_quota_daily: daily })
+                      }}
+                    />
                     <InlineEditableRow
                       label="POB demandé"
                       value={String(task.pob_quota ?? 0)}
@@ -677,6 +823,33 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                       onSave={(v) => handleSave('pob_quota', Math.max(0, Number(v) || 0))}
                       type="number"
                     />
+                    {taskPobMode === 'variable' && (
+                      <div className="@[600px]:col-span-2">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Plan POB relatif
+                          </p>
+                          <span className="text-[10px] text-muted-foreground">
+                            J1 = date de début de la tâche
+                          </span>
+                        </div>
+                        {task.start_date && task.due_date ? (
+                          <VariablePobEditor
+                            startDate={task.start_date}
+                            endDate={task.due_date}
+                            value={taskPobDailyForEditor}
+                            onChange={(daily) => handleSave('pob_quota_daily', editorDailyToRelativePob(daily, task.start_date))}
+                            defaultValue={task.pob_quota || 1}
+                            compact
+                            labelMode="relative"
+                          />
+                        ) : (
+                          <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                            Renseignez une date de début et une échéance pour saisir le plan POB relatif J1, J2, etc.
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <ReadOnlyRow label="Heures estimées" value={task.estimated_hours ? `${task.estimated_hours} h` : '—'} />
                   </DetailFieldGrid>
                   <DetailFieldGrid>
@@ -735,14 +908,51 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
               </div>
             )}
 
+            {showCreateSubtask && (
+              <ProjectTaskCreateInlineForm
+                projectId={projectId}
+                mode="subtask"
+                parentTask={task}
+                onCancel={() => setShowCreateSubtask(false)}
+                onCreated={(created) => {
+                  setShowCreateSubtask(false)
+                  openDynamicPanel({ type: 'task-detail', module: 'projets', id: created.id, meta: { projectId } })
+                }}
+              />
+            )}
+
             {childTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/10 px-4 py-10 text-center text-muted-foreground">
                 <Layers size={32} className="mb-3 opacity-30" />
                 <p className="text-sm font-medium">{t('projets.task_detail.no_subtasks_title', 'Aucune sous-tâche')}</p>
                 <p className="text-xs mt-1 text-muted-foreground/70">{t('projets.task_detail.no_subtasks_desc', "Cette tâche n'a pas de sous-tâches.")}</p>
+                {!showCreateSubtask && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateSubtask(true)}
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    <Plus size={12} /> Créer une sous-tâche
+                  </button>
+                )}
               </div>
             ) : (
               <FormSection title={`Sous-tâches (${childTasks.length})`} collapsible defaultExpanded storageKey="task-detail-children">
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2">
+                  <div className="min-w-0 text-[11px] text-muted-foreground">
+                    <span className="font-medium text-foreground tabular-nums">{childTasks.filter(child => child.status === 'done').length}/{childTasks.length}</span>
+                    <span className="ml-1">terminées</span>
+                  </div>
+                  {!showCreateSubtask && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateSubtask(true)}
+                      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded border border-border px-2.5 text-xs text-primary hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      <Plus size={12} /> Sous-tâche
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-1.5">
                   {childTasks.map(child => {
                     const childPending = breakdownPendingByTask.get(child.id)

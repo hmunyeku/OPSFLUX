@@ -2103,6 +2103,8 @@ class ProjectTaskRead(OpsFluxSchema):
     estimated_hours: float | None = None
     actual_hours: float | None = None
     pob_quota: int = 0
+    pob_quota_mode: str = "constant"
+    pob_quota_daily: dict[str, int] | None = None
     # Manual weight — only used when the project's
     # progress_weight_method == 'manual'. Read-only computed weight is
     # NOT exposed; this is the user-set value only.
@@ -2172,6 +2174,8 @@ class ProjectTaskCreate(BaseModel):
     due_date: datetime | None = None
     estimated_hours: float | None = None
     pob_quota: int = Field(default=0, ge=0)
+    pob_quota_mode: str = Field(default="constant", pattern=r"^(constant|variable)$")
+    pob_quota_daily: dict[str, int] | None = None
     weight: float | None = Field(default=None, ge=0, description="Poids manuel pour le calcul d'avancement (utilisé en mode 'manual')")
     is_milestone: bool = Field(default=False, description="True crée un jalon (date unique = start_date = due_date, pas de sous-tâche).")
 
@@ -2198,6 +2202,8 @@ class ProjectTaskUpdate(BaseModel):
     actual_hours: float | None = None
     order: int | None = None
     pob_quota: int | None = Field(default=None, ge=0)
+    pob_quota_mode: str | None = Field(default=None, pattern=r"^(constant|variable)$")
+    pob_quota_daily: dict[str, int] | None = None
     weight: float | None = Field(default=None, ge=0)
     is_milestone: bool | None = None
 

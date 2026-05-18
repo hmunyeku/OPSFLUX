@@ -166,6 +166,40 @@ async def _try_workflow_transition(
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 
+def _project_task_pob_daily_for_planner(task) -> dict[str, int] | None:
+    """Convert ProjectTask relative POB keys (J1/J2/...) into Planner dates."""
+    if getattr(task, "pob_quota_mode", "constant") != "variable":
+        return None
+    raw = getattr(task, "pob_quota_daily", None)
+    if not isinstance(raw, dict) or not getattr(task, "start_date", None):
+        return None
+
+    base = task.start_date.date()
+    out: dict[str, int] = {}
+    for key, value in raw.items():
+        try:
+            quota = max(0, int(value))
+        except (TypeError, ValueError):
+            continue
+
+        key_str = str(key).strip()
+        offset: int | None = None
+        if len(key_str) >= 2 and key_str[0].upper() == "J" and key_str[1:].isdigit():
+            offset = max(0, int(key_str[1:]) - 1)
+        elif key_str.isdigit():
+            offset = max(0, int(key_str) - 1)
+
+        if offset is not None:
+            planner_key = (base + timedelta(days=offset)).isoformat()
+        elif len(key_str) >= 10 and key_str[4:5] == "-" and key_str[7:8] == "-":
+            planner_key = key_str[:10]
+        else:
+            continue
+        out[planner_key] = quota
+
+    return out or None
+
+
 async def _get_activity_or_404(
     db: AsyncSession, activity_id: UUID, entity_id: UUID
 ) -> PlannerActivity:
@@ -1623,6 +1657,8 @@ async def create_activity_from_project_task(
         status="draft",
         priority=priority,
         pax_quota=pax_quota,
+        pax_quota_mode=getattr(task, "pob_quota_mode", "constant") or "constant",
+        pax_quota_daily=_project_task_pob_daily_for_planner(task),
         start_date=task.start_date,
         end_date=task.due_date,
         created_by=current_user.id,

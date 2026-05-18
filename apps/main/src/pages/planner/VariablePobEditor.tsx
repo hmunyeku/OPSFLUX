@@ -61,6 +61,8 @@ export interface VariablePobEditorProps {
   defaultValue?: number
   /** Compact mode (smaller cells, denser typography) */
   compact?: boolean
+  /** Header labels: calendar day (default) or relative J1/J2/... */
+  labelMode?: 'date' | 'relative'
 }
 
 export function VariablePobEditor({
@@ -70,6 +72,7 @@ export function VariablePobEditor({
   onChange,
   defaultValue = 0,
   compact = false,
+  labelMode = 'date',
 }: VariablePobEditorProps) {
   const { t } = useTranslation()
   const promptInput = usePromptInput()
@@ -564,12 +567,18 @@ export function VariablePobEditor({
                     const isWeekend = d.weekday === 0 || d.weekday === 6
                     const inDragFill = isInDragFill(idx)
                     const isFocused = anchor === idx && lead === idx
+                    const dayLabel = labelMode === 'relative'
+                      ? `J${idx + 1}`
+                      : `${WEEKDAY_LABELS[d.weekday]}${d.date.getUTCDate()}`
+                    const dayTitle = labelMode === 'relative'
+                      ? `J${idx + 1} - ${WEEKDAY_FULL[d.weekday]} ${d.date.getUTCDate()}/${String(d.date.getUTCMonth() + 1).padStart(2, '0')}`
+                      : `${WEEKDAY_FULL[d.weekday]} ${d.date.getUTCDate()}/${String(d.date.getUTCMonth() + 1).padStart(2, '0')}`
                     return (
                       <div
                         key={d.key}
                         data-pob-cell={idx}
                         className={cn('relative flex flex-col -ml-px first:ml-0', cellW)}
-                        title={`${WEEKDAY_FULL[d.weekday]} ${d.date.getUTCDate()}/${String(d.date.getUTCMonth() + 1).padStart(2, '0')}`}
+                        title={dayTitle}
                       >
                         {/* Header cell: date label */}
                         <div
@@ -586,7 +595,7 @@ export function VariablePobEditor({
                           )}
                         >
                           <span className="font-medium tabular-nums">
-                            {WEEKDAY_LABELS[d.weekday]}{d.date.getUTCDate()}
+                            {dayLabel}
                           </span>
                         </div>
                         {/* Body cell: editable value */}

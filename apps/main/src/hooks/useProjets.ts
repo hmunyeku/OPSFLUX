@@ -358,6 +358,7 @@ export function useCreateProjectTask() {
       projetsService.createTask(projectId, payload),
     onSuccess: (_, { projectId }) => {
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      qc.invalidateQueries({ queryKey: ['all-project-tasks'] })
       qc.invalidateQueries({ queryKey: ['projects'] })
     },
   })

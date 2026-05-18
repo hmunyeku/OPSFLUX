@@ -15,8 +15,20 @@
  *   /projects/{pid}/{time-entries,allocations,losses,report}
  *   /projects/{pid}/{time-summary,allocation-matrix}
  */
-import { useState } from 'react'
-import { Loader2, Trash2, Plus, AlertTriangle } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import {
+  AlertTriangle,
+  CircleDollarSign,
+  Gauge,
+  Landmark,
+  Loader2,
+  Plus,
+  ReceiptText,
+  ShieldCheck,
+  Trash2,
+  TrendingUp,
+  WalletCards,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FormSection, panelInputClass } from '@/components/layout/DynamicPanel'
 import {
@@ -25,6 +37,7 @@ import {
   useUpdateProjectAllocation, useDeleteProjectAllocation,
   useProjectLosses, useCreateProjectLoss, useDeleteProjectLoss,
   useProjectReport,
+  useWbsNodes,
 } from '@/hooks/useProjets'
 import { WeeklyTimesheetGrid } from './WeeklyTimesheetGrid'
 import type { ProjectMember as ProjectMemberType } from '@/types/api'
@@ -45,6 +58,275 @@ const TIME_STATUS_LABEL: Record<string, string> = {
 // Re-export for compatibility (currently unused after rewrite, kept for any
 // downstream consumer of this module).
 void TIME_STATUS_BADGE; void TIME_STATUS_LABEL
+
+function fmtMoney(value: number | null | undefined, currency: string | null | undefined, digits = 0) {
+  const amount = Number(value ?? 0)
+  return `${amount.toLocaleString('fr-FR', {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  })} ${currency || 'XAF'}`
+}
+
+function pct(value: number) {
+  if (!Number.isFinite(value)) return '0%'
+  return `${Math.round(value)}%`
+}
+
+function budgetToneClass(tone: 'good' | 'warn' | 'bad' | 'neutral') {
+  if (tone === 'good') return 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
+  if (tone === 'warn') return 'border-amber-500/25 bg-amber-500/5 text-amber-600 dark:text-amber-400'
+  if (tone === 'bad') return 'border-red-500/25 bg-red-500/5 text-red-600 dark:text-red-400'
+  return 'border-border/60 bg-muted/20 text-foreground'
+}
+
+function BudgetMetric({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  tone = 'neutral',
+}: {
+  icon: typeof CircleDollarSign
+  label: string
+  value: string
+  hint?: string
+  tone?: 'good' | 'warn' | 'bad' | 'neutral'
+}) {
+  return (
+    <div className={cn('rounded-md border px-3 py-2.5', budgetToneClass(tone))}>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded bg-background/60">
+          <Icon size={14} />
+        </span>
+        <span className="min-w-0 truncate text-[10px] font-medium uppercase tracking-wide opacity-80">{label}</span>
+      </div>
+      <div className="truncate text-base font-semibold tabular-nums text-foreground">{value}</div>
+      {hint && <div className="mt-1 truncate text-[10px] opacity-80">{hint}</div>}
+    </div>
+  )
+}
+
+export function BudgetSection({ projectId }: { projectId: string }) {
+  const { data: report } = useProjectReport(projectId)
+  const { data: wbsNodes = [] } = useWbsNodes(projectId)
+
+  const budgetData = useMemo(() => {
+    if (!report) return null
+    const budget = Number(report.project.budget ?? 0)
+    const currency = report.project.currency || 'XAF'
+    const laborCost = Number(report.kpis.total_cost ?? 0)
+    const lossCost = Number(report.kpis.total_lost_cost ?? 0)
+    const actualCost = laborCost + lossCost
+    const progress = Math.max(0, Math.min(100, Number(report.project.progress ?? 0)))
+    const burnForecast = progress > 0 ? actualCost / (progress / 100) : 0
+    const forecast = Math.max(actualCost, burnForecast, budget || 0)
+    const variance = budget > 0 ? budget - forecast : 0
+    const consumedPct = budget > 0 ? (actualCost / budget) * 100 : 0
+    const forecastPct = budget > 0 ? (forecast / budget) * 100 : 0
+    const wbsBudget = wbsNodes.reduce((sum, node) => sum + Number(node.budget ?? 0), 0)
+    const remaining = budget > 0 ? budget - actualCost : 0
+    const tone: 'good' | 'warn' | 'bad' | 'neutral' = budget <= 0
+      ? 'neutral'
+      : forecast > budget
+        ? 'bad'
+        : forecastPct >= 85
+          ? 'warn'
+          : 'good'
+
+    return {
+      budget,
+      currency,
+      laborCost,
+      lossCost,
+      actualCost,
+      forecast,
+      variance,
+      remaining,
+      consumedPct,
+      forecastPct,
+      wbsBudget,
+      tone,
+    }
+  }, [report, wbsNodes])
+
+  if (!report || !budgetData) {
+    return (
+      <FormSection title="Budget" collapsible defaultExpanded storageKey="project-detail-budget-overview">
+        <div className="rounded-md border border-border/60 bg-muted/10 px-3 py-4 text-center text-xs text-muted-foreground">
+          Chargement du suivi budgétaire...
+        </div>
+      </FormSection>
+    )
+  }
+
+  const {
+    budget,
+    currency,
+    laborCost,
+    lossCost,
+    actualCost,
+    forecast,
+    variance,
+    remaining,
+    consumedPct,
+    forecastPct,
+    wbsBudget,
+    tone,
+  } = budgetData
+  const progressWidth = Math.min(100, Math.max(0, consumedPct))
+  const forecastWidth = Math.min(140, Math.max(progressWidth, forecastPct))
+  const overBudgetWidth = Math.max(0, Math.min(40, forecastWidth - 100))
+  const topWbs = wbsNodes
+    .filter(node => Number(node.budget ?? 0) > 0)
+    .sort((a, b) => Number(b.budget ?? 0) - Number(a.budget ?? 0))
+    .slice(0, 6)
+  const topMembers = [...report.members]
+    .filter(member => member.cost > 0 || member.planned_hours > 0 || member.actual_hours > 0)
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 6)
+
+  return (
+    <FormSection title="Suivi budgétaire" collapsible defaultExpanded storageKey="project-detail-budget-overview">
+      <div className="space-y-4">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <BudgetMetric
+            icon={Landmark}
+            label="Budget approuvé"
+            value={budget > 0 ? fmtMoney(budget, currency) : 'Non défini'}
+            hint={wbsBudget > 0 ? `WBS ventilé : ${fmtMoney(wbsBudget, currency)}` : 'Budget global du projet'}
+          />
+          <BudgetMetric
+            icon={ReceiptText}
+            label="Réalisé"
+            value={fmtMoney(actualCost, currency)}
+            hint={`${fmtMoney(laborCost, currency)} temps + ${fmtMoney(lossCost, currency)} pertes`}
+            tone={actualCost > 0 ? 'warn' : 'neutral'}
+          />
+          <BudgetMetric
+            icon={TrendingUp}
+            label="Prévision"
+            value={fmtMoney(forecast, currency)}
+            hint={budget > 0 ? `${pct(forecastPct)} du budget` : 'Basée sur avancement/coûts'}
+            tone={tone}
+          />
+          <BudgetMetric
+            icon={ShieldCheck}
+            label="Écart estimé"
+            value={budget > 0 ? fmtMoney(variance, currency) : '--'}
+            hint={budget > 0 ? (variance >= 0 ? 'Marge restante estimée' : 'Dépassement prévisionnel') : 'Budget requis'}
+            tone={budget <= 0 ? 'neutral' : variance >= 0 ? 'good' : 'bad'}
+          />
+        </div>
+
+        <div className="rounded-md border border-border/60 bg-background/40 px-3 py-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-xs font-semibold text-foreground">Courbe budget</div>
+              <div className="text-[11px] text-muted-foreground">
+                Réalisé {pct(consumedPct)} · reste {fmtMoney(remaining, currency)}
+              </div>
+            </div>
+            <span className={cn('rounded-full px-2 py-1 text-[10px] font-medium', budgetToneClass(tone))}>
+              {budget <= 0 ? 'Budget à définir' : tone === 'bad' ? 'Dépassement prévu' : tone === 'warn' ? 'À surveiller' : 'Sous contrôle'}
+            </span>
+          </div>
+          <div className="relative h-4 overflow-hidden rounded-full bg-muted">
+            <div className="absolute inset-y-0 left-0 rounded-full bg-primary/80" style={{ width: `${progressWidth}%` }} />
+            {forecastWidth > progressWidth && (
+              <div
+                className="absolute inset-y-0 bg-primary/25"
+                style={{ left: `${progressWidth}%`, width: `${Math.min(100, forecastWidth) - progressWidth}%` }}
+              />
+            )}
+            {overBudgetWidth > 0 && (
+              <div className="absolute inset-y-0 right-0 bg-red-500" style={{ width: `${overBudgetWidth}%` }} />
+            )}
+          </div>
+          <div className="mt-2 grid grid-cols-3 text-[10px] text-muted-foreground">
+            <span>0</span>
+            <span className="text-center">Budget</span>
+            <span className="text-right">{budget > 0 ? fmtMoney(budget, currency) : '--'}</span>
+          </div>
+        </div>
+
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="rounded-md border border-border/60 bg-background/40">
+            <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+              <WalletCards size={13} className="text-primary" />
+              <div className="text-xs font-semibold">Ventilation WBS</div>
+              <div className="ml-auto text-[10px] text-muted-foreground">{topWbs.length || 0} lots budgétés</div>
+            </div>
+            {topWbs.length > 0 ? (
+              <div className="divide-y divide-border/50">
+                {topWbs.map(node => {
+                  const width = budget > 0 ? Math.min(100, (Number(node.budget ?? 0) / budget) * 100) : 0
+                  return (
+                    <div key={node.id} className="grid gap-2 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_120px] sm:items-center">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[10px] text-muted-foreground">{node.code}</span>
+                          <span className="truncate font-medium">{node.name}</span>
+                        </div>
+                        {node.cost_center_name && <div className="truncate text-[10px] text-muted-foreground">{node.cost_center_name}</div>}
+                      </div>
+                      <div className="min-w-0 text-right">
+                        <div className="font-medium tabular-nums">{fmtMoney(node.budget, currency)}</div>
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-primary/70" style={{ width: `${width}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                Aucun budget WBS. Ajoutez des lots dans l'onglet Planification.
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-md border border-border/60 bg-background/40">
+            <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+              <Gauge size={13} className="text-primary" />
+              <div className="text-xs font-semibold">Coûts ressources</div>
+              <div className="ml-auto text-[10px] text-muted-foreground">{topMembers.length || 0} lignes</div>
+            </div>
+            {topMembers.length > 0 ? (
+              <div className="divide-y divide-border/50">
+                {topMembers.map(member => (
+                  <div key={member.member_id} className="grid gap-2 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_90px_100px] sm:items-center">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{member.member_name || 'Ressource'}</div>
+                      <div className="truncate text-[10px] text-muted-foreground">{member.specialty || `${member.allocation_pct}% alloué`}</div>
+                    </div>
+                    <div className="text-muted-foreground tabular-nums sm:text-right">
+                      {member.actual_hours.toLocaleString('fr-FR')}h réelles
+                    </div>
+                    <div className="font-medium tabular-nums sm:text-right">
+                      {fmtMoney(member.cost, member.currency || currency)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                Aucun coût ressource validé. Les coûts apparaissent après validation des pointages.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {lossCost > 0 && (
+          <div className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+            <AlertTriangle size={13} className="mr-1 inline" />
+            Les pertes déclarées représentent {fmtMoney(lossCost, currency)} et sont incluses dans le réalisé.
+          </div>
+        )}
+      </div>
+    </FormSection>
+  )
+}
 
 export function TimeTrackingSection({ projectId }: { projectId: string; members: ProjectMemberType[] }) {
   return (

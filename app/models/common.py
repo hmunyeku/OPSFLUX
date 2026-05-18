@@ -1984,6 +1984,17 @@ class ProjectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # via _sync_linked_planner_activities_for_project_task and trigger a
     # planner.revision suggestion to the arbitre.
     pob_quota: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    pob_quota_mode: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        default="constant",
+        comment="'constant' = single pob_quota; 'variable' = relative per-day values in pob_quota_daily",
+    )
+    pob_quota_daily: Mapped[dict | None] = mapped_column(
+        JSONB,
+        default=None,
+        comment="Relative per-day POB quota: {'J1': 5, 'J2': 8, ...}. Converted to absolute dates when sent to Planner.",
+    )
     order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # SUP-bug #37 : migration 145 (orpheline, dans branche morte alembic)

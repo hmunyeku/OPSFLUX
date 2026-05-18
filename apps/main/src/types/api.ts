@@ -1464,6 +1464,8 @@ export interface ProjectTask {
   actual_hours: number | null
   /** POB demande for the task — inherited by linked PlannerActivity (spec 1.5 / 2.4). */
   pob_quota: number
+  pob_quota_mode?: 'constant' | 'variable'
+  pob_quota_daily?: Record<string, number> | null
   /** Manual weight — only used when the project's progress_weight_method == 'manual'.
    *  Setting this on a task that's a parent has no effect (parent progress is
    *  always derived from its children). */
@@ -1552,6 +1554,8 @@ export interface ProjectTaskCreate {
   due_date?: string | null
   estimated_hours?: number | null
   pob_quota?: number
+  pob_quota_mode?: 'constant' | 'variable'
+  pob_quota_daily?: Record<string, number> | null
   weight?: number | null
   is_milestone?: boolean
 }
@@ -1570,6 +1574,8 @@ export interface ProjectTaskUpdate {
   actual_hours?: number | null
   order?: number
   pob_quota?: number
+  pob_quota_mode?: 'constant' | 'variable' | null
+  pob_quota_daily?: Record<string, number> | null
   weight?: number | null
   is_milestone?: boolean
   parent_id?: string | null

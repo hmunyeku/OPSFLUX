@@ -16,7 +16,7 @@ import {
   Settings2,
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
   Sun, Cloud, CloudRain, CloudLightning, CalendarClock,
-  Minimize2,
+  CircleDollarSign, Minimize2,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Info, Paperclip, LayoutList, BarChart3, Search, Lock, Users2 } from 'lucide-react'
@@ -74,6 +74,7 @@ import { useCurrentEntity } from '@/hooks/useEntities'
 import { isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
 import { TaskTable } from '@/components/projets/TaskTable'
+import { ProjectTaskCreateInlineForm } from '@/components/projets/ProjectTaskCreateInlineForm'
 import { ProjectMetrics } from '@/components/projets/ProjectMetrics'
 import { GanttCore } from '@/components/shared/gantt/GanttCore'
 import type { GanttRow, GanttBarData } from '@/components/shared/gantt/GanttCore'
@@ -104,11 +105,12 @@ import { RichTextField, RichTextDisplay } from '@/components/shared/RichTextFiel
 import {
   TimeTrackingSection,
   AllocationMatrixSection,
+  BudgetSection,
   LossesSection,
   ProjectReportSection,
 } from './ProjectResourcesSections'
 
-function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+export function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const { t } = useTranslation()
   const createTask = useCreateProjectTask()
   const { toast } = useToast()
@@ -736,17 +738,17 @@ function TaskRow({
           The full-width progress bar that used to live below the title was removed:
           progress is now expressed inline as a percentage and (visually) by the meteo. */}
       <div
-        className="group flex items-center gap-2 py-1.5 text-xs hover:bg-muted/40 transition-colors cursor-pointer relative"
-        style={{ paddingLeft: `${10 + depth * 16}px`, paddingRight: '10px' }}
+        className="group grid grid-cols-[minmax(0,1fr)_34px_44px_28px] sm:grid-cols-[minmax(0,1fr)_34px_116px_42px_44px_28px] md:grid-cols-[minmax(0,1fr)_34px_116px_42px_44px_minmax(76px,100px)_28px] items-center gap-2 px-3 py-2 text-xs hover:bg-muted/40 transition-colors cursor-pointer relative"
         onClick={() => setExpanded(!expanded)}
       >
+        <div className="flex items-center gap-2 min-w-0" style={{ paddingLeft: `${depth * 16}px` }}>
         {hasChildren ? (
           <ChevronRight
-            size={10}
+            size={11}
             className={cn('text-muted-foreground shrink-0 transition-transform', expanded && 'rotate-90')}
           />
         ) : (
-          <span className="w-[10px] shrink-0" />
+          <span className="w-[11px] shrink-0" />
         )}
         <button onClick={(e) => { e.stopPropagation(); handleStatusChange(nextTaskStatus(task.status)) }} className="shrink-0 hover:scale-110 transition-transform" title={statusOpt?.label}>
           <TaskStatusIcon status={task.status} />
@@ -754,9 +756,9 @@ function TaskRow({
 
         {/* Title (flex-1, truncates) — keeps the strikethrough for done tasks */}
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <span className={cn('truncate font-medium', task.status === 'done' && 'line-through text-muted-foreground')}>{task.title}</span>
+          <span className={cn('truncate font-semibold leading-5', task.status === 'done' && 'line-through text-muted-foreground')}>{task.title}</span>
           {hasChildren && subAgg && (
-            <span className="shrink-0 text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground tabular-nums">
+            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground tabular-nums">
               {subAgg.done}/{subAgg.total}
             </span>
           )}
@@ -778,25 +780,30 @@ function TaskRow({
             </button>
           )}
           {(task.priority === 'high' || task.priority === 'critical') && (
-            <span className={cn('text-[9px] px-1 rounded shrink-0', task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500')}>
+            <span className={cn('hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full shrink-0', task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500')}>
               {priorityOpt?.label}
             </span>
           )}
         </div>
+        </div>
 
         {/* Météo — only when we can compute it (not cancelled, has due date) */}
-        {WeatherIcon && (
-          <span className={cn('shrink-0', weatherTone)} title={`Météo : ${weatherLabel}`}>
-            <WeatherIcon size={12} />
-          </span>
-        )}
+        <span className="inline-flex justify-center">
+          {WeatherIcon ? (
+            <span className={cn('shrink-0', weatherTone)} title={`Météo : ${weatherLabel}`}>
+              <WeatherIcon size={13} />
+            </span>
+          ) : (
+            <span className="text-muted-foreground/30">—</span>
+          )}
+        </span>
 
         {/* Date range — start → end, compact. Only end if start is missing.
             Hidden on very narrow widths via the `hidden sm:flex` switch. */}
-        {(task.start_date || task.due_date) && (
+        {task.start_date || task.due_date ? (
           <span
             className={cn(
-              'hidden sm:flex items-center gap-0.5 text-[10px] tabular-nums shrink-0 w-[110px] justify-end',
+              'hidden sm:flex items-center gap-0.5 text-[11px] tabular-nums justify-end',
               overdue ? 'text-red-500 font-semibold' : 'text-muted-foreground',
             )}
             title={
@@ -816,17 +823,19 @@ function TaskRow({
               <span>{fmtShortDate(task.due_date) || fmtShortDate(task.start_date)}</span>
             )}
           </span>
+        ) : (
+          <span className="hidden sm:block text-right text-muted-foreground/30">—</span>
         )}
 
         {/* Durée — fixed width slot so columns align across rows */}
-        <span className="text-[10px] tabular-nums text-muted-foreground shrink-0 w-[42px] text-right" title={durationDays ? `Durée ${durationDays} j` : t('projets.detail.duration.undefined')}>
+        <span className="hidden sm:block text-[11px] tabular-nums text-muted-foreground text-right" title={durationDays ? `Durée ${durationDays} j` : t('projets.detail.duration.undefined')}>
           {durationDays ? `${durationDays}j` : '—'}
         </span>
 
         {/* Progress % — color-coded mini chip; always shown so the column is stable */}
         <span
           className={cn(
-            'shrink-0 w-[40px] text-right text-[10px] tabular-nums font-medium',
+            'text-right text-[11px] tabular-nums font-semibold',
             displayProgress >= 100 ? 'text-green-600' :
             overdue ? 'text-red-500' :
             displayProgress >= 50 ? 'text-primary' :
@@ -839,13 +848,15 @@ function TaskRow({
         </span>
 
         {/* Assignee — hidden on small to keep the row tight */}
-        {task.assignee_name && (
+        {task.assignee_name ? (
           <span
-            className="hidden md:inline text-muted-foreground text-[10px] max-w-[80px] truncate shrink-0"
+            className="hidden md:inline text-muted-foreground text-[11px] truncate"
             title={task.assignee_name}
           >
             {task.assignee_name}
           </span>
+        ) : (
+          <span className="hidden md:block text-muted-foreground/30">—</span>
         )}
 
         {/* Actions */}
@@ -964,28 +975,87 @@ function MilestoneRow({ ms, projectId }: { ms: ProjectMilestoneType; projectId: 
     }
   }
 
+  const dueDate = ms.due_date ? new Date(ms.due_date) : null
+  const dueLabel = dueDate
+    ? dueDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+    : 'Non planifié'
+  const relativeLabel = (() => {
+    if (ms.status === 'completed') {
+      return ms.completed_at
+        ? `Terminé le ${new Date(ms.completed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}`
+        : 'Terminé'
+    }
+    if (!dueDate) return 'Date à définir'
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    dueDate.setHours(0, 0, 0, 0)
+    const diff = Math.round((dueDate.getTime() - today.getTime()) / 86_400_000)
+    if (diff === 0) return "Aujourd'hui"
+    if (diff > 0) return `J-${diff}`
+    return `En retard J+${Math.abs(diff)}`
+  })()
+  const statusLabel = ms.status === 'completed'
+    ? 'Terminé'
+    : ms.status === 'overdue'
+      ? 'En retard'
+      : 'À venir'
+  const statusClass = ms.status === 'completed'
+    ? 'bg-green-500/10 text-green-600 border-green-500/20'
+    : ms.status === 'overdue'
+      ? 'bg-red-500/10 text-red-500 border-red-500/20'
+      : 'bg-primary/10 text-primary border-primary/20'
+
   return (
-    <div className="group flex items-center gap-2 text-xs py-1.5 border-b border-border/40 last:border-0">
-      <button onClick={toggleComplete} className="shrink-0 hover:scale-110 transition-transform">
-        {ms.status === 'completed'
-          ? <CheckCircle2 size={12} className="text-green-500" />
-          : ms.status === 'overdue'
-            ? <Milestone size={12} className="text-red-500" />
-            : <Milestone size={12} className="text-muted-foreground" />
-        }
-      </button>
-      <span className={cn('flex-1 truncate text-foreground', ms.status === 'completed' && 'line-through text-muted-foreground')}>{ms.name}</span>
-      {ms.due_date && (
-        <span className="text-muted-foreground text-[10px] tabular-nums">{new Date(ms.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
-      )}
+    <div className="group grid grid-cols-[minmax(0,1fr)_28px] gap-2 border-b border-border/35 px-3 py-2.5 text-xs last:border-0 sm:grid-cols-[minmax(0,1fr)_92px_116px_32px] sm:items-center hover:bg-muted/30 transition-colors">
+      <div className="flex min-w-0 items-start gap-2">
+        <button
+          onClick={toggleComplete}
+          className={cn(
+            'mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-transform hover:scale-105',
+            ms.status === 'completed' && 'border-green-500/25 bg-green-500/10 text-green-500',
+            ms.status === 'overdue' && 'border-red-500/25 bg-red-500/10 text-red-500',
+            ms.status === 'pending' && 'border-primary/25 bg-primary/10 text-primary',
+          )}
+          title={ms.status === 'completed' ? 'Marquer comme non terminé' : 'Marquer comme terminé'}
+        >
+          {ms.status === 'completed'
+            ? <CheckCircle2 size={13} />
+            : <Milestone size={13} />
+          }
+        </button>
+        <div className="min-w-0">
+          <div className={cn('truncate font-semibold leading-5 text-foreground', ms.status === 'completed' && 'line-through text-muted-foreground')}>
+            {ms.name}
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground sm:hidden">
+            <span className={cn('rounded-full border px-1.5 py-0.5 font-medium', statusClass)}>{statusLabel}</span>
+            <span className="tabular-nums">{dueLabel}</span>
+            <span>{relativeLabel}</span>
+          </div>
+          {ms.description && (
+            <div className="mt-0.5 truncate text-[11px] text-muted-foreground" title={ms.description}>
+              {ms.description}
+            </div>
+          )}
+        </div>
+      </div>
+      <span className={cn('hidden rounded-full border px-2 py-1 text-center text-[10px] font-medium sm:inline-block', statusClass)}>
+        {statusLabel}
+      </span>
+      <div className="hidden min-w-0 text-right sm:block">
+        <div className={cn('tabular-nums text-[11px] font-medium', ms.status === 'overdue' ? 'text-red-500' : 'text-foreground')}>
+          {dueLabel}
+        </div>
+        <div className="text-[10px] text-muted-foreground">{relativeLabel}</div>
+      </div>
       {confirmDelete ? (
-        <div className="flex items-center gap-0.5">
-          <button onClick={() => { deleteMs.mutate({ projectId, msId: ms.id }); setConfirmDelete(false) }} className="p-0.5 rounded bg-red-500/10 text-red-500 hover:bg-red-500/20"><Check size={10} /></button>
-          <button onClick={() => setConfirmDelete(false)} className="p-0.5 rounded hover:bg-muted text-muted-foreground"><X size={10} /></button>
+        <div className="flex items-center justify-end gap-0.5">
+          <button onClick={() => { deleteMs.mutate({ projectId, msId: ms.id }); setConfirmDelete(false) }} className="inline-flex h-7 w-7 items-center justify-center rounded bg-red-500/10 text-red-500 hover:bg-red-500/20"><Check size={12} /></button>
+          <button onClick={() => setConfirmDelete(false)} className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted text-muted-foreground"><X size={12} /></button>
         </div>
       ) : (
-        <button onClick={() => setConfirmDelete(true)} className="p-0.5 rounded hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-          <Trash2 size={10} />
+        <button onClick={() => setConfirmDelete(true)} className="inline-flex h-7 w-7 items-center justify-center justify-self-end rounded hover:bg-muted text-muted-foreground opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+          <Trash2 size={12} />
         </button>
       )}
     </div>
@@ -1015,7 +1085,7 @@ function MilestoneQuickAdd({ projectId }: { projectId: string }) {
     return (
       <button
         onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50) }}
-        className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1"
+        className="mt-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border/60 bg-muted/10 text-xs font-medium text-primary hover:border-primary/40 hover:bg-primary/5"
       >
         <Plus size={12} /> Ajouter un jalon
       </button>
@@ -1023,14 +1093,14 @@ function MilestoneQuickAdd({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="mt-2 grid gap-2 rounded-md border border-primary/25 bg-primary/5 p-2 sm:grid-cols-[minmax(0,1fr)_140px_auto_auto] sm:items-center">
       <input
         ref={inputRef}
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') { setOpen(false); setName(''); setDueDate('') } }}
-        className={`${panelInputClass} flex-1 text-xs`}
+        className={`${panelInputClass} h-8 w-full text-xs`}
         placeholder={t('projets.placeholders.milestone_name')}
         autoFocus
       />
@@ -1038,15 +1108,68 @@ function MilestoneQuickAdd({ projectId }: { projectId: string }) {
         type="date"
         value={dueDate}
         onChange={(e) => setDueDate(e.target.value)}
-        className={`${panelInputClass} w-[110px] text-xs`}
+        className={`${panelInputClass} h-8 w-full text-xs`}
       />
-      <button onClick={handleSubmit} disabled={createMs.isPending || !name.trim()} className="btn btn-primary text-primary">
+      <button onClick={handleSubmit} disabled={createMs.isPending || !name.trim()} className="inline-flex h-8 items-center justify-center gap-1 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
         {createMs.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+        Créer
       </button>
-      <button onClick={() => { setOpen(false); setName(''); setDueDate('') }} className="p-1 rounded hover:bg-muted text-muted-foreground">
+      <button onClick={() => { setOpen(false); setName(''); setDueDate('') }} className="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted text-muted-foreground">
         <X size={12} />
       </button>
     </div>
+  )
+}
+
+function MilestonesSection({ projectId, milestones }: { projectId: string; milestones: ProjectMilestoneType[] }) {
+  const completed = milestones.filter(ms => ms.status === 'completed').length
+  const overdue = milestones.filter(ms => ms.status === 'overdue').length
+  const nextMilestone = [...milestones]
+    .filter(ms => ms.status !== 'completed' && ms.due_date)
+    .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())[0]
+  const nextLabel = nextMilestone?.due_date
+    ? new Date(nextMilestone.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+    : 'Aucun jalon daté'
+
+  return (
+    <FormSection title={`Jalons (${milestones.length})`} collapsible defaultExpanded storageKey="project-detail-jalons">
+      {milestones.length > 0 ? (
+        <div className="space-y-2">
+          <div className="flex flex-col gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="font-medium text-foreground tabular-nums">{completed}/{milestones.length}</span>
+              <span>terminés</span>
+              {overdue > 0 && (
+                <>
+                  <span className="h-3 w-px bg-border" />
+                  <span className="font-medium text-red-500 tabular-nums">{overdue} en retard</span>
+                </>
+              )}
+            </div>
+            <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+              <CalendarClock size={12} className="shrink-0" />
+              <span className="truncate">Prochain : </span>
+              <span className="truncate font-medium text-foreground">{nextMilestone?.name ?? nextLabel}</span>
+              {nextMilestone && <span className="shrink-0 tabular-nums">· {nextLabel}</span>}
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-md border border-border/40 bg-card/20">
+            <div className="grid grid-cols-[minmax(0,1fr)_28px] gap-2 border-b border-border/50 bg-muted/60 px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[minmax(0,1fr)_92px_116px_32px]">
+              <span>Jalon</span>
+              <span className="hidden sm:block text-center">Statut</span>
+              <span className="hidden sm:block text-right">Échéance</span>
+              <span />
+            </div>
+            {milestones.map((ms) => (
+              <MilestoneRow key={ms.id} ms={ms} projectId={projectId} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <EmptyState icon={Milestone} title="Aucun jalon" variant="search" size="compact" />
+      )}
+      <MilestoneQuickAdd projectId={projectId} />
+    </FormSection>
   )
 }
 
@@ -1332,6 +1455,8 @@ const TASK_BAR_COLORS: Record<string, string> = {
 
 function ProjectMiniGantt({
   tasks, selectedTaskId, onSelect, onOpenAdvanced, showGrid = true,
+  collapsedTaskIds,
+  onCollapsedTaskIdsChange,
 }: {
   tasks: ProjectTask[]
   selectedTaskId: string | null
@@ -1340,8 +1465,15 @@ function ProjectMiniGantt({
   /** Hide Gantt's internal task grid panel — used in fullscreen
    *  where TaskTable on the left already plays that role. */
   showGrid?: boolean
+  collapsedTaskIds?: Set<string>
+  onCollapsedTaskIdsChange?: (ids: Set<string>) => void
 }) {
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set(tasks.map(t => t.id)))
+  const [localCollapsedTaskIds, setLocalCollapsedTaskIds] = useState<Set<string>>(new Set())
+  const effectiveCollapsedTaskIds = collapsedTaskIds ?? localCollapsedTaskIds
+  const expandedRows = useMemo(
+    () => new Set(tasks.filter(t => !effectiveCollapsedTaskIds.has(t.id)).map(t => t.id)),
+    [tasks, effectiveCollapsedTaskIds],
+  )
 
   const { rows, bars } = useMemo(() => {
     const tree = new Map<string | null, ProjectTask[]>()
@@ -1384,7 +1516,7 @@ function ProjectMiniGantt({
             isMilestone: t.is_milestone,
           })
         }
-        if (hasKids && expandedRows.has(t.id)) walk(t.id, level + 1)
+        if (hasKids && !effectiveCollapsedTaskIds.has(t.id)) walk(t.id, level + 1)
       }
     }
     walk(null, 0)
@@ -1395,15 +1527,20 @@ function ProjectMiniGantt({
       }
     }
     return { rows, bars }
-  }, [tasks, expandedRows])
+  }, [tasks, effectiveCollapsedTaskIds])
 
   const toggleRow = useCallback((rowId: string) => {
-    setExpandedRows(prev => {
+    const update = (prev: Set<string>) => {
       const next = new Set(prev)
       if (next.has(rowId)) next.delete(rowId); else next.add(rowId)
       return next
-    })
-  }, [])
+    }
+    if (onCollapsedTaskIdsChange) {
+      onCollapsedTaskIdsChange(update(effectiveCollapsedTaskIds))
+    } else {
+      setLocalCollapsedTaskIds(update)
+    }
+  }, [effectiveCollapsedTaskIds, onCollapsedTaskIdsChange])
 
   return (
     <GanttCore
@@ -1474,6 +1611,7 @@ function TaskFullscreenOverlay({
     () => tasks.find((t) => t.id === selectedTaskId) ?? null,
     [tasks, selectedTaskId],
   )
+  const [collapsedTaskIds, setCollapsedTaskIds] = useState<Set<string>>(new Set())
   // Lock body scroll while open.
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -1570,6 +1708,11 @@ function TaskFullscreenOverlay({
   // header — toolbar + scale strip — than the bare TaskTable header).
   const [topPadLeft, setTopPadLeft] = useState(0)
   const [topPadRight, setTopPadRight] = useState(0)
+  const topPadLeftRef = useRef(0)
+  const topPadRightRef = useRef(0)
+
+  useEffect(() => { topPadLeftRef.current = topPadLeft }, [topPadLeft])
+  useEffect(() => { topPadRightRef.current = topPadRight }, [topPadRight])
 
   useEffect(() => {
     let raf = 0
@@ -1602,30 +1745,27 @@ function TaskFullscreenOverlay({
       leftBody = lp.querySelector('[data-tasktable-body]') as HTMLElement | null
       rightBody = rp.querySelector('[data-gantt-body-scroll]') as HTMLElement | null
 
-      // Equalize the inner header heights so row 1 lines up on both
-      // sides. Measure each header relative to its component's OWN
-      // wrapper (NOT the pane wrapper) so the variable paddingTop we
-      // set below doesn't feed back into the next measurement and
-      // create an oscillation. The pane with the SHORTER header gets
-      // padding added on top so the row baselines match.
+      // Equalize the first data-row top so row 1 lines up on both
+      // sides. The Gantt side has its own toolbar + two-line timeline
+      // header; TaskTable only has a table header. Measure relative to
+      // the pane wrappers and subtract our current compensating padding
+      // so the calculation is stable across re-measures.
       if (leftBody && rightBody) {
-        const tableWrap = leftBody.parentElement
-        const ganttWrap = rightBody.closest('[data-gantt-toolbar]')?.parentElement
-          ?? rightBody.parentElement?.parentElement
-          ?? rightBody.parentElement
-        if (tableWrap && ganttWrap) {
-          const lHeader = leftBody.getBoundingClientRect().top - tableWrap.getBoundingClientRect().top
-          const rHeader = rightBody.getBoundingClientRect().top - ganttWrap.getBoundingClientRect().top
+        const leftPane = leftScrollRef.current
+        const rightPane = rightScrollRef.current
+        if (leftPane && rightPane) {
+          const lHeader = leftBody.getBoundingClientRect().top - leftPane.getBoundingClientRect().top - topPadLeftRef.current
+          const rHeader = rightBody.getBoundingClientRect().top - rightPane.getBoundingClientRect().top - topPadRightRef.current
           const delta = rHeader - lHeader
           if (delta > 0.5) {
-            setTopPadLeft(delta)
-            setTopPadRight(0)
+            if (Math.abs(topPadLeftRef.current - delta) > 0.5) setTopPadLeft(delta)
+            if (topPadRightRef.current !== 0) setTopPadRight(0)
           } else if (delta < -0.5) {
-            setTopPadLeft(0)
-            setTopPadRight(-delta)
+            if (topPadLeftRef.current !== 0) setTopPadLeft(0)
+            if (Math.abs(topPadRightRef.current + delta) > 0.5) setTopPadRight(-delta)
           } else {
-            setTopPadLeft(0)
-            setTopPadRight(0)
+            if (topPadLeftRef.current !== 0) setTopPadLeft(0)
+            if (topPadRightRef.current !== 0) setTopPadRight(0)
           }
         }
       }
@@ -1841,6 +1981,8 @@ function TaskFullscreenOverlay({
             maxHeight="100%"
             selectedTaskId={selectedTaskId}
             onSelect={onSelect}
+            collapsedTaskIds={collapsedTaskIds}
+            onCollapsedTaskIdsChange={setCollapsedTaskIds}
             onOpenAdvanced={onOpenAdvanced}
             className="flex-1 min-h-0"
           />
@@ -1879,6 +2021,8 @@ function TaskFullscreenOverlay({
             selectedTaskId={selectedTaskId}
             onSelect={onSelect}
             onOpenAdvanced={onOpenAdvanced}
+            collapsedTaskIds={collapsedTaskIds}
+            onCollapsedTaskIdsChange={setCollapsedTaskIds}
             // In fullscreen, the TaskTable on the left already lists
             // tasks (and is editable). Showing Gantt's internal task
             // grid would duplicate the labels and — because it has its
@@ -2116,6 +2260,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
     { value: 'done', label: t('projets.detail.task_filters.done'), cls: 'bg-green-500/10 text-green-600', count: counts.done },
     { value: 'cancelled', label: t('projets.detail.task_filters.cancelled'), cls: 'bg-red-500/5 text-red-500', count: counts.cancelled },
   ]
+  const completionRate = tasks.length > 0 ? Math.round((counts.done / tasks.length) * 100) : 0
 
   return (
     <FormSection
@@ -2125,7 +2270,14 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
       storageKey="project-detail-tasks"
     >
       {/* Status filter pills — click to filter, click again to clear */}
-      <div className="flex items-center gap-1 text-[10px] mb-2 flex-wrap">
+      <div className="mb-3 flex flex-col gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="font-medium text-foreground tabular-nums">{counts.done}/{tasks.length}</span>
+          <span>terminées</span>
+          <span className="h-3 w-px bg-border" />
+          <span className="tabular-nums">{completionRate}%</span>
+        </div>
+        <div className="flex items-center gap-1 text-[10px] flex-wrap sm:justify-end">
         {STATUS_PILLS.filter(p => p.count > 0 || statusFilter === p.value).map(p => {
           const active = statusFilter === p.value
           return (
@@ -2150,21 +2302,22 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
             Tout
           </button>
         )}
+        </div>
       </div>
 
       {/* Toolbar: search · sort · view toggle · fullscreen */}
       {tasks.length > 0 && (
-        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center">
           {tasks.length > 4 && (
             <>
-              <div className="relative flex-1 min-w-[180px]">
+              <div className="relative min-w-0 flex-1">
                 <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Rechercher une tâche…"
-                  className={`${panelInputClass} text-xs pl-7 pr-6 w-full h-7`}
+                  className={`${panelInputClass} text-xs pl-7 pr-6 w-full h-8`}
                 />
                 {search && (
                   <button
@@ -2178,7 +2331,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                className={`${panelInputClass} text-xs h-7 w-[110px]`}
+                className={`${panelInputClass} text-xs h-8 w-full sm:w-[128px]`}
                 title="Trier par"
               >
                 <option value="order">Ordre WBS</option>
@@ -2192,11 +2345,11 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
               All buttons share the toolbar so the user never has to
               hunt for a hidden menu. Disabled (rather than hidden) so
               the layout stays stable. */}
-          <div className="inline-flex items-center gap-0.5 ml-auto">
+          <div className="flex items-center gap-1 overflow-x-auto lg:ml-auto">
             <button
               type="button"
               onClick={handleAddAfter}
-              className="h-7 px-2 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1 shrink-0"
+              className="h-8 px-2.5 text-[11px] rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1 shrink-0"
               title={selectedTask ? `Insérer une tâche après "${selectedTask.title}"` : 'Ajouter une tâche'}
             >
               <Plus size={11} /> <span className="hidden sm:inline">{selectedTask ? 'Après' : 'Ajouter'}</span>
@@ -2205,7 +2358,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
               type="button"
               onClick={handleAddSubtask}
               disabled={!selectedTask}
-              className="h-7 px-2 text-[10px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-8 px-2.5 text-[11px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
               title={selectedTask ? `Sous-tâche de "${selectedTask.title}"` : 'Sélectionnez une tâche pour créer une sous-tâche'}
             >
               <Plus size={11} /> <span className="hidden md:inline">Sous-tâche</span>
@@ -2213,7 +2366,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
             <button
               type="button"
               onClick={handleAddMilestone}
-              className="h-7 px-2 text-[10px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1"
+              className="h-8 px-2.5 text-[11px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1"
               title="Ajouter un jalon"
             >
               <Milestone size={11} /> <span className="hidden md:inline">Jalon</span>
@@ -2224,7 +2377,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
               type="button"
               onClick={handleOutdent}
               disabled={!canOutdent}
-              className="h-7 w-7 rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-8 w-8 rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
               title="Désindenter (Maj+Tab)"
             >
               <ChevronLeft size={12} />
@@ -2233,20 +2386,20 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
               type="button"
               onClick={handleIndent}
               disabled={!canIndent}
-              className="h-7 w-7 rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-8 w-8 rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
               title="Indenter (Tab)"
             >
               <ChevronRight size={12} />
             </button>
           </div>
           {/* View controls — grouped so they wrap together on narrow widths */}
-          <div className="inline-flex items-center gap-1.5">
-            <div className="inline-flex rounded border border-border overflow-hidden h-7">
+          <div className="flex items-center gap-1.5">
+            <div className="inline-flex rounded border border-border overflow-hidden h-8">
               <button
                 type="button"
                 onClick={() => setViewModePersist('table')}
                 className={cn(
-                  'px-2 text-[10px] transition-colors',
+                  'px-2.5 text-[11px] transition-colors',
                   viewMode === 'table' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50',
                 )}
                 title="Vue tableau (édition inline)"
@@ -2257,7 +2410,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
                 type="button"
                 onClick={() => setViewModePersist('list')}
                 className={cn(
-                  'px-2 text-[10px] border-l border-border transition-colors',
+                  'px-2.5 text-[11px] border-l border-border transition-colors',
                   viewMode === 'list' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50',
                 )}
                 title="Vue liste (hiérarchique)"
@@ -2268,7 +2421,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
             <button
               type="button"
               onClick={() => setFullscreen(true)}
-              className="h-7 px-2 text-[10px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1 shrink-0"
+              className="h-8 px-2.5 text-[11px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1 shrink-0"
               title="Ouvrir en plein écran (Tableau + Gantt)"
             >
               ⛶ <span className="hidden sm:inline">Plein écran</span>
@@ -2282,7 +2435,15 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
           scrolled-down task list. */}
       {showCreate && (
         <div className="mb-2">
-          <TaskCreateForm projectId={projectId} onClose={() => setShowCreate(false)} />
+          <ProjectTaskCreateInlineForm
+            projectId={projectId}
+            mode="task"
+            onCancel={() => setShowCreate(false)}
+            onCreated={(created) => {
+              setShowCreate(false)
+              setSelectedTaskId(created.id)
+            }}
+          />
         </div>
       )}
 
@@ -2305,7 +2466,16 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
             }
           />
         ) : (
-          <div role="tree" aria-label={t('projets.detail.task_tree_aria')} className="border border-border/40 rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
+          <div role="tree" aria-label={t('projets.detail.task_tree_aria')} className="border border-border/40 rounded-md overflow-hidden max-h-[420px] overflow-y-auto bg-card/20">
+            <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_34px_44px_28px] sm:grid-cols-[minmax(0,1fr)_34px_116px_42px_44px_28px] md:grid-cols-[minmax(0,1fr)_34px_116px_42px_44px_minmax(76px,100px)_28px] items-center gap-2 border-b border-border/50 bg-muted/60 px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span>Tâche</span>
+              <span className="text-center">Météo</span>
+              <span className="hidden sm:block text-right">Dates</span>
+              <span className="hidden sm:block text-right">Dur.</span>
+              <span className="text-right">%</span>
+              <span className="hidden md:block">Assigné</span>
+              <span />
+            </div>
             {renderRows()}
           </div>
         )
@@ -3222,7 +3392,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
   // check its health (gauge + situation), not to read the descriptive
   // fiche. Kept the rest of the order so muscle memory still works
   // for power users.
-  const [detailTab, setDetailTab] = useState<'fiche' | 'taches' | 'planification' | 'metriques' | 'planner' | 'historique' | 'documents'>('metriques')
+  const [detailTab, setDetailTab] = useState<'fiche' | 'budget' | 'taches' | 'planification' | 'metriques' | 'planner' | 'historique' | 'documents'>('metriques')
   const exportPdf = useExportProjectPdf()
   const { data: goutiStatus } = useGoutiStatus()
   const { toast } = useToast()
@@ -3342,11 +3512,13 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           // sur le cycle de vie d'un projet :
           //   1) Vue agregee (Metriques)
           //   2) Identite (Fiche)
-          //   3) Plan de bataille (Planification + Planner)
-          //   4) Execution (Taches)  <- avant en 3e position, maintenant 5e
-          //   5) Historique / Documents (artefacts)
+          //   3) Pilotage financier (Budget)
+          //   4) Plan de bataille (Planification + Planner)
+          //   5) Execution (Taches)  <- avant en 3e position, maintenant 5e
+          //   6) Historique / Documents (artefacts)
           { id: 'metriques', label: t('projets.detail.tabs.metrics'), icon: Target },
           { id: 'fiche', label: 'Fiche', icon: Info },
+          { id: 'budget', label: 'Budget', icon: CircleDollarSign },
           { id: 'planification', label: 'Planification', icon: BarChart3 },
           { id: 'planner', label: 'Planner', icon: CalendarClock },
           { id: 'taches', label: `Tâches (${tasks?.length ?? 0})`, icon: ListTodo },
@@ -3714,32 +3886,24 @@ export function ProjectDetailPanel({ id }: { id: string }) {
             {/* Matrice d'affectation tâches × membres (planifié vs réalisé) */}
             <AllocationMatrixSection projectId={id} />
 
-            {/* Pertes par catégorie (intempéries, matériau, etc.) */}
-            <LossesSection projectId={id} />
-
-            {/* Rapport projet (synthèse façon MS Project) */}
-            <ProjectReportSection projectId={id} />
           </div>
         </SectionColumns>
         </>}
+
+        {detailTab === 'budget' && (
+          <div className="space-y-4">
+            <BudgetSection projectId={id} />
+            <LossesSection projectId={id} />
+            <ProjectReportSection projectId={id} />
+          </div>
+        )}
 
         {detailTab === 'taches' && <>
           {/* Tasks — inspired by Gouti "Progression et contrôle > Liste des tâches" */}
           <TaskSection projectId={id} tasks={tasks ?? []} />
 
           {/* Milestones — like Gouti "Cadrage > Jalons" */}
-          <FormSection title={`Jalons (${milestones?.length ?? 0})`} collapsible defaultExpanded storageKey="project-detail-jalons">
-            {milestones && milestones.length > 0 ? (
-              <div>
-                {milestones.map((ms) => (
-                  <MilestoneRow key={ms.id} ms={ms} projectId={id} />
-                ))}
-              </div>
-            ) : (
-              <EmptyState icon={Milestone} title="Aucun jalon" variant="search" size="compact" />
-            )}
-            <MilestoneQuickAdd projectId={id} />
-          </FormSection>
+          <MilestonesSection projectId={id} milestones={milestones ?? []} />
         </>}
 
         {detailTab === 'planification' && <>

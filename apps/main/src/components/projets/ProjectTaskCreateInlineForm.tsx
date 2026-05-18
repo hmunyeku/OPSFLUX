@@ -1,0 +1,304 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Check, Loader2, X, Layers, ListTodo } from 'lucide-react'
+import { useCreateProjectTask } from '@/hooks/useProjets'
+import { useUsers } from '@/hooks/useUsers'
+import { useToast } from '@/components/ui/Toast'
+import { panelInputClass } from '@/components/layout/DynamicPanel'
+import { cn } from '@/lib/utils'
+import { VariablePobEditor } from '@/pages/planner/VariablePobEditor'
+import type { ProjectTask, ProjectTaskCreate } from '@/types/api'
+
+type CreateMode = 'task' | 'subtask'
+
+interface ProjectTaskCreateInlineFormProps {
+  projectId: string
+  mode: CreateMode
+  parentTask?: ProjectTask | null
+  defaultTitle?: string
+  onCancel: () => void
+  onCreated?: (task: ProjectTask) => void
+  className?: string
+}
+
+function parseDateKey(value: string): Date {
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+  return new Date(Date.UTC(year, (month ?? 1) - 1, day ?? 1))
+}
+
+function dateKeyFromDate(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+function buildDefaultDaily(startDate: string, endDate: string, value: number): Record<string, number> {
+  if (!startDate || !endDate) return {}
+  const start = parseDateKey(startDate)
+  const end = parseDateKey(endDate)
+  if (end < start) return {}
+  const out: Record<string, number> = {}
+  const current = new Date(start)
+  let safety = 0
+  while (current <= end && safety < 3650) {
+    out[dateKeyFromDate(current)] = Math.max(0, Math.round(value))
+    current.setUTCDate(current.getUTCDate() + 1)
+    safety += 1
+  }
+  return out
+}
+
+function editorDailyToRelative(daily: Record<string, number>, startDate: string): Record<string, number> {
+  if (!startDate) return {}
+  const start = parseDateKey(startDate).getTime()
+  const out: Record<string, number> = {}
+  for (const [dateKey, rawValue] of Object.entries(daily)) {
+    const offset = Math.round((parseDateKey(dateKey).getTime() - start) / 86_400_000)
+    if (offset >= 0) out[`J${offset + 1}`] = Math.max(0, Math.round(Number(rawValue) || 0))
+  }
+  return out
+}
+
+export function ProjectTaskCreateInlineForm({
+  projectId,
+  mode,
+  parentTask,
+  defaultTitle,
+  onCancel,
+  onCreated,
+  className,
+}: ProjectTaskCreateInlineFormProps) {
+  const createTask = useCreateProjectTask()
+  const { toast } = useToast()
+  const { data: usersData } = useUsers({ page: 1, page_size: 100, active: true })
+  const users = usersData?.items ?? []
+  const [form, setForm] = useState({
+    title: defaultTitle ?? (mode === 'subtask' ? 'Nouvelle sous-tâche' : 'Nouvelle tâche'),
+    description: '',
+    status: 'todo',
+    priority: parentTask?.priority ?? 'medium',
+    start_date: parentTask?.start_date?.slice(0, 10) ?? '',
+    due_date: parentTask?.due_date?.slice(0, 10) ?? '',
+    assignee_id: parentTask?.assignee_id ?? '',
+    estimated_hours: '',
+    pob_quota_mode: 'constant' as NonNullable<ProjectTaskCreate['pob_quota_mode']>,
+    pob_quota: '',
+    pob_quota_daily: {} as Record<string, number>,
+  })
+
+  const isSubtask = mode === 'subtask'
+  const title = isSubtask ? 'Créer une sous-tâche' : 'Créer une tâche'
+  const subtitle = isSubtask && parentTask
+    ? `Rattachée à ${parentTask.title}`
+    : 'Tâche racine du projet'
+  const Icon = isSubtask ? Layers : ListTodo
+
+  const canSubmit = form.title.trim().length > 0 && !createTask.isPending
+  const dateRangeInvalid = useMemo(() => {
+    if (!form.start_date || !form.due_date) return false
+    return new Date(form.start_date).getTime() > new Date(form.due_date).getTime()
+  }, [form.start_date, form.due_date])
+  const variableNeedsDates = form.pob_quota_mode === 'variable' && (!form.start_date || !form.due_date)
+  const variableDailyEmpty = form.pob_quota_mode === 'variable' && Object.keys(form.pob_quota_daily).length === 0
+
+  useEffect(() => {
+    if (form.pob_quota_mode !== 'variable' || !form.start_date || !form.due_date || dateRangeInvalid) return
+    if (Object.keys(form.pob_quota_daily).length > 0) return
+    const quota = form.pob_quota ? Number(form.pob_quota) : 1
+    setForm(prev => ({
+      ...prev,
+      pob_quota_daily: buildDefaultDaily(prev.start_date, prev.due_date, Number.isFinite(quota) ? quota : 1),
+    }))
+  }, [dateRangeInvalid, form.due_date, form.pob_quota, form.pob_quota_daily, form.pob_quota_mode, form.start_date])
+
+  const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+    setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  const submit = async () => {
+    if (!canSubmit || dateRangeInvalid || variableNeedsDates || variableDailyEmpty) return
+    const payload: ProjectTaskCreate = {
+      title: form.title.trim(),
+      parent_id: isSubtask ? parentTask?.id ?? null : null,
+      description: form.description.trim() || null,
+      status: form.status,
+      priority: form.priority,
+      start_date: form.start_date || null,
+      due_date: form.due_date || null,
+      assignee_id: form.assignee_id || null,
+      estimated_hours: form.estimated_hours ? Number(form.estimated_hours) : null,
+      pob_quota_mode: form.pob_quota_mode,
+      pob_quota: form.pob_quota ? Number(form.pob_quota) : 0,
+      pob_quota_daily: form.pob_quota_mode === 'variable'
+        ? editorDailyToRelative(form.pob_quota_daily, form.start_date)
+        : null,
+    }
+    try {
+      const created = await createTask.mutateAsync({ projectId, payload })
+      toast({ title: isSubtask ? 'Sous-tâche créée' : 'Tâche créée', variant: 'success' })
+      onCreated?.(created)
+    } catch {
+      toast({ title: 'Erreur lors de la création', variant: 'error' })
+    }
+  }
+
+  return (
+    <div className={cn('rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-3', className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2">
+          <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Icon size={14} />
+          </span>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-foreground">{title}</div>
+            <div className="truncate text-[11px] text-muted-foreground">{subtitle}</div>
+          </div>
+        </div>
+        <button type="button" onClick={onCancel} className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted text-muted-foreground">
+          <X size={13} />
+        </button>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-[minmax(0,1.4fr)_120px_120px]">
+        <input
+          value={form.title}
+          onChange={(e) => update('title', e.target.value)}
+          className={`${panelInputClass} h-9 text-sm font-medium`}
+          placeholder={isSubtask ? 'Nom de la sous-tâche' : 'Nom de la tâche'}
+          autoFocus
+        />
+        <select value={form.status} onChange={(e) => update('status', e.target.value)} className={`${panelInputClass} h-9 text-xs`}>
+          <option value="todo">À faire</option>
+          <option value="in_progress">En cours</option>
+          <option value="review">Revue</option>
+          <option value="done">Terminée</option>
+        </select>
+        <select value={form.priority} onChange={(e) => update('priority', e.target.value)} className={`${panelInputClass} h-9 text-xs`}>
+          <option value="low">Basse</option>
+          <option value="medium">Moyenne</option>
+          <option value="high">Haute</option>
+          <option value="critical">Critique</option>
+        </select>
+      </div>
+
+      <textarea
+        value={form.description}
+        onChange={(e) => update('description', e.target.value)}
+        className={`${panelInputClass} min-h-[58px] w-full resize-y text-xs`}
+        placeholder="Description, livrable attendu, contrainte ou point de contrôle..."
+        rows={2}
+      />
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="space-y-1">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Début</span>
+          <input type="date" value={form.start_date} onChange={(e) => update('start_date', e.target.value)} className={`${panelInputClass} h-9 w-full text-xs`} />
+        </label>
+        <label className="space-y-1">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Fin</span>
+          <input type="date" value={form.due_date} onChange={(e) => update('due_date', e.target.value)} className={`${panelInputClass} h-9 w-full text-xs`} />
+        </label>
+        <label className="space-y-1">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Assigné</span>
+          <select value={form.assignee_id} onChange={(e) => update('assignee_id', e.target.value)} className={`${panelInputClass} h-9 w-full text-xs`}>
+            <option value="">Non assigné</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Charge estimée</span>
+          <input
+            type="number"
+            min="0"
+            step="0.5"
+            value={form.estimated_hours}
+            onChange={(e) => update('estimated_hours', e.target.value)}
+            className={`${panelInputClass} h-9 w-full text-xs`}
+            placeholder="h"
+          />
+        </label>
+      </div>
+
+      <div className="grid gap-2 rounded-md border border-border/40 bg-background/40 p-2 sm:grid-cols-[140px_120px_minmax(0,1fr)] sm:items-end">
+        <label className="space-y-1">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">POB</span>
+          <select
+            value={form.pob_quota_mode}
+            onChange={(e) => {
+              const mode = e.target.value as typeof form.pob_quota_mode
+              setForm(prev => ({
+                ...prev,
+                pob_quota_mode: mode,
+                pob_quota_daily: mode === 'variable'
+                  ? buildDefaultDaily(prev.start_date, prev.due_date, prev.pob_quota ? Number(prev.pob_quota) : 1)
+                  : {},
+              }))
+            }}
+            className={`${panelInputClass} h-9 w-full text-xs`}
+          >
+            <option value="constant">Fixe</option>
+            <option value="variable">Variable</option>
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Quota</span>
+          <input
+            type="number"
+            min="0"
+            value={form.pob_quota}
+            onChange={(e) => update('pob_quota', e.target.value)}
+            className={`${panelInputClass} h-9 w-full text-xs`}
+            placeholder="0"
+          />
+        </label>
+        <p className="text-[11px] text-muted-foreground">
+          {form.pob_quota_mode === 'variable'
+            ? 'Le plan J1, J2, etc. est préparé depuis les dates ci-dessus.'
+            : 'Quota fixe repris tel quel lors de l’envoi vers le Planner.'}
+        </p>
+      </div>
+
+      {form.pob_quota_mode === 'variable' && form.start_date && form.due_date && !dateRangeInvalid && (
+        <div className="rounded-md border border-border/40 bg-background/40 p-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Plan POB relatif</span>
+            <span className="text-[10px] text-muted-foreground">J1 = date de début</span>
+          </div>
+          <VariablePobEditor
+            startDate={form.start_date}
+            endDate={form.due_date}
+            value={form.pob_quota_daily}
+            onChange={(next) => update('pob_quota_daily', next)}
+            defaultValue={form.pob_quota ? Number(form.pob_quota) : 1}
+            compact
+            labelMode="relative"
+          />
+        </div>
+      )}
+
+      {dateRangeInvalid && (
+        <p className="text-[11px] font-medium text-red-500">La date de fin doit être postérieure ou égale à la date de début.</p>
+      )}
+      {variableNeedsDates && (
+        <p className="text-[11px] font-medium text-red-500">Le POB variable nécessite une date de début et une date de fin.</p>
+      )}
+      {variableDailyEmpty && !variableNeedsDates && (
+        <p className="text-[11px] font-medium text-red-500">Le plan POB variable doit contenir au moins une valeur journalière.</p>
+      )}
+
+      <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
+        <button type="button" onClick={onCancel} className="h-8 rounded border border-border px-3 text-xs text-muted-foreground hover:bg-muted">
+          Annuler
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!canSubmit || dateRangeInvalid || variableNeedsDates || variableDailyEmpty}
+          className="inline-flex h-8 items-center justify-center gap-1 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {createTask.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+          {isSubtask ? 'Créer la sous-tâche' : 'Créer la tâche'}
+        </button>
+      </div>
+    </div>
+  )
+}

@@ -41,6 +41,30 @@ type SpreadsheetRow = ProjectTaskEnriched & {
   _predecessorLabels?: string
 }
 
+function computeDurationDays(start: string | null | undefined, end: string | null | undefined): number | null {
+  if (!start || !end) return null
+  const duration = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000)
+  return duration >= 0 ? duration + 1 : null
+}
+
+function minIsoDate(values: Array<string | null | undefined>): string | null {
+  const dates = values.filter(Boolean) as string[]
+  if (dates.length === 0) return null
+  return dates.reduce((min, value) => (new Date(value).getTime() < new Date(min).getTime() ? value : min))
+}
+
+function maxIsoDate(values: Array<string | null | undefined>): string | null {
+  const dates = values.filter(Boolean) as string[]
+  if (dates.length === 0) return null
+  return dates.reduce((max, value) => (new Date(value).getTime() > new Date(max).getTime() ? value : max))
+}
+
+function sumNullable(values: Array<number | null | undefined>): number | null {
+  const numbers = values.filter((value): value is number => value != null)
+  if (numbers.length === 0) return null
+  return numbers.reduce((sum, value) => sum + value, 0)
+}
+
 /** Build tree-ordered flat array from tasks grouped by project */
 function buildSpreadsheetTree(
   tasks: ProjectTaskEnriched[],
@@ -100,16 +124,52 @@ function buildSpreadsheetTree(
       childrenMap.get(parentKey)!.push(t)
     }
 
+    const rollupCache = new Map<string, ProjectTaskEnriched>()
+    const displayTaskFor = (task: ProjectTaskEnriched): ProjectTaskEnriched => {
+      const cached = rollupCache.get(task.id)
+      if (cached) return cached
+
+      const children = childrenMap.get(task.id) ?? []
+      if (children.length === 0) {
+        rollupCache.set(task.id, task)
+        return task
+      }
+
+      const rolledChildren = children.map(displayTaskFor)
+      const startDate = minIsoDate(rolledChildren.map(child => child.start_date))
+      const dueDate = maxIsoDate(rolledChildren.map(child => child.due_date))
+      const estimatedHours = sumNullable(rolledChildren.map(child => child.estimated_hours))
+      const actualHours = sumNullable(rolledChildren.map(child => child.actual_hours))
+      const weightedChildren = rolledChildren.map(child => ({
+        progress: child.progress ?? 0,
+        weight: child.estimated_hours ?? computeDurationDays(child.start_date, child.due_date) ?? 1,
+      }))
+      const totalWeight = weightedChildren.reduce((sum, child) => sum + child.weight, 0)
+      const progress = totalWeight > 0
+        ? Math.round(weightedChildren.reduce((sum, child) => sum + (child.progress * child.weight), 0) / totalWeight)
+        : Math.round(rolledChildren.reduce((sum, child) => sum + (child.progress ?? 0), 0) / Math.max(1, rolledChildren.length))
+
+      const rolledTask: ProjectTaskEnriched = {
+        ...task,
+        start_date: startDate,
+        due_date: dueDate,
+        estimated_hours: estimatedHours,
+        actual_hours: actualHours,
+        progress: Math.max(0, Math.min(100, progress)),
+      }
+      rollupCache.set(task.id, rolledTask)
+      return rolledTask
+    }
+
     // DFS to build ordered flat list
     function addChildren(parentId: string | null, depth: number) {
       const children = childrenMap.get(parentId) ?? []
       for (const child of children) {
+        const displayTask = displayTaskFor(child)
         const kids = childrenMap.get(child.id) ?? []
         const hasKids = kids.length > 0
         // Duration
-        const dur = child.start_date && child.due_date
-          ? Math.ceil((new Date(child.due_date).getTime() - new Date(child.start_date).getTime()) / 86400000)
-          : null
+        const dur = computeDurationDays(displayTask.start_date, displayTask.due_date)
         // Predecessors from depsMap
         const taskDeps = depsMap?.get(child.id) ?? []
         const predLabels = taskDeps.map(d => {
@@ -118,7 +178,7 @@ function buildSpreadsheetTree(
         }).join(', ')
 
         result.push({
-          ...child,
+          ...displayTask,
           _depth: depth,
           _hasChildren: hasKids,
           _childCount: kids.length,
@@ -135,6 +195,113 @@ function buildSpreadsheetTree(
   }
 
   return result
+}
+
+function normalizeSearchText(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function tokenMatches(haystack: string, token: string): boolean {
+  if (!token) return true
+  if (haystack.includes(token)) return true
+
+  if (token.length < 4) return false
+  const maxDistance = token.length >= 7 ? 2 : 1
+  return haystack
+    .split(/\s+/)
+    .some(word => word.startsWith(token) || editDistanceWithin(word, token, maxDistance))
+}
+
+function editDistanceWithin(a: string, b: string, maxDistance: number): boolean {
+  if (Math.abs(a.length - b.length) > maxDistance) return false
+
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i]
+    let rowMin = current[0]
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      const value = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + cost,
+      )
+      current[j] = value
+      rowMin = Math.min(rowMin, value)
+    }
+    if (rowMin > maxDistance) return false
+    previous = current
+  }
+
+  return previous[b.length] <= maxDistance
+}
+
+function taskSearchText(
+  task: ProjectTaskEnriched,
+  taskStatusLabels: Record<string, string>,
+  projectPriorityLabels: Record<string, string>,
+): string {
+  const startDate = task.start_date ? new Date(task.start_date) : null
+  const dueDate = task.due_date ? new Date(task.due_date) : null
+  const completedAt = task.completed_at ? new Date(task.completed_at) : null
+  const parts = [
+    task.title,
+    task.code,
+    task.description,
+    task.project_code,
+    task.project_name,
+    task.status,
+    taskStatusLabels[task.status],
+    task.priority,
+    projectPriorityLabels[task.priority],
+    task.assignee_name,
+    task.progress != null ? `${task.progress} ${task.progress}% avancement progression` : null,
+    task.estimated_hours != null ? `${task.estimated_hours}h estime heures` : null,
+    task.actual_hours != null ? `${task.actual_hours}h consomme heures` : null,
+    task.pob_quota != null ? `${task.pob_quota} pob quota effectif` : null,
+    task.pob_quota_mode === 'variable' ? 'pob variable j1 j2 planification relative' : null,
+    task.pob_quota_mode === 'constant' ? 'pob fixe constant' : null,
+    task.is_milestone ? 'jalon milestone' : null,
+    startDate?.toISOString().slice(0, 10),
+    startDate?.toLocaleDateString('fr-FR'),
+    dueDate?.toISOString().slice(0, 10),
+    dueDate?.toLocaleDateString('fr-FR'),
+    completedAt?.toISOString().slice(0, 10),
+    completedAt?.toLocaleDateString('fr-FR'),
+  ]
+  return normalizeSearchText(parts.filter(Boolean).join(' '))
+}
+
+function filterTasksForSearch(
+  tasks: ProjectTaskEnriched[],
+  query: string,
+  taskStatusLabels: Record<string, string>,
+  projectPriorityLabels: Record<string, string>,
+): ProjectTaskEnriched[] {
+  const tokens = normalizeSearchText(query).split(/\s+/).filter(Boolean)
+  if (tokens.length === 0) return tasks
+
+  const byId = new Map(tasks.map(task => [task.id, task]))
+  const keepIds = new Set<string>()
+
+  for (const task of tasks) {
+    const haystack = taskSearchText(task, taskStatusLabels, projectPriorityLabels)
+    if (!tokens.every(token => tokenMatches(haystack, token))) continue
+
+    keepIds.add(task.id)
+    let parent = task.parent_id ? byId.get(task.parent_id) : undefined
+    while (parent) {
+      keepIds.add(parent.id)
+      parent = parent.parent_id ? byId.get(parent.parent_id) : undefined
+    }
+  }
+
+  return tasks.filter(task => keepIds.has(task.id))
 }
 
 export function SpreadsheetView() {
@@ -156,23 +323,33 @@ export function SpreadsheetView() {
   // Fetch ALL tasks for tree building (no pagination — tree needs all data)
   const { data, isLoading } = useAllProjectTasks({
     page: 1, page_size: 500,
-    search: debouncedSearch || undefined,
   })
 
-  const allTasks = useMemo(() => {
+  const projectScopedTasks = useMemo(() => {
     const items = data?.items ?? []
     if (!filteredProjectIds) return items
     return items.filter(t => filteredProjectIds.has(t.project_id))
   }, [data, filteredProjectIds])
 
+  const allTasks = useMemo(
+    () => filterTasksForSearch(projectScopedTasks, debouncedSearch, taskStatusLabels, projectPriorityLabels),
+    [projectScopedTasks, debouncedSearch, taskStatusLabels, projectPriorityLabels],
+  )
+
   // Auto-expand all projects on first load
   useEffect(() => {
-    if (allTasks.length > 0 && expandedProjects.size === 0 && !allExpanded) {
-      const projectIds = new Set(allTasks.map(t => t.project_id))
+    if (projectScopedTasks.length > 0 && expandedProjects.size === 0 && !allExpanded) {
+      const projectIds = new Set(projectScopedTasks.map(t => t.project_id))
       setExpandedProjects(projectIds)
       setAllExpanded(true)
     }
-  }, [allTasks, expandedProjects.size, allExpanded])
+  }, [projectScopedTasks, expandedProjects.size, allExpanded])
+
+  useEffect(() => {
+    if (!debouncedSearch.trim() || allTasks.length === 0) return
+    setExpandedProjects(new Set(allTasks.map(t => t.project_id)))
+    setExpandedTasks(new Set(allTasks.map(t => t.parent_id).filter(Boolean) as string[]))
+  }, [allTasks, debouncedSearch])
 
   // Build tree rows
   const treeRows = useMemo(
@@ -225,6 +402,7 @@ export function SpreadsheetView() {
   const columns = useMemo<ColumnDef<SpreadsheetRow, unknown>[]>(() => [
     {
       accessorKey: 'title', header: t('projets.columns.task'), size: 380, enableResizing: true,
+      meta: { mobileTitleOnly: true },
       cell: ({ row }) => {
         const r = row.original
         if (r._isGroupHeader) {
@@ -267,6 +445,7 @@ export function SpreadsheetView() {
     },
     {
       accessorKey: 'code', header: t('projets.columns.ref'), size: 80,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => row.original._isGroupHeader
         ? null
         : <span className="font-mono text-[10px] text-muted-foreground">{row.original.code || '--'}</span>,
@@ -290,6 +469,7 @@ export function SpreadsheetView() {
     },
     {
       accessorKey: 'start_date', header: t('projets.columns.start_date'), size: 90,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         return row.original.start_date
@@ -299,6 +479,7 @@ export function SpreadsheetView() {
     },
     {
       accessorKey: 'due_date', header: t('projets.columns.due_date'), size: 90,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         return row.original.due_date
@@ -308,6 +489,7 @@ export function SpreadsheetView() {
     },
     {
       accessorKey: 'progress', header: t('projets.columns.progress'), size: 70,
+      meta: { mobileFullWidth: true },
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         return (
@@ -322,20 +504,24 @@ export function SpreadsheetView() {
     },
     {
       accessorKey: 'estimated_hours', header: t('projets.columns.estimated_hours'), size: 60,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => row.original._isGroupHeader ? null : <span className="text-xs tabular-nums text-muted-foreground">{row.original.estimated_hours ?? '--'}</span>,
     },
     {
       accessorKey: 'actual_hours', header: t('projets.columns.actual_hours'), size: 60,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => row.original._isGroupHeader ? null : <span className="text-xs tabular-nums text-muted-foreground">{row.original.actual_hours ?? '--'}</span>,
     },
     {
       accessorKey: 'assignee_name', header: t('projets.columns.assignee'), size: 130,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => row.original._isGroupHeader ? null : <span className="text-xs text-muted-foreground truncate">{row.original.assignee_name || '--'}</span>,
     },
     // ── Extra columns (hidden by default, toggle via column visibility) ──
     {
       id: 'duration', header: t('projets.columns.duration'), size: 60,
       accessorFn: (row) => row._durationDays,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         const d = row.original._durationDays
@@ -345,6 +531,7 @@ export function SpreadsheetView() {
     {
       id: 'predecessors', header: t('projets.columns.predecessors'), size: 140,
       accessorFn: (row) => row._predecessorLabels,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         const v = row.original._predecessorLabels
@@ -354,6 +541,7 @@ export function SpreadsheetView() {
     {
       id: 'child_count', header: t('projets.columns.subtasks'), size: 80,
       accessorFn: (row) => row._childCount,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         const c = row.original._childCount ?? 0
@@ -362,6 +550,7 @@ export function SpreadsheetView() {
     },
     {
       accessorKey: 'description', header: t('common.description'), size: 200,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         const d = row.original.description
@@ -371,6 +560,7 @@ export function SpreadsheetView() {
     {
       id: 'project_code', header: t('projets.title'), size: 100,
       accessorFn: (row) => row.project_code,
+      meta: { mobileHideWhenEmpty: true },
       cell: ({ row }) => row.original._isGroupHeader ? null : <span className="font-mono text-[10px] text-muted-foreground">{row.original.project_code}</span>,
     },
     {
@@ -411,13 +601,13 @@ export function SpreadsheetView() {
           isLoading={isLoading}
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Rechercher par tâche ou code projet..."
+          searchPlaceholder="Recherche libre : tâche, réf., projet, statut, priorité, responsable..."
           inlineEdit={inlineEdit}
           emptyIcon={Sheet}
           emptyTitle="Aucune tâche"
           columnResizing
           columnVisibility
-          defaultHiddenColumns={['duration', 'predecessors', 'child_count', 'description', 'project_code', 'created_at', 'completed_at']}
+          defaultHiddenColumns={['predecessors', 'child_count', 'description', 'project_code', 'created_at', 'completed_at']}
           compact
           storageKey="projets-spreadsheet-v3"
           onRowClick={(row) => {

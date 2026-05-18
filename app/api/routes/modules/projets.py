@@ -1,7 +1,7 @@
 """Projets (project management) module routes — projects, tasks, members, milestones,
 planning revisions, deliverables, actions, change logs."""
 
-from datetime import date as date_type, datetime, timezone
+from datetime import date as date_type, datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -62,6 +62,42 @@ PROJECT_ENTITY_TYPE = "project"
 
 
 PROGRESS_WEIGHT_METHODS = ("equal", "effort", "duration", "manual")
+
+
+def _project_task_pob_daily_for_planner(task: ProjectTask) -> dict[str, int] | None:
+    """Convert a task's relative POB map (J1/J2/...) to Planner date keys."""
+    if getattr(task, "pob_quota_mode", "constant") != "variable":
+        return None
+    raw = getattr(task, "pob_quota_daily", None)
+    if not isinstance(raw, dict) or not task.start_date:
+        return None
+
+    base = task.start_date.date()
+    out: dict[str, int] = {}
+    for key, value in raw.items():
+        try:
+            quota = max(0, int(value))
+        except (TypeError, ValueError):
+            continue
+
+        key_str = str(key).strip()
+        offset: int | None = None
+        if len(key_str) >= 2 and key_str[0].upper() == "J" and key_str[1:].isdigit():
+            offset = max(0, int(key_str[1:]) - 1)
+        elif key_str.isdigit():
+            offset = max(0, int(key_str) - 1)
+
+        if offset is not None:
+            planner_key = (base + timedelta(days=offset)).isoformat()
+        elif len(key_str) >= 10 and key_str[4:5] == "-" and key_str[7:8] == "-":
+            # Backward/defensive compatibility if a client already sent
+            # absolute Planner-style keys.
+            planner_key = key_str[:10]
+        else:
+            continue
+        out[planner_key] = quota
+
+    return out or None
 
 
 async def _resolve_project_progress_method(db: AsyncSession, project: Project) -> str:
@@ -352,7 +388,7 @@ async def _sync_linked_planner_activities_for_project_task(
     # Spec 1.5: any of dates / POB / status modifications must trigger a
     # planner revision notification to the arbiter. Title / description
     # are also mirrored as straight metadata updates.
-    critical_fields = {"title", "description", "start_date", "due_date", "status", "pob_quota"}
+    critical_fields = {"title", "description", "start_date", "due_date", "status", "pob_quota", "pob_quota_mode", "pob_quota_daily"}
     impacted_fields = sorted(changed_fields & critical_fields)
     if not impacted_fields:
         return
@@ -380,10 +416,15 @@ async def _sync_linked_planner_activities_for_project_task(
             activity.start_date = task.start_date
         if "due_date" in changed_fields:
             activity.end_date = task.due_date
-        if "pob_quota" in changed_fields:
-            # Mirror the new POB to the activity. The arbiter is then
-            # notified via the planner.revision flow downstream.
+        if changed_fields & {"pob_quota", "pob_quota_mode", "pob_quota_daily", "start_date", "due_date"}:
+            # Mirror the new POB to the activity. Project tasks store
+            # variable POB relatively (J1/J2/...), while Planner stores
+            # absolute date keys, so convert during sync.
             activity.pax_quota = max(0, int(task.pob_quota or 0))
+            activity.pax_quota_mode = getattr(task, "pob_quota_mode", "constant") or "constant"
+            activity.pax_quota_daily = _project_task_pob_daily_for_planner(task)
+            if activity.pax_quota_mode != "variable":
+                activity.pax_quota_daily = None
 
     await db.flush()
 
@@ -2035,13 +2076,13 @@ async def update_project_task(
         raise HTTPException(404, "Task not found")
 
     # Track changes for historisation
-    TRACKED_FIELDS = {"status", "priority", "start_date", "due_date", "assignee_id", "title", "description", "progress", "estimated_hours", "actual_hours", "pob_quota"}
+    TRACKED_FIELDS = {"status", "priority", "start_date", "due_date", "assignee_id", "title", "description", "progress", "estimated_hours", "actual_hours", "pob_quota", "pob_quota_mode", "pob_quota_daily"}
     CHANGE_TYPES = {
         "start_date": "date_change", "due_date": "date_change", "status": "status_change",
         "priority": "priority_change", "assignee_id": "assignment_change",
         "title": "scope_change", "description": "scope_change",
         "progress": "progress_change", "estimated_hours": "scope_change", "actual_hours": "scope_change",
-        "pob_quota": "pob_change",
+        "pob_quota": "pob_change", "pob_quota_mode": "pob_change", "pob_quota_daily": "pob_change",
     }
     for field, value in body.model_dump(exclude_unset=True).items():
         old_value = getattr(task, field)
@@ -3422,11 +3463,15 @@ async def send_tasks_to_planner(
         if not task:
             errors.append(f"Tâche {tid} introuvable")
             continue
-        # Inherit pob_quota from the task by default. The frontend can
-        # override per item via item.pax_quota (spec 1.5 / 2.4).
+        # Inherit POB from the task by default. The task can be constant
+        # or variable in relative J1/J2 form; Planner expects absolute
+        # date keys, so convert here. A modal override remains a forced
+        # constant quota for backward compatibility.
         effective_pax_quota = item.pax_quota if item.pax_quota is not None else max(0, int(getattr(task, "pob_quota", 0) or 0))
         if effective_pax_quota <= 0:
             effective_pax_quota = 1
+        effective_pax_mode = "constant" if item.pax_quota is not None else (getattr(task, "pob_quota_mode", "constant") or "constant")
+        effective_pax_daily = None if item.pax_quota is not None else _project_task_pob_daily_for_planner(task)
         activity = PlannerActivity(
             entity_id=entity_id,
             asset_id=asset_id,
@@ -3438,6 +3483,8 @@ async def send_tasks_to_planner(
             status="draft",
             priority=item.priority,
             pax_quota=effective_pax_quota,
+            pax_quota_mode=effective_pax_mode,
+            pax_quota_daily=effective_pax_daily if effective_pax_mode == "variable" else None,
             start_date=task.start_date,
             end_date=task.due_date,
             created_by=current_user.id,

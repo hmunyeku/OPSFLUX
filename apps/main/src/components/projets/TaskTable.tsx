@@ -412,6 +412,10 @@ export interface TaskTableProps {
   /** Called when the user clicks anywhere on the row body. Use this
    *  to lift selection to the parent. */
   onSelect?: (taskId: string) => void
+  /** Controlled collapsed task ids, used by the fullscreen table+gantt split
+   *  so both panes keep the exact same visible row list. */
+  collapsedTaskIds?: Set<string>
+  onCollapsedTaskIdsChange?: (ids: Set<string>) => void
   /** Optional className for the wrapping element. */
   className?: string
 }
@@ -431,6 +435,8 @@ export function TaskTable({
   onRowClick,
   selectedTaskId,
   onSelect,
+  collapsedTaskIds,
+  onCollapsedTaskIdsChange,
   className,
 }: TaskTableProps) {
   const updateTask = useUpdateProjectTask()
@@ -444,7 +450,8 @@ export function TaskTable({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [internalCollapsed, setInternalCollapsed] = useState<Set<string>>(new Set())
+  const collapsed = collapsedTaskIds ?? internalCollapsed
 
   // Track container width via ResizeObserver so we can hide columns
   // tagged with `hideBelow`. Keeps the table inside its parent without
@@ -526,12 +533,17 @@ export function TaskTable({
   }, [tasks, tree, collapsed, hierarchical])
 
   const toggleCollapse = useCallback((taskId: string) => {
-    setCollapsed(prev => {
+    const update = (prev: Set<string>) => {
       const next = new Set(prev)
       if (next.has(taskId)) next.delete(taskId); else next.add(taskId)
       return next
-    })
-  }, [])
+    }
+    if (onCollapsedTaskIdsChange) {
+      onCollapsedTaskIdsChange(update(collapsed))
+    } else {
+      setInternalCollapsed(update)
+    }
+  }, [collapsed, onCollapsedTaskIdsChange])
 
   // Keyboard navigation between rows (audit K4) — Up/Down moves the
   // selection through the visible flatRows, wrapping at edges. We

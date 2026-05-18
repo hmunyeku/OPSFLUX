@@ -999,11 +999,35 @@ export function DataTable<TData>({
     const isWideId = (id: string) =>
       id === 'duration_bar' || id === 'progress' || id === 'avancement' || id.endsWith('_bar')
 
+    const metaOf = (column: import('@tanstack/react-table').Column<TData, unknown>) =>
+      column.columnDef.meta as {
+        label?: string
+        mobileTitleOnly?: boolean
+        mobileHideWhenEmpty?: boolean
+        mobileFullWidth?: boolean
+      } | undefined
+
     const headerLabelOf = (column: import('@tanstack/react-table').Column<TData, unknown>): string => {
       const header = column.columnDef.header
       if (typeof header === 'string') return header
-      const meta = column.columnDef.meta as { label?: string } | undefined
+      const meta = metaOf(column)
       return meta?.label ?? column.id
+    }
+
+    const isEmptyValue = (value: unknown) => {
+      if (value == null || value === false) return true
+      if (typeof value === 'string') {
+        const trimmed = value.trim()
+        return trimmed === '' || trimmed === '--' || trimmed === '—'
+      }
+      if (Array.isArray(value)) return value.length === 0
+      return false
+    }
+
+    const isEmptyRenderedNode = (node: React.ReactNode) => {
+      if (node == null || node === false) return true
+      if (typeof node === 'string' || typeof node === 'number') return isEmptyValue(String(node))
+      return false
     }
 
     return (
@@ -1012,12 +1036,15 @@ export function DataTable<TData>({
           {rows.map((row, idx) => {
             const id = getRowId(row.original)
             const isSelected = !!rowSelection[id]
+            const rowDepthValue = (row.original as { _depth?: unknown })._depth
+            const rowDepth = typeof rowDepthValue === 'number' ? Math.max(0, rowDepthValue) : 0
+            const isGroupHeader = !!(row.original as { _isGroupHeader?: unknown })._isGroupHeader
 
             // Partition cells: title / actions / others
             const allCells = row.getVisibleCells().filter((c) => !skipIds.has(c.column.id))
             const titleCell = allCells[0]
             const actionsCell = allCells.find((c) => c.column.id === 'actions')
-            const middleCells = allCells.slice(1).filter((c) => c.column.id !== 'actions')
+            const middleCells = isGroupHeader ? [] : allCells.slice(1).filter((c) => c.column.id !== 'actions')
 
             // Single coherent 2-col grid for the whole body.
             // Every row contributes a (label, value) pair so labels align
@@ -1031,7 +1058,8 @@ export function DataTable<TData>({
             // it doesn't push the action buttons. The whitespace/max-w
             // overrides neutralise truncate classes that title columns
             // sometimes hardcode for desktop.
-            if (titleCell) {
+            if (titleCell && !metaOf(titleCell.column)?.mobileTitleOnly) {
+              const renderedTitle = flexRender(titleCell.column.columnDef.cell, titleCell.getContext())
               renderedMiddle.push(
                 <div
                   key={`${titleCell.id}-l`}
@@ -1048,14 +1076,18 @@ export function DataTable<TData>({
                     '[&_*]:!whitespace-normal [&_*]:!max-w-none [&_*]:!overflow-visible',
                   )}
                 >
-                  {flexRender(titleCell.column.columnDef.cell, titleCell.getContext())}
+                  {renderedTitle}
                 </div>
               )
             }
 
             middleCells.forEach((cell, ri) => {
               const colId = cell.column.id
-              const wide = isWideId(colId)
+              const meta = metaOf(cell.column)
+              const renderedCell = flexRender(cell.column.columnDef.cell, cell.getContext())
+              if (isEmptyRenderedNode(renderedCell)) return
+              if (meta?.mobileHideWhenEmpty && isEmptyValue(cell.getValue())) return
+              const wide = meta?.mobileFullWidth || isWideId(colId)
               // First middle cell still needs a top border since the
               // synthetic title row sits above it in the same grid.
               const rowBorder = (ri > 0 || titleCell) ? 'border-t border-border/60' : ''
@@ -1079,7 +1111,7 @@ export function DataTable<TData>({
                     rowBorder,
                   )}
                 >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  {renderedCell}
                 </div>
               )
             })
@@ -1102,9 +1134,11 @@ export function DataTable<TData>({
                 }}
                 className={cn(
                   'rounded-md border border-border/60 bg-background shadow-sm overflow-hidden cursor-pointer transition-colors',
+                  rowDepth > 1 && 'border-l-primary/50',
                   'hover:border-primary/40 hover:bg-accent/20 active:bg-accent/40',
                   isSelected && 'border-primary ring-1 ring-primary/30',
                 )}
+                style={rowDepth > 1 ? { marginLeft: Math.min((rowDepth - 1) * 12, 36) } : undefined}
                 title={getRowTooltip?.(row.original)}
               >
                 {/* Title row — actions docked top-right, next to title.

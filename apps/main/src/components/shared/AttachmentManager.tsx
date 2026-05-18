@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Paperclip, Plus, Trash2, Download, Loader2,
   FileText, Image, FileArchive, Film, Music, File, Eye, EyeOff,
+  Check, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -78,6 +79,10 @@ function canPreview(contentType: string): boolean {
   return IMAGE_TYPES.includes(base) || VIDEO_TYPES.includes(base) ||
     AUDIO_TYPES.includes(base) || PDF_TYPES.includes(base)
 }
+
+const attachmentActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const attachmentActiveActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const attachmentDangerActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-destructive transition-colors hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 /** Authenticated media component — fetches via API and renders as blob URL */
 function AuthMediaPreview({ src, contentType, name }: { src: string; contentType: string; name: string }) {
@@ -329,28 +334,30 @@ export function AttachmentManager({
                   <button
                     type="button"
                     onClick={() => togglePreview(att.id)}
-                    className={cn('p-1 rounded transition-colors', isExpanded ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted')}
+                    aria-label={isExpanded ? 'Masquer l aperçu' : 'Aperçu'}
+                    className={isExpanded ? attachmentActiveActionClass : attachmentActionClass}
                     title={isExpanded ? 'Masquer l\'aperçu' : 'Aperçu'}
                   >
-                    {isExpanded ? <EyeOff size={11} /> : <Eye size={11} />}
+                    {isExpanded ? <EyeOff size={13} /> : <Eye size={13} />}
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => downloadFile(att.id, att.original_name)}
-                  className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  aria-label="Télécharger"
+                  className={attachmentActionClass}
                   title="Télécharger"
                 >
-                  <Download size={11} />
+                  <Download size={13} />
                 </button>
                 {!readOnly && (isConfirming ? (
                   <div className="flex items-center gap-0.5">
-                    <button type="button" className="btn btn-danger text-[9px]" onClick={() => handleDelete(att.id)} disabled={deleteAttachment.isPending}>Oui</button>
-                    <button type="button" className="btn btn-secondary text-[9px]" onClick={() => setConfirmDeleteId(null)}>Non</button>
+                    <button type="button" className={attachmentDangerActionClass} onClick={() => handleDelete(att.id)} disabled={deleteAttachment.isPending} title="Confirmer la suppression" aria-label="Confirmer la suppression"><Check size={13} /></button>
+                    <button type="button" className={attachmentActionClass} onClick={() => setConfirmDeleteId(null)} title="Annuler" aria-label="Annuler"><X size={13} /></button>
                   </div>
                 ) : (
-                  <button type="button" className="btn btn-danger" onClick={() => setConfirmDeleteId(att.id)} title="Supprimer">
-                    <Trash2 size={11} />
+                  <button type="button" className={attachmentDangerActionClass} onClick={() => setConfirmDeleteId(att.id)} title="Supprimer" aria-label="Supprimer">
+                    <Trash2 size={13} />
                   </button>
                 ))}
               </div>

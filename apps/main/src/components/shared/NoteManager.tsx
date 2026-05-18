@@ -14,7 +14,7 @@ import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   MessageSquare, Trash2, Pencil, Loader2,
-  Pin, Lock, Globe, Send,
+  Pin, Lock, Globe, Send, Check, X,
 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from '@/hooks/useSettings'
@@ -32,6 +32,9 @@ function formatDate(dateStr: string) {
     minute: '2-digit',
   })
 }
+
+const noteActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const noteDangerActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-destructive transition-colors hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 interface NoteManagerProps {
   /** Object type: 'user', 'tier', 'asset', 'entity' */
@@ -243,35 +246,53 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
               {isOwner && (
                 <div className="flex items-center gap-1 shrink-0">
                   <button
-                    className="btn-sm btn-secondary"
+                    type="button"
+                    className={noteActionClass}
                     onClick={() => handleTogglePin(note)}
+                    aria-label={note.pinned ? 'Désépingler' : 'Épingler'}
                     title={note.pinned ? 'Désépingler' : 'Épingler'}
                   >
-                    <Pin size={12} className={note.pinned ? 'text-primary' : ''} />
+                    <Pin size={13} className={note.pinned ? 'text-primary' : ''} />
                   </button>
                   <button
-                    className="btn-sm btn-secondary"
+                    type="button"
+                    className={noteActionClass}
                     onClick={() => { setEditingId(note.id); setEditContent(note.content) }}
+                    aria-label="Modifier"
                     title="Modifier"
                   >
-                    <Pencil size={12} />
+                    <Pencil size={13} />
                   </button>
                   {isConfirming ? (
                     <div className="flex items-center gap-1">
-                      <button className="btn-sm btn-danger" onClick={() => handleDelete(note.id)}>
-                        Oui
+                      <button
+                        type="button"
+                        className={noteDangerActionClass}
+                        onClick={() => handleDelete(note.id)}
+                        title="Confirmer la suppression"
+                        aria-label="Confirmer la suppression"
+                      >
+                        <Check size={13} />
                       </button>
-                      <button className="btn-sm btn-secondary" onClick={() => setConfirmDeleteId(null)}>
-                        Non
+                      <button
+                        type="button"
+                        className={noteActionClass}
+                        onClick={() => setConfirmDeleteId(null)}
+                        title="Annuler"
+                        aria-label="Annuler"
+                      >
+                        <X size={13} />
                       </button>
                     </div>
                   ) : (
                     <button
-                      className="btn-sm btn-danger"
+                      type="button"
+                      className={noteDangerActionClass}
                       onClick={() => setConfirmDeleteId(note.id)}
+                      aria-label="Supprimer"
                       title="Supprimer"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={13} />
                     </button>
                   )}
                 </div>

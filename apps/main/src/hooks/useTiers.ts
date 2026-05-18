@@ -10,7 +10,19 @@ import type {
 
 // ── Tiers ──
 
-export function useTiers(params: { page?: number; page_size?: number; search?: string; type?: string } = {}) {
+export function useTiers(params: {
+  page?: number
+  page_size?: number
+  search?: string
+  type?: string
+  active?: boolean
+  country?: string
+  legal_form?: string
+  industry?: string
+  registration_number?: string
+  city?: string
+  is_blocked?: boolean
+} = {}) {
   return useQuery({
     queryKey: ['tiers', params],
     queryFn: () => tiersService.list(params),

@@ -18,7 +18,7 @@ import {
   Columns3, Download, Upload,
   X, Check, FileSpreadsheet, FileText,
   SlidersHorizontal, FileDown, Settings2,
-  CheckCheck, ChevronDown,
+  CheckCheck, ChevronDown, HelpCircle, ArrowUpDown,
 } from 'lucide-react'
 import type { DataTableBatchAction } from './types'
 import { cn } from '@/lib/utils'
@@ -184,6 +184,26 @@ function resolveTokens(
   return tokens
 }
 
+function getDefaultOperators(filter: DataTableFilterDef): FilterOperator[] {
+  if (filter.type === 'text') return ['contains', 'is']
+  return filter.type === 'date-range' ? ['between', 'gt', 'lt'] : ['is', 'is_not']
+}
+
+function getFilterOperatorSummary(filter: DataTableFilterDef): string {
+  return (filter.operators ?? getDefaultOperators(filter))
+    .map((op) => FILTER_OPERATOR_LABELS[op])
+    .join(', ')
+}
+
+function getFilterValueSummary(filter: DataTableFilterDef): string {
+  if (filter.type === 'text') return 'Texte libre'
+  if (filter.type === 'date-range') return 'Dates et periodes'
+  const options = filter.options ?? []
+  if (options.length === 0) return 'Valeurs disponibles'
+  const labels = options.slice(0, 4).map((option) => option.label)
+  return options.length > 4 ? `${labels.join(', ')}...` : labels.join(', ')
+}
+
 export function DataTableToolbar({
   searchValue,
   onSearchChange,
@@ -289,19 +309,14 @@ export function DataTableToolbar({
   const handleBarClick = useCallback(() => {
     if (dropdown.type === 'closed' && hasFilters) {
       setDropdown({ type: 'categories' })
-      setFilterSearch('')
+      setFilterSearch(searchValue ?? '')
     }
     inputRef.current?.focus()
-  }, [dropdown.type, hasFilters])
+  }, [dropdown.type, hasFilters, searchValue])
 
   const handleSelectCategory = useCallback((filterId: string) => {
     const filter = filters?.find((f) => f.id === filterId)
-    // Default operator set: date-range gets a between/gt/lt set,
-    // everything else defaults to ['is'] so the values step shows up.
-    const defaultOps: FilterOperator[] = filter?.type === 'date-range'
-      ? ['between', 'gt', 'lt']
-      : ['is']
-    const ops = filter?.operators ?? defaultOps
+    const ops: FilterOperator[] = filter ? (filter.operators ?? getDefaultOperators(filter)) : ['is']
     // Skip operator step if only one operator
     if (ops.length <= 1) {
       setDropdown({ type: 'values', filterId, operator: ops[0] ?? 'is' })
@@ -416,7 +431,10 @@ export function DataTableToolbar({
   }, [activeTokens, onFilterChange, onSearchChange])
 
   const handleInputChange = useCallback((value: string) => {
-    if (dropdown.type === 'categories' || dropdown.type === 'values' || dropdown.type === 'operators') {
+    if (dropdown.type === 'categories') {
+      setFilterSearch(value)
+      onSearchChange?.(value)
+    } else if (dropdown.type === 'values' || dropdown.type === 'operators') {
       setFilterSearch(value)
     } else {
       onSearchChange?.(value)
@@ -437,7 +455,7 @@ export function DataTableToolbar({
 
   // ── Computed display values ───────────────────────────────
 
-  const inputValue = dropdown.type !== 'closed' && dropdown.type !== 'action'
+  const inputValue = dropdown.type === 'values' || dropdown.type === 'operators'
     ? filterSearch
     : searchValue ?? ''
 
@@ -450,13 +468,19 @@ export function DataTableToolbar({
       const filter = filters?.find((f) => f.id === (dropdown as { filterId: string }).filterId)
       return `Chercher ${filter?.label?.toLowerCase() ?? ''}…`
     }
-    if (dropdown.type === 'categories') return 'Sélectionner un filtre ou rechercher…'
+    if (dropdown.type === 'categories') return 'Recherche libre ou critere de filtre...'
     if (activeTokens.length > 0) return 'Rechercher…'
     return searchPlaceholder
   })()
 
+  const categoryQuery = dropdown.type === 'categories'
+    ? (searchValue ?? filterSearch)
+    : filterSearch
+  const normalizedCategoryQuery = categoryQuery.trim().toLowerCase()
   const filteredCategories = (filters ?? []).filter((f) =>
-    !filterSearch || f.label.toLowerCase().includes(filterSearch.toLowerCase())
+    !normalizedCategoryQuery
+    || f.label.toLowerCase().includes(normalizedCategoryQuery)
+    || f.id.toLowerCase().includes(normalizedCategoryQuery)
   )
 
   const currentFilterId = (dropdown.type === 'values' || dropdown.type === 'operators')
@@ -469,12 +493,16 @@ export function DataTableToolbar({
     !filterSearch || o.label.toLowerCase().includes(filterSearch.toLowerCase())
   ) ?? []
 
-  const defaultOpsForFilter: FilterOperator[] = currentFilter?.type === 'date-range'
-    ? ['between', 'gt', 'lt']
+  const defaultOpsForFilter: FilterOperator[] = currentFilter
+    ? getDefaultOperators(currentFilter)
     : ['is', 'is_not']
   const filteredOperators = (currentFilter?.operators ?? defaultOpsForFilter).filter((op) =>
     !filterSearch || FILTER_OPERATOR_LABELS[op].toLowerCase().includes(filterSearch.toLowerCase())
   )
+
+  const documentedFilters = filters ?? []
+  const documentedSortColumns = (allColumns ?? [])
+    .filter((column) => !['select', 'actions'].includes(column.id))
 
   // For multi-select: get currently selected values as array
   const getSelectedValues = (filterId: string): string[] => {
@@ -489,7 +517,7 @@ export function DataTableToolbar({
   const isMultiSelectFilter = currentFilter?.type === 'multi-select'
 
   return (
-    <div className="@container/dt-toolbar border-b border-border shrink-0" ref={containerRef}>
+    <div className="@container/dt-toolbar border-b border-border/60 bg-background/95 shrink-0" ref={containerRef}>
       {/* Layout reflows on the toolbar's actual container width (not
           the viewport) — the panel-detail view shrinks the toolbar
           to ~50% of the viewport, so viewport breakpoints alone make
@@ -500,7 +528,7 @@ export function DataTableToolbar({
         {/* ── Visual query search bar ── */}
         <div
           className={cn(
-            'relative flex items-center flex-1 min-w-0 h-7 gap-1 px-2 rounded-md border transition-colors cursor-text',
+            'relative flex items-center flex-1 min-w-0 h-7 gap-1 px-2 rounded-md border bg-muted/20 transition-colors cursor-text',
             dropdown.type !== 'closed' && dropdown.type !== 'action'
               ? 'border-primary/50 ring-1 ring-primary/20'
               : 'border-border hover:border-border-hover',
@@ -610,7 +638,7 @@ export function DataTableToolbar({
             onFocus={() => {
               if (dropdown.type === 'closed' && hasFilters) {
                 setDropdown({ type: 'categories' })
-                setFilterSearch('')
+                setFilterSearch(searchValue ?? '')
               }
             }}
             onKeyDown={handleKeyDown}
@@ -630,12 +658,24 @@ export function DataTableToolbar({
           )}
 
           {/* ── Dropdown: filter categories ── */}
-          {dropdown.type === 'categories' && filteredCategories.length > 0 && (
-            <div className="absolute left-0 top-full mt-1 z-50 min-w-[220px] max-w-[280px] rounded-md border bg-popover shadow-lg py-1">
+          {dropdown.type === 'categories' && (
+            <div className="absolute left-0 top-full mt-1 z-50 min-w-[240px] max-w-[320px] rounded-md border bg-popover shadow-lg py-1">
+              <div className="border-b border-border/50 px-3 py-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Recherche visuelle
+                </p>
+                <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground/80">
+                  La saisie filtre librement les resultats. Selectionnez un critere pour ajouter un filtre structure.
+                </p>
+              </div>
               <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                 Filtres disponibles
               </p>
-              {filteredCategories.map((filter) => {
+              {filteredCategories.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  Aucun critere ne correspond, la recherche libre reste active.
+                </p>
+              ) : filteredCategories.map((filter) => {
                 const isActive = activeFilters?.[filter.id] !== undefined && activeFilters?.[filter.id] !== null
                 return (
                   <button
@@ -699,7 +739,26 @@ export function DataTableToolbar({
               }}
             />
           )}
-          {dropdown.type === 'values' && currentFilter && currentOperator && currentFilter.type !== 'date-range' && (
+          {dropdown.type === 'values' && currentFilter && currentOperator && currentFilter.type === 'text' && (
+            <TextFilterValuePicker
+              filter={currentFilter}
+              operator={currentOperator}
+              currentValue={activeFilters?.[currentFilter.id]}
+              onApply={(value) => {
+                onFilterChange?.(currentFilter.id, value)
+                setDropdown({ type: 'closed' })
+                setFilterSearch('')
+                inputRef.current?.focus()
+              }}
+              onClear={() => {
+                onFilterChange?.(currentFilter.id, undefined)
+                setDropdown({ type: 'closed' })
+                setFilterSearch('')
+                inputRef.current?.focus()
+              }}
+            />
+          )}
+          {dropdown.type === 'values' && currentFilter && currentOperator && currentFilter.type !== 'date-range' && currentFilter.type !== 'text' && (
             <div className="absolute left-0 top-full mt-1 z-50 min-w-[220px] max-w-[280px] rounded-md border bg-popover shadow-lg py-1">
               <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                 {currentFilter.label} {FILTER_OPERATOR_LABELS[currentOperator]}
@@ -759,7 +818,7 @@ export function DataTableToolbar({
             <button
               onClick={onToggleSelectionMode}
               className={cn(
-                'p-1 rounded transition-colors',
+                'inline-flex h-7 items-center gap-1 rounded px-1.5 transition-colors',
                 selectionMode
                   ? 'bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -767,6 +826,11 @@ export function DataTableToolbar({
               title={selectionMode ? 'Quitter la sélection' : 'Sélection multiple'}
             >
               <CheckCheck size={14} />
+              {selectionMode && (
+                <span className="hidden text-[11px] font-medium @md/dt-toolbar:inline">
+                  Selection
+                </span>
+              )}
             </button>
             {selectionMode && selectedCount > 0 && (
               <>
@@ -793,8 +857,9 @@ export function DataTableToolbar({
                           return (
                           <button
                             key={action.id}
-                            onClick={() => {
-                              action.onAction(selectedRows)
+                            onClick={async () => {
+                              await action.onAction(selectedRows)
+                              onClearSelection?.()
                               setDropdown({ type: 'closed' })
                             }}
                             className={cn(
@@ -815,7 +880,7 @@ export function DataTableToolbar({
                   className="text-[11px] text-muted-foreground hover:text-foreground whitespace-nowrap"
                   onClick={onClearSelection}
                 >
-                  Effacer
+                  Quitter
                 </button>
               </>
             )}
@@ -825,15 +890,94 @@ export function DataTableToolbar({
 
         {toolbarLeft}
 
-        <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 whitespace-nowrap hidden @md/dt-toolbar:inline">
+        <span className="hidden h-6 shrink-0 items-center rounded-md border border-border/60 bg-muted/30 px-2 text-[10px] font-medium text-muted-foreground tabular-nums whitespace-nowrap @md/dt-toolbar:inline-flex">
           {totalCount.toLocaleString('fr-FR')} résultat{totalCount !== 1 ? 's' : ''}
         </span>
 
-        <div className="w-px h-4 bg-border shrink-0 hidden @md/dt-toolbar:block" />
+        <div className="w-px h-4 bg-border/70 shrink-0 hidden @md/dt-toolbar:block" />
+
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setDropdown(
+              dropdown.type === 'action' && dropdown.id === '_search_help'
+                ? { type: 'closed' }
+                : { type: 'action', id: '_search_help' }
+            )}
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            title="Aide recherche, filtres et tri"
+          >
+            <HelpCircle size={13} />
+          </button>
+          {dropdown.type === 'action' && dropdown.id === '_search_help' && (
+            <div className="absolute right-0 top-full mt-1 z-50 w-[min(28rem,calc(100vw-1.5rem))] max-h-[min(70vh,32rem)] overflow-y-auto rounded-md border bg-popover shadow-lg">
+              <div className="border-b border-border/50 px-3 py-2">
+                <p className="text-[11px] font-semibold text-foreground">Recherche visuelle</p>
+                <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+                  Tapez un mot pour lancer une recherche libre. Cliquez ensuite un critere pour ajouter un filtre structure.
+                </p>
+              </div>
+
+              <div className="px-3 py-2">
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Filtres disponibles
+                </p>
+                {documentedFilters.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Aucun filtre structure disponible sur cette table.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {documentedFilters.map((filter) => (
+                      <div key={filter.id} className="rounded border border-border/60 bg-muted/20 px-2 py-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-foreground">{filter.label}</span>
+                          <span className="rounded bg-background px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                            {filter.type}
+                          </span>
+                        </div>
+                        <div className="mt-1 grid gap-1 text-[10px] text-muted-foreground @md/dt-toolbar:grid-cols-2">
+                          <span>Operateurs: {getFilterOperatorSummary(filter)}</span>
+                          <span className="truncate">Valeurs: {getFilterValueSummary(filter)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-border/50 px-3 py-2">
+                <p className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <ArrowUpDown size={11} /> Tri possible
+                </p>
+                {documentedSortColumns.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Aucune colonne triable documentee.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {documentedSortColumns.map((column) => (
+                      <span
+                        key={column.id}
+                        className={cn(
+                          'rounded border px-1.5 py-0.5 text-[10px]',
+                          column.isVisible
+                            ? 'border-border/70 bg-background text-foreground'
+                            : 'border-border/40 bg-muted/20 text-muted-foreground',
+                        )}
+                      >
+                        {column.header}{!column.isVisible ? ' (masquee)' : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
+                  Le tri se fait en cliquant sur les en-tetes de colonnes visibles. Les colonnes masquees peuvent etre reactivees via le bouton colonnes.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* View mode toggle */}
         {viewModes && viewModes.length > 1 && (
-          <div className="flex items-center rounded overflow-hidden border border-border/50 shrink-0">
+          <div className="flex h-7 items-center rounded-md overflow-hidden border border-border/60 bg-background shrink-0">
             {viewModes.map((mode) => {
               const Icon = VIEW_MODE_ICONS[mode]
               return (
@@ -842,7 +986,7 @@ export function DataTableToolbar({
                   title={VIEW_MODE_LABELS[mode]}
                   onClick={() => onViewModeChange(mode)}
                   className={cn(
-                    'p-1 transition-colors',
+                    'h-full w-7 flex items-center justify-center transition-colors',
                     currentViewMode === mode
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -864,7 +1008,7 @@ export function DataTableToolbar({
                   ? { type: 'closed' }
                   : { type: 'action', id: '_columns' }
               )}
-              className="p-1 rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               title="Colonnes visibles"
             >
               <Columns3 size={13} />
@@ -903,7 +1047,7 @@ export function DataTableToolbar({
                   ? { type: 'closed' }
                   : { type: 'action', id: '_export' }
               )}
-              className="p-1 rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               title="Exporter"
             >
               <Download size={13} />
@@ -1024,7 +1168,7 @@ export function DataTableToolbar({
                   )
                 }
               }}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-background px-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               title={importExport?.importWizardTarget ? 'Importer une liste (CSV / Excel)' : 'Importer'}
             >
               <Upload size={13} />
@@ -1065,6 +1209,72 @@ export function DataTableToolbar({
 // ── Date range value picker ─────────────────────────────────
 // Shown in the values dropdown when the filter type is 'date-range'.
 // Supports 'between' (two dates), 'gt' (after), and 'lt' (before).
+interface TextFilterValuePickerProps {
+  filter: DataTableFilterDef
+  operator: FilterOperator
+  currentValue: unknown
+  onApply: (value: unknown) => void
+  onClear: () => void
+}
+
+function TextFilterValuePicker({ filter, operator, currentValue, onApply, onClear }: TextFilterValuePickerProps) {
+  const initialValue = (() => {
+    if (currentValue && typeof currentValue === 'object' && currentValue !== null && 'value' in currentValue) {
+      return String((currentValue as { value?: unknown }).value ?? '')
+    }
+    return typeof currentValue === 'string' ? currentValue : ''
+  })()
+  const [value, setValue] = useState(initialValue)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }, [])
+
+  const apply = () => {
+    const trimmed = value.trim()
+    if (!trimmed) return onClear()
+    onApply({ operator, value: trimmed })
+  }
+
+  return (
+    <div className="absolute left-0 top-full mt-1 z-50 w-[280px] rounded-md border bg-popover shadow-lg p-2">
+      <p className="px-1 pb-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+        {filter.label} {FILTER_OPERATOR_LABELS[operator]}
+      </p>
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') apply()
+          if (e.key === 'Escape') onClear()
+        }}
+        placeholder={`Valeur ${filter.label.toLowerCase()}...`}
+        className="w-full h-7 px-2 text-xs border border-border rounded bg-background outline-none focus:border-primary/60"
+      />
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-[11px] text-muted-foreground hover:text-destructive px-1"
+        >
+          Effacer
+        </button>
+        <button
+          type="button"
+          onClick={apply}
+          className="btn-sm bg-primary text-primary-foreground hover:bg-primary/90 h-6 px-2 text-[11px]"
+        >
+          Appliquer
+        </button>
+      </div>
+    </div>
+  )
+}
+
 interface DateRangeValuePickerProps {
   filter: DataTableFilterDef
   operator: FilterOperator

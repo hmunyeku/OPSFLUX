@@ -6,7 +6,7 @@ from datetime import date as date_type
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select, func as sqla_func
+from sqlalchemy import select, func as sqla_func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -45,6 +45,12 @@ async def list_tiers(
     type: str | None = None,
     search: str | None = None,
     active: bool | None = None,
+    country: str | None = None,
+    legal_form: str | None = None,
+    industry: str | None = None,
+    registration_number: str | None = None,
+    city: str | None = None,
+    is_blocked: bool | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -77,9 +83,34 @@ async def list_tiers(
         query = query.where(Tier.type == type)
     if active is not None:
         query = query.where(Tier.active == active)
+    if country:
+        query = query.where(Tier.country == country)
+    if legal_form:
+        query = query.where(Tier.legal_form == legal_form)
+    if industry:
+        query = query.where(Tier.industry.ilike(f"%{industry}%"))
+    if registration_number:
+        query = query.where(Tier.registration_number.ilike(f"%{registration_number}%"))
+    if city:
+        query = query.where(Tier.city.ilike(f"%{city}%"))
+    if is_blocked is not None:
+        query = query.where(Tier.is_blocked == is_blocked)
     if search:
-        like = f"%{search}%"
-        query = query.where(Tier.name.ilike(like) | Tier.code.ilike(like))
+        for word in search.split():
+            like = f"%{word}%"
+            query = query.where(or_(
+                Tier.name.ilike(like),
+                Tier.code.ilike(like),
+                Tier.alias.ilike(like),
+                Tier.trade_name.ilike(like),
+                Tier.email.ilike(like),
+                Tier.registration_number.ilike(like),
+                Tier.tax_id.ilike(like),
+                Tier.vat_number.ilike(like),
+                Tier.industry.ilike(like),
+                Tier.city.ilike(like),
+                Tier.country.ilike(like),
+            ))
     query = query.order_by(Tier.name)
 
     return await paginate(db, query, pagination, transform=_tier_with_count)

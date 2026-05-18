@@ -27,7 +27,7 @@ export function DataTablePaginationBar({
   if (total === 0) return null
 
   return (
-    <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-1 border-t border-border px-3 py-1 sm:py-0 sm:h-7 shrink-0 sticky bottom-0 bg-background z-10">
+    <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-1 border-t border-border/60 px-3 py-1 sm:py-0 sm:h-8 shrink-0 sticky bottom-0 bg-muted/25 backdrop-blur z-10">
       <div className="flex items-center gap-2 order-2 sm:order-1">
         <span className="text-[11px] text-muted-foreground tabular-nums">
           {start}–{end} sur {total.toLocaleString('fr-FR')}
@@ -37,7 +37,7 @@ export function DataTablePaginationBar({
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="text-[11px] bg-transparent border border-border rounded px-1 py-0 text-foreground h-6 sm:h-5 cursor-pointer"
+            className="text-[11px] bg-background border border-border/60 rounded-md px-1.5 py-0 text-foreground h-6 sm:h-5 cursor-pointer"
           >
             {pageSizeOptions.map((size) => (
               <option key={size} value={size}>{size} / page</option>
@@ -67,7 +67,7 @@ export function DataTablePaginationBar({
                   // Active page: gradient primary → primary-hover, soft
                   // shadow — consistent with PageNavBar active pills.
                   ? 'text-primary-foreground shadow-[0_1px_4px_-1px_hsl(var(--primary)/0.35)] bg-gradient-to-br from-primary to-primary-hover'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                  : 'text-muted-foreground hover:bg-background hover:text-foreground',
               )}
             >
               {p}
@@ -97,8 +97,8 @@ function NavButton({ disabled, onClick, title, children }: {
       aria-label={title}
       className={cn(
         // Mobile: 28px touch target — desktop: dense 4px padding
-        'h-7 w-7 sm:h-auto sm:w-auto sm:p-0.5 flex items-center justify-center rounded text-muted-foreground transition-colors',
-        disabled ? 'opacity-25 cursor-not-allowed' : 'hover:bg-accent hover:text-foreground',
+        'h-7 w-7 sm:h-6 sm:w-6 flex items-center justify-center rounded-md text-muted-foreground transition-colors',
+        disabled ? 'opacity-25 cursor-not-allowed' : 'hover:bg-background hover:text-foreground',
       )}
     >
       {children}

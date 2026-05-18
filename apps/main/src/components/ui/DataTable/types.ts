@@ -51,7 +51,7 @@ export interface DataTableFilterOption {
 export interface DataTableFilterDef {
   id: string
   label: string
-  type: 'select' | 'multi-select' | 'boolean' | 'date-range'
+  type: 'text' | 'select' | 'multi-select' | 'boolean' | 'date-range'
   options?: DataTableFilterOption[]
   /** Allowed operators for this filter (default: ['is']). */
   operators?: FilterOperator[]
@@ -250,6 +250,7 @@ export interface DataTableProps<TData> {
 
   // Row click
   onRowClick?: (row: TData) => void
+  getRowTooltip?: (row: TData) => string | undefined
 
   // Empty state
   emptyIcon?: LucideIcon

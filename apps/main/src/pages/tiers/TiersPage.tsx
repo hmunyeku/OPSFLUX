@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { DataTablePagination, DataTableFilterDef, ImportExportConfig } from '@/components/ui/DataTable/types'
+import type { DataTablePagination, DataTableFilterDef, ImportExportConfig, DataTableBatchAction } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
 import { PageNavBar, TabBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
@@ -93,6 +93,15 @@ const EMPTY_CONTACT_FORM: TierContactCreate = {
   position: null,
   department: null,
   is_primary: false,
+}
+
+function getTextFilterValue(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.trim() || undefined
+  if (value && typeof value === 'object' && !Array.isArray(value) && 'value' in value) {
+    const raw = (value as { value?: unknown }).value
+    return typeof raw === 'string' ? raw.trim() || undefined : undefined
+  }
+  return undefined
 }
 
 // -- Create Tier Panel --------------------------------------------------------
@@ -1373,6 +1382,7 @@ const VALID_TIERS_TABS = new Set<TiersTab>(['dashboard', 'entreprises', 'contact
 export function TiersPage() {
   useOpenDetailFromPath({ matchers: [{ prefix: '/tiers/', module: 'tiers' }] })
   const { t } = useTranslation()
+  const { toast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as TiersTab | null
   // Bug #144 (QA round 38 UI tests) : default tab change de 'dashboard'
@@ -1388,6 +1398,8 @@ export function TiersPage() {
   }, [setSearchParams])
   const tierTypeOptions = useDictionaryOptions('tier_type')
   const tierTypeLabels = useDictionaryLabels('tier_type')
+  const countryOptions = useDictionaryOptions('country')
+  const legalFormOptions = useDictionaryOptions('legal_form')
   const legalFormLabels = useDictionaryLabels('legal_form')
 
   // ── Shared state ──
@@ -1402,8 +1414,22 @@ export function TiersPage() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
   const setNavItems = useUIStore((s) => s.setDynamicPanelNavItems)
+  const confirm = useConfirm()
+  const archiveSelectedTier = useArchiveTier()
   // Reset page when tab/search/filters change
   useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, activeTab])
+
+  useEffect(() => {
+    setActiveFilters((prev) => {
+      if (typeof prev.status !== 'string') return prev
+      const { status, ...rest } = prev
+      if (prev.active !== undefined) return rest
+      return {
+        ...rest,
+        active: status === 'active' ? 'true' : status === 'inactive' ? 'false' : status,
+      }
+    })
+  }, [setActiveFilters])
 
   // Reset search/filters when switching tabs. When jumping to the
   // contacts tab while a tier detail panel is open, pre-apply the
@@ -1421,11 +1447,34 @@ export function TiersPage() {
 
   // ── Entreprises tab data ──
   const typeFilter = typeof activeFilters.type === 'string' ? activeFilters.type : undefined
+  const activeFilterValue = typeof activeFilters.active === 'string'
+    ? activeFilters.active
+    : typeof activeFilters.status === 'string'
+      ? activeFilters.status
+      : undefined
+  const activeFilter = activeFilterValue === 'true' || activeFilterValue === 'active'
+    ? true
+    : activeFilterValue === 'false' || activeFilterValue === 'inactive'
+      ? false
+      : undefined
+  const countryFilter = typeof activeFilters.country === 'string' ? activeFilters.country : undefined
+  const legalFormFilter = typeof activeFilters.legal_form === 'string' ? activeFilters.legal_form : undefined
+  const industryFilter = getTextFilterValue(activeFilters.industry)
+  const registrationNumberFilter = getTextFilterValue(activeFilters.registration_number)
+  const cityFilter = getTextFilterValue(activeFilters.city)
+  const blockedFilter = activeFilters.is_blocked === 'true' ? true : activeFilters.is_blocked === 'false' ? false : undefined
   const { data: tiersData, isLoading: tiersLoading } = useTiers({
     page: activeTab === 'entreprises' ? page : 1,
     page_size: activeTab === 'entreprises' ? pageSize : 1,
     search: activeTab === 'entreprises' ? (debouncedSearch || undefined) : undefined,
     type: activeTab === 'entreprises' ? typeFilter : undefined,
+    active: activeTab === 'entreprises' ? activeFilter : undefined,
+    country: activeTab === 'entreprises' ? countryFilter : undefined,
+    legal_form: activeTab === 'entreprises' ? legalFormFilter : undefined,
+    industry: activeTab === 'entreprises' ? industryFilter : undefined,
+    registration_number: activeTab === 'entreprises' ? registrationNumberFilter : undefined,
+    city: activeTab === 'entreprises' ? cityFilter : undefined,
+    is_blocked: activeTab === 'entreprises' ? blockedFilter : undefined,
   })
 
   // ── Contacts tab data ──
@@ -1456,20 +1505,63 @@ export function TiersPage() {
     {
       id: 'type',
       label: t('common.type'),
-      type: 'multi-select',
-      operators: ['is', 'is_not'],
+      type: 'select',
+      operators: ['is'],
       options: tierTypeOptions,
     },
     {
-      id: 'status',
+      id: 'active',
       label: t('common.status'),
       type: 'select',
+      operators: ['is'],
       options: [
-        { value: 'active', label: t('common.active') },
-        { value: 'inactive', label: t('common.archived') },
+        { value: 'true', label: t('common.active') },
+        { value: 'false', label: t('common.archived') },
       ],
     },
-  ], [t, tierTypeOptions])
+    {
+      id: 'country',
+      label: t('common.country', 'Pays'),
+      type: 'select',
+      operators: ['is'],
+      options: countryOptions,
+    },
+    {
+      id: 'legal_form',
+      label: t('tiers.ui.legal_form'),
+      type: 'select',
+      operators: ['is'],
+      options: legalFormOptions,
+    },
+    {
+      id: 'industry',
+      label: t('tiers.ui.industry'),
+      type: 'text',
+      operators: ['contains'],
+    },
+    {
+      id: 'registration_number',
+      label: 'SIRET',
+      type: 'text',
+      operators: ['contains'],
+    },
+    {
+      id: 'city',
+      label: t('common.city', 'Ville'),
+      type: 'text',
+      operators: ['contains'],
+    },
+    {
+      id: 'is_blocked',
+      label: t('tiers.ui.blocked'),
+      type: 'select',
+      operators: ['is'],
+      options: [
+        { value: 'true', label: t('common.yes') },
+        { value: 'false', label: t('common.no') },
+      ],
+    },
+  ], [t, tierTypeOptions, countryOptions, legalFormOptions])
 
   // ── Contacts filters ──
   const contactFilters = useMemo<DataTableFilterDef[]>(() => [
@@ -1477,6 +1569,7 @@ export function TiersPage() {
       id: 'is_primary',
       label: t('tiers.ui.primary_contact'),
       type: 'select',
+      operators: ['is'],
       options: [
         { value: 'true', label: t('common.yes') },
         { value: 'false', label: t('common.no') },
@@ -1503,17 +1596,31 @@ export function TiersPage() {
       accessorKey: 'code',
       header: t('common.code'),
       size: 110,
-      cell: ({ row }) => <span className="font-mono text-[11px] text-foreground">{row.original.code}</span>,
+      cell: ({ row }) => (
+        <span className="inline-flex h-5 items-center rounded border border-border/60 bg-muted/40 px-1.5 font-mono text-[10px] font-medium text-foreground">
+          {row.original.code}
+        </span>
+      ),
     },
     {
       accessorKey: 'name',
       header: t('common.name'),
       cell: ({ row }) => (
-        <div className="flex flex-col">
-          <span className="text-foreground font-medium">{row.original.name}</span>
-          {row.original.alias && (
-            <span className="text-[10px] text-muted-foreground italic">{row.original.alias}</span>
-          )}
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className={cn(
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-muted-foreground',
+            row.original.active ? 'border-primary/15 bg-primary/5' : 'border-border/60 bg-muted/40',
+          )}>
+            <Building2 size={13} />
+          </div>
+          <div className="min-w-0">
+            <span className="block truncate text-xs font-semibold text-foreground">{row.original.name}</span>
+            {(row.original.alias || row.original.trade_name) && (
+              <span className="block truncate text-[10px] text-muted-foreground">
+                {row.original.alias || row.original.trade_name}
+              </span>
+            )}
+          </div>
         </div>
       ),
     },
@@ -1522,7 +1629,7 @@ export function TiersPage() {
       header: t('common.type'),
       size: 110,
       cell: ({ row }) => row.original.type ? (
-        <span className="chip">
+        <span className="inline-flex h-5 items-center rounded border border-border/60 bg-muted/40 px-1.5 text-[10px] font-medium text-muted-foreground">
           {tierTypeLabels[row.original.type] ?? row.original.type}
         </span>
       ) : <span className="text-muted-foreground">--</span>,
@@ -1532,7 +1639,9 @@ export function TiersPage() {
       header: t('common.country', 'Pays'),
       size: 70,
       cell: ({ row }) => row.original.country ? (
-        <span className="font-mono text-[11px] uppercase text-muted-foreground">{row.original.country}</span>
+        <span className="inline-flex h-5 min-w-8 items-center justify-center rounded border border-border/60 bg-background px-1.5 font-mono text-[10px] uppercase text-muted-foreground">
+          {row.original.country}
+        </span>
       ) : <span className="text-muted-foreground">--</span>,
     },
     {
@@ -1540,7 +1649,7 @@ export function TiersPage() {
       header: 'SIRET',
       size: 130,
       cell: ({ row }) => row.original.registration_number ? (
-        <span className="font-mono text-[11px] text-muted-foreground">{row.original.registration_number}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">{row.original.registration_number}</span>
       ) : <span className="text-muted-foreground">--</span>,
     },
     {
@@ -1548,7 +1657,7 @@ export function TiersPage() {
       header: t('tiers.ui.industry'),
       size: 120,
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-xs">{row.original.industry || '--'}</span>
+        <span className="block truncate text-xs text-muted-foreground">{row.original.industry || '--'}</span>
       ),
     },
     {
@@ -1566,7 +1675,7 @@ export function TiersPage() {
               setSearch('')
               setPage(1)
             }}
-            className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 hover:underline"
+            className="inline-flex h-5 items-center gap-1 rounded border border-primary/20 bg-primary/5 px-1.5 text-[10px] font-semibold text-primary hover:bg-primary/10"
             title={`Voir les employes de ${row.original.name}`}
           >
             <Users size={11} />
@@ -1580,7 +1689,7 @@ export function TiersPage() {
       header: t('tiers.ui.legal_form'),
       size: 110,
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-xs">
+        <span className="block truncate text-xs text-muted-foreground">
           {row.original.legal_form ? legalFormLabels[row.original.legal_form] ?? row.original.legal_form : '--'}
         </span>
       ),
@@ -1646,6 +1755,56 @@ export function TiersPage() {
     }
   }, [canExport, canImport, activeTab, t])
 
+  const tierBatchActions = useMemo<DataTableBatchAction<Tier>[]>(() => {
+    if (!hasPermission('tier.tier.delete')) return []
+    return [
+      {
+        id: 'archive',
+        label: 'Archiver la selection',
+        icon: Trash2,
+        variant: 'danger',
+        confirm: false,
+        onAction: async (rows) => {
+          const ok = await confirm({
+            title: 'Archiver les tiers selectionnes ?',
+            message: `${rows.length} tiers seront archives. Cette action les retire de la liste active.`,
+            confirmLabel: 'Archiver',
+            variant: 'danger',
+          })
+          if (!ok) return
+          try {
+            await Promise.all(rows.map((row) => archiveSelectedTier.mutateAsync(row.id)))
+            toast({
+              title: 'Selection archivee',
+              description: `${rows.length} tiers archive(s).`,
+              variant: 'success',
+            })
+          } catch (err) {
+            toast({
+              title: t('common.error'),
+              description: err instanceof Error ? err.message : String(err),
+              variant: 'error',
+            })
+          }
+        },
+      },
+    ]
+  }, [archiveSelectedTier, confirm, hasPermission, t, toast])
+
+  const getTierRowTooltip = useCallback((tier: Tier): string => {
+    const parts = [
+      `${tier.name} (${tier.code})`,
+      `Type: ${tier.type ? tierTypeLabels[tier.type] ?? tier.type : '--'}`,
+      `Pays: ${tier.country || '--'}`,
+      `Ville: ${tier.city || '--'}`,
+      `Secteur: ${tier.industry || '--'}`,
+      `SIRET: ${tier.registration_number || '--'}`,
+      `Employes: ${tier.contact_count ?? 0}`,
+      `Statut: ${tier.active ? t('common.active') : t('common.archived')}${tier.is_blocked ? ' - bloque' : ''}`,
+    ]
+    return parts.join('\n')
+  }, [t, tierTypeLabels])
+
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'tiers'
 
   return (
@@ -1698,10 +1857,13 @@ export function TiersPage() {
               }}
               searchValue={search}
               onSearchChange={setSearch}
-              searchPlaceholder="Rechercher par code ou nom..."
+              searchPlaceholder="Recherche libre: code, nom, alias, SIRET..."
               filters={tierFilters}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
+              selectable
+              batchActions={tierBatchActions}
+              getRowTooltip={getTierRowTooltip}
               onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'tiers', id: row.id })}
               emptyIcon={Building2}
               emptyTitle={t('common.no_results')}

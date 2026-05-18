@@ -293,6 +293,7 @@ export function DataTable<TData>({
   importExport,
 
   onRowClick,
+  getRowTooltip,
 
   emptyIcon,
   emptyTitle = 'Aucun résultat',
@@ -343,6 +344,16 @@ export function DataTable<TData>({
   const [showImportWizard, setShowImportWizard] = useState(false)
   const [exportWizardOpen, setExportWizardOpen] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
+
+  const clearSelectionAndExit = useCallback(() => {
+    setRowSelection({})
+    setSelectionMode(false)
+    lastSelectedIndex.current = null
+  }, [])
+
+  useEffect(() => {
+    clearSelectionAndExit()
+  }, [searchValue, activeFilters, pagination?.page, pagination?.pageSize, viewMode, clearSelectionAndExit])
 
   // Auto-detect narrow containers so the table can fall back to a
   // vertical card list on mobile (no horizontal scroll suffering).
@@ -440,7 +451,7 @@ export function DataTable<TData>({
       if (!meta?.filterType) continue
       const header = typeof col.header === 'string' ? col.header : meta.filterLabel ?? colId
       if (meta.filterType === 'text') {
-        autoFilters.push({ id: colId, label: header, type: 'select' as const, operators: ['contains', 'is'] as import('./types').FilterOperator[] })
+        autoFilters.push({ id: colId, label: header, type: 'text' as const, operators: ['contains', 'is'] as import('./types').FilterOperator[] })
       } else if (meta.filterType === 'select' || meta.filterType === 'multi-select') {
         autoFilters.push({ id: colId, label: header, type: meta.filterType, options: meta.filterOptions })
       } else if (meta.filterType === 'boolean') {
@@ -742,17 +753,17 @@ export function DataTable<TData>({
   // ── Render: table ──
   const renderTable = () => (
     <>
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto rounded-md border border-border/60 bg-background">
         <table
-          className="text-xs"
+          className="text-xs border-separate border-spacing-0"
           style={enableColumnResizing
             ? { width: Math.max(table.getCenterTotalSize(), 0), minWidth: '100%' }
             : { width: '100%' }
           }
         >
-          <thead className={stickyHeader ? 'sticky top-0 z-20 bg-background' : ''}>
+          <thead className={stickyHeader ? 'sticky top-0 z-20 bg-muted/60 backdrop-blur' : 'bg-muted/60'}>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-border text-left">
+              <tr key={headerGroup.id} className="text-left">
                 {headerGroup.headers.map((header) => {
                   const canSort = header.column.getCanSort() && sortable
                   const pinnedStyle = getPinnedStyle(header.column)
@@ -763,7 +774,7 @@ export function DataTable<TData>({
                     <th
                       key={header.id}
                       className={cn(
-                        'px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide relative group/th',
+                        'h-8 border-b border-border/70 px-3 py-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide relative group/th',
                         canSort && 'cursor-pointer select-none hover:text-foreground transition-colors',
                         pinnedClass,
                         isPinned && stickyHeader && 'z-30',
@@ -812,16 +823,17 @@ export function DataTable<TData>({
                 <tr
                   key={row.id}
                   className={cn(
-                    'group/row relative border-b border-border/60 transition-colors',
+                    'group/row relative transition-colors odd:bg-muted/[0.14]',
                     // Selected: primary-tinted gradient + left accent strip.
                     // Hover: subtle accent wash — brightens the row without
                     // hiding zebra striping or data density.
                     isSelected
                       ? 'bg-gradient-to-r from-primary/[0.10] to-highlight/[0.04]'
-                      : 'hover:bg-accent/40',
+                      : 'hover:bg-accent/35',
                     (onRowClick || selectionMode) && 'cursor-pointer',
                     selectionMode && 'select-none',
                   )}
+                  title={getRowTooltip?.(row.original)}
                   onClick={(e) => handleRowClick(row.original, rowIndex, e)}
                 >
                   {row.getVisibleCells().map((cell) => {
@@ -837,6 +849,7 @@ export function DataTable<TData>({
                         key={cell.id}
                         className={cn(
                           'px-3',
+                          'border-b border-border/50 align-middle',
                           pinnedClass,
                         )}
                         style={{
@@ -1088,18 +1101,19 @@ export function DataTable<TData>({
                   }
                 }}
                 className={cn(
-                  'rounded-lg border bg-card shadow-sm overflow-hidden cursor-pointer transition-colors',
-                  'hover:border-primary/40 active:bg-accent/40',
+                  'rounded-md border border-border/60 bg-background shadow-sm overflow-hidden cursor-pointer transition-colors',
+                  'hover:border-primary/40 hover:bg-accent/20 active:bg-accent/40',
                   isSelected && 'border-primary ring-1 ring-primary/30',
                 )}
+                title={getRowTooltip?.(row.original)}
               >
                 {/* Title row — actions docked top-right, next to title.
                     Title stays truncated here so the actions don't get
                     pushed around by long names. The full title is shown
                     as the first body row below (wrapping). */}
                 {titleCell && (
-                  <div className="px-3 pt-2 pb-1.5 flex items-start gap-2">
-                    <div className="text-sm font-semibold text-foreground leading-tight flex-1 min-w-0 truncate">
+                  <div className="px-3 pt-2 pb-1.5 flex items-start gap-2 bg-muted/20">
+                    <div className="text-xs font-semibold text-foreground leading-tight flex-1 min-w-0 truncate">
                       {flexRender(titleCell.column.columnDef.cell, titleCell.getContext())}
                     </div>
                     {actionsCell && (
@@ -1118,7 +1132,7 @@ export function DataTable<TData>({
                     col 2. Each row gets a top border so the card reads as
                     a small table rather than a loose list. */}
                 {renderedMiddle.length > 0 && (
-                  <div className="border-t border-border">
+                  <div className="border-t border-border/60">
                     <div className="grid grid-cols-[6.5rem_1fr]">
                       {renderedMiddle}
                     </div>
@@ -1218,7 +1232,7 @@ export function DataTable<TData>({
         onToggleSelectionMode={handleToggleSelectionMode}
         selectedCount={selectedRows.length}
         totalCount={pagination?.total ?? data.length}
-        onClearSelection={() => { setRowSelection({}); lastSelectedIndex.current = null }}
+        onClearSelection={clearSelectionAndExit}
         batchActions={batchActionsSlot}
         selectedRows={selectedRows}
         toolbarLeft={toolbarLeft}

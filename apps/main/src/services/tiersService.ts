@@ -14,6 +14,12 @@ interface TierListParams extends PaginationParams {
   type?: string
   search?: string
   active?: boolean
+  country?: string
+  legal_form?: string
+  industry?: string
+  registration_number?: string
+  city?: string
+  is_blocked?: boolean
 }
 
 export const tiersService = {

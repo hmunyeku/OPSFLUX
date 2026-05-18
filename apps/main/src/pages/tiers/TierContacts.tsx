@@ -177,7 +177,22 @@ export function ContactListSection({
   return (
     <div className="space-y-2">
       {contacts.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 text-[10px] text-muted-foreground sm:flex-wrap sm:overflow-visible">
+          {[
+            { label: 'Contacts', value: contacts.length, icon: Users },
+            { label: 'Référents', value: contactStats.primary, icon: Star },
+            { label: 'Liés', value: contactStats.linked, icon: User },
+            { label: 'Départements', value: contactStats.departments, icon: Building2 },
+          ].map(({ label, value, icon: Icon }) => (
+            <div key={label} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded border border-border/60 bg-background px-2">
+              <Icon size={10} className="text-muted-foreground" />
+              <span className="uppercase">{label}</span>
+              <span className="font-semibold tabular-nums text-foreground">{value}</span>
+            </div>
+          ))}
+        </div>
+        <div className="hidden">
           <div className="rounded-md border border-border/60 bg-background px-3 py-2">
             <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
               <Users size={11} />
@@ -207,6 +222,7 @@ export function ContactListSection({
             <div className="mt-1 text-lg font-semibold tabular-nums">{contactStats.departments}</div>
           </div>
         </div>
+        </>
       )}
 
       {/* Toolbar: search + add button */}

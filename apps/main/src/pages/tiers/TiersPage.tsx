@@ -1155,8 +1155,23 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
       <PanelContentLayout>
         <FormSection title={`${t('tiers.ui.related_projects')} (${relatedProjects?.total ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-projets">
           {projectList.length > 0 ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+            <div className="space-y-2">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 text-[10px] text-muted-foreground sm:flex-wrap sm:overflow-visible">
+                {[
+                  { label: 'Projets', value: relatedProjects?.total ?? projectList.length, icon: FolderKanban },
+                  { label: 'Actifs', value: projectSummary.active, icon: Activity },
+                  { label: 'Terminés', value: projectSummary.completed, icon: ShieldCheck },
+                  { label: 'Sensibles', value: projectSummary.sensitive, icon: AlertTriangle },
+                  { label: 'Budget', value: formatMoney(projectSummary.budget, projectSummary.currency), icon: CircleDollarSign },
+                ].map(({ label, value, icon: Icon }) => (
+                  <div key={label} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded border border-border/60 bg-background px-2">
+                    <Icon size={10} className="text-muted-foreground" />
+                    <span className="uppercase">{label}</span>
+                    <span className="font-semibold tabular-nums text-foreground">{value}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden">
                 <div className="rounded-md border border-border/60 bg-background px-3 py-2">
                   <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
                     <FolderKanban size={11} />
@@ -1216,7 +1231,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                             id={project.id}
                             label={`${project.code} - ${project.name}`}
                             mode="navigate"
-                            className="min-w-0 font-semibold"
+                            className="min-w-0 text-xs font-medium"
                           />
                           <span className={cn('rounded border px-1.5 py-0.5 text-[10px] font-medium', PROJECT_STATUS_CLASS[project.status] ?? PROJECT_STATUS_CLASS.draft)}>
                             {PROJECT_STATUS_LABELS[project.status] ?? project.status}

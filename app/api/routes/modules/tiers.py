@@ -306,8 +306,13 @@ async def archive_tier(
 async def list_all_contacts(
     search: str | None = None,
     tier_id: UUID | None = None,
+    tier: str | None = None,
     department: str | None = None,
+    position: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
     is_primary: bool | None = None,
+    linked_user: bool | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -326,19 +331,38 @@ async def list_all_contacts(
         query = query.where(Tier.id.in_(linked_tier_ids))
     if tier_id:
         query = query.where(TierContact.tier_id == tier_id)
+    if tier:
+        like = f"%{tier}%"
+        query = query.where(or_(Tier.name.ilike(like), Tier.code.ilike(like)))
     if department:
         query = query.where(TierContact.department.ilike(f"%{department}%"))
+    if position:
+        query = query.where(TierContact.position.ilike(f"%{position}%"))
+    if email:
+        query = query.where(or_(
+            TierContact.email.ilike(f"%{email}%"),
+            TierContact.linked_user_email.ilike(f"%{email}%"),
+        ))
+    if phone:
+        query = query.where(TierContact.phone.ilike(f"%{phone}%"))
     if is_primary is not None:
         query = query.where(TierContact.is_primary == is_primary)
+    if linked_user is not None:
+        query = query.where(TierContact.linked_user_id.isnot(None) if linked_user else TierContact.linked_user_id.is_(None))
     if search:
-        like = f"%{search}%"
-        query = query.where(
-            TierContact.first_name.ilike(like)
-            | TierContact.last_name.ilike(like)
-            | TierContact.position.ilike(like)
-            | TierContact.department.ilike(like)
-            | Tier.name.ilike(like)
-        )
+        for word in search.split():
+            like = f"%{word}%"
+            query = query.where(or_(
+                TierContact.first_name.ilike(like),
+                TierContact.last_name.ilike(like),
+                TierContact.email.ilike(like),
+                TierContact.phone.ilike(like),
+                TierContact.position.ilike(like),
+                TierContact.department.ilike(like),
+                TierContact.linked_user_email.ilike(like),
+                Tier.name.ilike(like),
+                Tier.code.ilike(like),
+            ))
     query = query.order_by(TierContact.last_name, TierContact.first_name)
 
     return await paginate(db, query, pagination, transform=_contact_with_tier)

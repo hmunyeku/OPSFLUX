@@ -777,6 +777,26 @@ export function useContactColumns() {
       cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.department || '--'}</span>,
     },
     {
+      accessorKey: 'email',
+      header: t('common.email'),
+      size: 180,
+      cell: ({ row }) => (
+        <span className="block max-w-[180px] truncate text-xs text-muted-foreground">
+          {row.original.email || row.original.linked_user_email || '--'}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'phone',
+      header: t('common.phone', 'Telephone'),
+      size: 120,
+      cell: ({ row }) => (
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {row.original.phone || '--'}
+        </span>
+      ),
+    },
+    {
       accessorKey: 'is_primary',
       header: t('tiers.ui.primary_contact'),
       size: 80,

@@ -93,7 +93,17 @@ export const tiersService = {
   },
 
   // ── All contacts (cross-company) ──
-  listAllContacts: async (params: PaginationParams & { search?: string; tier_id?: string; department?: string; is_primary?: boolean } = {}): Promise<PaginatedResponse<TierContactWithTier>> => {
+  listAllContacts: async (params: PaginationParams & {
+    search?: string
+    tier_id?: string
+    tier?: string
+    department?: string
+    position?: string
+    email?: string
+    phone?: string
+    is_primary?: boolean
+    linked_user?: boolean
+  } = {}): Promise<PaginatedResponse<TierContactWithTier>> => {
     const { data } = await api.get('/api/v1/tiers/contacts/all', { params })
     return data
   },

@@ -1479,15 +1479,25 @@ export function TiersPage() {
 
   // ── Contacts tab data ──
   const contactTierId = typeof activeFilters.tier_id === 'string' ? activeFilters.tier_id : undefined
-  const contactDepartment = typeof activeFilters.department === 'string' ? activeFilters.department : undefined
+  const contactTier = getTextFilterValue(activeFilters.tier)
+  const contactDepartment = getTextFilterValue(activeFilters.department)
+  const contactPosition = getTextFilterValue(activeFilters.position)
+  const contactEmail = getTextFilterValue(activeFilters.email)
+  const contactPhone = getTextFilterValue(activeFilters.phone)
   const contactIsPrimary = activeFilters.is_primary === 'true' ? true : activeFilters.is_primary === 'false' ? false : undefined
+  const contactLinkedUser = activeFilters.linked_user === 'true' ? true : activeFilters.linked_user === 'false' ? false : undefined
   const { data: contactsData, isLoading: contactsLoading } = useAllTierContacts({
     page: activeTab === 'contacts' ? page : 1,
     page_size: activeTab === 'contacts' ? pageSize : 1,
     search: activeTab === 'contacts' ? (debouncedSearch || undefined) : undefined,
-    tier_id: contactTierId,
-    department: contactDepartment,
-    is_primary: contactIsPrimary,
+    tier_id: activeTab === 'contacts' ? contactTierId : undefined,
+    tier: activeTab === 'contacts' ? contactTier : undefined,
+    department: activeTab === 'contacts' ? contactDepartment : undefined,
+    position: activeTab === 'contacts' ? contactPosition : undefined,
+    email: activeTab === 'contacts' ? contactEmail : undefined,
+    phone: activeTab === 'contacts' ? contactPhone : undefined,
+    is_primary: activeTab === 'contacts' ? contactIsPrimary : undefined,
+    linked_user: activeTab === 'contacts' ? contactLinkedUser : undefined,
   })
 
   // Nav items for dynamic panel
@@ -1566,8 +1576,48 @@ export function TiersPage() {
   // ── Contacts filters ──
   const contactFilters = useMemo<DataTableFilterDef[]>(() => [
     {
+      id: 'tier',
+      label: t('tiers.tab_companies'),
+      type: 'text',
+      operators: ['contains'],
+    },
+    {
+      id: 'department',
+      label: t('tiers.ui.department'),
+      type: 'text',
+      operators: ['contains'],
+    },
+    {
+      id: 'position',
+      label: t('tiers.ui.position'),
+      type: 'text',
+      operators: ['contains'],
+    },
+    {
+      id: 'email',
+      label: t('common.email'),
+      type: 'text',
+      operators: ['contains'],
+    },
+    {
+      id: 'phone',
+      label: t('common.phone', 'Telephone'),
+      type: 'text',
+      operators: ['contains'],
+    },
+    {
       id: 'is_primary',
       label: t('tiers.ui.primary_contact'),
+      type: 'select',
+      operators: ['is'],
+      options: [
+        { value: 'true', label: t('common.yes') },
+        { value: 'false', label: t('common.no') },
+      ],
+    },
+    {
+      id: 'linked_user',
+      label: t('tiers.ui.linked_user'),
       type: 'select',
       operators: ['is'],
       options: [
@@ -1887,7 +1937,7 @@ export function TiersPage() {
               }}
               searchValue={search}
               onSearchChange={setSearch}
-              searchPlaceholder={t('tiers.ui.search_contact')}
+              searchPlaceholder="Recherche libre: nom, prénom, société, email, téléphone, poste..."
               filters={contactFilters}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}

@@ -152,7 +152,19 @@ export function usePromoteTierContactToUser() {
 
 // ── All contacts (cross-company) ──
 
-export function useAllTierContacts(params: { page?: number; page_size?: number; search?: string; tier_id?: string; department?: string; is_primary?: boolean } = {}) {
+export function useAllTierContacts(params: {
+  page?: number
+  page_size?: number
+  search?: string
+  tier_id?: string
+  tier?: string
+  department?: string
+  position?: string
+  email?: string
+  phone?: string
+  is_primary?: boolean
+  linked_user?: boolean
+} = {}) {
   return useQuery({
     queryKey: ['all-tier-contacts', params],
     queryFn: () => tiersService.listAllContacts(params),

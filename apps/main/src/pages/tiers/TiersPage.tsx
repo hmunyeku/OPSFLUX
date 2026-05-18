@@ -865,6 +865,14 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
               </DetailFieldGrid>
             </FormSection>
 
+            <FormSection title={t('common.description')} collapsible defaultExpanded={false} storageKey="tier-detail-sections">
+              <InlineEditableRow
+                label={t('common.description')}
+                value={tier.description || ''}
+                onSave={(v) => handleInlineSave('description', v)}
+              />
+            </FormSection>
+
             <FormSection title={t('tiers.ui.sections.contact')} collapsible defaultExpanded storageKey="tier-detail-sections">
               {tier.website && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
@@ -1322,14 +1330,6 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
               <AttachmentManager ownerType="tier" ownerId={tier.id} compact />
             </div>
           </DetailFieldGrid>
-        </FormSection>
-
-        <FormSection title={t('common.description')} collapsible defaultExpanded={false} storageKey="tier-detail-sections">
-          <InlineEditableRow
-            label={t('common.description')}
-            value={tier.description || ''}
-            onSave={(v) => handleInlineSave('description', v)}
-          />
         </FormSection>
 
         <FormSection title={t('tiers.ui.sections.configuration')} collapsible defaultExpanded={false} storageKey="tier-detail-configuration">

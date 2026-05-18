@@ -28,7 +28,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProjectInsightsBar } from './ProjectInsightsBar'
-import { FormSection, panelInputClass } from '@/components/layout/DynamicPanel'
+import { FormSection } from '@/components/layout/DynamicPanel'
+import { RichTextDisplay, RichTextField } from '@/components/shared/RichTextField'
 import { useToast } from '@/components/ui/Toast'
 import {
   useProjectSituations, useCreateProjectSituation,
@@ -98,6 +99,21 @@ function daysBetween(a: string | null | undefined, b: string | null | undefined)
 }
 function hoursToJH(h: number): number {
   return Math.round((h / 8) * 10) / 10
+}
+function richTextToPlainText(value: string | null | undefined): string {
+  if (!value) return ''
+  return value
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 const WEATHER_OPTIONS: { value: string; label: string; icon: typeof Sun; tone: string }[] = [
@@ -176,8 +192,9 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
   const hoursRemaining = Math.max(0, hoursEstimated - hoursConsumed)
 
   const handleSave = () => {
+    const payloadText = richTextToPlainText(situationText) ? situationText.trim() : null
     createSituation.mutate(
-      { projectId: project.id, payload: { situation_text: situationText.trim() || null } },
+      { projectId: project.id, payload: { situation_text: payloadText } },
       {
         onSuccess: () => {
           toast({ title: 'Situation enregistrée', variant: 'success' })
@@ -196,6 +213,8 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
     if (trend === project.trend) return
     updateProject.mutate({ id: project.id, payload: { trend } })
   }
+
+  const situationPlaceholder = 'Décrivez en quelques mots l’état actuel du projet…'
 
   const renderDelta = (delta: number | null, label: string) => {
     const tone = delta == null ? 'bg-muted/60 text-muted-foreground/70'
@@ -282,7 +301,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
       {/* ─── ROW 3 ── Détail durées + charge ─── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormSection title={t('projets.metrics.duration_status', 'Statut des durées')} collapsible defaultExpanded={false} storageKey="project-detail-metrics-durations">
-          <div className="space-y-1.5 text-[11px]">
+          <div className="space-y-2 text-xs">
             <StatRow icon={CalendarClock} label="Date de fin prévue" value={fmtDate(project.end_date)} />
             <StatRow icon={CalendarClock} label="Fin dernière tâche" value={fmtDate(lastTaskEnd)} />
             <StatRow
@@ -300,7 +319,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
         </FormSection>
 
         <FormSection title={t('projets.metrics.workload_status', 'Statut de la charge')} collapsible defaultExpanded={false} storageKey="project-detail-metrics-workload">
-          <div className="space-y-1.5 text-[11px]">
+          <div className="space-y-2 text-xs">
             <StatRow icon={Scale} label="Charge totale" value={`${hoursEstimated.toFixed(0)} h`} suffix={`${hoursToJH(hoursEstimated)} j/h`} />
             <StatRow icon={Scale} label="Charge consommée" value={`${hoursConsumed.toFixed(0)} h`} suffix={`${hoursToJH(hoursConsumed)} j/h`} />
             <StatRow icon={Scale} label="Reste à faire" value={`${hoursRemaining.toFixed(0)} h`} suffix={`${hoursToJH(hoursRemaining)} j/h`} tone="primary" />
@@ -318,23 +337,24 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
         </div>
       </FormSection>
 
-      {/* ─── ROW 5 ── Situation projet (textarea + météo + tendance + save) ─── */}
+      {/* ─── ROW 5 ── Situation projet (rich text + météo + tendance + save) ─── */}
       <FormSection title={t('projets.metrics.project_status', 'Situation projet')} defaultExpanded>
         <div className="space-y-3">
           {/* Editor */}
           <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">
+            <label className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold block mb-1.5">
               Situation générale
             </label>
-            <textarea
+            <RichTextField
               value={situationText}
-              onChange={(e) => setSituationText(e.target.value)}
-              placeholder={lastSituation?.situation_text || 'Décrivez en quelques mots l’état actuel du projet…'}
+              onChange={setSituationText}
+              placeholder={situationPlaceholder}
               rows={3}
-              className={cn(panelInputClass, 'w-full text-xs resize-y')}
+              compact
+              className="[&_.ProseMirror]:max-h-40 [&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:break-words [&_.ProseMirror]:[overflow-wrap:anywhere]"
             />
-            <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground gap-3">
-              <span className="truncate">
+            <div className="flex flex-col gap-2 mt-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <span className="min-w-0 max-w-full truncate">
                 Dernière capture : <span className="text-foreground/80">{fmtDateTime(lastSituation?.captured_at)}</span>
                 {lastSituation?.captured_by_name && <span className="ml-1 italic">par {lastSituation.captured_by_name}</span>}
               </span>
@@ -342,9 +362,9 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
                 type="button"
                 onClick={handleSave}
                 disabled={createSituation.isPending}
-                className="inline-flex items-center gap-1 px-2 h-7 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors text-[11px] font-medium shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 h-8 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors text-xs font-semibold shrink-0 self-end sm:self-auto"
               >
-                {createSituation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                {createSituation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
                 Enregistrer la situation
               </button>
             </div>
@@ -353,7 +373,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           {/* Qualitative selectors — météo + tendance side by side */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">Météo</span>
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold block mb-1.5">Météo</span>
               <div className="flex gap-1.5 flex-wrap">
                 {WEATHER_OPTIONS.map(({ value, label, icon: Icon, tone }) => {
                   const active = project.weather === value
@@ -363,14 +383,14 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
                       type="button"
                       onClick={() => handleWeatherChange(value)}
                       className={cn(
-                        'inline-flex items-center gap-1 px-2 py-1 rounded border text-[10px] transition-colors',
+                        'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-xs transition-colors',
                         active
                           ? 'border-primary/40 bg-primary/10 font-medium text-foreground'
                           : 'border-border text-muted-foreground hover:bg-muted/40',
                       )}
                       title={label}
                     >
-                      <Icon size={12} className={tone} />
+                      <Icon size={14} className={tone} />
                       <span className="hidden sm:inline">{label}</span>
                     </button>
                   )
@@ -378,7 +398,7 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
               </div>
             </div>
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium block mb-1">Tendance</span>
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold block mb-1.5">Tendance</span>
               <div className="flex gap-1.5 flex-wrap">
                 {TREND_OPTIONS.map(({ value, label, icon: Icon, tone }) => {
                   const active = (project.trend ?? 'flat') === value
@@ -388,14 +408,14 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
                       type="button"
                       onClick={() => handleTrendChange(value)}
                       className={cn(
-                        'inline-flex items-center gap-1 px-2 py-1 rounded border text-[10px] transition-colors',
+                        'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-xs transition-colors',
                         active
                           ? 'border-primary/40 bg-primary/10 font-medium text-foreground'
                           : 'border-border text-muted-foreground hover:bg-muted/40',
                       )}
                       title={label}
                     >
-                      <Icon size={12} className={tone} />
+                      <Icon size={14} className={tone} />
                       <span className="hidden sm:inline">{label}</span>
                     </button>
                   )
@@ -407,24 +427,24 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
           {/* History — table inside the same Situation section */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold">
                 Historique ({situations.length})
               </span>
             </div>
             {isLoading ? (
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground py-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
                 <Loader2 size={12} className="animate-spin" /> Chargement…
               </div>
             ) : situations.length === 0 ? (
-              <div className="flex items-start gap-1.5 text-[10px] p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200">
-                <History size={11} className="mt-0.5 shrink-0" />
+              <div className="flex items-start gap-2 text-xs p-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200">
+                <History size={13} className="mt-0.5 shrink-0" />
                 <span>
                   Aucune situation enregistrée. Les Δ ne s’affichent qu’après plusieurs captures — enregistrez la situation chaque semaine pour voir l’évolution.
                 </span>
               </div>
             ) : (
               <div className="border border-border rounded-md overflow-hidden">
-                <div className="grid grid-cols-[120px_50px_70px_1fr_110px] gap-1 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground">
+                <div className="grid grid-cols-[120px_50px_70px_1fr_110px] gap-1 px-2 py-1.5 bg-muted/50 text-[10px] font-semibold uppercase text-muted-foreground">
                   <span>Date</span>
                   <span className="text-right">%</span>
                   <span>Météo</span>
@@ -433,15 +453,22 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
                 </div>
                 <div className="max-h-[240px] overflow-y-auto">
                   {situations.map(s => (
-                    <div key={s.id} className="grid grid-cols-[120px_50px_70px_1fr_110px] gap-1 px-2 py-1 text-[11px] border-t border-border/30 items-center">
+                    <div key={s.id} className="grid grid-cols-[120px_50px_70px_1fr_110px] gap-1 px-2 py-1.5 text-xs border-t border-border/30 items-center">
                       <span className="text-muted-foreground tabular-nums">{fmtDateTime(s.captured_at)}</span>
                       <span className="text-right font-medium tabular-nums">{s.progress}%</span>
                       <span className="text-muted-foreground capitalize">
                         {WEATHER_OPTIONS.find(w => w.value === s.weather)?.label ?? s.weather ?? '—'}
                       </span>
-                      <span className="text-foreground/90 truncate" title={s.situation_text || undefined}>
-                        {s.situation_text || <span className="text-muted-foreground/60 italic">—</span>}
-                      </span>
+                      <div className="min-w-0 text-foreground/90" title={richTextToPlainText(s.situation_text) || undefined}>
+                        {s.situation_text ? (
+                          <RichTextDisplay
+                            value={s.situation_text}
+                            className="max-h-10 overflow-hidden text-xs leading-snug [&_*]:my-0 [&_p]:truncate [&_p]:text-xs"
+                          />
+                        ) : (
+                          <span className="text-muted-foreground/60 italic">—</span>
+                        )}
+                      </div>
                       <span className="text-muted-foreground truncate">{s.captured_by_name || '—'}</span>
                     </div>
                   ))}
@@ -514,13 +541,13 @@ function StatRow({
     : 'text-foreground'
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon size={11} className="shrink-0" />
+      <span className="flex items-center gap-2 text-muted-foreground">
+        <Icon size={13} className="shrink-0" />
         {label}
       </span>
       <span className="flex items-baseline gap-2 tabular-nums">
         <span className={cn('font-semibold', valueCls)}>{value}</span>
-        {suffix && <span className="text-[10px] text-muted-foreground">{suffix}</span>}
+        {suffix && <span className="text-[11px] text-muted-foreground">{suffix}</span>}
       </span>
     </div>
   )
@@ -545,7 +572,7 @@ function QuantTile({
     <div className="self-start flex flex-col gap-1.5 px-3 py-2.5 rounded-lg border border-border/50 bg-card/40 min-w-0">
       <div className="flex items-center gap-1.5 min-w-0">
         <Icon size={12} className={cn(iconCls, 'shrink-0')} />
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold truncate">{label}</span>
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold truncate">{label}</span>
       </div>
       <span className={cn('text-xl font-display font-bold tabular-nums leading-none', valueCls)}>{value}</span>
     </div>

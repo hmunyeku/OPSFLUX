@@ -3397,19 +3397,19 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           const tInProgress = tCounts.in_progress ?? 0
 
           return (
-            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-6 gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {/* Météo */}
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-border/50 bg-card/40 hover:bg-card/70 hover:border-border transition-colors text-left"
+                className="group flex min-h-9 min-w-[124px] flex-1 flex-col items-start gap-0.5 rounded-md border border-border/50 bg-card/40 px-2 py-1.5 text-left transition-colors hover:border-border hover:bg-card/70 sm:flex-none"
                 title="Météo du projet — cliquer pour modifier"
               >
                 <div className="flex items-center gap-1.5">
                   <WeatherIcon weather={project.weather} size={14} />
-                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Météo</span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Météo</span>
                 </div>
-                <span className="text-base font-display font-semibold text-foreground leading-none">
+                <span className="text-sm font-semibold text-foreground leading-tight">
                   {projectWeatherLabels[project.weather] ?? project.weather ?? '—'}
                 </span>
               </button>
@@ -3418,15 +3418,15 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors text-left col-span-2 md:col-span-1"
+                className="group flex min-h-9 min-w-[170px] flex-[1.5] flex-col items-start gap-0.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-1.5 text-left transition-colors hover:bg-primary/10 sm:flex-none sm:basis-[190px]"
                 title={`Avancement ${progress}%`}
               >
                 <div className="flex items-center gap-1.5">
                   <Target size={12} className="text-primary" />
-                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Avancement</span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Avancement</span>
                 </div>
                 <div className="flex items-end gap-1.5 w-full">
-                  <span className={cn('text-xl font-display font-bold tabular-nums leading-none', progressTone)}>{progress}</span>
+                  <span className={cn('text-base font-bold tabular-nums leading-none', progressTone)}>{progress}</span>
                   <span className={cn('text-xs font-medium leading-none pb-0.5', progressTone)}>%</span>
                 </div>
                 {/* Mini progress bar */}
@@ -3442,28 +3442,28 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className={cn('group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border hover:brightness-105 transition-all text-left', trendCls)}
+                className={cn('group flex min-h-9 min-w-[142px] flex-1 flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left transition-all hover:brightness-105 sm:flex-none', trendCls)}
                 title={`Tendance: ${trendLabel}`}
               >
                 <div className="flex items-center gap-1.5">
                   <span className="text-base leading-none font-bold">{trendArrow}</span>
-                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Tendance</span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Tendance</span>
                 </div>
-                <span className="text-sm font-display font-semibold leading-none">{trendLabel}</span>
+                <span className="text-sm font-semibold leading-tight">{trendLabel}</span>
               </button>
 
               {/* Tâches — total + sub-line breakdown */}
               <button
                 type="button"
                 onClick={() => setDetailTab('taches')}
-                className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-border/50 bg-card/40 hover:bg-card/70 hover:border-primary/40 transition-colors text-left"
+                className="group flex min-h-9 min-w-[124px] flex-1 flex-col items-start gap-0.5 rounded-md border border-border/50 bg-card/40 px-2 py-1.5 text-left transition-colors hover:border-primary/40 hover:bg-card/70 sm:flex-none"
                 title="Voir les tâches"
               >
                 <div className="flex items-center gap-1.5">
                   <ListTodo size={12} className="text-muted-foreground" />
-                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Tâches</span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Tâches</span>
                 </div>
-                <span className="text-xl font-display font-bold text-foreground tabular-nums leading-none">{tasks?.length ?? 0}</span>
+                <span className="text-base font-bold text-foreground tabular-nums leading-none">{tasks?.length ?? 0}</span>
                 {(tasks?.length ?? 0) > 0 && (
                   <span className="text-[10px] text-muted-foreground tabular-nums">
                     {tDone > 0 && <span className="text-green-600 dark:text-green-400">{tDone}✓</span>}
@@ -3477,40 +3477,34 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-border/50 bg-card/40 hover:bg-card/70 hover:border-primary/40 transition-colors text-left"
+                className="group flex min-h-9 min-w-[98px] flex-1 flex-col items-start gap-0.5 rounded-md border border-border/50 bg-card/40 px-2 py-1.5 text-left transition-colors hover:border-primary/40 hover:bg-card/70 sm:flex-none"
                 title={t('projets.detail.team.view_team')}
               >
                 <div className="flex items-center gap-1.5">
                   <Users size={12} className="text-muted-foreground" />
-                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Équipe</span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Équipe</span>
                 </div>
                 <span className={cn(
-                  'text-xl font-display font-bold tabular-nums leading-none',
+                  'text-base font-bold tabular-nums leading-none',
                   (members?.length ?? 0) === 0 ? 'text-muted-foreground/40' : 'text-foreground',
                 )}>{members?.length ?? 0}</span>
-                {(members?.length ?? 0) === 0 && (
-                  <span className="text-[10px] text-muted-foreground/60 italic">Aucun membre</span>
-                )}
               </button>
 
               {/* Jalons */}
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className="group flex flex-col items-start gap-1 px-3 py-2 rounded-lg border border-border/50 bg-card/40 hover:bg-card/70 hover:border-primary/40 transition-colors text-left"
+                className="group flex min-h-9 min-w-[98px] flex-1 flex-col items-start gap-0.5 rounded-md border border-border/50 bg-card/40 px-2 py-1.5 text-left transition-colors hover:border-primary/40 hover:bg-card/70 sm:flex-none"
                 title="Voir les jalons"
               >
                 <div className="flex items-center gap-1.5">
                   <Milestone size={12} className="text-muted-foreground" />
-                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/80 font-medium">Jalons</span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Jalons</span>
                 </div>
                 <span className={cn(
-                  'text-xl font-display font-bold tabular-nums leading-none',
+                  'text-base font-bold tabular-nums leading-none',
                   (milestones?.length ?? 0) === 0 ? 'text-muted-foreground/40' : 'text-foreground',
                 )}>{milestones?.length ?? 0}</span>
-                {(milestones?.length ?? 0) === 0 && (
-                  <span className="text-[10px] text-muted-foreground/60 italic">Aucun jalon</span>
-                )}
               </button>
             </div>
           )

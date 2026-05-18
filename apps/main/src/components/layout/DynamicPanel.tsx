@@ -402,7 +402,7 @@ export function DynamicPanelShell({
             </div>
           )}
 
-          <div className="flex items-center gap-0.5 pl-2 border-l border-border/60 shrink-0">
+          <div className="ml-auto flex items-center gap-0.5 pl-2 border-l border-border/60 shrink-0">
             <button onClick={toggleMode} className={hdrBtn} title={t('layout.reduire_en_panneau_lateral')}>
               <Minimize2 size={12} />
             </button>
@@ -427,7 +427,7 @@ export function DynamicPanelShell({
             action bar so the last form field stays scrollable above
             the buttons. */}
         <div className={cn(
-          'flex-1 overflow-y-auto @container',
+          'flex-1 min-w-0 overflow-y-auto overflow-x-hidden @container',
           actionsNode && 'pb-16 sm:pb-0',
         )}>
           {children}
@@ -515,7 +515,7 @@ export function DynamicPanelShell({
               inline avec shrink-0 poussait ces controles hors champ
               quand il y avait beaucoup de boutons — ex AdS : Lien externe
               / PDF / Demarrer sejour / Renvoyer en correction / Mod...). */}
-          <div className="flex items-center gap-0.5 shrink-0">
+          <div className="ml-auto flex items-center gap-0.5 shrink-0">
             <button
               onClick={toggleDock}
               className={hdrBtn}
@@ -550,7 +550,7 @@ export function DynamicPanelShell({
         )}
 
         {/* Scrollable content (container query scope) */}
-        <div className="flex-1 overflow-y-auto @container">
+        <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden @container">
           {children}
         </div>
       </div>

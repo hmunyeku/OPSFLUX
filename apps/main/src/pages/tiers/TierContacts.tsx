@@ -327,8 +327,8 @@ export function ContactListSection({
 
       {/* Contact cards -- paginated */}
       {visible.length > 0 && (
-        <div className="overflow-hidden rounded-md border border-border/60 bg-background">
-          <div className="hidden grid-cols-[minmax(170px,1.05fr)_minmax(150px,0.9fr)_minmax(180px,1fr)_minmax(120px,0.7fr)_96px] gap-2 border-b border-border/50 bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground lg:grid">
+        <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/60 bg-background">
+          <div className="hidden grid-cols-[minmax(160px,1.05fr)_minmax(135px,0.9fr)_minmax(170px,1fr)_minmax(120px,0.7fr)_84px] gap-2 border-b border-border/50 bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground @5xl:grid">
             <div>Contact</div>
             <div>Fonction</div>
             <div>Email</div>
@@ -341,7 +341,7 @@ export function ContactListSection({
               key={contact.id}
               onClick={() => onSelectContact(contact.id)}
               className={cn(
-                'grid w-full gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/40 lg:grid-cols-[minmax(170px,1.05fr)_minmax(150px,0.9fr)_minmax(180px,1fr)_minmax(120px,0.7fr)_96px] lg:items-center',
+                'grid w-full min-w-0 gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/40 @5xl:grid-cols-[minmax(160px,1.05fr)_minmax(135px,0.9fr)_minmax(170px,1fr)_minmax(120px,0.7fr)_84px] @5xl:items-center',
                 contact.is_primary && 'bg-primary/[0.03]',
               )}
             >
@@ -394,9 +394,9 @@ export function ContactListSection({
                 <span className="truncate">{contact.phone || 'Téléphone absent'}</span>
               </div>
 
-              <div className="flex items-center justify-between gap-2 lg:justify-end">
+              <div className="flex min-w-0 items-center justify-between gap-2 @5xl:justify-end">
                 <span className={cn(
-                  'rounded border px-1.5 py-0.5 text-[10px] font-medium',
+                  'rounded border px-1.5 py-0.5 text-[10px] font-medium truncate',
                   contact.linked_user_id
                     ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
                     : 'border-border/60 bg-muted text-muted-foreground',

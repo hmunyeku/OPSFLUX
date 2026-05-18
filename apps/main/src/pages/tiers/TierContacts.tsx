@@ -8,7 +8,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search, Plus, Trash2, Phone, Mail, MapPin, MessageSquare, Paperclip, Building2, Loader2,
-  Users, User, Star, ChevronDown, ArrowLeft,
+  Users, User, Star, ChevronDown, ArrowLeft, Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -120,6 +120,29 @@ export function ContactListSection({
   // Paginate: show only visibleCount items
   const visible = filtered.slice(0, visibleCount)
   const hasMore = filtered.length > visibleCount
+  const contactStats = useMemo(() => {
+    const departments = new Set<string>()
+    let primary = 0
+    let linked = 0
+    let withEmail = 0
+    let withPhone = 0
+
+    for (const contact of contacts) {
+      if (contact.is_primary) primary += 1
+      if (contact.linked_user_id) linked += 1
+      if (contact.email || contact.linked_user_email) withEmail += 1
+      if (contact.phone) withPhone += 1
+      if (contact.department) departments.add(contact.department)
+    }
+
+    return {
+      primary,
+      linked,
+      withEmail,
+      withPhone,
+      departments: departments.size,
+    }
+  }, [contacts])
 
   // Reset visible count when search changes
   useEffect(() => { setVisibleCount(CONTACTS_PAGE_SIZE) }, [contactSearch])
@@ -153,8 +176,41 @@ export function ContactListSection({
 
   return (
     <div className="space-y-2">
+      {contacts.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <div className="rounded-md border border-border/60 bg-background px-3 py-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+              <Users size={11} />
+              Contacts
+            </div>
+            <div className="mt-1 text-lg font-semibold tabular-nums">{contacts.length}</div>
+          </div>
+          <div className="rounded-md border border-border/60 bg-background px-3 py-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+              <Star size={11} />
+              Référents
+            </div>
+            <div className="mt-1 text-lg font-semibold tabular-nums">{contactStats.primary}</div>
+          </div>
+          <div className="rounded-md border border-border/60 bg-background px-3 py-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+              <User size={11} />
+              Liés
+            </div>
+            <div className="mt-1 text-lg font-semibold tabular-nums">{contactStats.linked}</div>
+          </div>
+          <div className="rounded-md border border-border/60 bg-background px-3 py-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+              <Building2 size={11} />
+              Départements
+            </div>
+            <div className="mt-1 text-lg font-semibold tabular-nums">{contactStats.departments}</div>
+          </div>
+        </div>
+      )}
+
       {/* Toolbar: search + add button */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         {contacts.length > 5 && (
           <div className="flex-1 relative">
             <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -165,6 +221,12 @@ export function ContactListSection({
               placeholder={t('tiers.ui.search_contact')}
               className={cn(panelInputClass, 'pl-7 h-7 text-[11px]')}
             />
+          </div>
+        )}
+        {contacts.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
+            <span className="rounded border border-border/60 px-1.5 py-0.5">{contactStats.withEmail} emails</span>
+            <span className="rounded border border-border/60 px-1.5 py-0.5">{contactStats.withPhone} téléphones</span>
           </div>
         )}
         {canEdit && (
@@ -249,47 +311,87 @@ export function ContactListSection({
 
       {/* Contact cards -- paginated */}
       {visible.length > 0 && (
-        <div className="border border-border rounded-md overflow-hidden divide-y divide-border/60">
+        <div className="overflow-hidden rounded-md border border-border/60 bg-background">
+          <div className="hidden grid-cols-[minmax(170px,1.05fr)_minmax(150px,0.9fr)_minmax(180px,1fr)_minmax(120px,0.7fr)_96px] gap-2 border-b border-border/50 bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground lg:grid">
+            <div>Contact</div>
+            <div>Fonction</div>
+            <div>Email</div>
+            <div>Téléphone</div>
+            <div className="text-right">Statut</div>
+          </div>
+          <div className="divide-y divide-border/50">
           {visible.map((contact) => (
             <button
               key={contact.id}
               onClick={() => onSelectContact(contact.id)}
               className={cn(
-                'flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-accent/40 transition-colors',
+                'grid w-full gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/40 lg:grid-cols-[minmax(170px,1.05fr)_minmax(150px,0.9fr)_minmax(180px,1fr)_minmax(120px,0.7fr)_96px] lg:items-center',
                 contact.is_primary && 'bg-primary/[0.03]',
               )}
             >
-              {contact.photo_url ? (
-                <img
-                  src={contact.photo_url}
-                  alt={`${contact.first_name} ${contact.last_name}`}
-                  className="w-8 h-8 rounded-full object-cover shrink-0"
-                  loading="lazy"
-                />
-              ) : (
-                <div className={cn(
-                  'w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0',
-                  contact.is_primary ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground',
-                )}>
-                  {contact.first_name[0]}{contact.last_name[0]}
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  {contact.civility && <span className="text-[10px] text-muted-foreground">{civilityLabels[contact.civility] || contact.civility}</span>}
-                  <span className="text-xs font-medium text-foreground truncate">
-                    {contact.first_name} {contact.last_name}
-                  </span>
-                  {contact.is_primary && <Star size={10} className="text-primary fill-primary shrink-0" />}
-                </div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {contact.position && <span className="text-[10px] text-muted-foreground truncate">{contact.position}</span>}
-                  {contact.department && <span className="text-[10px] text-muted-foreground/60 truncate">/ {contact.department}</span>}
+              <div className="flex min-w-0 items-center gap-2.5">
+                {contact.photo_url ? (
+                  <img
+                    src={contact.photo_url}
+                    alt={`${contact.first_name} ${contact.last_name}`}
+                    className="h-8 w-8 shrink-0 rounded-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
+                    contact.is_primary ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground',
+                  )}>
+                    {contact.first_name[0]}{contact.last_name[0]}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    {contact.civility && <span className="text-[10px] text-muted-foreground">{civilityLabels[contact.civility] || contact.civility}</span>}
+                    <span className="truncate text-xs font-semibold text-foreground">
+                      {contact.first_name} {contact.last_name}
+                    </span>
+                    {contact.is_primary && <Star size={10} className="shrink-0 fill-primary text-primary" />}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap gap-1">
+                    {contact.is_primary && <span className="rounded border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">Référent</span>}
+                    {!contact.active && <span className="rounded border border-border/60 bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Inactif</span>}
+                  </div>
                 </div>
               </div>
-              <ChevronDown size={12} className="text-muted-foreground/40 -rotate-90 shrink-0" />
+
+              <div className="min-w-0 text-xs">
+                <div className="truncate font-medium text-foreground">{contact.position || '—'}</div>
+                <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+                  <Building2 size={11} className="shrink-0" />
+                  <span className="truncate">{contact.department || 'Non renseigné'}</span>
+                </div>
+              </div>
+
+              <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Mail size={11} className="shrink-0" />
+                <span className="truncate">{contact.email || contact.linked_user_email || 'Email absent'}</span>
+              </div>
+
+              <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Phone size={11} className="shrink-0" />
+                <span className="truncate">{contact.phone || 'Téléphone absent'}</span>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 lg:justify-end">
+                <span className={cn(
+                  'rounded border px-1.5 py-0.5 text-[10px] font-medium',
+                  contact.linked_user_id
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+                    : 'border-border/60 bg-muted text-muted-foreground',
+                )}>
+                  {contact.linked_user_id ? 'Utilisateur' : 'Contact'}
+                </span>
+                <ChevronDown size={12} className="-rotate-90 shrink-0 text-muted-foreground/40" />
+              </div>
             </button>
           ))}
+          </div>
         </div>
       )}
 
@@ -412,7 +514,7 @@ export function ContactDetailPanel({
   }, [canEdit, t, handleDelete])
 
   // Tab navigation for ContactDetailPanel — MUST be before early returns
-  const [contactTab, setContactTab] = useState<'fiche' | 'documents'>('fiche')
+  const [contactTab, setContactTab] = useState<'fiche' | 'conformite' | 'documents'>('fiche')
 
   if (!contact) {
     return (
@@ -440,6 +542,7 @@ export function ContactDetailPanel({
         onTabChange={(id) => setContactTab(id as typeof contactTab)}
         items={[
           { id: 'fiche', label: 'Fiche', icon: User },
+          { id: 'conformite', label: t('nav.conformite', 'Conformité'), icon: Shield },
           { id: 'documents', label: 'Documents', icon: Paperclip },
         ]}
       />
@@ -566,13 +669,17 @@ export function ContactDetailPanel({
       </PanelContentLayout>
       )}
 
-      {contactTab === 'documents' && (
+      {contactTab === 'conformite' && (
       <PanelContentLayout>
         {/* Référentiels & Conformité — HSE compliance per employee */}
         <FormSection title={t('tiers.ui.sections.compliance')} collapsible defaultExpanded storageKey="contact-detail-conformite">
           <ReferentielManager ownerType="tier_contact" ownerId={contact.id} compact />
         </FormSection>
+      </PanelContentLayout>
+      )}
 
+      {contactTab === 'documents' && (
+      <PanelContentLayout>
         {/* Full-width: Notes & Documents */}
         <FormSection title={t('tiers.ui.sections.notes_documents')} collapsible defaultExpanded storageKey="contact-detail-sections">
           <DetailFieldGrid>

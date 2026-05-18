@@ -21,7 +21,7 @@ import {
   Building2, Plus, Loader2, Trash2, MapPin, Paperclip, MessageSquare,
   Phone, Mail, Users, Star, Globe, Clock,
   FileText, ShieldBan, ShieldCheck, Link2, X,
-  LayoutDashboard, FolderKanban, Shield, User,
+  LayoutDashboard, FolderKanban, Shield, User, Activity, CircleDollarSign, AlertTriangle,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -556,6 +556,62 @@ function formatCapital(amount: number, currency: string = 'XAF'): string {
   }
 }
 
+const PROJECT_STATUS_LABELS: Record<string, string> = {
+  draft: 'Brouillon',
+  planned: 'Planifié',
+  active: 'Actif',
+  in_progress: 'En cours',
+  on_hold: 'Suspendu',
+  completed: 'Terminé',
+  cancelled: 'Annulé',
+}
+
+const PROJECT_PRIORITY_LABELS: Record<string, string> = {
+  low: 'Basse',
+  medium: 'Moyenne',
+  high: 'Haute',
+  critical: 'Critique',
+}
+
+const PROJECT_STATUS_CLASS: Record<string, string> = {
+  draft: 'bg-muted text-muted-foreground border-border/60',
+  planned: 'bg-blue-500/10 text-blue-600 dark:text-blue-300 border-blue-500/20',
+  active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/20',
+  in_progress: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/20',
+  on_hold: 'bg-amber-500/10 text-amber-600 dark:text-amber-300 border-amber-500/20',
+  completed: 'bg-primary/10 text-primary border-primary/20',
+  cancelled: 'bg-destructive/10 text-destructive border-destructive/20',
+}
+
+const PROJECT_PRIORITY_BADGE_CLASS: Record<string, string> = {
+  low: 'bg-muted text-muted-foreground border-border/60',
+  medium: 'bg-blue-500/10 text-blue-600 dark:text-blue-300 border-blue-500/20',
+  high: 'bg-amber-500/10 text-amber-600 dark:text-amber-300 border-amber-500/20',
+  critical: 'bg-destructive/10 text-destructive border-destructive/20',
+}
+
+function formatShortDate(value: string | null | undefined): string {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function formatMoney(amount: number | null | undefined, currency = 'XAF'): string {
+  if (amount == null) return '—'
+  try {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  } catch {
+    return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount)} ${currency}`
+  }
+}
+
 function TierDetailPanel({ id, initialContactId }: { id: string; initialContactId?: string }) {
   const { t, i18n } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -634,6 +690,31 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
 
   // Related projects (where this tier is contractor/client)
   const { data: relatedProjects } = useProjects({ tier_id: tier?.id, page_size: 10 })
+  const projectList = useMemo(() => relatedProjects?.items ?? [], [relatedProjects?.items])
+  const projectSummary = useMemo(() => {
+    let budget = 0
+    let progressTotal = 0
+    let active = 0
+    let completed = 0
+    let sensitive = 0
+
+    for (const project of projectList) {
+      budget += project.budget ?? 0
+      progressTotal += project.progress ?? 0
+      if (['active', 'in_progress'].includes(project.status)) active += 1
+      if (project.status === 'completed') completed += 1
+      if (['high', 'critical'].includes(project.priority)) sensitive += 1
+    }
+
+    return {
+      active,
+      completed,
+      sensitive,
+      budget,
+      averageProgress: projectList.length ? Math.round(progressTotal / projectList.length) : 0,
+      currency: projectList.find((project) => project.currency)?.currency ?? tier?.currency ?? 'XAF',
+    }
+  }, [projectList, tier?.currency])
 
   const confirm = useConfirm()
 
@@ -1073,16 +1154,129 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
       {detailTab === 'projets' && (
       <PanelContentLayout>
         <FormSection title={`${t('tiers.ui.related_projects')} (${relatedProjects?.total ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-projets">
-          {relatedProjects && relatedProjects.items.length > 0 ? (
-            <div className="space-y-1.5">
-              {relatedProjects.items.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors">
-                  <CrossModuleLink module="projets" id={p.id} label={`${p.code} — ${p.name}`} mode="navigate" />
-                  <span className={cn('chip text-[10px]', p.status === 'active' && 'chip-success')}>
-                    {p.status}
-                  </span>
+          {projectList.length > 0 ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+                <div className="rounded-md border border-border/60 bg-background px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+                    <FolderKanban size={11} />
+                    Projets
+                  </div>
+                  <div className="mt-1 text-lg font-semibold tabular-nums">{relatedProjects?.total ?? projectList.length}</div>
                 </div>
-              ))}
+                <div className="rounded-md border border-border/60 bg-background px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+                    <Activity size={11} />
+                    Actifs
+                  </div>
+                  <div className="mt-1 text-lg font-semibold tabular-nums">{projectSummary.active}</div>
+                </div>
+                <div className="rounded-md border border-border/60 bg-background px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+                    <ShieldCheck size={11} />
+                    Terminés
+                  </div>
+                  <div className="mt-1 text-lg font-semibold tabular-nums">{projectSummary.completed}</div>
+                </div>
+                <div className="rounded-md border border-border/60 bg-background px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+                    <AlertTriangle size={11} />
+                    Sensibles
+                  </div>
+                  <div className="mt-1 text-lg font-semibold tabular-nums">{projectSummary.sensitive}</div>
+                </div>
+                <div className="col-span-2 rounded-md border border-border/60 bg-background px-3 py-2 xl:col-span-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+                    <CircleDollarSign size={11} />
+                    Budget
+                  </div>
+                  <div className="mt-1 text-sm font-semibold tabular-nums">
+                    {formatMoney(projectSummary.budget, projectSummary.currency)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-md border border-border/60 bg-background">
+                <div className="hidden grid-cols-[minmax(0,1.3fr)_130px_150px_110px] gap-3 border-b border-border/50 bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground lg:grid">
+                  <div>Projet</div>
+                  <div>Planning</div>
+                  <div>Budget & équipe</div>
+                  <div className="text-right">Progression</div>
+                </div>
+                <div className="divide-y divide-border/50">
+                  {projectList.map((project) => (
+                    <div
+                      key={project.id}
+                      className="grid gap-3 px-3 py-3 transition-colors hover:bg-accent/30 lg:grid-cols-[minmax(0,1.3fr)_130px_150px_110px] lg:items-center"
+                    >
+                      <div className="min-w-0 space-y-1.5">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <CrossModuleLink
+                            module="projets"
+                            id={project.id}
+                            label={`${project.code} - ${project.name}`}
+                            mode="navigate"
+                            className="min-w-0 font-semibold"
+                          />
+                          <span className={cn('rounded border px-1.5 py-0.5 text-[10px] font-medium', PROJECT_STATUS_CLASS[project.status] ?? PROJECT_STATUS_CLASS.draft)}>
+                            {PROJECT_STATUS_LABELS[project.status] ?? project.status}
+                          </span>
+                          <span className={cn('rounded border px-1.5 py-0.5 text-[10px] font-medium', PROJECT_PRIORITY_BADGE_CLASS[project.priority] ?? PROJECT_PRIORITY_BADGE_CLASS.low)}>
+                            Priorité {PROJECT_PRIORITY_LABELS[project.priority] ?? project.priority}
+                          </span>
+                        </div>
+                        {project.description && (
+                          <p className="line-clamp-2 text-xs text-muted-foreground">{project.description}</p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          {project.project_type && <span>Type: {project.project_type}</span>}
+                          {project.manager_name && <span>Chef: {project.manager_name}</span>}
+                          {project.parent_name && <span>Parent: {project.parent_name}</span>}
+                          {project.asset_name && <span>Asset: {project.asset_name}</span>}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Clock size={12} />
+                          <span className="tabular-nums">{formatShortDate(project.start_date)}</span>
+                        </div>
+                        <div className="pl-[18px] text-[11px] tabular-nums">{formatShortDate(project.end_date)}</div>
+                      </div>
+
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <CircleDollarSign size={12} />
+                          <span className="truncate font-medium text-foreground">{formatMoney(project.budget, project.currency)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Users size={12} />
+                          <span>{project.member_count ?? 0} membres - {project.task_count ?? 0} tâches</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                          <span className="lg:hidden">Progression</span>
+                          <span className="font-semibold tabular-nums text-foreground">{project.progress ?? 0}%</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${Math.max(0, Math.min(100, project.progress ?? 0))}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {(relatedProjects?.total ?? 0) > projectList.length && (
+                <p className="text-xs text-muted-foreground">
+                  {projectList.length} projets affichés sur {relatedProjects?.total}. Ouvrez le module Projets pour la liste complète.
+                </p>
+              )}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground/60 italic">{t('tiers.ui.no_related_projects', 'Aucun projet associe.')}</p>

@@ -12,7 +12,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Bell, BellRing, CheckCheck, ExternalLink, Inbox, Loader2 } from 'lucide-react'
+import { Bell, BellRing, CheckCheck, ExternalLink, Inbox, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
@@ -55,6 +55,15 @@ const CATEGORY_COLORS: Record<string, string> = {
   success:  'bg-green-500',
   workflow: 'bg-violet-500',
   system:   'bg-gray-500',
+}
+
+const CATEGORY_SURFACES: Record<string, string> = {
+  info:     'bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-blue-500/20',
+  warning:  'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20',
+  error:    'bg-red-500/10 text-red-600 dark:text-red-400 ring-red-500/20',
+  success:  'bg-green-500/10 text-green-600 dark:text-green-400 ring-green-500/20',
+  workflow: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 ring-violet-500/20',
+  system:   'bg-gray-500/10 text-gray-600 dark:text-gray-400 ring-gray-500/20',
 }
 
 // ── Relative time ──────────────────────────────────────────────
@@ -239,26 +248,43 @@ export function NotificationBell() {
       {/* ── Dropdown popover ────────────────────────────────── */}
       {open && (
         <div
-          className="absolute right-0 top-full mt-1.5 w-[22rem] max-h-[28rem] flex flex-col rounded-xl bg-popover/95 backdrop-blur-md overflow-hidden border border-border/60 shadow-[0_10px_32px_-8px_rgba(0,0,0,0.25)] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150"
+          className="fixed inset-x-3 top-14 flex max-h-[min(78vh,34rem)] flex-col overflow-hidden rounded-lg border border-border/70 bg-popover shadow-2xl motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[24rem] sm:max-h-[32rem] sm:shadow-[0_18px_48px_-18px_rgba(0,0,0,0.45)]"
           style={{ zIndex: 'var(--z-dropdown)' }}
+          role="dialog"
+          aria-label={t('notifications.page_title', 'Notifications')}
         >
-          {/* Accent strip */}
-          <span
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary via-primary to-highlight"
-          />
-
           {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-border/60 bg-muted/20 pt-[10px]">
-            <div className="text-xs font-semibold text-foreground">
-              {hasUnread
-                ? t('notifications.unread_count', { count: unreadCount, defaultValue: `${unreadCount} non lue(s)` })
-                : t('notifications.all_read', 'Tout est lu')}
+          <div className="border-b border-border/60 bg-muted/20 px-3 py-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-start gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-primary/15">
+                  <Bell size={15} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold leading-5 text-foreground">
+                    {t('notifications.page_title', 'Notifications')}
+                  </p>
+                  <p className="text-xs leading-4 text-muted-foreground">
+                    {hasUnread
+                      ? t('notifications.unread_count', { count: unreadCount, defaultValue: `${unreadCount} non lue(s)` })
+                      : t('notifications.all_read', 'Tout est lu')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground"
+                aria-label={t('common.close', 'Fermer')}
+                title={t('common.close', 'Fermer')}
+              >
+                <X size={14} />
+              </button>
             </div>
             {hasUnread && (
               <button
                 onClick={() => markAllRead.mutate()}
-                className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 px-2 text-xs font-medium text-primary hover:bg-primary/15 disabled:opacity-60"
                 disabled={markAllRead.isPending}
               >
                 <CheckCheck size={10} />
@@ -268,18 +294,23 @@ export function NotificationBell() {
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overscroll-contain">
             {isLoading && (
-              <div className="flex items-center justify-center py-10">
+              <div className="flex min-h-[12rem] items-center justify-center">
                 <Loader2 size={16} className="animate-spin text-muted-foreground" />
               </div>
             )}
 
             {!isLoading && items.length === 0 && (
-              <div className="text-center py-10 px-4">
-                <Inbox size={28} className="mx-auto text-muted-foreground/30 mb-2" />
-                <p className="text-sm text-muted-foreground">
+              <div className="flex min-h-[13rem] flex-col items-center justify-center px-6 py-8 text-center">
+                <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">
+                  <Inbox size={20} />
+                </span>
+                <p className="text-sm font-medium text-foreground">
                   {t('notifications.empty', 'Aucune notification non lue')}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('notifications.all_read', 'Tout est lu')}
                 </p>
               </div>
             )}
@@ -291,22 +322,24 @@ export function NotificationBell() {
                   key={n.id}
                   onClick={() => handleClick(n)}
                   className={cn(
-                    'w-full text-left px-3 py-2.5 border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer',
+                    'w-full cursor-pointer border-b border-border/40 px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-muted/45',
                     !n.read && 'bg-primary/[0.04]',
                   )}
                 >
-                  <div className="flex items-start gap-2.5">
+                  <div className="flex items-start gap-3">
                     <div
                       className={cn(
-                        'w-2 h-2 rounded-full mt-1.5 shrink-0',
-                        CATEGORY_COLORS[n.category] || 'bg-gray-500',
+                        'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md ring-1 ring-inset',
+                        CATEGORY_SURFACES[n.category] || CATEGORY_SURFACES.system,
                       )}
-                    />
+                    >
+                      <span className={cn('h-2 w-2 rounded-full', CATEGORY_COLORS[n.category] || 'bg-gray-500')} />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p
                           className={cn(
-                            'text-sm truncate',
+                            'text-sm leading-5',
                             n.read
                               ? 'text-muted-foreground'
                               : 'text-foreground font-medium',
@@ -319,13 +352,13 @@ export function NotificationBell() {
                         </span>
                       </div>
                       {n.body && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
                           {n.body}
                         </p>
                       )}
                     </div>
                     {n.link && (
-                      <ExternalLink size={10} className="text-muted-foreground/50 mt-1.5 shrink-0" />
+                      <ExternalLink size={11} className="mt-1.5 shrink-0 text-muted-foreground/50" />
                     )}
                   </div>
                 </button>
@@ -347,7 +380,7 @@ export function NotificationBell() {
                   meta: { subtype: 'journal' },
                 })
               }}
-              className="w-full text-xs text-primary hover:bg-primary/5 py-2 font-medium"
+              className="flex h-10 w-full items-center justify-center gap-1.5 text-xs font-medium text-primary hover:bg-primary/5"
             >
               {t('notifications.view_all', 'Voir toutes les notifications')} →
             </button>

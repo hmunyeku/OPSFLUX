@@ -19,15 +19,10 @@ import { useMemo, useState } from 'react'
 import {
   AlertTriangle,
   CircleDollarSign,
-  Gauge,
-  Landmark,
   Loader2,
   Plus,
   ReceiptText,
-  ShieldCheck,
   Trash2,
-  TrendingUp,
-  WalletCards,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FormSection, panelInputClass } from '@/components/layout/DynamicPanel'
@@ -72,39 +67,14 @@ function pct(value: number) {
   return `${Math.round(value)}%`
 }
 
-function budgetToneClass(tone: 'good' | 'warn' | 'bad' | 'neutral') {
-  if (tone === 'good') return 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
-  if (tone === 'warn') return 'border-amber-500/25 bg-amber-500/5 text-amber-600 dark:text-amber-400'
-  if (tone === 'bad') return 'border-red-500/25 bg-red-500/5 text-red-600 dark:text-red-400'
-  return 'border-border/60 bg-muted/20 text-foreground'
+function budgetStatusClass(tone: 'good' | 'warn' | 'bad' | 'neutral') {
+  if (tone === 'good') return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+  if (tone === 'warn') return 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+  if (tone === 'bad') return 'bg-red-500/10 text-red-600 dark:text-red-400'
+  return 'bg-muted text-muted-foreground'
 }
 
-function BudgetMetric({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  tone = 'neutral',
-}: {
-  icon: typeof CircleDollarSign
-  label: string
-  value: string
-  hint?: string
-  tone?: 'good' | 'warn' | 'bad' | 'neutral'
-}) {
-  return (
-    <div className={cn('rounded-md border px-3 py-2.5', budgetToneClass(tone))}>
-      <div className="mb-2 flex items-center gap-2">
-        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded bg-background/60">
-          <Icon size={14} />
-        </span>
-        <span className="min-w-0 truncate text-[10px] font-medium uppercase tracking-wide opacity-80">{label}</span>
-      </div>
-      <div className="truncate text-base font-semibold tabular-nums text-foreground">{value}</div>
-      {hint && <div className="mt-1 truncate text-[10px] opacity-80">{hint}</div>}
-    </div>
-  )
-}
+type BudgetTone = 'good' | 'warn' | 'bad' | 'neutral'
 
 export function BudgetSection({ projectId }: { projectId: string }) {
   const { data: report } = useProjectReport(projectId)
@@ -119,13 +89,15 @@ export function BudgetSection({ projectId }: { projectId: string }) {
     const actualCost = laborCost + lossCost
     const progress = Math.max(0, Math.min(100, Number(report.project.progress ?? 0)))
     const burnForecast = progress > 0 ? actualCost / (progress / 100) : 0
-    const forecast = Math.max(actualCost, burnForecast, budget || 0)
+    const forecast = Math.max(actualCost, burnForecast)
     const variance = budget > 0 ? budget - forecast : 0
     const consumedPct = budget > 0 ? (actualCost / budget) * 100 : 0
     const forecastPct = budget > 0 ? (forecast / budget) * 100 : 0
     const wbsBudget = wbsNodes.reduce((sum, node) => sum + Number(node.budget ?? 0), 0)
+    const unallocatedBudget = budget > 0 ? Math.max(0, budget - wbsBudget) : 0
+    const wbsCoveragePct = budget > 0 ? (wbsBudget / budget) * 100 : 0
     const remaining = budget > 0 ? budget - actualCost : 0
-    const tone: 'good' | 'warn' | 'bad' | 'neutral' = budget <= 0
+    const tone: BudgetTone = budget <= 0
       ? 'neutral'
       : forecast > budget
         ? 'bad'
@@ -145,6 +117,8 @@ export function BudgetSection({ projectId }: { projectId: string }) {
       consumedPct,
       forecastPct,
       wbsBudget,
+      unallocatedBudget,
+      wbsCoveragePct,
       tone,
     }
   }, [report, wbsNodes])
@@ -171,163 +145,221 @@ export function BudgetSection({ projectId }: { projectId: string }) {
     consumedPct,
     forecastPct,
     wbsBudget,
+    unallocatedBudget,
+    wbsCoveragePct,
     tone,
   } = budgetData
-  const progressWidth = Math.min(100, Math.max(0, consumedPct))
-  const forecastWidth = Math.min(140, Math.max(progressWidth, forecastPct))
-  const overBudgetWidth = Math.max(0, Math.min(40, forecastWidth - 100))
-  const topWbs = wbsNodes
-    .filter(node => Number(node.budget ?? 0) > 0)
+
+  const statusLabel = budget <= 0
+    ? 'Budget à définir'
+    : tone === 'bad'
+      ? 'Dépassement prévu'
+      : tone === 'warn'
+        ? 'À surveiller'
+        : 'Sous contrôle'
+
+  const budgetRows: Array<{ label: string; source: string; amount: number; ratio: number; status: string; tone: BudgetTone }> = [
+    {
+      label: 'Budget approuvé',
+      source: 'Projet',
+      amount: budget,
+      ratio: budget > 0 ? 100 : 0,
+      status: budget > 0 ? 'Base de contrôle' : 'À définir',
+      tone: budget > 0 ? 'neutral' : 'warn',
+    },
+    {
+      label: 'Budget ventilé WBS',
+      source: 'Lots planification',
+      amount: wbsBudget,
+      ratio: wbsCoveragePct,
+      status: budget > 0 ? `${pct(wbsCoveragePct)} ventilé` : 'Saisir le budget projet',
+      tone: budget > 0 && wbsCoveragePct < 80 ? 'warn' : 'neutral',
+    },
+    {
+      label: 'Budget non ventilé',
+      source: 'Calcul',
+      amount: unallocatedBudget,
+      ratio: budget > 0 ? (unallocatedBudget / budget) * 100 : 0,
+      status: unallocatedBudget > 0 ? 'À affecter' : 'Ventilation complète',
+      tone: unallocatedBudget > 0 ? 'warn' : 'good',
+    },
+    {
+      label: 'Réalisé temps validé',
+      source: 'Pointages',
+      amount: laborCost,
+      ratio: consumedPct,
+      status: `${report.kpis.total_actual_hours.toLocaleString('fr-FR')} h réelles`,
+      tone: laborCost > 0 ? 'neutral' : 'good',
+    },
+    {
+      label: 'Pertes et surcoûts',
+      source: 'Pertes',
+      amount: lossCost,
+      ratio: budget > 0 ? (lossCost / budget) * 100 : 0,
+      status: report.losses_by_category.length > 0 ? `${report.losses_by_category.length} catégorie(s)` : 'Aucune perte',
+      tone: lossCost > 0 ? 'bad' : 'good',
+    },
+    {
+      label: 'Réalisé total',
+      source: 'Temps + pertes',
+      amount: actualCost,
+      ratio: consumedPct,
+      status: budget > 0 ? `${pct(consumedPct)} consommé` : 'Budget requis',
+      tone: budget > 0 && consumedPct > 85 ? 'warn' : 'neutral',
+    },
+    {
+      label: 'Reste à engager',
+      source: 'Calcul',
+      amount: remaining,
+      ratio: budget > 0 ? (remaining / budget) * 100 : 0,
+      status: remaining >= 0 ? 'Disponible' : 'Dépassé',
+      tone: remaining >= 0 ? 'good' : 'bad',
+    },
+    {
+      label: 'Prévision fin projet',
+      source: 'Avancement',
+      amount: forecast,
+      ratio: forecastPct,
+      status: statusLabel,
+      tone,
+    },
+    {
+      label: 'Écart prévisionnel',
+      source: 'Budget - prévision',
+      amount: variance,
+      ratio: budget > 0 ? (variance / budget) * 100 : 0,
+      status: variance >= 0 ? 'Marge estimée' : 'Dépassement',
+      tone: budget <= 0 ? 'neutral' : variance >= 0 ? 'good' : 'bad',
+    },
+  ]
+
+  const wbsBudgetRows = wbsNodes
+    .filter(node => Number(node.budget ?? 0) > 0 || node.cost_center_name)
     .sort((a, b) => Number(b.budget ?? 0) - Number(a.budget ?? 0))
-    .slice(0, 6)
-  const topMembers = [...report.members]
+  const memberCostRows = [...report.members]
     .filter(member => member.cost > 0 || member.planned_hours > 0 || member.actual_hours > 0)
     .sort((a, b) => b.cost - a.cost)
-    .slice(0, 6)
+  const lossRows = [...report.losses_by_category]
+    .filter(loss => loss.cost_amount > 0 || loss.hours_lost > 0 || loss.count > 0)
+    .sort((a, b) => b.cost_amount - a.cost_amount)
 
   return (
-    <FormSection title="Suivi budgétaire" collapsible defaultExpanded storageKey="project-detail-budget-overview">
-      <div className="space-y-4">
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <BudgetMetric
-            icon={Landmark}
-            label="Budget approuvé"
-            value={budget > 0 ? fmtMoney(budget, currency) : 'Non défini'}
-            hint={wbsBudget > 0 ? `WBS ventilé : ${fmtMoney(wbsBudget, currency)}` : 'Budget global du projet'}
-          />
-          <BudgetMetric
-            icon={ReceiptText}
-            label="Réalisé"
-            value={fmtMoney(actualCost, currency)}
-            hint={`${fmtMoney(laborCost, currency)} temps + ${fmtMoney(lossCost, currency)} pertes`}
-            tone={actualCost > 0 ? 'warn' : 'neutral'}
-          />
-          <BudgetMetric
-            icon={TrendingUp}
-            label="Prévision"
-            value={fmtMoney(forecast, currency)}
-            hint={budget > 0 ? `${pct(forecastPct)} du budget` : 'Basée sur avancement/coûts'}
-            tone={tone}
-          />
-          <BudgetMetric
-            icon={ShieldCheck}
-            label="Écart estimé"
-            value={budget > 0 ? fmtMoney(variance, currency) : '--'}
-            hint={budget > 0 ? (variance >= 0 ? 'Marge restante estimée' : 'Dépassement prévisionnel') : 'Budget requis'}
-            tone={budget <= 0 ? 'neutral' : variance >= 0 ? 'good' : 'bad'}
-          />
-        </div>
-
-        <div className="rounded-md border border-border/60 bg-background/40 px-3 py-3">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="text-xs font-semibold text-foreground">Courbe budget</div>
-              <div className="text-[11px] text-muted-foreground">
-                Réalisé {pct(consumedPct)} · reste {fmtMoney(remaining, currency)}
+    <FormSection title="Budget" collapsible defaultExpanded storageKey="project-detail-budget-overview">
+      <div className="space-y-3">
+        <div className="rounded-md border border-border/60 bg-background/40">
+          <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+            <CircleDollarSign size={14} className="text-primary" />
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-semibold text-foreground">Registre budgétaire</div>
+              <div className="truncate text-[10px] text-muted-foreground">
+                Sources: projet, WBS, pointages validés, pertes.
               </div>
             </div>
-            <span className={cn('rounded-full px-2 py-1 text-[10px] font-medium', budgetToneClass(tone))}>
-              {budget <= 0 ? 'Budget à définir' : tone === 'bad' ? 'Dépassement prévu' : tone === 'warn' ? 'À surveiller' : 'Sous contrôle'}
+            <span className={cn('shrink-0 rounded-full px-2 py-1 text-[10px] font-medium', budgetStatusClass(tone))}>
+              {statusLabel}
             </span>
           </div>
-          <div className="relative h-4 overflow-hidden rounded-full bg-muted">
-            <div className="absolute inset-y-0 left-0 rounded-full bg-primary/80" style={{ width: `${progressWidth}%` }} />
-            {forecastWidth > progressWidth && (
-              <div
-                className="absolute inset-y-0 bg-primary/25"
-                style={{ left: `${progressWidth}%`, width: `${Math.min(100, forecastWidth) - progressWidth}%` }}
-              />
-            )}
-            {overBudgetWidth > 0 && (
-              <div className="absolute inset-y-0 right-0 bg-red-500" style={{ width: `${overBudgetWidth}%` }} />
-            )}
+          <div className="hidden border-b border-border/60 bg-muted/30 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[minmax(150px,1.2fr)_minmax(120px,.8fr)_120px_70px_minmax(120px,1fr)] sm:gap-3">
+            <span>Poste</span>
+            <span>Source</span>
+            <span className="text-right">Montant</span>
+            <span className="text-right">%</span>
+            <span>Statut</span>
           </div>
-          <div className="mt-2 grid grid-cols-3 text-[10px] text-muted-foreground">
-            <span>0</span>
-            <span className="text-center">Budget</span>
-            <span className="text-right">{budget > 0 ? fmtMoney(budget, currency) : '--'}</span>
+          <div className="divide-y divide-border/50">
+            {budgetRows.map(row => (
+              <div
+                key={row.label}
+                className="grid gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(150px,1.2fr)_minmax(120px,.8fr)_120px_70px_minmax(120px,1fr)] sm:items-center sm:gap-3"
+              >
+                <div className="font-medium text-foreground">{row.label}</div>
+                <div className="text-[11px] text-muted-foreground">{row.source}</div>
+                <div className={cn('font-semibold tabular-nums sm:text-right', row.amount < 0 && 'text-red-500')}>
+                  {row.label === 'Écart prévisionnel' && row.amount > 0 ? '+' : ''}{fmtMoney(row.amount, currency)}
+                </div>
+                <div className="text-[11px] tabular-nums text-muted-foreground sm:text-right">{pct(row.ratio)}</div>
+                <div>
+                  <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium', budgetStatusClass(row.tone))}>
+                    {row.status}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="rounded-md border border-border/60 bg-background/40">
             <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
-              <WalletCards size={13} className="text-primary" />
+              <ReceiptText size={13} className="text-primary" />
               <div className="text-xs font-semibold">Ventilation WBS</div>
-              <div className="ml-auto text-[10px] text-muted-foreground">{topWbs.length || 0} lots budgétés</div>
+              <div className="ml-auto text-[10px] text-muted-foreground">{wbsBudgetRows.length} ligne(s)</div>
             </div>
-            {topWbs.length > 0 ? (
+            {wbsBudgetRows.length > 0 ? (
               <div className="divide-y divide-border/50">
-                {topWbs.map(node => {
-                  const width = budget > 0 ? Math.min(100, (Number(node.budget ?? 0) / budget) * 100) : 0
-                  return (
-                    <div key={node.id} className="grid gap-2 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_120px] sm:items-center">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] text-muted-foreground">{node.code}</span>
-                          <span className="truncate font-medium">{node.name}</span>
-                        </div>
-                        {node.cost_center_name && <div className="truncate text-[10px] text-muted-foreground">{node.cost_center_name}</div>}
-                      </div>
-                      <div className="min-w-0 text-right">
-                        <div className="font-medium tabular-nums">{fmtMoney(node.budget, currency)}</div>
-                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full rounded-full bg-primary/70" style={{ width: `${width}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="px-3 py-6 text-center text-xs text-muted-foreground">
-                Aucun budget WBS. Ajoutez des lots dans l'onglet Planification.
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-md border border-border/60 bg-background/40">
-            <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
-              <Gauge size={13} className="text-primary" />
-              <div className="text-xs font-semibold">Coûts ressources</div>
-              <div className="ml-auto text-[10px] text-muted-foreground">{topMembers.length || 0} lignes</div>
-            </div>
-            {topMembers.length > 0 ? (
-              <div className="divide-y divide-border/50">
-                {topMembers.map(member => (
-                  <div key={member.member_id} className="grid gap-2 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_90px_100px] sm:items-center">
+                {wbsBudgetRows.map(node => (
+                  <div key={node.id} className="grid gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_120px_70px] sm:items-center">
                     <div className="min-w-0">
-                      <div className="truncate font-medium">{member.member_name || 'Ressource'}</div>
-                      <div className="truncate text-[10px] text-muted-foreground">{member.specialty || `${member.allocation_pct}% alloué`}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] text-muted-foreground">{node.code}</span>
+                        <span className="truncate font-medium">{node.name}</span>
+                      </div>
+                      {node.cost_center_name && <div className="truncate text-[10px] text-muted-foreground">{node.cost_center_name}</div>}
                     </div>
-                    <div className="text-muted-foreground tabular-nums sm:text-right">
-                      {member.actual_hours.toLocaleString('fr-FR')}h réelles
-                    </div>
-                    <div className="font-medium tabular-nums sm:text-right">
-                      {fmtMoney(member.cost, member.currency || currency)}
+                    <div className="font-medium tabular-nums sm:text-right">{fmtMoney(node.budget, currency)}</div>
+                    <div className="text-[10px] text-muted-foreground tabular-nums sm:text-right">
+                      {budget > 0 ? pct((Number(node.budget ?? 0) / budget) * 100) : '--'}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="px-3 py-6 text-center text-xs text-muted-foreground">
-                Aucun coût ressource validé. Les coûts apparaissent après validation des pointages.
+                Aucun lot WBS budgété.
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-md border border-border/60 bg-background/40">
+            <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+              <ReceiptText size={13} className="text-primary" />
+              <div className="text-xs font-semibold">Réalisé par source</div>
+              <div className="ml-auto text-[10px] text-muted-foreground">{memberCostRows.length + lossRows.length} ligne(s)</div>
+            </div>
+            {memberCostRows.length > 0 || lossRows.length > 0 ? (
+              <div className="divide-y divide-border/50">
+                {memberCostRows.map(member => (
+                  <div key={member.member_id} className="grid gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_90px_110px] sm:items-center">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{member.member_name || 'Ressource'}</div>
+                      <div className="truncate text-[10px] text-muted-foreground">{member.specialty || 'Pointage validé'}</div>
+                    </div>
+                    <div className="text-muted-foreground tabular-nums sm:text-right">{member.actual_hours.toLocaleString('fr-FR')} h</div>
+                    <div className="font-medium tabular-nums sm:text-right">{fmtMoney(member.cost, member.currency || currency)}</div>
+                  </div>
+                ))}
+                {lossRows.map(loss => (
+                  <div key={loss.category} className="grid gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_90px_110px] sm:items-center">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{loss.category}</div>
+                      <div className="truncate text-[10px] text-muted-foreground">Pertes déclarées · {loss.count} saisie(s)</div>
+                    </div>
+                    <div className="text-muted-foreground tabular-nums sm:text-right">{loss.hours_lost.toLocaleString('fr-FR')} h</div>
+                    <div className="font-medium tabular-nums text-red-500 sm:text-right">{fmtMoney(loss.cost_amount, currency)}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                Aucun réalisé budgétaire enregistré.
               </div>
             )}
           </div>
         </div>
-
-        {lossCost > 0 && (
-          <div className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-700 dark:text-red-300">
-            <AlertTriangle size={13} className="mr-1 inline" />
-            Les pertes déclarées représentent {fmtMoney(lossCost, currency)} et sont incluses dans le réalisé.
-          </div>
-        )}
       </div>
     </FormSection>
   )
 }
-
 export function TimeTrackingSection({ projectId }: { projectId: string; members: ProjectMemberType[] }) {
   return (
     <FormSection

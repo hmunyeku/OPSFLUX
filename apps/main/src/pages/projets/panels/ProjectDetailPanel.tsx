@@ -16,7 +16,7 @@ import {
   Settings2,
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
   Sun, Cloud, CloudRain, CloudLightning, CalendarClock,
-  CircleDollarSign, Minimize2,
+  CircleDollarSign, ListTree, Maximize2, Table2, Minimize2,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Info, Paperclip, LayoutList, BarChart3, Search, Lock, Users2 } from 'lucide-react'
@@ -68,6 +68,8 @@ import {
   useProjectComments, useCreateProjectComment, useDeleteComment,
   useActivityFeed,
   usePlannerActivities,
+  usePlannerLinks,
+  useSendToPlanner,
   useExportProjectPdf,
 } from '@/hooks/useProjets'
 import { useCurrentEntity } from '@/hooks/useEntities'
@@ -588,12 +590,14 @@ function TaskSubFeatures({ task, projectId, allTasks }: {
 // -- Task Row (interactive, expandable) --------------------------------------
 
 function TaskRow({
-  task, projectId, allTasks, depth = 0,
+  task, projectId, allTasks, depth = 0, isSelected = false, onSelect,
 }: {
   task: ProjectTask
   projectId: string
   allTasks: ProjectTask[]
   depth?: number
+  isSelected?: boolean
+  onSelect?: (taskId: string) => void
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -731,6 +735,7 @@ function TaskRow({
       aria-expanded={hasChildren ? expanded : undefined}
       className={cn(
         'border-b border-border/30 last:border-0 transition-colors duration-700',
+        isSelected && 'bg-primary/10',
         highlight && 'bg-primary/15 ring-1 ring-primary/40 rounded-md',
       )}
     >
@@ -739,7 +744,10 @@ function TaskRow({
           progress is now expressed inline as a percentage and (visually) by the meteo. */}
       <div
         className="group grid grid-cols-[minmax(0,1fr)_34px_44px_28px] sm:grid-cols-[minmax(0,1fr)_34px_116px_42px_44px_28px] md:grid-cols-[minmax(0,1fr)_34px_116px_42px_44px_minmax(76px,100px)_28px] items-center gap-2 px-3 py-2 text-xs hover:bg-muted/40 transition-colors cursor-pointer relative"
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => {
+          onSelect?.(task.id)
+          setExpanded(!expanded)
+        }}
       >
         <div className="flex items-center gap-2 min-w-0" style={{ paddingLeft: `${depth * 16}px` }}>
         {hasChildren ? (
@@ -2058,6 +2066,11 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
   const createTask = useCreateProjectTask()
   const updateTaskMut = useUpdateProjectTask()
   const deleteTaskMut = useDeleteProjectTask()
+  const sendToPlanner = useSendToPlanner()
+  const { data: plannerLinks = [] } = usePlannerLinks(projectId)
+  const { toast } = useToast()
+  const linkedTaskIds = useMemo(() => new Set(plannerLinks.map(link => link.task_id)), [plannerLinks])
+  const selectedTaskLinked = selectedTask ? linkedTaskIds.has(selectedTask.id) : false
 
   // Insert a new task at a given parent + position. The order is set
   // to (anchor.order + 1); ties are broken by created_at ascending so
@@ -2118,6 +2131,22 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
       isMilestone: true,
     })
   }, [selectedTask, tasks, insertTask])
+
+  const handleSendSelectedToPlanner = useCallback(async () => {
+    if (!selectedTask || selectedTaskLinked) return
+    try {
+      const result = await sendToPlanner.mutateAsync({
+        projectId,
+        items: [{ task_id: selectedTask.id, priority: selectedTask.priority || 'medium' }],
+      })
+      toast({
+        title: result.created > 0 ? 'Tâche envoyée au Planner' : 'Tâche déjà liée au Planner',
+        variant: result.errors.length > 0 ? 'warning' : 'success',
+      })
+    } catch {
+      toast({ title: 'Impossible d’envoyer la tâche au Planner', variant: 'error' })
+    }
+  }, [projectId, selectedTask, selectedTaskLinked, sendToPlanner, toast])
 
   // Delete the selected task (and any descendants the backend
   // cascades). Uses the existing useDeleteProjectTask mutation so the
@@ -2229,7 +2258,15 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
     const nodes: React.ReactNode[] = []
     for (const t of children) {
       nodes.push(
-        <TaskRow key={t.id} task={t} projectId={projectId} allTasks={tasks} depth={depth} />,
+        <TaskRow
+          key={t.id}
+          task={t}
+          projectId={projectId}
+          allTasks={tasks}
+          depth={depth}
+          isSelected={selectedTaskId === t.id}
+          onSelect={setSelectedTaskId}
+        />,
       )
       nodes.push(...walk(t.id, depth + 1))
     }
@@ -2240,7 +2277,15 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
     if (isFiltered) {
       // Flat sorted view — matching tasks always visible regardless of parent.
       return sorted.map(t => (
-        <TaskRow key={t.id} task={t} projectId={projectId} allTasks={tasks} depth={0} />
+        <TaskRow
+          key={t.id}
+          task={t}
+          projectId={projectId}
+          allTasks={tasks}
+          depth={0}
+          isSelected={selectedTaskId === t.id}
+          onSelect={setSelectedTaskId}
+        />
       ))
     }
     const rootNodes = walk(null, 0)
@@ -2248,7 +2293,15 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
     const orphanNodes = tasks
       .filter(t => t.parent_id && !knownIds.has(t.parent_id))
       .map(t => (
-        <TaskRow key={t.id} task={t} projectId={projectId} allTasks={tasks} depth={0} />
+        <TaskRow
+          key={t.id}
+          task={t}
+          projectId={projectId}
+          allTasks={tasks}
+          depth={0}
+          isSelected={selectedTaskId === t.id}
+          onSelect={setSelectedTaskId}
+        />
       ))
     return [...rootNodes, ...orphanNodes]
   }
@@ -2261,6 +2314,8 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
     { value: 'cancelled', label: t('projets.detail.task_filters.cancelled'), cls: 'bg-red-500/5 text-red-500', count: counts.cancelled },
   ]
   const completionRate = tasks.length > 0 ? Math.round((counts.done / tasks.length) * 100) : 0
+  const toolbarIconClass = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35'
+  const toolbarIconActiveClass = 'bg-primary/10 text-primary'
 
   return (
     <FormSection
@@ -2349,27 +2404,37 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
             <button
               type="button"
               onClick={handleAddAfter}
-              className="h-8 px-2.5 text-[11px] rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1 shrink-0"
+              className={cn(toolbarIconClass, 'text-primary')}
               title={selectedTask ? `Insérer une tâche après "${selectedTask.title}"` : 'Ajouter une tâche'}
             >
-              <Plus size={11} /> <span className="hidden sm:inline">{selectedTask ? 'Après' : 'Ajouter'}</span>
+              <Plus size={15} />
             </button>
             <button
               type="button"
               onClick={handleAddSubtask}
               disabled={!selectedTask}
-              className="h-8 px-2.5 text-[11px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+              className={toolbarIconClass}
               title={selectedTask ? `Sous-tâche de "${selectedTask.title}"` : 'Sélectionnez une tâche pour créer une sous-tâche'}
             >
-              <Plus size={11} /> <span className="hidden md:inline">Sous-tâche</span>
+              <ListTree size={15} />
             </button>
             <button
               type="button"
               onClick={handleAddMilestone}
-              className="h-8 px-2.5 text-[11px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1"
+              className={toolbarIconClass}
               title="Ajouter un jalon"
             >
-              <Milestone size={11} /> <span className="hidden md:inline">Jalon</span>
+              <Milestone size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={handleSendSelectedToPlanner}
+              disabled={!selectedTask || selectedTaskLinked || sendToPlanner.isPending}
+              className={toolbarIconClass}
+              title={!selectedTask ? 'Sélectionnez une tâche à envoyer au Planner' : selectedTaskLinked ? 'Cette tâche est déjà liée au Planner' : `Envoyer "${selectedTask.title}" au Planner`}
+              aria-label="Envoyer la tâche sélectionnée au Planner"
+            >
+              {sendToPlanner.isPending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
             </button>
             {/* Indent/outdent — gentle visual gap so they read as a pair */}
             <span className="w-1" />
@@ -2377,54 +2442,48 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
               type="button"
               onClick={handleOutdent}
               disabled={!canOutdent}
-              className="h-8 w-8 rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+              className={toolbarIconClass}
               title="Désindenter (Maj+Tab)"
             >
-              <ChevronLeft size={12} />
+              <ChevronLeft size={15} />
             </button>
             <button
               type="button"
               onClick={handleIndent}
               disabled={!canIndent}
-              className="h-8 w-8 rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+              className={toolbarIconClass}
               title="Indenter (Tab)"
             >
-              <ChevronRight size={12} />
+              <ChevronRight size={15} />
             </button>
           </div>
           {/* View controls — grouped so they wrap together on narrow widths */}
           <div className="flex items-center gap-1.5">
-            <div className="inline-flex rounded border border-border overflow-hidden h-8">
-              <button
-                type="button"
-                onClick={() => setViewModePersist('table')}
-                className={cn(
-                  'px-2.5 text-[11px] transition-colors',
-                  viewMode === 'table' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50',
-                )}
-                title="Vue tableau (édition inline)"
-              >
-                Tableau
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewModePersist('list')}
-                className={cn(
-                  'px-2.5 text-[11px] border-l border-border transition-colors',
-                  viewMode === 'list' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50',
-                )}
-                title="Vue liste (hiérarchique)"
-              >
-                Liste
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setViewModePersist('table')}
+              className={cn(toolbarIconClass, viewMode === 'table' && toolbarIconActiveClass)}
+              title="Vue tableau (édition inline)"
+              aria-label="Vue tableau"
+            >
+              <Table2 size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewModePersist('list')}
+              className={cn(toolbarIconClass, viewMode === 'list' && toolbarIconActiveClass)}
+              title="Vue liste hiérarchique"
+              aria-label="Vue liste hiérarchique"
+            >
+              <LayoutList size={15} />
+            </button>
             <button
               type="button"
               onClick={() => setFullscreen(true)}
-              className="h-8 px-2.5 text-[11px] rounded border border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1 shrink-0"
+              className={toolbarIconClass}
               title="Ouvrir en plein écran (Tableau + Gantt)"
             >
-              ⛶ <span className="hidden sm:inline">Plein écran</span>
+              <Maximize2 size={15} />
             </button>
           </div>
         </div>
@@ -2831,11 +2890,20 @@ function CommentsSection({ projectId }: { projectId: string }) {
 
 // -- Planner Links Section ---------------------------------------------------
 
-function PlannerLinksSection({ projectId }: { projectId: string }) {
+function PlannerLinksSection({
+  projectId,
+  projectCode,
+  assetId,
+}: {
+  projectId: string
+  projectCode: string
+  assetId?: string | null
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: groups = [], isLoading } = usePlannerActivities(projectId)
   const [search, setSearch] = useState('')
+  const [showSendModal, setShowSendModal] = useState(false)
 
   const filtered = useMemo(() => {
     if (!search.trim()) return groups
@@ -2861,19 +2929,44 @@ function PlannerLinksSection({ projectId }: { projectId: string }) {
     : '—'
 
   return (
+    <>
     <FormSection
       title={`Planner — tâches liées (${groups.length} tâche${groups.length > 1 ? 's' : ''} · ${totalActivities} activité${totalActivities > 1 ? 's' : ''})`}
       defaultExpanded
     >
+      <div className="mb-3 flex items-center justify-between gap-2 rounded-md border border-border/50 bg-muted/10 px-3 py-2">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold text-foreground">Envoyer une tâche au Planner</div>
+          <div className="truncate text-[11px] text-muted-foreground">
+            Choisissez une tâche du projet, puis suivez ici les activités Planner créées.
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowSendModal(true)}
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <Send size={12} /> Envoyer
+        </button>
+      </div>
       {isLoading ? (
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground py-2">
           <Loader2 size={12} className="animate-spin" /> Chargement…
         </div>
       ) : groups.length === 0 ? (
-        <p className="text-xs text-muted-foreground italic">
-          Aucune tâche de ce projet n'est liée à une activité Planner.
-          Créez une activité Planner depuis une tâche pour la voir apparaître ici.
-        </p>
+        <div className="rounded-md border border-dashed border-border/60 bg-background/40 px-3 py-6 text-center">
+          <p className="text-xs font-medium text-foreground">Aucune tâche liée au Planner</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Envoyez une tâche existante pour créer son activité Planner et suivre sa planification.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowSendModal(true)}
+            className="mt-3 inline-flex h-8 items-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Send size={12} /> Choisir une tâche
+          </button>
+        </div>
       ) : (
         <div className="space-y-2">
           {/* Search */}
@@ -2961,6 +3054,14 @@ function PlannerLinksSection({ projectId }: { projectId: string }) {
         </div>
       )}
     </FormSection>
+    <PlannerLinkModal
+      open={showSendModal}
+      onClose={() => setShowSendModal(false)}
+      projectId={projectId}
+      projectCode={projectCode}
+      assetId={assetId}
+    />
+    </>
   )
 }
 
@@ -3512,16 +3613,16 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           // sur le cycle de vie d'un projet :
           //   1) Vue agregee (Metriques)
           //   2) Identite (Fiche)
-          //   3) Pilotage financier (Budget)
-          //   4) Plan de bataille (Planification + Planner)
-          //   5) Execution (Taches)  <- avant en 3e position, maintenant 5e
+          //   3) Execution (Taches)
+          //   4) Plan de bataille (Planner + Planification)
+          //   5) Pilotage financier (Budget)
           //   6) Historique / Documents (artefacts)
           { id: 'metriques', label: t('projets.detail.tabs.metrics'), icon: Target },
           { id: 'fiche', label: 'Fiche', icon: Info },
-          { id: 'budget', label: 'Budget', icon: CircleDollarSign },
-          { id: 'planification', label: 'Planification', icon: BarChart3 },
-          { id: 'planner', label: 'Planner', icon: CalendarClock },
           { id: 'taches', label: `Tâches (${tasks?.length ?? 0})`, icon: ListTodo },
+          { id: 'planner', label: 'Planner', icon: CalendarClock },
+          { id: 'planification', label: 'Planification', icon: BarChart3 },
+          { id: 'budget', label: 'Budget', icon: CircleDollarSign },
           // Renamed Activité -> Historique to lift the confusion with
           // the Planner module (this tab is the audit log / changelog).
           { id: 'historique', label: 'Historique', icon: LayoutList },
@@ -3927,7 +4028,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         )}
 
         {detailTab === 'planner' && (
-          <PlannerLinksSection projectId={id} />
+          <PlannerLinksSection projectId={id} projectCode={project.code} assetId={project.asset_id} />
         )}
 
         {detailTab === 'historique' && <>

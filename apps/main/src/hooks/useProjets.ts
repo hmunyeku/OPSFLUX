@@ -898,6 +898,7 @@ export function useSendToPlanner() {
     }) => projetsService.sendToPlanner(projectId, items, assetId),
     onSuccess: (_, { projectId }) => {
       qc.invalidateQueries({ queryKey: ['planner-links', projectId] })
+      qc.invalidateQueries({ queryKey: ['planner-activities', projectId] })
       qc.invalidateQueries({ queryKey: ['planner'] })
     },
   })
@@ -911,6 +912,7 @@ export function useUnlinkTaskFromPlanner() {
       projetsService.unlinkTaskFromPlanner(projectId, taskId),
     onSuccess: (_, { projectId }) => {
       qc.invalidateQueries({ queryKey: ['planner-links', projectId] })
+      qc.invalidateQueries({ queryKey: ['planner-activities', projectId] })
       qc.invalidateQueries({ queryKey: ['planner'] })
     },
   })

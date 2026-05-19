@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import {
   FolderKanban, Plus, Loader2, Trash2, Users, Target, X, Check,
   Milestone, ListTodo, UserPlus, ExternalLink,
-  Circle, CheckCircle2,
+  Circle,
   ChevronRight, ChevronLeft, Layers, RefreshCw,
   Link2, Package, CheckSquare, History, ArrowRight,
   Settings2,
@@ -57,7 +57,6 @@ import {
   useProject, useUpdateProject, useArchiveProject,
   useProjectTasks, useCreateProjectTask, useUpdateProjectTask, useDeleteProjectTask,
   useProjectMembers, useAddProjectMember, useRemoveProjectMember,
-  useProjectMilestones, useCreateProjectMilestone, useUpdateProjectMilestone, useDeleteProjectMilestone,
   useGoutiStatus, useGoutiSyncOne,
   useTaskDependencies, useCreateTaskDependency, useDeleteTaskDependency,
   useTaskDeliverables, useCreateDeliverable, useUpdateDeliverable, useDeleteDeliverable,
@@ -84,7 +83,6 @@ import { useUsers } from '@/hooks/useUsers'
 import { UserPicker } from '@/components/shared/UserPicker'
 import type {
   ProjectTask,
-  ProjectMilestone as ProjectMilestoneType,
   ProjectMember as ProjectMemberType,
   TaskDependency, DependencyType,
   TaskDeliverable, TaskAction, TaskChangeLog,
@@ -970,213 +968,120 @@ function TaskRow({
 
 // -- Milestone Row (interactive) ---------------------------------------------
 
-function MilestoneRow({ ms, projectId }: { ms: ProjectMilestoneType; projectId: string }) {
-  const updateMs = useUpdateProjectMilestone()
-  const deleteMs = useDeleteProjectMilestone()
-  const [confirmDelete, setConfirmDelete] = useState(false)
+function dependencyShort(type: DependencyType): string {
+  if (type === 'start_to_start') return 'SS'
+  if (type === 'finish_to_finish') return 'FF'
+  if (type === 'start_to_finish') return 'SF'
+  return 'FS'
+}
 
-  const toggleComplete = () => {
-    if (ms.status === 'completed') {
-      updateMs.mutate({ projectId, msId: ms.id, payload: { status: 'pending', completed_at: null } })
-    } else {
-      updateMs.mutate({ projectId, msId: ms.id, payload: { status: 'completed', completed_at: new Date().toISOString() } })
-    }
+function TaskMilestoneSummary({
+  tasks,
+  dependencies,
+  onOpenTask,
+}: {
+  tasks: ProjectTask[]
+  dependencies: TaskDependency[]
+  onOpenTask: (task: ProjectTask) => void
+}) {
+  const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks])
+  const sorted = useMemo(
+    () => [...tasks].sort((a, b) => {
+      const da = a.due_date ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER
+      const db = b.due_date ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER
+      return da - db
+    }),
+    [tasks],
+  )
+
+  const formatDate = (value: string | null) =>
+    value ? new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'À dater'
+
+  const relationLabel = (dep: TaskDependency, direction: 'pred' | 'succ') => {
+    const otherId = direction === 'pred' ? dep.from_task_id : dep.to_task_id
+    const other = taskById.get(otherId)
+    const backendTitle = direction === 'pred' ? dep.from_task_title : dep.to_task_title
+    const label = other?.code || other?.title || backendTitle || otherId.slice(0, 6)
+    const lag = dep.lag_days ? `${dep.lag_days > 0 ? '+' : ''}${dep.lag_days}j` : ''
+    return `${dependencyShort(dep.dependency_type)} ${label}${lag ? ` ${lag}` : ''}`
   }
 
-  const dueDate = ms.due_date ? new Date(ms.due_date) : null
-  const dueLabel = dueDate
-    ? dueDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
-    : 'Non planifié'
-  const relativeLabel = (() => {
-    if (ms.status === 'completed') {
-      return ms.completed_at
-        ? `Terminé le ${new Date(ms.completed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}`
-        : 'Terminé'
-    }
-    if (!dueDate) return 'Date à définir'
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    dueDate.setHours(0, 0, 0, 0)
-    const diff = Math.round((dueDate.getTime() - today.getTime()) / 86_400_000)
-    if (diff === 0) return "Aujourd'hui"
-    if (diff > 0) return `J-${diff}`
-    return `En retard J+${Math.abs(diff)}`
-  })()
-  const statusLabel = ms.status === 'completed'
-    ? 'Terminé'
-    : ms.status === 'overdue'
-      ? 'En retard'
-      : 'À venir'
-  const statusClass = ms.status === 'completed'
-    ? 'bg-green-500/10 text-green-600 border-green-500/20'
-    : ms.status === 'overdue'
-      ? 'bg-red-500/10 text-red-500 border-red-500/20'
-      : 'bg-primary/10 text-primary border-primary/20'
+  const completed = tasks.filter((task) => task.status === 'done').length
+  const missingDates = tasks.filter((task) => !task.due_date).length
 
   return (
-    <div className="group grid grid-cols-[minmax(0,1fr)_28px] gap-2 border-b border-border/35 px-3 py-2.5 text-xs last:border-0 sm:grid-cols-[minmax(0,1fr)_92px_116px_32px] sm:items-center hover:bg-muted/30 transition-colors">
-      <div className="flex min-w-0 items-start gap-2">
-        <button
-          onClick={toggleComplete}
-          className={cn(
-            'mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-transform hover:scale-105',
-            ms.status === 'completed' && 'border-green-500/25 bg-green-500/10 text-green-500',
-            ms.status === 'overdue' && 'border-red-500/25 bg-red-500/10 text-red-500',
-            ms.status === 'pending' && 'border-primary/25 bg-primary/10 text-primary',
-          )}
-          title={ms.status === 'completed' ? 'Marquer comme non terminé' : 'Marquer comme terminé'}
-        >
-          {ms.status === 'completed'
-            ? <CheckCircle2 size={13} />
-            : <Milestone size={13} />
-          }
-        </button>
-        <div className="min-w-0">
-          <div className={cn('truncate font-semibold leading-5 text-foreground', ms.status === 'completed' && 'line-through text-muted-foreground')}>
-            {ms.name}
-          </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground sm:hidden">
-            <span className={cn('rounded-full border px-1.5 py-0.5 font-medium', statusClass)}>{statusLabel}</span>
-            <span className="tabular-nums">{dueLabel}</span>
-            <span>{relativeLabel}</span>
-          </div>
-          {ms.description && (
-            <div className="mt-0.5 truncate text-[11px] text-muted-foreground" title={ms.description}>
-              {ms.description}
-            </div>
-          )}
-        </div>
-      </div>
-      <span className={cn('hidden rounded-full border px-2 py-1 text-center text-[10px] font-medium sm:inline-block', statusClass)}>
-        {statusLabel}
-      </span>
-      <div className="hidden min-w-0 text-right sm:block">
-        <div className={cn('tabular-nums text-[11px] font-medium', ms.status === 'overdue' ? 'text-red-500' : 'text-foreground')}>
-          {dueLabel}
-        </div>
-        <div className="text-[10px] text-muted-foreground">{relativeLabel}</div>
-      </div>
-      {confirmDelete ? (
-        <div className="flex items-center justify-end gap-0.5">
-          <button onClick={() => { deleteMs.mutate({ projectId, msId: ms.id }); setConfirmDelete(false) }} className="inline-flex h-7 w-7 items-center justify-center rounded bg-red-500/10 text-red-500 hover:bg-red-500/20"><Check size={12} /></button>
-          <button onClick={() => setConfirmDelete(false)} className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted text-muted-foreground"><X size={12} /></button>
+    <FormSection title={`Jalons tâches (${tasks.length})`} collapsible defaultExpanded storageKey="project-detail-task-milestones">
+      {tasks.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border/60 bg-muted/10 px-3 py-6 text-center text-xs text-muted-foreground">
+          Aucun jalon. Utilisez l’icône jalon dans la barre des tâches pour créer une vraie tâche jalon.
         </div>
       ) : (
-        <button onClick={() => setConfirmDelete(true)} className="inline-flex h-7 w-7 items-center justify-center justify-self-end rounded hover:bg-muted text-muted-foreground opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-          <Trash2 size={12} />
-        </button>
-      )}
-    </div>
-  )
-}
-
-// -- Milestone Quick Add -----------------------------------------------------
-
-function MilestoneQuickAdd({ projectId }: { projectId: string }) {
-  const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
-  const [dueDate, setDueDate] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-  const createMs = useCreateProjectMilestone()
-
-  const handleSubmit = async () => {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    await createMs.mutateAsync({ projectId, payload: { name: trimmed, due_date: dueDate || null } })
-    setName('')
-    setDueDate('')
-    inputRef.current?.focus()
-  }
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50) }}
-        className="mt-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border/60 bg-muted/10 text-xs font-medium text-primary hover:border-primary/40 hover:bg-primary/5"
-      >
-        <Plus size={12} /> Ajouter un jalon
-      </button>
-    )
-  }
-
-  return (
-    <div className="mt-2 grid gap-2 rounded-md border border-primary/25 bg-primary/5 p-2 sm:grid-cols-[minmax(0,1fr)_140px_auto_auto] sm:items-center">
-      <input
-        ref={inputRef}
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') { setOpen(false); setName(''); setDueDate('') } }}
-        className={`${panelInputClass} h-8 w-full text-xs`}
-        placeholder={t('projets.placeholders.milestone_name')}
-        autoFocus
-      />
-      <input
-        type="date"
-        value={dueDate}
-        onChange={(e) => setDueDate(e.target.value)}
-        className={`${panelInputClass} h-8 w-full text-xs`}
-      />
-      <button onClick={handleSubmit} disabled={createMs.isPending || !name.trim()} className="inline-flex h-8 items-center justify-center gap-1 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-        {createMs.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-        Créer
-      </button>
-      <button onClick={() => { setOpen(false); setName(''); setDueDate('') }} className="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted text-muted-foreground">
-        <X size={12} />
-      </button>
-    </div>
-  )
-}
-
-function MilestonesSection({ projectId, milestones }: { projectId: string; milestones: ProjectMilestoneType[] }) {
-  const completed = milestones.filter(ms => ms.status === 'completed').length
-  const overdue = milestones.filter(ms => ms.status === 'overdue').length
-  const nextMilestone = [...milestones]
-    .filter(ms => ms.status !== 'completed' && ms.due_date)
-    .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())[0]
-  const nextLabel = nextMilestone?.due_date
-    ? new Date(nextMilestone.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-    : 'Aucun jalon daté'
-
-  return (
-    <FormSection title={`Jalons (${milestones.length})`} collapsible defaultExpanded storageKey="project-detail-jalons">
-      {milestones.length > 0 ? (
-        <div className="space-y-2">
-          <div className="flex flex-col gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <span className="font-medium text-foreground tabular-nums">{completed}/{milestones.length}</span>
+        <div className="overflow-hidden rounded-md border border-border/50 bg-card/20">
+          <div className="flex items-center justify-between gap-2 border-b border-border/50 bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-foreground tabular-nums">{completed}/{tasks.length}</span>
               <span>terminés</span>
-              {overdue > 0 && (
-                <>
-                  <span className="h-3 w-px bg-border" />
-                  <span className="font-medium text-red-500 tabular-nums">{overdue} en retard</span>
-                </>
-              )}
+              {missingDates > 0 && <span className="font-medium text-red-500">{missingDates} à dater</span>}
             </div>
-            <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-              <CalendarClock size={12} className="shrink-0" />
-              <span className="truncate">Prochain : </span>
-              <span className="truncate font-medium text-foreground">{nextMilestone?.name ?? nextLabel}</span>
-              {nextMilestone && <span className="shrink-0 tabular-nums">· {nextLabel}</span>}
-            </div>
+            <span>Un jalon est une tâche à date unique.</span>
           </div>
-          <div className="overflow-hidden rounded-md border border-border/40 bg-card/20">
-            <div className="grid grid-cols-[minmax(0,1fr)_28px] gap-2 border-b border-border/50 bg-muted/60 px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[minmax(0,1fr)_92px_116px_32px]">
-              <span>Jalon</span>
-              <span className="hidden sm:block text-center">Statut</span>
-              <span className="hidden sm:block text-right">Échéance</span>
-              <span />
-            </div>
-            {milestones.map((ms) => (
-              <MilestoneRow key={ms.id} ms={ms} projectId={projectId} />
-            ))}
+          <div className="hidden border-b border-border/50 bg-muted/50 px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground md:grid md:grid-cols-[minmax(0,1fr)_120px_90px_minmax(120px,.8fr)_minmax(120px,.8fr)_28px] md:gap-2">
+            <span>Jalon</span>
+            <span className="text-right">Date</span>
+            <span className="text-center">Statut</span>
+            <span>Prédécesseurs</span>
+            <span>Successeurs</span>
+            <span />
+          </div>
+          <div className="divide-y divide-border/40">
+            {sorted.map((task) => {
+              const predecessors = dependencies.filter((dep) => dep.to_task_id === task.id)
+              const successors = dependencies.filter((dep) => dep.from_task_id === task.id)
+              const statusClass = task.status === 'done'
+                ? 'bg-green-500/10 text-green-600'
+                : !task.due_date
+                  ? 'bg-red-500/10 text-red-500'
+                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+              return (
+                <div
+                  key={task.id}
+                  className="grid gap-1 px-3 py-2.5 text-xs md:grid-cols-[minmax(0,1fr)_120px_90px_minmax(120px,.8fr)_minmax(120px,.8fr)_28px] md:items-center md:gap-2"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Milestone size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold text-foreground">{task.title}</div>
+                      {task.code && <div className="text-[10px] text-muted-foreground">{task.code}</div>}
+                    </div>
+                  </div>
+                  <div className={cn('tabular-nums md:text-right', !task.due_date && 'font-medium text-red-500')}>
+                    {formatDate(task.due_date)}
+                  </div>
+                  <div>
+                    <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium', statusClass)}>
+                      {task.status === 'done' ? 'Terminé' : !task.due_date ? 'À dater' : 'À venir'}
+                    </span>
+                  </div>
+                  <div className="truncate text-[11px] text-muted-foreground" title={predecessors.map((dep) => relationLabel(dep, 'pred')).join('\n')}>
+                    {predecessors.length ? predecessors.map((dep) => relationLabel(dep, 'pred')).join(', ') : '--'}
+                  </div>
+                  <div className="truncate text-[11px] text-muted-foreground" title={successors.map((dep) => relationLabel(dep, 'succ')).join('\n')}>
+                    {successors.length ? successors.map((dep) => relationLabel(dep, 'succ')).join(', ') : '--'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenTask(task)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground md:justify-self-end"
+                    title="Ouvrir le détail du jalon"
+                  >
+                    <ExternalLink size={12} />
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </div>
-      ) : (
-        <EmptyState icon={Milestone} title="Aucun jalon" variant="search" size="compact" />
       )}
-      <MilestoneQuickAdd projectId={projectId} />
     </FormSection>
   )
 }
@@ -1559,7 +1464,7 @@ function ProjectMiniGantt({
       // panes align row-for-row in fullscreen split. barHeight is
       // tightened proportionally so the bar still has top/bottom
       // breathing space inside the row (32 - 20 = 12px ÷ 2 = 6px each).
-      initialSettings={{ rowHeight: 32, barHeight: 20 }}
+      initialSettings={{ rowHeight: 40, barHeight: 22 }}
       showToolbar
       showGrid={showGrid}
       minHeight="100%"
@@ -1592,7 +1497,7 @@ function ProjectMiniGantt({
  * persist the ratio in localStorage between visits.
  */
 function TaskFullscreenOverlay({
-  projectId, tasks, hierarchical, selectedTaskId, onSelect, onClose, onOpenAdvanced,
+  projectId, tasks, dependencies, hierarchical, selectedTaskId, onSelect, onClose, onOpenAdvanced,
   // MS-Project-style structural actions — same handlers as the
   // non-fullscreen toolbar so the user never re-learns the controls.
   handleAddAfter, handleAddSubtask, handleAddMilestone,
@@ -1601,6 +1506,7 @@ function TaskFullscreenOverlay({
 }: {
   projectId: string
   tasks: ProjectTask[]
+  dependencies: TaskDependency[]
   hierarchical: boolean
   selectedTaskId: string | null
   onSelect: (id: string | null) => void
@@ -1985,6 +1891,7 @@ function TaskFullscreenOverlay({
           <TaskTable
             tasks={tasks}
             projectId={projectId}
+            dependencies={dependencies}
             hierarchical={hierarchical}
             maxHeight="100%"
             selectedTaskId={selectedTaskId}
@@ -2045,9 +1952,11 @@ function TaskFullscreenOverlay({
   )
 }
 
-function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTask[] }) {
+function TaskSection({ projectId, tasks, dependencies }: { projectId: string; tasks: ProjectTask[]; dependencies: TaskDependency[] }) {
   const { t } = useTranslation()
   const [showCreate, setShowCreate] = useState(false)
+  const [createMode, setCreateMode] = useState<'task' | 'subtask' | 'milestone'>('task')
+  const [createParentTaskId, setCreateParentTaskId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'order' | 'due_date' | 'priority' | 'progress'>('order')
@@ -2063,7 +1972,6 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
   // space or after an action that mutates the structure.
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const selectedTask = selectedTaskId ? tasks.find(t => t.id === selectedTaskId) ?? null : null
-  const createTask = useCreateProjectTask()
   const updateTaskMut = useUpdateProjectTask()
   const deleteTaskMut = useDeleteProjectTask()
   const sendToPlanner = useSendToPlanner()
@@ -2071,66 +1979,26 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
   const { toast } = useToast()
   const linkedTaskIds = useMemo(() => new Set(plannerLinks.map(link => link.task_id)), [plannerLinks])
   const selectedTaskLinked = selectedTask ? linkedTaskIds.has(selectedTask.id) : false
-
-  // Insert a new task at a given parent + position. The order is set
-  // to (anchor.order + 1); ties are broken by created_at ascending so
-  // the new task lands just below the anchor.
-  const insertTask = useCallback(async (opts: {
-    parentId: string | null
-    anchorOrder: number
-    title: string
-    isMilestone?: boolean
-  }) => {
-    try {
-      const created = await createTask.mutateAsync({
-        projectId,
-        payload: {
-          title: opts.title,
-          parent_id: opts.parentId,
-          order: opts.anchorOrder + 1,
-          is_milestone: !!opts.isMilestone,
-        } as never,
-      })
-      // Auto-select the freshly created row so the next action
-      // chains naturally.
-      if (created?.id) setSelectedTaskId(created.id)
-    } catch { /* toast handled upstream */ }
-  }, [createTask, projectId])
+  const createParentTask = createParentTaskId ? tasks.find((task) => task.id === createParentTaskId) ?? null : null
 
   const handleAddAfter = useCallback(() => {
-    if (selectedTask) {
-      insertTask({
-        parentId: selectedTask.parent_id,
-        anchorOrder: selectedTask.order ?? 0,
-        title: 'Nouvelle tâche',
-      })
-    } else {
-      const maxOrder = tasks.reduce((m, t) => Math.max(m, t.order ?? 0), 0)
-      insertTask({ parentId: null, anchorOrder: maxOrder, title: 'Nouvelle tâche' })
-    }
-  }, [selectedTask, tasks, insertTask])
+    setCreateMode('task')
+    setCreateParentTaskId(null)
+    setShowCreate(true)
+  }, [])
 
   const handleAddSubtask = useCallback(() => {
     if (!selectedTask) return
-    const childMax = tasks
-      .filter(t => t.parent_id === selectedTask.id)
-      .reduce((m, t) => Math.max(m, t.order ?? 0), 0)
-    insertTask({
-      parentId: selectedTask.id,
-      anchorOrder: childMax,
-      title: 'Nouvelle sous-tâche',
-    })
-  }, [selectedTask, tasks, insertTask])
+    setCreateMode('subtask')
+    setCreateParentTaskId(selectedTask.id)
+    setShowCreate(true)
+  }, [selectedTask])
 
   const handleAddMilestone = useCallback(() => {
-    const anchor = selectedTask
-    insertTask({
-      parentId: anchor?.parent_id ?? null,
-      anchorOrder: anchor?.order ?? tasks.reduce((m, t) => Math.max(m, t.order ?? 0), 0),
-      title: 'Nouveau jalon',
-      isMilestone: true,
-    })
-  }, [selectedTask, tasks, insertTask])
+    setCreateMode('milestone')
+    setCreateParentTaskId(selectedTask?.id ?? null)
+    setShowCreate(true)
+  }, [selectedTask])
 
   const handleSendSelectedToPlanner = useCallback(async () => {
     if (!selectedTask || selectedTaskLinked) return
@@ -2495,8 +2363,11 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
       {showCreate && (
         <div className="mb-2">
           <ProjectTaskCreateInlineForm
+            key={`${createMode}-${createParentTaskId ?? 'root'}`}
             projectId={projectId}
-            mode="task"
+            mode={createMode}
+            parentTask={createParentTask}
+            availableTasks={tasks}
             onCancel={() => setShowCreate(false)}
             onCreated={(created) => {
               setShowCreate(false)
@@ -2516,6 +2387,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
           <TaskTable
             tasks={isFiltered ? sorted : tasks}
             projectId={projectId}
+            dependencies={dependencies}
             hierarchical={!isFiltered}
             maxHeight="500px"
             selectedTaskId={selectedTaskId}
@@ -2561,6 +2433,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
         <TaskFullscreenOverlay
           projectId={projectId}
           tasks={isFiltered ? sorted : tasks}
+          dependencies={dependencies}
           hierarchical={!isFiltered}
           selectedTaskId={selectedTaskId}
           onSelect={setSelectedTaskId}
@@ -3485,7 +3358,8 @@ export function ProjectDetailPanel({ id }: { id: string }) {
   const archiveProject = useArchiveProject()
   const { data: tasks } = useProjectTasks(id)
   const { data: members } = useProjectMembers(id)
-  const { data: milestones } = useProjectMilestones(id)
+  const { data: taskDependencies = [] } = useTaskDependencies(id)
+  const milestoneTasks = useMemo(() => (tasks ?? []).filter((task) => task.is_milestone), [tasks])
   const { data: allUsersData } = useUsers({ page_size: 100, active: true })
   const goutiSyncOne = useGoutiSyncOne()
   const [showPlannerLink, setShowPlannerLink] = useState(false)
@@ -3776,8 +3650,8 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 </div>
                 <span className={cn(
                   'text-base font-bold tabular-nums leading-none',
-                  (milestones?.length ?? 0) === 0 ? 'text-muted-foreground/40' : 'text-foreground',
-                )}>{milestones?.length ?? 0}</span>
+                  milestoneTasks.length === 0 ? 'text-muted-foreground/40' : 'text-foreground',
+                )}>{milestoneTasks.length}</span>
               </button>
             </div>
           )
@@ -4001,10 +3875,16 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
         {detailTab === 'taches' && <>
           {/* Tasks — inspired by Gouti "Progression et contrôle > Liste des tâches" */}
-          <TaskSection projectId={id} tasks={tasks ?? []} />
+          <TaskSection projectId={id} tasks={tasks ?? []} dependencies={taskDependencies} />
 
           {/* Milestones — like Gouti "Cadrage > Jalons" */}
-          <MilestonesSection projectId={id} milestones={milestones ?? []} />
+          <TaskMilestoneSummary
+            tasks={milestoneTasks}
+            dependencies={taskDependencies}
+            onOpenTask={(task) =>
+              openDynamicPanel({ type: 'task-detail', module: 'projets', id: task.id, meta: { projectId: id } })
+            }
+          />
         </>}
 
         {detailTab === 'planification' && <>
@@ -4023,7 +3903,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
             project={project}
             tasks={tasks ?? []}
             members={members ?? []}
-            milestones={milestones ?? []}
+            milestones={milestoneTasks}
           />
         )}
 

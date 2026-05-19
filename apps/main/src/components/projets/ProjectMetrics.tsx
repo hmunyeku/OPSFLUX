@@ -35,7 +35,7 @@ import {
   useProjectSituations, useCreateProjectSituation,
   useUpdateProject,
 } from '@/hooks/useProjets'
-import type { Project, ProjectTask, ProjectMember, ProjectMilestone, ProjectSituation } from '@/types/api'
+import type { Project, ProjectTask, ProjectMember, ProjectSituation } from '@/types/api'
 
 // ──────────────────────────────────────────────────────────────────────
 // Donut gauge (pure SVG — no chart lib dep needed for one chart)
@@ -138,7 +138,7 @@ interface MetricsProps {
   project: Project
   tasks: ProjectTask[]
   members: ProjectMember[]
-  milestones: ProjectMilestone[]
+  milestones: Array<{ id: string }>
 }
 
 export function ProjectMetrics({ project, tasks, members, milestones }: MetricsProps) {

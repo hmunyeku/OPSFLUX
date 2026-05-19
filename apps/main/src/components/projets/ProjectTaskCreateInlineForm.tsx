@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Loader2, X, Layers, ListTodo } from 'lucide-react'
-import { useCreateProjectTask } from '@/hooks/useProjets'
+import { Check, Layers, ListTodo, Loader2, Milestone, X } from 'lucide-react'
+import { useCreateProjectTask, useCreateTaskDependency } from '@/hooks/useProjets'
 import { useUsers } from '@/hooks/useUsers'
 import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
 import { cn } from '@/lib/utils'
 import { VariablePobEditor } from '@/pages/planner/VariablePobEditor'
-import type { ProjectTask, ProjectTaskCreate } from '@/types/api'
+import type { DependencyType, ProjectTask, ProjectTaskCreate } from '@/types/api'
 
-type CreateMode = 'task' | 'subtask'
+type CreateMode = 'task' | 'subtask' | 'milestone'
 
 interface ProjectTaskCreateInlineFormProps {
   projectId: string
   mode: CreateMode
   parentTask?: ProjectTask | null
+  availableTasks?: ProjectTask[]
   defaultTitle?: string
   onCancel: () => void
   onCreated?: (task: ProjectTask) => void
@@ -60,53 +61,63 @@ export function ProjectTaskCreateInlineForm({
   projectId,
   mode,
   parentTask,
+  availableTasks = [],
   defaultTitle,
   onCancel,
   onCreated,
   className,
 }: ProjectTaskCreateInlineFormProps) {
   const createTask = useCreateProjectTask()
+  const createDependency = useCreateTaskDependency()
   const { toast } = useToast()
   const { data: usersData } = useUsers({ page: 1, page_size: 100, active: true })
   const users = usersData?.items ?? []
+  const isSubtask = mode === 'subtask'
+  const isMilestone = mode === 'milestone'
+
   const [form, setForm] = useState({
-    title: defaultTitle ?? (mode === 'subtask' ? 'Nouvelle sous-tâche' : 'Nouvelle tâche'),
+    title: defaultTitle ?? (isMilestone ? 'Nouveau jalon' : isSubtask ? 'Nouvelle sous-tâche' : 'Nouvelle tâche'),
     description: '',
     status: 'todo',
     priority: parentTask?.priority ?? 'medium',
-    start_date: parentTask?.start_date?.slice(0, 10) ?? '',
+    start_date: isMilestone ? '' : parentTask?.start_date?.slice(0, 10) ?? '',
     due_date: parentTask?.due_date?.slice(0, 10) ?? '',
     assignee_id: parentTask?.assignee_id ?? '',
     estimated_hours: '',
     pob_quota_mode: 'constant' as NonNullable<ProjectTaskCreate['pob_quota_mode']>,
     pob_quota: '',
     pob_quota_daily: {} as Record<string, number>,
+    predecessor_id: isMilestone ? parentTask?.id ?? '' : '',
+    dependency_type: 'finish_to_start' as DependencyType,
+    lag_days: '0',
   })
 
-  const isSubtask = mode === 'subtask'
-  const title = isSubtask ? 'Créer une sous-tâche' : 'Créer une tâche'
-  const subtitle = isSubtask && parentTask
-    ? `Rattachée à ${parentTask.title}`
-    : 'Tâche racine du projet'
-  const Icon = isSubtask ? Layers : ListTodo
+  const title = isMilestone ? 'Créer un jalon' : isSubtask ? 'Créer une sous-tâche' : 'Créer une tâche'
+  const subtitle = isMilestone
+    ? 'Point contractuel à date unique, créé comme tâche jalon'
+    : isSubtask && parentTask
+      ? `Rattachée à ${parentTask.title}`
+      : 'Tâche racine du projet'
+  const Icon = isMilestone ? Milestone : isSubtask ? Layers : ListTodo
 
-  const canSubmit = form.title.trim().length > 0 && !createTask.isPending
   const dateRangeInvalid = useMemo(() => {
-    if (!form.start_date || !form.due_date) return false
+    if (isMilestone || !form.start_date || !form.due_date) return false
     return new Date(form.start_date).getTime() > new Date(form.due_date).getTime()
-  }, [form.start_date, form.due_date])
-  const variableNeedsDates = form.pob_quota_mode === 'variable' && (!form.start_date || !form.due_date)
-  const variableDailyEmpty = form.pob_quota_mode === 'variable' && Object.keys(form.pob_quota_daily).length === 0
+  }, [form.start_date, form.due_date, isMilestone])
+  const missingRequiredDates = isMilestone ? !form.due_date : (!form.start_date || !form.due_date)
+  const variableNeedsDates = !isMilestone && form.pob_quota_mode === 'variable' && (!form.start_date || !form.due_date)
+  const variableDailyEmpty = !isMilestone && form.pob_quota_mode === 'variable' && Object.keys(form.pob_quota_daily).length === 0
+  const canSubmit = form.title.trim().length > 0 && !missingRequiredDates && !createTask.isPending && !createDependency.isPending
 
   useEffect(() => {
-    if (form.pob_quota_mode !== 'variable' || !form.start_date || !form.due_date || dateRangeInvalid) return
+    if (isMilestone || form.pob_quota_mode !== 'variable' || !form.start_date || !form.due_date || dateRangeInvalid) return
     if (Object.keys(form.pob_quota_daily).length > 0) return
     const quota = form.pob_quota ? Number(form.pob_quota) : 1
     setForm(prev => ({
       ...prev,
       pob_quota_daily: buildDefaultDaily(prev.start_date, prev.due_date, Number.isFinite(quota) ? quota : 1),
     }))
-  }, [dateRangeInvalid, form.due_date, form.pob_quota, form.pob_quota_daily, form.pob_quota_mode, form.start_date])
+  }, [dateRangeInvalid, form.due_date, form.pob_quota, form.pob_quota_daily, form.pob_quota_mode, form.start_date, isMilestone])
 
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -116,23 +127,36 @@ export function ProjectTaskCreateInlineForm({
     if (!canSubmit || dateRangeInvalid || variableNeedsDates || variableDailyEmpty) return
     const payload: ProjectTaskCreate = {
       title: form.title.trim(),
-      parent_id: isSubtask ? parentTask?.id ?? null : null,
+      parent_id: isSubtask ? parentTask?.id ?? null : isMilestone ? parentTask?.parent_id ?? null : null,
       description: form.description.trim() || null,
       status: form.status,
       priority: form.priority,
-      start_date: form.start_date || null,
+      start_date: isMilestone ? form.due_date : form.start_date || null,
       due_date: form.due_date || null,
       assignee_id: form.assignee_id || null,
-      estimated_hours: form.estimated_hours ? Number(form.estimated_hours) : null,
+      estimated_hours: isMilestone ? 0 : form.estimated_hours ? Number(form.estimated_hours) : null,
       pob_quota_mode: form.pob_quota_mode,
       pob_quota: form.pob_quota ? Number(form.pob_quota) : 0,
-      pob_quota_daily: form.pob_quota_mode === 'variable'
+      pob_quota_daily: !isMilestone && form.pob_quota_mode === 'variable'
         ? editorDailyToRelative(form.pob_quota_daily, form.start_date)
         : null,
+      is_milestone: isMilestone,
     }
+
     try {
       const created = await createTask.mutateAsync({ projectId, payload })
-      toast({ title: isSubtask ? 'Sous-tâche créée' : 'Tâche créée', variant: 'success' })
+      if (form.predecessor_id) {
+        await createDependency.mutateAsync({
+          projectId,
+          payload: {
+            from_task_id: form.predecessor_id,
+            to_task_id: created.id,
+            dependency_type: form.dependency_type,
+            lag_days: Number(form.lag_days) || 0,
+          },
+        })
+      }
+      toast({ title: isMilestone ? 'Jalon créé' : isSubtask ? 'Sous-tâche créée' : 'Tâche créée', variant: 'success' })
       onCreated?.(created)
     } catch {
       toast({ title: 'Erreur lors de la création', variant: 'error' })
@@ -161,7 +185,7 @@ export function ProjectTaskCreateInlineForm({
           value={form.title}
           onChange={(e) => update('title', e.target.value)}
           className={`${panelInputClass} h-9 text-sm font-medium`}
-          placeholder={isSubtask ? 'Nom de la sous-tâche' : 'Nom de la tâche'}
+          placeholder={isMilestone ? 'Nom du jalon' : isSubtask ? 'Nom de la sous-tâche' : 'Nom de la tâche'}
           autoFocus
         />
         <select value={form.status} onChange={(e) => update('status', e.target.value)} className={`${panelInputClass} h-9 text-xs`}>
@@ -186,13 +210,15 @@ export function ProjectTaskCreateInlineForm({
         rows={2}
       />
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={cn('grid gap-2 sm:grid-cols-2', isMilestone ? 'lg:grid-cols-3' : 'lg:grid-cols-4')}>
+        {!isMilestone && (
+          <label className="space-y-1">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Début *</span>
+            <input type="date" value={form.start_date} onChange={(e) => update('start_date', e.target.value)} className={`${panelInputClass} h-9 w-full text-xs`} />
+          </label>
+        )}
         <label className="space-y-1">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Début</span>
-          <input type="date" value={form.start_date} onChange={(e) => update('start_date', e.target.value)} className={`${panelInputClass} h-9 w-full text-xs`} />
-        </label>
-        <label className="space-y-1">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Fin</span>
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{isMilestone ? 'Date du jalon *' : 'Fin *'}</span>
           <input type="date" value={form.due_date} onChange={(e) => update('due_date', e.target.value)} className={`${panelInputClass} h-9 w-full text-xs`} />
         </label>
         <label className="space-y-1">
@@ -204,60 +230,93 @@ export function ProjectTaskCreateInlineForm({
             ))}
           </select>
         </label>
-        <label className="space-y-1">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Charge estimée</span>
-          <input
-            type="number"
-            min="0"
-            step="0.5"
-            value={form.estimated_hours}
-            onChange={(e) => update('estimated_hours', e.target.value)}
-            className={`${panelInputClass} h-9 w-full text-xs`}
-            placeholder="h"
-          />
-        </label>
+        {!isMilestone && (
+          <label className="space-y-1">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Charge estimée</span>
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={form.estimated_hours}
+              onChange={(e) => update('estimated_hours', e.target.value)}
+              className={`${panelInputClass} h-9 w-full text-xs`}
+              placeholder="h"
+            />
+          </label>
+        )}
       </div>
 
-      <div className="grid gap-2 rounded-md border border-border/40 bg-background/40 p-2 sm:grid-cols-[140px_120px_minmax(0,1fr)] sm:items-end">
-        <label className="space-y-1">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">POB</span>
-          <select
-            value={form.pob_quota_mode}
-            onChange={(e) => {
-              const mode = e.target.value as typeof form.pob_quota_mode
-              setForm(prev => ({
-                ...prev,
-                pob_quota_mode: mode,
-                pob_quota_daily: mode === 'variable'
-                  ? buildDefaultDaily(prev.start_date, prev.due_date, prev.pob_quota ? Number(prev.pob_quota) : 1)
-                  : {},
-              }))
-            }}
-            className={`${panelInputClass} h-9 w-full text-xs`}
-          >
-            <option value="constant">Fixe</option>
-            <option value="variable">Variable</option>
-          </select>
-        </label>
-        <label className="space-y-1">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Quota</span>
-          <input
-            type="number"
-            min="0"
-            value={form.pob_quota}
-            onChange={(e) => update('pob_quota', e.target.value)}
-            className={`${panelInputClass} h-9 w-full text-xs`}
-            placeholder="0"
-          />
-        </label>
-        <p className="text-[11px] text-muted-foreground">
-          {form.pob_quota_mode === 'variable'
-            ? 'Le plan J1, J2, etc. est préparé depuis les dates ci-dessus.'
-            : 'Quota fixe repris tel quel lors de l’envoi vers le Planner.'}
-        </p>
-      </div>
+      {availableTasks.length > 0 && (
+        <div className="grid gap-2 rounded-md border border-border/40 bg-background/40 p-2 sm:grid-cols-[minmax(0,1fr)_110px_86px] sm:items-end">
+          <label className="space-y-1">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Antécédent</span>
+            <select value={form.predecessor_id} onChange={(e) => update('predecessor_id', e.target.value)} className={`${panelInputClass} h-9 w-full text-xs`}>
+              <option value="">Aucun</option>
+              {availableTasks.map(task => (
+                <option key={task.id} value={task.id}>
+                  {task.code ? `${task.code} — ` : ''}{task.title}{task.is_milestone ? ' [jalon]' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Lien</span>
+            <select value={form.dependency_type} onChange={(e) => update('dependency_type', e.target.value as DependencyType)} className={`${panelInputClass} h-9 w-full text-xs`}>
+              <option value="finish_to_start">FS</option>
+              <option value="start_to_start">SS</option>
+              <option value="finish_to_finish">FF</option>
+              <option value="start_to_finish">SF</option>
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Délai</span>
+            <input type="number" value={form.lag_days} onChange={(e) => update('lag_days', e.target.value)} className={`${panelInputClass} h-9 w-full text-xs`} placeholder="j" />
+          </label>
+        </div>
+      )}
 
-      {form.pob_quota_mode === 'variable' && form.start_date && form.due_date && !dateRangeInvalid && (
+      {!isMilestone && (
+        <div className="grid gap-2 rounded-md border border-border/40 bg-background/40 p-2 sm:grid-cols-[140px_120px_minmax(0,1fr)] sm:items-end">
+          <label className="space-y-1">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">POB</span>
+            <select
+              value={form.pob_quota_mode}
+              onChange={(e) => {
+                const mode = e.target.value as typeof form.pob_quota_mode
+                setForm(prev => ({
+                  ...prev,
+                  pob_quota_mode: mode,
+                  pob_quota_daily: mode === 'variable'
+                    ? buildDefaultDaily(prev.start_date, prev.due_date, prev.pob_quota ? Number(prev.pob_quota) : 1)
+                    : {},
+                }))
+              }}
+              className={`${panelInputClass} h-9 w-full text-xs`}
+            >
+              <option value="constant">Fixe</option>
+              <option value="variable">Variable</option>
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Quota</span>
+            <input
+              type="number"
+              min="0"
+              value={form.pob_quota}
+              onChange={(e) => update('pob_quota', e.target.value)}
+              className={`${panelInputClass} h-9 w-full text-xs`}
+              placeholder="0"
+            />
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            {form.pob_quota_mode === 'variable'
+              ? 'Le plan J1, J2, etc. est préparé depuis les dates ci-dessus.'
+              : 'Quota fixe repris tel quel lors de l’envoi vers le Planner.'}
+          </p>
+        </div>
+      )}
+
+      {!isMilestone && form.pob_quota_mode === 'variable' && form.start_date && form.due_date && !dateRangeInvalid && (
         <div className="rounded-md border border-border/40 bg-background/40 p-2">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Plan POB relatif</span>
@@ -278,6 +337,11 @@ export function ProjectTaskCreateInlineForm({
       {dateRangeInvalid && (
         <p className="text-[11px] font-medium text-red-500">La date de fin doit être postérieure ou égale à la date de début.</p>
       )}
+      {missingRequiredDates && (
+        <p className="text-[11px] font-medium text-red-500">
+          {isMilestone ? 'Un jalon doit avoir une date.' : 'Une tâche doit avoir une date de début et une date de fin.'}
+        </p>
+      )}
       {variableNeedsDates && (
         <p className="text-[11px] font-medium text-red-500">Le POB variable nécessite une date de début et une date de fin.</p>
       )}
@@ -295,8 +359,8 @@ export function ProjectTaskCreateInlineForm({
           disabled={!canSubmit || dateRangeInvalid || variableNeedsDates || variableDailyEmpty}
           className="inline-flex h-8 items-center justify-center gap-1 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
-          {createTask.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-          {isSubtask ? 'Créer la sous-tâche' : 'Créer la tâche'}
+          {createTask.isPending || createDependency.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+          {isMilestone ? 'Créer le jalon' : isSubtask ? 'Créer la sous-tâche' : 'Créer la tâche'}
         </button>
       </div>
     </div>

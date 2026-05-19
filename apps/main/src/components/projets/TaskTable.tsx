@@ -28,7 +28,7 @@
 import { useMemo, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import {
   ChevronRight, MoreHorizontal, Sun, Cloud, CloudRain, CloudLightning,
-  CalendarClock, AlertCircle, ListChecks, GripVertical,
+  CalendarClock, AlertCircle, ListChecks, GripVertical, Link2, Milestone,
 } from 'lucide-react'
 import {
   DndContext,
@@ -48,7 +48,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
-import type { ProjectTask } from '@/types/api'
+import type { ProjectTask, TaskDependency } from '@/types/api'
 import { useUpdateProjectTask, useReorderProjectTasks } from '@/hooks/useProjets'
 
 // ──────────────────────────────────────────────────────────────────────
@@ -64,6 +64,7 @@ export type TaskTableColumnId =
   | 'due_date'
   | 'duration'
   | 'progress'
+  | 'predecessors'
   | 'meteo'
   | 'planner'
   | 'assignee'
@@ -93,11 +94,12 @@ export const DEFAULT_COLUMNS: TaskTableColumn[] = [
   { id: 'drag',         width: '20px',          label: '',          align: 'center',         hideBelow: 480 },
   { id: 'wbs',          width: '48px',          label: 'WBS',                                hideBelow: 540 },
   { id: 'status',       width: '20px' },
-  { id: 'title',        width: 'minmax(80px, 1fr)', label: 'Tâche' },
-  { id: 'start_date',   width: '64px',          label: 'Début',     align: 'right',          hideBelow: 380 },
-  { id: 'due_date',     width: '64px',          label: 'Fin',       align: 'right' },
-  { id: 'duration',     width: '38px',          label: 'Dur.',      align: 'right',          hideBelow: 460 },
+  { id: 'title',        width: 'minmax(110px, 1fr)', label: 'Tâche' },
+  { id: 'start_date',   width: '78px',          label: 'Début',     align: 'right',          hideBelow: 380 },
+  { id: 'due_date',     width: '78px',          label: 'Fin / jalon', align: 'right' },
+  { id: 'duration',     width: '48px',          label: 'Dur.',      align: 'right',          hideBelow: 460 },
   { id: 'progress',     width: '44px',          label: '%',         align: 'right' },
+  { id: 'predecessors', width: '92px',          label: 'Pred.',                              hideBelow: 680 },
   { id: 'meteo',        width: '20px',          label: '',          align: 'center',         hideBelow: 360 },
   { id: 'planner',      width: '30px',          label: '',          align: 'center',         hideBelow: 320 },
   { id: 'assignee',     width: '88px',          label: 'Assigné',                            hideBelow: 760 },
@@ -114,6 +116,13 @@ function fmtDate(iso: string | null | undefined): string {
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
 }
 
+function depTypeShort(type: TaskDependency['dependency_type']): string {
+  if (type === 'start_to_start') return 'SS'
+  if (type === 'finish_to_finish') return 'FF'
+  if (type === 'start_to_finish') return 'SF'
+  return 'FS'
+}
+
 function dateInputValue(iso: string | null | undefined): string {
   if (!iso) return ''
   return iso.split('T')[0]
@@ -124,6 +133,14 @@ function computeDurationDays(start: string | null, end: string | null): number |
   const s = new Date(start); const e = new Date(end)
   const d = Math.round((e.getTime() - s.getTime()) / 86_400_000)
   return d >= 0 ? d + 1 : null
+}
+
+function scheduleWarning(task: ProjectTask): string | null {
+  if (task.is_milestone) return task.due_date ? null : 'Jalon à dater'
+  if (!task.start_date && !task.due_date) return 'À planifier'
+  if (!task.start_date) return 'Début manquant'
+  if (!task.due_date) return 'Fin manquante'
+  return null
 }
 
 /** Add `days` to an ISO date and return ISO at day-precision. */
@@ -404,6 +421,8 @@ export interface TaskTableProps {
   maxHeight?: string | number
   /** Open the advanced editor for a task. Parent owns the modal. */
   onOpenAdvanced?: (task: ProjectTask) => void
+  /** Project task dependencies; used to render predecessors in the table. */
+  dependencies?: TaskDependency[]
   /** Callback when a task is clicked (single click on the row body — not on a cell editor). */
   onRowClick?: (task: ProjectTask) => void
   /** Currently selected task id — receives a primary highlight. Drives
@@ -432,6 +451,7 @@ export function TaskTable({
   density = 'comfortable',
   maxHeight,
   onOpenAdvanced,
+  dependencies = [],
   onRowClick,
   selectedTaskId,
   onSelect,
@@ -505,6 +525,22 @@ export function TaskTable({
     }
     return map
   }, [tasks])
+
+  const predecessorsByTask = useMemo(() => {
+    const taskById = new Map(tasks.map((task) => [task.id, task]))
+    const byTask = new Map<string, Array<{ label: string; title: string }>>()
+    for (const dep of dependencies) {
+      const predecessor = taskById.get(dep.from_task_id)
+      const code = predecessor?.code || dep.from_task_title || predecessor?.title || dep.from_task_id.slice(0, 6)
+      const lag = dep.lag_days ? `${dep.lag_days > 0 ? '+' : ''}${dep.lag_days}j` : ''
+      const label = `${depTypeShort(dep.dependency_type)} ${code}${lag ? ` ${lag}` : ''}`
+      const title = `${depTypeShort(dep.dependency_type)} depuis ${predecessor?.title || dep.from_task_title || code}${lag ? ` (${lag})` : ''}`
+      const list = byTask.get(dep.to_task_id) ?? []
+      list.push({ label, title })
+      byTask.set(dep.to_task_id, list)
+    }
+    return byTask
+  }, [dependencies, tasks])
 
   // Flatten to a render order respecting collapse state.
   const flatRows = useMemo(() => {
@@ -595,6 +631,10 @@ export function TaskTable({
   }
 
   const handleField = (task: ProjectTask, field: string, value: unknown) => {
+    if (field === 'milestone_date') {
+      updateTask.mutate({ projectId, taskId: task.id, payload: { start_date: value, due_date: value } as never })
+      return
+    }
     updateTask.mutate({ projectId, taskId: task.id, payload: { [field]: value } as never })
   }
 
@@ -638,7 +678,7 @@ export function TaskTable({
 
   // Build the CSS grid template from the visible column widths.
   const gridTemplate = visibleColumns.map(c => c.width).join(' ')
-  const rowHeight = density === 'compact' ? 'h-7' : 'h-8'
+  const rowHeight = density === 'compact' ? 'h-7' : 'min-h-10 py-1'
 
   return (
     <div
@@ -721,6 +761,7 @@ export function TaskTable({
                   gridTemplate={gridTemplate}
                   rowHeight={rowHeight}
                   displayProgress={aggregateProgress.get(task.id) ?? task.progress ?? 0}
+                  predecessors={predecessorsByTask.get(task.id) ?? []}
                   onToggleCollapse={() => toggleCollapse(task.id)}
                   onStatusClick={() => handleStatusClick(task)}
                   onField={(field, value) => handleField(task, field, value)}
@@ -754,6 +795,7 @@ interface RowProps {
   gridTemplate: string
   rowHeight: string
   displayProgress: number
+  predecessors: Array<{ label: string; title: string }>
   onToggleCollapse: () => void
   onStatusClick: () => void
   onField: (field: string, value: unknown) => void
@@ -764,13 +806,14 @@ interface RowProps {
 
 function TaskTableRow({
   task, depth, hasChildren, isCollapsed, isSelected,
-  columns, gridTemplate, rowHeight, displayProgress,
+  columns, gridTemplate, rowHeight, displayProgress, predecessors,
   onToggleCollapse, onStatusClick, onField, onDuration,
   onOpenAdvanced, onRowClick,
 }: RowProps) {
   const overdue = isOverdue(task)
   const weather = computeWeather(task, displayProgress)
   const duration = computeDurationDays(task.start_date, task.due_date)
+  const scheduleIssue = scheduleWarning(task)
 
   // Sortable wiring — dnd-kit attaches the listeners only to the
   // grip cell (`...listeners` below) so the rest of the row stays
@@ -819,8 +862,15 @@ function TaskTableRow({
 
       case 'wbs':
         return (
-          <span className="truncate text-[10px] tabular-nums text-muted-foreground" title={task.code || undefined}>
-            {task.code || '—'}
+          <span
+            className={cn(
+              'inline-flex max-w-full items-center gap-1 truncate text-[10px] tabular-nums text-muted-foreground',
+              task.is_milestone && 'font-medium text-amber-600 dark:text-amber-400',
+            )}
+            title={task.is_milestone ? 'Jalon' : task.code || undefined}
+          >
+            {task.is_milestone && <Milestone size={10} className="shrink-0" />}
+            <span className="truncate">{task.code || (task.is_milestone ? 'Jalon' : '--')}</span>
           </span>
         )
 
@@ -854,23 +904,35 @@ function TaskTableRow({
             ) : (
               <span className="w-[10px] shrink-0" />
             )}
+            {task.is_milestone && <Milestone size={11} className="shrink-0 text-amber-600 dark:text-amber-400" />}
             <EditableText
               value={task.title}
               onCommit={(v) => onField('title', v)}
               displayClassName={cn(
                 'text-[11px]',
                 task.status === 'done' && 'line-through text-muted-foreground',
+                task.is_milestone && 'font-semibold text-amber-700 dark:text-amber-300',
                 hasChildren && 'font-medium',
               )}
             />
+            {scheduleIssue && (
+              <span className="shrink-0 rounded bg-red-500/10 px-1.5 py-0.5 text-[9px] font-medium text-red-500">
+                {scheduleIssue}
+              </span>
+            )}
           </div>
         )
 
       case 'start_date':
-        return (
+        return task.is_milestone ? (
+          <span className="text-right text-[10px] font-medium text-amber-600 dark:text-amber-400" title="Le jalon utilise une date unique">
+            Jalon
+          </span>
+        ) : (
           <EditableDate
             value={task.start_date}
             onCommit={(v) => onField('start_date', v)}
+            className={!task.start_date ? 'text-red-500 font-medium' : undefined}
           />
         )
 
@@ -878,12 +940,15 @@ function TaskTableRow({
         return (
           <EditableDate
             value={task.due_date}
-            onCommit={(v) => onField('due_date', v)}
-            className={overdue ? 'text-red-500 font-semibold' : undefined}
+            onCommit={(v) => onField(task.is_milestone ? 'milestone_date' : 'due_date', v)}
+            className={overdue || !task.due_date ? 'text-red-500 font-semibold' : task.is_milestone ? 'text-amber-600 dark:text-amber-400 font-semibold' : undefined}
           />
         )
 
       case 'duration':
+        if (task.is_milestone) {
+          return <span className="text-right text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400">0j</span>
+        }
         // When user edits duration manually, we only adjust due_date if
         // start_date is set; otherwise we no-op (the field is read-only).
         return task.start_date ? (
@@ -894,8 +959,8 @@ function TaskTableRow({
             onCommit={(v) => onDuration(v)}
           />
         ) : (
-          <span className="text-right text-[10px] text-muted-foreground/60 italic" title="Définir d'abord une date de début">
-            {duration != null ? `${duration}j` : '—'}
+          <span className="text-right text-[10px] font-medium text-red-500" title="Définir d'abord les dates de planification">
+            {duration != null ? `${duration}j` : 'À dater'}
           </span>
         )
 
@@ -922,6 +987,18 @@ function TaskTableRow({
               'text-muted-foreground/60',
             )}
           />
+        )
+
+      case 'predecessors':
+        return predecessors.length > 0 ? (
+          <div className="flex min-w-0 items-center gap-1">
+            <Link2 size={10} className="shrink-0 text-muted-foreground" />
+            <span className="truncate text-[10px] text-muted-foreground" title={predecessors.map(dep => dep.title).join('\n')}>
+              {predecessors.map(dep => dep.label).join(', ')}
+            </span>
+          </div>
+        ) : (
+          <span className="text-[10px] text-muted-foreground/40">--</span>
         )
 
       case 'meteo':

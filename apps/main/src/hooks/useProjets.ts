@@ -377,6 +377,26 @@ function invalidatePlannerViewsFromTask(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
 }
 
+function patchTaskInCacheData(data: unknown, taskId: string, payload: ProjectTaskUpdate): unknown {
+  if (Array.isArray(data)) {
+    return (data as Record<string, unknown>[]).map((task) =>
+      (task as { id?: string }).id === taskId ? { ...task, ...payload } : task,
+    )
+  }
+
+  if (data && typeof data === 'object' && Array.isArray((data as { items?: unknown[] }).items)) {
+    const page = data as { items: Record<string, unknown>[] }
+    return {
+      ...page,
+      items: page.items.map((task) =>
+        (task as { id?: string }).id === taskId ? { ...task, ...payload } : task,
+      ),
+    }
+  }
+
+  return data
+}
+
 export function useUpdateProjectTask() {
   const qc = useQueryClient()
   return useMutation({
@@ -391,6 +411,7 @@ export function useUpdateProjectTask() {
     onMutate: async ({ projectId, taskId, payload }) => {
       const queryKeys = [
         ['project-tasks', projectId] as const,
+        ['all-project-tasks'] as const,
       ]
       // Cancel any in-flight fetches so they don't overwrite our patch.
       await Promise.all(
@@ -405,13 +426,10 @@ export function useUpdateProjectTask() {
           previous.push({ key: k, data })
         }
       }
-      // Apply the patch in-place — the cache stores arrays of tasks.
+      // Apply the patch in-place for simple task arrays and paginated
+      // cross-project task lists.
       for (const { key, data } of previous) {
-        if (!Array.isArray(data)) continue
-        const next = (data as Record<string, unknown>[]).map((t) =>
-          (t as { id?: string }).id === taskId ? { ...t, ...payload } : t,
-        )
-        qc.setQueryData(key, next)
+        qc.setQueryData(key, patchTaskInCacheData(data, taskId, payload))
       }
       return { previous }
     },
@@ -427,6 +445,7 @@ export function useUpdateProjectTask() {
       // backend computed something (parent progress, sibling reorder)
       // we didn't predict.
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      qc.invalidateQueries({ queryKey: ['all-project-tasks'] })
       invalidatePlannerViewsFromTask(qc)
     },
   })

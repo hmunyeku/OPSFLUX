@@ -264,7 +264,7 @@ function EditableText({
         if (e.key === 'Escape') { e.preventDefault(); cancel() }
       }}
       className={cn(
-        'w-full bg-card border border-primary/40 rounded px-1 py-0.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40',
+        'w-full bg-card border border-primary/40 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40',
         className,
       )}
     />
@@ -291,7 +291,7 @@ function EditableDate({
         type="button"
         onClick={(e) => { e.stopPropagation(); setEditing(true) }}
         className={cn(
-          'w-full text-right truncate hover:bg-muted/50 rounded px-1 -mx-1 py-0.5 transition-colors text-[10px] tabular-nums',
+          'w-full text-right truncate hover:bg-muted/50 rounded px-1 -mx-1 py-0.5 transition-colors text-xs tabular-nums',
           !value && 'text-muted-foreground/60 italic',
           className,
         )}
@@ -316,7 +316,7 @@ function EditableDate({
       onKeyDown={(e) => {
         if (e.key === 'Escape') { e.preventDefault(); setDraft(dateInputValue(value)); setEditing(false) }
       }}
-      className="w-full bg-card border border-primary/40 rounded px-1 py-0.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-primary/40"
+      className="w-full bg-card border border-primary/40 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
     />
   )
 }
@@ -360,7 +360,7 @@ function EditableNumber({
       return (
         <span
           className={cn(
-            'w-full text-right truncate px-1 -mx-1 py-0.5 text-[10px] tabular-nums cursor-not-allowed',
+            'w-full text-right truncate px-1 -mx-1 py-0.5 text-xs tabular-nums cursor-not-allowed',
             value == null && 'text-muted-foreground/60 italic',
             className,
           )}
@@ -375,7 +375,7 @@ function EditableNumber({
         type="button"
         onClick={(e) => { e.stopPropagation(); setEditing(true) }}
         className={cn(
-          'w-full text-right truncate hover:bg-muted/50 rounded px-1 -mx-1 py-0.5 transition-colors text-[10px] tabular-nums',
+          'w-full text-right truncate hover:bg-muted/50 rounded px-1 -mx-1 py-0.5 transition-colors text-xs tabular-nums',
           value == null && 'text-muted-foreground/60 italic',
           className,
         )}
@@ -399,7 +399,7 @@ function EditableNumber({
         if (e.key === 'Enter') { e.preventDefault(); commit() }
         if (e.key === 'Escape') { e.preventDefault(); setDraft(value?.toString() ?? ''); setEditing(false) }
       }}
-      className="w-full bg-card border border-primary/40 rounded px-1 py-0.5 text-[10px] tabular-nums text-right focus:outline-none focus:ring-1 focus:ring-primary/40"
+      className="w-full bg-card border border-primary/40 rounded px-1 py-0.5 text-xs tabular-nums text-right focus:outline-none focus:ring-1 focus:ring-primary/40"
     />
   )
 }
@@ -699,7 +699,7 @@ export function TaskTable({
     >
       {/* Header */}
       <div
-        className="grid items-center gap-1 px-2 py-1 bg-muted/50 border-b border-border text-[9px] font-semibold uppercase tracking-wide text-muted-foreground sticky top-0 z-10"
+        className="grid items-center gap-1 px-2 py-1 bg-muted/50 border-b border-border text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sticky top-0 z-10"
         style={{ gridTemplateColumns: gridTemplate }}
       >
         {visibleColumns.map(col => (
@@ -864,7 +864,7 @@ function TaskTableRow({
         return (
           <span
             className={cn(
-              'inline-flex max-w-full items-center gap-1 truncate text-[10px] tabular-nums text-muted-foreground',
+              'inline-flex max-w-full items-center gap-1 truncate text-[11px] tabular-nums text-muted-foreground',
               task.is_milestone && 'font-medium text-amber-600 dark:text-amber-400',
             )}
             title={task.is_milestone ? 'Jalon' : task.code || undefined}
@@ -909,7 +909,7 @@ function TaskTableRow({
               value={task.title}
               onCommit={(v) => onField('title', v)}
               displayClassName={cn(
-                'text-[11px]',
+                'text-xs',
                 task.status === 'done' && 'line-through text-muted-foreground',
                 task.is_milestone && 'font-semibold text-amber-700 dark:text-amber-300',
                 hasChildren && 'font-medium',
@@ -925,7 +925,7 @@ function TaskTableRow({
 
       case 'start_date':
         return task.is_milestone ? (
-          <span className="text-right text-[10px] font-medium text-amber-600 dark:text-amber-400" title="Le jalon utilise une date unique">
+          <span className="text-right text-xs font-medium text-amber-600 dark:text-amber-400" title="Le jalon utilise une date unique">
             Jalon
           </span>
         ) : (
@@ -947,7 +947,7 @@ function TaskTableRow({
 
       case 'duration':
         if (task.is_milestone) {
-          return <span className="text-right text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400">0j</span>
+          return <span className="text-right text-xs font-medium tabular-nums text-amber-600 dark:text-amber-400">0j</span>
         }
         // When user edits duration manually, we only adjust due_date if
         // start_date is set; otherwise we no-op (the field is read-only).
@@ -959,7 +959,7 @@ function TaskTableRow({
             onCommit={(v) => onDuration(v)}
           />
         ) : (
-          <span className="text-right text-[10px] font-medium text-red-500" title="Définir d'abord les dates de planification">
+          <span className="text-right text-xs font-medium text-red-500" title="Définir d'abord les dates de planification">
             {duration != null ? `${duration}j` : 'À dater'}
           </span>
         )
@@ -993,12 +993,12 @@ function TaskTableRow({
         return predecessors.length > 0 ? (
           <div className="flex min-w-0 items-center gap-1">
             <Link2 size={10} className="shrink-0 text-muted-foreground" />
-            <span className="truncate text-[10px] text-muted-foreground" title={predecessors.map(dep => dep.title).join('\n')}>
+            <span className="truncate text-[11px] text-muted-foreground" title={predecessors.map(dep => dep.title).join('\n')}>
               {predecessors.map(dep => dep.label).join(', ')}
             </span>
           </div>
         ) : (
-          <span className="text-[10px] text-muted-foreground/40">--</span>
+          <span className="text-[11px] text-muted-foreground/40">--</span>
         )
 
       case 'meteo':
@@ -1023,7 +1023,7 @@ function TaskTableRow({
 
       case 'assignee':
         return (
-          <span className="truncate text-[10px] text-muted-foreground" title={task.assignee_name || undefined}>
+          <span className="truncate text-[11px] text-muted-foreground" title={task.assignee_name || undefined}>
             {task.assignee_name || '—'}
           </span>
         )
@@ -1049,7 +1049,7 @@ function TaskTableRow({
     <div
       ref={setNodeRef}
       className={cn(
-        'grid items-center gap-1 px-2 border-b border-border/30 last:border-0 text-[11px] cursor-pointer',
+        'grid items-center gap-1 px-2 border-b border-border/30 last:border-0 text-xs cursor-pointer',
         rowHeight,
         isSelected
           ? 'bg-primary/10 ring-1 ring-inset ring-primary/40'

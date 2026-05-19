@@ -762,7 +762,7 @@ function TaskRow({
 
         {/* Title (flex-1, truncates) — keeps the strikethrough for done tasks */}
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <span className={cn('truncate font-semibold leading-5', task.status === 'done' && 'line-through text-muted-foreground')}>{task.title}</span>
+          <span className={cn('truncate text-[13px] font-semibold leading-5', task.status === 'done' && 'line-through text-muted-foreground')}>{task.title}</span>
           {hasChildren && subAgg && (
             <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground tabular-nums">
               {subAgg.done}/{subAgg.total}
@@ -809,7 +809,7 @@ function TaskRow({
         {task.start_date || task.due_date ? (
           <span
             className={cn(
-              'hidden sm:flex items-center gap-0.5 text-[11px] tabular-nums justify-end',
+              'hidden sm:flex items-center gap-0.5 text-xs tabular-nums justify-end',
               overdue ? 'text-red-500 font-semibold' : 'text-muted-foreground',
             )}
             title={
@@ -834,14 +834,14 @@ function TaskRow({
         )}
 
         {/* Durée — fixed width slot so columns align across rows */}
-        <span className="hidden sm:block text-[11px] tabular-nums text-muted-foreground text-right" title={durationDays ? `Durée ${durationDays} j` : t('projets.detail.duration.undefined')}>
+        <span className="hidden sm:block text-xs tabular-nums text-muted-foreground text-right" title={durationDays ? `Durée ${durationDays} j` : t('projets.detail.duration.undefined')}>
           {durationDays ? `${durationDays}j` : '—'}
         </span>
 
         {/* Progress % — color-coded mini chip; always shown so the column is stable */}
         <span
           className={cn(
-            'text-right text-[11px] tabular-nums font-semibold',
+            'text-right text-xs tabular-nums font-semibold',
             displayProgress >= 100 ? 'text-green-600' :
             overdue ? 'text-red-500' :
             displayProgress >= 50 ? 'text-primary' :
@@ -856,7 +856,7 @@ function TaskRow({
         {/* Assignee — hidden on small to keep the row tight */}
         {task.assignee_name ? (
           <span
-            className="hidden md:inline text-muted-foreground text-[11px] truncate"
+            className="hidden md:inline text-muted-foreground text-xs truncate"
             title={task.assignee_name}
           >
             {task.assignee_name}
@@ -2398,7 +2398,7 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
           />
         ) : (
           <div role="tree" aria-label={t('projets.detail.task_tree_aria')} className="border border-border/40 rounded-md overflow-hidden max-h-[420px] overflow-y-auto bg-card/20">
-            <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_34px_44px_28px] sm:grid-cols-[minmax(0,1fr)_34px_116px_42px_44px_28px] md:grid-cols-[minmax(0,1fr)_34px_116px_42px_44px_minmax(76px,100px)_28px] items-center gap-2 border-b border-border/50 bg-muted/60 px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_34px_44px_28px] sm:grid-cols-[minmax(0,1fr)_34px_116px_42px_44px_28px] md:grid-cols-[minmax(0,1fr)_34px_116px_42px_44px_minmax(76px,100px)_28px] items-center gap-2 border-b border-border/50 bg-muted/60 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               <span>Tâche</span>
               <span className="text-center">Météo</span>
               <span className="hidden sm:block text-right">Dates</span>

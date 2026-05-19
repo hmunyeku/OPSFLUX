@@ -6,8 +6,10 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FolderKanban, Loader2, Users } from 'lucide-react'
+import { DataTableToolbar, type DataTableFilterDef } from '@/components/ui/DataTable'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -16,7 +18,9 @@ import { useProjectFilter } from '@/hooks/useProjectFilter'
 import { useAllProjectTasks, useUpdateProjectTask } from '@/hooks/useProjets'
 import type { ProjectTaskEnriched } from '@/types/api'
 import {
-  PROJECT_PRIORITY_LABELS_FALLBACK,
+  PROJECT_PRIORITY_LABELS_FALLBACK, PROJECT_PRIORITY_VALUES,
+  PROJECT_TASK_STATUS_LABELS_FALLBACK, PROJECT_TASK_STATUS_VALUES,
+  buildDictionaryOptions,
   TaskStatusIcon,
 } from '../shared'
 
@@ -26,6 +30,21 @@ const KANBAN_COLUMNS: { status: string; label: string; color: string }[] = [
   { status: 'review', label: 'Revue', color: 'border-yellow-400' },
   { status: 'done', label: 'Terminé', color: 'border-green-500' },
 ]
+
+function activeFilterValues(raw: unknown): string[] {
+  if (raw == null || raw === '') return []
+  if (Array.isArray(raw)) return raw.map(String)
+  if (typeof raw === 'object') {
+    const value = raw as { value?: unknown; values?: unknown[] }
+    if (Array.isArray(value.values)) return value.values.map(String)
+    if (value.value != null) return [String(value.value)]
+  }
+  return [String(raw)]
+}
+
+function isNegatedFilter(raw: unknown): boolean {
+  return Boolean(raw && typeof raw === 'object' && !Array.isArray(raw) && (raw as { operator?: string }).operator === 'is_not')
+}
 
 function KanbanCard({ task }: { task: ProjectTaskEnriched }) {
   const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
@@ -125,7 +144,7 @@ function KanbanColumn({
   return (
     <div
       className={cn(
-        'flex flex-col min-w-[200px] flex-1 rounded-lg border-t-2 bg-muted/30 transition-colors',
+        'flex min-h-[180px] flex-col rounded-lg border-t-2 bg-muted/30 transition-colors',
         color,
         isOver && 'bg-primary/5 ring-2 ring-primary/30',
       )}
@@ -137,7 +156,7 @@ function KanbanColumn({
         <span className="text-xs font-semibold">{label}</span>
         <span className="text-[10px] tabular-nums px-1.5 py-0 rounded bg-background text-muted-foreground">{tasks.length}</span>
       </div>
-      <div className="p-1.5 space-y-1.5 flex-1 overflow-y-auto max-h-[calc(100vh-220px)]">
+      <div className="p-1.5 space-y-1.5 flex-1 overflow-y-auto min-h-0">
         {tasks.map(t => (
           <KanbanCard key={t.id} task={t} />
         ))}
@@ -155,6 +174,19 @@ export function KanbanView() {
   const [showSelector, setShowSelector] = useState(false)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
+  const [activeFilters, setActiveFilters] = useFilterPersistence<Record<string, unknown>>('projets.kanban.filters', {})
+  const taskStatusLabels = useDictionaryLabels('project_task_status', PROJECT_TASK_STATUS_LABELS_FALLBACK)
+  const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
+  const taskStatusOptions = useMemo(() => buildDictionaryOptions(taskStatusLabels, PROJECT_TASK_STATUS_VALUES), [taskStatusLabels])
+  const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
+  const taskFilters = useMemo<DataTableFilterDef[]>(() => [
+    { id: 'status', label: 'Statut', type: 'multi-select', operators: ['is', 'is_not'], options: taskStatusOptions },
+    { id: 'priority', label: 'Priorité', type: 'multi-select', operators: ['is', 'is_not'], options: projectPriorityOptions },
+    { id: 'kind', label: 'Type', type: 'select', operators: ['is', 'is_not'], options: [
+      { value: 'task', label: 'Tâche' },
+      { value: 'milestone', label: 'Jalon' },
+    ] },
+  ], [projectPriorityOptions, taskStatusOptions])
   const { data: tasksData, isLoading } = useAllProjectTasks({
     page: 1, page_size: 500,
     search: debouncedSearch || undefined,
@@ -162,12 +194,37 @@ export function KanbanView() {
   const { toast } = useToast()
   const updateTask = useUpdateProjectTask()
 
+  const handleFilterChange = useCallback((filterId: string, value: unknown) => {
+    setActiveFilters(prev => {
+      const next = { ...prev }
+      if (value === undefined || value === null || value === '') delete next[filterId]
+      else next[filterId] = value
+      return next
+    })
+  }, [setActiveFilters])
+
   const allTasks = tasksData?.items ?? []
   // Filter tasks by project selection (shared across views)
   const tasks = useMemo(() => {
-    if (!filteredProjectIds) return allTasks
-    return allTasks.filter(t => filteredProjectIds.has(t.project_id))
-  }, [allTasks, filteredProjectIds])
+    const projectScoped = filteredProjectIds ? allTasks.filter(t => filteredProjectIds.has(t.project_id)) : allTasks
+    const statusValues = activeFilterValues(activeFilters.status)
+    const priorityValues = activeFilterValues(activeFilters.priority)
+    const kindValues = activeFilterValues(activeFilters.kind)
+    const statusNegated = isNegatedFilter(activeFilters.status)
+    const priorityNegated = isNegatedFilter(activeFilters.priority)
+    const kindNegated = isNegatedFilter(activeFilters.kind)
+
+    return projectScoped.filter(task => {
+      const matchesStatus = statusValues.length === 0 || statusValues.includes(task.status)
+      const matchesPriority = priorityValues.length === 0 || priorityValues.includes(task.priority)
+      const kind = task.is_milestone ? 'milestone' : 'task'
+      const matchesKind = kindValues.length === 0 || kindValues.includes(kind)
+
+      return (statusNegated ? !matchesStatus : matchesStatus)
+        && (priorityNegated ? !matchesPriority : matchesPriority)
+        && (kindNegated ? !matchesKind : matchesKind)
+    })
+  }, [activeFilters, allTasks, filteredProjectIds])
 
   const columns = useMemo(() => {
     const map = new Map<string, ProjectTaskEnriched[]>()
@@ -193,13 +250,34 @@ export function KanbanView() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30">
+      <DataTableToolbar
+        toolbarLeft={
+          <button
+            onClick={() => setShowSelector(true)}
+            className={cn('inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs whitespace-nowrap', isFiltered ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground')}
+            title="Choisir les projets affichés"
+          >
+            <FolderKanban size={13} className="text-primary" />
+            {isFiltered ? `${selection.projectIds.length} projet(s)` : 'Sélection'}
+          </button>
+        }
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Recherche libre : tâche, réf., projet, statut, priorité, responsable..."
+        filters={taskFilters}
+        activeFilters={activeFilters}
+        onFilterChange={handleFilterChange}
+        currentViewMode="table"
+        onViewModeChange={() => undefined}
+        totalCount={tasks.length}
+      />
+      <div className="hidden">
         <FolderKanban size={14} className="text-primary" />
         <button
           onClick={() => setShowSelector(true)}
           className={cn('px-2 py-1 rounded border text-xs', isFiltered ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground')}
         >
-          {isFiltered ? `${selection.projectIds.length} projet(s)` : 'Tous les projets'}
+          {isFiltered ? `${selection.projectIds.length} projet(s)` : 'Sélection'}
         </button>
         <input
           type="text"
@@ -208,7 +286,6 @@ export function KanbanView() {
           placeholder="Rechercher une tâche…"
           className="text-xs border border-border rounded px-2 py-1 bg-background flex-1 max-w-[260px]"
         />
-        <span className="text-xs text-muted-foreground ml-auto">Glisser-déposer pour changer le statut</span>
       </div>
       <ProjectSelectorModal open={showSelector} onClose={() => setShowSelector(false)} selection={selection} onSelectionChange={setSelection} />
       {isLoading ? (
@@ -216,8 +293,8 @@ export function KanbanView() {
           <Loader2 size={16} className="animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex-1 overflow-hidden p-3">
-          <div className="flex gap-3 h-full">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3">
+          <div className="grid min-h-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {KANBAN_COLUMNS.map(col => (
               <KanbanColumn
                 key={col.status}

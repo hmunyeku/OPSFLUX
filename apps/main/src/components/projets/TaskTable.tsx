@@ -91,17 +91,17 @@ export const DEFAULT_COLUMNS: TaskTableColumn[] = [
   // active assignee trop tot). Reduction de TOUTES les largeurs fixes pour
   // tenir sous 600px hors title. Et `assignee.hideBelow` releve a 760 pour
   // que la breakpoint laisse une vraie marge (anti-debordement).
-  { id: 'drag',         width: '20px',          label: '',          align: 'center',         hideBelow: 480 },
-  { id: 'wbs',          width: '48px',          label: 'WBS',                                hideBelow: 540 },
+  { id: 'drag',         width: '20px',          label: '',          align: 'center',         hideBelow: 700 },
+  { id: 'wbs',          width: '48px',          label: 'WBS',                                hideBelow: 700 },
   { id: 'status',       width: '20px' },
-  { id: 'title',        width: 'minmax(110px, 1fr)', label: 'Tâche' },
-  { id: 'start_date',   width: '78px',          label: 'Début',     align: 'right',          hideBelow: 380 },
+  { id: 'title',        width: 'minmax(96px, 1fr)', label: 'Tâche' },
+  { id: 'start_date',   width: '78px',          label: 'Début',     align: 'right',          hideBelow: 640 },
   { id: 'due_date',     width: '78px',          label: 'Fin / jalon', align: 'right' },
-  { id: 'duration',     width: '48px',          label: 'Dur.',      align: 'right',          hideBelow: 460 },
+  { id: 'duration',     width: '48px',          label: 'Dur.',      align: 'right',          hideBelow: 620 },
   { id: 'progress',     width: '44px',          label: '%',         align: 'right' },
   { id: 'predecessors', width: '92px',          label: 'Pred.',                              hideBelow: 680 },
-  { id: 'meteo',        width: '20px',          label: '',          align: 'center',         hideBelow: 360 },
-  { id: 'planner',      width: '30px',          label: '',          align: 'center',         hideBelow: 320 },
+  { id: 'meteo',        width: '20px',          label: '',          align: 'center',         hideBelow: 520 },
+  { id: 'planner',      width: '30px',          label: '',          align: 'center',         hideBelow: 560 },
   { id: 'assignee',     width: '88px',          label: 'Assigné',                            hideBelow: 760 },
   { id: 'actions',      width: '24px',          label: '',          align: 'center' },
 ]
@@ -689,10 +689,10 @@ export function TaskTable({
         // interne pousser la largeur intrinseque -> table debordait du
         // panel detail Projet (cf screenshots utilisateur 14 mai 2026).
         // `min-w-0` casse la largeur intrinseque min-content du flex item ;
-        // `w-full` ancre la largeur au parent. Le `overflow-x-auto` permet
-        // un fallback scroll horizontal si jamais le ResizeObserver rate
-        // une transition (au lieu de cacher avec overflow-hidden).
-        'border border-border rounded-md bg-card/30 flex flex-col w-full min-w-0 overflow-x-auto overflow-y-hidden',
+        // `w-full` ancre la largeur au parent. On cache l'overflow-x et
+        // on retire les colonnes secondaires via ResizeObserver afin que
+        // le panel mobile ne crée jamais de scroll horizontal global.
+        'border border-border rounded-md bg-card/30 flex flex-col w-full min-w-0 overflow-x-hidden overflow-y-hidden',
         className,
       )}
       style={{ maxHeight }}

@@ -3791,7 +3791,7 @@ async def get_activity_feed(project_id: UUID, limit: int = 50, entity_id: UUID =
         .order_by(ProjectSituation.captured_at.desc())
         .limit(limit)
     )).all():
-        body = (s.situation_text or "").strip()
+        body = (s.situation_summary or "").strip() or (s.situation_text or "").strip()
         if not body:
             bits = [f"{s.progress}%"]
             if s.weather: bits.append(s.weather)
@@ -3891,6 +3891,7 @@ def _serialise_situation(s, captured_by_name: str | None) -> dict:
         "progress": s.progress,
         "weather": s.weather,
         "trend": s.trend,
+        "situation_summary": s.situation_summary,
         "situation_text": s.situation_text,
         "metrics": s.metrics or {},
     }
@@ -3983,6 +3984,7 @@ async def create_project_situation(
         progress=int(project.progress or 0),
         weather=body.weather or project.weather,
         trend=body.trend or project.trend,
+        situation_summary=(body.situation_summary or "").strip()[:220] or None,
         situation_text=(body.situation_text or "").strip() or None,
         metrics=metrics,
     )
@@ -4018,6 +4020,30 @@ async def list_project_situations(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+@router.delete("/{project_id}/situations/{situation_id}", status_code=204)
+async def delete_project_situation(
+    project_id: UUID,
+    situation_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete an erroneous situation snapshot from the project history."""
+    await _get_project_or_404(db, project_id, entity_id)
+    situation = (await db.execute(
+        select(ProjectSituation)
+        .where(
+            ProjectSituation.id == situation_id,
+            ProjectSituation.project_id == project_id,
+        )
+    )).scalar_one_or_none()
+    if not situation:
+        raise HTTPException(status_code=404, detail="Situation not found")
+    await db.delete(situation)
+    await db.commit()
+    return None
+
+
 # Project Teams (SUP-0040) — attache une equipe a un projet
 # ═══════════════════════════════════════════════════════════════════════════════
 

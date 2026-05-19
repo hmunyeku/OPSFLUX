@@ -2132,10 +2132,12 @@ class ProjectTaskEnriched(ProjectTaskRead):
 class ProjectSituationCreate(BaseModel):
     """Payload for POST /projects/{id}/situations.
 
-    Only the situation_text + (optional) weather/trend are user-driven.
+    Only the situation_summary, situation_text + (optional) weather/trend
+    are user-driven.
     Progress and computed `metrics` are derived server-side from the
     current project state at capture time.
     """
+    situation_summary: str | None = Field(default=None, max_length=220)
     situation_text: str | None = None
     # When set, also persists weather/trend on the Project row so the
     # KPI strip stays in sync with the latest snapshot.
@@ -2152,6 +2154,7 @@ class ProjectSituationRead(OpsFluxSchema):
     progress: int
     weather: str | None = None
     trend: str | None = None
+    situation_summary: str | None = None
     situation_text: str | None = None
     metrics: dict[str, Any] = {}
 

@@ -141,7 +141,7 @@ function _OldDashboardView_REMOVED() {
           onClick={() => setShowSelector(true)}
           className={cn('px-2 py-1 rounded border text-xs', isFiltered ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground')}
         >
-          {isFiltered ? `${selection.projectIds.length} projet(s) sélectionnés` : 'Tous les projets'}
+          {isFiltered ? `${selection.projectIds.length} projet(s) sélectionnés` : 'Sélection'}
         </button>
         {isFiltered && <span className="text-xs text-muted-foreground">{projects.length} projets · {tasks.length} tâches affichées</span>}
       </div>

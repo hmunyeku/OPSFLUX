@@ -50,6 +50,7 @@ import { useUserPref } from '@/hooks/useFilterPersistence'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
+import { DataTableToolbar, type DataTableFilterDef } from '@/components/ui/DataTable'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -1959,6 +1960,8 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
   const [createParentTaskId, setCreateParentTaskId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
+  const [taskTypeFilter, setTaskTypeFilter] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'order' | 'due_date' | 'priority' | 'progress'>('order')
   // 'list' = legacy hierarchical row layout
   // 'table' = new editable TaskTable (sticky header, inline edit)
@@ -2070,21 +2073,35 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
     cancelled: tasks.filter(t => t.status === 'cancelled').length,
   }), [tasks])
 
-  // Apply filters: search across title + status filter.
+  // Apply filters: visual query tokens + free search across the fields
+  // that operators actually use when scanning a task list.
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase()
     return tasks.filter(t => {
       if (statusFilter && t.status !== statusFilter) return false
-      if (s && !(t.title || '').toLowerCase().includes(s)) return false
+      if (priorityFilter && (t.priority ?? 'medium') !== priorityFilter) return false
+      if (taskTypeFilter === 'milestone' && !t.is_milestone) return false
+      if (taskTypeFilter === 'task' && t.is_milestone) return false
+      if (s) {
+        const haystack = [
+          t.title,
+          t.code,
+          t.description,
+          t.status,
+          t.priority,
+          t.assignee_name,
+        ].filter(Boolean).join(' ').toLowerCase()
+        if (!haystack.includes(s)) return false
+      }
       return true
     })
-  }, [tasks, search, statusFilter])
+  }, [tasks, search, statusFilter, priorityFilter, taskTypeFilter])
 
   // When filters are active, show a flat sorted list (no hierarchy) so
   // the matching tasks aren't hidden under a collapsed parent. Fallback
   // to the hierarchical tree only when no filter is applied — that's
   // the typical reading mode for medium projects with WBS structure.
-  const isFiltered = !!search.trim() || !!statusFilter
+  const isFiltered = !!search.trim() || !!statusFilter || !!priorityFilter || !!taskTypeFilter
 
   const sorted = useMemo(() => {
     const list = [...filtered]
@@ -2182,6 +2199,72 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
     { value: 'cancelled', label: t('projets.detail.task_filters.cancelled'), cls: 'bg-red-500/5 text-red-500', count: counts.cancelled },
   ]
   const completionRate = tasks.length > 0 ? Math.round((counts.done / tasks.length) * 100) : 0
+  const taskPriorityCounts = useMemo(() => ({
+    low: tasks.filter(t => t.priority === 'low').length,
+    medium: tasks.filter(t => !t.priority || t.priority === 'medium').length,
+    high: tasks.filter(t => t.priority === 'high').length,
+    critical: tasks.filter(t => t.priority === 'critical').length,
+  }), [tasks])
+  const taskTypeCounts = useMemo(() => ({
+    task: tasks.filter(t => !t.is_milestone).length,
+    milestone: tasks.filter(t => t.is_milestone).length,
+  }), [tasks])
+  const taskSearchFilters = useMemo<DataTableFilterDef[]>(() => [
+    {
+      id: 'status',
+      label: 'Statut',
+      type: 'select',
+      operators: ['is'],
+      options: STATUS_PILLS.map(p => ({ label: `${p.label} (${p.count})`, value: p.value })),
+    },
+    {
+      id: 'priority',
+      label: 'Priorité',
+      type: 'select',
+      operators: ['is'],
+      options: [
+        { value: 'critical', label: `Critique (${taskPriorityCounts.critical})` },
+        { value: 'high', label: `Haute (${taskPriorityCounts.high})` },
+        { value: 'medium', label: `Moyenne (${taskPriorityCounts.medium})` },
+        { value: 'low', label: `Basse (${taskPriorityCounts.low})` },
+      ],
+    },
+    {
+      id: 'type',
+      label: 'Type',
+      type: 'select',
+      operators: ['is'],
+      options: [
+        { value: 'task', label: `Tâche (${taskTypeCounts.task})` },
+        { value: 'milestone', label: `Jalon (${taskTypeCounts.milestone})` },
+      ],
+    },
+    {
+      id: 'sort',
+      label: 'Tri',
+      type: 'select',
+      operators: ['is'],
+      options: [
+        { value: 'order', label: 'Ordre WBS' },
+        { value: 'due_date', label: 'Date' },
+        { value: 'priority', label: 'Priorité' },
+        { value: 'progress', label: 'Avancement' },
+      ],
+    },
+  ], [STATUS_PILLS, taskPriorityCounts, taskTypeCounts])
+  const taskActiveFilters = useMemo(() => ({
+    ...(statusFilter ? { status: statusFilter } : {}),
+    ...(priorityFilter ? { priority: priorityFilter } : {}),
+    ...(taskTypeFilter ? { type: taskTypeFilter } : {}),
+    sort: sortBy,
+  }), [statusFilter, priorityFilter, taskTypeFilter, sortBy])
+  const handleTaskVisualFilterChange = useCallback((filterId: string, value: unknown) => {
+    const scalar = typeof value === 'string' ? value : null
+    if (filterId === 'status') setStatusFilter(scalar)
+    if (filterId === 'priority') setPriorityFilter(scalar)
+    if (filterId === 'type') setTaskTypeFilter(scalar)
+    if (filterId === 'sort') setSortBy((scalar as typeof sortBy) || 'order')
+  }, [])
   const toolbarIconClass = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35'
   const toolbarIconActiveClass = 'bg-primary/10 text-primary'
 
@@ -2230,9 +2313,24 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
 
       {/* Toolbar: search · sort · view toggle · fullscreen */}
       {tasks.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <div className="mb-3 space-y-2">
           {tasks.length > 4 && (
-            <div className="flex min-w-[240px] flex-[1_1_340px] items-center gap-1.5">
+            <div className="min-w-0 overflow-visible rounded-md border border-border/40">
+              <DataTableToolbar
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Recherche libre : tâche, réf., statut, priorité, responsable..."
+                filters={taskSearchFilters}
+                activeFilters={taskActiveFilters}
+                onFilterChange={handleTaskVisualFilterChange}
+                currentViewMode="table"
+                onViewModeChange={() => undefined}
+                totalCount={sorted.length}
+              />
+            </div>
+          )}
+          {false && tasks.length > 4 && (
+            <div className="hidden min-w-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(96px,116px)] items-center gap-1.5 sm:min-w-[240px] sm:flex-[1_1_340px]">
               <div className="relative min-w-0 flex-1">
                 <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
                 <input
@@ -2254,7 +2352,7 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                className={`${panelInputClass} h-8 w-[116px] shrink-0 truncate px-2 text-xs`}
+                className={`${panelInputClass} h-8 w-full min-w-0 truncate px-2 text-xs`}
                 title="Trier par"
               >
                 <option value="order">Ordre WBS</option>

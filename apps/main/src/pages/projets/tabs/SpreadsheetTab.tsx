@@ -10,9 +10,10 @@ import {
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { InlineEditConfig } from '@/components/ui/DataTable/types'
+import type { DataTableFilterDef, InlineEditConfig } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -304,10 +305,46 @@ function filterTasksForSearch(
   return tasks.filter(task => keepIds.has(task.id))
 }
 
+function activeFilterValues(raw: unknown): string[] {
+  if (raw == null || raw === '') return []
+  if (Array.isArray(raw)) return raw.map(String)
+  if (typeof raw === 'object') {
+    const value = raw as { value?: unknown; values?: unknown[] }
+    if (Array.isArray(value.values)) return value.values.map(String)
+    if (value.value != null) return [String(value.value)]
+  }
+  return [String(raw)]
+}
+
+function isNegatedFilter(raw: unknown): boolean {
+  return Boolean(raw && typeof raw === 'object' && !Array.isArray(raw) && (raw as { operator?: string }).operator === 'is_not')
+}
+
+function filterTasksPreservingAncestors(
+  tasks: ProjectTaskEnriched[],
+  predicate: (task: ProjectTaskEnriched) => boolean,
+): ProjectTaskEnriched[] {
+  const byId = new Map(tasks.map(task => [task.id, task]))
+  const keepIds = new Set<string>()
+
+  for (const task of tasks) {
+    if (!predicate(task)) continue
+    keepIds.add(task.id)
+    let parent = task.parent_id ? byId.get(task.parent_id) : undefined
+    while (parent) {
+      keepIds.add(parent.id)
+      parent = parent.parent_id ? byId.get(parent.parent_id) : undefined
+    }
+  }
+
+  return tasks.filter(task => keepIds.has(task.id))
+}
+
 export function SpreadsheetView() {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
+  const [activeFilters, setActiveFilters] = useFilterPersistence<Record<string, unknown>>('projets.spreadsheet.filters', {})
   const { selection, setSelection, filteredProjectIds, isFiltered } = useProjectFilter()
   const [showSelector, setShowSelector] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
@@ -319,6 +356,23 @@ export function SpreadsheetView() {
   const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
   const taskStatusOptions = useMemo(() => buildDictionaryOptions(taskStatusLabels, PROJECT_TASK_STATUS_VALUES), [taskStatusLabels])
   const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
+  const taskFilters = useMemo<DataTableFilterDef[]>(() => [
+    { id: 'status', label: 'Statut', type: 'multi-select', operators: ['is', 'is_not'], options: taskStatusOptions },
+    { id: 'priority', label: 'Priorité', type: 'multi-select', operators: ['is', 'is_not'], options: projectPriorityOptions },
+    { id: 'kind', label: 'Type', type: 'select', operators: ['is', 'is_not'], options: [
+      { value: 'task', label: 'Tâche' },
+      { value: 'milestone', label: 'Jalon' },
+    ] },
+  ], [projectPriorityOptions, taskStatusOptions])
+
+  const handleFilterChange = useCallback((filterId: string, value: unknown) => {
+    setActiveFilters(prev => {
+      const next = { ...prev }
+      if (value === undefined || value === null || value === '') delete next[filterId]
+      else next[filterId] = value
+      return next
+    })
+  }, [setActiveFilters])
 
   // Fetch ALL tasks for tree building (no pagination — tree needs all data)
   const { data, isLoading } = useAllProjectTasks({
@@ -331,9 +385,29 @@ export function SpreadsheetView() {
     return items.filter(t => filteredProjectIds.has(t.project_id))
   }, [data, filteredProjectIds])
 
+  const filteredTasks = useMemo(() => {
+    const statusValues = activeFilterValues(activeFilters.status)
+    const priorityValues = activeFilterValues(activeFilters.priority)
+    const kindValues = activeFilterValues(activeFilters.kind)
+    const statusNegated = isNegatedFilter(activeFilters.status)
+    const priorityNegated = isNegatedFilter(activeFilters.priority)
+    const kindNegated = isNegatedFilter(activeFilters.kind)
+
+    return filterTasksPreservingAncestors(projectScopedTasks, (task) => {
+      const matchesStatus = statusValues.length === 0 || statusValues.includes(task.status)
+      const matchesPriority = priorityValues.length === 0 || priorityValues.includes(task.priority)
+      const kind = task.is_milestone ? 'milestone' : 'task'
+      const matchesKind = kindValues.length === 0 || kindValues.includes(kind)
+
+      return (statusNegated ? !matchesStatus : matchesStatus)
+        && (priorityNegated ? !matchesPriority : matchesPriority)
+        && (kindNegated ? !matchesKind : matchesKind)
+    })
+  }, [activeFilters, projectScopedTasks])
+
   const allTasks = useMemo(
-    () => filterTasksForSearch(projectScopedTasks, debouncedSearch, taskStatusLabels, projectPriorityLabels),
-    [projectScopedTasks, debouncedSearch, taskStatusLabels, projectPriorityLabels],
+    () => filterTasksForSearch(filteredTasks, debouncedSearch, taskStatusLabels, projectPriorityLabels),
+    [filteredTasks, debouncedSearch, taskStatusLabels, projectPriorityLabels],
   )
 
   // Auto-expand all projects on first load
@@ -581,27 +655,27 @@ export function SpreadsheetView() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Project filter bar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30">
-        <Sheet size={14} className="text-primary" />
-        <button
-          onClick={() => setShowSelector(true)}
-          className={cn('px-2 py-1 rounded border text-xs', isFiltered ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground')}
-        >
-          {isFiltered ? `${selection.projectIds.length} projet(s)` : 'Tous les projets'}
-        </button>
-        <span className="text-xs text-muted-foreground">{treeRows.length} lignes</span>
-        <span className="text-xs text-muted-foreground ml-auto">Double-clic sur une cellule pour éditer</span>
-      </div>
-
       <div className="flex-1 overflow-hidden">
         <DataTable<SpreadsheetRow>
           columns={columns}
           data={treeRows}
           isLoading={isLoading}
+          toolbarLeft={
+            <button
+              onClick={() => setShowSelector(true)}
+              className={cn('inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs whitespace-nowrap', isFiltered ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground')}
+              title="Choisir les projets affichés"
+            >
+              <Sheet size={13} className="text-primary" />
+              {isFiltered ? `${selection.projectIds.length} projet(s)` : 'Sélection'}
+            </button>
+          }
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Recherche libre : tâche, réf., projet, statut, priorité, responsable..."
+          filters={taskFilters}
+          activeFilters={activeFilters}
+          onFilterChange={handleFilterChange}
           inlineEdit={inlineEdit}
           emptyIcon={Sheet}
           emptyTitle="Aucune tâche"

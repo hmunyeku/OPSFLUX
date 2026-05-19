@@ -129,7 +129,7 @@ export function ProjectGanttWrapper() {
 
   // Project selection
   const [showProjectSelector, setShowProjectSelector] = useState(false)
-  const projectSelection: ProjectSelection = getPref('gantt_project_selection', { mode: 'all', projectIds: [] })
+  const projectSelection: ProjectSelection = getPref('view_project_selection', { mode: 'all', projectIds: [] })
 
   const allProjects = pd?.items ?? []
   const projects = useMemo(() => {
@@ -1030,7 +1030,7 @@ export function ProjectGanttWrapper() {
         onClick={() => setShowProjectSelector(true)}
         className="text-xs px-2.5 py-1 rounded-md border border-border hover:bg-muted transition-colors"
       >
-        {projectSelection.mode === 'all' ? 'Tous les projets' : `${projectSelection.projectIds.length} projet(s)`}
+        {projectSelection.mode === 'all' ? 'Sélection' : `${projectSelection.projectIds.length} projet(s)`}
       </button>
       <span className="text-[11px] text-muted-foreground whitespace-nowrap">
         {projects.length} projets · {rows.length - projects.length} tâches
@@ -1103,7 +1103,7 @@ export function ProjectGanttWrapper() {
         open={showProjectSelector}
         onClose={() => setShowProjectSelector(false)}
         selection={projectSelection}
-        onSelectionChange={(sel) => setPref('gantt_project_selection', sel)}
+        onSelectionChange={(sel) => setPref('view_project_selection', sel)}
       />
     </>
   )

@@ -649,6 +649,9 @@ export const projetsService = {
     const { data } = await api.post(`/api/v1/projects/${projectId}/situations`, payload)
     return data
   },
+  deleteSituation: async (projectId: string, situationId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/situations/${situationId}`)
+  },
 
   // ── Planner Activities (grouped) ──
   // Returns project tasks that have at least one linked PlannerActivity,

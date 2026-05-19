@@ -2241,15 +2241,16 @@ class ProjectStatusHistory(UUIDPrimaryKeyMixin, Base):
 #
 # A point-in-time capture of how a project is doing. Used by the
 # Métriques tab to:
-#   - record the team's qualitative read (situation_text + weather +
+#   - record the team's qualitative read (situation_summary +
+#     situation_text + weather +
 #     trend) at a given moment, for later audit;
 #   - compute deltas (progress evolution last week, last 4 weeks)
 #   - feed historical charts.
 #
-# Append-only — situations are never updated, only inserted. The
-# project's "current" weather/trend lives on the Project row itself
-# and is updated independently; situations capture the state at the
-# moment of saving.
+# Audit snapshots are immutable after insert; users may delete an
+# erroneous capture, but edits create a new snapshot instead. The
+# project's "current" weather/trend lives on the Project row itself and
+# is updated independently; situations capture the state at save time.
 
 class ProjectSituation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "project_situations"
@@ -2270,7 +2271,9 @@ class ProjectSituation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     weather: Mapped[str | None] = mapped_column(String(20))
     trend: Mapped[str | None] = mapped_column(String(10))
-    # Free-text qualitative situation report ("Phase 2 démarrée, 3
+    # Short headline/title for the situation report.
+    situation_summary: Mapped[str | None] = mapped_column(String(220))
+    # Detailed qualitative situation report ("Phase 2 démarrée, 3
     # blocages côté fournisseur, jalon J+5 confirmé").
     situation_text: Mapped[str | None] = mapped_column(Text)
     # Computed counts at capture time (kept as JSONB so we can extend

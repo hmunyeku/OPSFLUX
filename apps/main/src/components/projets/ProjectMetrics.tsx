@@ -24,7 +24,7 @@ import {
   Save, History, Target, ListTodo, Users, Milestone as MilestoneIcon,
   Sun, Cloud, CloudRain, CloudLightning, CloudSun,
   TrendingUp, TrendingDown, Minus,
-  Loader2, CalendarClock, Scale,
+  Loader2, CalendarClock, Scale, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProjectInsightsBar } from './ProjectInsightsBar'
@@ -33,7 +33,7 @@ import { RichTextDisplay, RichTextField } from '@/components/shared/RichTextFiel
 import { useToast } from '@/components/ui/Toast'
 import {
   useProjectSituations, useCreateProjectSituation,
-  useUpdateProject,
+  useDeleteProjectSituation, useUpdateProject,
 } from '@/hooks/useProjets'
 import type { Project, ProjectTask, ProjectMember, ProjectSituation } from '@/types/api'
 
@@ -145,8 +145,10 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
   const { t } = useTranslation()
   const { data: situations = [], isLoading } = useProjectSituations(project.id)
   const createSituation = useCreateProjectSituation()
+  const deleteSituation = useDeleteProjectSituation()
   const updateProject = useUpdateProject()
   const { toast } = useToast()
+  const [situationSummary, setSituationSummary] = useState('')
   const [situationText, setSituationText] = useState('')
 
   const lastSituation = situations[0] // newest first from backend
@@ -192,12 +194,14 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
   const hoursRemaining = Math.max(0, hoursEstimated - hoursConsumed)
 
   const handleSave = () => {
+    const payloadSummary = situationSummary.trim() || null
     const payloadText = richTextToPlainText(situationText) ? situationText.trim() : null
     createSituation.mutate(
-      { projectId: project.id, payload: { situation_text: payloadText } },
+      { projectId: project.id, payload: { situation_summary: payloadSummary, situation_text: payloadText } },
       {
         onSuccess: () => {
           toast({ title: 'Situation enregistrée', variant: 'success' })
+          setSituationSummary('')
           setSituationText('')
         },
         onError: () => toast({ title: 'Échec de l’enregistrement', variant: 'error' }),
@@ -213,8 +217,20 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
     if (trend === project.trend) return
     updateProject.mutate({ id: project.id, payload: { trend } })
   }
+  const handleDeleteSituation = (situation: ProjectSituation) => {
+    const label = situation.situation_summary || richTextToPlainText(situation.situation_text) || fmtDateTime(situation.captured_at)
+    if (!window.confirm(`Supprimer cette situation ?\n\n${label}`)) return
+    deleteSituation.mutate(
+      { projectId: project.id, situationId: situation.id },
+      {
+        onSuccess: () => toast({ title: 'Situation supprimée', variant: 'success' }),
+        onError: () => toast({ title: 'Échec de la suppression', variant: 'error' }),
+      },
+    )
+  }
 
-  const situationPlaceholder = 'Décrivez en quelques mots l’état actuel du projet…'
+  const situationSummaryPlaceholder = 'Ex. Risque fournisseur maîtrisé, jalon GO confirmé...'
+  const situationPlaceholder = 'Décrivez les faits, impacts, décisions et points de vigilance...'
 
   const renderDelta = (delta: number | null, label: string) => {
     const tone = delta == null ? 'bg-muted/60 text-muted-foreground/70'
@@ -341,19 +357,33 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
       <FormSection title={t('projets.metrics.project_status', 'Situation projet')} defaultExpanded>
         <div className="space-y-3">
           {/* Editor */}
-          <div>
-            <label className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold block mb-1.5">
-              Situation générale
-            </label>
-            <RichTextField
-              value={situationText}
-              onChange={setSituationText}
-              placeholder={situationPlaceholder}
-              rows={3}
-              compact
-              className="[&_.ProseMirror]:max-h-40 [&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:break-words [&_.ProseMirror]:[overflow-wrap:anywhere]"
-            />
-            <div className="flex flex-col gap-2 mt-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="min-w-0 space-y-2">
+            <div>
+              <label className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold block mb-1.5">
+                Situation résumé
+              </label>
+              <input
+                value={situationSummary}
+                onChange={(e) => setSituationSummary(e.target.value)}
+                maxLength={220}
+                placeholder={situationSummaryPlaceholder}
+                className="w-full min-w-0 rounded-md border border-border bg-background px-3 h-9 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/60 focus:ring-1 focus:ring-primary/30"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold block mb-1.5">
+                Situation détaillée
+              </label>
+              <RichTextField
+                value={situationText}
+                onChange={setSituationText}
+                placeholder={situationPlaceholder}
+                rows={3}
+                compact
+                className="max-w-full min-w-0 [&_.ProseMirror]:max-h-40 [&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:break-words [&_.ProseMirror]:[overflow-wrap:anywhere]"
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <span className="min-w-0 max-w-full truncate">
                 Dernière capture : <span className="text-foreground/80">{fmtDateTime(lastSituation?.captured_at)}</span>
                 {lastSituation?.captured_by_name && <span className="ml-1 italic">par {lastSituation.captured_by_name}</span>}
@@ -361,11 +391,11 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={createSituation.isPending}
-                className="inline-flex items-center gap-1.5 px-3 h-8 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors text-xs font-semibold shrink-0 self-end sm:self-auto"
+                disabled={createSituation.isPending || (!situationSummary.trim() && !richTextToPlainText(situationText))}
+                className="inline-flex items-center justify-center gap-1.5 px-3 h-8 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors text-xs font-semibold shrink-0 self-end sm:self-auto"
               >
                 {createSituation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                Enregistrer la situation
+                Enregistrer
               </button>
             </div>
           </div>
@@ -443,35 +473,82 @@ export function ProjectMetrics({ project, tasks, members, milestones }: MetricsP
                 </span>
               </div>
             ) : (
-              <div className="border border-border rounded-md overflow-hidden">
-                <div className="grid grid-cols-[120px_50px_70px_1fr_110px] gap-1 px-2 py-1.5 bg-muted/50 text-[10px] font-semibold uppercase text-muted-foreground">
+              <div className="min-w-0">
+                <div className="space-y-2 sm:hidden">
+                  {situations.map(s => (
+                    <div key={s.id} className="rounded-md border border-border bg-card/30 p-2.5 text-xs">
+                      <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
+                        <span className="min-w-0 truncate font-semibold text-foreground">
+                          {s.situation_summary || richTextToPlainText(s.situation_text) || 'Situation sans titre'}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <span className="font-medium tabular-nums">{s.progress}%</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSituation(s)}
+                            disabled={deleteSituation.isPending}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                            title="Supprimer cette situation"
+                            aria-label="Supprimer cette situation"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      {s.situation_text && (
+                        <RichTextDisplay
+                          value={s.situation_text}
+                          className="max-h-16 overflow-hidden text-xs leading-snug text-muted-foreground [&_*]:my-0 [&_p]:line-clamp-2 [&_p]:text-xs"
+                        />
+                      )}
+                      <div className="mt-2 flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
+                        <span className="truncate tabular-nums">{fmtDateTime(s.captured_at)}</span>
+                        <span className="shrink-0">·</span>
+                        <span className="shrink-0">{WEATHER_OPTIONS.find(w => w.value === s.weather)?.label ?? s.weather ?? '—'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden overflow-hidden rounded-md border border-border sm:block">
+                <div className="grid grid-cols-[120px_50px_70px_minmax(0,1fr)_110px_30px] gap-1 px-2 py-1.5 bg-muted/50 text-[10px] font-semibold uppercase text-muted-foreground">
                   <span>Date</span>
                   <span className="text-right">%</span>
                   <span>Météo</span>
-                  <span>Note</span>
+                  <span>Situation</span>
                   <span>Auteur</span>
+                  <span />
                 </div>
                 <div className="max-h-[240px] overflow-y-auto">
                   {situations.map(s => (
-                    <div key={s.id} className="grid grid-cols-[120px_50px_70px_1fr_110px] gap-1 px-2 py-1.5 text-xs border-t border-border/30 items-center">
+                    <div key={s.id} className="grid grid-cols-[120px_50px_70px_minmax(0,1fr)_110px_30px] gap-1 px-2 py-1.5 text-xs border-t border-border/30 items-center">
                       <span className="text-muted-foreground tabular-nums">{fmtDateTime(s.captured_at)}</span>
                       <span className="text-right font-medium tabular-nums">{s.progress}%</span>
                       <span className="text-muted-foreground capitalize">
                         {WEATHER_OPTIONS.find(w => w.value === s.weather)?.label ?? s.weather ?? '—'}
                       </span>
-                      <div className="min-w-0 text-foreground/90" title={richTextToPlainText(s.situation_text) || undefined}>
-                        {s.situation_text ? (
+                      <div className="min-w-0 text-foreground/90" title={richTextToPlainText(s.situation_text) || s.situation_summary || undefined}>
+                        <div className="truncate font-medium">{s.situation_summary || 'Situation sans titre'}</div>
+                        {s.situation_text && (
                           <RichTextDisplay
                             value={s.situation_text}
-                            className="max-h-10 overflow-hidden text-xs leading-snug [&_*]:my-0 [&_p]:truncate [&_p]:text-xs"
+                            className="max-h-6 overflow-hidden text-[11px] leading-snug text-muted-foreground [&_*]:my-0 [&_p]:truncate [&_p]:text-[11px]"
                           />
-                        ) : (
-                          <span className="text-muted-foreground/60 italic">—</span>
                         )}
                       </div>
                       <span className="text-muted-foreground truncate">{s.captured_by_name || '—'}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSituation(s)}
+                        disabled={deleteSituation.isPending}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                        title="Supprimer cette situation"
+                        aria-label="Supprimer cette situation"
+                      >
+                        <Trash2 size={12} />
+                      </button>
                     </div>
                   ))}
+                </div>
                 </div>
               </div>
             )}

@@ -1101,6 +1101,18 @@ export function useCreateProjectSituation() {
   })
 }
 
+export function useDeleteProjectSituation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, situationId }: { projectId: string; situationId: string }) =>
+      projetsService.deleteSituation(projectId, situationId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-situations', projectId] })
+      qc.invalidateQueries({ queryKey: ['activity-feed', projectId] })
+    },
+  })
+}
+
 // ── Planner Activities (grouped, for the Planner tab) ─────
 
 export function usePlannerActivities(projectId: string | undefined) {

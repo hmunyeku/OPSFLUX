@@ -1504,6 +1504,7 @@ export interface ProjectSituation {
   progress: number
   weather: string | null
   trend: string | null
+  situation_summary: string | null
   situation_text: string | null
   metrics: {
     tasks_total?: number
@@ -1522,6 +1523,7 @@ export interface ProjectSituation {
 }
 
 export interface ProjectSituationCreate {
+  situation_summary?: string | null
   situation_text?: string | null
   weather?: string | null
   trend?: string | null

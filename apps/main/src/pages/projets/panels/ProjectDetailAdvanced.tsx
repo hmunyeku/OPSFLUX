@@ -25,7 +25,7 @@ import {
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
-import { useDictionaryLabels } from '@/hooks/useDictionary'
+import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
 import {
   useSubProjects,
   usePlanningRevisions, useCreateRevision, useApplyRevision, useDeleteRevision,
@@ -55,10 +55,11 @@ export function WbsSection({ projectId }: { projectId: string }) {
   const { data: nodes = [] } = useWbsNodes(projectId)
   const createNode = useCreateWbsNode()
   const deleteNode = useDeleteWbsNode()
+  const wbsTypeOptions = useDictionaryOptions('project_wbs_type')
   const { toast } = useToast()
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState<{ parent_id: string; code: string; name: string; budget: string }>({
-    parent_id: '', code: '', name: '', budget: '',
+  const [form, setForm] = useState<{ parent_id: string; code: string; name: string; type_code: string; budget: string }>({
+    parent_id: '', code: '', name: '', type_code: '', budget: '',
   })
 
   // Build a tree structure for rendering
@@ -82,11 +83,12 @@ export function WbsSection({ projectId }: { projectId: string }) {
           parent_id: form.parent_id || null,
           code: form.code.trim(),
           name: form.name.trim(),
+          type_code: form.type_code || null,
           budget: form.budget ? Number(form.budget) : null,
         },
       })
       toast({ title: t('projets.toast.wbs_node_created'), variant: 'success' })
-      setForm({ parent_id: '', code: '', name: '', budget: '' })
+      setForm({ parent_id: '', code: '', name: '', type_code: '', budget: '' })
       setShowAdd(false)
     } catch (err) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t('projets.toast.error')
@@ -105,6 +107,11 @@ export function WbsSection({ projectId }: { projectId: string }) {
           <GitBranch size={10} className="text-primary shrink-0" />
           <span className="font-mono text-[10px] text-muted-foreground">{node.code}</span>
           <span className="flex-1 truncate">{node.name}</span>
+          {node.type_code && (
+            <span className="text-[9px] px-1 rounded bg-primary/10 text-primary">
+              {wbsTypeOptions.find(o => o.value === node.type_code)?.label ?? node.type_code}
+            </span>
+          )}
           {node.task_count! > 0 && (
             <span className="text-[9px] text-muted-foreground">{node.task_count} t.</span>
           )}
@@ -160,6 +167,16 @@ export function WbsSection({ projectId }: { projectId: string }) {
             <option value="">(nœud racine)</option>
             {nodes.map(n => <option key={n.id} value={n.id}>{n.code} — {n.name}</option>)}
           </select>
+          {wbsTypeOptions.length > 0 && (
+            <select
+              value={form.type_code}
+              onChange={e => setForm(f => ({ ...f, type_code: e.target.value }))}
+              className={`${panelInputClass} w-full text-xs`}
+            >
+              <option value="">Type WBS</option>
+              {wbsTypeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          )}
           <div className="grid grid-cols-[90px_1fr] gap-1.5">
             <input
               type="text"

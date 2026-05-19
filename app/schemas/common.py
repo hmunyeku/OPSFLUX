@@ -1930,6 +1930,7 @@ class ProjectMemberRead(OpsFluxSchema):
     created_at: datetime
     # Enriched
     member_name: str | None = None
+    avatar_url: str | None = None
 
 
 class ProjectMemberCreate(BaseModel):
@@ -2159,6 +2160,65 @@ class ProjectSituationRead(OpsFluxSchema):
     metrics: dict[str, Any] = {}
 
 
+class ProjectChangeRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    project_id: UUID
+    reference: str
+    title: str
+    change_type: str
+    status: str
+    priority: str
+    source: str | None = None
+    requested_by: UUID | None = None
+    requested_by_name: str | None = None
+    decided_by: UUID | None = None
+    decided_by_name: str | None = None
+    decided_at: datetime | None = None
+    description: str | None = None
+    decision_summary: str | None = None
+    planning_impact_days: int | None = None
+    budget_impact_amount: float | None = None
+    currency: str | None = None
+    affected_task_ids: list[str] | None = None
+    impact_snapshot: dict[str, Any] | None = None
+    attachment_count: int = 0
+    active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectChangeCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=220)
+    change_type: str = Field(default="other", max_length=100)
+    status: str = Field(default="draft", pattern=r"^(draft|submitted|approved|rejected|implemented|cancelled)$")
+    priority: str = Field(default="medium", pattern=r"^(low|medium|high|critical)$")
+    source: str | None = Field(default=None, max_length=100)
+    description: str | None = None
+    decision_summary: str | None = None
+    planning_impact_days: int | None = None
+    budget_impact_amount: float | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, max_length=10)
+    affected_task_ids: list[str] | None = None
+    impact_snapshot: dict[str, Any] | None = None
+
+
+class ProjectChangeUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=220)
+    change_type: str | None = Field(default=None, max_length=100)
+    status: str | None = Field(default=None, pattern=r"^(draft|submitted|approved|rejected|implemented|cancelled)$")
+    priority: str | None = Field(default=None, pattern=r"^(low|medium|high|critical)$")
+    source: str | None = Field(default=None, max_length=100)
+    description: str | None = None
+    decision_summary: str | None = None
+    planning_impact_days: int | None = None
+    budget_impact_amount: float | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, max_length=10)
+    affected_task_ids: list[str] | None = None
+    impact_snapshot: dict[str, Any] | None = None
+    active: bool | None = None
+
+
 class ProjectTaskCreate(BaseModel):
     """Bug #154 (QA200 round 39) : priority + status sans pattern Pydantic
     -> 'INVALID' acceptait silencieusement (insertion DB OK car les colonnes
@@ -2275,6 +2335,7 @@ class TaskDeliverableRead(OpsFluxSchema):
     id: UUID
     task_id: UUID
     name: str
+    type_code: str | None = None
     description: str | None = None
     status: str
     due_date: datetime | None = None
@@ -2286,6 +2347,7 @@ class TaskDeliverableRead(OpsFluxSchema):
 
 class TaskDeliverableCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=300)
+    type_code: str | None = Field(default=None, max_length=100)
     description: str | None = None
     status: str = "pending"
     due_date: datetime | None = None
@@ -2293,6 +2355,7 @@ class TaskDeliverableCreate(BaseModel):
 
 class TaskDeliverableUpdate(BaseModel):
     name: str | None = None
+    type_code: str | None = Field(default=None, max_length=100)
     description: str | None = None
     status: str | None = None
     due_date: datetime | None = None
@@ -2426,6 +2489,7 @@ class ProjectWBSNodeRead(OpsFluxSchema):
     parent_id: UUID | None = None
     code: str
     name: str
+    type_code: str | None = None
     description: str | None = None
     cost_center_id: UUID | None = None
     budget: float | None = None
@@ -2441,6 +2505,7 @@ class ProjectWBSNodeCreate(BaseModel):
     parent_id: UUID | None = None
     code: str = Field(..., min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=300)
+    type_code: str | None = Field(default=None, max_length=100)
     description: str | None = None
     cost_center_id: UUID | None = None
     budget: float | None = None
@@ -2451,6 +2516,7 @@ class ProjectWBSNodeUpdate(BaseModel):
     parent_id: UUID | None = None
     code: str | None = Field(None, min_length=1, max_length=50)
     name: str | None = Field(None, min_length=1, max_length=300)
+    type_code: str | None = Field(default=None, max_length=100)
     description: str | None = None
     cost_center_id: UUID | None = None
     budget: float | None = None

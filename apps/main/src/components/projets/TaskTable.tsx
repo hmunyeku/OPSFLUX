@@ -419,6 +419,8 @@ export interface TaskTableProps {
   density?: 'compact' | 'comfortable'
   /** Constrain table height; pass `'auto'` to let it grow. */
   maxHeight?: string | number
+  /** Optional fixed header height, used by split Gantt views to align row starts. */
+  headerHeight?: number
   /** Open the advanced editor for a task. Parent owns the modal. */
   onOpenAdvanced?: (task: ProjectTask) => void
   /** Project task dependencies; used to render predecessors in the table. */
@@ -450,6 +452,7 @@ export function TaskTable({
   hierarchical = true,
   density = 'comfortable',
   maxHeight,
+  headerHeight,
   onOpenAdvanced,
   dependencies = [],
   onRowClick,
@@ -700,7 +703,10 @@ export function TaskTable({
       {/* Header */}
       <div
         className="grid items-center gap-1 px-2 py-1 bg-muted/50 border-b border-border text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sticky top-0 z-10"
-        style={{ gridTemplateColumns: gridTemplate }}
+        style={{
+          gridTemplateColumns: gridTemplate,
+          ...(headerHeight ? { height: headerHeight, minHeight: headerHeight } : {}),
+        }}
       >
         {visibleColumns.map(col => (
           <div

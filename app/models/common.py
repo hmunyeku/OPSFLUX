@@ -2060,6 +2060,7 @@ class TaskDeliverable(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     task_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(300), nullable=False)
+    type_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     description: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")  # pending, in_progress, delivered, accepted, rejected
     due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -2135,6 +2136,7 @@ class ProjectWBSNode(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     code: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g. "1.2.3"
     name: Mapped[str] = mapped_column(String(300), nullable=False)
+    type_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     description: Mapped[str | None] = mapped_column(Text)
     cost_center_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cost_centers.id", ondelete="SET NULL")
@@ -2281,6 +2283,46 @@ class ProjectSituation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # tasks_in_progress, members, milestones, hours_estimated,
     # hours_consumed, hours_remaining, etc.
     metrics: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+
+class ProjectChange(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Management of Change entry scoped to a project.
+
+    Captures a decision, client input, technical constraint, or other change
+    with planning and financial impact. Attachments are linked through the
+    polymorphic Attachment table with owner_type='project_change'.
+    """
+
+    __tablename__ = "project_changes"
+    __table_args__ = (
+        Index("idx_project_changes_project", "project_id"),
+        Index("idx_project_changes_entity_status", "entity_id", "status"),
+        Index("idx_project_changes_reference", "entity_id", "reference", unique=True),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    reference: Mapped[str] = mapped_column(String(60), nullable=False)
+    title: Mapped[str] = mapped_column(String(220), nullable=False)
+    change_type: Mapped[str] = mapped_column(String(100), nullable=False, default="other")
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
+    priority: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
+    source: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    requested_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    decided_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    description: Mapped[str | None] = mapped_column(Text)
+    decision_summary: Mapped[str | None] = mapped_column(Text)
+    planning_impact_days: Mapped[int | None] = mapped_column(Integer)
+    budget_impact_amount: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str | None] = mapped_column(String(10))
+    affected_task_ids: Mapped[list | None] = mapped_column(JSONB)
+    impact_snapshot: Mapped[dict | None] = mapped_column(JSONB)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    project: Mapped["Project"] = relationship(foreign_keys=[project_id])
+    requester: Mapped["User | None"] = relationship(foreign_keys=[requested_by])
+    decider: Mapped["User | None"] = relationship(foreign_keys=[decided_by])
 
 
 # ─── Project Templates (save & clone projects as templates) ──────────────────

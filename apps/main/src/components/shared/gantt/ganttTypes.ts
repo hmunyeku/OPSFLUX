@@ -339,6 +339,7 @@ export interface GanttCoreProps {
 
   // ── UI ──
   emptyMessage?: string
+  timelineEmptyMessage?: string
   isLoading?: boolean
   /** Show the settings toolbar */
   showToolbar?: boolean

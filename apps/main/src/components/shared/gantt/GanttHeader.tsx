@@ -21,13 +21,12 @@ const HEADER_ROW_H = 28
 
 // Adaptive label breakpoints — tuned so the widest form always fits
 // comfortably inside the cell with a couple of pixels of breathing room.
-const DAY_BREAKPOINTS = { narrow: 22, medium: 44 } // px
+const DAY_BREAKPOINTS = { hidden: 14, sparse: 24, narrow: 34, medium: 56 } // px
 const MONTH_BREAKPOINTS = { narrow: 32, medium: 64 }
 const YEAR_GROUP_BREAKPOINTS = { narrow: 36 } // below → "25" instead of "2025"
 
 // Fr-friendly weekday letters (Monday-first is conventional in France,
 // but Date.getDay() returns 0=Sunday … so we index by that).
-const WEEKDAY_LETTER = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
 const WEEKDAY_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
 const WEEKDAY_FULL = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 
@@ -42,10 +41,18 @@ function formatDetailLabel(
 ): string {
   const d = cell.startDate
   if (scale === 'day') {
+    const dayOfMonth = d.getDate()
+    if (width < DAY_BREAKPOINTS.hidden) return ''
+    if (width < DAY_BREAKPOINTS.sparse) {
+      // At very low zoom (e.g. 10%) every day cell is only a few pixels
+      // wide. Rendering weekday letters in each cell creates a noisy band
+      // in the Planning tab, so we keep only structural anchors.
+      return dayOfMonth === 1 || d.getDay() === 1 ? String(dayOfMonth) : ''
+    }
+    if (width < DAY_BREAKPOINTS.narrow) return String(dayOfMonth)
     const dayOfWeek = d.getDay()
-    if (width < DAY_BREAKPOINTS.narrow) return WEEKDAY_LETTER[dayOfWeek]
-    if (width < DAY_BREAKPOINTS.medium) return WEEKDAY_SHORT[dayOfWeek]
-    return WEEKDAY_FULL[dayOfWeek]
+    if (width < DAY_BREAKPOINTS.medium) return `${WEEKDAY_SHORT[dayOfWeek]} ${dayOfMonth}`
+    return `${WEEKDAY_FULL[dayOfWeek]} ${dayOfMonth}`
   }
   if (scale === 'week') {
     // Keep the existing "Sxx" week number — there's no meaningful 1-letter

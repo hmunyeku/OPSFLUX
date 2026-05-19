@@ -232,8 +232,14 @@ export function WeeklyTimesheetGrid({
 
   if (!myMember) {
     return (
-      <div className="text-[11px] text-muted-foreground text-center py-4">
-        Vous n'êtes pas membre de ce projet — pas de feuille de temps disponible.
+      <div className="flex items-start gap-2 rounded-md border border-border/50 bg-muted/15 px-3 py-2 text-xs text-muted-foreground">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background/60 text-muted-foreground">
+          <Calendar size={13} />
+        </span>
+        <div className="min-w-0">
+          <div className="font-medium text-foreground">Feuille de temps indisponible</div>
+          <div className="text-[11px]">Vous devez être membre du projet pour pointer des heures.</div>
+        </div>
       </div>
     )
   }
@@ -247,35 +253,37 @@ export function WeeklyTimesheetGrid({
   return (
     <div className="space-y-2">
       {/* Header: week navigation + status + submit */}
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <button
-          onClick={() => setWeekStart((w) => addDays(w, -7))}
-          className="h-7 w-7 inline-flex items-center justify-center rounded border border-border hover:bg-muted"
-          title={t('projets.timesheet.previous_week', 'Semaine précédente')}
-        >
-          <ChevronLeft size={14} />
-        </button>
-        <div className="inline-flex items-center gap-1.5 px-2 h-7 rounded border border-border bg-muted/30 font-medium">
-          <Calendar size={12} className="text-muted-foreground" />
-          <span>Année {year}</span>
-          <span className="text-muted-foreground">·</span>
-          <span>Semaine {week}</span>
+      <div className="grid gap-2 text-xs sm:flex sm:flex-wrap sm:items-center">
+        <div className="grid grid-cols-[28px_minmax(0,1fr)_28px] items-center gap-1.5 sm:flex">
+          <button
+            onClick={() => setWeekStart((w) => addDays(w, -7))}
+            className="inline-flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted"
+            title={t('projets.timesheet.previous_week', 'Semaine précédente')}
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <div className="inline-flex h-7 min-w-0 items-center justify-center gap-1.5 rounded border border-border bg-muted/30 px-2 font-medium">
+            <Calendar size={12} className="shrink-0 text-muted-foreground" />
+            <span className="truncate">Année {year}</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="truncate">Semaine {week}</span>
+          </div>
+          <button
+            onClick={() => setWeekStart((w) => addDays(w, 7))}
+            className="inline-flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted"
+            title={t('projets.timesheet.next_week', 'Semaine suivante')}
+          >
+            <ChevronRight size={14} />
+          </button>
         </div>
         <button
-          onClick={() => setWeekStart((w) => addDays(w, 7))}
-          className="h-7 w-7 inline-flex items-center justify-center rounded border border-border hover:bg-muted"
-          title={t('projets.timesheet.next_week', 'Semaine suivante')}
-        >
-          <ChevronRight size={14} />
-        </button>
-        <button
           onClick={() => setWeekStart(getMonday(new Date()))}
-          className="h-7 px-2.5 rounded border border-border hover:bg-muted text-xs"
+          className="h-7 rounded border border-border px-2.5 text-xs hover:bg-muted sm:w-auto"
         >
           Cette semaine
         </button>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <span
             className={cn(
               'tabular-nums px-2 py-1 rounded font-medium',
@@ -310,7 +318,7 @@ export function WeeklyTimesheetGrid({
       </div>
 
       {/* Grid */}
-      <div className="overflow-x-auto border border-border/40 rounded-md">
+      <div className="hidden overflow-x-auto rounded-md border border-border/40 md:block">
         <table className="text-xs w-full border-collapse">
           <thead>
             <tr className="bg-muted/40">
@@ -402,12 +410,68 @@ export function WeeklyTimesheetGrid({
         </table>
       </div>
 
+      <div className="space-y-2 md:hidden">
+        <div className="grid grid-cols-7 gap-1 rounded-md border border-border/50 bg-muted/15 p-1.5">
+          {days.map((d, i) => {
+            const h = fmtDayHeader(d)
+            return (
+              <div
+                key={fmtISODate(d)}
+                className={cn(
+                  'rounded bg-background/55 px-1 py-1 text-center',
+                  isWeekend(d) && 'bg-muted/35 text-muted-foreground',
+                )}
+              >
+                <div className="text-[9px] font-medium uppercase text-muted-foreground">{h.label}</div>
+                <div className="text-[10px] tabular-nums text-muted-foreground">{h.date}</div>
+                <div className="mt-1 text-[11px] font-semibold tabular-nums text-foreground">{dayTotals[i].toFixed(1)}h</div>
+              </div>
+            )
+          })}
+        </div>
+
+        {visibleTasks.length === 0 ? (
+          <div className="rounded-md border border-border/40 px-3 py-4 text-center text-[11px] text-muted-foreground">
+            Aucune tâche à pointer sur ce projet.
+          </div>
+        ) : (
+          visibleTasks.map((task) => (
+            <div key={task.id} className="rounded-md border border-border/50 bg-background/35 p-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-semibold text-foreground">{task.title}</div>
+                  <div className="font-mono text-[10px] text-muted-foreground">[{task.code || task.order}]</div>
+                </div>
+                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                  {(taskTotals[task.id] || 0).toFixed(1)}h
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-7 gap-1">
+                {days.map((d) => {
+                  const iso = fmtISODate(d)
+                  const cell = cellMap[`${task.id}|${iso}`]
+                  return (
+                    <MobileTimesheetCell
+                      key={iso}
+                      cell={cell}
+                      date={d}
+                      weekend={isWeekend(d)}
+                      onChange={(raw) => handleCellChange(task.id, iso, raw)}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       <div className="text-[10px] text-muted-foreground italic flex flex-wrap gap-3">
         <span><span className="inline-block w-2 h-2 rounded-sm bg-muted align-middle mr-1" />{t('projets.timesheet.legend_draft', 'Brouillon')}</span>
         <span><span className="inline-block w-2 h-2 rounded-sm bg-blue-500/40 align-middle mr-1" />{t('projets.timesheet.legend_submitted', 'Soumis')}</span>
         <span><span className="inline-block w-2 h-2 rounded-sm bg-green-500/40 align-middle mr-1" />{t('projets.timesheet.legend_validated', 'Validé')}</span>
         <span><span className="inline-block w-2 h-2 rounded-sm bg-red-500/40 align-middle mr-1" />{t('projets.timesheet.legend_rejected', 'Rejeté')}</span>
-        <span className="ml-auto">{t('projets.timesheet.shortcuts_hint', 'Tab pour cellule suivante · Entrée pour valider · 0 pour vider')}</span>
+        <span className="basis-full sm:ml-auto sm:basis-auto">{t('projets.timesheet.shortcuts_hint', 'Tab pour cellule suivante · Entrée pour valider · 0 pour vider')}</span>
       </div>
     </div>
   )
@@ -496,5 +560,84 @@ function TimesheetCell({
         placeholder=""
       />
     </td>
+  )
+}
+
+function MobileTimesheetCell({
+  cell,
+  date,
+  weekend,
+  onChange,
+}: {
+  cell: ProjectTimeEntry | undefined
+  date: Date
+  weekend: boolean
+  onChange: (raw: string) => void | Promise<void>
+}) {
+  const [draft, setDraft] = useState<string>(cell ? String(cell.hours) : '')
+  const day = fmtDayHeader(date)
+
+  useEffect(() => {
+    setDraft(cell ? String(cell.hours) : '')
+  }, [cell?.id, cell?.hours, cell?.status])
+
+  const locked = cell?.status === 'validated' || cell?.status === 'submitted'
+
+  const bg = (() => {
+    if (!cell) return weekend ? 'bg-muted/25' : 'bg-background/55'
+    switch (cell.status) {
+      case 'draft':
+        return 'bg-muted'
+      case 'submitted':
+        return 'bg-blue-500/15 text-blue-700 dark:text-blue-400'
+      case 'validated':
+        return 'bg-green-500/15 text-green-700 dark:text-green-500'
+      case 'rejected':
+        return 'bg-red-500/15 text-red-700 dark:text-red-500'
+      default:
+        return 'bg-background/55'
+    }
+  })()
+
+  const tooltip = (() => {
+    if (!cell) return weekend ? 'Week-end' : 'Saisir des heures'
+    const statusLabel = {
+      draft: 'Brouillon',
+      submitted: 'Soumis pour validation',
+      validated: 'Validé · verrouillé',
+      rejected: cell.rejected_reason ? `Rejeté : ${cell.rejected_reason}` : 'Rejeté · à corriger',
+    }[cell.status]
+    return `${cell.hours}h — ${statusLabel}`
+  })()
+
+  return (
+    <label className={cn('block rounded border border-border/35 px-1 py-1 text-center', bg)} title={tooltip}>
+      <span className="block text-[8px] font-medium uppercase leading-none text-muted-foreground">{day.label}</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        disabled={locked}
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onBlur={() => {
+          const cur = cell ? String(cell.hours) : ''
+          if (draft !== cur) onChange(draft)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.currentTarget.blur()
+          } else if (e.key === 'Escape') {
+            setDraft(cell ? String(cell.hours) : '')
+            e.currentTarget.blur()
+          }
+        }}
+        className={cn(
+          'mt-0.5 h-6 w-full rounded bg-transparent text-center text-[11px] tabular-nums outline-none focus:ring-2 focus:ring-primary/30',
+          locked && 'cursor-not-allowed text-muted-foreground/60',
+        )}
+        placeholder="0"
+      />
+    </label>
   )
 }

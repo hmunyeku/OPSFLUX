@@ -34,6 +34,16 @@ import type { ProjectTask } from '@/types/api'
 //   'strict'  — refuse the drag entirely if any constraint would break.
 type DragCascadeMode = 'warn' | 'cascade' | 'strict'
 
+function normalizePlanningScale(scale: TimeScale, start?: string, end?: string): TimeScale {
+  if (!start || !end) return scale
+  const span = Math.abs(daysB(start, end))
+  if (span > 1460) return 'semester'
+  if (span > 730) return 'quarter'
+  if (span > 240 && (scale === 'day' || scale === 'week')) return 'month'
+  if (span > 75 && scale === 'day') return 'week'
+  return scale
+}
+
 // ── Colors ──────────────────────────────────────────────────────
 
 const PROJECT_COLORS: Record<string, string> = {
@@ -115,14 +125,15 @@ export function ProjectGanttWrapper() {
   const persistedScale = getPref<TimeScale>('gantt_scale', 'month')
   const persistedStart = getPref<string | undefined>('gantt_viewStart', undefined)
   const persistedEnd = getPref<string | undefined>('gantt_viewEnd', undefined)
-  const [currentScale, setCurrentScale] = useState<TimeScale>(persistedScale)
+  const normalizedPersistedScale = normalizePlanningScale(persistedScale, persistedStart, persistedEnd)
+  const [currentScale, setCurrentScale] = useState<TimeScale>(normalizedPersistedScale)
   const [currentStart, setCurrentStart] = useState<string | undefined>(persistedStart)
   const [currentEnd, setCurrentEnd] = useState<string | undefined>(persistedEnd)
   const hydratedFromPrefsRef = useRef(false)
   useEffect(() => {
     if (hydratedFromPrefsRef.current) return
     hydratedFromPrefsRef.current = true
-    if (persistedScale) setCurrentScale(persistedScale)
+    if (persistedScale) setCurrentScale(normalizePlanningScale(persistedScale, persistedStart, persistedEnd))
     if (persistedStart) setCurrentStart(persistedStart)
     if (persistedEnd) setCurrentEnd(persistedEnd)
   }, [persistedScale, persistedStart, persistedEnd])
@@ -1096,6 +1107,7 @@ export function ProjectGanttWrapper() {
           selectedRowId={selectedRowId}
           onSelectRow={setSelectedRowId}
           emptyMessage="Aucun projet. Créez un projet ou modifiez les filtres."
+          timelineEmptyMessage="Aucune tâche planifiée. Ajoutez une tâche avec dates de début/fin ou ajustez la période."
         />
       </div>
 

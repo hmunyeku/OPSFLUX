@@ -42,6 +42,17 @@ const CATEGORY_META_COLUMNS: Record<string, MetaColumn[]> = {
     { key: 'country', label: 'Pays', placeholder: 'France' },
     { key: 'nationality', label: 'Nationalité', placeholder: 'Française' },
   ],
+  project_attachment_type: [
+    { key: 'required_by_default', label: 'Obligatoire par defaut', placeholder: 'true / false' },
+    { key: 'allowed_extensions', label: 'Extensions autorisees', placeholder: 'pdf,docx,xlsx' },
+  ],
+  project_deliverable_type: [
+    { key: 'required_by_default', label: 'Obligatoire par defaut', placeholder: 'true / false' },
+    { key: 'blocks_closeout', label: 'Bloque cloture', placeholder: 'true / false' },
+  ],
+  project_wbs_type: [
+    { key: 'budget_policy', label: 'Politique budget', placeholder: 'none / optional / required' },
+  ],
 }
 
 const CATEGORIES = [
@@ -58,6 +69,11 @@ const CATEGORIES = [
   { value: 'nationality', label: 'Pays / Nationalités' },
   { value: 'address_type', label: "Type d'adresse" },
   { value: 'airport', label: 'Aéroports (IATA)' },
+  { value: 'project_change_type', label: 'Projet - types de changement' },
+  { value: 'project_change_status', label: 'Projet - statuts changement' },
+  { value: 'project_attachment_type', label: 'Projet - types de PJ' },
+  { value: 'project_deliverable_type', label: 'Projet - types de livrable' },
+  { value: 'project_wbs_type', label: 'Projet - types de WBS' },
 ]
 
 function useDictionary(category: string | null) {

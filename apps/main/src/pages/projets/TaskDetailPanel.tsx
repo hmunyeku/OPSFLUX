@@ -7,7 +7,7 @@
  *
  * Opened from Gantt chart double-click on a task.
  */
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { useState, useCallback, useMemo, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Calendar, User, Flag, CheckCircle2, Clock, ListTodo,
@@ -40,56 +40,71 @@ import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { TabBar } from '@/components/ui/Tabs'
 import { TagManager } from '@/components/shared/TagManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { RichTextDisplay, RichTextField } from '@/components/shared/RichTextField'
 import { VariablePobEditor } from '@/pages/planner/VariablePobEditor'
 import { ProjectTaskCreateInlineForm } from '@/components/projets/ProjectTaskCreateInlineForm'
 import type { PlannerRevisionDecisionRequest, ProjectTask, ProjectTaskUpdate } from '@/types/api'
 import { formatDate } from '@/lib/i18n'
 
-// ── Inline editable textarea (multiline) ─────────────────────
-// InlineEditableRow only supports single-line input. For long-form
-// fields like description we use a local textarea wrapper that mimics
-// the same UX (double-click to edit, Esc to cancel, blur/Cmd+Enter to
-// commit) but renders a multi-line area.
+// ── Inline editable rich text ─────────────────────────────────
+// Rich text descriptions are stored as HTML. Keep edits local until the
+// user explicitly saves so task updates do not fire on every keystroke.
 
-function InlineEditableTextarea({
+function cleanRichTextForSave(html: string): string {
+  const cleaned = html.trim().replace(/<p[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '').trim()
+  if (!cleaned) return ''
+  const text = cleaned.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
+  const hasRichNode = /<(img|table|ul|ol|li|blockquote|h[1-6])\b/i.test(cleaned)
+  return text || hasRichNode ? cleaned : ''
+}
+
+function InlineEditableRichText({
   value,
   placeholder,
   onSave,
+  ownerId,
   disabled,
 }: {
   value: string
   placeholder?: string
   onSave: (newValue: string) => void
+  ownerId: string
   disabled?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
-  const taRef = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => { if (editing) { setDraft(value); setTimeout(() => taRef.current?.focus(), 0) } }, [editing, value])
 
-  const commit = useCallback(() => {
-    if (draft !== value) onSave(draft)
-    setEditing(false)
-  }, [draft, value, onSave])
+  const startEditing = useCallback(() => {
+    if (disabled) return
+    setDraft(value)
+    setEditing(true)
+  }, [disabled, value])
 
   const cancel = useCallback(() => { setDraft(value); setEditing(false) }, [value])
 
-  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const commit = useCallback(() => {
+    const next = cleanRichTextForSave(draft)
+    const previous = cleanRichTextForSave(value)
+    if (next !== previous) onSave(next)
+    setEditing(false)
+  }, [draft, value, onSave])
+
+  const onKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') cancel()
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) commit()
   }, [commit, cancel])
 
   if (editing && !disabled) {
     return (
-      <div className="rounded-md border border-primary/30 bg-background p-2">
-        <textarea
-          ref={taRef}
+      <div className="rounded-md border border-primary/30 bg-background p-2" onKeyDown={onKeyDown}>
+        <RichTextField
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={onKeyDown}
-          rows={5}
+          onChange={setDraft}
           placeholder={placeholder}
-          className="w-full text-sm bg-transparent resize-y focus:outline-none min-h-[5rem]"
+          rows={6}
+          compact
+          imageOwnerType="project_task"
+          imageOwnerId={ownerId}
         />
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
           <span className="text-[10px] text-muted-foreground mr-auto">{'⌘'}+Entrée pour valider · Esc pour annuler</span>
@@ -110,12 +125,12 @@ function InlineEditableTextarea({
         'group rounded-md border border-dashed border-border/60 px-3 py-2.5 transition-colors min-h-[3.5rem]',
         !disabled && 'hover:border-primary/40 cursor-text',
       )}
-      onDoubleClick={() => !disabled && setEditing(true)}
-      onClick={() => !disabled && !value && setEditing(true)}
+      onDoubleClick={startEditing}
+      onClick={() => !cleanRichTextForSave(value) && startEditing()}
       title={disabled ? undefined : 'Double-cliquer pour modifier'}
     >
-      {value ? (
-        <p className="text-sm text-foreground whitespace-pre-wrap break-words">{value}</p>
+      {cleanRichTextForSave(value) ? (
+        <RichTextDisplay value={value} className="text-foreground" />
       ) : (
         <p className="text-sm text-muted-foreground italic">{placeholder || 'Aucune description — cliquer pour ajouter'}</p>
       )}
@@ -590,10 +605,11 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5 flex items-center gap-1">
                   <FileText size={10} /> Description
                 </p>
-                <InlineEditableTextarea
+                <InlineEditableRichText
                   value={task.description || ''}
                   placeholder={t('projets.task_detail.description_placeholder', 'Aucune description — cliquer ou double-cliquer pour ajouter')}
                   onSave={(v) => handleSave('description', v || null)}
+                  ownerId={taskId}
                 />
               </div>
 

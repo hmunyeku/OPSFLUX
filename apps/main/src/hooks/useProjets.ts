@@ -13,6 +13,7 @@ import type {
   ProjectMilestoneCreate, ProjectMilestoneUpdate,
   PlanningRevisionCreate, PlanningRevisionUpdate,
   TaskDeliverableCreate, TaskDeliverableUpdate,
+  ProjectChangeCreate, ProjectChangeUpdate,
   TaskActionCreate, TaskActionUpdate,
   TaskDependencyCreate,
   ProjectWBSNodeCreate, ProjectWBSNodeUpdate,
@@ -608,6 +609,50 @@ export function useDeleteRevision() {
 }
 
 // ── Task Deliverables ──
+
+export function useProjectChanges(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['project-changes', projectId],
+    queryFn: () => projetsService.listChanges(projectId!),
+    enabled: !!projectId,
+  })
+}
+
+export function useCreateProjectChange() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, payload }: { projectId: string; payload: ProjectChangeCreate }) =>
+      projetsService.createChange(projectId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-changes', projectId] })
+      qc.invalidateQueries({ queryKey: ['activity-feed', projectId] })
+    },
+  })
+}
+
+export function useUpdateProjectChange() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, changeId, payload }: { projectId: string; changeId: string; payload: ProjectChangeUpdate }) =>
+      projetsService.updateChange(projectId, changeId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-changes', projectId] })
+      qc.invalidateQueries({ queryKey: ['activity-feed', projectId] })
+    },
+  })
+}
+
+export function useDeleteProjectChange() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, changeId }: { projectId: string; changeId: string }) =>
+      projetsService.deleteChange(projectId, changeId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-changes', projectId] })
+      qc.invalidateQueries({ queryKey: ['activity-feed', projectId] })
+    },
+  })
+}
 
 export function useTaskDeliverables(projectId: string | undefined, taskId: string | undefined) {
   return useQuery({

@@ -1417,6 +1417,7 @@ export interface ProjectMember {
   active: boolean
   created_at: string
   member_name?: string | null
+  avatar_url?: string | null
 }
 
 export interface ProjectMemberCreate {
@@ -1527,6 +1528,65 @@ export interface ProjectSituationCreate {
   situation_text?: string | null
   weather?: string | null
   trend?: string | null
+}
+
+export interface ProjectChange {
+  id: string
+  entity_id: string
+  project_id: string
+  reference: string
+  title: string
+  change_type: string
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'implemented' | 'cancelled'
+  priority: 'low' | 'medium' | 'high' | 'critical'
+  source: string | null
+  requested_by: string | null
+  requested_by_name: string | null
+  decided_by: string | null
+  decided_by_name: string | null
+  decided_at: string | null
+  description: string | null
+  decision_summary: string | null
+  planning_impact_days: number | null
+  budget_impact_amount: number | null
+  currency: string | null
+  affected_task_ids: string[] | null
+  impact_snapshot: Record<string, unknown> | null
+  attachment_count: number
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectChangeCreate {
+  title: string
+  change_type?: string
+  status?: string
+  priority?: string
+  source?: string | null
+  description?: string | null
+  decision_summary?: string | null
+  planning_impact_days?: number | null
+  budget_impact_amount?: number | null
+  currency?: string | null
+  affected_task_ids?: string[] | null
+  impact_snapshot?: Record<string, unknown> | null
+}
+
+export interface ProjectChangeUpdate {
+  title?: string
+  change_type?: string
+  status?: string
+  priority?: string
+  source?: string | null
+  description?: string | null
+  decision_summary?: string | null
+  planning_impact_days?: number | null
+  budget_impact_amount?: number | null
+  currency?: string | null
+  affected_task_ids?: string[] | null
+  impact_snapshot?: Record<string, unknown> | null
+  active?: boolean
 }
 
 /** Group of PlannerActivity rows linked to the same project task. */
@@ -1645,6 +1705,7 @@ export interface TaskDeliverable {
   id: string
   task_id: string
   name: string
+  type_code: string | null
   description: string | null
   status: 'pending' | 'in_progress' | 'delivered' | 'accepted' | 'rejected'
   due_date: string | null
@@ -1656,6 +1717,7 @@ export interface TaskDeliverable {
 
 export interface TaskDeliverableCreate {
   name: string
+  type_code?: string | null
   description?: string | null
   status?: string
   due_date?: string | null
@@ -1663,6 +1725,7 @@ export interface TaskDeliverableCreate {
 
 export interface TaskDeliverableUpdate {
   name?: string
+  type_code?: string | null
   description?: string | null
   status?: string
   due_date?: string | null
@@ -1703,6 +1766,7 @@ export interface ProjectWBSNode {
   parent_id: string | null
   code: string
   name: string
+  type_code: string | null
   description: string | null
   cost_center_id: string | null
   budget: number | null
@@ -1718,6 +1782,7 @@ export interface ProjectWBSNodeCreate {
   parent_id?: string | null
   code: string
   name: string
+  type_code?: string | null
   description?: string | null
   cost_center_id?: string | null
   budget?: number | null
@@ -1728,6 +1793,7 @@ export interface ProjectWBSNodeUpdate {
   parent_id?: string | null
   code?: string
   name?: string
+  type_code?: string | null
   description?: string | null
   cost_center_id?: string | null
   budget?: number | null

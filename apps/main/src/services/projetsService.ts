@@ -24,6 +24,7 @@ import type {
   ActivityFeedItem,
   ProjectPlannerActivityGroup,
   ProjectSituation, ProjectSituationCreate,
+  ProjectChange, ProjectChangeCreate, ProjectChangeUpdate,
   PaginatedResponse, PaginationParams,
 } from '@/types/api'
 
@@ -376,6 +377,25 @@ export const projetsService = {
   },
 
   // ── Task Deliverables ──
+  listChanges: async (projectId: string): Promise<ProjectChange[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/changes`)
+    return data
+  },
+
+  createChange: async (projectId: string, payload: ProjectChangeCreate): Promise<ProjectChange> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/changes`, payload)
+    return data
+  },
+
+  updateChange: async (projectId: string, changeId: string, payload: ProjectChangeUpdate): Promise<ProjectChange> => {
+    const { data } = await api.patch(`/api/v1/projects/${projectId}/changes/${changeId}`, payload)
+    return data
+  },
+
+  deleteChange: async (projectId: string, changeId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/changes/${changeId}`)
+  },
+
   listDeliverables: async (projectId: string, taskId: string): Promise<TaskDeliverable[]> => {
     const { data } = await api.get(`/api/v1/projects/${projectId}/tasks/${taskId}/deliverables`)
     return data

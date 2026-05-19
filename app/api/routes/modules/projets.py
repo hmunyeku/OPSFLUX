@@ -25,7 +25,7 @@ from app.models.common import (
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
     ProjectTaskDependency, ProjectWBSNode, CostCenter,
     ProjectTaskAssignee, ProjectComment, ProjectStatusHistory,
-    ProjectSituation,
+    ProjectSituation, ProjectChange, Attachment,
     User, Tier, TierContact,
 )
 from app.models.asset_registry import Installation, OilSite
@@ -49,6 +49,7 @@ from app.schemas.common import (
     ProjectCommentCreate, ProjectCommentRead, ProjectCommentUpdate,
     ProjectStatusHistoryRead,
     ProjectSituationCreate, ProjectSituationRead,
+    ProjectChangeCreate, ProjectChangeRead, ProjectChangeUpdate,
 )
 from app.services.cpm_service import compute_cpm
 from app.services.modules.tier_guard import ensure_tier_contact_usable, ensure_tier_usable
@@ -1014,8 +1015,14 @@ async def list_project_members(
         if m.user_id:
             u = await db.get(User, m.user_id)
             d["member_name"] = f"{u.first_name} {u.last_name}" if u else None
+            d["avatar_url"] = u.avatar_url if u else None
+        elif m.contact_id:
+            c = await db.get(TierContact, m.contact_id)
+            d["member_name"] = f"{c.first_name} {c.last_name}" if c else None
+            d["avatar_url"] = c.photo_url if c else None
         else:
             d["member_name"] = None
+            d["avatar_url"] = None
         enriched.append(d)
     return enriched
 
@@ -2480,6 +2487,183 @@ async def delete_revision(
 
 
 # ── Task Deliverables ──────────────────────────────────────────────────────
+
+
+# Project Changes / Management of Change
+
+
+PROJECT_CHANGE_DECISION_STATUSES = {"approved", "rejected", "implemented", "cancelled"}
+
+
+def _display_user_name(user: User | None) -> str | None:
+    if user is None:
+        return None
+    return f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
+
+
+def _project_change_to_dict(
+    change: ProjectChange,
+    *,
+    user_names: dict[UUID, str | None] | None = None,
+    attachment_count: int = 0,
+) -> dict:
+    data = {c.key: getattr(change, c.key) for c in change.__table__.columns}
+    names = user_names or {}
+    data["requested_by_name"] = names.get(change.requested_by) if change.requested_by else None
+    data["decided_by_name"] = names.get(change.decided_by) if change.decided_by else None
+    data["attachment_count"] = attachment_count
+    return data
+
+
+async def _project_change_user_names(db: AsyncSession, changes: list[ProjectChange]) -> dict[UUID, str | None]:
+    user_ids = {c.requested_by for c in changes if c.requested_by} | {c.decided_by for c in changes if c.decided_by}
+    if not user_ids:
+        return {}
+    users = (await db.execute(select(User).where(User.id.in_(user_ids)))).scalars().all()
+    return {u.id: _display_user_name(u) for u in users}
+
+
+async def _project_change_attachment_counts(db: AsyncSession, changes: list[ProjectChange]) -> dict[UUID, int]:
+    change_ids = [c.id for c in changes]
+    if not change_ids:
+        return {}
+    rows = (await db.execute(
+        select(Attachment.owner_id, sqla_func.count(Attachment.id))
+        .where(
+            Attachment.owner_type == "project_change",
+            Attachment.owner_id.in_(change_ids),
+            Attachment.archived == False,  # noqa: E712
+            Attachment.deleted_at.is_(None),
+        )
+        .group_by(Attachment.owner_id)
+    )).all()
+    return {row[0]: int(row[1]) for row in rows}
+
+
+@router.get("/{project_id}/changes", response_model=list[ProjectChangeRead])
+async def list_project_changes(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    changes = (await db.execute(
+        select(ProjectChange)
+        .where(
+            ProjectChange.project_id == project_id,
+            ProjectChange.entity_id == entity_id,
+            ProjectChange.active == True,  # noqa: E712
+        )
+        .order_by(ProjectChange.created_at.desc())
+    )).scalars().all()
+    changes_list = list(changes)
+    user_names = await _project_change_user_names(db, changes_list)
+    attachment_counts = await _project_change_attachment_counts(db, changes_list)
+    return [
+        _project_change_to_dict(c, user_names=user_names, attachment_count=attachment_counts.get(c.id, 0))
+        for c in changes_list
+    ]
+
+
+@router.post("/{project_id}/changes", response_model=ProjectChangeRead, status_code=201)
+async def create_project_change(
+    project_id: UUID,
+    body: ProjectChangeCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await _get_project_or_404(db, project_id, entity_id)
+    payload = body.model_dump()
+    if not payload.get("currency"):
+        payload["currency"] = project.currency
+    reference = await generate_reference(
+        "CHG",
+        db,
+        entity_id=entity_id,
+        template="CHG-{YY}-{####}",
+        context={"project_code": project.code or ""},
+    )
+    change = ProjectChange(
+        entity_id=entity_id,
+        project_id=project_id,
+        reference=reference,
+        requested_by=current_user.id,
+        **payload,
+    )
+    if change.status in PROJECT_CHANGE_DECISION_STATUSES:
+        change.decided_by = current_user.id
+        change.decided_at = datetime.now(timezone.utc)
+    db.add(change)
+    await db.commit()
+    await db.refresh(change)
+    user_names = {current_user.id: _display_user_name(current_user)}
+    return _project_change_to_dict(change, user_names=user_names)
+
+
+@router.patch("/{project_id}/changes/{change_id}", response_model=ProjectChangeRead)
+async def update_project_change(
+    project_id: UUID,
+    change_id: UUID,
+    body: ProjectChangeUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    change = (await db.execute(
+        select(ProjectChange).where(
+            ProjectChange.id == change_id,
+            ProjectChange.project_id == project_id,
+            ProjectChange.entity_id == entity_id,
+        )
+    )).scalar_one_or_none()
+    if not change:
+        raise HTTPException(404, "Project change not found")
+
+    payload = body.model_dump(exclude_unset=True)
+    previous_status = change.status
+    for field, value in payload.items():
+        setattr(change, field, value)
+    if (
+        "status" in payload
+        and change.status in PROJECT_CHANGE_DECISION_STATUSES
+        and (previous_status != change.status or change.decided_at is None)
+    ):
+        change.decided_by = current_user.id
+        change.decided_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(change)
+    user_names = await _project_change_user_names(db, [change])
+    attachment_counts = await _project_change_attachment_counts(db, [change])
+    return _project_change_to_dict(change, user_names=user_names, attachment_count=attachment_counts.get(change.id, 0))
+
+
+@router.delete("/{project_id}/changes/{change_id}", status_code=204)
+async def delete_project_change(
+    project_id: UUID,
+    change_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    change = (await db.execute(
+        select(ProjectChange).where(
+            ProjectChange.id == change_id,
+            ProjectChange.project_id == project_id,
+            ProjectChange.entity_id == entity_id,
+        )
+    )).scalar_one_or_none()
+    if not change:
+        raise HTTPException(404, "Project change not found")
+    change.active = False
+    await db.commit()
+    return None
 
 
 @router.get("/{project_id}/tasks/{task_id}/deliverables", response_model=list[TaskDeliverableRead])

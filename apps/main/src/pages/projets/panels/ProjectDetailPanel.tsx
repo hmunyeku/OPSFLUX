@@ -27,7 +27,7 @@ import { PROJECT_TEAM_ROLE_LABELS, type ProjectTeamRole } from '@/services/teams
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
 import { describeError } from '@/lib/errors'
-import { useDictionaryLabels } from '@/hooks/useDictionary'
+import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
 import {
   DynamicPanelShell,
   FormSection,
@@ -54,6 +54,7 @@ import { DataTableToolbar, type DataTableFilterDef } from '@/components/ui/DataT
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { PaxAvatar } from '@/components/shared/PaxAvatar'
 import {
   useProject, useUpdateProject, useArchiveProject,
   useProjectTasks, useCreateProjectTask, useUpdateProjectTask, useDeleteProjectTask,
@@ -80,6 +81,7 @@ import { ProjectTaskCreateInlineForm } from '@/components/projets/ProjectTaskCre
 import { ProjectMetrics } from '@/components/projets/ProjectMetrics'
 import { GanttCore } from '@/components/shared/gantt/GanttCore'
 import type { GanttRow, GanttBarData } from '@/components/shared/gantt/GanttCore'
+import { HEADER_ROW_H } from '@/components/shared/gantt/GanttHeader'
 import { useUsers } from '@/hooks/useUsers'
 import { UserPicker } from '@/components/shared/UserPicker'
 import type {
@@ -102,6 +104,7 @@ import {
 } from '../shared'
 import { formatDate } from '@/lib/i18n'
 import { WbsSection, CpmSection, PlanningRevisionsSection, SubProjectsSection } from './ProjectDetailAdvanced'
+import { ProjectChangesSection } from './ProjectChangesSection'
 import { RichTextField, RichTextDisplay } from '@/components/shared/RichTextField'
 import {
   TimeTrackingSection,
@@ -382,13 +385,15 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
   const updateD = useUpdateDeliverable()
   const deleteD = useDeleteDeliverable()
   const deliverableStatusLabels = useDictionaryLabels('project_deliverable_status', PROJECT_DELIVERABLE_STATUS_LABELS_FALLBACK)
+  const deliverableTypeOptions = useDictionaryOptions('project_deliverable_type')
   const deliverableStatusOptions = useMemo(() => buildDictionaryOptions(deliverableStatusLabels, PROJECT_DELIVERABLE_STATUS_VALUES), [deliverableStatusLabels])
   const [newName, setNewName] = useState('')
+  const [newType, setNewType] = useState('')
 
   const handleAdd = async () => {
     const name = newName.trim()
     if (!name) return
-    await createD.mutateAsync({ projectId, taskId: task.id, payload: { name } })
+    await createD.mutateAsync({ projectId, taskId: task.id, payload: { name, type_code: newType || null } })
     setNewName('')
   }
 
@@ -403,6 +408,11 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
           <div key={d.id} className="flex items-center gap-1.5 text-[11px] group">
             <Package size={10} className={cn('shrink-0', statusColor)} />
             <span className="flex-1 truncate">{d.name}</span>
+            {d.type_code && (
+              <span className="max-w-[110px] truncate rounded-full border border-border bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                {deliverableTypeOptions.find(o => o.value === d.type_code)?.label ?? d.type_code}
+              </span>
+            )}
             <select
               value={d.status}
               onChange={e => updateD.mutate({
@@ -424,6 +434,16 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
         )
       })}
       <div className="flex items-center gap-1">
+        {deliverableTypeOptions.length > 0 && (
+          <select
+            value={newType}
+            onChange={e => setNewType(e.target.value)}
+            className={`${panelInputClass} w-[120px] text-[11px]`}
+          >
+            <option value="">Type</option>
+            {deliverableTypeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        )}
         <input
           type="text"
           value={newName}
@@ -1089,26 +1109,56 @@ function TaskMilestoneSummary({
 
 // -- Member Row (interactive) ------------------------------------------------
 
-function MemberRow({ member, projectId }: { member: ProjectMemberType; projectId: string }) {
+function MemberRow({
+  member,
+  projectId,
+  avatarUrl,
+}: {
+  member: ProjectMemberType
+  projectId: string
+  avatarUrl?: string | null
+}) {
   const removeMember = useRemoveProjectMember()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const memberRoleLabels = useDictionaryLabels('project_member_role', PROJECT_MEMBER_ROLE_LABELS_FALLBACK)
 
   const roleLbl = memberRoleLabels[member.role] ?? member.role
+  const name = member.member_name || '(inconnu)'
+  const resolvedAvatarUrl = avatarUrl ?? member.avatar_url ?? null
+  const period = member.start_date || member.end_date
+    ? `${member.start_date ? new Date(member.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'Début libre'} → ${member.end_date ? new Date(member.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'En cours'}`
+    : null
 
   return (
-    <div className="group flex items-center gap-2 text-xs py-1.5 border-b border-border/40 last:border-0">
-      <Users size={11} className="text-muted-foreground shrink-0" />
-      <span className="flex-1 truncate text-foreground">{member.member_name || '(inconnu)'}</span>
-      <span className="text-muted-foreground text-[10px]">{roleLbl}</span>
+    <div className="group grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border/50 bg-background/35 px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/20">
+      <div className="flex min-w-0 items-center gap-2">
+        <PaxAvatar
+          fullName={name}
+          avatarUrl={resolvedAvatarUrl}
+          size={24}
+          className="ring-1 ring-border/60"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="truncate font-medium text-foreground">{name}</span>
+            {!member.active && (
+              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">Inactif</span>
+            )}
+            <span className="text-[10px] text-muted-foreground">{roleLbl}</span>
+            <span className="text-[10px] tabular-nums text-muted-foreground">{member.allocation_pct ?? 100}% allocation</span>
+            {member.specialty && <span className="truncate text-[10px] text-muted-foreground">{member.specialty}</span>}
+            {period && <span className="text-[10px] text-muted-foreground">{period}</span>}
+          </div>
+        </div>
+      </div>
       {confirmDelete ? (
-        <div className="flex items-center gap-0.5">
-          <button onClick={() => { removeMember.mutate({ projectId, memberId: member.id }); setConfirmDelete(false) }} className="p-0.5 rounded bg-red-500/10 text-red-500 hover:bg-red-500/20"><Check size={10} /></button>
-          <button onClick={() => setConfirmDelete(false)} className="p-0.5 rounded hover:bg-muted text-muted-foreground"><X size={10} /></button>
+        <div className="flex items-center justify-end gap-1">
+          <button onClick={() => { removeMember.mutate({ projectId, memberId: member.id }); setConfirmDelete(false) }} className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-red-500/10 text-red-500 hover:bg-red-500/20"><Check size={11} /></button>
+          <button onClick={() => setConfirmDelete(false)} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"><X size={11} /></button>
         </div>
       ) : (
-        <button onClick={() => setConfirmDelete(true)} className="p-0.5 rounded hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-          <Trash2 size={10} />
+        <button onClick={() => setConfirmDelete(true)} className="inline-flex h-6 w-6 items-center justify-center justify-self-end rounded-md text-muted-foreground opacity-100 transition-colors hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100" title="Retirer ce membre">
+          <Trash2 size={11} />
         </button>
       )}
     </div>
@@ -1143,7 +1193,7 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1 mt-1"
+        className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-md border border-dashed border-primary/35 px-2 text-xs font-medium text-primary hover:bg-primary/5"
       >
         <UserPlus size={12} /> Ajouter un membre
       </button>
@@ -1211,6 +1261,7 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
   const { toast } = useToast()
 
   const excludeIds = teams.map((pt) => pt.team_id)
+  const attachedMembersCount = teams.reduce((sum, pt) => sum + (Number(pt.team_member_count) || 0), 0)
 
   const handleAttach = (teamId: string) => {
     attachTeam.mutate(
@@ -1246,12 +1297,11 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
       storageKey="project-detail-teams"
       headerExtra={
         <button
-          className="btn btn-tertiary h-5 px-1.5 flex items-center gap-1 text-[10px]"
+          className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={() => setShowAttachPanel((v) => !v)}
           title={t('projets.detail.team.attach_team')}
         >
-          <Plus size={11} />
-          <span className="hidden sm:inline">{t('common.team_singular', 'Équipe')}</span>
+          <Plus size={13} />
         </button>
       }
     >
@@ -1318,24 +1368,51 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
         </div>
       )}
       {teams.length === 0 ? (
-        <EmptyState icon={Users2} title={t('projets.detail.team.no_team_attached')} variant="search" size="compact" />
+        <button
+          type="button"
+          onClick={() => setShowAttachPanel(true)}
+          className="flex min-h-10 w-full items-center gap-2 rounded-md border border-dashed border-border/70 bg-muted/10 px-2.5 py-1.5 text-left text-xs text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-info/10 text-info">
+            <Users2 size={13} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium text-foreground">{t('projets.detail.team.no_team_attached')}</span>
+            <span className="block truncate text-[10px]">Ajouter une équipe projet pour suivre les responsabilités collectives.</span>
+          </span>
+          <Plus size={13} className="ml-auto shrink-0 text-primary" />
+        </button>
       ) : (
-        <div className="space-y-1">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/50 bg-muted/15 px-2 py-1.5 text-[10px] text-muted-foreground">
+            <span className="font-medium text-foreground">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
+            <span>·</span>
+            <span>{attachedMembersCount} membre{attachedMembersCount > 1 ? 's' : ''} couverts</span>
+          </div>
           {teams.map((pt) => (
-            <div key={pt.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent/50 text-xs">
-              <Users2 size={14} className="shrink-0 text-info" />
-              <div className="min-w-0 flex-1">
-                <p className="font-medium truncate">{pt.team_name}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {pt.team_member_count} membre{pt.team_member_count > 1 ? 's' : ''}
-                  {pt.team_visibility === 'private' && <span> · privée</span>}
-                  {pt.role && (
-                    <span> · {PROJECT_TEAM_ROLE_LABELS[pt.role as ProjectTeamRole] ?? pt.role}</span>
-                  )}
-                </p>
+            <div key={pt.id} className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border/50 bg-background/35 px-2.5 py-2 text-xs transition-colors hover:border-border hover:bg-muted/20">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-info/10 text-info ring-1 ring-info/15">
+                  <Users2 size={14} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium text-foreground">{pt.team_name}</span>
+                    {pt.role && (
+                      <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                        {PROJECT_TEAM_ROLE_LABELS[pt.role as ProjectTeamRole] ?? pt.role}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                    <span>{pt.team_member_count} membre{pt.team_member_count > 1 ? 's' : ''}</span>
+                    <span>{pt.team_visibility === 'private' ? 'Privée' : 'Visible'}</span>
+                    <span>Attachée le {new Date(pt.attached_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
+                  </div>
+                </div>
               </div>
               <button
-                className="p-1 rounded shrink-0 text-destructive hover:bg-destructive/10 disabled:opacity-40"
+                className="inline-flex h-7 w-7 items-center justify-center justify-self-end rounded-md text-muted-foreground opacity-100 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
                 onClick={() => handleDetach(pt.team_id, pt.team_name)}
                 disabled={detachTeam.isPending}
                 title={t('projets.detail.team.detach_team')}
@@ -1369,6 +1446,7 @@ const TASK_BAR_COLORS: Record<string, string> = {
 
 function ProjectMiniGantt({
   tasks, selectedTaskId, onSelect, onOpenAdvanced, showGrid = true,
+  showToolbar = true,
   collapsedTaskIds,
   onCollapsedTaskIdsChange,
 }: {
@@ -1379,6 +1457,7 @@ function ProjectMiniGantt({
   /** Hide Gantt's internal task grid panel — used in fullscreen
    *  where TaskTable on the left already plays that role. */
   showGrid?: boolean
+  showToolbar?: boolean
   collapsedTaskIds?: Set<string>
   onCollapsedTaskIdsChange?: (ids: Set<string>) => void
 }) {
@@ -1466,7 +1545,7 @@ function ProjectMiniGantt({
       // tightened proportionally so the bar still has top/bottom
       // breathing space inside the row (32 - 20 = 12px ÷ 2 = 6px each).
       initialSettings={{ rowHeight: 40, barHeight: 22 }}
-      showToolbar
+      showToolbar={showToolbar}
       showGrid={showGrid}
       minHeight="100%"
       expandedRows={expandedRows}
@@ -1895,6 +1974,7 @@ function TaskFullscreenOverlay({
             dependencies={dependencies}
             hierarchical={hierarchical}
             maxHeight="100%"
+            headerHeight={HEADER_ROW_H * 2}
             selectedTaskId={selectedTaskId}
             onSelect={onSelect}
             collapsedTaskIds={collapsedTaskIds}
@@ -1946,6 +2026,12 @@ function TaskFullscreenOverlay({
             // out of alignment with the TaskTable. Hide it so the
             // right pane is purely the timeline bars.
             showGrid={false}
+            // Fullscreen already has a task-structure toolbar at the
+            // top. Keeping GanttCore's internal toolbar here created a
+            // tall empty band over the table just to align rows. Hide it
+            // so the split view starts immediately with table headers +
+            // timeline scale, like a planning screen should.
+            showToolbar={false}
           />
         </div>
       </div>
@@ -2265,7 +2351,7 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
     if (filterId === 'type') setTaskTypeFilter(scalar)
     if (filterId === 'sort') setSortBy((scalar as typeof sortBy) || 'order')
   }, [])
-  const toolbarIconClass = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35'
+  const toolbarIconClass = 'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35'
   const toolbarIconActiveClass = 'bg-primary/10 text-primary'
 
   return (
@@ -2276,14 +2362,14 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
       storageKey="project-detail-tasks"
     >
       {/* Status filter pills — click to filter, click again to clear */}
-      <div className="mb-3 flex flex-col gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+      <div className="mb-2 flex min-w-0 items-center gap-2 overflow-x-auto rounded-md border border-border/40 bg-muted/10 px-2 py-1 text-[11px] text-muted-foreground">
+        <div className="flex shrink-0 items-center gap-1.5">
           <span className="font-medium text-foreground tabular-nums">{counts.done}/{tasks.length}</span>
           <span>terminées</span>
           <span className="h-3 w-px bg-border" />
           <span className="tabular-nums">{completionRate}%</span>
         </div>
-        <div className="flex items-center gap-1 text-[10px] flex-wrap sm:justify-end">
+        <div className="flex shrink-0 items-center gap-1 text-[10px]">
         {STATUS_PILLS.filter(p => p.count > 0 || statusFilter === p.value).map(p => {
           const active = statusFilter === p.value
           return (
@@ -2313,7 +2399,7 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
 
       {/* Toolbar: search · sort · view toggle · fullscreen */}
       {tasks.length > 0 && (
-        <div className="mb-3 space-y-2">
+        <div className="mb-2 space-y-1.5">
           {tasks.length > 4 && (
             <div className="min-w-0 overflow-visible rounded-md border border-border/40">
               <DataTableToolbar
@@ -2366,7 +2452,8 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
               All buttons share the toolbar so the user never has to
               hunt for a hidden menu. Disabled (rather than hidden) so
               the layout stays stable. */}
-          <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+          <div className="flex min-w-0 items-center gap-1 rounded-md border border-border/35 bg-muted/5 px-2 py-1">
+            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
             <button
               type="button"
               onClick={handleAddAfter}
@@ -2422,9 +2509,9 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
             >
               <ChevronRight size={15} />
             </button>
-          </div>
+            </div>
           {/* View controls — grouped so they wrap together on narrow widths */}
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="shrink-0 flex items-center gap-1">
             <button
               type="button"
               onClick={() => setViewModePersist('table')}
@@ -2451,6 +2538,7 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
             >
               <Maximize2 size={15} />
             </button>
+          </div>
           </div>
         </div>
       )}
@@ -2905,17 +2993,17 @@ function PlannerLinksSection({
       title={`Planner — tâches liées (${groups.length} tâche${groups.length > 1 ? 's' : ''} · ${totalActivities} activité${totalActivities > 1 ? 's' : ''})`}
       defaultExpanded
     >
-      <div className="mb-3 flex items-center justify-between gap-2 rounded-md border border-border/50 bg-muted/10 px-3 py-2">
+      <div className="mb-3 grid min-w-0 max-w-full gap-2 overflow-hidden rounded-md border border-border/50 bg-muted/10 px-3 py-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
           <div className="text-xs font-semibold text-foreground">Envoyer une tâche au Planner</div>
-          <div className="truncate text-[11px] text-muted-foreground">
+          <div className="break-words text-[11px] text-muted-foreground lg:truncate">
             Choisissez une tâche du projet, puis suivez ici les activités Planner créées.
           </div>
         </div>
         <button
           type="button"
           onClick={() => setShowSendModal(true)}
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          className="inline-flex h-8 w-full max-w-full items-center justify-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 lg:w-auto"
         >
           <Send size={12} /> Envoyer
         </button>
@@ -2925,9 +3013,9 @@ function PlannerLinksSection({
           <Loader2 size={12} className="animate-spin" /> Chargement…
         </div>
       ) : groups.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border/60 bg-background/40 px-3 py-6 text-center">
+        <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-dashed border-border/60 bg-background/40 px-3 py-5 text-center">
           <p className="text-xs font-medium text-foreground">Aucune tâche liée au Planner</p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mx-auto mt-1 max-w-[48ch] break-words text-[11px] text-muted-foreground">
             Envoyez une tâche existante pour créer son activité Planner et suivre sa planification.
           </p>
           <button
@@ -2994,10 +3082,10 @@ function PlannerLinksSection({
                       // param wasn't consumed by anything (user reported
                       // dead link in the project's planner-links section).
                       onClick={() => navigate(`/planner/activity/${a.id}`)}
-                      className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center px-2 py-1.5 text-[11px] hover:bg-muted/40 transition-colors text-left group"
+                      className="group grid w-full min-w-0 gap-1.5 px-2 py-1.5 text-left text-[11px] transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(0,1fr)_minmax(70px,100px)_auto_12px] sm:items-center sm:gap-2"
                       title="Ouvrir dans Planner"
                     >
-                      <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <CalendarClock size={10} className="text-blue-500 shrink-0" />
                         <span className="truncate">{a.title}</span>
                         {a.status && (
@@ -3009,7 +3097,7 @@ function PlannerLinksSection({
                           {a.site_name}
                         </span>
                       )}
-                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                      <span className="text-[10px] text-muted-foreground tabular-nums sm:shrink-0">
                         {fmt(a.start_date)} → {fmt(a.end_date)}
                       </span>
                       <ChevronRight size={10} className="text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -3458,14 +3546,28 @@ export function ProjectDetailPanel({ id }: { id: string }) {
   const { data: members } = useProjectMembers(id)
   const { data: taskDependencies = [] } = useTaskDependencies(id)
   const milestoneTasks = useMemo(() => (tasks ?? []).filter((task) => task.is_milestone), [tasks])
+  const memberSummary = useMemo(() => {
+    const list = members ?? []
+    const active = list.filter((member) => member.active !== false).length
+    const allocation = list.reduce((sum, member) => sum + (Number(member.allocation_pct) || 0), 0)
+    const specialties = new Set(list.map((member) => member.specialty).filter(Boolean)).size
+    return { active, allocation, specialties }
+  }, [members])
   const { data: allUsersData } = useUsers({ page_size: 100, active: true })
+  const userAvatarById = useMemo(() => {
+    const map = new Map<string, string | null>()
+    for (const user of allUsersData?.items ?? []) {
+      map.set(user.id, user.avatar_url ?? null)
+    }
+    return map
+  }, [allUsersData?.items])
   const goutiSyncOne = useGoutiSyncOne()
   const [showPlannerLink, setShowPlannerLink] = useState(false)
   // Métriques is the default tab — most users land on a project to
   // check its health (gauge + situation), not to read the descriptive
   // fiche. Kept the rest of the order so muscle memory still works
   // for power users.
-  const [detailTab, setDetailTab] = useState<'fiche' | 'budget' | 'taches' | 'planification' | 'metriques' | 'planner' | 'historique' | 'documents'>('metriques')
+  const [detailTab, setDetailTab] = useState<'fiche' | 'budget' | 'taches' | 'planification' | 'metriques' | 'planner' | 'changements' | 'historique' | 'documents'>('metriques')
   const exportPdf = useExportProjectPdf()
   const { data: goutiStatus } = useGoutiStatus()
   const { toast } = useToast()
@@ -3594,6 +3696,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           { id: 'taches', label: `Tâches (${tasks?.length ?? 0})`, icon: ListTodo },
           { id: 'planner', label: 'Planner', icon: CalendarClock },
           { id: 'planification', label: 'Planification', icon: BarChart3 },
+          { id: 'changements', label: 'Changements', icon: History },
           { id: 'budget', label: 'Budget', icon: CircleDollarSign },
           // Renamed Activité -> Historique to lift the confusion with
           // the Planner module (this tab is the audit log / changelog).
@@ -3941,8 +4044,29 @@ export function ProjectDetailPanel({ id }: { id: string }) {
             {/* Equipe / Members — like Gouti "Gestion > Les collaborateurs" */}
             <FormSection title={`Équipe (${members?.length ?? 0})`} collapsible defaultExpanded storageKey="project-detail-equipe">
               {members && members.length > 0 ? (
-                <div>
-                  {members.map((m) => <MemberRow key={m.id} member={m} projectId={id} />)}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-1 rounded-md border border-border/50 bg-muted/15 p-1 text-[10px] text-muted-foreground">
+                    <div className="rounded bg-background/45 px-1.5 py-0.5">
+                      <div className="text-xs font-semibold tabular-nums text-foreground">{memberSummary.active}/{members.length}</div>
+                      <div>actifs</div>
+                    </div>
+                    <div className="rounded bg-background/45 px-1.5 py-0.5">
+                      <div className="text-xs font-semibold tabular-nums text-foreground">{memberSummary.allocation}%</div>
+                      <div>charge</div>
+                    </div>
+                    <div className="rounded bg-background/45 px-1.5 py-0.5">
+                      <div className="text-xs font-semibold tabular-nums text-foreground">{memberSummary.specialties}</div>
+                      <div>spécialités</div>
+                    </div>
+                  </div>
+                  {members.map((m) => (
+                    <MemberRow
+                      key={m.id}
+                      member={m}
+                      projectId={id}
+                      avatarUrl={m.avatar_url ?? (m.user_id ? userAvatarById.get(m.user_id) : null)}
+                    />
+                  ))}
                 </div>
               ) : (
                 <EmptyState icon={Users} title="Aucun membre" variant="search" size="compact" />
@@ -4009,6 +4133,10 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           <PlannerLinksSection projectId={id} projectCode={project.code} assetId={project.asset_id} />
         )}
 
+        {detailTab === 'changements' && (
+          <ProjectChangesSection projectId={id} currency={projectCurrency} />
+        )}
+
         {detailTab === 'historique' && <>
           {/* Custom Fields (EAV) */}
           <CustomFieldsSection projectId={id} />
@@ -4043,7 +4171,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 <NoteManager ownerType="project" ownerId={project.id} compact />
               </div>
               <div>
-                <AttachmentManager ownerType="project" ownerId={project.id} compact />
+                <AttachmentManager ownerType="project" ownerId={project.id} compact categoryDictionary="project_attachment_type" />
               </div>
             </DetailFieldGrid>
           </FormSection>

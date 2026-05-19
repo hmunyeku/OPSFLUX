@@ -48,6 +48,14 @@ export type { TimeScale } from './ganttEngine'
 
 const SCALES: TimeScale[] = ['day', 'week', 'month', 'quarter', 'semester']
 
+function chooseReadableScaleForRange(rangeDays: number, current: TimeScale): TimeScale {
+  if (rangeDays > 1460) return 'semester'
+  if (rangeDays > 730) return 'quarter'
+  if (rangeDays > 240) return 'month'
+  if (rangeDays > 75) return 'week'
+  return current
+}
+
 // ── Editable Cell (inline edit on double-click) ─────────────────
 
 import type { GanttColumn, OnCellEdit } from './ganttTypes'
@@ -122,6 +130,7 @@ export function GanttCore(props: GanttCoreProps) {
     expandedRows, onToggleRow,
     onSettingsChange,
     emptyMessage = 'Aucune donnée à afficher',
+    timelineEmptyMessage,
     isLoading = false,
     showToolbar = true,
     showGrid = true,
@@ -631,21 +640,26 @@ export function GanttCore(props: GanttCoreProps) {
     const rangeDays = daysB(minDate, maxDate)
     if (rangeDays <= 0) return
 
-    // Adjust zoom to fit this range in viewport
+    // Adjust zoom to fit this range in viewport. When the span is long,
+    // keeping "day" scale and forcing zoom down to 10% creates an
+    // unreadable vertical-stripe grid. Pick a coarser time scale first,
+    // then compute the zoom against that scale.
+    const nextScale = chooseReadableScaleForRange(rangeDays, settings.scale)
+    const nextMeta = SCALE_META[nextScale]
     const newPpd = viewportW / rangeDays
-    const newZoom = newPpd / meta.pxPerDay
+    const newZoom = newPpd / nextMeta.pxPerDay
 
     setViewStart(minDate)
     setViewEnd(maxDate)
-    updateSettings({ zoomFactor: Math.max(0.1, Math.min(6, newZoom)) })
+    updateSettings({ scale: nextScale, zoomFactor: Math.max(0.25, Math.min(6, newZoom)) })
     // Crucial: propagate the new range to the parent. Otherwise the parent
     // keeps computing `cells` + `cellLabels.cellIdx` against the STALE
     // startDate/endDate props, while GanttCore renders cells against the
     // new internal viewStart/viewEnd → the labels (and visually the bars)
     // land on the wrong cell indices. Notifying the parent triggers a
     // re-render with fresh cells so everything stays aligned.
-    onViewChange?.(settings.scale, minDate, maxDate)
-  }, [bars, meta.pxPerDay, updateSettings, onViewChange, settings.scale])
+    onViewChange?.(nextScale, minDate, maxDate)
+  }, [bars, updateSettings, onViewChange, settings.scale])
 
   // ── Export menu (Image PNG / PDF A3) ────────────────────────────
 
@@ -994,6 +1008,7 @@ export function GanttCore(props: GanttCoreProps) {
   }
 
   const isEmpty = rows.length === 0
+  const isTimelineEmpty = !isEmpty && bars.length === 0 && !footerRow
 
   // ── Render ─────────────────────────────────────────────────────
 
@@ -1504,13 +1519,15 @@ export function GanttCore(props: GanttCoreProps) {
                   toolbar and header stay reachable — the user can still
                   scroll, change scale, or pick a preset to get back to
                   something that has activities. */}
-              {isEmpty && (
+              {(isEmpty || isTimelineEmpty) && (
                 <div
-                  className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2 pointer-events-none"
+                  className="absolute inset-0 z-10 flex flex-col items-center justify-start gap-2 px-4 pt-12 text-center text-sm text-muted-foreground pointer-events-none"
                 >
-                  <span>{emptyMessage}</span>
-                  <span className="text-[10px] text-muted-foreground/70">
-                    Utilisez la barre d'outils pour changer la période ou revenir à aujourd'hui.
+                  <span className="rounded-md border border-border/60 bg-background/90 px-3 py-2 text-xs font-medium text-foreground shadow-sm">
+                    {isEmpty ? emptyMessage : (timelineEmptyMessage ?? 'Aucun élément planifié sur cette période.')}
+                  </span>
+                  <span className="max-w-[44ch] text-[10px] text-muted-foreground/70">
+                    Utilisez la barre d'outils pour changer la période, revenir à aujourd'hui ou créer une tâche datée.
                   </span>
                 </div>
               )}

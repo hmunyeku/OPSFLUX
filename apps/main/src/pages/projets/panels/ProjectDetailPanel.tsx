@@ -3696,7 +3696,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           { id: 'taches', label: `Tâches (${tasks?.length ?? 0})`, icon: ListTodo },
           { id: 'planner', label: 'Planner', icon: CalendarClock },
           { id: 'planification', label: 'Planification', icon: BarChart3 },
-          { id: 'changements', label: 'Changements', icon: History },
+          { id: 'changements', label: t('projets.detail.tabs.changes'), icon: History },
           { id: 'budget', label: 'Budget', icon: CircleDollarSign },
           // Renamed Activité -> Historique to lift the confusion with
           // the Planner module (this tab is the audit log / changelog).

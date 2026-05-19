@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import inspect
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -9,6 +10,7 @@ from starlette.requests import Request
 
 from app.api.routes.modules import projets
 from app.api.routes.modules import planner
+from app.modules.projets import MANIFEST as PROJECTS_MANIFEST
 from app.models.common import AuditLog, ProjectTask
 from app.models.planner import PlannerActivity
 from app.core.event_contracts import PROJECT_STATUS_CHANGED_EVENT
@@ -29,6 +31,25 @@ class FakeDB:
 
     async def refresh(self, _obj):
         return None
+
+
+def test_project_change_routes_use_dedicated_permissions():
+    assert 'require_permission("project.change.create")' in inspect.getsource(projets.create_project_change)
+    assert 'require_permission("project.change.update")' in inspect.getsource(projets.update_project_change)
+    assert 'require_permission("project.change.delete")' in inspect.getsource(projets.delete_project_change)
+
+
+def test_project_manifest_declares_project_change_permissions():
+    for code in ("project.change.create", "project.change.update", "project.change.delete"):
+        assert code in PROJECTS_MANIFEST.permissions
+
+    chef_projet = next(role for role in PROJECTS_MANIFEST.roles if role["code"] == "CHEF_PROJET")
+    assert "project.change.create" in chef_projet["permissions"]
+    assert "project.change.update" in chef_projet["permissions"]
+    assert "project.change.delete" in chef_projet["permissions"]
+
+    reviewer = next(role for role in PROJECTS_MANIFEST.roles if role["code"] == "REVISEUR_PROJET")
+    assert "project.change.update" in reviewer["permissions"]
 
 
 @pytest.mark.asyncio

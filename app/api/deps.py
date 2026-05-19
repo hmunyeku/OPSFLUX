@@ -361,6 +361,9 @@ def _resolve_owner_model(owner_type: str):
     if owner_type == "project_task":
         from app.models.common import ProjectTask
         return (ProjectTask, True)
+    if owner_type == "project_change":
+        from app.models.common import ProjectChange
+        return (ProjectChange, True)
     if owner_type == "voyage":
         from app.models.travelwiz import Voyage
         return (Voyage, True)
@@ -445,6 +448,7 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     # attachments, tags, addresses via the shared managers.
     "project": ("project.read", "project.update"),
     "project_task": ("project.task.read", "project.task.update"),
+    "project_change": ("project.read", "project.change.update"),
     "project_milestone": ("project.read", "project.milestone.manage"),
     "project_wbs_node": ("project.read", "project.update"),
     # Planner — activities carry attachments, notes, tags via the shared managers

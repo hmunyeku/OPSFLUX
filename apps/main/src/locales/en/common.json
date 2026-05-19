@@ -2063,6 +2063,41 @@
       "no_comments": "No comment yet",
       "add_comment_placeholder": "Add a comment…"
     },
+    "changes": {
+      "section_title": "Project changes ({{count}})",
+      "add": "Add change",
+      "total": "Total",
+      "validated": "Validated",
+      "planning": "Planning",
+      "budget": "Budget",
+      "source": "Source",
+      "attachments": "Attachments",
+      "attachments_short": "Files",
+      "decision": "Decision",
+      "title_placeholder": "Change title",
+      "source_placeholder": "Source / requester",
+      "planning_impact_placeholder": "Planning impact (days)",
+      "budget_impact_placeholder": "Budget impact ({{currency}})",
+      "description_placeholder": "Change description...",
+      "decision_placeholder": "Decision / arbitration...",
+      "empty_title": "No change recorded",
+      "empty_description": "Decisions, inputs and project impacts will be tracked here.",
+      "status": {
+        "draft": "Draft",
+        "submitted": "Submitted",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "implemented": "Implemented",
+        "cancelled": "Cancelled"
+      },
+      "type": {
+        "scope": "Scope",
+        "planning": "Planning",
+        "budget": "Budget",
+        "technical_decision": "Technical decision",
+        "other": "Other"
+      }
+    },
     "task": {
       "planner": {
         "already_linked": "Already linked",
@@ -2218,7 +2253,8 @@
         "deliverables": "Deliverables",
         "actions": "Actions",
         "history": "History",
-        "metrics": "Metrics"
+        "metrics": "Metrics",
+        "changes": "Changes"
       },
       "task_actions": {
         "add": "Add",

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, FileText, Loader2, Paperclip, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { panelInputClass, FormSection } from '@/components/layout/DynamicPanel'
@@ -14,30 +15,6 @@ import {
 } from '@/hooks/useProjets'
 import type { ProjectChange } from '@/types/api'
 
-const CHANGE_STATUS_OPTIONS = [
-  { value: 'draft', label: 'Brouillon' },
-  { value: 'submitted', label: 'Soumis' },
-  { value: 'approved', label: 'Approuve' },
-  { value: 'rejected', label: 'Rejete' },
-  { value: 'implemented', label: 'Implemente' },
-  { value: 'cancelled', label: 'Annule' },
-]
-
-const CHANGE_PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Basse' },
-  { value: 'medium', label: 'Moyenne' },
-  { value: 'high', label: 'Haute' },
-  { value: 'critical', label: 'Critique' },
-]
-
-const DEFAULT_CHANGE_TYPE_OPTIONS = [
-  { value: 'scope', label: 'Perimetre' },
-  { value: 'planning', label: 'Planning' },
-  { value: 'budget', label: 'Budget' },
-  { value: 'technical_decision', label: 'Decision technique' },
-  { value: 'other', label: 'Autre' },
-]
-
 const statusTone: Record<string, string> = {
   draft: 'border-border bg-muted/40 text-muted-foreground',
   submitted: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
@@ -47,9 +24,9 @@ const statusTone: Record<string, string> = {
   cancelled: 'border-muted bg-muted/40 text-muted-foreground',
 }
 
-function formatMoney(value: number | null, currency: string) {
+function formatMoney(value: number | null, currency: string, locale: string) {
   if (value == null) return '0'
-  return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value) + ` ${currency}`
+  return new Intl.NumberFormat(locale || 'fr-FR', { maximumFractionDigits: 0 }).format(value) + ` ${currency}`
 }
 
 function labelFor(options: { value: string; label: string }[], value: string | null | undefined) {
@@ -61,16 +38,19 @@ function ChangeCard({
   change,
   projectId,
   typeOptions,
+  statusOptions,
 }: {
   change: ProjectChange
   projectId: string
   typeOptions: { value: string; label: string }[]
+  statusOptions: { value: string; label: string }[]
 }) {
+  const { t, i18n } = useTranslation()
   const update = useUpdateProjectChange()
   const remove = useDeleteProjectChange()
   const [openFiles, setOpenFiles] = useState(false)
   const currency = change.currency || 'XAF'
-  const statusLabel = labelFor(CHANGE_STATUS_OPTIONS, change.status)
+  const statusLabel = labelFor(statusOptions, change.status)
 
   return (
     <article className="rounded-md border border-border bg-card/40 p-3">
@@ -87,10 +67,10 @@ function ChangeCard({
           </div>
           <h4 className="mt-1 truncate text-sm font-semibold text-foreground">{change.title}</h4>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
-            <span>Planning: <b className="text-foreground">{change.planning_impact_days ?? 0} j</b></span>
-            <span>Budget: <b className="text-foreground">{formatMoney(change.budget_impact_amount, currency)}</b></span>
-            <span>Source: <b className="text-foreground">{change.source || '-'}</b></span>
-            <span>PJ: <b className="text-foreground">{change.attachment_count}</b></span>
+            <span>{t('projets.changes.planning')}: <b className="text-foreground">{change.planning_impact_days ?? 0} {t('common.days_short', 'j')}</b></span>
+            <span>{t('projets.changes.budget')}: <b className="text-foreground">{formatMoney(change.budget_impact_amount, currency, i18n.language)}</b></span>
+            <span>{t('projets.changes.source')}: <b className="text-foreground">{change.source || '-'}</b></span>
+            <span>{t('projets.changes.attachments_short')}: <b className="text-foreground">{change.attachment_count}</b></span>
           </div>
         </div>
 
@@ -100,13 +80,13 @@ function ChangeCard({
             value={change.status}
             onChange={(e) => update.mutate({ projectId, changeId: change.id, payload: { status: e.target.value } })}
           >
-            {CHANGE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {statusOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <button
             type="button"
             onClick={() => setOpenFiles((v) => !v)}
             className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-            title="Pieces jointes"
+            title={t('projets.changes.attachments')}
           >
             <Paperclip size={14} />
           </button>
@@ -114,7 +94,7 @@ function ChangeCard({
             type="button"
             onClick={() => remove.mutate({ projectId, changeId: change.id })}
             className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
-            title="Supprimer"
+            title={t('common.delete')}
           >
             <Trash2 size={14} />
           </button>
@@ -125,13 +105,13 @@ function ChangeCard({
         <div className="mt-3 grid gap-2 md:grid-cols-2">
           {change.description && (
             <div className="rounded border border-border/60 bg-background/40 p-2">
-              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Description</div>
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('common.description')}</div>
               <RichTextDisplay value={change.description} className="text-[12px]" />
             </div>
           )}
           {change.decision_summary && (
             <div className="rounded border border-border/60 bg-background/40 p-2">
-              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Decision</div>
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('projets.changes.decision')}</div>
               <RichTextDisplay value={change.decision_summary} className="text-[12px]" />
             </div>
           )}
@@ -153,10 +133,33 @@ function ChangeCard({
 }
 
 export function ProjectChangesSection({ projectId, currency = 'XAF' }: { projectId: string; currency?: string }) {
+  const { t, i18n } = useTranslation()
   const { data: changes = [], isLoading } = useProjectChanges(projectId)
   const create = useCreateProjectChange()
   const typeDictionaryOptions = useDictionaryOptions('project_change_type')
-  const typeOptions = typeDictionaryOptions.length > 0 ? typeDictionaryOptions : DEFAULT_CHANGE_TYPE_OPTIONS
+  const statusDictionaryOptions = useDictionaryOptions('project_change_status')
+  const typeFallbackOptions = useMemo(() => [
+    { value: 'scope', label: t('projets.changes.type.scope') },
+    { value: 'planning', label: t('projets.changes.type.planning') },
+    { value: 'budget', label: t('projets.changes.type.budget') },
+    { value: 'technical_decision', label: t('projets.changes.type.technical_decision') },
+    { value: 'other', label: t('projets.changes.type.other') },
+  ], [t])
+  const statusOptions = statusDictionaryOptions.length > 0 ? statusDictionaryOptions : [
+    { value: 'draft', label: t('projets.changes.status.draft') },
+    { value: 'submitted', label: t('projets.changes.status.submitted') },
+    { value: 'approved', label: t('projets.changes.status.approved') },
+    { value: 'rejected', label: t('projets.changes.status.rejected') },
+    { value: 'implemented', label: t('projets.changes.status.implemented') },
+    { value: 'cancelled', label: t('projets.changes.status.cancelled') },
+  ]
+  const priorityOptions = [
+    { value: 'low', label: t('projets.priority.low') },
+    { value: 'medium', label: t('projets.priority.medium') },
+    { value: 'high', label: t('projets.priority.high') },
+    { value: 'critical', label: t('projets.priority.critical') },
+  ]
+  const typeOptions = typeDictionaryOptions.length > 0 ? typeDictionaryOptions : typeFallbackOptions
   const [expanded, setExpanded] = useState(false)
   const [form, setForm] = useState({
     title: '',
@@ -211,7 +214,7 @@ export function ProjectChangesSection({ projectId, currency = 'XAF' }: { project
 
   return (
     <FormSection
-      title={<span className="inline-flex items-center gap-2"><AlertTriangle size={14} /> Changements projet ({changes.length})</span>}
+      title={<span className="inline-flex items-center gap-2"><AlertTriangle size={14} /> {t('projets.changes.section_title', { count: changes.length })}</span>}
       collapsible
       defaultExpanded
       storageKey="project-changes"
@@ -219,66 +222,66 @@ export function ProjectChangesSection({ projectId, currency = 'XAF' }: { project
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-            <div className="text-[10px] font-semibold uppercase text-muted-foreground">Total</div>
+            <div className="text-[10px] font-semibold uppercase text-muted-foreground">{t('projets.changes.total')}</div>
             <div className="text-lg font-semibold">{changes.length}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-            <div className="text-[10px] font-semibold uppercase text-muted-foreground">Valides</div>
+            <div className="text-[10px] font-semibold uppercase text-muted-foreground">{t('projets.changes.validated')}</div>
             <div className="text-lg font-semibold">{stats.approved}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-            <div className="text-[10px] font-semibold uppercase text-muted-foreground">Planning</div>
-            <div className="text-lg font-semibold">{stats.totalDays} j</div>
+            <div className="text-[10px] font-semibold uppercase text-muted-foreground">{t('projets.changes.planning')}</div>
+            <div className="text-lg font-semibold">{stats.totalDays} {t('common.days_short', 'j')}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-            <div className="text-[10px] font-semibold uppercase text-muted-foreground">Budget</div>
-            <div className="text-lg font-semibold">{formatMoney(stats.totalBudget, currency)}</div>
+            <div className="text-[10px] font-semibold uppercase text-muted-foreground">{t('projets.changes.budget')}</div>
+            <div className="text-lg font-semibold">{formatMoney(stats.totalBudget, currency, i18n.language)}</div>
           </div>
         </div>
 
         {!expanded ? (
           <button type="button" onClick={() => setExpanded(true)} className="flex items-center gap-2 text-sm font-medium text-primary">
-            <Plus size={14} /> Ajouter un changement
+            <Plus size={14} /> {t('projets.changes.add')}
           </button>
         ) : (
           <div className="rounded-md border border-border bg-background/40 p-3">
             <div className="grid gap-2 md:grid-cols-4">
-              <input className={`${panelInputClass} md:col-span-2`} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Titre du changement" />
+              <input className={`${panelInputClass} md:col-span-2`} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={t('projets.changes.title_placeholder')} />
               <select className={panelInputClass} value={form.change_type} onChange={(e) => setForm({ ...form, change_type: e.target.value })}>
                 {typeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
               <select className={panelInputClass} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
-                {CHANGE_PRIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {priorityOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
-              <input className={panelInputClass} value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="Source / demandeur" />
-              <input className={panelInputClass} type="number" value={form.planning_impact_days} onChange={(e) => setForm({ ...form, planning_impact_days: e.target.value })} placeholder="Impact planning (j)" />
-              <input className={panelInputClass} type="number" value={form.budget_impact_amount} onChange={(e) => setForm({ ...form, budget_impact_amount: e.target.value })} placeholder={`Impact budget (${currency})`} />
+              <input className={panelInputClass} value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder={t('projets.changes.source_placeholder')} />
+              <input className={panelInputClass} type="number" value={form.planning_impact_days} onChange={(e) => setForm({ ...form, planning_impact_days: e.target.value })} placeholder={t('projets.changes.planning_impact_placeholder')} />
+              <input className={panelInputClass} type="number" value={form.budget_impact_amount} onChange={(e) => setForm({ ...form, budget_impact_amount: e.target.value })} placeholder={t('projets.changes.budget_impact_placeholder', { currency })} />
               <select className={panelInputClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                {CHANGE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {statusOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div className="mt-2 grid gap-2 lg:grid-cols-2">
-              <RichTextField value={form.description} onChange={(html) => setForm({ ...form, description: html })} placeholder="Description du changement..." compact rows={4} />
-              <RichTextField value={form.decision_summary} onChange={(html) => setForm({ ...form, decision_summary: html })} placeholder="Decision / arbitrage..." compact rows={4} />
+              <RichTextField value={form.description} onChange={(html) => setForm({ ...form, description: html })} placeholder={t('projets.changes.description_placeholder')} compact rows={4} />
+              <RichTextField value={form.decision_summary} onChange={(html) => setForm({ ...form, decision_summary: html })} placeholder={t('projets.changes.decision_placeholder')} compact rows={4} />
             </div>
             <div className="mt-3 flex justify-end gap-2">
-              <button type="button" className="btn btn-secondary" onClick={() => setExpanded(false)}>Annuler</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setExpanded(false)}>{t('common.cancel')}</button>
               <button type="button" className="btn btn-primary" onClick={save} disabled={!form.title.trim() || create.isPending}>
                 {create.isPending ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-                Enregistrer
+                {t('common.save')}
               </button>
             </div>
           </div>
         )}
 
         {isLoading ? (
-          <div className="text-sm text-muted-foreground">Chargement...</div>
+          <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
         ) : changes.length === 0 ? (
-          <EmptyState icon={AlertTriangle} title="Aucun changement enregistre" description="Les decisions, inputs et impacts projet seront traces ici." />
+          <EmptyState icon={AlertTriangle} title={t('projets.changes.empty_title')} description={t('projets.changes.empty_description')} />
         ) : (
           <div className="space-y-2">
             {changes.map((change) => (
-              <ChangeCard key={change.id} change={change} projectId={projectId} typeOptions={typeOptions} />
+              <ChangeCard key={change.id} change={change} projectId={projectId} typeOptions={typeOptions} statusOptions={statusOptions} />
             ))}
           </div>
         )}

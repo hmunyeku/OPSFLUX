@@ -38,6 +38,10 @@ MANIFEST = ModuleManifest(
         "project.deliverable.create",
         "project.deliverable.update",
         "project.deliverable.delete",
+        # ── Project changes / MOC ──
+        "project.change.create",
+        "project.change.update",
+        "project.change.delete",
         # ── Task actions / checklists ──
         "project.action.create",
         "project.action.update",
@@ -64,6 +68,7 @@ MANIFEST = ModuleManifest(
                 "project.milestone.create", "project.milestone.update", "project.milestone.delete",
                 "project.revision.create", "project.revision.update", "project.revision.apply", "project.revision.delete",
                 "project.deliverable.create", "project.deliverable.update", "project.deliverable.delete",
+                "project.change.create", "project.change.update", "project.change.delete",
                 "project.action.create", "project.action.update", "project.action.delete",
                 "project.comment.create", "project.comment.delete",
                 "project.wbs.manage",
@@ -78,6 +83,7 @@ MANIFEST = ModuleManifest(
                 "project.read",
                 "project.task.create", "project.task.update",
                 "project.deliverable.create", "project.deliverable.update",
+                "project.change.create", "project.change.update",
                 "project.action.create", "project.action.update",
                 "project.comment.create",
             ],
@@ -91,6 +97,7 @@ MANIFEST = ModuleManifest(
                 "project.status_change",
                 "project.deliverable.update",   # accepter/rejeter livrables
                 "project.revision.apply",       # activer une révision
+                "project.change.update",        # arbitrer / valider un changement
                 "project.comment.create",
             ],
         },

@@ -25,7 +25,7 @@ from app.models.common import (
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
     ProjectTaskDependency, ProjectWBSNode, CostCenter,
     ProjectTaskAssignee, ProjectComment, ProjectStatusHistory,
-    ProjectSituation, ProjectChange, Attachment,
+    ProjectSituation, ProjectChange, Attachment, DictionaryEntry,
     User, Tier, TierContact,
 )
 from app.models.asset_registry import Installation, OilSite
@@ -2495,6 +2495,27 @@ async def delete_revision(
 PROJECT_CHANGE_DECISION_STATUSES = {"approved", "rejected", "implemented", "cancelled"}
 
 
+async def _ensure_dictionary_code(
+    db: AsyncSession,
+    *,
+    category: str,
+    code: str | None,
+) -> None:
+    if not code:
+        return
+    exists = (await db.execute(
+        select(DictionaryEntry.id)
+        .where(
+            DictionaryEntry.category == category,
+            DictionaryEntry.code == code,
+            DictionaryEntry.active == True,  # noqa: E712
+        )
+        .limit(1)
+    )).scalar_one_or_none()
+    if exists is None:
+        raise HTTPException(status_code=422, detail=f"Invalid dictionary code for {category}: {code}")
+
+
 def _display_user_name(user: User | None) -> str | None:
     if user is None:
         return None
@@ -2572,11 +2593,12 @@ async def create_project_change(
     body: ProjectChangeCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.change.create"),
     db: AsyncSession = Depends(get_db),
 ):
     project = await _get_project_or_404(db, project_id, entity_id)
     payload = body.model_dump()
+    await _ensure_dictionary_code(db, category="project_change_type", code=payload.get("change_type"))
     if not payload.get("currency"):
         payload["currency"] = project.currency
     reference = await generate_reference(
@@ -2610,7 +2632,7 @@ async def update_project_change(
     body: ProjectChangeUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.change.update"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -2625,6 +2647,8 @@ async def update_project_change(
         raise HTTPException(404, "Project change not found")
 
     payload = body.model_dump(exclude_unset=True)
+    if "change_type" in payload:
+        await _ensure_dictionary_code(db, category="project_change_type", code=payload.get("change_type"))
     previous_status = change.status
     for field, value in payload.items():
         setattr(change, field, value)
@@ -2648,7 +2672,7 @@ async def delete_project_change(
     project_id: UUID,
     change_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.change.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -2694,7 +2718,9 @@ async def create_deliverable(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    deliv = TaskDeliverable(task_id=task_id, **body.model_dump())
+    payload = body.model_dump()
+    await _ensure_dictionary_code(db, category="project_deliverable_type", code=payload.get("type_code"))
+    deliv = TaskDeliverable(task_id=task_id, **payload)
     db.add(deliv)
     await db.commit()
     await db.refresh(deliv)
@@ -2718,7 +2744,10 @@ async def update_deliverable(
     deliv = result.scalars().first()
     if not deliv:
         raise HTTPException(404, "Deliverable not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    payload = body.model_dump(exclude_unset=True)
+    if "type_code" in payload:
+        await _ensure_dictionary_code(db, category="project_deliverable_type", code=payload.get("type_code"))
+    for field, value in payload.items():
         setattr(deliv, field, value)
     await db.commit()
     await db.refresh(deliv)
@@ -3079,7 +3108,9 @@ async def create_wbs_node(
         )).scalar_one_or_none()
         if parent is None:
             raise HTTPException(400, "parent_id must belong to the same project")
-    node = ProjectWBSNode(project_id=project_id, **body.model_dump())
+    payload = body.model_dump()
+    await _ensure_dictionary_code(db, category="project_wbs_type", code=payload.get("type_code"))
+    node = ProjectWBSNode(project_id=project_id, **payload)
     db.add(node)
     await db.commit()
     await db.refresh(node)
@@ -3108,6 +3139,8 @@ async def update_wbs_node(
     payload = body.model_dump(exclude_unset=True)
     if payload.get("parent_id") == node.id:
         raise HTTPException(400, "A WBS node cannot be its own parent")
+    if "type_code" in payload:
+        await _ensure_dictionary_code(db, category="project_wbs_type", code=payload.get("type_code"))
     for k, v in payload.items():
         setattr(node, k, v)
     await db.commit()

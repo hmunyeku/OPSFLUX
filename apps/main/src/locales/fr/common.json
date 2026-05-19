@@ -2233,6 +2233,41 @@
       "no_comments": "Aucun commentaire pour le moment",
       "add_comment_placeholder": "Ajouter un commentaire…"
     },
+    "changes": {
+      "section_title": "Changements projet ({{count}})",
+      "add": "Ajouter un changement",
+      "total": "Total",
+      "validated": "Valid?s",
+      "planning": "Planning",
+      "budget": "Budget",
+      "source": "Source",
+      "attachments": "Pi?ces jointes",
+      "attachments_short": "PJ",
+      "decision": "D?cision",
+      "title_placeholder": "Titre du changement",
+      "source_placeholder": "Source / demandeur",
+      "planning_impact_placeholder": "Impact planning (j)",
+      "budget_impact_placeholder": "Impact budget ({{currency}})",
+      "description_placeholder": "Description du changement...",
+      "decision_placeholder": "D?cision / arbitrage...",
+      "empty_title": "Aucun changement enregistr?",
+      "empty_description": "Les d?cisions, inputs et impacts projet seront trac?s ici.",
+      "status": {
+        "draft": "Brouillon",
+        "submitted": "Soumis",
+        "approved": "Approuv?",
+        "rejected": "Rejet?",
+        "implemented": "Impl?ment?",
+        "cancelled": "Annul?"
+      },
+      "type": {
+        "scope": "P?rim?tre",
+        "planning": "Planning",
+        "budget": "Budget",
+        "technical_decision": "D?cision technique",
+        "other": "Autre"
+      }
+    },
     "task": {
       "planner": {
         "already_linked": "Already linked",
@@ -2314,7 +2349,8 @@
         "deliverables": "Livrables",
         "actions": "Actions",
         "history": "Historique",
-        "metrics": "Métriques"
+        "metrics": "Métriques",
+        "changes": "Changements"
       },
       "task_actions": {
         "add": "Ajouter",

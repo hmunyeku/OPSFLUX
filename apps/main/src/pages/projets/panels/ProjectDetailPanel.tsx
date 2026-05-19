@@ -2230,9 +2230,9 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
 
       {/* Toolbar: search · sort · view toggle · fullscreen */}
       {tasks.length > 0 && (
-        <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
           {tasks.length > 4 && (
-            <>
+            <div className="flex min-w-[240px] flex-[1_1_340px] items-center gap-1.5">
               <div className="relative min-w-0 flex-1">
                 <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
                 <input
@@ -2240,7 +2240,7 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Rechercher une tâche…"
-                  className={`${panelInputClass} text-xs pl-7 pr-6 w-full h-8`}
+                  className={`${panelInputClass} h-8 w-full pl-7 pr-6 text-xs`}
                 />
                 {search && (
                   <button
@@ -2254,7 +2254,7 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                className={`${panelInputClass} text-xs h-8 w-full sm:w-[128px]`}
+                className={`${panelInputClass} h-8 w-[116px] shrink-0 truncate px-2 text-xs`}
                 title="Trier par"
               >
                 <option value="order">Ordre WBS</option>
@@ -2262,13 +2262,13 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
                 <option value="priority">Priorité</option>
                 <option value="progress">Avancement</option>
               </select>
-            </>
+            </div>
           )}
           {/* Structural actions — contextual to the selected row.
               All buttons share the toolbar so the user never has to
               hunt for a hidden menu. Disabled (rather than hidden) so
               the layout stays stable. */}
-          <div className="flex items-center gap-1 overflow-x-auto lg:ml-auto">
+          <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
             <button
               type="button"
               onClick={handleAddAfter}
@@ -2326,7 +2326,7 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
             </button>
           </div>
           {/* View controls — grouped so they wrap together on narrow widths */}
-          <div className="flex items-center gap-1.5">
+          <div className="ml-auto flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => setViewModePersist('table')}

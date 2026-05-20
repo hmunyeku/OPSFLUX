@@ -2995,19 +2995,21 @@ function PlannerLinksSection({
       title={`Planner — tâches liées (${groups.length} tâche${groups.length > 1 ? 's' : ''} · ${totalActivities} activité${totalActivities > 1 ? 's' : ''})`}
       defaultExpanded
     >
-      <div className="mb-3 flex min-w-0 max-w-full flex-wrap items-center justify-between gap-2 overflow-hidden rounded-md border border-border/50 bg-muted/10 px-3 py-2">
-        <div className="min-w-0">
-          <div className="text-xs font-semibold text-foreground">Envoyer une tâche au Planner</div>
-          <div className="break-words text-[11px] text-muted-foreground lg:truncate">
+      <div className="mb-2 flex min-w-0 max-w-full items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="text-xs font-semibold text-foreground">Envoyer une tâche au Planner</span>
+          <span className="min-w-0 truncate text-[11px] text-muted-foreground">
             Choisissez une tâche du projet, puis suivez ici les activités Planner créées.
-          </div>
+          </span>
         </div>
         <button
           type="button"
           onClick={() => setShowSendModal(true)}
-          className="inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded border border-primary/35 bg-primary/10 px-2.5 text-[11px] font-medium text-primary hover:bg-primary/15"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-primary hover:bg-primary/10"
+          title="Envoyer au Planner"
+          aria-label="Envoyer au Planner"
         >
-          <Send size={11} /> Envoyer
+          <Send size={14} />
         </button>
       </div>
       {isLoading ? (
@@ -3015,17 +3017,19 @@ function PlannerLinksSection({
           <Loader2 size={12} className="animate-spin" /> Chargement…
         </div>
       ) : groups.length === 0 ? (
-        <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-dashed border-border/60 bg-background/40 px-3 py-5 text-center">
-          <p className="text-xs font-medium text-foreground">Aucune tâche liée au Planner</p>
-          <p className="mx-auto mt-1 max-w-[48ch] break-words text-[11px] text-muted-foreground">
-            Envoyez une tâche existante pour créer son activité Planner et suivre sa planification.
-          </p>
+        <div className="flex min-w-0 max-w-full items-center justify-between gap-2 rounded-md border border-dashed border-border/60 bg-background/35 px-3 py-2">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="text-xs font-medium text-foreground">Aucune tâche liée au Planner</span>
+            <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+              Créez une activité Planner depuis une tâche existante.
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => setShowSendModal(true)}
-            className="mt-3 inline-flex h-8 items-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded border border-border px-2 text-[11px] font-medium text-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
           >
-            <Send size={12} /> Choisir une tâche
+            <Send size={11} /> Choisir
           </button>
         </div>
       ) : (

@@ -6900,7 +6900,47 @@
       "attachments": "Pièces jointes",
       "notes": "Notes",
       "history": "Historique",
-      "details": "Détails"
+      "details": "Détails",
+      "project_change_type": "Type de changement projet",
+      "validations_approved": "validations approuvées",
+      "no_validation_required": "Aucune validation obligatoire",
+      "approval_blocked": "Les validations obligatoires doivent être approuvées avant approbation.",
+      "actions": {
+        "submitted": "Soumettre",
+        "in_review": "Lancer la revue",
+        "approved": "Approuver",
+        "rejected": "Rejeter",
+        "implemented": "Marquer réalisé",
+        "closed": "Clôturer"
+      },
+      "status": {
+        "process_moc": {
+          "created": "Créé",
+          "approved": "Approuvé",
+          "submitted_to_confirm": "À confirmer",
+          "cancelled": "Annulé",
+          "stand_by": "En attente",
+          "approved_to_study": "À étudier",
+          "under_study": "En étude",
+          "study_in_validation": "Étude en validation",
+          "validated": "Validé",
+          "execution": "En exécution",
+          "executed_docs_pending": "Docs en attente",
+          "closed": "Clôturé"
+        },
+        "project_change": {
+          "draft": "Brouillon",
+          "submitted": "Soumis",
+          "in_review": "En revue",
+          "approved": "Approuvé",
+          "rejected": "Rejeté",
+          "validated": "Approuvé",
+          "execution": "Réalisé",
+          "executed_docs_pending": "Réalisé",
+          "implemented": "Réalisé",
+          "closed": "Clôturé"
+        }
+      }
     },
     "identifiers": {
       "title": "Identifiants légaux",

@@ -105,10 +105,13 @@ export function useUpdateMOC() {
   return useMutation({
     mutationFn: (args: { id: string; payload: MOCUpdatePayload }) =>
       mocService.update(args.id, args.payload),
-    onSuccess: (_d, args) => {
+    onSuccess: (data, args) => {
       qc.invalidateQueries({ queryKey: keys.detail(args.id) })
       qc.invalidateQueries({ queryKey: [...keys.all, 'list'] })
       qc.invalidateQueries({ queryKey: keys.stats() })
+      if (data.context_type && data.context_id) {
+        qc.invalidateQueries({ queryKey: keys.context(data.context_type, data.context_id) })
+      }
     },
   })
 }
@@ -133,10 +136,13 @@ export function useTransitionMOC() {
   return useMutation({
     mutationFn: (args: { id: string; payload: MOCTransitionPayload }) =>
       mocService.transition(args.id, args.payload),
-    onSuccess: (_d, args) => {
+    onSuccess: (data, args) => {
       qc.invalidateQueries({ queryKey: keys.detail(args.id) })
       qc.invalidateQueries({ queryKey: [...keys.all, 'list'] })
       qc.invalidateQueries({ queryKey: keys.stats() })
+      if (data.context_type && data.context_id) {
+        qc.invalidateQueries({ queryKey: keys.context(data.context_type, data.context_id) })
+      }
     },
   })
 }

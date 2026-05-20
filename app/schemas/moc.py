@@ -53,6 +53,9 @@ class MOCCreate(BaseModel):
     # Optional — when set, the backend seeds the validation matrix from
     # the type's configured rules (source='matrix').
     moc_type_id: UUID | None = None
+    workflow_profile: str | None = Field(
+        default=None, pattern="^(process_moc|project_change)$"
+    )
     objectives: str | None = None
     description: str | None = None
     current_situation: str | None = None
@@ -93,6 +96,9 @@ class MOCContextCreate(BaseModel):
     proposed_changes: str | None = None
     impact_analysis: str | None = None
     moc_type_id: UUID | None = None
+    workflow_profile: str | None = Field(
+        default=None, pattern="^(process_moc|project_change)$"
+    )
     manager_id: UUID | None = None
     site_label: str | None = Field(default=None, max_length=100)
     context_module: str = Field(default="projets", max_length=80)
@@ -451,6 +457,7 @@ class MOCRead(BaseModel):
     id: UUID
     reference: str
     status: str
+    workflow_profile: str = "process_moc"
     status_changed_at: datetime
     created_at: datetime
     updated_at: datetime

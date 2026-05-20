@@ -1,13 +1,23 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ChevronDown, FileText, Loader2, Plus } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  CircleDot,
+  FileText,
+  Loader2,
+  Plus,
+  Send,
+  XCircle,
+} from 'lucide-react'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { RichTextDisplay, RichTextField } from '@/components/shared/RichTextField'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
-import { useCreateMOCForContext, useMOCsForContext, useMOCTypes } from '@/hooks/useMOC'
-import type { MOCWithDetails } from '@/services/mocService'
+import { useCreateMOCForContext, useMOCsForContext, useMOCTypes, useTransitionMOC } from '@/hooks/useMOC'
+import type { MOCStatus, MOCWithDetails, MOCWorkflowProfile } from '@/services/mocService'
 import type { ProjectTask } from '@/types/api'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +30,7 @@ interface ChangeRegisterProps {
   currency?: string
   compact?: boolean
   attachmentCategoryDictionary?: string
+  workflowProfile?: MOCWorkflowProfile
 }
 
 function contextPayloadValue(moc: MOCWithDetails, key: string) {
@@ -37,11 +48,17 @@ function ChangeRow({
   tasks,
   currency,
   attachmentCategoryDictionary,
+  workflowProfile,
+  onTransition,
+  transitionPending,
 }: {
   moc: MOCWithDetails
   tasks: ProjectTask[]
   currency: string
   attachmentCategoryDictionary?: string
+  workflowProfile: MOCWorkflowProfile
+  onTransition?: (moc: MOCWithDetails, toStatus: MOCStatus) => void
+  transitionPending?: boolean
 }) {
   const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
@@ -51,6 +68,28 @@ function ChangeRow({
   const planningImpact = contextPayloadValue(moc, 'planning_impact_days') ?? 0
   const budgetImpact = contextPayloadValue(moc, 'budget_impact_amount') ?? 0
   const payloadCurrency = String(contextPayloadValue(moc, 'currency') || currency)
+  const statusLabel = t(
+    `shared.change_register.status.${workflowProfile}.${moc.status}`,
+    moc.status,
+  )
+  const requiredValidations = moc.validations.filter((validation) => validation.required)
+  const approvedRequiredValidations = requiredValidations.filter((validation) => validation.approved)
+  const approvalBlocked = requiredValidations.length > 0 && approvedRequiredValidations.length < requiredValidations.length
+  const projectActions: Array<{ to: MOCStatus; icon: typeof Send; disabled?: boolean }> = workflowProfile === 'project_change'
+    ? ([
+      ...(moc.status === 'draft' ? [{ to: 'submitted' as MOCStatus, icon: Send }] : []),
+      ...(moc.status === 'submitted' ? [
+        { to: 'in_review' as MOCStatus, icon: CircleDot },
+        { to: 'rejected' as MOCStatus, icon: XCircle },
+      ] : []),
+      ...(moc.status === 'in_review' ? [
+        { to: 'approved' as MOCStatus, icon: CheckCircle2, disabled: approvalBlocked },
+        { to: 'rejected' as MOCStatus, icon: XCircle },
+      ] : []),
+      ...(moc.status === 'approved' ? [{ to: 'implemented' as MOCStatus, icon: CheckCircle2 }] : []),
+      ...(moc.status === 'implemented' ? [{ to: 'closed' as MOCStatus, icon: CheckCircle2 }] : []),
+    ])
+    : []
 
   return (
     <article className="rounded-md border border-border bg-card/40">
@@ -66,8 +105,10 @@ function ChangeRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
             <span className="font-mono">{moc.reference}</span>
-            <span className="rounded border border-border px-1.5 py-0.5">{moc.status}</span>
-            {moc.priority && <span className="rounded border border-border px-1.5 py-0.5">P{moc.priority}</span>}
+            <span className="rounded border border-border px-1.5 py-0.5">{statusLabel}</span>
+            {workflowProfile !== 'project_change' && moc.priority && (
+              <span className="rounded border border-border px-1.5 py-0.5">P{moc.priority}</span>
+            )}
           </div>
           <div className="mt-1 truncate text-sm font-semibold text-foreground">
             {moc.title || moc.objectives || moc.reference}
@@ -90,6 +131,41 @@ function ChangeRow({
 
       {expanded && (
         <div className="space-y-3 border-t border-border px-3 py-3">
+          {workflowProfile === 'project_change' && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-2 py-2">
+              <div className="text-[12px] text-muted-foreground">
+                {requiredValidations.length > 0 ? (
+                  <>
+                    {approvedRequiredValidations.length}/{requiredValidations.length}{' '}
+                    {t('shared.change_register.validations_approved')}
+                  </>
+                ) : (
+                  t('shared.change_register.no_validation_required')
+                )}
+              </div>
+              {projectActions.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {projectActions.map((action) => {
+                    const Icon = action.icon
+                    const label = t(`shared.change_register.actions.${action.to}`, action.to)
+                    return (
+                      <button
+                        key={action.to}
+                        type="button"
+                        className="inline-flex h-8 items-center gap-1 rounded border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
+                        disabled={transitionPending || action.disabled}
+                        title={action.disabled ? t('shared.change_register.approval_blocked') : label}
+                        onClick={() => onTransition?.(moc, action.to)}
+                      >
+                        {transitionPending ? <Loader2 size={13} className="animate-spin" /> : <Icon size={13} />}
+                        <span>{label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {moc.description && <RichTextDisplay value={moc.description} className="text-sm" />}
           {linkedTasks.length > 0 && (
             <div className="flex flex-wrap gap-1">
@@ -133,11 +209,13 @@ export function ChangeRegister({
   currency = 'XAF',
   compact = true,
   attachmentCategoryDictionary,
+  workflowProfile = 'process_moc',
 }: ChangeRegisterProps) {
   const { t } = useTranslation()
   const { data: mocs = [], isLoading } = useMOCsForContext(contextType, contextId)
   const { data: mocTypes = [] } = useMOCTypes(false)
   const create = useCreateMOCForContext()
+  const transition = useTransitionMOC()
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -161,6 +239,7 @@ export function ChangeRegister({
         description: description || null,
         objectives: title.trim(),
         context_module: contextModule,
+        workflow_profile: workflowProfile,
         moc_type_id: mocTypeId || null,
         context_payload: {
           planning_impact_days: planningImpact ? Number(planningImpact) : 0,
@@ -203,7 +282,11 @@ export function ChangeRegister({
               placeholder={t('shared.change_register.title_placeholder')}
             />
             <select className={panelInputClass} value={mocTypeId} onChange={(event) => setMocTypeId(event.target.value)}>
-              <option value="">MOC</option>
+              <option value="">
+                {workflowProfile === 'project_change'
+                  ? t('shared.change_register.project_change_type')
+                  : 'MOC'}
+              </option>
               {mocTypes.map((type) => (
                 <option key={type.id} value={type.id}>{type.label}</option>
               ))}
@@ -280,6 +363,14 @@ export function ChangeRegister({
               tasks={tasks}
               currency={currency}
               attachmentCategoryDictionary={attachmentCategoryDictionary}
+              workflowProfile={workflowProfile}
+              transitionPending={transition.isPending}
+              onTransition={(change, toStatus) => {
+                void transition.mutateAsync({
+                  id: change.id,
+                  payload: { to_status: toStatus },
+                })
+              }}
             />
           ))}
         </div>

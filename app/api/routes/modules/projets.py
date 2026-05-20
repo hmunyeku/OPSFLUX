@@ -2620,6 +2620,7 @@ async def create_project_change(
         moc_type_id=None,
         manager_id=None,
         site_label=project.code or project.name or "PROJECT",
+        workflow_profile="project_change",
         initial_validators=[],
     )
     moc = await create_contextual_moc(

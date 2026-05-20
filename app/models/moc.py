@@ -36,7 +36,7 @@ from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKe
 
 # ─── Enumerations ─────────────────────────────────────────────────────────────
 
-MOC_STATUSES = (
+PROCESS_MOC_STATUSES = (
     "created",                # a. Créé
     "approved",               # b. Approuvé (Chef de site)
     "submitted_to_confirm",   # c. Soumis à confirmer (Directeur)
@@ -50,6 +50,17 @@ MOC_STATUSES = (
     "executed_docs_pending",  # k. Exécuté, PID/ESD à mettre à jour
     "closed",                 # All docs updated, fully closed
 )
+
+PROJECT_CHANGE_STATUSES = (
+    "draft",
+    "submitted",
+    "in_review",
+    "rejected",
+    "implemented",
+)
+
+MOC_STATUSES = tuple(dict.fromkeys(PROCESS_MOC_STATUSES + PROJECT_CHANGE_STATUSES))
+MOC_WORKFLOW_PROFILES = ("process_moc", "project_change")
 
 MOC_MODIFICATION_TYPES = ("permanent", "temporary")
 # CDC Daxium: nature du MOC — orthogonale au "modification_type".
@@ -99,6 +110,10 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "mocs"
     __table_args__ = (
         CheckConstraint(f"status IN {MOC_STATUSES}", name="ck_moc_status"),
+        CheckConstraint(
+            f"workflow_profile IN {MOC_WORKFLOW_PROFILES}",
+            name="ck_moc_workflow_profile",
+        ),
         CheckConstraint(
             f"modification_type IS NULL OR modification_type IN {MOC_MODIFICATION_TYPES}",
             name="ck_moc_modification_type",
@@ -165,6 +180,9 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     # execution phase.
     project_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True,
+    )
+    workflow_profile: Mapped[str] = mapped_column(
+        String(40), nullable=False, server_default="process_moc"
     )
     # Polymorphic business context. This lets the MOC engine be reused as the
     # canonical change register for projects, tasks, process changes, assets,

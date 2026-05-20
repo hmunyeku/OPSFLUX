@@ -6594,7 +6594,47 @@
       "attachments": "Attachments",
       "notes": "Notes",
       "history": "History",
-      "details": "Details"
+      "details": "Details",
+      "project_change_type": "Project change type",
+      "validations_approved": "required validations approved",
+      "no_validation_required": "No required validation",
+      "approval_blocked": "Required validations must approve before approval.",
+      "actions": {
+        "submitted": "Submit",
+        "in_review": "Start review",
+        "approved": "Approve",
+        "rejected": "Reject",
+        "implemented": "Mark implemented",
+        "closed": "Close"
+      },
+      "status": {
+        "process_moc": {
+          "created": "Created",
+          "approved": "Approved",
+          "submitted_to_confirm": "To confirm",
+          "cancelled": "Cancelled",
+          "stand_by": "On hold",
+          "approved_to_study": "Approved for study",
+          "under_study": "Under study",
+          "study_in_validation": "Study in validation",
+          "validated": "Validated",
+          "execution": "Execution",
+          "executed_docs_pending": "Docs pending",
+          "closed": "Closed"
+        },
+        "project_change": {
+          "draft": "Draft",
+          "submitted": "Submitted",
+          "in_review": "In review",
+          "approved": "Approved",
+          "rejected": "Rejected",
+          "validated": "Approved",
+          "execution": "Implemented",
+          "executed_docs_pending": "Implemented",
+          "implemented": "Implemented",
+          "closed": "Closed"
+        }
+      }
     },
     "identifiers": {
       "title": "Legal identifiers",

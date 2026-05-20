@@ -72,6 +72,7 @@ from app.schemas.moc import (
 )
 from app.services.modules.moc_service import (
     FSM,
+    PROJECT_CHANGE_FSM,
     create_contextual_moc,
     generate_reference,
     invite_validator,
@@ -674,11 +675,24 @@ async def stats(
 @router.get("/fsm", dependencies=[require_permission("moc.change.read")])
 async def fsm_description() -> dict:
     """Return the full FSM (read-only) so the frontend can render buttons."""
+    def _transitions(machine: dict[str, dict[str, str]]) -> dict:
+        return {
+            src: [{"to": dst, "permission": perm} for dst, perm in targets.items()]
+            for src, targets in machine.items()
+        }
+
     return {
         "statuses": list(MOC_STATUSES),
-        "transitions": {
-            src: [{"to": dst, "permission": perm} for dst, perm in targets.items()]
-            for src, targets in FSM.items()
+        "transitions": _transitions(FSM),
+        "profiles": {
+            "process_moc": {
+                "statuses": list(FSM.keys()),
+                "transitions": _transitions(FSM),
+            },
+            "project_change": {
+                "statuses": list(PROJECT_CHANGE_FSM.keys()),
+                "transitions": _transitions(PROJECT_CHANGE_FSM),
+            },
         },
     }
 

@@ -14,6 +14,7 @@ def test_moc_declares_polymorphic_context_columns():
     assert hasattr(MOC, "context_id")
     assert hasattr(MOC, "context_module")
     assert hasattr(MOC, "context_payload")
+    assert hasattr(MOC, "workflow_profile")
 
 
 def test_project_change_declares_moc_compatibility_link():
@@ -32,7 +33,16 @@ def test_contextual_moc_creation_helper_sets_context_fields():
     assert "context_type=context_type" in src
     assert "context_id=context_id" in src
     assert "context_module=context_module" in src
-    assert "context_payload=context_payload" in src
+    assert "context_payload=context_payload_with_profile" in src
+    assert 'workflow_profile="project_change"' in src or '"project_change"' in src
+    assert 'initial_status = "draft"' in src
+
+
+def test_project_change_fsm_is_profile_specific():
+    assert hasattr(moc_service, "PROJECT_CHANGE_FSM")
+    assert moc_service.PROJECT_CHANGE_FSM["draft"]["submitted"] == "moc.change.transition"
+    assert "execution" not in moc_service.PROJECT_CHANGE_FSM
+    assert moc_service.allowed_transitions("draft", "project_change") == ["submitted", "rejected"]
 
 
 def test_moc_context_payload_schema_exists():
@@ -41,6 +51,7 @@ def test_moc_context_payload_schema_exists():
     assert "title" in fields
     assert "context_payload" in fields
     assert "initial_validators" in fields
+    assert "workflow_profile" in fields
 
 
 def test_moc_routes_expose_context_endpoints():

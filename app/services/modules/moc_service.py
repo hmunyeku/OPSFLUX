@@ -91,8 +91,39 @@ FSM: dict[str, dict[str, str]] = {
 }
 
 
-def allowed_transitions(current_status: str) -> list[str]:
-    return list(FSM.get(current_status, {}).keys())
+PROJECT_CHANGE_FSM: dict[str, dict[str, str]] = {
+    "draft": {
+        "submitted": "moc.change.transition",
+        "rejected": "moc.change.transition",
+    },
+    "submitted": {
+        "in_review": "moc.change.transition",
+        "rejected": "moc.change.transition",
+    },
+    "in_review": {
+        "approved": "moc.change.transition",
+        "rejected": "moc.change.transition",
+    },
+    "approved": {
+        "implemented": "moc.change.transition",
+    },
+    "implemented": {
+        "closed": "moc.change.transition",
+    },
+}
+
+
+def fsm_for_profile(workflow_profile: str | None) -> dict[str, dict[str, str]]:
+    if workflow_profile == "project_change":
+        return PROJECT_CHANGE_FSM
+    return FSM
+
+
+def allowed_transitions(
+    current_status: str,
+    workflow_profile: str | None = "process_moc",
+) -> list[str]:
+    return list(fsm_for_profile(workflow_profile).get(current_status, {}).keys())
 
 
 # ─── Reference generation ─────────────────────────────────────────────────────
@@ -195,6 +226,16 @@ async def create_contextual_moc(
         project_id = getattr(owner, "id", None)
     platform_code = (getattr(owner, "code", None) or context_type).upper()
     reference = await generate_reference(db, entity_id=entity_id, platform_code=platform_code)
+    workflow_profile = getattr(payload, "workflow_profile", None)
+    if not workflow_profile:
+        workflow_profile = (
+            "project_change"
+            if context_module == "projets" or context_type in {"project", "project_task"}
+            else "process_moc"
+        )
+    initial_status = "draft" if workflow_profile == "project_change" else "created"
+    context_payload_with_profile = dict(context_payload or {})
+    context_payload_with_profile.setdefault("workflow_profile", workflow_profile)
     moc = MOC(
         entity_id=entity_id,
         reference=reference,
@@ -211,11 +252,12 @@ async def create_contextual_moc(
         site_label=getattr(payload, "site_label", None) or getattr(owner, "code", None) or "PROJECT",
         platform_code=platform_code,
         project_id=project_id,
+        workflow_profile=workflow_profile,
         context_type=context_type,
         context_id=context_id,
         context_module=context_module,
-        context_payload=context_payload,
-        status="created",
+        context_payload=context_payload_with_profile,
+        status=initial_status,
     )
     db.add(moc)
     await db.flush()
@@ -224,9 +266,9 @@ async def create_contextual_moc(
     db.add(MOCStatusHistory(
         moc_id=moc.id,
         old_status=None,
-        new_status="created",
+        new_status=initial_status,
         changed_by=actor.id,
-        note="MOC créé",
+        note="Changement projet créé" if workflow_profile == "project_change" else "MOC créé",
     ))
     for validator in (getattr(payload, "initial_validators", None) or []):
         target_user = await db.get(User, validator.user_id)
@@ -264,7 +306,8 @@ async def transition(
     """
     if to_status == moc.status:
         raise HTTPException(400, f"MOC is already in status '{to_status}'")
-    allowed = FSM.get(moc.status, {})
+    workflow_profile = getattr(moc, "workflow_profile", None) or "process_moc"
+    allowed = fsm_for_profile(workflow_profile).get(moc.status, {})
     if to_status not in allowed:
         raise HTTPException(
             400,
@@ -281,7 +324,36 @@ async def transition(
     # with a human-readable explanation) and only then mutates the record.
     # This mirrors the Daxium workflow: no step can be skipped without
     # filling the prerequisite fields that will be rendered on the PDF.
-    if to_status == "approved":
+    if workflow_profile == "project_change":
+        if to_status == "approved":
+            missing = [
+                v for v in (moc.validations or [])
+                if v.required and not v.approved
+            ]
+            if missing:
+                raise HTTPException(
+                    400,
+                    f"Cannot approve: {len(missing)} required validation(s) "
+                    "have not approved yet.",
+                )
+        elif to_status == "rejected":
+            if comment:
+                moc.director_comment = comment
+        elif to_status == "implemented":
+            moc.execution_started_at = moc.execution_started_at or now
+            moc.execution_completed_at = now
+            if payload.get("actual_implementation_date"):
+                try:
+                    from datetime import date as _date
+                    moc.actual_implementation_date = _date.fromisoformat(
+                        str(payload["actual_implementation_date"])
+                    )
+                except ValueError:
+                    raise HTTPException(400, "Invalid actual_implementation_date") from None
+        elif to_status == "closed":
+            moc.close_by = actor.id
+            moc.closed_at = now
+    elif to_status == "approved":
         # "Approuver" = accord de principe du Chef de Site (étape 2 Daxium).
         # Prérequis : le demandeur a signé, la revue hiérarchie a répondu
         # oui/non sur le caractère "véritable MOC", et le commentaire

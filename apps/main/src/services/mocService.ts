@@ -11,6 +11,10 @@ import type { PaginatedResponse } from '@/types/api'
 
 export type MOCStatus =
   | 'created'
+  | 'draft'
+  | 'submitted'
+  | 'in_review'
+  | 'rejected'
   | 'approved'
   | 'submitted_to_confirm'
   | 'cancelled'
@@ -20,9 +24,11 @@ export type MOCStatus =
   | 'study_in_validation'
   | 'validated'
   | 'execution'
+  | 'implemented'
   | 'executed_docs_pending'
   | 'closed'
 
+export type MOCWorkflowProfile = 'process_moc' | 'project_change'
 export type MOCModificationType = 'permanent' | 'temporary'
 export type MOCPriority = '1' | '2' | '3'
 export type MOCCostBucket = 'lt_20' | '20_to_50' | '50_to_100' | 'gt_100'
@@ -166,6 +172,7 @@ export interface MOC {
   id: string
   reference: string
   status: MOCStatus
+  workflow_profile: MOCWorkflowProfile
   status_changed_at: string
   created_at: string
   updated_at: string
@@ -335,6 +342,7 @@ export interface MOCCreatePayload {
   planned_implementation_date?: string | null
   tags?: string[] | null
   moc_type_id?: string | null
+  workflow_profile?: MOCWorkflowProfile | null
   /**
    * Client-generated UUID used during the Create flow to stage image
    * uploads (Tiptap inline or sloted schemas) before the MOC row exists.
@@ -374,6 +382,7 @@ export interface MOCContextCreatePayload {
   manager_id?: string | null
   site_label?: string | null
   context_module?: string
+  workflow_profile?: MOCWorkflowProfile | null
   context_payload?: Record<string, unknown> | null
   initial_validators?: MOCInitialValidator[]
 }
@@ -458,6 +467,13 @@ export interface MOCListFilters {
 export interface MOCFsmDescription {
   statuses: MOCStatus[]
   transitions: Record<MOCStatus, { to: MOCStatus; permission: string }[]>
+  profiles?: Record<
+    MOCWorkflowProfile,
+    {
+      statuses: MOCStatus[]
+      transitions: Record<MOCStatus, { to: MOCStatus; permission: string }[]>
+    }
+  >
 }
 
 export interface MOCStatsSummary {
@@ -710,6 +726,10 @@ export const mocService = {
 /** Localised labels for each MOC status. */
 export const MOC_STATUS_LABELS: Record<MOCStatus, string> = {
   created: 'Créé',
+  draft: 'Brouillon',
+  submitted: 'Soumis',
+  in_review: 'En revue',
+  rejected: 'Rejeté',
   approved: 'Approuvé',
   submitted_to_confirm: 'Soumis à confirmer',
   cancelled: 'Annulé',
@@ -719,12 +739,17 @@ export const MOC_STATUS_LABELS: Record<MOCStatus, string> = {
   study_in_validation: 'Étudié en validation',
   validated: 'Validé à exécuter',
   execution: 'Exécution',
+  implemented: 'Réalisé',
   executed_docs_pending: 'Exécuté, PID/ESD à MAJ',
   closed: 'Clôturé',
 }
 
 export const MOC_STATUS_COLOURS: Record<MOCStatus, 'neutral' | 'info' | 'warning' | 'success' | 'danger'> = {
   created: 'neutral',
+  draft: 'neutral',
+  submitted: 'info',
+  in_review: 'warning',
+  rejected: 'danger',
   approved: 'info',
   submitted_to_confirm: 'info',
   cancelled: 'danger',
@@ -734,6 +759,7 @@ export const MOC_STATUS_COLOURS: Record<MOCStatus, 'neutral' | 'info' | 'warning
   study_in_validation: 'warning',
   validated: 'success',
   execution: 'info',
+  implemented: 'success',
   executed_docs_pending: 'warning',
   closed: 'success',
 }

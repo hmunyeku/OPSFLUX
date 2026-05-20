@@ -2197,7 +2197,8 @@ class ProjectChangeCreate(BaseModel):
     description: str | None = None
     decision_summary: str | None = None
     planning_impact_days: int | None = None
-    budget_impact_amount: float | None = Field(default=None, ge=0)
+    # Signed delta: a validated project change can increase or reduce budget.
+    budget_impact_amount: float | None = None
     currency: str | None = Field(default=None, max_length=10)
     affected_task_ids: list[str] | None = None
     impact_snapshot: dict[str, Any] | None = None
@@ -2212,7 +2213,8 @@ class ProjectChangeUpdate(BaseModel):
     description: str | None = None
     decision_summary: str | None = None
     planning_impact_days: int | None = None
-    budget_impact_amount: float | None = Field(default=None, ge=0)
+    # Signed delta: a validated project change can increase or reduce budget.
+    budget_impact_amount: float | None = None
     currency: str | None = Field(default=None, max_length=10)
     affected_task_ids: list[str] | None = None
     impact_snapshot: dict[str, Any] | None = None

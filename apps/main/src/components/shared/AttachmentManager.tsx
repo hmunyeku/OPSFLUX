@@ -89,6 +89,38 @@ const TEXT_EXTENSIONS = new Set([
   'ini', 'conf', 'cfg', 'env', 'tsv', 'html', 'htm', 'css', 'js', 'ts',
 ])
 const SPREADSHEET_EXTENSIONS = new Set(['xls', 'xlsx', 'csv', 'tsv'])
+const OFFICE_EXTENSIONS = new Set([
+  'doc', 'docx', 'dot', 'dotx', 'odt', 'rtf',
+  'ppt', 'pptx', 'pps', 'ppsx', 'odp',
+])
+const OFFICE_MIME_HINTS = [
+  'application/msword',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument',
+  'application/vnd.oasis.opendocument',
+  'application/rtf',
+]
+const DIAGRAM_EXTENSIONS = new Set(['drawio', 'dio', 'vsd', 'vsdx', 'vsdm', 'vdx'])
+const INDUSTRIAL_VIEWER_EXTENSIONS = new Set([
+  'dwf', 'dwfx', 'dwg', 'dxf',
+  'nwd', 'nwc', 'nwf',
+  'rvt', 'ifc', 'step', 'stp', 'iges', 'igs',
+  'obj', 'stl', 'glb', 'gltf',
+])
+const ARCHIVE_EXTENSIONS = new Set(['zip', 'tar', 'gz', 'rar', '7z'])
+
+type PreviewKind =
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'pdf'
+  | 'spreadsheet'
+  | 'text'
+  | 'office'
+  | 'diagram'
+  | 'industrial_viewer'
+  | 'archive'
+  | 'generic'
 
 function getFileExtension(name: string): string {
   const clean = name.split('?')[0].split('#')[0]
@@ -97,15 +129,13 @@ function getFileExtension(name: string): string {
 }
 
 function getFileIcon(contentType: string, name = '') {
-  const ext = getFileExtension(name)
-  if (contentType.startsWith('image/')) return Image
-  if (contentType.startsWith('video/')) return Film
-  if (contentType.startsWith('audio/')) return Music
-  if (SPREADSHEET_TYPES.includes(baseContentType(contentType)) || SPREADSHEET_EXTENSIONS.has(ext)) return FileSpreadsheet
-  if (contentType.includes('pdf') || contentType.includes('document') || contentType.includes('text'))
-    return FileText
-  if (contentType.includes('zip') || contentType.includes('archive') || contentType.includes('compressed'))
-    return FileArchive
+  const kind = getPreviewKind(contentType, name)
+  if (kind === 'image') return Image
+  if (kind === 'video') return Film
+  if (kind === 'audio') return Music
+  if (kind === 'spreadsheet') return FileSpreadsheet
+  if (kind === 'archive') return FileArchive
+  if (kind === 'pdf' || kind === 'office' || kind === 'diagram') return FileText
   return File
 }
 
@@ -133,6 +163,28 @@ function isSpreadsheetLike(contentType: string, name: string): boolean {
   return SPREADSHEET_TYPES.includes(base) || SPREADSHEET_EXTENSIONS.has(ext)
 }
 
+function isOfficeLike(contentType: string, name: string): boolean {
+  const base = baseContentType(contentType)
+  const ext = getFileExtension(name)
+  return OFFICE_EXTENSIONS.has(ext) || OFFICE_MIME_HINTS.some((hint) => base.startsWith(hint))
+}
+
+function getPreviewKind(contentType: string, name: string): PreviewKind {
+  const base = baseContentType(contentType)
+  const ext = getFileExtension(name)
+  if (IMAGE_TYPES.includes(base)) return 'image'
+  if (VIDEO_TYPES.includes(base)) return 'video'
+  if (AUDIO_TYPES.includes(base)) return 'audio'
+  if (PDF_TYPES.includes(base) || ext === 'pdf') return 'pdf'
+  if (isSpreadsheetLike(contentType, name)) return 'spreadsheet'
+  if (isTextLike(contentType, name)) return 'text'
+  if (DIAGRAM_EXTENSIONS.has(ext) || base === 'application/vnd.visio') return 'diagram'
+  if (INDUSTRIAL_VIEWER_EXTENSIONS.has(ext)) return 'industrial_viewer'
+  if (isOfficeLike(contentType, name)) return 'office'
+  if (ARCHIVE_EXTENSIONS.has(ext) || contentType.includes('zip') || contentType.includes('archive') || contentType.includes('compressed')) return 'archive'
+  return 'generic'
+}
+
 const attachmentActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 const attachmentActiveActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 const attachmentDangerActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-destructive transition-colors hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -156,6 +208,8 @@ function AuthFilePreview({
   const [tablePreview, setTablePreview] = useState<{ headers: string[]; rows: unknown[][]; sheet?: string } | null>(null)
   const [error, setError] = useState(false)
   const { t } = useTranslation()
+  const previewKind = getPreviewKind(contentType, name)
+  const extension = getFileExtension(name).toUpperCase()
 
   useEffect(() => {
     let revoke: string | null = null
@@ -237,17 +291,16 @@ function AuthFilePreview({
   }
   if (!blobUrl) return <div className="flex items-center justify-center py-6"><Loader2 size={14} className="animate-spin text-muted-foreground" /></div>
 
-  const base = baseContentType(contentType)
-  if (IMAGE_TYPES.includes(base)) {
+  if (previewKind === 'image') {
     return <img src={blobUrl} alt={name} className="max-h-[360px] max-w-full rounded object-contain" />
   }
-  if (VIDEO_TYPES.includes(base)) {
+  if (previewKind === 'video') {
     return <video src={blobUrl} controls className="max-h-[360px] w-full rounded" />
   }
-  if (AUDIO_TYPES.includes(base)) {
+  if (previewKind === 'audio') {
     return <audio src={blobUrl} controls className="w-full" />
   }
-  if (PDF_TYPES.includes(base)) {
+  if (previewKind === 'pdf') {
     return <iframe src={blobUrl} className="h-[460px] w-full rounded border-0" title={name} />
   }
   if (tablePreview) {
@@ -292,17 +345,64 @@ function AuthFilePreview({
       </pre>
     )
   }
+  const viewerInfo = (() => {
+    if (previewKind === 'office') {
+      return {
+        title: t('attachments.preview.officeTitle', 'Document Office'),
+        detail: t('attachments.preview.officeDetail', 'La prévisualisation complète des documents Word/PowerPoint exige une conversion sécurisée côté serveur vers PDF ou HTML avant affichage.'),
+        hint: t('attachments.preview.officeHint', 'Lecture partielle disponible pour Excel/CSV ; Word et PowerPoint restent à convertir.'),
+      }
+    }
+    if (previewKind === 'diagram') {
+      return {
+        title: t('attachments.preview.diagramTitle', 'Diagramme Visio / Draw.io'),
+        detail: t('attachments.preview.diagramDetail', 'Ce format doit être routé vers un viewer de diagrammes compatible Draw.io/diagrams.net ou converti côté serveur avant affichage.'),
+        hint: t('attachments.preview.diagramHint', 'Formats visés : .drawio, .vsd, .vsdx, .vdx.'),
+      }
+    }
+    if (previewKind === 'industrial_viewer') {
+      return {
+        title: t('attachments.preview.industrialTitle', 'Fichier CAO / modèle industriel'),
+        detail: t('attachments.preview.industrialDetail', 'Les fichiers DWF, Navisworks, DWG, IFC ou modèles 3D nécessitent un viewer industriel dédié avec génération de dérivés.'),
+        hint: t('attachments.preview.industrialHint', 'À brancher sur Autodesk Platform Services, un viewer interne, ou un service de conversion maîtrisé par OpsFlux.'),
+      }
+    }
+    if (previewKind === 'archive') {
+      return {
+        title: t('attachments.preview.archiveTitle', 'Archive'),
+        detail: t('attachments.preview.archiveDetail', 'Les archives doivent être téléchargées ou ouvertes par un service d’analyse dédié avant consultation fichier par fichier.'),
+        hint: t('attachments.preview.archiveHint', 'Aucun contenu d’archive n’est exécuté ou extrait dans le navigateur.'),
+      }
+    }
+    return {
+      title: t('attachments.preview.genericTitle', 'Fichier'),
+      detail: t('attachments.preview.unsupported', 'Aperçu détaillé non disponible dans le navigateur pour ce format.'),
+      hint: t('attachments.preview.genericHint', 'Utilisez l’ouverture ou le téléchargement pour consulter le fichier dans l’application adaptée.'),
+    }
+  })()
+
   return (
     <div className="rounded border border-border/50 bg-background p-3">
       <div className="flex items-start gap-3">
         <FileText size={20} className="mt-0.5 text-muted-foreground" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">{name}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-medium text-foreground">{name}</p>
+            {extension && (
+              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                {extension}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs font-medium text-foreground">{viewerInfo.title}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {t('attachments.preview.unsupported', 'Aperçu détaillé non disponible dans le navigateur pour ce format.')}
+            {viewerInfo.detail}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
             {contentType || 'application/octet-stream'} · {formatSize(sizeBytes)}
+          </p>
+          <p className="mt-2 rounded bg-muted/60 px-2 py-1 text-[11px] text-muted-foreground">
+            {viewerInfo.hint}
           </p>
         </div>
       </div>

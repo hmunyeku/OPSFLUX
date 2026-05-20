@@ -853,7 +853,25 @@ export function DataTableToolbar({
                     {dropdown.type === 'action' && dropdown.id === '_batch' && (
                       <div className="absolute right-0 top-full mt-1 z-50 min-w-[200px] max-w-[calc(100vw-1.5rem)] max-h-[min(65vh,30rem)] overflow-y-auto rounded-md border bg-popover shadow-lg py-1">
                         {batchActions.map((action) => {
-                          const Icon = typeof action.icon === 'function' ? action.icon : null
+                          // Bug runtime React #31 : les icones Lucide sont
+                          // des forwardRef objets ({$$typeof, render, displayName})
+                          // — `typeof === 'object'`, PAS 'function'. Le check
+                          // 'function' seul rejetait toutes les Lucide icons
+                          // et tombait sur le fallback `as ReactNode` qui rend
+                          // l'objet brut → "Objects are not valid as a React
+                          // child" → la DataTable entiere etait remplacee par
+                          // l'ErrorBoundary, /tiers paraissait vide. Maintenant
+                          // on accepte aussi les forwardRef / memo (objets avec
+                          // $$typeof) comme component types valides.
+                          const iconType = action.icon
+                          const isComponent =
+                            typeof iconType === 'function' ||
+                            (iconType !== null &&
+                              typeof iconType === 'object' &&
+                              '$$typeof' in (iconType as object))
+                          const Icon = isComponent
+                            ? (iconType as React.ComponentType<{ className?: string }>)
+                            : null
                           return (
                           <button
                             key={action.id}

@@ -3774,21 +3774,24 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           }, {})
           const tDone = tCounts.done ?? 0
           const tInProgress = tCounts.in_progress ?? 0
+          const insightCardClass = 'group flex h-[50px] min-w-0 flex-col items-start justify-center gap-0.5 rounded-md border bg-card/40 px-1.5 py-1 text-left transition-colors sm:h-12 sm:px-2'
+          const insightLabelClass = 'truncate text-[8px] font-semibold uppercase leading-none tracking-wide text-muted-foreground/80 sm:text-[9px]'
+          const insightValueClass = 'w-full truncate text-[12px] font-bold leading-tight text-foreground sm:text-sm'
 
           return (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-4 gap-1.5 lg:grid-cols-8">
               {/* Météo */}
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className="group flex min-h-9 min-w-[124px] flex-1 flex-col items-start gap-0.5 rounded-md border border-border/50 bg-card/40 px-2 py-1.5 text-left transition-colors hover:border-border hover:bg-card/70 sm:flex-none"
+                className={cn(insightCardClass, 'border-border/50 hover:border-border hover:bg-card/70')}
                 title="Météo du projet — cliquer pour modifier"
               >
-                <div className="flex items-center gap-1.5">
-                  <WeatherIcon weather={project.weather} size={14} />
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Météo</span>
+                <div className="flex w-full min-w-0 items-center gap-1">
+                  <WeatherIcon weather={project.weather} size={12} />
+                  <span className={insightLabelClass}>Météo</span>
                 </div>
-                <span className="text-sm font-semibold text-foreground leading-tight">
+                <span className={insightValueClass}>
                   {projectWeatherLabels[project.weather] ?? project.weather ?? '—'}
                 </span>
               </button>
@@ -3797,19 +3800,19 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className="group flex min-h-9 min-w-[170px] flex-[1.5] flex-col items-start gap-0.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-1.5 text-left transition-colors hover:bg-primary/10 sm:flex-none sm:basis-[190px]"
+                className={cn(insightCardClass, 'border-primary/30 bg-primary/5 hover:bg-primary/10')}
                 title={`Avancement ${progress}%`}
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex w-full min-w-0 items-center gap-1">
                   <Target size={12} className="text-primary" />
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Avancement</span>
+                  <span className={insightLabelClass}>Avancement</span>
                 </div>
-                <div className="flex items-end gap-1.5 w-full">
-                  <span className={cn('text-base font-bold tabular-nums leading-none', progressTone)}>{progress}</span>
-                  <span className={cn('text-xs font-medium leading-none pb-0.5', progressTone)}>%</span>
+                <div className="flex w-full items-end gap-1">
+                  <span className={cn('text-[13px] font-bold tabular-nums leading-none sm:text-base', progressTone)}>{progress}</span>
+                  <span className={cn('text-[10px] font-medium leading-none sm:text-xs', progressTone)}>%</span>
                 </div>
                 {/* Mini progress bar */}
-                <div className="w-full h-1 rounded-full bg-muted overflow-hidden">
+                <div className="h-0.5 w-full overflow-hidden rounded-full bg-muted sm:h-1">
                   <div
                     className={cn('h-full rounded-full transition-all', progressBar)}
                     style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
@@ -3821,30 +3824,30 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className={cn('group flex min-h-9 min-w-[142px] flex-1 flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left transition-all hover:brightness-105 sm:flex-none', trendCls)}
+                className={cn(insightCardClass, 'transition-all hover:brightness-105', trendCls)}
                 title={`Tendance: ${trendLabel}`}
               >
-                <div className="flex items-center gap-1.5">
-                  <span className="text-base leading-none font-bold">{trendArrow}</span>
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Tendance</span>
+                <div className="flex w-full min-w-0 items-center gap-1">
+                  <span className="text-sm font-bold leading-none sm:text-base">{trendArrow}</span>
+                  <span className={insightLabelClass}>Tendance</span>
                 </div>
-                <span className="text-sm font-semibold leading-tight">{trendLabel}</span>
+                <span className={insightValueClass}>{trendLabel}</span>
               </button>
 
               {/* Tâches — total + sub-line breakdown */}
               <button
                 type="button"
                 onClick={() => setDetailTab('taches')}
-                className="group flex min-h-9 min-w-[124px] flex-1 flex-col items-start gap-0.5 rounded-md border border-border/50 bg-card/40 px-2 py-1.5 text-left transition-colors hover:border-primary/40 hover:bg-card/70 sm:flex-none"
+                className={cn(insightCardClass, 'border-border/50 hover:border-primary/40 hover:bg-card/70')}
                 title="Voir les tâches"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex w-full min-w-0 items-center gap-1">
                   <ListTodo size={12} className="text-muted-foreground" />
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Tâches</span>
+                  <span className={insightLabelClass}>Tâches</span>
                 </div>
-                <span className="text-base font-bold text-foreground tabular-nums leading-none">{tasks?.length ?? 0}</span>
+                <span className={cn(insightValueClass, 'tabular-nums')}>{tasks?.length ?? 0}</span>
                 {(tasks?.length ?? 0) > 0 && (
-                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                  <span className="hidden w-full truncate text-[9px] text-muted-foreground tabular-nums xl:block">
                     {tDone > 0 && <span className="text-green-600 dark:text-green-400">{tDone}✓</span>}
                     {tDone > 0 && tInProgress > 0 && <span className="opacity-50"> · </span>}
                     {tInProgress > 0 && <span className="text-primary">{tInProgress} en cours</span>}
@@ -3856,15 +3859,16 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className="group flex min-h-9 min-w-[98px] flex-1 flex-col items-start gap-0.5 rounded-md border border-border/50 bg-card/40 px-2 py-1.5 text-left transition-colors hover:border-primary/40 hover:bg-card/70 sm:flex-none"
+                className={cn(insightCardClass, 'border-border/50 hover:border-primary/40 hover:bg-card/70')}
                 title={t('projets.detail.team.view_team')}
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex w-full min-w-0 items-center gap-1">
                   <Users size={12} className="text-muted-foreground" />
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Équipe</span>
+                  <span className={insightLabelClass}>Équipe</span>
                 </div>
                 <span className={cn(
-                  'text-base font-bold tabular-nums leading-none',
+                  insightValueClass,
+                  'tabular-nums',
                   (members?.length ?? 0) === 0 ? 'text-muted-foreground/40' : 'text-foreground',
                 )}>{members?.length ?? 0}</span>
               </button>
@@ -3873,15 +3877,16 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className="group flex min-h-9 min-w-[98px] flex-1 flex-col items-start gap-0.5 rounded-md border border-border/50 bg-card/40 px-2 py-1.5 text-left transition-colors hover:border-primary/40 hover:bg-card/70 sm:flex-none"
+                className={cn(insightCardClass, 'border-border/50 hover:border-primary/40 hover:bg-card/70')}
                 title="Voir les jalons"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex w-full min-w-0 items-center gap-1">
                   <Milestone size={12} className="text-muted-foreground" />
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Jalons</span>
+                  <span className={insightLabelClass}>Jalons</span>
                 </div>
                 <span className={cn(
-                  'text-base font-bold tabular-nums leading-none',
+                  insightValueClass,
+                  'tabular-nums',
                   milestoneTasks.length === 0 ? 'text-muted-foreground/40' : 'text-foreground',
                 )}>{milestoneTasks.length}</span>
               </button>
@@ -3889,16 +3894,16 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('budget')}
-                className="group flex min-h-9 min-w-[112px] flex-1 flex-col items-start gap-0.5 rounded-md border border-amber-500/25 bg-amber-500/5 px-2 py-1.5 text-left transition-colors hover:border-amber-500/40 hover:bg-amber-500/10 sm:flex-none"
+                className={cn(insightCardClass, 'border-amber-500/25 bg-amber-500/5 hover:border-amber-500/40 hover:bg-amber-500/10')}
                 title="Voir les pertes de temps et coûts"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex w-full min-w-0 items-center gap-1">
                   <Activity size={12} className="text-amber-600 dark:text-amber-400" />
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Pertes</span>
+                  <span className={insightLabelClass}>Pertes</span>
                 </div>
-                <span className="text-base font-bold text-foreground tabular-nums leading-none">{Math.round(lossSummary.hours)}h</span>
+                <span className={cn(insightValueClass, 'tabular-nums')}>{Math.round(lossSummary.hours)}h</span>
                 {lossSummary.cost > 0 && (
-                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                  <span className="hidden w-full truncate text-[9px] text-muted-foreground tabular-nums xl:block">
                     {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(lossSummary.cost)} {projectCurrency}
                   </span>
                 )}
@@ -3907,18 +3912,18 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('changements')}
-                className="group flex min-h-9 min-w-[132px] flex-1 flex-col items-start gap-0.5 rounded-md border border-blue-500/25 bg-blue-500/5 px-2 py-1.5 text-left transition-colors hover:border-blue-500/40 hover:bg-blue-500/10 sm:flex-none"
+                className={cn(insightCardClass, 'border-blue-500/25 bg-blue-500/5 hover:border-blue-500/40 hover:bg-blue-500/10')}
                 title="Voir le registre de changements"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex w-full min-w-0 items-center gap-1">
                   <History size={12} className="text-primary" />
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Changements</span>
+                  <span className={insightLabelClass}>Changements</span>
                 </div>
-                <span className="text-base font-bold text-foreground tabular-nums leading-none">
+                <span className={cn(insightValueClass, 'tabular-nums')}>
                   {changeSummary.open}/{changeSummary.total}
                 </span>
                 {(changeSummary.planningDays !== 0 || changeSummary.budgetImpact !== 0) && (
-                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                  <span className="hidden w-full truncate text-[9px] text-muted-foreground tabular-nums xl:block">
                     {changeSummary.planningDays > 0 ? '+' : ''}{changeSummary.planningDays}j · {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(changeSummary.budgetImpact)} {projectCurrency}
                   </span>
                 )}

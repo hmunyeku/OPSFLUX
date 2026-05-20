@@ -16,10 +16,23 @@ import { NoteManager } from '@/components/shared/NoteManager'
 import { RichTextDisplay, RichTextField } from '@/components/shared/RichTextField'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
-import { useCreateMOCForContext, useMOCsForContext, useMOCTypes, useTransitionMOC } from '@/hooks/useMOC'
-import type { MOCStatus, MOCWithDetails, MOCWorkflowProfile } from '@/services/mocService'
+import { UserPicker } from '@/components/shared/UserPicker'
+import { useCreateMOCForContext, useInviteMOCValidator, useMOCsForContext, useMOCTypes, useTransitionMOC } from '@/hooks/useMOC'
+import { usePermission } from '@/hooks/usePermission'
+import { useToast } from '@/components/ui/Toast'
+import type { MOCStatus, MOCValidationRole, MOCWithDetails, MOCWorkflowProfile } from '@/services/mocService'
 import type { ProjectTask } from '@/types/api'
 import { cn } from '@/lib/utils'
+
+const VALIDATION_ROLE_LABELS: Record<MOCValidationRole, string> = {
+  hse: 'HSE / Safety',
+  lead_process: 'Lead Process',
+  production_manager: 'Production',
+  gas_manager: 'Gaz',
+  maintenance_manager: 'Maintenance',
+  process_engineer: 'Process Engineer',
+  metier: 'Métier',
+}
 
 interface ChangeRegisterProps {
   contextType: string
@@ -61,7 +74,15 @@ function ChangeRow({
   transitionPending?: boolean
 }) {
   const { t, i18n } = useTranslation()
+  const { hasPermission } = usePermission()
+  const { toast } = useToast()
+  const inviteValidator = useInviteMOCValidator()
   const [expanded, setExpanded] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteUserId, setInviteUserId] = useState<string | null>(null)
+  const [inviteRole, setInviteRole] = useState<MOCValidationRole>('hse')
+  const [inviteRequired, setInviteRequired] = useState(true)
+  const [inviteComment, setInviteComment] = useState('')
   const rawTaskIds = contextPayloadValue(moc, 'affected_task_ids')
   const taskIds = Array.isArray(rawTaskIds) ? rawTaskIds.map(String) : []
   const linkedTasks = tasks.filter((task) => taskIds.includes(task.id))
@@ -77,6 +98,7 @@ function ChangeRow({
   const requiredValidations = moc.validations.filter((validation) => validation.required)
   const approvedRequiredValidations = requiredValidations.filter((validation) => validation.approved)
   const approvalBlocked = requiredValidations.length > 0 && approvedRequiredValidations.length < requiredValidations.length
+  const canRequestValidation = hasPermission('moc.validator.invite') || hasPermission('moc.change.manage')
   const projectActions: Array<{ to: MOCStatus; icon: typeof Send; disabled?: boolean }> = workflowProfile === 'project_change'
     ? ([
       ...(moc.status === 'draft' ? [{ to: 'submitted' as MOCStatus, icon: Send }] : []),
@@ -92,6 +114,29 @@ function ChangeRow({
       ...(moc.status === 'implemented' ? [{ to: 'closed' as MOCStatus, icon: CheckCircle2 }] : []),
     ])
     : []
+
+  const requestValidation = async () => {
+    if (!inviteUserId) return
+    try {
+      await inviteValidator.mutateAsync({
+        id: moc.id,
+        payload: {
+          user_id: inviteUserId,
+          role: inviteRole,
+          required: inviteRequired,
+          comments: inviteComment.trim() || null,
+        },
+      })
+      toast({ title: t('shared.change_register.validation_request_sent'), variant: 'success' })
+      setInviteOpen(false)
+      setInviteUserId(null)
+      setInviteRole('hse')
+      setInviteRequired(true)
+      setInviteComment('')
+    } catch {
+      toast({ title: t('common.error'), description: t('shared.change_register.validation_request_failed'), variant: 'error' })
+    }
+  }
 
   return (
     <article className="rounded-md border border-border bg-card/40">
@@ -145,8 +190,21 @@ function ChangeRow({
                   t('shared.change_register.no_validation_required')
                 )}
               </div>
-              {projectActions.length > 0 && (
-                <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1">
+                {canRequestValidation && (
+                  <button
+                    type="button"
+                    className="inline-flex h-8 items-center gap-1 rounded border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-muted"
+                    onClick={() => setInviteOpen((value) => !value)}
+                  >
+                    <Send size={13} />
+                    <span>
+                      {inviteOpen ? t('common.cancel') : t('shared.change_register.request_validation')}
+                    </span>
+                  </button>
+                )}
+                {projectActions.length > 0 && (
+                  <>
                   {projectActions.map((action) => {
                     const Icon = action.icon
                     const label = t(`shared.change_register.actions.${action.to}`, action.to)
@@ -164,8 +222,54 @@ function ChangeRow({
                       </button>
                     )
                   })}
-                </div>
-              )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          {workflowProfile === 'project_change' && inviteOpen && (
+            <div className="grid gap-2 rounded-md border border-border bg-background/60 p-2 md:grid-cols-[minmax(0,1fr)_160px_auto]">
+              <UserPicker
+                value={inviteUserId}
+                onChange={(uid) => setInviteUserId(uid)}
+                placeholder={t('shared.change_register.validation_user') as string}
+                className="min-w-0"
+              />
+              <select
+                className="gl-form-input h-8 text-xs"
+                value={inviteRole}
+                onChange={(event) => setInviteRole(event.target.value as MOCValidationRole)}
+              >
+                {(Object.keys(VALIDATION_ROLE_LABELS) as MOCValidationRole[]).map((role) => (
+                  <option key={role} value={role}>
+                    {VALIDATION_ROLE_LABELS[role]}
+                  </option>
+                ))}
+              </select>
+              <label className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5"
+                  checked={inviteRequired}
+                  onChange={(event) => setInviteRequired(event.target.checked)}
+                />
+                {t('shared.change_register.required')}
+              </label>
+              <input
+                className="gl-form-input h-8 text-xs md:col-span-2"
+                value={inviteComment}
+                onChange={(event) => setInviteComment(event.target.value)}
+                placeholder={t('shared.change_register.validation_comment') as string}
+              />
+              <button
+                type="button"
+                className="inline-flex h-8 items-center justify-center gap-1 rounded bg-primary px-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                disabled={!inviteUserId || inviteValidator.isPending}
+                onClick={requestValidation}
+              >
+                {inviteValidator.isPending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                {t('shared.change_register.send_validation_request')}
+              </button>
             </div>
           )}
           {moc.description && <RichTextDisplay value={moc.description} className="text-sm" />}

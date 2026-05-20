@@ -346,6 +346,7 @@ export function useInviteMOCValidator() {
       mocService.inviteValidator(args.id, args.payload),
     onSuccess: (_d, args) => {
       qc.invalidateQueries({ queryKey: keys.detail(args.id) })
+      qc.invalidateQueries({ queryKey: keys.all })
     },
   })
 }

@@ -1963,17 +1963,30 @@ async def invite_moc_validator(
     # Best-effort in-app notification to the invitee so they find the MOC.
     try:
         from app.core.notifications import send_in_app_bulk
+        is_project_change = moc.workflow_profile == "project_change"
+        notification_title = (
+            f"Changement projet {moc.reference} — invitation à valider"
+            if is_project_change
+            else f"MOC {moc.reference} — invitation à valider"
+        )
+        notification_target = f"/moc?id={moc.id}"
+        if is_project_change:
+            target_project_id = moc.context_id if moc.context_type == "project" else moc.project_id
+            if target_project_id:
+                notification_target = f"/projets/{target_project_id}"
+        notification_subject = "le changement projet" if is_project_change else "le MOC"
         await send_in_app_bulk(
             db,
             user_ids=[invited_user.id],
             entity_id=entity_id,
-            title=f"MOC {moc.reference} — invitation à valider",
+            title=notification_title,
             body=(
                 f"{current_user.full_name or current_user.email} vous a invité "
-                f"à valider le MOC « {moc.reference} » (rôle : {body.role})."
+                f"à valider {notification_subject} « {moc.reference} » "
+                f"(rôle : {body.role})."
             ),
             category="info",
-            link=f"/moc?id={moc.id}",
+            link=notification_target,
             event_type="moc.validator_invited",
         )
     except Exception:

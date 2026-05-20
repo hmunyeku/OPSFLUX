@@ -6599,6 +6599,13 @@
       "validations_approved": "required validations approved",
       "no_validation_required": "No required validation",
       "approval_blocked": "Required validations must approve before approval.",
+      "request_validation": "Request validation",
+      "validation_user": "User to request",
+      "validation_comment": "Comment for the validator",
+      "required": "Required",
+      "send_validation_request": "Send request",
+      "validation_request_sent": "Validation request sent",
+      "validation_request_failed": "Unable to send the validation request.",
       "actions": {
         "submitted": "Submit",
         "in_review": "Start review",

@@ -68,6 +68,8 @@ function ChangeRow({
   const planningImpact = contextPayloadValue(moc, 'planning_impact_days') ?? 0
   const budgetImpact = contextPayloadValue(moc, 'budget_impact_amount') ?? 0
   const payloadCurrency = String(contextPayloadValue(moc, 'currency') || currency)
+  const effectiveAttachmentDictionary = attachmentCategoryDictionary
+    ?? (workflowProfile === 'project_change' ? 'project_attachment_type' : 'moc_attachment_type')
   const statusLabel = t(
     `shared.change_register.status.${workflowProfile}.${moc.status}`,
     moc.status,
@@ -185,7 +187,7 @@ function ChangeRow({
                 ownerType="moc"
                 ownerId={moc.id}
                 compact
-                categoryDictionary={attachmentCategoryDictionary || 'moc_attachment_type'}
+                categoryDictionary={effectiveAttachmentDictionary}
               />
             </div>
             <div>

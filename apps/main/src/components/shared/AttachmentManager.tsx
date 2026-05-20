@@ -310,6 +310,11 @@ export function AttachmentManager({
         const isConfirming = confirmDeleteId === att.id
         const hasPreview = canPreview(att.content_type)
         const isExpanded = expandedPreviews.has(att.id)
+        const categoryLabel = att.category
+          ? categoryDictionary
+            ? categoryOptions.find((o) => o.value === att.category)?.label
+            : att.category
+          : null
 
         return (
           <div key={att.id} className="border border-border/60 rounded-lg bg-card overflow-hidden">
@@ -319,9 +324,9 @@ export function AttachmentManager({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <p className="text-xs font-medium text-foreground truncate">{att.original_name}</p>
-                  {att.category && (
+                  {categoryLabel && (
                     <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-medium text-accent-foreground shrink-0">
-                      {categoryOptions.find((o) => o.value === att.category)?.label ?? att.category}
+                      {categoryLabel}
                     </span>
                   )}
                 </div>

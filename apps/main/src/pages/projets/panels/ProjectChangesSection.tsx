@@ -29,7 +29,7 @@ export function ProjectChangesSection({
         tasks={tasks}
         currency={currency}
         compact
-        attachmentCategoryDictionary="moc_attachment_type"
+        attachmentCategoryDictionary="project_attachment_type"
         workflowProfile="project_change"
       />
     </FormSection>

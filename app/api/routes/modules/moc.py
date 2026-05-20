@@ -44,6 +44,7 @@ from app.models.moc import (
 )
 from app.schemas.moc import (
     MOCCreate,
+    MOCContextCreate,
     MOCExecutionAccord,
     MOCProductionValidation,
     MOCRead,
@@ -71,8 +72,10 @@ from app.schemas.moc import (
 )
 from app.services.modules.moc_service import (
     FSM,
+    create_contextual_moc,
     generate_reference,
     invite_validator,
+    list_contextual_mocs,
     seed_matrix_from_type,
     transition,
     upsert_validation,
@@ -492,6 +495,82 @@ async def create_moc(
 
 
 # ─── Stats ────────────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/context/{context_type}/{context_id}",
+    response_model=list[MOCReadWithDetails],
+    dependencies=[require_permission("moc.change.read")],
+)
+async def list_mocs_for_context(
+    context_type: str,
+    context_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    mocs = await list_contextual_mocs(
+        db,
+        entity_id=entity_id,
+        context_type=context_type,
+        context_id=context_id,
+    )
+    names = await _user_display(db, {m.initiator_id for m in mocs})
+    out: list[dict[str, Any]] = []
+    for moc in mocs:
+        detail = await _get_or_404(db, moc.id, entity_id, with_details=True)
+        d = MOCReadWithDetails.model_validate(detail).model_dump(by_alias=True)
+        d.update(_enrich(detail, names))
+        await _redact_signatures(d, moc=detail, user=current_user, entity_id=entity_id, db=db)
+        out.append(d)
+    return out
+
+
+@router.post(
+    "/context/{context_type}/{context_id}",
+    response_model=MOCReadWithDetails,
+    status_code=201,
+    dependencies=[require_permission("moc.change.create")],
+)
+async def create_moc_for_context(
+    context_type: str,
+    context_id: UUID,
+    body: MOCContextCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    moc = await create_contextual_moc(
+        db,
+        entity_id=entity_id,
+        actor=current_user,
+        context_type=context_type,
+        context_id=context_id,
+        context_module=body.context_module,
+        payload=body,
+        context_payload=body.context_payload,
+    )
+    await record_audit(
+        db,
+        user_id=current_user.id,
+        entity_id=entity_id,
+        action="moc.context_created",
+        resource_type="moc",
+        resource_id=str(moc.id),
+        details={
+            "reference": moc.reference,
+            "context_type": context_type,
+            "context_id": str(context_id),
+            "context_module": body.context_module,
+        },
+    )
+    await db.commit()
+    detail = await _get_or_404(db, moc.id, entity_id, with_details=True)
+    names = await _user_display(db, {detail.initiator_id})
+    d = MOCReadWithDetails.model_validate(detail).model_dump(by_alias=True)
+    d.update(_enrich(detail, names))
+    await _redact_signatures(d, moc=detail, user=current_user, entity_id=entity_id, db=db)
+    return d
 
 
 @router.get(

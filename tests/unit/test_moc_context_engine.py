@@ -4,6 +4,8 @@ import inspect
 
 from app.models.common import ProjectChange
 from app.models.moc import MOC
+from app.api.routes.modules import moc as moc_routes
+from app.schemas import moc as moc_schemas
 from app.services.modules import moc_service
 
 
@@ -31,3 +33,18 @@ def test_contextual_moc_creation_helper_sets_context_fields():
     assert "context_id=context_id" in src
     assert "context_module=context_module" in src
     assert "context_payload=context_payload" in src
+
+
+def test_moc_context_payload_schema_exists():
+    assert hasattr(moc_schemas, "MOCContextCreate")
+    fields = moc_schemas.MOCContextCreate.model_fields
+    assert "title" in fields
+    assert "context_payload" in fields
+    assert "initial_validators" in fields
+
+
+def test_moc_routes_expose_context_endpoints():
+    src = inspect.getsource(moc_routes)
+    assert '"/context/{context_type}/{context_id}"' in src
+    assert "list_contextual_mocs" in src
+    assert "create_contextual_moc" in src

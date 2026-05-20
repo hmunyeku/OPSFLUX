@@ -86,6 +86,20 @@ class MOCCreate(BaseModel):
     initial_validators: list[MOCInitialValidator] = Field(default_factory=list)
 
 
+class MOCContextCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    objectives: str | None = None
+    proposed_changes: str | None = None
+    impact_analysis: str | None = None
+    moc_type_id: UUID | None = None
+    manager_id: UUID | None = None
+    site_label: str | None = Field(default=None, max_length=100)
+    context_module: str = Field(default="projets", max_length=80)
+    context_payload: dict | None = None
+    initial_validators: list[MOCInitialValidator] = Field(default_factory=list)
+
+
 class MOCUpdate(BaseModel):
     """Update any MOC field — access controlled by status+role in service.
 
@@ -467,6 +481,10 @@ class MOCRead(BaseModel):
     manager_id: UUID | None = None
     # Linked project (when promoted)
     project_id: UUID | None = None
+    context_type: str | None = None
+    context_id: UUID | None = None
+    context_module: str | None = None
+    context_payload: dict | None = None
 
     # Content
     objectives: str | None

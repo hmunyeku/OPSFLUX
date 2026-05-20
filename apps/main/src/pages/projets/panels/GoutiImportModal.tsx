@@ -527,18 +527,18 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
     <Dialog.Root open onOpenChange={(o) => { if (!o) onClose() }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[var(--z-modal)] bg-black/40 backdrop-blur-sm animate-in fade-in" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4 w-[95vw] max-w-6xl h-[85vh] flex flex-col">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] flex h-[calc(100dvh-1rem)] max-h-[760px] w-[min(96vw,72rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4 md:h-[85vh]">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5 border-b border-border shrink-0 sm:px-4 sm:py-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Download size={14} className="text-orange-500" />
-              <Dialog.Title className="text-sm font-semibold">Assistant d'import Gouti</Dialog.Title>
-              <span className="text-[11px] text-muted-foreground">
+              <Dialog.Title className="min-w-0 text-sm font-semibold">Assistant d'import Gouti</Dialog.Title>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
                 {catalog ? `${catalog.filtered}/${catalog.total} projets` : '…'}
               </span>
             </div>
             <Dialog.Close asChild>
-              <button className="btn btn-secondary"><X size={14} /></button>
+              <button className="btn-sm btn-secondary shrink-0" aria-label="Fermer"><X size={14} /></button>
             </Dialog.Close>
           </div>
           <Dialog.Description className="sr-only">
@@ -546,9 +546,9 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
           </Dialog.Description>
 
           {/* Body: sidebar + list */}
-          <div className="flex-1 flex min-h-0 overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
             {/* ── Left sidebar: filters ───────────────────────── */}
-            <aside className="w-[260px] shrink-0 border-r border-border bg-muted/20 overflow-y-auto p-3 space-y-3">
+            <aside className="max-h-[34dvh] w-full shrink-0 overflow-y-auto border-b border-border bg-muted/20 p-3 space-y-3 md:max-h-none md:w-[240px] md:border-b-0 md:border-r lg:w-[260px]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                   <Filter size={11} /> Filtres
@@ -734,9 +734,9 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
             </aside>
 
             {/* ── Right side: project list with expandable task tree ── */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               {/* Select-all row */}
-              <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/10 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border bg-muted/10 shrink-0 sm:px-4">
                 <input
                   type="checkbox"
                   checked={allFilteredSelected}
@@ -751,13 +751,13 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                     ? `${includedCount} projet${includedCount > 1 ? 's' : ''} sélectionné${includedCount > 1 ? 's' : ''}`
                     : 'Tout sélectionner'}
                 </span>
-                <span className="ml-auto text-[9px] text-muted-foreground">
+                <span className="text-[9px] text-muted-foreground sm:ml-auto">
                   Cliquez sur ▸ pour choisir les tâches par projet
                 </span>
               </div>
 
               {/* Project list */}
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              <div className="flex-1 overflow-y-auto p-2.5 space-y-2 sm:p-3">
                 {catalogLoading && (
                   <div className="flex items-center justify-center h-32">
                     <Loader2 size={16} className="animate-spin text-muted-foreground" />
@@ -783,23 +783,23 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-border bg-muted/20 shrink-0">
-            <span className="text-[11px] text-muted-foreground">
+          <div className="flex flex-col gap-2 px-3 py-2.5 border-t border-border bg-muted/20 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+            <span className="min-w-0 text-[11px] text-muted-foreground">
               {includedCount > 0
                 ? `${includedCount} projet${includedCount > 1 ? 's' : ''} prêts à importer`
                 : 'Sélectionnez au moins un projet'}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end gap-2">
               <button
                 onClick={onClose}
-                className="btn btn-sm btn-secondary"
+                className="btn-sm btn-secondary shrink-0"
               >
                 Annuler
               </button>
               <button
                 onClick={handleSaveAndSync}
                 disabled={includedCount === 0 || syncSelected.isPending || saveSelection.isPending}
-                className="px-3 py-1 text-xs rounded bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-40 flex items-center gap-1.5"
+                className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded bg-orange-500 px-2.5 text-xs font-medium text-white hover:bg-orange-600 disabled:opacity-40"
               >
                 {(syncSelected.isPending || saveSelection.isPending)
                   ? <Loader2 size={11} className="animate-spin" />

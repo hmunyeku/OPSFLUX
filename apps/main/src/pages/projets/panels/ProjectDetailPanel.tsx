@@ -2995,7 +2995,7 @@ function PlannerLinksSection({
       title={`Planner — tâches liées (${groups.length} tâche${groups.length > 1 ? 's' : ''} · ${totalActivities} activité${totalActivities > 1 ? 's' : ''})`}
       defaultExpanded
     >
-      <div className="mb-3 grid min-w-0 max-w-full gap-2 overflow-hidden rounded-md border border-border/50 bg-muted/10 px-3 py-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+      <div className="mb-3 flex min-w-0 max-w-full flex-wrap items-center justify-between gap-2 overflow-hidden rounded-md border border-border/50 bg-muted/10 px-3 py-2">
         <div className="min-w-0">
           <div className="text-xs font-semibold text-foreground">Envoyer une tâche au Planner</div>
           <div className="break-words text-[11px] text-muted-foreground lg:truncate">
@@ -3005,9 +3005,9 @@ function PlannerLinksSection({
         <button
           type="button"
           onClick={() => setShowSendModal(true)}
-          className="inline-flex h-8 w-full max-w-full items-center justify-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 lg:w-auto"
+          className="inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded border border-primary/35 bg-primary/10 px-2.5 text-[11px] font-medium text-primary hover:bg-primary/15"
         >
-          <Send size={12} /> Envoyer
+          <Send size={11} /> Envoyer
         </button>
       </div>
       {isLoading ? (

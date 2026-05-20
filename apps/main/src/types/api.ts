@@ -1686,6 +1686,39 @@ export interface PlanningRevision {
   creator_name?: string | null
 }
 
+export interface PlanningRevisionFieldDiff {
+  field: string
+  current: unknown
+  target: unknown
+}
+
+export interface PlanningRevisionRowDiff {
+  id: string
+  label: string
+  fields?: PlanningRevisionFieldDiff[]
+}
+
+export interface PlanningRevisionScopeDiff {
+  update_count: number
+  create_count: number
+  deactivate_count: number
+  updates: PlanningRevisionRowDiff[]
+  creations: PlanningRevisionRowDiff[]
+  deactivations: PlanningRevisionRowDiff[]
+}
+
+export interface PlanningRevisionDiff {
+  summary: {
+    updates: number
+    creations: number
+    deactivations: number
+    total_changes: number
+  }
+  project: PlanningRevisionScopeDiff
+  tasks: PlanningRevisionScopeDiff
+  milestones: PlanningRevisionScopeDiff
+}
+
 export interface PlanningRevisionCreate {
   name: string
   description?: string | null

@@ -585,6 +585,14 @@ export function useUpdateRevision() {
   })
 }
 
+export function usePlanningRevisionDiff(projectId: string | undefined, revisionId: string | undefined) {
+  return useQuery({
+    queryKey: ['planning-revisions', projectId, revisionId, 'diff'],
+    queryFn: () => projetsService.getRevisionDiff(projectId!, revisionId!),
+    enabled: !!projectId && !!revisionId,
+  })
+}
+
 export function useApplyRevision() {
   const qc = useQueryClient()
   return useMutation({
@@ -592,6 +600,9 @@ export function useApplyRevision() {
       projetsService.applyRevision(projectId, revisionId),
     onSuccess: (_, { projectId }) => {
       qc.invalidateQueries({ queryKey: ['planning-revisions', projectId] })
+      qc.invalidateQueries({ queryKey: ['projects', projectId] })
+      qc.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      qc.invalidateQueries({ queryKey: ['project-milestones', projectId] })
       qc.invalidateQueries({ queryKey: ['projects'] })
     },
   })

@@ -11,7 +11,7 @@ import type {
   ProjectReport,
   ProjectTask, ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskEnriched,
   ProjectMilestone, ProjectMilestoneCreate, ProjectMilestoneUpdate,
-  PlanningRevision, PlanningRevisionCreate, PlanningRevisionUpdate,
+  PlanningRevision, PlanningRevisionCreate, PlanningRevisionDiff, PlanningRevisionUpdate,
   TaskDeliverable, TaskDeliverableCreate, TaskDeliverableUpdate,
   TaskAction, TaskActionCreate, TaskActionUpdate,
   TaskChangeLog,
@@ -365,6 +365,11 @@ export const projetsService = {
 
   updateRevision: async (projectId: string, revisionId: string, payload: PlanningRevisionUpdate): Promise<PlanningRevision> => {
     const { data } = await api.patch(`/api/v1/projects/${projectId}/revisions/${revisionId}`, payload)
+    return data
+  },
+
+  getRevisionDiff: async (projectId: string, revisionId: string): Promise<PlanningRevisionDiff> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/revisions/${revisionId}/diff`)
     return data
   },
 

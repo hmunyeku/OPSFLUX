@@ -447,6 +447,86 @@ def _coerce_revision_snapshot_value(model: type, field: str, value):
     return value
 
 
+def _serialize_revision_diff_value(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime | date_type):
+        return value.isoformat()
+    if isinstance(value, UUID | Decimal):
+        return str(value)
+    if isinstance(value, dict | list | str | int | float | bool):
+        return value
+    return str(value)
+
+
+def _diff_planning_snapshot_rows(
+    current_rows: list,
+    snapshot_rows: list[dict],
+    *,
+    model: type,
+    fields: tuple[str, ...],
+    label_field: str,
+    deactivate_missing: bool = True,
+) -> dict:
+    """Compare current rows with a target revision snapshot."""
+    current_by_id = {UUID(str(row.id)): row for row in current_rows}
+    snapshot_ids: set[UUID] = set()
+    updates = []
+    creations = []
+
+    for snapshot_row in snapshot_rows:
+        raw_id = snapshot_row.get("id")
+        if not raw_id:
+            continue
+        row_id = UUID(str(raw_id))
+        snapshot_ids.add(row_id)
+        row = current_by_id.get(row_id)
+        if row is None:
+            creations.append({
+                "id": str(row_id),
+                "label": str(snapshot_row.get(label_field) or snapshot_row.get("code") or row_id),
+            })
+            continue
+
+        field_diffs = []
+        for field in fields:
+            if field not in snapshot_row:
+                continue
+            target_value = _coerce_revision_snapshot_value(model, field, snapshot_row[field])
+            current_value = getattr(row, field, None)
+            if current_value != target_value:
+                field_diffs.append({
+                    "field": field,
+                    "current": _serialize_revision_diff_value(current_value),
+                    "target": _serialize_revision_diff_value(target_value),
+                })
+
+        if field_diffs:
+            updates.append({
+                "id": str(row_id),
+                "label": str(getattr(row, label_field, None) or snapshot_row.get(label_field) or row_id),
+                "fields": field_diffs,
+            })
+
+    deactivations = [
+        {
+            "id": str(row_id),
+            "label": str(getattr(row, label_field, None) or row_id),
+        }
+        for row_id, row in current_by_id.items()
+        if deactivate_missing and row_id not in snapshot_ids and hasattr(row, "active") and row.active
+    ]
+
+    return {
+        "update_count": len(updates),
+        "create_count": len(creations),
+        "deactivate_count": len(deactivations),
+        "updates": updates,
+        "creations": creations,
+        "deactivations": deactivations,
+    }
+
+
 def _restore_planning_snapshot_rows(
     current_rows: list,
     snapshot_rows: list[dict],
@@ -454,6 +534,7 @@ def _restore_planning_snapshot_rows(
     model: type,
     fields: tuple[str, ...],
     create_defaults: dict | None = None,
+    deactivate_missing: bool = True,
 ) -> dict:
     """Restore a snapshot collection and deactivate rows created after it."""
     current_by_id = {UUID(str(row.id)): row for row in current_rows}
@@ -488,7 +569,7 @@ def _restore_planning_snapshot_rows(
 
     deactivated = 0
     for row_id, row in current_by_id.items():
-        if row_id in snapshot_ids or not hasattr(row, "active") or not row.active:
+        if not deactivate_missing or row_id in snapshot_ids or not hasattr(row, "active") or not row.active:
             continue
         row.active = False
         deactivated += 1
@@ -503,6 +584,60 @@ def _restore_planning_snapshot_rows(
     }
 
 
+async def _build_planning_revision_diff(db: AsyncSession, project: Project, snapshot: dict) -> dict:
+    if not isinstance(snapshot, dict):
+        raise HTTPException(400, "Invalid revision snapshot")
+
+    project_diff = _diff_planning_snapshot_rows(
+        [project],
+        [snapshot.get("project")] if isinstance(snapshot.get("project"), dict) else [],
+        model=Project,
+        fields=PLANNING_REVISION_PROJECT_FIELDS,
+        label_field="name",
+        deactivate_missing=False,
+    )
+
+    current_tasks = (
+        await db.execute(select(ProjectTask).where(ProjectTask.project_id == project.id))
+    ).scalars().all()
+    task_diff = _diff_planning_snapshot_rows(
+        current_tasks,
+        snapshot.get("tasks") if isinstance(snapshot.get("tasks"), list) else [],
+        model=ProjectTask,
+        fields=PLANNING_REVISION_TASK_FIELDS,
+        label_field="title",
+    )
+
+    current_milestones = (
+        await db.execute(select(ProjectMilestone).where(ProjectMilestone.project_id == project.id))
+    ).scalars().all()
+    milestone_diff = _diff_planning_snapshot_rows(
+        current_milestones,
+        snapshot.get("milestones") if isinstance(snapshot.get("milestones"), list) else [],
+        model=ProjectMilestone,
+        fields=PLANNING_REVISION_MILESTONE_FIELDS,
+        label_field="name",
+    )
+
+    total_updates = project_diff["update_count"] + task_diff["update_count"] + milestone_diff["update_count"]
+    total_creations = project_diff["create_count"] + task_diff["create_count"] + milestone_diff["create_count"]
+    total_deactivations = (
+        project_diff["deactivate_count"] + task_diff["deactivate_count"] + milestone_diff["deactivate_count"]
+    )
+
+    return {
+        "summary": {
+            "updates": total_updates,
+            "creations": total_creations,
+            "deactivations": total_deactivations,
+            "total_changes": total_updates + total_creations + total_deactivations,
+        },
+        "project": project_diff,
+        "tasks": task_diff,
+        "milestones": milestone_diff,
+    }
+
+
 async def _apply_planning_revision_snapshot(db: AsyncSession, project: Project, snapshot: dict) -> dict:
     if not isinstance(snapshot, dict):
         raise HTTPException(400, "Invalid revision snapshot")
@@ -514,6 +649,7 @@ async def _apply_planning_revision_snapshot(db: AsyncSession, project: Project, 
             [project_snapshot],
             model=Project,
             fields=PLANNING_REVISION_PROJECT_FIELDS,
+            deactivate_missing=False,
         )
     else:
         project_result = {"updated": 0, "created": 0, "deactivated": 0, "changed_rows": []}
@@ -2612,6 +2748,32 @@ async def update_revision(
     d = {c.key: getattr(rev, c.key) for c in rev.__table__.columns}
     d["creator_name"] = None
     return d
+
+
+@router.get("/{project_id}/revisions/{revision_id}/diff")
+async def get_revision_diff(
+    project_id: UUID,
+    revision_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(PlanningRevision).where(
+            PlanningRevision.id == revision_id,
+            PlanningRevision.project_id == project_id,
+            PlanningRevision.active == True,
+        )
+    )
+    rev = result.scalars().first()
+    if not rev:
+        raise HTTPException(404, "Revision not found")
+    if not rev.snapshot_data:
+        raise HTTPException(400, "Revision has no snapshot data")
+
+    return await _build_planning_revision_diff(db, project, rev.snapshot_data)
 
 
 @router.post("/{project_id}/revisions/{revision_id}/apply")

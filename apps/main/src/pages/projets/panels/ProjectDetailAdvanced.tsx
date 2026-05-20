@@ -28,13 +28,13 @@ import { useUIStore } from '@/stores/uiStore'
 import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
 import {
   useSubProjects,
-  usePlanningRevisions, useCreateRevision, useApplyRevision, useDeleteRevision,
+  usePlanningRevisions, usePlanningRevisionDiff, useCreateRevision, useApplyRevision, useDeleteRevision,
   useWbsNodes, useCreateWbsNode, useDeleteWbsNode,
   useProjectCpm,
   useProject, useProjectTasks,
 } from '@/hooks/useProjets'
 import type {
-  ProjectWBSNode, CPMTaskInfo, PlanningRevision,
+  ProjectWBSNode, CPMTaskInfo, PlanningRevision, PlanningRevisionDiff,
 } from '@/types/api'
 
 // Fallback labels used when the Dictionary service doesn't provide
@@ -553,6 +553,64 @@ export function CpmSection({ projectId }: { projectId: string }) {
   )
 }
 
+function PlanningRevisionDiffPreview({
+  diff,
+  formatValue,
+}: {
+  diff: PlanningRevisionDiff
+  formatValue: (value: unknown) => string
+}) {
+  const scopes = [
+    { label: 'Projet', data: diff.project },
+    { label: 'Tâches', data: diff.tasks },
+    { label: 'Jalons', data: diff.milestones },
+  ].filter(({ data }) => data.update_count || data.create_count || data.deactivate_count)
+
+  if (!scopes.length) {
+    return (
+      <div className="mt-2 rounded border border-border/50 bg-background/40 px-2 py-1.5 text-[11px] text-muted-foreground">
+        Aucun écart avec le planning courant.
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-2 grid gap-1.5">
+      {scopes.map(({ label, data }) => (
+        <div key={label} className="rounded border border-border/50 bg-background/40 p-2">
+          <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+            <span className="font-semibold text-foreground">{label}</span>
+            {data.update_count > 0 && <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-600">{data.update_count} modif.</span>}
+            {data.create_count > 0 && <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-600">{data.create_count} restaur.</span>}
+            {data.deactivate_count > 0 && <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-red-600">{data.deactivate_count} désact.</span>}
+          </div>
+          <div className="space-y-1 text-[11px]">
+            {data.updates.slice(0, 3).map((row) => (
+              <div key={`u-${row.id}`} className="min-w-0">
+                <div className="truncate font-medium">{row.label}</div>
+                <div className="flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                  {(row.fields ?? []).slice(0, 3).map((field) => (
+                    <span key={field.field} className="rounded bg-muted/70 px-1.5 py-0.5">
+                      {field.field}: {formatValue(field.current)} → {formatValue(field.target)}
+                    </span>
+                  ))}
+                  {(row.fields?.length ?? 0) > 3 && <span>+{(row.fields?.length ?? 0) - 3}</span>}
+                </div>
+              </div>
+            ))}
+            {data.creations.slice(0, 2).map((row) => (
+              <div key={`c-${row.id}`} className="truncate text-emerald-600">Restaurer : {row.label}</div>
+            ))}
+            {data.deactivations.slice(0, 2).map((row) => (
+              <div key={`d-${row.id}`} className="truncate text-red-600">Désactiver : {row.label}</div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // -- Planning Revisions Section (in ProjectDetailPanel) ----------------------
 
 export function PlanningRevisionsSection({ projectId }: { projectId: string }) {
@@ -565,6 +623,18 @@ export function PlanningRevisionsSection({ projectId }: { projectId: string }) {
   const [creating, setCreating] = useState<null | 'baseline' | 'simulation'>(null)
   const [revName, setRevName] = useState('')
   const [revDesc, setRevDesc] = useState('')
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string | undefined>(undefined)
+  const selectedRevision = revisions.find((rev) => rev.id === selectedRevisionId)
+  const { data: revisionDiff, isFetching: isDiffLoading } = usePlanningRevisionDiff(projectId, selectedRevisionId)
+
+  const formatDiffValue = (value: unknown) => {
+    if (value === null || value === undefined || value === '') return '—'
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      return new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+    }
+    if (typeof value === 'object') return JSON.stringify(value)
+    return String(value)
+  }
 
   const handleCreate = async () => {
     if (!revName.trim() || !creating) return
@@ -591,8 +661,14 @@ export function PlanningRevisionsSection({ projectId }: { projectId: string }) {
   }
 
   const handleApply = async (rev: PlanningRevision) => {
+    const totalChanges = selectedRevisionId === rev.id ? revisionDiff?.summary.total_changes : undefined
+    const message = totalChanges === undefined
+      ? `Activer la révision "${rev.name}" et appliquer son snapshot au planning ?`
+      : `Activer la révision "${rev.name}" et appliquer ${totalChanges} changement(s) au planning ?`
+    if (!window.confirm(message)) return
     try {
       await applyRev.mutateAsync({ projectId, revisionId: rev.id })
+      setSelectedRevisionId(rev.id)
       toast({ title: `Révision "${rev.name}" activée`, variant: 'success' })
     } catch (err) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t('projets.toast.error')
@@ -622,6 +698,7 @@ export function PlanningRevisionsSection({ projectId }: { projectId: string }) {
               className={cn(
                 'group flex items-center gap-2 px-2 py-1.5 rounded border text-[11px]',
                 rev.is_active ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/40',
+                selectedRevisionId === rev.id && 'ring-1 ring-primary/30',
               )}
             >
               {rev.is_active
@@ -644,6 +721,13 @@ export function PlanningRevisionsSection({ projectId }: { projectId: string }) {
               <span className="text-[10px] text-muted-foreground">
                 {new Date(rev.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
               </span>
+              <button
+                onClick={() => setSelectedRevisionId(selectedRevisionId === rev.id ? undefined : rev.id)}
+                className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                title="Voir les impacts"
+              >
+                <Search size={10} />
+              </button>
               {!rev.is_active && (
                 <button
                   onClick={() => handleApply(rev)}
@@ -665,6 +749,28 @@ export function PlanningRevisionsSection({ projectId }: { projectId: string }) {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {selectedRevision && (
+        <div className="mb-2 rounded-md border border-border/70 bg-muted/20 p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs font-semibold">Impact #{selectedRevision.revision_number} — {selectedRevision.name}</div>
+              <div className="text-[10px] text-muted-foreground">Comparaison entre le planning courant et le snapshot cible.</div>
+            </div>
+            {isDiffLoading ? (
+              <Loader2 size={13} className="animate-spin text-muted-foreground" />
+            ) : revisionDiff ? (
+              <div className="flex flex-wrap gap-1 text-[10px]">
+                <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-600">{revisionDiff.summary.updates} modif.</span>
+                <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-600">{revisionDiff.summary.creations} restaur.</span>
+                <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-red-600">{revisionDiff.summary.deactivations} désact.</span>
+              </div>
+            ) : null}
+          </div>
+
+          {revisionDiff && <PlanningRevisionDiffPreview diff={revisionDiff} formatValue={formatDiffValue} />}
         </div>
       )}
 

@@ -111,6 +111,50 @@ def test_planning_revision_snapshot_restore_updates_tasks_and_deactivates_newer_
     assert newer_task.active is False
 
 
+def test_planning_revision_snapshot_diff_reports_updates_and_newer_rows():
+    task_id = uuid4()
+    newer_task_id = uuid4()
+    baseline_start = datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc)
+    current_start = datetime(2026, 5, 1, 8, 0, tzinfo=timezone.utc)
+    task = SimpleNamespace(
+        id=task_id,
+        title="Modified task",
+        start_date=current_start,
+        status="in_progress",
+        active=True,
+    )
+    newer_task = SimpleNamespace(
+        id=newer_task_id,
+        title="Added after baseline",
+        start_date=None,
+        status="todo",
+        active=True,
+    )
+
+    diff = projets._diff_planning_snapshot_rows(
+        [task, newer_task],
+        [
+            {
+                "id": str(task_id),
+                "title": "Baseline task",
+                "start_date": baseline_start.isoformat(),
+                "status": "todo",
+                "active": "True",
+            }
+        ],
+        model=ProjectTask,
+        fields=("title", "start_date", "status", "active"),
+        label_field="title",
+    )
+
+    assert diff["update_count"] == 1
+    assert diff["create_count"] == 0
+    assert diff["deactivate_count"] == 1
+    assert diff["updates"][0]["label"] == "Modified task"
+    assert {field["field"] for field in diff["updates"][0]["fields"]} == {"title", "start_date", "status"}
+    assert diff["deactivations"][0]["label"] == "Added after baseline"
+
+
 @pytest.mark.asyncio
 async def test_update_project_status_uses_fsm_and_emits_transition_event(monkeypatch):
     entity_id = uuid4()

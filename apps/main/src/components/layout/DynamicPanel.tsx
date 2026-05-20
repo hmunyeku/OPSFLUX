@@ -796,6 +796,18 @@ export function FormSection({
         // Slightly more bottom padding when content is shown.
         collapsible && expanded && 'pb-4 space-y-2',
         !collapsible && 'pb-4 space-y-2',
+        // Bug #39 fix : scroll panel CreateTier freeze 30s+. Cause = DOM
+        // massif (15+ FormSections × inputs × Tiptap + managers) avec
+        // container queries qui forcent style recalc complet a chaque
+        // scroll. `content-visibility: auto` dit au navigateur de ne
+        // pas paint/layout les sections hors viewport — gain enorme
+        // sans casser le responsive (les container queries restent
+        // valides quand la section entre en vue). `contain-intrinsic-size`
+        // donne une estimation de taille pour eviter les scroll-jumps
+        // visuels au moment de la mesure. 400px = taille mediane d'une
+        // section a 1-2 colonnes ; le navigateur remplace par taille
+        // reelle une fois la section dans le viewport.
+        '[content-visibility:auto] [contain-intrinsic-size:auto_400px]',
         className,
       )}
     >

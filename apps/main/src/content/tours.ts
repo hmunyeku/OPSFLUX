@@ -44,12 +44,16 @@ export const GUIDED_TOURS: GuidedTour[] = [
   {
     id: 'projets-basics',
     title: 'Premiers pas avec les Projets',
-    description: 'Apprenez à créer et gérer vos projets.',
+    description: 'Cadrage, taches, Planner, changements, budget et documents.',
     module: 'projets',
     steps: [
-      { target: 'main-content', title: 'Vue liste', content: 'La page Projets affiche tous vos projets. Utilisez les filtres et le tri pour trouver rapidement un projet.' },
-      { target: 'search-bar', title: 'Recherche projets', content: 'Tapez le nom ou code d\'un projet pour le filtrer instantanément.' },
-      { target: 'sidebar', title: 'Modules liés', content: 'Le Planner et les Imputations dans la sidebar sont liés à vos projets pour la planification et le suivi des coûts.' },
+      { target: 'main-content', title: 'Vue projet', content: 'La page Projets regroupe les vues liste, tableur, Kanban et planning. Les filtres servent à garder le même périmètre de travail entre les vues.' },
+      { target: 'search-bar', title: 'Recherche et filtres', content: 'Recherchez par nom, code, tâche, responsable, statut ou critère métier. Les vues doivent rester cohérentes entre desktop et mobile.' },
+      { target: 'main-content', title: 'Tâches et WBS', content: 'Une tâche exploitable doit porter dates, durée, statut et responsable. Les sous-tâches structurent la WBS ; les parents se consolident à partir des enfants.' },
+      { target: 'main-content', title: 'Planner', content: 'Envoyez seulement les tâches planifiables au Planner. Vérifiez le POB fixe ou variable et les dates avant de créer les activités liées.' },
+      { target: 'main-content', title: 'Changements et décisions', content: 'Utilisez les changements projet pour tracer une décision, son impact budget/planning, les tâches ou rubriques WBS concernées, les validations et les pièces jointes.' },
+      { target: 'main-content', title: 'Documents', content: 'Les pièces jointes restent dans le gestionnaire polymorphe. Les documents obligatoires doivent être contrôlés avant validation ou livraison client.' },
+      { target: 'sidebar', title: 'Modules liés', content: 'Planner, Imputations, Tiers, Documents et Workflows complètent le cycle projet : charge, coûts, partenaires, preuves et validations.' },
     ],
   },
   {
@@ -169,7 +173,9 @@ export const GUIDED_TOURS: GuidedTour[] = [
     steps: [
       { target: 'main-content', title: 'Entreprises & contacts', content: 'Le module Tiers centralise toutes vos relations externes : clients, sous-traitants, fournisseurs, partenaires. Chaque entreprise a sa fiche, ses adresses, ses identifiants légaux et ses contacts.' },
       { target: 'search-bar', title: 'Recherche rapide', content: 'Tapez un nom, un code (TIR-YYYY-NNNN), un SIRET ou un domaine pour retrouver instantanément une entreprise. Ctrl+K ouvre la palette globale.' },
-      { target: 'main-content', title: 'Blocage & conformité', content: 'Un tier peut être bloqué (ne plus apparaître dans les sélecteurs) ou associé à des exigences de conformité (assurance, KYC). Les règles vivent dans l\'onglet Conformité.' },
+      { target: 'main-content', title: 'Documents et conformité', content: 'Les référentiels, notes et pièces jointes doivent être attachés à la fiche concernée. Les preuves obligatoires servent ensuite aux vérifications et validations.' },
+      { target: 'main-content', title: 'Blocage & conformité', content: 'Un tier peut être bloqué ou associé à des exigences de conformité. Les modules consommateurs doivent respecter ce statut avant d\'utiliser l\'entreprise.' },
+      { target: 'main-content', title: 'Projets liés', content: 'La fiche entreprise expose les projets associés afin de comprendre rapidement le contexte opérationnel, les responsabilités et les risques actifs.' },
     ],
   },
   {

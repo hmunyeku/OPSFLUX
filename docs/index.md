@@ -71,7 +71,7 @@ d'événements interne.
 | `moc` | Management of Change | [:material-check-circle:](enduser/modules/MOC.md) | À venir |
 | `travelwiz` | Voyages affréteurs, manifestes, captain portal | [:material-check-circle:](enduser/modules/travelwiz.md) | [Spec](developer/modules-spec/TRAVELWIZ.md) |
 | `tiers` | Entreprises, contacts, identifiants légaux | [:material-check-circle:](enduser/modules/tiers.md) | [Spec](developer/modules-spec/TIERS.md) |
-| `projets` | Projets multi-niveaux (WBS, CPM, ressources) | À venir | [Spec](developer/modules-spec/PROJETS.md) |
+| `projets` | Projets multi-niveaux (WBS, CPM, ressources) | [:material-check-circle:](enduser/modules/projets.md) | [Spec](developer/modules-spec/PROJETS.md) |
 | `planner` | Planification opérationnelle (heatmap, gantt) | À venir | [Spec](developer/modules-spec/PLANNER.md) |
 | `packlog` | Cargo & emballage tracé QR | À venir | À venir |
 | `conformite` | Référentiel, règles, exemptions, fiches de poste | [:material-check-circle:](enduser/modules/conformite.md) | [Spec](developer/modules-spec/CONFORMITE.md) |

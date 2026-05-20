@@ -118,42 +118,45 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'Gestion de projets',
     icon: '📁',
     description:
-      "Module complet de gestion de projets pour les opérations Oil & Gas. Comprend un Gantt interactif avec dépendances entre tâches (FS, FF, SS, SF), un tableur pour l'édition en masse, une vue Kanban par statut, et un système de calcul d'avancement pondéré (par effort, par durée, par poids manuel ou égal). Les projets sont rattachés à un site/installation, peuvent être importés depuis Gouti, et supportent jalons, sous-tâches, pièces jointes, commentaires, suivi budgétaire et imputation analytique par centre de coûts.",
+      "Pilotage industriel des projets : fiche, WBS, taches, jalons, planning, Planner, changements, budget, documents, situations et equipe. Le module consolide les donnees projet sans casser les controles OpsFlux : permissions RBAC, perimetre entite, journalisation, pieces jointes polymorphes et calculs derives a partir des taches enfants.",
     workflows: [
       {
-        title: 'Créer un projet',
+        title: 'Cadrer un projet',
         requiredPermission: 'project.create',
         steps: [
-          'Cliquez "+ Nouveau projet" dans la liste des projets',
-          'Renseignez le nom, le code projet (ex: WO-SITE-2026-001), les dates de début/fin et le budget prévisionnel',
-          'Affectez un site/asset et un chef de projet (responsable opérationnel)',
-          'Choisissez le mode de calcul d\'avancement (effort/durée/manuel) — modifiable ultérieurement',
-          'Ajoutez les tâches dans l\'onglet "Planning" via le Gantt ou le Tableur',
+          'Creez le projet depuis la liste, puis renseignez le nom, le code, le type, les dates cibles, le budget et le responsable.',
+          'Rattachez le projet a son entite, son site ou son tiers lorsque ces informations existent.',
+          'Ajoutez les membres et equipes qui interviendront sur le projet.',
+          'Structurez la WBS avant de charger les taches lorsque le projet est multi-lots.',
+          'Ajoutez les documents attendus dans l\'onglet Documents afin que les validations disposent de leurs preuves.',
         ],
         diagram: `graph LR
-    A["📋 Planifié"]:::planned --> B["🔄 Actif"]:::active
-    B --> C["✅ Terminé"]:::done
-    B --> D["❌ Annulé"]:::cancelled
+    A["Cadre projet"]:::planned --> B["WBS et taches"]:::active
+    B --> C["Planning / Planner"]:::active
+    C --> D["Suivi et changements"]:::review
+    D --> E["Cloture"]:::done
 
     classDef planned fill:#475569,stroke:#64748b,color:#fff
     classDef active fill:#3b82f6,stroke:#60a5fa,color:#fff
+    classDef review fill:#eab308,stroke:#facc15,color:#000
     classDef done fill:#22c55e,stroke:#4ade80,color:#fff
-    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
+`,
       },
       {
-        title: "Suivre l'avancement",
+        title: 'Construire les taches et jalons',
         requiredPermission: 'project.read',
         steps: [
-          'Le Gantt montre la timeline des tâches',
-          "Double-cliquez une tâche pour l'éditer",
-          "Le % d'avancement se met à jour automatiquement",
-          "Le Tableur permet l'édition en masse",
+          'Saisissez toujours une date de debut, une date de fin ou une date de jalon, une duree et un statut exploitable.',
+          'Utilisez les sous-taches pour representer la hierarchie WBS : les dates, durees et avancements parents sont derives des enfants.',
+          'Creez un jalon comme une tache de type jalon : une seule date, pas une simple note de calendrier.',
+          'Ajoutez les dependances predecesseur/successeur lorsque l\'ordre d\'execution influence le planning.',
+          'Choisissez le mode POB fixe ou variable selon la maniere dont la tache sera envoyee au Planner.',
         ],
         diagram: `graph LR
-    A["📝 À faire"]:::todo --> B["🔄 En cours"]:::progress
-    B --> C["👁️ Revue"]:::review
-    C --> D["✅ Terminé"]:::done
-    C -->|Corrections| B
+    A["Tache"]:::todo --> B["Sous-taches"]:::progress
+    A --> C["Jalon"]:::review
+    B --> D["Calcul parent"]:::done
+    C --> E["Dependances"]:::progress
 
     classDef todo fill:#475569,stroke:#64748b,color:#fff
     classDef progress fill:#3b82f6,stroke:#60a5fa,color:#fff
@@ -161,64 +164,70 @@ export const HELP_CONTENT: Record<string, ModuleHelp> = {
     classDef done fill:#22c55e,stroke:#4ade80,color:#fff`,
       },
       {
-        title: 'Importer un projet Gouti',
-        requiredAnyPermissions: ['project.import', 'project.gouti.sync'],
+        title: 'Envoyer une tache au Planner',
+        requiredAnyPermissions: ['project.update', 'planner.activity.create'],
         steps: [
-          'Allez dans l\'onglet "Sync Gouti" du module Projets',
-          'Cliquez "+ Importer" et collez l\'URL du projet Gouti (ou son ID)',
-          'Vérifiez les credentials Gouti dans Paramètres > Intégrations si la connexion échoue',
-          'Mappez les rubriques Gouti vers les types OpsFlux (Tâches → Tâches, Jalons → Milestones, Ressources → Équipe)',
-          'Cliquez "Synchroniser" — la structure WBS, les dates, les dépendances et l\'avancement sont importés',
-          'Activez "Sync auto" pour rafraîchir quotidiennement (les modifications OpsFlux ne sont pas remontées vers Gouti)',
+          'Ouvrez l\'onglet Taches ou Planner du detail projet.',
+          'Selectionnez une ou plusieurs taches planifiables.',
+          'Verifiez les dates, le type POB, la priorite et les contraintes avant envoi.',
+          'Envoyez vers Planner : une activite liee est creee pour suivre la charge operationnelle.',
+          'Controlez ensuite l\'onglet Planner pour voir les taches deja liees et leurs activites.',
         ],
       },
       {
-        title: 'Calcul d\'avancement pondéré (effort vs poids manuel)',
+        title: 'Suivre la situation projet',
         requiredAnyPermissions: ['project.update', 'project.progress.configure'],
         steps: [
-          'Ouvrez les paramètres du projet (icône engrenage en haut à droite)',
-          'Section "Calcul d\'avancement" — choisissez la méthode',
-          'Effort : pondère chaque tâche par sa charge (homme-jours estimés). Avancement = Σ(% * effort) / Σ(effort)',
-          'Durée : pondère par la durée calendaire des tâches. Pratique pour les projets longs avec phases distinctes',
-          'Poids manuel : saisissez explicitement un poids par tâche dans le tableur (utile quand la criticité ne suit pas la charge)',
-          'Égal : toutes les tâches comptent identiquement. Simple mais peu précis sur projets hétérogènes',
-          'L\'avancement projet est recalculé automatiquement à chaque modification de tâche',
+          'Saisissez une situation resumee et une situation detaillee lorsque vous capturez l\'etat du projet.',
+          'Mettez a jour meteo, tendance, pourcentage et commentaires pour donner le contexte du chiffre.',
+          'Consultez l\'historique pour comprendre l\'evolution sans ecraser les captures precedentes.',
+          'Comparez les donnees taches, feuille de temps et pertes pour detecter les ecarts reels.',
         ],
       },
       {
-        title: 'Export Gantt PDF',
-        requiredAnyPermissions: ['project.export', 'project.read'],
+        title: 'Gerer un changement projet',
+        requiredAnyPermissions: ['project.change.create', 'project.update'],
         steps: [
-          'Ouvrez le projet en vue Gantt',
-          'Configurez la fenêtre temporelle souhaitée (zoom : jour/semaine/mois) et appliquez les filtres (par responsable, statut, jalons)',
-          'Cliquez "Exporter" > "PDF Gantt" dans la barre d\'outils',
-          'Choisissez le format papier (A4, A3, A2 paysage recommandé pour grands projets) et l\'orientation',
-          'Cochez les options : afficher la légende, le chemin critique, le baseline, les ressources affectées',
-          'Cliquez "Générer" — le PDF est produit côté serveur et téléchargé. Pour les très gros projets, le rendu est asynchrone et notifié par email',
+          'Enregistrez le changement avec un titre, une description, une cause et un niveau de criticite.',
+          'Indiquez si l\'impact planning ou budget est positif, negatif ou nul : un gain est aussi un impact.',
+          'Precisez le perimetre : tout le projet, certaines taches, certaines rubriques WBS ou plusieurs lots.',
+          'Joignez les pieces justificatives et ajoutez les commentaires necessaires.',
+          'Demandez une validation lorsque la decision doit etre tracee avant application.',
+        ],
+      },
+      {
+        title: 'Reviser ou simuler le planning',
+        requiredAnyPermissions: ['project.planning.manage', 'project.update'],
+        steps: [
+          'Creez une revision ou une simulation depuis l\'onglet Planification.',
+          'Consultez l\'apercu d\'impact avant application : taches ajoutees, modifiees, restaurees ou supprimees.',
+          'Appliquez une revision uniquement apres controle du perimetre, car elle restaure les donnees de planning capturees.',
+          'Utilisez une simulation pour preparer un scenario sans la confondre avec la version planning officielle.',
         ],
       },
     ],
     tips: [
-      'Utilisez le Kanban pour un suivi par statut (glisser-déposer)',
-      "Sync Gouti permet d'importer des projets depuis Gouti avec rafraîchissement auto",
-      'Les dépendances entre tâches sont visibles dans le Gantt (FS, SS, FF, SF) avec calcul du chemin critique',
-      'Le mode "Poids manuel" est recommandé quand toutes les tâches n\'ont pas le même impact business',
-      'Les jalons (milestones) sont visualisés en losange dans le Gantt et peuvent déclencher des notifications',
-      'L\'avancement réel est comparé au baseline pour calculer l\'EVM (Earned Value Management)',
+      'Une tache parent ne doit pas porter des dates manuelles contradictoires si elle a des enfants : laissez le calcul consolider.',
+      'Un jalon est une vraie tache de type jalon avec une date unique et des dependances possibles.',
+      'Les changements valides doivent servir de trace decisionnelle avant modification du budget ou du planning.',
+      'Gardez les pieces jointes dans les composants Documents : elles restent reutilisables et auditables.',
+      'Sur mobile, preferez les vues synthetiques et ouvrez le detail uniquement pour les champs longs.',
     ],
     elementHelp: {
-      'projets.create': 'Crée un nouveau projet. Le code projet doit être unique au sein de l\'entité (ex: WO-SITE-2026-001 pour Workover site A).',
-      'projets.gantt.toggle': 'Bascule entre les vues Gantt, Tableur et Kanban du projet. Chaque vue partage les mêmes données.',
-      'projets.tasks.create': 'Ajoute une tâche au projet. Disponible en sous-tâche d\'une tâche existante (hiérarchie WBS jusqu\'à 5 niveaux).',
-      'projets.task.dependency': 'Crée une dépendance entre tâches. FS = Fin-Début (la suivante démarre quand la précédente finit), SS = Début-Début, FF = Fin-Fin, SF = Début-Fin.',
-      'projets.task.progress': 'Pourcentage d\'avancement de la tâche (0-100). Met à jour automatiquement l\'avancement projet selon le mode de pondération configuré.',
-      'projets.milestone.create': 'Ajoute un jalon (milestone) — point clé sans durée. Visualisé en losange dans le Gantt et peut déclencher des notifications.',
-      'projets.progress.mode': 'Mode de calcul d\'avancement projet. Effort = pondéré par charge homme-jours. Durée = pondéré par durée calendaire. Poids manuel = vous saisissez le poids. Égal = toutes les tâches comptent pareil.',
-      'projets.gouti.sync': 'Synchronise le projet avec Gouti. Importe la WBS, les dates, dépendances et avancement. Sync unidirectionnelle (Gouti → OpsFlux).',
-      'projets.export.gantt': 'Exporte le Gantt en PDF haute résolution. Choisissez le format papier (A4/A3/A2), orientation et options (légende, chemin critique, baseline).',
-      'projets.budget.tracker': 'Suivi budgétaire — compare les coûts engagés (via imputations) au budget prévisionnel. Alerte automatique si dépassement > 10%.',
-      'projets.kanban.column': 'Colonne du Kanban représentant un statut. Glissez-déposez les tâches pour changer leur statut. Configurable dans les paramètres projet.',
-      'projets.critical.path': 'Chemin critique — séquence de tâches déterminant la durée totale du projet. Tout retard sur ces tâches retarde le projet entier.',
+      'projets.create': 'Cree un projet dans votre perimetre entite. Le code doit rester unique et stable pour les imports, exports et integrations.',
+      'projets.tasks.create': 'Ajoute une tache ou une sous-tache. Renseignez dates, duree, statut et responsable des que la tache doit entrer dans un planning exploitable.',
+      'projets.task.dependency': 'Lie deux taches en predecesseur/successeur. Utilisez ce lien quand un decalage doit se propager au planning.',
+      'projets.task.progress': 'Pourcentage d\'avancement de la tache. Les taches parentes peuvent etre consolidees a partir des enfants.',
+      'projets.task.pob_variable': 'POB variable : la charge est planifiee par jours relatifs J1, J2, etc. Il faut une date de debut et une date de fin.',
+      'projets.milestone.create': 'Cree une tache de type jalon : une seule date, pas de duree. Elle peut avoir des dependances comme les autres taches.',
+      'projets.planner.send_task': 'Envoie une tache existante vers Planner pour creer une activite operationnelle liee au projet.',
+      'projets.planning.revision': 'Capture une version du planning. L\'application d\'une revision restaure les snapshots de taches et dependances associes.',
+      'projets.planning.diff': 'Affiche l\'impact d\'une revision avant application : ajouts, suppressions, modifications et restaurations.',
+      'projets.change.moc': 'Trace un changement projet avec impacts planning/budget, perimetre WBS ou taches, pieces jointes, commentaires et validation si necessaire.',
+      'projets.documents.required': 'Liste les pieces attendues selon la configuration projet. Les preuves doivent rester disponibles pour controle et validation.',
+      'projets.timesheet': 'Feuille de temps : compare les heures planifiees, realisees, reste a faire et pertes pour suivre l\'ecart de charge.',
+      'projets.budget.tracker': 'Suivi budgetaire : l\'impact peut etre positif ou negatif et peut concerner tout le projet ou certaines rubriques WBS.',
+      'projets.gouti.sync': 'Importe ou resynchronise les donnees Gouti lorsque l\'integration est configuree. Controlez les changements avant de les utiliser comme reference.',
     },
   },
   paxlog: {

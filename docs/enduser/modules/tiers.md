@@ -102,6 +102,23 @@ core** ([`app/models/common.py`](https://github.com/hmunyeku/OPSFLUX/blob/main/a
 sur n'importe quel objet (User, Tier, TierContact, …). Pas de
 duplication de code, pas de champ "phone1/phone2/phone3".
 
+### Utilisation dans l'interface OpsFlux
+
+La fiche d'un tier est organisée pour séparer les responsabilités :
+
+- **Fiche** : identité, description, pays, logo, informations légales et
+  blocage.
+- **Contacts** : employés du tier, emails, téléphones, adresses et
+  rattachements.
+- **Conformité** : référentiels et preuves nécessaires à la vérification.
+- **Projets** : projets associés à l'entreprise, avec les informations
+  utiles pour comprendre le contexte opérationnel.
+- **Documents** : notes et pièces jointes polymorphes.
+
+Les logos peuvent venir d'une URL ou d'une pièce jointe image. Les listes
+affichent le drapeau du pays pour gagner de l'espace, tandis que la fiche
+détaillée affiche le drapeau et le nom du pays.
+
 ### Champs Tier importants
 
 [`app/models/common.py:637-696`](https://github.com/hmunyeku/OPSFLUX/blob/main/app/models/common.py#L637) :

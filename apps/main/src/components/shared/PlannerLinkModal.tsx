@@ -271,8 +271,8 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
 
           {/* Filters */}
           <div className="px-4 py-2 border-b border-border bg-muted/30 space-y-2 shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="relative min-w-[220px] flex-1">
                 <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une tâche..."
                   className="w-full h-7 pl-7 pr-2 text-xs border border-border rounded bg-background" />
@@ -309,8 +309,8 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
           </div>
 
           {/* Footer: pax quota + priority + send */}
-          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border bg-muted/20 shrink-0">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2 px-3 py-2 border-t border-border bg-muted/20 shrink-0 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">PAX:</span>
                 <input
@@ -323,14 +323,14 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                     const v = e.target.value
                     setPaxQuotaOverride(v === '' ? null : Math.max(0, Number(v) || 0))
                   }}
-                  className="w-16 h-6 px-1.5 text-xs border border-border rounded bg-background tabular-nums"
+                  className="w-14 h-7 px-1.5 text-xs border border-border rounded bg-background tabular-nums"
                   title="Vide = utilise le POB de chaque tâche. Sinon, force la valeur saisie pour toutes."
                 />
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">Priorité:</span>
                 <select value={priority} onChange={e => setPriority(e.target.value)}
-                  className="h-6 px-1.5 text-xs border border-border rounded bg-background">
+                  className="h-7 max-w-[132px] px-1.5 text-xs border border-border rounded bg-background">
                   <option value="low">{t('common.low_priority')}</option>
                   <option value="medium">{t('common.medium_priority')}</option>
                   <option value="high">{t('common.high_priority')}</option>
@@ -338,13 +338,14 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                 </select>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
               <span className="text-xs text-muted-foreground">{selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}</span>
-              <button onClick={onClose} className="btn-sm btn-secondary">{t('common.cancel')}</button>
+              <button onClick={onClose} className="btn-sm btn-secondary shrink-0">{t('common.cancel')}</button>
               <button onClick={handleSend} disabled={selectedIds.size === 0 || sendToPlanner.isPending}
-                className="btn btn-sm btn-primary flex">
+                className="btn-sm btn-primary inline-flex shrink-0 items-center gap-1.5 px-2"
+                title={`Envoyer au Planner (${selectedIds.size})`}>
                 {sendToPlanner.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
-                Envoyer au Planner ({selectedIds.size})
+                Envoyer ({selectedIds.size})
               </button>
             </div>
           </div>

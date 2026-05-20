@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import inspect
+
 from app.models.common import ProjectChange
 from app.models.moc import MOC
+from app.services.modules import moc_service
 
 
 def test_moc_declares_polymorphic_context_columns():
@@ -13,3 +16,18 @@ def test_moc_declares_polymorphic_context_columns():
 
 def test_project_change_declares_moc_compatibility_link():
     assert hasattr(ProjectChange, "moc_id")
+
+
+def test_moc_context_resolver_denies_unknown_context_types():
+    src = inspect.getsource(moc_service.resolve_moc_context_owner)
+    assert 'raise HTTPException(404, "Context owner not found")' in src
+    assert 'context_type == "project"' in src
+    assert 'context_type == "project_task"' in src
+
+
+def test_contextual_moc_creation_helper_sets_context_fields():
+    src = inspect.getsource(moc_service.create_contextual_moc)
+    assert "context_type=context_type" in src
+    assert "context_id=context_id" in src
+    assert "context_module=context_module" in src
+    assert "context_payload=context_payload" in src

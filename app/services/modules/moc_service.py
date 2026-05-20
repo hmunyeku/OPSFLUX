@@ -26,7 +26,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.common import User
+from app.models.common import Project, ProjectTask, User
 from app.models.moc import (
     MOC,
     MOCStatusHistory,
@@ -113,6 +113,136 @@ async def generate_reference(
     next_num = count + 1
     pf = (platform_code or "").strip().upper().replace(" ", "") or "UNK"
     return f"MOC_{next_num:03d}_{pf}"
+
+
+async def resolve_moc_context_owner(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    context_type: str,
+    context_id: UUID,
+    project_id: UUID | None = None,
+) -> object:
+    """Resolve and tenant-scope a polymorphic MOC context owner."""
+    if context_type == "project":
+        owner = (await db.execute(
+            select(Project).where(Project.id == context_id, Project.entity_id == entity_id)
+        )).scalar_one_or_none()
+        if owner is None:
+            raise HTTPException(404, "Context owner not found")
+        return owner
+
+    if context_type == "project_task":
+        stmt = (
+            select(ProjectTask)
+            .join(Project, Project.id == ProjectTask.project_id)
+            .where(ProjectTask.id == context_id, Project.entity_id == entity_id)
+        )
+        if project_id is not None:
+            stmt = stmt.where(ProjectTask.project_id == project_id)
+        owner = (await db.execute(stmt)).scalar_one_or_none()
+        if owner is None:
+            raise HTTPException(404, "Context owner not found")
+        return owner
+
+    raise HTTPException(404, "Context owner not found")
+
+
+async def list_contextual_mocs(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    context_type: str,
+    context_id: UUID,
+) -> list[MOC]:
+    await resolve_moc_context_owner(
+        db,
+        entity_id=entity_id,
+        context_type=context_type,
+        context_id=context_id,
+    )
+    return list((await db.execute(
+        select(MOC)
+        .where(
+            MOC.entity_id == entity_id,
+            MOC.context_type == context_type,
+            MOC.context_id == context_id,
+            MOC.archived == False,  # noqa: E712
+        )
+        .order_by(MOC.created_at.desc())
+    )).scalars().all())
+
+
+async def create_contextual_moc(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    actor: User,
+    context_type: str,
+    context_id: UUID,
+    context_module: str,
+    payload,
+    context_payload: dict | None = None,
+) -> MOC:
+    owner = await resolve_moc_context_owner(
+        db,
+        entity_id=entity_id,
+        context_type=context_type,
+        context_id=context_id,
+    )
+    project_id = getattr(owner, "project_id", None)
+    if context_type == "project":
+        project_id = getattr(owner, "id", None)
+    platform_code = (getattr(owner, "code", None) or context_type).upper()
+    reference = await generate_reference(db, entity_id=entity_id, platform_code=platform_code)
+    moc = MOC(
+        entity_id=entity_id,
+        reference=reference,
+        initiator_id=actor.id,
+        initiator_name=actor.full_name,
+        initiator_email=actor.email,
+        title=getattr(payload, "title", None),
+        description=getattr(payload, "description", None),
+        objectives=getattr(payload, "objectives", None),
+        proposed_changes=getattr(payload, "proposed_changes", None),
+        impact_analysis=getattr(payload, "impact_analysis", None),
+        moc_type_id=getattr(payload, "moc_type_id", None),
+        manager_id=getattr(payload, "manager_id", None),
+        site_label=getattr(payload, "site_label", None) or getattr(owner, "code", None) or "PROJECT",
+        platform_code=platform_code,
+        project_id=project_id,
+        context_type=context_type,
+        context_id=context_id,
+        context_module=context_module,
+        context_payload=context_payload,
+        status="created",
+    )
+    db.add(moc)
+    await db.flush()
+    if getattr(payload, "moc_type_id", None):
+        await seed_matrix_from_type(db, moc=moc, moc_type_id=payload.moc_type_id)
+    db.add(MOCStatusHistory(
+        moc_id=moc.id,
+        old_status=None,
+        new_status="created",
+        changed_by=actor.id,
+        note="MOC créé",
+    ))
+    for validator in (getattr(payload, "initial_validators", None) or []):
+        target_user = await db.get(User, validator.user_id)
+        if target_user is None or not target_user.active:
+            continue
+        await invite_validator(
+            db,
+            moc=moc,
+            user=target_user,
+            invited_by=actor,
+            role=validator.role,
+            metier_code=validator.metier_code,
+            metier_name=validator.metier_name,
+            level=validator.level,
+        )
+    return moc
 
 
 # ─── Status transition ────────────────────────────────────────────────────────

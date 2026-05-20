@@ -19,15 +19,11 @@ import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import type { ProjectTask } from '@/types/api'
 
-const STATUS_LABELS: Record<string, string> = {
-  todo: 'À faire', in_progress: 'En cours', review: 'Revue', done: 'Terminé', cancelled: 'Annulé',
-}
+const STATUS_KEYS = ['todo', 'in_progress', 'review', 'done', 'cancelled'] as const
 const STATUS_COLORS: Record<string, string> = {
   todo: '#9ca3af', in_progress: '#3b82f6', review: '#eab308', done: '#22c55e', cancelled: '#ef4444',
 }
-const PRIORITY_LABELS: Record<string, string> = {
-  low: 'Basse', medium: 'Moyenne', high: 'Haute', critical: 'Critique',
-}
+const PRIORITY_KEYS = ['low', 'medium', 'high', 'critical'] as const
 
 interface Props {
   open: boolean
@@ -130,8 +126,8 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
       ))
       const res = await sendToPlanner.mutateAsync({ projectId, items, assetId: assetId || undefined })
       toast({
-        title: `${res.created} activité${res.created > 1 ? 's' : ''} créée${res.created > 1 ? 's' : ''} dans le Planner`,
-        description: res.skipped > 0 ? `${res.skipped} déjà liée(s)` : undefined,
+        title: t('projets.planner_modal.send_success', { count: res.created }),
+        description: res.skipped > 0 ? t('projets.planner_modal.already_linked_count', { count: res.skipped }) : undefined,
         variant: res.errors.length > 0 ? 'warning' : 'success',
       })
       setSelectedIds(new Set())
@@ -213,7 +209,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
           )}
           {linked && (
             <>
-              <span className="text-green-600 text-[10px]">Déjà planifié</span>
+              <span className="text-green-600 text-[10px]">{t('projets.planner_modal.already_linked')}</span>
               {linkedEntry?.activity_id && (
                 <button
                   onClick={(e) => {
@@ -223,7 +219,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                   className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
                 >
                   <Eye size={10} />
-                  Ouvrir
+                  {t('common.open')}
                 </button>
               )}
               <button
@@ -231,16 +227,16 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                   e.stopPropagation()
                   try {
                     await unlinkTaskFromPlanner.mutateAsync({ projectId, taskId: task.id })
-                    toast({ title: 'Lien Planner supprimé', variant: 'success' })
+                    toast({ title: t('projets.planner_modal.unlink_success'), variant: 'success' })
                   } catch {
-                    toast({ title: 'Impossible de retirer cette activité du Planner', variant: 'error' })
+                    toast({ title: t('projets.planner_modal.unlink_error'), variant: 'error' })
                   }
                 }}
                 className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
                 disabled={unlinkTaskFromPlanner.isPending}
               >
                 <Unlink size={10} />
-                Retirer
+                {t('projets.planner_modal.unlink')}
               </button>
             </>
           )}
@@ -258,11 +254,12 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[var(--z-modal)] bg-black/40 backdrop-blur-sm animate-in fade-in" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] flex max-h-[85vh] w-[min(95vw,48rem)] max-w-[calc(100vw-1rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4">
-          {/* Header */}
           <div className="flex min-w-0 items-start justify-between gap-2 border-b border-border px-3 py-2.5 sm:px-4 sm:py-3 shrink-0">
             <div className="min-w-0">
-              <Dialog.Title className="truncate text-sm font-semibold">Envoyer au Planner</Dialog.Title>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">Projet {projectCode} — sélectionnez les tâches à planifier individuellement</p>
+              <Dialog.Title className="truncate text-sm font-semibold">{t('projets.planner_modal.title')}</Dialog.Title>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {t('projets.planner_modal.subtitle', { projectCode })}
+              </p>
             </div>
             <Dialog.Close asChild>
               <button className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={t('common.close')}>
@@ -271,30 +268,32 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
             </Dialog.Close>
           </div>
 
-          {/* Filters */}
           <div className="space-y-2 border-b border-border bg-muted/30 px-3 py-2 sm:px-4 shrink-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="relative min-w-[160px] flex-1">
                 <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une tâche..."
+                <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('projets.planner_modal.search_placeholder')}
                   className="w-full h-7 pl-7 pr-2 text-xs border border-border rounded bg-background" />
               </div>
-              <span className="shrink-0 text-xs text-muted-foreground">{selectableCount} planifiable{selectableCount > 1 ? 's' : ''}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {t('projets.planner_modal.selectable_count', { count: selectableCount })}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
-              {Object.entries(STATUS_LABELS).map(([v, l]) => (
+              {STATUS_KEYS.map((v) => (
                 <button key={v} onClick={() => toggleChip(statusFilter, v, setStatusFilter)}
                   className={cn('px-1.5 py-0.5 rounded border text-xs flex items-center gap-1',
                     statusFilter.includes(v) ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted')}>
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: STATUS_COLORS[v] }} />{l}
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: STATUS_COLORS[v] }} />
+                  {t(`projets.task_status.${v}`)}
                 </button>
               ))}
               <span className="text-muted-foreground">|</span>
-              {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
+              {PRIORITY_KEYS.map((v) => (
                 <button key={v} onClick={() => toggleChip(priorityFilter, v, setPriorityFilter)}
                   className={cn('px-1.5 py-0.5 rounded border text-xs',
                     priorityFilter.includes(v) ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted')}>
-                  {l}
+                  {t(`projets.priority.${v}`)}
                 </button>
               ))}
             </div>
@@ -304,7 +303,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
           <div className="flex-1 overflow-y-auto p-2">
             {roots.length === 0 && (
               <div className="text-center py-8 text-xs text-muted-foreground italic">
-                {(tasks || []).length === 0 ? 'Ce projet n\'a pas de tâches' : 'Aucune tâche ne correspond aux filtres'}
+                {(tasks || []).length === 0 ? t('projets.planner_modal.empty_project') : t('projets.planner_modal.empty_filters')}
               </div>
             )}
             {roots.map(r => renderTask(r, 0))}
@@ -326,29 +325,30 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
                     setPaxQuotaOverride(v === '' ? null : Math.max(0, Number(v) || 0))
                   }}
                   className="w-14 h-7 px-1.5 text-xs border border-border rounded bg-background tabular-nums"
-                  title="Vide = utilise le POB de chaque tâche. Sinon, force la valeur saisie pour toutes."
+                  title={t('projets.planner_modal.pax_help')}
                 />
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">Priorité:</span>
+                <span className="text-xs text-muted-foreground">{t('common.priority')}:</span>
                 <select value={priority} onChange={e => setPriority(e.target.value)}
                   className="h-7 max-w-[132px] px-1.5 text-xs border border-border rounded bg-background">
-                  <option value="low">{t('common.low_priority')}</option>
-                  <option value="medium">{t('common.medium_priority')}</option>
-                  <option value="high">{t('common.high_priority')}</option>
-                  <option value="critical">{t('common.critical_priority')}</option>
+                  {PRIORITY_KEYS.map((value) => (
+                    <option key={value} value={value}>{t(`projets.priority.${value}`)}</option>
+                  ))}
                 </select>
               </div>
             </div>
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-              <span className="text-xs text-muted-foreground">{selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}</span>
+              <span className="text-xs text-muted-foreground">
+                {t('projets.planner_modal.selected_count', { count: selectedIds.size })}
+              </span>
               <button onClick={onClose} className="btn-sm btn-secondary shrink-0">{t('common.cancel')}</button>
               <button onClick={handleSend} disabled={selectedIds.size === 0 || sendToPlanner.isPending}
                 className="btn-sm btn-primary inline-flex min-w-0 shrink-0 items-center gap-1.5 px-2"
-                title={`Envoyer au Planner (${selectedIds.size})`}>
+                title={t('projets.planner_modal.send_with_count', { count: selectedIds.size })}>
                 {sendToPlanner.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
-                <span className="hidden sm:inline">Envoyer au Planner</span>
-                <span className="sm:hidden">Envoyer</span>
+                <span className="hidden sm:inline">{t('projets.planner_modal.send_full')}</span>
+                <span className="sm:hidden">{t('projets.planner_modal.send_short')}</span>
                 <span className="tabular-nums">({selectedIds.size})</span>
               </button>
             </div>

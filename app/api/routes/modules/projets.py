@@ -2,6 +2,7 @@
 planning revisions, deliverables, actions, change logs."""
 
 from datetime import date as date_type, datetime, timedelta, timezone
+from types import SimpleNamespace
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -18,6 +19,7 @@ from app.services.core.delete_service import delete_entity
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.services.core.fsm_service import fsm_service, FSMError
+from app.services.modules.moc_service import create_contextual_moc
 from app.models.common import (
     AuditLog,
     Project, ProjectMember, ProjectTask, ProjectMilestone,
@@ -2601,6 +2603,35 @@ async def create_project_change(
     await _ensure_dictionary_code(db, category="project_change_type", code=payload.get("change_type"))
     if not payload.get("currency"):
         payload["currency"] = project.currency
+    context_payload = {
+        "planning_impact_days": payload.get("planning_impact_days") or 0,
+        "budget_impact_amount": payload.get("budget_impact_amount") or 0,
+        "currency": payload.get("currency") or project.currency,
+        "affected_task_ids": payload.get("affected_task_ids") or [],
+        "source": payload.get("source"),
+        "project_change_type": payload.get("change_type"),
+    }
+    moc_payload = SimpleNamespace(
+        title=payload["title"],
+        description=payload.get("description"),
+        objectives=payload["title"],
+        proposed_changes=payload.get("decision_summary"),
+        impact_analysis=payload.get("description"),
+        moc_type_id=None,
+        manager_id=None,
+        site_label=project.code or project.name or "PROJECT",
+        initial_validators=[],
+    )
+    moc = await create_contextual_moc(
+        db,
+        entity_id=entity_id,
+        actor=current_user,
+        context_type="project",
+        context_id=project_id,
+        context_module="projets",
+        payload=moc_payload,
+        context_payload=context_payload,
+    )
     reference = await generate_reference(
         "CHG",
         db,
@@ -2612,6 +2643,7 @@ async def create_project_change(
         entity_id=entity_id,
         project_id=project_id,
         reference=reference,
+        moc_id=moc.id,
         requested_by=current_user.id,
         **payload,
     )

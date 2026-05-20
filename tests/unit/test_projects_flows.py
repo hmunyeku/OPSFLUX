@@ -52,6 +52,13 @@ def test_project_manifest_declares_project_change_permissions():
     assert "project.change.update" in reviewer["permissions"]
 
 
+def test_project_change_creation_delegates_to_moc_engine():
+    src = inspect.getsource(projets.create_project_change)
+    assert "create_contextual_moc" in src
+    assert 'context_type="project"' in src
+    assert "MOCStatusHistory" not in src
+
+
 @pytest.mark.asyncio
 async def test_update_project_status_uses_fsm_and_emits_transition_event(monkeypatch):
     entity_id = uuid4()

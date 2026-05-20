@@ -4134,7 +4134,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         )}
 
         {detailTab === 'changements' && (
-          <ProjectChangesSection projectId={id} currency={projectCurrency} />
+          <ProjectChangesSection projectId={id} currency={projectCurrency} tasks={tasks ?? []} />
         )}
 
         {detailTab === 'historique' && <>

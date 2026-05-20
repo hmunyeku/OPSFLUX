@@ -6582,6 +6582,20 @@
       "error_add": "Could not add {{name}}.",
       "error_delete": "Could not delete the file."
     },
+    "change_register": {
+      "add": "Add change",
+      "empty_title": "No change recorded",
+      "empty_description": "Decisions, deviations, and impacts will be listed here.",
+      "title_placeholder": "Change title",
+      "planning_impact": "Planning impact",
+      "budget_impact": "Budget impact",
+      "linked_tasks": "Linked tasks",
+      "validator": "Validator",
+      "attachments": "Attachments",
+      "notes": "Notes",
+      "history": "History",
+      "details": "Details"
+    },
     "identifiers": {
       "title": "Legal identifiers",
       "add": "Add identifier",

@@ -6888,6 +6888,20 @@
       "error_add": "Impossible d'ajouter {{name}}.",
       "error_delete": "Impossible de supprimer le fichier."
     },
+    "change_register": {
+      "add": "Ajouter un changement",
+      "empty_title": "Aucun changement enregistré",
+      "empty_description": "Les décisions, écarts et impacts seront listés ici.",
+      "title_placeholder": "Titre du changement",
+      "planning_impact": "Impact planning",
+      "budget_impact": "Impact budget",
+      "linked_tasks": "Tâches liées",
+      "validator": "Validateur",
+      "attachments": "Pièces jointes",
+      "notes": "Notes",
+      "history": "Historique",
+      "details": "Détails"
+    },
     "identifiers": {
       "title": "Identifiants légaux",
       "add": "Ajouter un identifiant",

@@ -2022,6 +2022,7 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("project_attachment_type", "technical_note", "Note technique", 6, {"en": "Technical note"}),
         ("project_attachment_type", "approval", "Approbation", 7, {"en": "Approval"}),
         ("project_attachment_type", "evidence", "Preuve", 8, {"en": "Evidence"}),
+        ("project_attachment_type", "scope_change", "Changement de scope", 9, {"en": "Scope change"}),
         ("project_attachment_type", "other", "Autre", 99, {"en": "Other"}),
         ("project_deliverable_type", "report", "Rapport", 1, {"en": "Report"}),
         ("project_deliverable_type", "drawing", "Plan / dessin", 2, {"en": "Drawing"}),

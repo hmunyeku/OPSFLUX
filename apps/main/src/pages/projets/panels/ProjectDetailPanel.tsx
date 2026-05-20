@@ -72,7 +72,9 @@ import {
   usePlannerLinks,
   useSendToPlanner,
   useExportProjectPdf,
+  useProjectLosses,
 } from '@/hooks/useProjets'
+import { useMOCsForContext } from '@/hooks/useMOC'
 import { useCurrentEntity } from '@/hooks/useEntities'
 import { isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
@@ -3545,7 +3547,30 @@ export function ProjectDetailPanel({ id }: { id: string }) {
   const { data: tasks } = useProjectTasks(id)
   const { data: members } = useProjectMembers(id)
   const { data: taskDependencies = [] } = useTaskDependencies(id)
+  const { data: projectLosses = [] } = useProjectLosses(id)
+  const { data: projectMocs = [] } = useMOCsForContext('project', id)
   const milestoneTasks = useMemo(() => (tasks ?? []).filter((task) => task.is_milestone), [tasks])
+  const changeSummary = useMemo(() => {
+    const openStatuses = new Set(['draft', 'submitted', 'in_review', 'approved'])
+    return projectMocs.reduce(
+      (summary, moc) => {
+        const payload = moc.context_payload && typeof moc.context_payload === 'object' ? moc.context_payload : {}
+        summary.total += 1
+        if (openStatuses.has(moc.status)) summary.open += 1
+        summary.planningDays += Number(payload.planning_impact_days ?? 0) || 0
+        summary.budgetImpact += Number(payload.budget_impact_amount ?? 0) || 0
+        return summary
+      },
+      { total: 0, open: 0, planningDays: 0, budgetImpact: 0 },
+    )
+  }, [projectMocs])
+  const lossSummary = useMemo(() => projectLosses.reduce(
+    (summary, loss) => ({
+      hours: summary.hours + (Number(loss.hours_lost) || 0),
+      cost: summary.cost + (Number(loss.cost_amount) || 0),
+    }),
+    { hours: 0, cost: 0 },
+  ), [projectLosses])
   const memberSummary = useMemo(() => {
     const list = members ?? []
     const active = list.filter((member) => member.active !== false).length
@@ -3853,6 +3878,44 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                   'text-base font-bold tabular-nums leading-none',
                   milestoneTasks.length === 0 ? 'text-muted-foreground/40' : 'text-foreground',
                 )}>{milestoneTasks.length}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDetailTab('budget')}
+                className="group flex min-h-9 min-w-[112px] flex-1 flex-col items-start gap-0.5 rounded-md border border-amber-500/25 bg-amber-500/5 px-2 py-1.5 text-left transition-colors hover:border-amber-500/40 hover:bg-amber-500/10 sm:flex-none"
+                title="Voir les pertes de temps et coûts"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Activity size={12} className="text-amber-600 dark:text-amber-400" />
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Pertes</span>
+                </div>
+                <span className="text-base font-bold text-foreground tabular-nums leading-none">{Math.round(lossSummary.hours)}h</span>
+                {lossSummary.cost > 0 && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                    {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(lossSummary.cost)} {projectCurrency}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDetailTab('changements')}
+                className="group flex min-h-9 min-w-[132px] flex-1 flex-col items-start gap-0.5 rounded-md border border-blue-500/25 bg-blue-500/5 px-2 py-1.5 text-left transition-colors hover:border-blue-500/40 hover:bg-blue-500/10 sm:flex-none"
+                title="Voir le registre de changements"
+              >
+                <div className="flex items-center gap-1.5">
+                  <History size={12} className="text-primary" />
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80 font-semibold">Changements</span>
+                </div>
+                <span className="text-base font-bold text-foreground tabular-nums leading-none">
+                  {changeSummary.open}/{changeSummary.total}
+                </span>
+                {(changeSummary.planningDays !== 0 || changeSummary.budgetImpact !== 0) && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                    {changeSummary.planningDays > 0 ? '+' : ''}{changeSummary.planningDays}j · {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(changeSummary.budgetImpact)} {projectCurrency}
+                  </span>
+                )}
               </button>
             </div>
           )

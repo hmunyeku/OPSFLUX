@@ -2051,6 +2051,16 @@
       "tasks": "Tasks",
       "project_status": "Project status"
     },
+    "insights": {
+      "weather": "Weather",
+      "progress": "Progress",
+      "trend": "Trend",
+      "tasks": "Tasks",
+      "team": "Team",
+      "milestones": "Milestones",
+      "losses": "Losses",
+      "changes": "Changes"
+    },
     "task_detail": {
       "description_placeholder": "No description — click or double-click to add",
       "state_priority": "State & priority",

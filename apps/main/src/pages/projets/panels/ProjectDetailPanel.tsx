@@ -3767,18 +3767,12 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           const progressBar = progress >= 75 ? 'bg-green-500' :
                               progress >= 40 ? 'bg-primary' :
                               progress > 0 ? 'bg-amber-500' : 'bg-muted-foreground/30'
-          // Task breakdown for the sub-line
-          const tCounts = (tasks ?? []).reduce<Record<string, number>>((m, t) => {
-            m[t.status] = (m[t.status] ?? 0) + 1; return m
-          }, {})
-          const tDone = tCounts.done ?? 0
-          const tInProgress = tCounts.in_progress ?? 0
-          const insightCardClass = 'group flex h-[50px] min-w-0 flex-col items-start justify-center gap-0.5 rounded-md border bg-card/40 px-1.5 py-1 text-left transition-colors sm:h-12 sm:px-2'
-          const insightLabelClass = 'truncate text-[8px] font-semibold uppercase leading-none tracking-wide text-muted-foreground/80 sm:text-[9px]'
-          const insightValueClass = 'w-full truncate text-[12px] font-bold leading-tight text-foreground sm:text-sm'
+          const insightCardClass = 'group flex h-9 min-w-0 flex-col items-start justify-center gap-0 rounded-md border bg-card/40 px-1.5 py-0.5 text-left transition-colors sm:h-10 sm:px-2'
+          const insightLabelClass = 'truncate text-[7px] font-semibold uppercase leading-none tracking-wide text-muted-foreground/75 sm:text-[8px]'
+          const insightValueClass = 'w-full truncate text-[11px] font-bold leading-tight text-foreground sm:text-xs'
 
           return (
-            <div className="grid grid-cols-4 gap-1.5 lg:grid-cols-8">
+            <div className="grid grid-cols-4 gap-1 lg:grid-cols-8">
               {/* Météo */}
               <button
                 type="button"
@@ -3787,8 +3781,8 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 title="Météo du projet — cliquer pour modifier"
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <WeatherIcon weather={project.weather} size={12} />
-                  <span className={insightLabelClass}>Météo</span>
+                  <WeatherIcon weather={project.weather} size={11} />
+                  <span className={insightLabelClass}>{t('projets.insights.weather')}</span>
                 </div>
                 <span className={insightValueClass}>
                   {projectWeatherLabels[project.weather] ?? project.weather ?? '—'}
@@ -3803,15 +3797,15 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 title={`Avancement ${progress}%`}
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <Target size={12} className="text-primary" />
-                  <span className={insightLabelClass}>Avancement</span>
+                  <Target size={11} className="text-primary" />
+                  <span className={insightLabelClass}>{t('projets.insights.progress')}</span>
                 </div>
                 <div className="flex w-full items-end gap-1">
-                  <span className={cn('text-[13px] font-bold tabular-nums leading-none sm:text-base', progressTone)}>{progress}</span>
-                  <span className={cn('text-[10px] font-medium leading-none sm:text-xs', progressTone)}>%</span>
+                  <span className={cn('text-[12px] font-bold tabular-nums leading-none sm:text-sm', progressTone)}>{progress}</span>
+                  <span className={cn('text-[9px] font-medium leading-none sm:text-[10px]', progressTone)}>%</span>
                 </div>
                 {/* Mini progress bar */}
-                <div className="h-0.5 w-full overflow-hidden rounded-full bg-muted sm:h-1">
+                <div className="h-0.5 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className={cn('h-full rounded-full transition-all', progressBar)}
                     style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
@@ -3827,8 +3821,8 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 title={`Tendance: ${trendLabel}`}
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <span className="text-sm font-bold leading-none sm:text-base">{trendArrow}</span>
-                  <span className={insightLabelClass}>Tendance</span>
+                  <span className="text-xs font-bold leading-none sm:text-sm">{trendArrow}</span>
+                  <span className={insightLabelClass}>{t('projets.insights.trend')}</span>
                 </div>
                 <span className={insightValueClass}>{trendLabel}</span>
               </button>
@@ -3841,17 +3835,10 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 title="Voir les tâches"
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <ListTodo size={12} className="text-muted-foreground" />
-                  <span className={insightLabelClass}>Tâches</span>
+                  <ListTodo size={11} className="text-muted-foreground" />
+                  <span className={insightLabelClass}>{t('projets.insights.tasks')}</span>
                 </div>
                 <span className={cn(insightValueClass, 'tabular-nums')}>{tasks?.length ?? 0}</span>
-                {(tasks?.length ?? 0) > 0 && (
-                  <span className="hidden w-full truncate text-[9px] text-muted-foreground tabular-nums xl:block">
-                    {tDone > 0 && <span className="text-green-600 dark:text-green-400">{tDone}✓</span>}
-                    {tDone > 0 && tInProgress > 0 && <span className="opacity-50"> · </span>}
-                    {tInProgress > 0 && <span className="text-primary">{tInProgress} en cours</span>}
-                  </span>
-                )}
               </button>
 
               {/* Personnes */}
@@ -3862,8 +3849,8 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 title={t('projets.detail.team.view_team')}
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <Users size={12} className="text-muted-foreground" />
-                  <span className={insightLabelClass}>Équipe</span>
+                  <Users size={11} className="text-muted-foreground" />
+                  <span className={insightLabelClass}>{t('projets.insights.team')}</span>
                 </div>
                 <span className={cn(
                   insightValueClass,
@@ -3880,8 +3867,8 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 title="Voir les jalons"
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <Milestone size={12} className="text-muted-foreground" />
-                  <span className={insightLabelClass}>Jalons</span>
+                  <Milestone size={11} className="text-muted-foreground" />
+                  <span className={insightLabelClass}>{t('projets.insights.milestones')}</span>
                 </div>
                 <span className={cn(
                   insightValueClass,
@@ -3897,15 +3884,10 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 title="Voir les pertes de temps et coûts"
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <Activity size={12} className="text-amber-600 dark:text-amber-400" />
-                  <span className={insightLabelClass}>Pertes</span>
+                  <Activity size={11} className="text-amber-600 dark:text-amber-400" />
+                  <span className={insightLabelClass}>{t('projets.insights.losses')}</span>
                 </div>
                 <span className={cn(insightValueClass, 'tabular-nums')}>{Math.round(lossSummary.hours)}h</span>
-                {lossSummary.cost > 0 && (
-                  <span className="hidden w-full truncate text-[9px] text-muted-foreground tabular-nums xl:block">
-                    {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(lossSummary.cost)} {projectCurrency}
-                  </span>
-                )}
               </button>
 
               <button
@@ -3915,17 +3897,12 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 title="Voir le registre de changements"
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <History size={12} className="text-primary" />
-                  <span className={insightLabelClass}>Changements</span>
+                  <History size={11} className="text-primary" />
+                  <span className={insightLabelClass}>{t('projets.insights.changes')}</span>
                 </div>
                 <span className={cn(insightValueClass, 'tabular-nums')}>
                   {changeSummary.open}/{changeSummary.total}
                 </span>
-                {(changeSummary.planningDays !== 0 || changeSummary.budgetImpact !== 0) && (
-                  <span className="hidden w-full truncate text-[9px] text-muted-foreground tabular-nums xl:block">
-                    {changeSummary.planningDays > 0 ? '+' : ''}{changeSummary.planningDays}j · {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(changeSummary.budgetImpact)} {projectCurrency}
-                  </span>
-                )}
               </button>
             </div>
           )

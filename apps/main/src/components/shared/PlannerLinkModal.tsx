@@ -257,27 +257,29 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
     <Dialog.Root open={open} onOpenChange={o => { if (!o) onClose() }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[var(--z-modal)] bg-black/40 backdrop-blur-sm animate-in fade-in" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4 w-[95vw] max-w-3xl max-h-[85vh] flex flex-col">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] flex max-h-[85vh] w-[min(95vw,48rem)] max-w-[calc(100vw-1rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-            <div>
-              <Dialog.Title className="text-sm font-semibold">Envoyer au Planner</Dialog.Title>
-              <p className="text-xs text-muted-foreground mt-0.5">Projet {projectCode} — sélectionnez les tâches à planifier individuellement</p>
+          <div className="flex min-w-0 items-start justify-between gap-2 border-b border-border px-3 py-2.5 sm:px-4 sm:py-3 shrink-0">
+            <div className="min-w-0">
+              <Dialog.Title className="truncate text-sm font-semibold">Envoyer au Planner</Dialog.Title>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">Projet {projectCode} — sélectionnez les tâches à planifier individuellement</p>
             </div>
             <Dialog.Close asChild>
-              <button className="btn btn-secondary"><X size={14} /></button>
+              <button className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={t('common.close')}>
+                <X size={14} />
+              </button>
             </Dialog.Close>
           </div>
 
           {/* Filters */}
-          <div className="px-4 py-2 border-b border-border bg-muted/30 space-y-2 shrink-0">
+          <div className="space-y-2 border-b border-border bg-muted/30 px-3 py-2 sm:px-4 shrink-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <div className="relative min-w-[220px] flex-1">
+              <div className="relative min-w-[160px] flex-1">
                 <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une tâche..."
                   className="w-full h-7 pl-7 pr-2 text-xs border border-border rounded bg-background" />
               </div>
-              <span className="text-xs text-muted-foreground">{selectableCount} planifiable{selectableCount > 1 ? 's' : ''}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">{selectableCount} planifiable{selectableCount > 1 ? 's' : ''}</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               {Object.entries(STATUS_LABELS).map(([v, l]) => (
@@ -309,7 +311,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
           </div>
 
           {/* Footer: pax quota + priority + send */}
-          <div className="flex flex-col gap-2 px-3 py-2 border-t border-border bg-muted/20 shrink-0 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 border-t border-border bg-muted/20 px-3 py-2 shrink-0 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">PAX:</span>
@@ -342,10 +344,12 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
               <span className="text-xs text-muted-foreground">{selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}</span>
               <button onClick={onClose} className="btn-sm btn-secondary shrink-0">{t('common.cancel')}</button>
               <button onClick={handleSend} disabled={selectedIds.size === 0 || sendToPlanner.isPending}
-                className="btn-sm btn-primary inline-flex shrink-0 items-center gap-1.5 px-2"
+                className="btn-sm btn-primary inline-flex min-w-0 shrink-0 items-center gap-1.5 px-2"
                 title={`Envoyer au Planner (${selectedIds.size})`}>
                 {sendToPlanner.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
-                Envoyer ({selectedIds.size})
+                <span className="hidden sm:inline">Envoyer au Planner</span>
+                <span className="sm:hidden">Envoyer</span>
+                <span className="tabular-nums">({selectedIds.size})</span>
               </button>
             </div>
           </div>

@@ -2221,6 +2221,16 @@
       "tasks": "Tâches",
       "project_status": "Situation projet"
     },
+    "insights": {
+      "weather": "Météo",
+      "progress": "Avancement",
+      "trend": "Tendance",
+      "tasks": "Tâches",
+      "team": "Équipe",
+      "milestones": "Jalons",
+      "losses": "Pertes",
+      "changes": "Changements"
+    },
     "task_detail": {
       "description_placeholder": "Aucune description — cliquer ou double-cliquer pour ajouter",
       "state_priority": "État & priorité",

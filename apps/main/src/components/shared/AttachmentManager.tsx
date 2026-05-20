@@ -433,11 +433,11 @@ interface AttachmentManagerProps {
   initialShowForm?: boolean
   readOnly?: boolean
   /** When set, uploads are tagged with a category drawn from this dictionary
-   *  (e.g. 'moc_attachment_type'). Displays a dropdown above the dropzone
-   *  and a filter tab-bar, plus a badge on each attached file.
+   *  (e.g. 'moc_attachment_type'). The selected category chip filters the
+   *  list and becomes the upload category, plus a badge on each attached file.
    */
   categoryDictionary?: string
-  /** Category values to hide from the dropdown, filter bar, and list view.
+  /** Category values to hide from the chips and list view.
    *  Used e.g. by MOC to hide `inline_image` (those rows are managed by
    *  the rich-text editor itself, not by the attachments panel).
    */
@@ -459,7 +459,6 @@ export function AttachmentManager({
   const categoryOptions = hiddenCategories?.length
     ? rawCategoryOptions.filter((o) => !hiddenCategories.includes(o.value))
     : rawCategoryOptions
-  const [uploadCategory, setUploadCategory] = useState<string>('')
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const { data, isLoading } = useAttachments(
     ownerType,
@@ -483,6 +482,9 @@ export function AttachmentManager({
   const attachments: FileAttachment[] = (data ?? []).filter((a) =>
     !hiddenCategories?.length || !a.category || !hiddenCategories.includes(a.category),
   )
+  const selectedCategoryLabel = categoryFilter
+    ? categoryOptions.find((o) => o.value === categoryFilter)?.label
+    : null
 
   const handleUpload = useCallback(async (files: FileList | null) => {
     if (!files || !ownerId) return
@@ -492,14 +494,14 @@ export function AttachmentManager({
           ownerType,
           ownerId,
           file,
-          category: uploadCategory || undefined,
+          category: categoryFilter || undefined,
         })
         toast({ title: `${file.name} ajouté`, variant: 'success' })
       } catch {
         toast({ title: t('common.error'), description: `Impossible d'ajouter ${file.name}.`, variant: 'error' })
       }
     }
-  }, [ownerId, ownerType, uploadAttachment, toast, uploadCategory])
+  }, [categoryFilter, ownerId, ownerType, uploadAttachment, toast])
 
   const handleDelete = useCallback(async (id: string) => {
     try {
@@ -564,25 +566,6 @@ export function AttachmentManager({
       {/* Upload zone */}
       {!readOnly && (
         <>
-          {categoryDictionary && categoryOptions.length > 0 && (
-            <div className="flex items-center gap-2">
-              <label className="text-[10px] text-muted-foreground shrink-0">
-                Type :
-              </label>
-              <select
-                className="gl-form-input h-7 text-xs flex-1"
-                value={uploadCategory}
-                onChange={(e) => setUploadCategory(e.target.value)}
-              >
-                <option value="">— non catégorisé —</option>
-                {categoryOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
           <div
             onDragOver={handleDragOver}
@@ -601,6 +584,11 @@ export function AttachmentManager({
             <p className="text-xs text-muted-foreground">
               {compact ? 'Ajouter un fichier' : 'Cliquez ou glissez-déposez des fichiers'}
             </p>
+            {selectedCategoryLabel && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Type : {selectedCategoryLabel}
+              </p>
+            )}
           </div>
         </>
       )}

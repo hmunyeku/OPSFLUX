@@ -2311,6 +2311,7 @@ class ProjectChange(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     requested_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
     decided_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    moc_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("mocs.id", ondelete="SET NULL"))
     description: Mapped[str | None] = mapped_column(Text)
     decision_summary: Mapped[str | None] = mapped_column(Text)
     planning_impact_days: Mapped[int | None] = mapped_column(Integer)

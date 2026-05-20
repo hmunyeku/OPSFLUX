@@ -166,6 +166,13 @@ class MOC(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     project_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True,
     )
+    # Polymorphic business context. This lets the MOC engine be reused as the
+    # canonical change register for projects, tasks, process changes, assets,
+    # and future owner types without duplicating validation workflows.
+    context_type: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    context_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    context_module: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    context_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     initiator_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     initiator_function: Mapped[str | None] = mapped_column(String(200), nullable=True)
     initiator_email: Mapped[str | None] = mapped_column(String(200), nullable=True)

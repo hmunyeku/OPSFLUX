@@ -107,7 +107,13 @@ export function ProjectTaskCreateInlineForm({
   const missingRequiredDates = isMilestone ? !form.due_date : (!form.start_date || !form.due_date)
   const variableNeedsDates = !isMilestone && form.pob_quota_mode === 'variable' && (!form.start_date || !form.due_date)
   const variableDailyEmpty = !isMilestone && form.pob_quota_mode === 'variable' && Object.keys(form.pob_quota_daily).length === 0
-  const canSubmit = form.title.trim().length > 0 && !missingRequiredDates && !createTask.isPending && !createDependency.isPending
+  const canSubmit = form.title.trim().length > 0
+    && !missingRequiredDates
+    && !dateRangeInvalid
+    && !variableNeedsDates
+    && !variableDailyEmpty
+    && !createTask.isPending
+    && !createDependency.isPending
 
   useEffect(() => {
     if (isMilestone || form.pob_quota_mode !== 'variable' || !form.start_date || !form.due_date || dateRangeInvalid) return
@@ -124,7 +130,7 @@ export function ProjectTaskCreateInlineForm({
   }
 
   const submit = async () => {
-    if (!canSubmit || dateRangeInvalid || variableNeedsDates || variableDailyEmpty) return
+    if (!canSubmit) return
     const payload: ProjectTaskCreate = {
       title: form.title.trim(),
       parent_id: isSubtask ? parentTask?.id ?? null : isMilestone ? parentTask?.parent_id ?? null : null,
@@ -276,7 +282,7 @@ export function ProjectTaskCreateInlineForm({
       )}
 
       {!isMilestone && (
-        <div className="grid gap-2 rounded-md border border-border/40 bg-background/40 p-2 sm:grid-cols-[140px_120px_minmax(0,1fr)] sm:items-end">
+        <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-2 rounded-md border border-border/40 bg-background/40 p-2 sm:grid-cols-[140px_120px_minmax(0,1fr)] sm:items-end">
           <label className="space-y-1">
             <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">POB</span>
             <select
@@ -308,7 +314,7 @@ export function ProjectTaskCreateInlineForm({
               placeholder="0"
             />
           </label>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="col-span-2 text-[11px] text-muted-foreground sm:col-span-1">
             {form.pob_quota_mode === 'variable'
               ? 'Le plan J1, J2, etc. est préparé depuis les dates ci-dessus.'
               : 'Quota fixe repris tel quel lors de l’envoi vers le Planner.'}
@@ -337,7 +343,7 @@ export function ProjectTaskCreateInlineForm({
       {dateRangeInvalid && (
         <p className="text-[11px] font-medium text-red-500">La date de fin doit être postérieure ou égale à la date de début.</p>
       )}
-      {missingRequiredDates && (
+      {missingRequiredDates && !variableNeedsDates && (
         <p className="text-[11px] font-medium text-red-500">
           {isMilestone ? 'Un jalon doit avoir une date.' : 'Une tâche doit avoir une date de début et une date de fin.'}
         </p>
@@ -349,15 +355,15 @@ export function ProjectTaskCreateInlineForm({
         <p className="text-[11px] font-medium text-red-500">Le plan POB variable doit contenir au moins une valeur journalière.</p>
       )}
 
-      <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
-        <button type="button" onClick={onCancel} className="h-8 rounded border border-border px-3 text-xs text-muted-foreground hover:bg-muted">
+      <div className="flex items-center justify-end gap-2 border-t border-border/40 pt-2">
+        <button type="button" onClick={onCancel} className="h-8 shrink-0 rounded border border-border px-3 text-xs text-muted-foreground hover:bg-muted">
           Annuler
         </button>
         <button
           type="button"
           onClick={submit}
-          disabled={!canSubmit || dateRangeInvalid || variableNeedsDates || variableDailyEmpty}
-          className="inline-flex h-8 items-center justify-center gap-1 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          disabled={!canSubmit}
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:hover:bg-muted"
         >
           {createTask.isPending || createDependency.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
           {isMilestone ? 'Créer le jalon' : isSubtask ? 'Créer la sous-tâche' : 'Créer la tâche'}

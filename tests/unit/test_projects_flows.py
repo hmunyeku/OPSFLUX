@@ -59,6 +59,58 @@ def test_project_change_creation_delegates_to_moc_engine():
     assert "MOCStatusHistory" not in src
 
 
+def test_planning_revision_snapshot_restore_updates_tasks_and_deactivates_newer_rows():
+    task_id = uuid4()
+    newer_task_id = uuid4()
+    baseline_start = datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc)
+    baseline_end = datetime(2026, 4, 15, 18, 0, tzinfo=timezone.utc)
+    task = SimpleNamespace(
+        id=task_id,
+        title="Modified task",
+        start_date=datetime(2026, 5, 1, 8, 0, tzinfo=timezone.utc),
+        due_date=datetime(2026, 5, 15, 18, 0, tzinfo=timezone.utc),
+        status="in_progress",
+        progress=50,
+        active=True,
+    )
+    newer_task = SimpleNamespace(
+        id=newer_task_id,
+        title="Added after baseline",
+        start_date=None,
+        due_date=None,
+        status="todo",
+        progress=0,
+        active=True,
+    )
+
+    result = projets._restore_planning_snapshot_rows(
+        [task, newer_task],
+        [
+            {
+                "id": str(task_id),
+                "title": "Baseline task",
+                "start_date": baseline_start.isoformat(),
+                "due_date": baseline_end.isoformat(),
+                "status": "todo",
+                "progress": "0",
+                "active": "True",
+            }
+        ],
+        model=ProjectTask,
+        fields=("title", "start_date", "due_date", "status", "progress", "active"),
+    )
+
+    assert result["updated"] == 1
+    assert result["deactivated"] == 1
+    assert task.title == "Baseline task"
+    assert task.start_date == baseline_start
+    assert task.due_date == baseline_end
+    assert task.status == "todo"
+    assert task.progress == 0
+    assert task.active is True
+    assert newer_task.active is False
+
+
 @pytest.mark.asyncio
 async def test_update_project_status_uses_fsm_and_emits_transition_event(monkeypatch):
     entity_id = uuid4()

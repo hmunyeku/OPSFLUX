@@ -2,6 +2,7 @@
 planning revisions, deliverables, actions, change logs."""
 
 from datetime import date as date_type, datetime, timedelta, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 from uuid import UUID
 
@@ -368,6 +369,187 @@ async def _get_project_or_404(db: AsyncSession, project_id: UUID, entity_id: UUI
     if not project:
         raise HTTPException(404, "Project not found")
     return project
+
+
+PLANNING_REVISION_PROJECT_FIELDS = (
+    "progress",
+    "start_date",
+    "end_date",
+    "actual_end_date",
+    "progress_weight_method",
+)
+
+PLANNING_REVISION_TASK_FIELDS = (
+    "parent_id",
+    "wbs_node_id",
+    "code",
+    "title",
+    "description",
+    "status",
+    "priority",
+    "assignee_id",
+    "progress",
+    "start_date",
+    "due_date",
+    "completed_at",
+    "estimated_hours",
+    "actual_hours",
+    "weight",
+    "pob_quota",
+    "pob_quota_mode",
+    "pob_quota_daily",
+    "order",
+    "active",
+    "is_milestone",
+)
+
+PLANNING_REVISION_MILESTONE_FIELDS = (
+    "name",
+    "description",
+    "due_date",
+    "completed_at",
+    "status",
+    "active",
+)
+
+
+def _coerce_revision_snapshot_value(model: type, field: str, value):
+    if value is None:
+        return None
+
+    column = getattr(model, field).property.columns[0]
+    try:
+        python_type = column.type.python_type
+    except NotImplementedError:
+        python_type = None
+
+    if python_type is UUID:
+        return value if isinstance(value, UUID) else UUID(str(value))
+    if python_type is datetime:
+        if isinstance(value, datetime):
+            return value
+        raw = str(value).replace("Z", "+00:00")
+        return datetime.fromisoformat(raw)
+    if python_type is date_type:
+        if isinstance(value, date_type) and not isinstance(value, datetime):
+            return value
+        return date_type.fromisoformat(str(value)[:10])
+    if python_type is bool:
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in {"1", "true", "t", "yes", "y"}
+    if python_type is int:
+        return int(value)
+    if python_type is float:
+        return float(value)
+    if python_type is Decimal:
+        return Decimal(str(value))
+    return value
+
+
+def _restore_planning_snapshot_rows(
+    current_rows: list,
+    snapshot_rows: list[dict],
+    *,
+    model: type,
+    fields: tuple[str, ...],
+    create_defaults: dict | None = None,
+) -> dict:
+    """Restore a snapshot collection and deactivate rows created after it."""
+    current_by_id = {UUID(str(row.id)): row for row in current_rows}
+    snapshot_ids: set[UUID] = set()
+    created_rows = []
+    changed_rows = []
+    updated = 0
+
+    for snapshot_row in snapshot_rows:
+        raw_id = snapshot_row.get("id")
+        if not raw_id:
+            continue
+        row_id = UUID(str(raw_id))
+        snapshot_ids.add(row_id)
+        row = current_by_id.get(row_id)
+        if row is None:
+            row = model(id=row_id, **(create_defaults or {}))
+            created_rows.append(row)
+
+        changed_fields: set[str] = set()
+        for field in fields:
+            if field not in snapshot_row:
+                continue
+            value = _coerce_revision_snapshot_value(model, field, snapshot_row[field])
+            if getattr(row, field, None) != value:
+                setattr(row, field, value)
+                changed_fields.add(field)
+
+        if changed_fields:
+            updated += 1
+            changed_rows.append((row, changed_fields))
+
+    deactivated = 0
+    for row_id, row in current_by_id.items():
+        if row_id in snapshot_ids or not hasattr(row, "active") or not row.active:
+            continue
+        row.active = False
+        deactivated += 1
+        changed_rows.append((row, {"active"}))
+
+    return {
+        "updated": updated,
+        "created": len(created_rows),
+        "deactivated": deactivated,
+        "created_rows": created_rows,
+        "changed_rows": changed_rows,
+    }
+
+
+async def _apply_planning_revision_snapshot(db: AsyncSession, project: Project, snapshot: dict) -> dict:
+    if not isinstance(snapshot, dict):
+        raise HTTPException(400, "Invalid revision snapshot")
+
+    project_snapshot = snapshot.get("project")
+    if isinstance(project_snapshot, dict):
+        project_result = _restore_planning_snapshot_rows(
+            [project],
+            [project_snapshot],
+            model=Project,
+            fields=PLANNING_REVISION_PROJECT_FIELDS,
+        )
+    else:
+        project_result = {"updated": 0, "created": 0, "deactivated": 0, "changed_rows": []}
+
+    current_tasks = (
+        await db.execute(select(ProjectTask).where(ProjectTask.project_id == project.id))
+    ).scalars().all()
+    task_result = _restore_planning_snapshot_rows(
+        current_tasks,
+        snapshot.get("tasks") if isinstance(snapshot.get("tasks"), list) else [],
+        model=ProjectTask,
+        fields=PLANNING_REVISION_TASK_FIELDS,
+        create_defaults={"project_id": project.id},
+    )
+    for task in task_result["created_rows"]:
+        db.add(task)
+
+    current_milestones = (
+        await db.execute(select(ProjectMilestone).where(ProjectMilestone.project_id == project.id))
+    ).scalars().all()
+    milestone_result = _restore_planning_snapshot_rows(
+        current_milestones,
+        snapshot.get("milestones") if isinstance(snapshot.get("milestones"), list) else [],
+        model=ProjectMilestone,
+        fields=PLANNING_REVISION_MILESTONE_FIELDS,
+        create_defaults={"project_id": project.id},
+    )
+    for milestone in milestone_result["created_rows"]:
+        db.add(milestone)
+
+    return {
+        "project": {k: v for k, v in project_result.items() if k not in {"created_rows", "changed_rows"}},
+        "tasks": {k: v for k, v in task_result.items() if k not in {"created_rows", "changed_rows"}},
+        "milestones": {k: v for k, v in milestone_result.items() if k not in {"created_rows", "changed_rows"}},
+        "task_changes": task_result["changed_rows"],
+    }
 
 
 async def _sync_linked_planner_activities_for_project_task(
@@ -2442,7 +2624,7 @@ async def apply_revision(
     db: AsyncSession = Depends(get_db),
 ):
     """Apply a revision snapshot — commits a simulation as active revision."""
-    await _get_project_or_404(db, project_id, entity_id)
+    project = await _get_project_or_404(db, project_id, entity_id)
     result = await db.execute(
         select(PlanningRevision).where(PlanningRevision.id == revision_id, PlanningRevision.project_id == project_id)
     )
@@ -2451,6 +2633,18 @@ async def apply_revision(
         raise HTTPException(404, "Revision not found")
     if not rev.snapshot_data:
         raise HTTPException(400, "Revision has no snapshot data")
+
+    apply_summary = await _apply_planning_revision_snapshot(db, project, rev.snapshot_data)
+    for task, changed_fields in apply_summary["task_changes"]:
+        if getattr(task, "active", False):
+            await _sync_linked_planner_activities_for_project_task(
+                db,
+                entity_id=entity_id,
+                project=project,
+                task=task,
+                current_user=current_user,
+                changed_fields=changed_fields,
+            )
 
     # Mark as no longer simulation, set as active
     rev.is_simulation = False
@@ -2463,8 +2657,28 @@ async def apply_revision(
     for other in others.scalars().all():
         other.is_active = False
 
+    public_summary = {
+        "project": apply_summary["project"],
+        "tasks": apply_summary["tasks"],
+        "milestones": apply_summary["milestones"],
+    }
+
+    await record_audit(
+        db,
+        action="project.revision.apply",
+        resource_type="project",
+        resource_id=str(project_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "revision_id": str(revision_id),
+            "revision_number": rev.revision_number,
+            "revision_name": rev.name,
+            "summary": public_summary,
+        },
+    )
     await db.commit()
-    return {"detail": "Revision applied and set as active"}
+    return {"detail": "Revision applied and set as active", "summary": public_summary}
 
 
 @router.delete("/{project_id}/revisions/{revision_id}")

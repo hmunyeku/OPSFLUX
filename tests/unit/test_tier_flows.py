@@ -19,7 +19,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.errors import StructuredHTTPException
-from app.models.common import Tier, TierBlock
+from app.models.common import AuditLog, Tier, TierBlock, User
 from app.schemas.common import (
     AddressCreate,
     LegalIdentifierCreate,
@@ -28,6 +28,7 @@ from app.schemas.common import (
     TierCreate,
     TierUpdate,
 )
+from app.services.core.audit_service import add_event as add_audit_event
 from app.services.modules.tier_guard import ensure_tier_usable
 
 
@@ -43,13 +44,17 @@ class FakeResult:
 
 
 class FakeDB:
-    """Minimal AsyncSession mock for tier_guard tests."""
+    """Minimal AsyncSession mock for tier_guard / audit tests."""
 
     def __init__(self, block_result=None):
         self._block_result = block_result
+        self.added: list = []
 
     async def execute(self, statement, params=None):
         return FakeResult(scalar_one_or_none=self._block_result)
+
+    def add(self, obj):
+        self.added.append(obj)
 
 
 # ─── TierCreate ──────────────────────────────────────────────────────────
@@ -280,3 +285,49 @@ async def test_ensure_tier_usable_passes_on_active_unblocked():
     db = FakeDB(block_result=None)  # no block returned
     # Should not raise
     await ensure_tier_usable(db, tier, entity_id=entity_id, operation="any")
+
+
+# ─── audit_service.add_event ─────────────────────────────────────────────
+
+
+def test_audit_add_event_attaches_row_to_session():
+    db = FakeDB()
+    user = User(id=uuid4(), email="audit@test.com", first_name="A", last_name="U")
+    entity_id = uuid4()
+    tier_id = uuid4()
+    log = add_audit_event(
+        db,
+        user=user,
+        entity_id=entity_id,
+        action="block",
+        resource_type="tier",
+        resource_id=tier_id,
+        details={"reason": "Audit fournisseur", "block_type": "purchasing"},
+    )
+    assert isinstance(log, AuditLog)
+    assert len(db.added) == 1
+    assert db.added[0] is log
+    assert log.action == "block"
+    assert log.resource_type == "tier"
+    assert log.resource_id == str(tier_id)  # UUID coerced to str
+    assert log.user_id == user.id
+    assert log.entity_id == entity_id
+    assert log.details == {"reason": "Audit fournisseur", "block_type": "purchasing"}
+    assert log.ip_address is None  # no request passed
+    assert log.user_agent is None
+
+
+def test_audit_add_event_handles_none_user_and_no_details():
+    db = FakeDB()
+    log = add_audit_event(
+        db,
+        user=None,  # system / unauthenticated event
+        entity_id=None,
+        action="cleanup",
+        resource_type="tier",
+        resource_id=None,
+    )
+    assert log.user_id is None
+    assert log.entity_id is None
+    assert log.resource_id is None
+    assert log.details is None  # empty dict normalised to None

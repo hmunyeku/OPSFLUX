@@ -17,6 +17,7 @@ from app.core.references import generate_reference
 from app.core.security import create_password_reset_token
 from app.core.email_templates import render_and_send_email
 from app.services.core.delete_service import delete_entity
+from app.services.core.audit_service import add_event as add_audit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     Address, Attachment, Entity, ExternalReference, Tag, Tier, TierBlock, TierContact, User, UserTierLink,
@@ -273,6 +274,11 @@ async def create_tier(
             entity_id=entity_id,
         )
 
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="create", resource_type="tier", resource_id=tier.id,
+        details={"code": tier.code, "name": tier.name, "type": tier.type, "scope": tier.scope},
+    )
     await db.commit()
     await db.refresh(tier)
     return tier
@@ -326,8 +332,14 @@ async def update_tier(
     db: AsyncSession = Depends(get_db),
 ):
     tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(tier, field, value)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="tier", resource_id=tier.id,
+        details={"fields": list(changes.keys())},
+    )
     await db.commit()
     await db.refresh(tier)
     return tier
@@ -343,6 +355,11 @@ async def archive_tier(
 ):
     tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     await delete_entity(tier, db, "tier", entity_id=entity_id, user_id=current_user.id)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="archive", resource_type="tier", resource_id=tier.id,
+        details={"code": tier.code, "name": tier.name},
+    )
     await db.commit()
     return {"detail": "Tier archived"}
 
@@ -728,6 +745,16 @@ async def block_tier(
     )
     db.add(block)
     tier.is_blocked = True
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="block", resource_type="tier", resource_id=tier.id,
+        details={
+            "block_type": body.block_type,
+            "reason": body.reason,
+            "start_date": str(body.start_date) if body.start_date else None,
+            "end_date": str(body.end_date) if body.end_date else None,
+        },
+    )
     await db.commit()
     await db.refresh(block)
     await _notify_tier_status_change(
@@ -779,6 +806,11 @@ async def unblock_tier(
     )
     db.add(block)
     tier.is_blocked = False
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="unblock", resource_type="tier", resource_id=tier.id,
+        details={"reason": body.reason, "block_type": body.block_type},
+    )
     await db.commit()
     await db.refresh(block)
     await _notify_tier_status_change(

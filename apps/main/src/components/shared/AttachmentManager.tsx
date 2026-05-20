@@ -4,7 +4,8 @@
  * Embeddable anywhere: tiers detail, asset detail, notes, support tickets, etc.
  * Fetches and displays file attachments for a given owner (owner_type + owner_id).
  * Supports upload, download, delete.
- * Inline previews for images, videos, audio, and PDF.
+ * Inline previews for browser-readable files, with a safe open/download
+ * fallback for formats that need a native application.
  *
  * Usage:
  *   <AttachmentManager ownerType="tier" ownerId={tier.id} />
@@ -15,7 +16,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Paperclip, Plus, Trash2, Download, Loader2,
   FileText, Image, FileArchive, Film, Music, File, Eye, EyeOff,
-  Check, X,
+  Check, X, ExternalLink, FileSpreadsheet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -47,6 +48,27 @@ async function downloadFile(attachmentId: string, filename: string) {
   }
 }
 
+async function openFileInNewTab(attachmentId: string, filename: string) {
+  try {
+    const response = await api.get(`/api/v1/attachments/${attachmentId}/download`, {
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data], {
+      type: response.headers?.['content-type'] || response.data?.type || 'application/octet-stream',
+    })
+    const url = window.URL.createObjectURL(blob)
+    const opened = window.open(url, '_blank', 'noopener,noreferrer')
+    if (!opened) {
+      await downloadFile(attachmentId, filename)
+      window.URL.revokeObjectURL(url)
+      return
+    }
+    setTimeout(() => window.URL.revokeObjectURL(url), 60_000)
+  } catch {
+    window.open(`/api/v1/attachments/${attachmentId}/download`, '_blank')
+  }
+}
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`
@@ -57,11 +79,29 @@ const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image
 const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime']
 const AUDIO_TYPES = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/webm']
 const PDF_TYPES = ['application/pdf']
+const SPREADSHEET_TYPES = [
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv',
+]
+const TEXT_EXTENSIONS = new Set([
+  'txt', 'log', 'md', 'markdown', 'csv', 'json', 'xml', 'yaml', 'yml', 'sql',
+  'ini', 'conf', 'cfg', 'env', 'tsv', 'html', 'htm', 'css', 'js', 'ts',
+])
+const SPREADSHEET_EXTENSIONS = new Set(['xls', 'xlsx', 'csv', 'tsv'])
 
-function getFileIcon(contentType: string) {
+function getFileExtension(name: string): string {
+  const clean = name.split('?')[0].split('#')[0]
+  const dot = clean.lastIndexOf('.')
+  return dot >= 0 ? clean.slice(dot + 1).toLowerCase() : ''
+}
+
+function getFileIcon(contentType: string, name = '') {
+  const ext = getFileExtension(name)
   if (contentType.startsWith('image/')) return Image
   if (contentType.startsWith('video/')) return Film
   if (contentType.startsWith('audio/')) return Music
+  if (SPREADSHEET_TYPES.includes(baseContentType(contentType)) || SPREADSHEET_EXTENSIONS.has(ext)) return FileSpreadsheet
   if (contentType.includes('pdf') || contentType.includes('document') || contentType.includes('text'))
     return FileText
   if (contentType.includes('zip') || contentType.includes('archive') || contentType.includes('compressed'))
@@ -74,10 +114,23 @@ function baseContentType(ct: string): string {
   return ct.split(';')[0].trim()
 }
 
-function canPreview(contentType: string): boolean {
+function canPreview(_contentType: string): boolean {
+  return true
+}
+
+function isTextLike(contentType: string, name: string): boolean {
   const base = baseContentType(contentType)
-  return IMAGE_TYPES.includes(base) || VIDEO_TYPES.includes(base) ||
-    AUDIO_TYPES.includes(base) || PDF_TYPES.includes(base)
+  const ext = getFileExtension(name)
+  return base.startsWith('text/') ||
+    base.includes('json') ||
+    base.includes('xml') ||
+    TEXT_EXTENSIONS.has(ext)
+}
+
+function isSpreadsheetLike(contentType: string, name: string): boolean {
+  const base = baseContentType(contentType)
+  const ext = getFileExtension(name)
+  return SPREADSHEET_TYPES.includes(base) || SPREADSHEET_EXTENSIONS.has(ext)
 }
 
 const attachmentActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -85,41 +138,192 @@ const attachmentActiveActionClass = 'inline-flex h-6 w-6 items-center justify-ce
 const attachmentDangerActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-destructive transition-colors hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 /** Authenticated media component — fetches via API and renders as blob URL */
-function AuthMediaPreview({ src, contentType, name }: { src: string; contentType: string; name: string }) {
+function AuthFilePreview({
+  attachmentId,
+  src,
+  contentType,
+  name,
+  sizeBytes,
+}: {
+  attachmentId: string
+  src: string
+  contentType: string
+  name: string
+  sizeBytes: number
+}) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [textPreview, setTextPreview] = useState<string | null>(null)
+  const [tablePreview, setTablePreview] = useState<{ headers: string[]; rows: unknown[][]; sheet?: string } | null>(null)
   const [error, setError] = useState(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     let revoke: string | null = null
+    let cancelled = false
     setError(false)
     setBlobUrl(null)
+    setTextPreview(null)
+    setTablePreview(null)
     api.get(src, { responseType: 'blob' })
-      .then(({ data }) => {
-        const url = URL.createObjectURL(data)
+      .then(async ({ data }) => {
+        if (cancelled) return
+        const blob = data as Blob
+        const url = URL.createObjectURL(blob)
         revoke = url
         setBlobUrl(url)
+        const base = baseContentType(contentType)
+        const ext = getFileExtension(name)
+
+        if (isSpreadsheetLike(contentType, name)) {
+          if (ext === 'csv' || ext === 'tsv' || base === 'text/csv') {
+            const Papa = await import('papaparse')
+            const text = await blob.text()
+            if (cancelled) return
+            const parsed = Papa.parse<string[]>(text, {
+              delimiter: ext === 'tsv' ? '\t' : undefined,
+              preview: 51,
+              skipEmptyLines: true,
+            })
+            const rows = (parsed.data || []).filter((row) => row.length > 0)
+            setTablePreview({
+              headers: rows[0]?.map((cell, idx) => String(cell || `Col. ${idx + 1}`)) ?? [],
+              rows: rows.slice(1, 51),
+            })
+            return
+          }
+          if (ext === 'xls' || ext === 'xlsx') {
+            const XLSX = await import('xlsx')
+            const workbook = XLSX.read(await blob.arrayBuffer(), { type: 'array' })
+            if (cancelled) return
+            const firstSheetName = workbook.SheetNames[0]
+            const sheet = firstSheetName ? workbook.Sheets[firstSheetName] : undefined
+            const matrix = sheet ? XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false }) : []
+            const rows = matrix.filter((row) => Array.isArray(row) && row.length > 0)
+            setTablePreview({
+              sheet: firstSheetName,
+              headers: (rows[0] || []).slice(0, 12).map((cell, idx) => String(cell || `Col. ${idx + 1}`)),
+              rows: rows.slice(1, 51).map((row) => row.slice(0, 12)),
+            })
+            return
+          }
+        }
+
+        if (isTextLike(contentType, name)) {
+          const raw = await blob.text()
+          if (cancelled) return
+          const formatted = base.includes('json') || ext === 'json'
+            ? (() => {
+              try { return JSON.stringify(JSON.parse(raw), null, 2) } catch { return raw }
+            })()
+            : raw
+          setTextPreview(formatted.length > 120_000
+            ? `${formatted.slice(0, 120_000)}\n\n${t('attachments.preview.truncated', '... aperçu tronqué ...')}`
+            : formatted)
+        }
       })
       .catch(() => setError(true))
-    return () => { if (revoke) URL.revokeObjectURL(revoke) }
-  }, [src])
+    return () => {
+      cancelled = true
+      if (revoke) URL.revokeObjectURL(revoke)
+    }
+  }, [contentType, name, src, t])
 
-  if (error) return <p className="text-xs text-muted-foreground p-2">Impossible de charger l'aperçu.</p>
+  if (error) {
+    return (
+      <p className="p-2 text-xs text-muted-foreground">
+        {t('attachments.preview.loadError', "Impossible de charger l'aperçu.")}
+      </p>
+    )
+  }
   if (!blobUrl) return <div className="flex items-center justify-center py-6"><Loader2 size={14} className="animate-spin text-muted-foreground" /></div>
 
   const base = baseContentType(contentType)
   if (IMAGE_TYPES.includes(base)) {
-    return <img src={blobUrl} alt={name} className="max-w-full max-h-[300px] object-contain rounded" />
+    return <img src={blobUrl} alt={name} className="max-h-[360px] max-w-full rounded object-contain" />
   }
   if (VIDEO_TYPES.includes(base)) {
-    return <video src={blobUrl} controls className="w-full max-h-[300px] rounded" />
+    return <video src={blobUrl} controls className="max-h-[360px] w-full rounded" />
   }
   if (AUDIO_TYPES.includes(base)) {
     return <audio src={blobUrl} controls className="w-full" />
   }
   if (PDF_TYPES.includes(base)) {
-    return <iframe src={blobUrl} className="w-full h-[400px] rounded border-0" title={name} />
+    return <iframe src={blobUrl} className="h-[460px] w-full rounded border-0" title={name} />
   }
-  return null
+  if (tablePreview) {
+    return (
+      <div className="space-y-2">
+        {tablePreview.sheet && (
+          <p className="text-[10px] text-muted-foreground">
+            {t('attachments.preview.sheet', 'Feuille')} : {tablePreview.sheet}
+          </p>
+        )}
+        <div className="max-h-[360px] overflow-auto rounded border border-border/50">
+          <table className="w-full min-w-max border-collapse text-xs">
+            <thead className="sticky top-0 bg-muted text-muted-foreground">
+              <tr>
+                {tablePreview.headers.map((header, idx) => (
+                  <th key={`${header}-${idx}`} className="border-b border-border/50 px-2 py-1 text-left font-medium">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tablePreview.rows.map((row, rowIdx) => (
+                <tr key={rowIdx} className="odd:bg-muted/20">
+                  {tablePreview.headers.map((_, colIdx) => (
+                    <td key={colIdx} className="border-b border-border/30 px-2 py-1 align-top">
+                      {String(row[colIdx] ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+  if (textPreview !== null) {
+    return (
+      <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap rounded border border-border/50 bg-background p-3 text-[11px] leading-relaxed text-foreground">
+        {textPreview || t('attachments.preview.emptyText', 'Fichier texte vide.')}
+      </pre>
+    )
+  }
+  return (
+    <div className="rounded border border-border/50 bg-background p-3">
+      <div className="flex items-start gap-3">
+        <FileText size={20} className="mt-0.5 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">{name}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t('attachments.preview.unsupported', 'Aperçu détaillé non disponible dans le navigateur pour ce format.')}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {contentType || 'application/octet-stream'} · {formatSize(sizeBytes)}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="inline-flex h-8 items-center gap-1 rounded border border-border px-2 text-xs font-medium text-foreground hover:bg-muted"
+          onClick={() => openFileInNewTab(attachmentId, name)}
+        >
+          <ExternalLink size={13} /> {t('attachments.preview.open', 'Ouvrir')}
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-8 items-center gap-1 rounded border border-border px-2 text-xs font-medium text-foreground hover:bg-muted"
+          onClick={() => downloadFile(attachmentId, name)}
+        >
+          <Download size={13} /> {t('attachments.preview.download', 'Télécharger')}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 interface AttachmentManagerProps {
@@ -306,7 +510,7 @@ export function AttachmentManager({
 
       {/* File list */}
       {!isLoading && attachments.map((att) => {
-        const FileIcon = getFileIcon(att.content_type)
+        const FileIcon = getFileIcon(att.content_type, att.original_name)
         const isConfirming = confirmDeleteId === att.id
         const hasPreview = canPreview(att.content_type)
         const isExpanded = expandedPreviews.has(att.id)
@@ -371,10 +575,12 @@ export function AttachmentManager({
             {/* Inline preview */}
             {isExpanded && hasPreview && (
               <div className="px-3 pb-3 pt-1 border-t border-border/30 bg-muted/10">
-                <AuthMediaPreview
+                <AuthFilePreview
+                  attachmentId={att.id}
                   src={`/api/v1/attachments/${att.id}/download`}
                   contentType={att.content_type}
                   name={att.original_name}
+                  sizeBytes={att.size_bytes}
                 />
               </div>
             )}

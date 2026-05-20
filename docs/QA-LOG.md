@@ -48,7 +48,7 @@
 
 ### Bugs identifiés en session 3 (en plus du backlog précédent)
 
-16. **Address schema incohérent** : `tier.address` utilise `zip_code` + `is_primary` ; `Address` polymorphique utilise `postal_code` + `is_default`. Dette de cohérence.
+16. **Address schema incohérent** : `tier.address` utilise `zip_code` + `is_primary` ; `Address` polymorphique utilise `postal_code` + `is_default`. ~~Dette de cohérence~~ → **FAUX POSITIF** (audit module Tiers, session 20 mai). Analyse : c'est un **design hybride intentionnel** — `Tier.address_*` (colonnes legacy) = adresse principale (1 seule, intégrée au Tier) ; `Address` polymorphique = adresses additionnelles (N : succursales, livraison, facturation). Les 2 systèmes coexistent volontairement et sont tous deux utilisés côté UI (CreateTierPanel : section « Coordonnées » sur Tier + section « Adresses additionnelles » sur Address polymorphique). Le naming divergent est résolu côté API par `populate_by_name=True` + alias Pydantic (cf. vague L, commit 53e256a3). Pas de migration nécessaire.
 
 17. **POST /api/v1/projects HTTP 500** → **corrigé** en session 3 (commit `39187000`).
 

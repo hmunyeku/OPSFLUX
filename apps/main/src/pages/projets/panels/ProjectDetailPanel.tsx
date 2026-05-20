@@ -3660,6 +3660,9 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
   const isGouti = isGoutiProject(project)
   const projectCurrency = project.currency || 'XAF'
+  const showProjectMetaTools = detailTab === 'fiche'
+  // Execution tabs need the work surface immediately; the summary strip is useful elsewhere.
+  const showProjectKpiStrip = detailTab !== 'metriques' && detailTab !== 'planner' && detailTab !== 'planification'
   const toDateInputValue = (value: string | null | undefined) => value ? value.slice(0, 10) : ''
   const toDateDisplayValue = (value: string | null | undefined) => {
     if (!value) return ''
@@ -3739,7 +3742,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         {/* Tag manager + Gouti banner shouldn't pollute the executive
             dashboard view. Both belong on the Fiche tab where the
             user actually edits descriptive metadata. */}
-        {detailTab !== 'metriques' && (
+        {showProjectMetaTools && (
           <>
             <TagManager ownerType="project" ownerId={project.id} compact />
             {isGouti && <GoutiProjectBanner />}
@@ -3747,10 +3750,9 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         )}
 
         {/* KPI strip — clickable cards that jump to the relevant tab.
-            Hidden on the Métriques tab itself: the gauge + tiles in
-            <ProjectMetrics /> already cover the same data, much more
-            in-depth, so duplicating the strip there is just noise. */}
-        {detailTab !== 'metriques' && (() => {
+            Hidden on Métriques and execution tabs where it duplicates
+            the main content and pushes the work surface down. */}
+        {showProjectKpiStrip && (() => {
           const trend = project.trend ?? 'flat'
           const trendArrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'
           const trendLabel = trend === 'up' ? t('projets.detail.trend.up') : trend === 'down' ? t('projets.detail.trend.down') : t('projets.detail.trend.stable')

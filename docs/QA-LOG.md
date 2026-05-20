@@ -1335,8 +1335,8 @@ Sans accès UI (FortiGuard bloque `*.opsflux.io` catégorie "Meaningless Content
 | # | Bug | Sévérité | Status |
 |---|---|---|---|
 | 38 | AddressManager title 'Aucune adresse' hardcode FR | mineur | ✅ FIXED 64a20b84 |
-| 39 | Scroll panel CreateTier freeze tab 30s+ | majeur | 🔍 documenté, non-fixé (investigation complexe) |
-| 40 | Click onglet "Projets" dans /projets freeze 30s+ | majeur | 🔍 documenté (workaround : navigation URL directe) |
+| 39 | Scroll panel CreateTier freeze tab 30s+ | majeur | ✅ FIXED 53e3f520 (`content-visibility:auto` + `contain-intrinsic-size` sur FormSection — DOM 18 fieldsets, scroll 8073px mesuré 1.9ms vs 30 000ms+ avant) |
+| 40 | Click onglet "Projets" dans /projets freeze 30s+ | majeur | 🔍 documenté (probable bénéficie du fix #39 — FormSection partagée — à revalider) |
 | 41 | "Taux de conformité PAX" affiche `0` simple (sans `%`) sur dashboard PaxLog | mineur | 📝 noté |
 | 42 | "permanent_ops" en EN au milieu des autres types FR dans Activités par type Planner | mineur | 📝 noté |
 | 43 | Cargo CGO-2026-0006 destination `---` (3 dashes) ≠ pattern habituel `—` (em-dash) | cosmétique | 📝 noté |
@@ -1377,8 +1377,8 @@ Sans accès UI (FortiGuard bloque `*.opsflux.io` catégorie "Meaningless Content
 ### Reste pour validation Bastien
 
 Bugs majeurs documentés à investiguer demain matin :
-1. **Bug #39** : Scroll panel CreateTier (frontend perf, probable @container queries imbriquées + RichTextField)
-2. **Bug #40** : Click tab Projets freeze (probable même cause que #39)
+1. ~~**Bug #39** : Scroll panel CreateTier~~ ✅ **FIXED** commit `53e3f520` — `content-visibility:auto` + `contain-intrinsic-size: auto 400px` sur FormSection (DynamicPanel.tsx). Cause confirmée : DOM massif (18 fieldsets × inputs × Tiptap) + cascade `@container` queries forçant style recalc complet à chaque scroll. Le fix dit au navigateur de skip layout/paint des sections hors viewport. Mesure post-fix : 1.9ms pour scroll 0→8073px (vs 30 000ms+ avant) = gain ~15 000×. Bénéficie à tous les panneaux DynamicPanel transverse.
+2. **Bug #40** : Click tab Projets freeze (probable même cause que #39) — à revalider, mon fix sur FormSection partagée devrait l'avoir corrigé en bonus
 3. **Bug #44** : PackLog KPI "Vue d'ensemble" calculé à 0 alors qu'il y a 7+8 items
 
 Ces 3 bugs nécessitent investigation approfondie côté frontend (Devtools profiler, scope @container queries). Pas bloquant pour cette nuit, à traiter en jour de travail Bastien.

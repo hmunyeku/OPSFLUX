@@ -1,7 +1,7 @@
 /**
  * Project resources & time tracking sections (MS Project parity).
  *
- * Four collapsible FormSections to plug into the Project Detail panel:
+ * Three collapsible FormSections to plug into the Project Detail panel:
  *  - TimeTrackingSection — daily pointage with workflow draft → submitted →
  *    validated | rejected. Shows entries, status filter, inline quick-add,
  *    and inline workflow buttons (submit / approve / reject / delete).
@@ -9,7 +9,6 @@
  *    hours. Click a cell to edit planned hours.
  *  - LossesSection — track time/cost losses by category (weather, material,
  *    equipment, manpower, contractual, accident, other).
- *  - ProjectReportSection — synthesis report (KPIs + tasks + members + losses).
  *
  * Backend: app/api/routes/modules/projets.py — endpoints
  *   /projects/{pid}/{time-entries,allocations,losses,report}
@@ -650,178 +649,6 @@ export function LossesSection({ projectId }: { projectId: string }) {
             <button onClick={handleSubmit} disabled={createLoss.isPending || !description.trim() || (!hoursLost && !costAmount)} className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40">
               {createLoss.isPending ? <Loader2 size={10} className="animate-spin" /> : 'Enregistrer'}
             </button>
-          </div>
-        </div>
-      )}
-    </FormSection>
-  )
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// Project Report (synthèse façon MS Project)
-// ════════════════════════════════════════════════════════════════════════════
-
-export function ProjectReportSection({ projectId }: { projectId: string }) {
-  const { data: report } = useProjectReport(projectId)
-  if (!report) return null
-  const k = report.kpis
-  const fmt = (n: number, d = 1) => n.toFixed(d)
-
-  return (
-    <FormSection title="Rapport projet" collapsible defaultExpanded={false} storageKey="project-detail-report">
-      <div className="grid grid-cols-2 @md:grid-cols-4 gap-2 mb-3">
-        <div className="px-2 py-1.5 rounded bg-muted/40 border border-border/40">
-          <div className="text-[10px] text-muted-foreground">Avancement</div>
-          <div className="text-base font-medium tabular-nums">{fmt(k.completion_pct, 0)}%</div>
-        </div>
-        <div className="px-2 py-1.5 rounded bg-muted/40 border border-border/40">
-          <div className="text-[10px] text-muted-foreground">Heures planif. / réal.</div>
-          <div className="text-base font-medium tabular-nums">{fmt(k.total_planned_hours, 0)} / {fmt(k.total_actual_hours, 0)}</div>
-          <div className={cn('text-[10px] tabular-nums', k.variance_hours < 0 ? 'text-red-500' : 'text-green-500')}>
-            écart {k.variance_hours >= 0 ? '+' : ''}{fmt(k.variance_hours, 1)}h
-          </div>
-        </div>
-        <div className="px-2 py-1.5 rounded bg-muted/40 border border-border/40">
-          <div className="text-[10px] text-muted-foreground">Coût</div>
-          <div className="text-base font-medium tabular-nums">{fmt(k.total_cost, 0)} {report.project.currency}</div>
-        </div>
-        <div className="px-2 py-1.5 rounded bg-red-500/5 border border-red-500/20">
-          <div className="text-[10px] text-muted-foreground">Pertes</div>
-          <div className="text-base font-medium tabular-nums text-red-600">{fmt(k.total_lost_hours, 1)}h · {fmt(k.total_lost_cost, 0)}</div>
-        </div>
-      </div>
-
-      {/* Charge — h + j/h breakdown (Gouti-style "Statut général de la charge") */}
-      {report.workload && (
-        <div className="mb-3 px-3 py-2 rounded-lg border border-border/40 bg-card/40">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="text-[11px] font-display font-semibold tracking-tight">Charge</div>
-            <div className="ml-auto flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className={cn(
-                  'h-full rounded-full transition-all',
-                  report.workload.consumed_pct < 50 ? 'bg-green-500' :
-                  report.workload.consumed_pct < 80 ? 'bg-amber-500' :
-                  report.workload.consumed_pct < 100 ? 'bg-orange-500' : 'bg-red-500',
-                )}
-                style={{ width: `${Math.min(100, report.workload.consumed_pct)}%` }}
-              />
-            </div>
-            <span className="text-[10px] tabular-nums font-medium text-muted-foreground">
-              {fmt(report.workload.consumed_pct, 0)}%
-            </span>
-          </div>
-          <div className="grid grid-cols-2 @md:grid-cols-4 gap-2 text-[11px]">
-            <div>
-              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Charge totale</div>
-              <div className="font-medium tabular-nums">{fmt(report.workload.total_hours, 0)} h</div>
-              <div className="text-[10px] text-muted-foreground tabular-nums">{fmt(report.workload.total_jh, 1)} j/h</div>
-            </div>
-            <div>
-              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Consommée</div>
-              <div className="font-medium tabular-nums">{fmt(report.workload.consumed_hours, 0)} h</div>
-              <div className="text-[10px] text-muted-foreground tabular-nums">{fmt(report.workload.consumed_jh, 1)} j/h</div>
-            </div>
-            <div>
-              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Dont feuilles temps</div>
-              <div className="font-medium tabular-nums text-green-600">
-                {fmt(report.workload.timesheet_validated_hours, 0)} h
-              </div>
-              <div className="text-[10px] text-muted-foreground tabular-nums">
-                {fmt(report.workload.timesheet_validated_jh, 1)} j/h
-                {report.workload.timesheet_pending_hours > 0 && (
-                  <span className="text-blue-600 ml-1">+{fmt(report.workload.timesheet_pending_hours, 0)}h en attente</span>
-                )}
-              </div>
-            </div>
-            <div>
-              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Reste à faire</div>
-              <div className={cn(
-                'font-medium tabular-nums',
-                report.workload.remaining_hours === 0 ? 'text-green-600' : 'text-foreground',
-              )}>
-                {fmt(report.workload.remaining_hours, 0)} h
-              </div>
-              <div className="text-[10px] text-muted-foreground tabular-nums">{fmt(report.workload.remaining_jh, 1)} j/h</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {report.tasks.length > 0 && (
-        <div className="mb-3">
-          <div className="text-[11px] font-medium mb-1">Tâches</div>
-          <div className="border border-border rounded text-[10px] max-h-[160px] overflow-y-auto">
-            <table className="w-full">
-              <thead className="bg-muted/40 sticky top-0">
-                <tr>
-                  <th className="text-left px-2 py-1">Titre</th>
-                  <th className="text-right px-2 py-1 w-[60px]">Plan.</th>
-                  <th className="text-right px-2 py-1 w-[60px]">Réal.</th>
-                  <th className="text-right px-2 py-1 w-[60px]">Écart</th>
-                  <th className="text-right px-2 py-1 w-[50px]">%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.tasks.map(t => (
-                  <tr key={t.task_id} className="border-t border-border/40">
-                    <td className="px-2 py-1 truncate max-w-[200px]">{t.title}</td>
-                    <td className="text-right px-2 py-1 tabular-nums">{fmt(t.planned_hours, 0)}</td>
-                    <td className="text-right px-2 py-1 tabular-nums">{fmt(t.actual_hours, 0)}</td>
-                    <td className={cn('text-right px-2 py-1 tabular-nums', t.variance_hours < 0 ? 'text-red-500' : '')}>{t.variance_hours >= 0 ? '+' : ''}{fmt(t.variance_hours, 1)}</td>
-                    <td className="text-right px-2 py-1 tabular-nums">{fmt(t.completion_pct, 0)}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {report.members.length > 0 && (
-        <div className="mb-3">
-          <div className="text-[11px] font-medium mb-1">Ressources</div>
-          <div className="border border-border rounded text-[10px] max-h-[160px] overflow-y-auto">
-            <table className="w-full">
-              <thead className="bg-muted/40 sticky top-0">
-                <tr>
-                  <th className="text-left px-2 py-1">Membre</th>
-                  <th className="text-left px-2 py-1">Spécialité</th>
-                  <th className="text-right px-2 py-1 w-[60px]">Plan.</th>
-                  <th className="text-right px-2 py-1 w-[60px]">Réal.</th>
-                  <th className="text-right px-2 py-1 w-[80px]">Coût</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.members.map(m => (
-                  <tr key={m.member_id} className="border-t border-border/40">
-                    <td className="px-2 py-1 truncate max-w-[140px]">{m.member_name}</td>
-                    <td className="px-2 py-1 text-muted-foreground truncate max-w-[100px]">{m.specialty || '—'}</td>
-                    <td className="text-right px-2 py-1 tabular-nums">{fmt(m.planned_hours, 0)}</td>
-                    <td className="text-right px-2 py-1 tabular-nums">{fmt(m.actual_hours, 0)}</td>
-                    <td className="text-right px-2 py-1 tabular-nums">{fmt(m.cost, 0)} {m.currency}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {report.losses_by_category.length > 0 && (
-        <div>
-          <div className="text-[11px] font-medium mb-1">Pertes par catégorie</div>
-          <div className="grid grid-cols-2 @md:grid-cols-4 gap-1.5">
-            {report.losses_by_category.map(l => {
-              const lbl = LOSS_CATEGORIES.find(c => c.value === l.category)?.label ?? l.category
-              return (
-                <div key={l.category} className="px-2 py-1 rounded border border-red-500/20 bg-red-500/5 text-[10px]">
-                  <div className="text-muted-foreground">{lbl}</div>
-                  <div className="font-medium tabular-nums">{fmt(l.hours_lost, 1)}h · {fmt(l.cost_amount, 0)}</div>
-                  <div className="text-muted-foreground">{l.count} {l.count > 1 ? 'incidents' : 'incident'}</div>
-                </div>
-              )
-            })}
           </div>
         </div>
       )}

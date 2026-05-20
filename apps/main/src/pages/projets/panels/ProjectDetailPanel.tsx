@@ -113,7 +113,6 @@ import {
   AllocationMatrixSection,
   BudgetSection,
   LossesSection,
-  ProjectReportSection,
 } from './ProjectResourcesSections'
 
 export function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: () => void }) {
@@ -4165,7 +4164,6 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           <div className="space-y-4">
             <BudgetSection projectId={id} />
             <LossesSection projectId={id} />
-            <ProjectReportSection projectId={id} />
           </div>
         )}
 

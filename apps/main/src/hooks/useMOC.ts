@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   mocService,
+  type MOCContextCreatePayload,
   type MOCCreatePayload,
   type MOCExecutionAccordPayload,
   type MOCListFilters,
@@ -25,6 +26,8 @@ const keys = {
   all: ['moc'] as const,
   list: (filters: MOCListFilters) => [...keys.all, 'list', filters] as const,
   detail: (id: string) => [...keys.all, 'detail', id] as const,
+  context: (contextType: string, contextId: string) =>
+    [...keys.all, 'context', contextType, contextId] as const,
   stats: () => [...keys.all, 'stats'] as const,
   fsm: () => [...keys.all, 'fsm'] as const,
   types: (includeInactive: boolean) =>
@@ -45,6 +48,14 @@ export function useMOC(id: string | null | undefined) {
     queryKey: keys.detail(id ?? 'none'),
     queryFn: () => mocService.get(id as string),
     enabled: !!id,
+  })
+}
+
+export function useMOCsForContext(contextType: string, contextId: string | undefined) {
+  return useQuery({
+    queryKey: keys.context(contextType, contextId ?? 'none'),
+    queryFn: () => mocService.listForContext(contextType, contextId as string),
+    enabled: Boolean(contextType && contextId),
   })
 }
 
@@ -70,6 +81,21 @@ export function useCreateMOC() {
     mutationFn: (payload: MOCCreatePayload) => mocService.create(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.all })
+    },
+  })
+}
+
+export function useCreateMOCForContext() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: {
+      contextType: string
+      contextId: string
+      payload: MOCContextCreatePayload
+    }) => mocService.createForContext(args.contextType, args.contextId, args.payload),
+    onSuccess: (_data, args) => {
+      qc.invalidateQueries({ queryKey: keys.context(args.contextType, args.contextId) })
+      qc.invalidateQueries({ queryKey: [...keys.all, 'list'] })
     },
   })
 }

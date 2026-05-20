@@ -192,6 +192,10 @@ export interface MOC {
   manager_id: string | null
   // Optional linked project once the MOC has been promoted
   project_id: string | null
+  context_type: string | null
+  context_id: string | null
+  context_module: string | null
+  context_payload: Record<string, unknown> | null
   // Content
   objectives: string | null
   description: string | null
@@ -360,6 +364,20 @@ export interface MOCInitialValidator {
   level?: 'DO' | 'DG' | 'DO_AND_DG' | null
 }
 
+export interface MOCContextCreatePayload {
+  title: string
+  description?: string | null
+  objectives?: string | null
+  proposed_changes?: string | null
+  impact_analysis?: string | null
+  moc_type_id?: string | null
+  manager_id?: string | null
+  site_label?: string | null
+  context_module?: string
+  context_payload?: Record<string, unknown> | null
+  initial_validators?: MOCInitialValidator[]
+}
+
 export type MOCUpdatePayload = Partial<MOC>
 
 export interface MOCTransitionPayload {
@@ -466,8 +484,22 @@ export const mocService = {
     return data
   },
 
+  listForContext: async (contextType: string, contextId: string): Promise<MOCWithDetails[]> => {
+    const { data } = await api.get<MOCWithDetails[]>(`${BASE}/context/${contextType}/${contextId}`)
+    return data
+  },
+
   create: async (payload: MOCCreatePayload): Promise<MOC> => {
     const { data } = await api.post<MOC>(BASE, payload)
+    return data
+  },
+
+  createForContext: async (
+    contextType: string,
+    contextId: string,
+    payload: MOCContextCreatePayload,
+  ): Promise<MOCWithDetails> => {
+    const { data } = await api.post<MOCWithDetails>(`${BASE}/context/${contextType}/${contextId}`, payload)
     return data
   },
 

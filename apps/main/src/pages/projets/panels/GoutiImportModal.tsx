@@ -46,6 +46,7 @@ function GoutiTaskTree({
   selectedTaskIds: string[]
   onToggleTaskId: (taskId: string, ensureSelectedIds?: string[]) => void
 }) {
+  const { t } = useTranslation()
   // Build children map keyed by parent_ref (null for roots)
   const childrenOf = useMemo(() => {
     const map = new Map<string | null, GoutiCatalogTask[]>()
@@ -156,7 +157,7 @@ function GoutiTaskTree({
               type="button"
               onClick={(e) => { e.stopPropagation(); toggleCollapse(task.gouti_id) }}
               className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0"
-              aria-label={isCollapsed ? 'Déplier' : 'Replier'}
+              aria-label={isCollapsed ? t('projets.gouti_import.expand') : t('projets.gouti_import.collapse')}
             >
               <ChevronRight size={10} className={cn('transition-transform', !isCollapsed && 'rotate-90')} />
             </button>
@@ -234,12 +235,12 @@ function GoutiTaskTree({
   return (
     <div
       role="tree"
-      aria-label="Hiérarchie des tâches Gouti"
+      aria-label={t('projets.gouti_import.task_tree_aria')}
       className="max-h-[260px] overflow-y-auto border border-border/50 rounded bg-background"
     >
       {roots.length === 0 && (
         <div className="text-center py-3 text-[10px] text-muted-foreground italic">
-          Aucune tâche racine — vérifiez le filtre
+          {t('projets.gouti_import.no_root_task')}
         </div>
       )}
       {roots.map(r => renderRow(r, 0))}
@@ -261,6 +262,7 @@ function GoutiProjectRow({
   onTaskModeChange: (mode: 'all' | 'none' | 'some') => void
   onToggleTaskId: (taskId: string, ensureSelectedIds?: string[]) => void
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const included = !!selection?.include
   const taskMode = selection?.tasks.mode ?? 'all'
@@ -282,7 +284,7 @@ function GoutiProjectRow({
           type="button"
           onClick={() => setExpanded(v => !v)}
           className="shrink-0 mt-0.5 p-0.5 rounded hover:bg-muted text-muted-foreground"
-          aria-label="Déplier les tâches"
+          aria-label={expanded ? t('projets.gouti_import.collapse_tasks') : t('projets.gouti_import.expand_tasks')}
         >
           <ChevronRight size={12} className={cn('transition-transform', expanded && 'rotate-90')} />
         </button>
@@ -293,10 +295,10 @@ function GoutiProjectRow({
           </div>
           <div className="flex items-center gap-2 text-[9px] text-muted-foreground mt-0.5 flex-wrap">
             {project.status_raw && <span className="px-1 rounded bg-muted">{project.status_raw}</span>}
-            {project.progress != null && <span>Progression {project.progress}%</span>}
+            {project.progress != null && <span>{t('projets.gouti_import.progress', { value: project.progress })}</span>}
             {project.manager_name && <span>· {project.manager_name}</span>}
-            {project.target_date && <span>· Fin {project.target_date}</span>}
-            {project.criticality && <span>· Crit. {project.criticality}</span>}
+            {project.target_date && <span>· {t('projets.gouti_import.end_date_short', { date: project.target_date })}</span>}
+            {project.criticality && <span>· {t('projets.gouti_import.criticality_short', { value: project.criticality })}</span>}
             {project.categories.slice(0, 3).map(c => (
               <span key={c.id} className="px-1 rounded bg-orange-500/10 text-orange-700">{c.name}</span>
             ))}
@@ -308,7 +310,7 @@ function GoutiProjectRow({
         <div className="border-t border-border/50 bg-muted/20 px-2 py-2 space-y-1.5">
           {/* Task mode selector */}
           <div className="flex items-center gap-2">
-            <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Tâches:</span>
+            <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.gouti_import.tasks_label')}:</span>
             {(['all', 'some', 'none'] as const).map(mode => (
               <button
                 key={mode}
@@ -321,7 +323,7 @@ function GoutiProjectRow({
                   taskMode === mode ? 'btn-sm btn-primary' : 'btn-sm btn-secondary',
                 )}
               >
-                {mode === 'all' ? 'Toutes' : mode === 'some' ? 'Choix' : 'Aucune'}
+                {t(`projets.gouti_import.task_mode.${mode}`)}
               </button>
             ))}
             {tasksData && (
@@ -333,12 +335,12 @@ function GoutiProjectRow({
 
           {tasksLoading && (
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground py-1">
-              <Loader2 size={10} className="animate-spin" /> Chargement des tâches…
+              <Loader2 size={10} className="animate-spin" /> {t('projets.gouti_import.loading_tasks')}
             </div>
           )}
 
           {!tasksLoading && tasksData && tasksData.items.length === 0 && (
-            <div className="text-[10px] text-muted-foreground italic py-1">Aucune tâche dans ce projet</div>
+            <div className="text-[10px] text-muted-foreground italic py-1">{t('projets.gouti_import.no_project_task')}</div>
           )}
 
           {!tasksLoading && tasksData && tasksData.items.length > 0 && taskMode !== 'none' && (
@@ -463,8 +465,10 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
       await saveSelection.mutateAsync(payload)
       const res = await syncSelected.mutateAsync()
       toast({
-        title: `${res.synced} projet${res.synced > 1 ? 's' : ''} importé${res.synced > 1 ? 's' : ''}`,
-        description: `${res.created} créés, ${res.updated} mis à jour${res.errors.length ? `, ${res.errors.length} erreurs` : ''}`,
+        title: t('projets.gouti_import.import_success', { count: res.synced }),
+        description: res.errors.length > 0
+          ? t('projets.gouti_import.sync_result_with_errors', { created: res.created, updated: res.updated, errors: res.errors.length })
+          : t('projets.gouti_import.sync_result', { created: res.created, updated: res.updated }),
         variant: res.errors.length > 0 ? 'warning' : 'success',
       })
       onClose()
@@ -532,17 +536,17 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
           <div className="flex items-center justify-between gap-3 px-3 py-2.5 border-b border-border shrink-0 sm:px-4 sm:py-3">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               <Download size={14} className="text-orange-500" />
-              <Dialog.Title className="min-w-0 truncate text-sm font-semibold">Assistant d'import Gouti</Dialog.Title>
+              <Dialog.Title className="min-w-0 truncate text-sm font-semibold">{t('projets.gouti_import.title')}</Dialog.Title>
               <span className="shrink-0 text-[11px] text-muted-foreground">
-                {catalog ? `${catalog.filtered}/${catalog.total} projets` : '…'}
+                {catalog ? t('projets.gouti_import.project_count', { filtered: catalog.filtered, total: catalog.total }) : '…'}
               </span>
             </div>
             <Dialog.Close asChild>
-              <button className="btn-sm btn-secondary shrink-0" aria-label="Fermer"><X size={14} /></button>
+              <button className="btn-sm btn-secondary shrink-0" aria-label={t('common.close')}><X size={14} /></button>
             </Dialog.Close>
           </div>
           <Dialog.Description className="sr-only">
-            Sélectionnez les projets Gouti à importer dans OpsFlux et, pour chaque projet, les tâches à synchroniser.
+            {t('projets.gouti_import.description')}
           </Dialog.Description>
 
           {/* Body: sidebar + list */}
@@ -551,7 +555,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
             <aside className="max-h-[30dvh] w-full shrink-0 overflow-y-auto border-b border-border bg-muted/20 p-2.5 space-y-2.5 lg:max-h-none lg:w-[260px] lg:border-b-0 lg:border-r lg:p-3 lg:space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  <Filter size={11} /> Filtres
+                  <Filter size={11} /> {t('common.filters')}
                   {activeFilterCount > 0 && (
                     <span className="ml-1 px-1 rounded bg-primary/10 text-primary">{activeFilterCount}</span>
                   )}
@@ -561,7 +565,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                     onClick={resetFilters}
                     className="text-[9px] text-primary hover:text-primary/80"
                   >
-                    Réinitialiser
+                    {t('common.reset')}
                   </button>
                 )}
               </div>
@@ -569,7 +573,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
               {/* Search */}
               <div>
                 <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
-                  Recherche
+                  {t('projets.gouti_import.search_label')}
                 </label>
                 <div className="relative">
                   <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -577,7 +581,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                     type="text"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    placeholder="Nom ou référence..."
+                    placeholder={t('projets.gouti_import.search_placeholder')}
                     className={`${panelInputClass} pl-6 text-xs w-full`}
                   />
                 </div>
@@ -585,7 +589,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
 
               {facetsLoading && (
                 <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <Loader2 size={10} className="animate-spin" /> Chargement des facettes…
+                  <Loader2 size={10} className="animate-spin" /> {t('projets.gouti_import.loading_facets')}
                 </div>
               )}
 
@@ -593,14 +597,14 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
               {facets && facets.years.length > 0 && (
                 <div>
                   <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
-                    Année
+                    {t('projets.gouti_import.year')}
                   </label>
                   <select
                     value={filters.year ?? ''}
                     onChange={e => setFilters(f => ({ ...f, year: e.target.value ? Number(e.target.value) : null }))}
                     className={`${panelInputClass} text-xs w-full`}
                   >
-                    <option value="">Toutes</option>
+                    <option value="">{t('common.all')}</option>
                     {facets.years.map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </div>
@@ -610,14 +614,14 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
               {facets && facets.managers.length > 0 && (
                 <div>
                   <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
-                    Chef de projet
+                    {t('projets.gouti_import.project_manager')}
                   </label>
                   <select
                     value={filters.manager_id ?? ''}
                     onChange={e => setFilters(f => ({ ...f, manager_id: e.target.value || null }))}
                     className={`${panelInputClass} text-xs w-full`}
                   >
-                    <option value="">Tous</option>
+                    <option value="">{t('common.all')}</option>
                     {facets.managers.map(m => <option key={m.ref_us} value={m.ref_us}>{m.name_us}</option>)}
                   </select>
                 </div>
@@ -627,7 +631,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
               {facets && facets.statuses.length > 0 && (
                 <div>
                   <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
-                    Statut
+                    {t('common.status')}
                   </label>
                   <div className="flex flex-wrap gap-1">
                     {facets.statuses.map(s => {
@@ -654,7 +658,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
               {facets && facets.criticalities.length > 0 && (
                 <div>
                   <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
-                    Criticité
+                    {t('projets.gouti_import.criticality')}
                   </label>
                   <div className="flex flex-wrap gap-1">
                     {facets.criticalities.map(c => {
@@ -680,7 +684,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
               {facets && facets.categories.length > 0 && (
                 <div>
                   <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
-                    Étiquettes
+                    {t('projets.gouti_import.tags')}
                   </label>
                   <div className="flex flex-wrap gap-1">
                     {facets.categories.map(cat => {
@@ -712,12 +716,12 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                   )}
                 >
                   <Settings2 size={10} />
-                  Filtres par défaut (admin)
+                  {t('projets.gouti_import.admin_defaults')}
                 </button>
                 {showAdminDefaults && (
                   <div className="mt-2 p-2 rounded border border-primary/30 bg-primary/5 space-y-1.5">
                     <p className="text-[9px] text-primary/80 leading-snug">
-                      Les filtres ci-dessus seront appliqués à chaque ouverture de l'assistant.
+                      {t('projets.gouti_import.admin_defaults_hint')}
                     </p>
                     <button
                       onClick={handleSaveAsAdminDefault}
@@ -726,7 +730,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                     >
                       {setDefaultFilters.isPending
                         ? <Loader2 size={9} className="animate-spin inline" />
-                        : 'Enregistrer comme défaut'}
+                        : t('projets.gouti_import.save_as_default')}
                     </button>
                   </div>
                 )}
@@ -748,11 +752,11 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                 />
                 <span className="text-[11px] font-medium">
                   {includedCount > 0
-                    ? `${includedCount} projet${includedCount > 1 ? 's' : ''} sélectionné${includedCount > 1 ? 's' : ''}`
-                    : 'Tout sélectionner'}
+                    ? t('projets.gouti_import.selected_projects', { count: includedCount })
+                    : t('projets.gouti_import.select_all')}
                 </span>
                 <span className="hidden text-[9px] text-muted-foreground sm:ml-auto md:inline">
-                  Cliquez sur ▸ pour choisir les tâches par projet
+                  {t('projets.gouti_import.select_tasks_hint')}
                 </span>
               </div>
 
@@ -765,7 +769,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                 )}
                 {!catalogLoading && catalog && catalog.items.length === 0 && (
                   <div className="text-center py-8 text-xs text-muted-foreground italic">
-                    Aucun projet ne correspond à vos filtres
+                    {t('projets.gouti_import.no_project_match')}
                   </div>
                 )}
                 {!catalogLoading && catalog && catalog.items.length > 0 && catalog.items.map(p => (
@@ -786,15 +790,15 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
           <div className="flex flex-col gap-2 px-3 py-2.5 border-t border-border bg-muted/20 shrink-0 md:flex-row md:items-center md:justify-between md:px-4">
             <span className="min-w-0 text-[11px] text-muted-foreground">
               {includedCount > 0
-                ? `${includedCount} projet${includedCount > 1 ? 's' : ''} prêts à importer`
-                : 'Sélectionnez au moins un projet'}
+                ? t('projets.gouti_import.ready_to_import', { count: includedCount })
+                : t('projets.gouti_import.select_one_project')}
             </span>
             <div className="flex min-w-0 items-center justify-end gap-2">
               <button
                 onClick={onClose}
                 className="btn-sm btn-secondary min-w-0 flex-1 shrink md:flex-none"
               >
-                Annuler
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleSaveAndSync}
@@ -804,7 +808,11 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                 {(syncSelected.isPending || saveSelection.isPending)
                   ? <Loader2 size={11} className="animate-spin" />
                   : <Download size={11} />}
-                <span className="truncate">Importer {includedCount > 0 && `(${includedCount})`}</span>
+                <span className="truncate">
+                  {includedCount > 0
+                    ? t('projets.gouti_import.import_button_count', { count: includedCount })
+                    : t('common.import')}
+                </span>
               </button>
             </div>
           </div>
@@ -849,7 +857,9 @@ export function GoutiSyncToolbar() {
       const res = await syncSelected.mutateAsync()
       toast({
         title: t('projets.toast.gouti_sync_completed'),
-        description: `${res.created} créés, ${res.updated} mis à jour${res.errors.length ? `, ${res.errors.length} erreurs` : ''}`,
+        description: res.errors.length > 0
+          ? t('projets.gouti_import.sync_result_with_errors', { created: res.created, updated: res.updated, errors: res.errors.length })
+          : t('projets.gouti_import.sync_result', { created: res.created, updated: res.updated }),
         variant: res.errors.length > 0 ? 'warning' : 'success',
       })
     } catch (err) {
@@ -861,7 +871,7 @@ export function GoutiSyncToolbar() {
   const lastSync = status.last_sync_at ? new Date(status.last_sync_at) : null
   const lastSyncLabel = lastSync
     ? lastSync.toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-    : 'jamais'
+    : t('projets.gouti_import.never')
 
   return (
     <>
@@ -878,8 +888,8 @@ export function GoutiSyncToolbar() {
           disabled={syncSelected.isPending}
           className="btn-sm btn-secondary text-orange-700 dark:text-orange-400 rounded-r-none border-r-0"
           title={hasSelection
-            ? `Forcer la synchronisation (${status.project_count} importés · dernière : ${lastSyncLabel})`
-            : 'Ouvrir l\'assistant d\'import Gouti'}
+            ? t('projets.gouti_import.force_sync_title', { count: status.project_count, lastSync: lastSyncLabel })
+            : t('projets.gouti_import.open_assistant')}
         >
           {syncSelected.isPending
             ? <Loader2 size={11} className="animate-spin" />
@@ -896,7 +906,7 @@ export function GoutiSyncToolbar() {
             'btn-sm btn-secondary text-orange-700 dark:text-orange-400 rounded-l-none !px-1.5 border-l-0',
             dropdownOpen && 'bg-accent',
           )}
-          title="Options"
+          title={t('common.options')}
           aria-haspopup="menu"
           aria-expanded={dropdownOpen}
         >
@@ -913,7 +923,7 @@ export function GoutiSyncToolbar() {
               role="menuitem"
               className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 text-foreground"
             >
-              <Filter size={11} /> Re-sélectionner les projets…
+              <Filter size={11} /> {t('projets.gouti_import.reselect_projects')}
             </button>
             {hasSelection && (
               <button
@@ -921,7 +931,7 @@ export function GoutiSyncToolbar() {
                 role="menuitem"
                 className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 text-foreground"
               >
-                <RefreshCw size={11} /> Forcer la synchronisation
+                <RefreshCw size={11} /> {t('projets.gouti_import.force_sync')}
               </button>
             )}
           </div>

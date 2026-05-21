@@ -330,8 +330,8 @@ function CreateTierPanel() {
             />
           </FormSection>
 
-          {/* 2-column layout on wide screens */}
-          <SectionColumns>
+          {/* 2-column layout driven by the panel width, not the viewport. */}
+          <div className="@container grid gap-4 @[920px]:grid-cols-2">
             {/* Column 1: Identification + Coordonnees */}
             <div className="@container space-y-5">
               <FormSection title={t('tiers.ui.sections.identity')}>
@@ -463,7 +463,7 @@ function CreateTierPanel() {
                 />
               </FormSection>
             </div>
-          </SectionColumns>
+          </div>
 
           {/* ── Contacts initiaux (FK-linked, non polymorphique) ── */}
           <FormSection
@@ -1263,7 +1263,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
         <FormSection title={`${t('tiers.ui.related_projects')} (${relatedProjects?.total ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-projets">
           {projectList.length > 0 ? (
             <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground sm:grid-cols-3 xl:grid-cols-5">
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground @[520px]:grid-cols-3 @[760px]:grid-cols-5">
                 {[
                   { label: 'Projets', value: relatedProjects?.total ?? projectList.length, icon: FolderKanban },
                   { label: 'Actifs', value: projectSummary.active, icon: Activity },
@@ -1319,7 +1319,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
               </div>
 
               <div className="overflow-hidden rounded-md border border-border/60 bg-background">
-                <div className="hidden grid-cols-[minmax(0,1.3fr)_130px_150px_110px] gap-3 border-b border-border/50 bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground lg:grid">
+                <div className="hidden grid-cols-[minmax(0,1.3fr)_130px_150px_110px] gap-3 border-b border-border/50 bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground @[720px]:grid">
                   <div>Projet</div>
                   <div>Planning</div>
                   <div>Budget & équipe</div>
@@ -1329,7 +1329,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                   {projectList.map((project) => (
                     <div
                       key={project.id}
-                      className="grid gap-3 px-3 py-3 transition-colors hover:bg-accent/30 lg:grid-cols-[minmax(0,1.3fr)_130px_150px_110px] lg:items-center"
+                      className="grid gap-3 px-3 py-3 transition-colors hover:bg-accent/30 @[720px]:grid-cols-[minmax(0,1.3fr)_130px_150px_110px] @[720px]:items-center"
                     >
                       <div className="min-w-0 space-y-1.5">
                         <div className="flex min-w-0 flex-wrap items-center gap-2">

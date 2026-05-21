@@ -553,8 +553,8 @@ export function ContactDetailPanel({
           </div>
         )}
 
-        {/* 2-column layout on wide screens */}
-        <SectionColumns>
+        {/* Main details + compact coordinates rail, driven by panel width. */}
+        <SectionColumns sidebar="right-320">
           {/* ── Left column: Fiche employe + Actions ── */}
           <div className="@container space-y-5">
             <FormSection title={t('tiers.ui.sections.contact_identity')} collapsible defaultExpanded storageKey="contact-detail-sections">

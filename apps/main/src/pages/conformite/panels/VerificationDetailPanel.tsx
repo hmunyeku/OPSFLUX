@@ -17,13 +17,14 @@ import { useVerificationRecordTypeLabels } from '../shared'
 import { ComplianceOwnerCard } from '../components'
 
 function VerificationHistorySection({ ownerId, recordType, currentId }: { ownerId: string; recordType: string; currentId: string }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { data } = useVerificationHistory(1, 10, { owner_id: ownerId, record_type: recordType })
   const items = (data?.items ?? []).filter((i) => i.id !== currentId)
 
   const fmtDate = (d: string | null | undefined) => {
     if (!d) return '—'
-    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) }
+    const locale = i18n.language?.startsWith('en') ? 'en-US' : 'fr-FR'
+    try { return new Date(d).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' }) }
     catch { return '—' }
   }
 
@@ -49,7 +50,7 @@ function VerificationHistorySection({ ownerId, recordType, currentId }: { ownerI
 }
 
 export function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; recordType: string }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const recordTypeLabels = useVerificationRecordTypeLabels()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data } = usePendingVerifications()
@@ -76,7 +77,8 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
 
   const fmtDate = (d: string | null | undefined) => {
     if (!d) return '—'
-    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) }
+    const locale = i18n.language?.startsWith('en') ? 'en-US' : 'fr-FR'
+    try { return new Date(d).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' }) }
     catch { return '—' }
   }
 
@@ -109,7 +111,7 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
   if (!item) {
     return (
       <DynamicPanelShell title={t('common.verification')} onClose={closeDynamicPanel}>
-        <p className="text-sm text-muted-foreground p-4">Document non trouvé ou déjà traité.</p>
+        <p className="text-sm text-muted-foreground p-4">{t('conformite.verifications.not_found_or_processed')}</p>
       </DynamicPanelShell>
     )
   }
@@ -117,7 +119,7 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
   return (
     <DynamicPanelShell
       title={`${recordTypeLabels[item.record_type] || item.record_type}`}
-      subtitle={item.owner_name || 'Inconnu'}
+      subtitle={item.owner_name || t('conformite.verifications.unknown_owner')}
       onClose={closeDynamicPanel}
       headerRight={
         <div className="flex items-center gap-1">
@@ -130,10 +132,10 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
           </button>
           <div className="w-px h-4 bg-border/60 mx-1" />
           <button onClick={handleVerify} disabled={verifyRecord.isPending || ((item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0))} className="btn-sm btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
-            {verifyRecord.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Vérifier
+            {verifyRecord.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} {t('conformite.verifications.verify')}
           </button>
           <button onClick={() => setShowReject(true)} className="btn-sm btn-danger">
-            <X size={11} /> Rejeter
+            <X size={11} /> {t('conformite.verifications.reject_button')}
           </button>
         </div>
       }
@@ -146,11 +148,11 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
           <DetailFieldGrid>
             <ReadOnlyRow label={t('common.type_field')} value={recordTypeLabels[item.record_type] || item.record_type} />
             <ReadOnlyRow label={t('common.description')} value={item.description} />
-            <ReadOnlyRow label="Émetteur" value={(item as { issuer?: string | null }).issuer || '—'} />
+            <ReadOnlyRow label={t('conformite.records.fields.issuer')} value={(item as { issuer?: string | null }).issuer || '—'} />
             <ReadOnlyRow label={t('common.reference')} value={(item as { reference_number?: string | null }).reference_number || '—'} />
-            <ReadOnlyRow label="Date d'émission" value={fmtDate((item as { issued_at?: string | null }).issued_at)} />
-            <ReadOnlyRow label="Expiration" value={fmtDate((item as { expires_at?: string | null }).expires_at)} />
-            <ReadOnlyRow label="Soumis le" value={fmtDate(item.submitted_at)} />
+            <ReadOnlyRow label={t('conformite.records.fields.issued_at')} value={fmtDate((item as { issued_at?: string | null }).issued_at)} />
+            <ReadOnlyRow label={t('conformite.records.fields.expires_at')} value={fmtDate((item as { expires_at?: string | null }).expires_at)} />
+            <ReadOnlyRow label={t('conformite.verifications.submitted_at')} value={fmtDate(item.submitted_at)} />
           </DetailFieldGrid>
 
         <FormSection title={t('common.attachments')}>
@@ -168,18 +170,18 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
 
         {showReject && (
           <div className="border border-red-200 dark:border-red-800/40 rounded-lg p-3 bg-red-50/50 dark:bg-red-900/10 space-y-2">
-            <label className="gl-label text-red-600">Motif du rejet</label>
+            <label className="gl-label text-red-600">{t('conformite.verifications.reject_reason')}</label>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Expliquez pourquoi ce document est rejete..."
+              placeholder={t('conformite.verifications.reject_reason_placeholder')}
               className="gl-form-input min-h-[60px]"
               autoFocus
             />
             <div className="flex items-center gap-2 justify-end">
               <button onClick={() => { setShowReject(false); setRejectReason('') }} className="btn-sm btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleReject} disabled={!rejectReason.trim() || verifyRecord.isPending} className="btn-sm btn-danger">
-                {verifyRecord.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer le rejet'}
+                {verifyRecord.isPending ? <Loader2 size={12} className="animate-spin" /> : t('conformite.verifications.confirm_reject')}
               </button>
             </div>
           </div>

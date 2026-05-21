@@ -38,15 +38,6 @@ interface ReferentielManagerProps {
   category?: string
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  formation: 'Formations',
-  certification: 'Certifications',
-  habilitation: 'Habilitations',
-  audit: 'Audits',
-  medical: 'Médical',
-  epi: 'EPI',
-}
-
 const CATEGORY_ORDER = ['formation', 'certification', 'habilitation', 'audit', 'epi']
 
 const STATUS_STYLES: Record<string, string> = {
@@ -59,13 +50,14 @@ const STATUS_STYLES: Record<string, string> = {
   exempted: 'chip-info',
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  valid: 'Valide',
-  expired: 'Expiré',
-  pending: 'En attente',
-  unverified: 'À vérifier',
-  rejected: 'Rejeté',
-  exempted: 'Exempté',
+const STATUS_TRANSLATION_KEYS: Record<string, string> = {
+  valid: 'conformite.records.valid',
+  expired: 'conformite.records.expired',
+  pending: 'conformite.records.pending',
+  unverified: 'conformite.records.unverified',
+  rejected: 'conformite.records.rejected',
+  missing: 'conformite.records.missing',
+  exempted: 'conformite.records.exempted',
 }
 
 type FormData = {
@@ -99,7 +91,7 @@ const LEGACY_ISSUER_VALUE = '__legacy'
 const createStagingRef = () => globalThis.crypto?.randomUUID?.() ?? ''
 
 export function ReferentielManager({ ownerType, ownerId, compact, category }: ReferentielManagerProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { data: records, isLoading: recordsLoading } = useComplianceRecords({
@@ -196,12 +188,20 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
 
   const formatDate = (d: string | null | undefined) => {
     if (!d) return null
-    return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+    const locale = i18n.language?.startsWith('en') ? 'en-US' : 'fr-FR'
+    return new Date(d).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: '2-digit' })
+  }
+
+  const getCategoryLabel = (value: string) => t(`conformite.types.${value}`, { defaultValue: value })
+
+  const getStatusLabel = (status: string) => {
+    const key = STATUS_TRANSLATION_KEYS[status]
+    return key ? t(key) : status
   }
 
   const getRecordStatusLabel = (rec: ComplianceRecord) => {
-    if (!rec.active) return 'Invalidé'
-    return STATUS_LABELS[rec.status] || rec.status
+    if (!rec.active) return t('conformite.records.invalidated')
+    return getStatusLabel(rec.status)
   }
 
   const getRecordStatusStyle = (rec: ComplianceRecord) => {
@@ -251,8 +251,8 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
     if (!ownerId) return
     if (!editingId && stagedAttachmentCount <= 0) {
       toast({
-        title: 'Pièce justificative obligatoire',
-        description: 'Déposez au moins une PJ avant de créer le référentiel afin qu’il puisse être vérifié.',
+        title: t('conformite.records.attachment_required_title'),
+        description: t('conformite.records.attachment_required_description'),
         variant: 'error',
       })
       return
@@ -272,7 +272,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             notes: form.notes || null,
           },
         })
-        toast({ title: 'Enregistrement mis à jour', variant: 'success' })
+        toast({ title: t('conformite.records.updated_success'), variant: 'success' })
       } else {
         if (!form.compliance_type_id) return
         const created = await createRecord.mutateAsync({
@@ -291,7 +291,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
         }) as any
         await queryClient.invalidateQueries({ queryKey: ['compliance-records'] })
         await queryClient.invalidateQueries({ queryKey: ['compliance-check', ownerType, ownerId] })
-        toast({ title: 'Référentiel ajouté avec sa pièce justificative', variant: 'success' })
+        toast({ title: t('conformite.records.reference_added_with_proof'), variant: 'success' })
         if (created?.id) setExpandedRecordId(created.id)
       }
       setShowForm(false)
@@ -339,6 +339,13 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
 
   const totalRecords = records?.items?.length ?? 0
   const historyItems = historyRecords?.items ?? []
+  const exemptedCount = checkResult?.details?.filter((d: Record<string, unknown>) => d.status === 'exempted').length ?? 0
+  const complianceSummaryParts = checkResult ? [
+    t('conformite.check.valid_count', { valid: checkResult.total_valid, total: checkResult.total_required }),
+    ...(checkResult.total_expired > 0 ? [t('conformite.check.expired_count', { count: checkResult.total_expired })] : []),
+    ...(checkResult.total_missing > 0 ? [t('conformite.check.missing_count', { count: checkResult.total_missing })] : []),
+    ...(exemptedCount > 0 ? [t('conformite.check.exempted_count', { count: exemptedCount })] : []),
+  ] : []
 
   return (
     <div className={cn('space-y-2', compact && 'text-xs')}>
@@ -354,14 +361,10 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             ? <ShieldCheck size={14} />
             : <ShieldAlert size={14} />}
           <span className="font-medium">
-            {checkResult.is_compliant ? 'Conforme' : 'Non conforme'}
+            {checkResult.is_compliant ? t('conformite.check.compliant') : t('conformite.check.non_compliant')}
           </span>
           <span className="text-[10px] text-muted-foreground ml-auto">
-            {checkResult.total_valid}/{checkResult.total_required} valides
-            {checkResult.total_expired > 0 && ` · ${checkResult.total_expired} expirés`}
-            {checkResult.total_missing > 0 && ` · ${checkResult.total_missing} manquants`}
-            {checkResult.details?.filter((d: Record<string, unknown>) => d.status === 'exempted').length > 0 &&
-              ` · ${checkResult.details.filter((d: Record<string, unknown>) => d.status === 'exempted').length} exemptés`}
+            {complianceSummaryParts.join(' · ')}
           </span>
         </div>
       )}
@@ -380,7 +383,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                 : <X size={10} className="text-muted-foreground shrink-0" />}
               <span className="flex-1 truncate">{String(detail.type_name || '?')}</span>
               <span className={cn('chip text-[9px]', STATUS_STYLES[String(detail.status)] || '')}>
-                {String(detail.status) === 'missing' ? 'Manquant' : STATUS_LABELS[String(detail.status)] || String(detail.status)}
+                {getStatusLabel(String(detail.status))}
               </span>
               <Plus size={10} className="text-primary shrink-0" />
             </button>
@@ -413,7 +416,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
               <div key={cat}>
                 <div className="flex items-center gap-1.5 mb-1">
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    {CATEGORY_LABELS[cat] || cat}
+                    {getCategoryLabel(cat)}
                   </span>
                   <span className="text-[9px] text-muted-foreground/60">({catRecords.length})</span>
                 </div>
@@ -425,7 +428,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                         onClick={() => setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id)}
                       >
                         <span className={cn('chip text-[9px] shrink-0', STATUS_STYLES[rec.status] || '')}>
-                          {STATUS_LABELS[rec.status] || rec.status}
+                          {getStatusLabel(rec.status)}
                         </span>
                         <span className="flex-1 min-w-0">
                           <span className="block truncate font-medium">{rec.title || rec.type_name || rec.compliance_type_id}</span>
@@ -439,7 +442,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                           </span>
                         )}
                         {rec.expires_at && (
-                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title="Date d'expiration">
+                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title={t('conformite.records.fields.expires_at')}>
                             → {formatDate(rec.expires_at)}
                           </span>
                         )}
@@ -466,10 +469,10 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                               {verifyExternalRecord.isPending ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
                             </button>
                           )}
-                          <button onClick={(e) => { e.stopPropagation(); openEdit(rec) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground" title="Modifier">
+                          <button onClick={(e) => { e.stopPropagation(); openEdit(rec) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground" title={t('common.edit')}>
                             <Pencil size={10} />
                           </button>
-                          <button onClick={(e) => { e.stopPropagation(); handleDelete(rec.id) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground" title="Supprimer">
+                          <button onClick={(e) => { e.stopPropagation(); handleDelete(rec.id) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground" title={t('common.delete')}>
                             <Trash2 size={10} />
                           </button>
                         </div>
@@ -495,11 +498,11 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           type="button"
           onClick={() => setShowHistory((value) => !value)}
           className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs hover:bg-muted/30 text-left"
-          title="Afficher les référentiels expirés, rejetés ou invalidés"
+          title={t('conformite.records.history_tooltip')}
         >
           <History size={12} className="text-muted-foreground shrink-0" />
-          <span className="font-medium flex-1">Historique des référentiels</span>
-          <span className="text-[10px] text-muted-foreground">{showHistory ? 'Masquer' : 'Afficher'}</span>
+          <span className="font-medium flex-1">{t('conformite.records.history_title')}</span>
+          <span className="text-[10px] text-muted-foreground">{showHistory ? t('conformite.records.history_hide') : t('conformite.records.history_show')}</span>
         </button>
 
         {showHistory && (
@@ -510,7 +513,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
                 className="w-full h-8 pl-7 pr-2 rounded border border-border bg-background text-xs"
-                placeholder="Rechercher type, référence, émetteur, note..."
+                placeholder={t('conformite.records.history_search_placeholder')}
               />
             </div>
 
@@ -521,12 +524,12 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             ) : historyItems.length > 0 ? (
               <div className="border border-border rounded-md overflow-hidden bg-background">
                 <div className="hidden md:grid grid-cols-[minmax(180px,1.5fr)_90px_110px_110px_110px_minmax(120px,1fr)_50px] gap-2 px-2.5 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground border-b border-border">
-                  <span>Référentiel</span>
-                  <span>Statut</span>
-                  <span>Référence</span>
-                  <span>Émission</span>
-                  <span>Expiration</span>
-                  <span>Émetteur</span>
+                  <span>{t('conformite.records.fields.type')}</span>
+                  <span>{t('conformite.records.fields.status')}</span>
+                  <span>{t('conformite.records.fields.reference_number')}</span>
+                  <span>{t('conformite.records.fields.issued_at')}</span>
+                  <span>{t('conformite.records.fields.expires_at')}</span>
+                  <span>{t('conformite.records.fields.issuer')}</span>
                   <span className="text-right">PJ</span>
                 </div>
                 {historyItems.map((rec) => (
@@ -542,7 +545,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                           <span className="block text-[10px] text-muted-foreground truncate">{rec.type_name}</span>
                         )}
                         <span className="md:hidden block text-[10px] text-muted-foreground truncate">
-                          {rec.reference_number || 'Sans référence'} · {rec.issuer_tier_name || rec.issuer || 'Émetteur non renseigné'}
+                          {rec.reference_number || t('conformite.records.no_reference')} · {rec.issuer_tier_name || rec.issuer || t('conformite.records.issuer_missing')}
                         </span>
                       </span>
                       <span className={cn('chip text-[9px] shrink-0 justify-self-end md:justify-self-start', getRecordStatusStyle(rec))}>
@@ -560,15 +563,15 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                     {historyExpandedRecordId === rec.id && (
                       <div className="px-3 py-2 bg-muted/20 border-t border-border/50 space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-muted-foreground">
-                          <div><span className="font-medium text-foreground">Référence :</span> {rec.reference_number || '—'}</div>
-                          <div><span className="font-medium text-foreground">Émetteur :</span> {rec.issuer_tier_name || rec.issuer || '—'}</div>
-                          <div><span className="font-medium text-foreground">Émission :</span> {formatDate(rec.issued_at) || '—'}</div>
-                          <div><span className="font-medium text-foreground">Expiration :</span> {formatDate(rec.expires_at) || '—'}</div>
-                          {rec.notes && <div className="sm:col-span-2"><span className="font-medium text-foreground">Notes :</span> {rec.notes}</div>}
+                          <div><span className="font-medium text-foreground">{t('conformite.records.fields.reference_number')} :</span> {rec.reference_number || '—'}</div>
+                          <div><span className="font-medium text-foreground">{t('conformite.records.fields.issuer')} :</span> {rec.issuer_tier_name || rec.issuer || '—'}</div>
+                          <div><span className="font-medium text-foreground">{t('conformite.records.fields.issued_at')} :</span> {formatDate(rec.issued_at) || '—'}</div>
+                          <div><span className="font-medium text-foreground">{t('conformite.records.fields.expires_at')} :</span> {formatDate(rec.expires_at) || '—'}</div>
+                          {rec.notes && <div className="sm:col-span-2"><span className="font-medium text-foreground">{t('conformite.records.fields.notes')} :</span> {rec.notes}</div>}
                         </div>
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                           <Eye size={11} />
-                          Lecture seule
+                          {t('conformite.records.readonly')}
                         </div>
                         <AttachmentManager ownerType="compliance_record" ownerId={rec.id} compact />
                       </div>
@@ -577,7 +580,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                 ))}
               </div>
             ) : (
-              <EmptyState icon={History} title="Aucun historique trouvé" variant="search" size="compact" />
+              <EmptyState icon={History} title={t('conformite.records.no_history_found')} variant="search" size="compact" />
             )}
           </div>
         )}
@@ -588,7 +591,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
         <div className="border border-primary/30 rounded-md bg-primary/5 p-2.5 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-medium text-primary">
-              {editingId ? 'Modifier l\'enregistrement' : 'Nouvel enregistrement'}
+              {editingId ? t('conformite.records.edit_record') : t('conformite.records.new_record')}
             </span>
             <button onClick={() => { setShowForm(false); setEditingId(null); resetCreateSession() }} className="p-0.5 rounded hover:bg-muted text-muted-foreground">
               <X size={10} />
@@ -605,7 +608,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
               <option value="">{t('shared.selectionner_un_type')}</option>
               {typeOptions.map(t => (
                 <option key={t.id} value={t.id}>
-                  [{CATEGORY_LABELS[t.category] || t.category}] {t.code} — {t.name}
+                  [{getCategoryLabel(t.category)}] {t.code} — {t.name}
                 </option>
               ))}
             </select>
@@ -623,10 +626,10 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
               />
             </div>
             <div>
-              <label className="text-[9px] text-muted-foreground block mb-0.5">Statut</label>
+              <label className="text-[9px] text-muted-foreground block mb-0.5">{t('conformite.records.fields.status')}</label>
               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background">
-                <option value="valid">Valide</option>
-                <option value="pending">En attente</option>
+                <option value="valid">{t('conformite.records.valid')}</option>
+                <option value="pending">{t('conformite.records.pending')}</option>
                 <option value="expired">{t('conformite.records.expired')}</option>
               </select>
             </div>
@@ -663,7 +666,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
               </select>
               {!hasStructuredIssuers && !canUseRiseUpIssuer && (
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  Aucun émetteur configuré pour ce référentiel.
+                  {t('conformite.records.no_configured_issuer')}
                 </p>
               )}
             </div>
@@ -674,8 +677,8 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             endDate={form.expires_at || null}
             onStartChange={(v) => setForm({ ...form, issued_at: v })}
             onEndChange={(v) => setForm({ ...form, expires_at: v })}
-            startLabel="Date d'émission"
-            endLabel="Date d'expiration"
+            startLabel={t('conformite.records.fields.issued_at')}
+            endLabel={t('conformite.records.fields.expires_at')}
           />
 
           <div className="grid grid-cols-2 gap-2">
@@ -684,8 +687,8 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
               <input type="text" value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="REF-2024-001..." />
             </div>
             <div>
-              <label className="text-[9px] text-muted-foreground block mb-0.5">Notes</label>
-              <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="Commentaire..." />
+              <label className="text-[9px] text-muted-foreground block mb-0.5">{t('conformite.records.fields.notes')}</label>
+              <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder={t('conformite.records.placeholders.note_short')} />
             </div>
           </div>
 
@@ -693,7 +696,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             <div className="rounded-md border border-border/70 bg-muted/20 p-2 space-y-2">
               <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400">
                 <Paperclip size={11} />
-                <span>Pièce justificative obligatoire pour vérification et validation</span>
+                <span>{t('conformite.records.proof_required_inline')}</span>
               </div>
               <AttachmentManager ownerType={STAGING_OWNER_TYPE} ownerId={stagingRef} compact />
             </div>
@@ -701,22 +704,22 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
 
           <div className="flex justify-end gap-1.5">
             <button onClick={() => { setShowForm(false); setEditingId(null); resetCreateSession() }} className="btn btn-secondary">
-              Annuler
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSubmit}
               disabled={(!editingId && (!form.compliance_type_id || stagedAttachmentCount <= 0)) || createRecord.isPending || updateRecord.isPending}
               className="btn btn-primary"
-              title={!editingId && stagedAttachmentCount <= 0 ? 'Déposez la PJ obligatoire avant de créer le référentiel' : undefined}
+              title={!editingId && stagedAttachmentCount <= 0 ? t('conformite.records.drop_required_proof_title') : undefined}
             >
               {(createRecord.isPending || updateRecord.isPending) ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
-              {editingId ? 'Enregistrer' : 'Créer'}
+              {editingId ? t('common.save') : t('common.create')}
             </button>
           </div>
         </div>
       ) : (
         <button onClick={() => openCreate(category)} className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1">
-          <Plus size={12} /> Ajouter un référentiel
+          <Plus size={12} /> {t('conformite.records.add_reference')}
         </button>
       )}
     </div>

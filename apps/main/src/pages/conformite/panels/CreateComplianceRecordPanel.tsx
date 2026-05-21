@@ -306,7 +306,7 @@ function CreateComplianceRecordInner() {
               </select>
               {authorizationCenters.length === 0 && !canUseRiseUpIssuer && (
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  Aucun émetteur configuré pour ce référentiel.
+                  {t('conformite.records.no_configured_issuer')}
                 </p>
               )}
             </DynamicPanelField>

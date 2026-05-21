@@ -1704,35 +1704,61 @@
     "records": {
       "title": "Enregistrements",
       "create": "Nouvel enregistrement",
+      "create_success": "Enregistrement créé",
+      "updated_success": "Enregistrement mis à jour",
+      "external_verify_success": "Certificat vérifié",
+      "external_verify_error": "Vérification impossible",
+      "verify_external": "Vérifier le certificat",
       "status": "Statut",
       "valid": "Valide",
       "expired": "Expiré",
       "pending": "En attente",
+      "unverified": "À vérifier",
       "rejected": "Rejeté",
       "missing": "Manquant",
+      "exempted": "Exempté",
+      "invalidated": "Invalidé",
       "issued_at": "Date d'émission",
       "expires_at": "Date d'expiration",
       "issuer": "Émetteur",
       "reference_number": "N° référence",
-      "attachment_required_hint": "Pièce jointe required indice",
-      "attachment_upload_cta": "Pièce jointe téléverser cta",
-      "attachments_help": "Pièces jointes help",
-      "create_success": "Créer succès",
-      "detail_title": "Détail titre",
+      "attachment_required_hint": "Une pièce justificative est obligatoire.",
+      "attachment_upload_cta": "Ajouter une pièce justificative",
+      "attachment_required_title": "Pièce justificative obligatoire",
+      "attachment_required_description": "Déposez au moins une PJ avant de créer le référentiel afin qu'il puisse être vérifié.",
+      "attachments_help": "Déposez ici les preuves du référentiel déclaré : certificat, attestation, copie signée, scan, ou tout autre justificatif utile.",
+      "edit_record": "Modifier l'enregistrement",
+      "new_record": "Nouvel enregistrement",
+      "add_reference": "Ajouter un référentiel",
+      "reference_added_with_proof": "Référentiel ajouté avec sa pièce justificative",
+      "readonly": "Lecture seule",
+      "no_history_found": "Aucun historique trouvé",
+      "history_title": "Historique des référentiels",
+      "history_tooltip": "Afficher les référentiels expirés, rejetés ou invalidés",
+      "history_show": "Afficher",
+      "history_hide": "Masquer",
+      "history_search_placeholder": "Rechercher type, référence, émetteur, note...",
+      "no_reference": "Sans référence",
+      "issuer_missing": "Émetteur non renseigné",
+      "no_configured_issuer": "Aucun émetteur configuré pour ce référentiel.",
+      "proof_required_inline": "Pièce justificative obligatoire pour vérification et validation",
+      "drop_required_proof_title": "Déposez la PJ obligatoire avant de créer le référentiel",
+      "detail_title": "Enregistrement de conformité",
       "errors": {
-        "attachment_required": "Pièce jointe required",
-        "attachment_upload_failed": "Pièce jointe téléverser échec",
-        "missing_required": "Missing required"
+        "attachment_required": "Pièce justificative obligatoire",
+        "attachment_upload_failed": "Échec du téléversement de la pièce justificative",
+        "missing_required": "Renseignez le type, le propriétaire et son identifiant."
       },
       "fields": {
-        "expires_at": "Expires at",
-        "issued_at": "Issued at",
-        "issuer": "Issuer",
+        "expires_at": "Date d'expiration",
+        "issued_at": "Date d'émission",
+        "issuer": "Émetteur",
         "notes": "Notes",
-        "owner_id": "Owner id",
-        "owner_type": "Owner type",
-        "reference_number": "Reference number",
+        "owner_id": "Identifiant du propriétaire",
+        "owner_type": "Type de propriétaire",
+        "reference_number": "Référence",
         "status": "Statut",
+        "title": "Titre du certificat",
         "type": "Type"
       },
       "owner_types": {
@@ -1742,16 +1768,42 @@
         "user": "Utilisateur"
       },
       "placeholders": {
-        "notes": "Notes",
-        "owner_id": "Owner id",
-        "type": "Type"
+        "notes": "Informations complémentaires...",
+        "note_short": "Commentaire...",
+        "owner_id": "UUID ou identifiant métier du propriétaire",
+        "title": "Titre exact retourné par l'émetteur...",
+        "type": "Rechercher un type..."
       },
       "sections": {
         "attachments": "Pièces jointes",
-        "general": "General",
-        "owner": "Owner",
-        "reference": "Reference"
+        "general": "Général",
+        "owner": "Propriétaire",
+        "reference": "Référence"
       }
+    },
+    "types_panel": {
+      "tabs": {
+        "information": "Informations",
+        "issuers": "Émetteurs",
+        "documents": "Documents"
+      },
+      "fields": {
+        "category": "Catégorie",
+        "name": "Nom",
+        "validity_days": "Validité (jours)",
+        "mandatory": "Obligatoire"
+      },
+      "permanent": "Permanent",
+      "validity_days_value": "{{count}} jours",
+      "center_added": "Centre habilité associé",
+      "centers_title": "Centres habilités",
+      "select_center_placeholder": "Sélectionner un tiers centre d'habilitation...",
+      "center_notes_placeholder": "Condition, portée ou remarque...",
+      "inactive": "Inactif",
+      "no_specific_condition": "Aucune condition spécifique",
+      "reactivate": "Réactiver",
+      "remove": "Retirer",
+      "no_centers": "Aucun centre habilité configuré. Le champ émetteur restera limité aux émetteurs système configurés pour ce référentiel."
     },
     "rules": {
       "title": "Règles de conformité",
@@ -1891,7 +1943,8 @@
       "non_compliant": "Non conforme",
       "valid_count": "{{valid}}/{{total}} valides",
       "expired_count": "{{count}} expiré(s)",
-      "missing_count": "{{count}} manquant(s)"
+      "missing_count": "{{count}} manquant(s)",
+      "exempted_count": "{{count}} exempté(s)"
     },
     "no_type": "Aucun type de conformité",
     "no_record": "Aucun enregistrement",
@@ -1919,6 +1972,11 @@
       "verify_button": "Vérifier & Valider",
       "reject_button": "Rejeter",
       "reject_reason": "Motif du rejet",
+      "not_found_or_processed": "Document non trouvé ou déjà traité.",
+      "unknown_owner": "Inconnu",
+      "submitted_at": "Soumis le",
+      "reject_reason_placeholder": "Expliquez pourquoi ce document est rejeté...",
+      "confirm_reject": "Confirmer le rejet",
       "record_types": {
         "compliance_record": "Référentiel",
         "passport": "Passeport",
@@ -1930,7 +1988,7 @@
       },
       "reject_prompt": "Rejeter prompt",
       "reject_title": "Rejeter titre",
-      "verify": "Verify"
+      "verify": "Vérifier"
     },
     "exemptions": {
       "title": "Exemptions",
@@ -3940,48 +3998,6 @@
       "add_compliance_record": "Ajouter un enregistrement de conformité",
       "back_to_ads": "Retour vers ads",
       "open_full_profile": "Ouvrir full profil"
-    },
-    "records": {
-      "create": "Nouvel enregistrement",
-      "create_success": "Enregistrement créé",
-      "external_verify_success": "Certificat vérifié",
-      "external_verify_error": "Vérification impossible",
-      "verify_external": "Vérifier le certificat",
-      "detail_title": "Enregistrement de conformité",
-      "sections": {
-        "general": "Général",
-        "reference": "Référence",
-        "attachments": "Pièces justificatives"
-      },
-      "fields": {
-        "type": "Type de conformité",
-        "owner_type": "Type de propriétaire",
-        "owner_id": "Identifiant du propriétaire",
-        "status": "Statut",
-        "title": "Titre du certificat",
-        "issued_at": "Date d'émission",
-        "expires_at": "Date d'expiration",
-        "issuer": "Émetteur",
-        "reference_number": "Référence",
-        "notes": "Notes"
-      },
-      "placeholders": {
-        "type": "Rechercher un type...",
-        "title": "Titre exact retourné par l'émetteur...",
-        "owner_id": "UUID ou identifiant métier du propriétaire",
-        "notes": "Informations complémentaires..."
-      },
-      "owner_types": {
-        "user": "Utilisateur",
-        "tier_contact": "Contact tier",
-        "asset": "Asset",
-        "job_position": "Fiche de poste"
-      },
-      "errors": {
-        "missing_required": "Renseignez le type, le propriétaire et son identifiant."
-      },
-      "create_attachment_hint": "Après création, la fiche reste accessible pour déposer immédiatement les pièces justificatives requises.",
-      "attachments_help": "Déposez ici les preuves du référentiel déclaré: certificat, attestation, copie signée, scan, ou tout autre justificatif utile."
     },
     "incident_panel": {
       "create_title": "Nouveau signalement",

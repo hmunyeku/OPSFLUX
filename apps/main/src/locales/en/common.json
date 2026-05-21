@@ -1571,16 +1571,46 @@
     "records": {
       "title": "Records",
       "create": "New record",
+      "create_success": "Record created",
+      "updated_success": "Record updated",
+      "external_verify_success": "Certificate verified",
+      "external_verify_error": "Verification unavailable",
+      "verify_external": "Verify certificate",
       "status": "Status",
       "valid": "Valid",
       "expired": "Expired",
       "pending": "Pending",
+      "unverified": "To verify",
       "rejected": "Rejected",
       "missing": "Missing",
+      "exempted": "Exempted",
+      "invalidated": "Invalidated",
       "issued_at": "Issue date",
       "expires_at": "Expiry date",
       "issuer": "Issuer",
       "reference_number": "Reference #",
+      "attachment_required_hint": "A supporting file is required.",
+      "attachment_upload_cta": "Add a supporting file",
+      "attachment_required_title": "Supporting file required",
+      "attachment_required_description": "Upload at least one supporting file before creating the record so it can be verified.",
+      "attachments_help": "Upload the proof for the declared reference here: certificate, attestation, signed copy, scan, or any other supporting evidence.",
+      "edit_record": "Edit record",
+      "new_record": "New record",
+      "add_reference": "Add reference",
+      "reference_added_with_proof": "Reference added with its supporting file",
+      "readonly": "Read only",
+      "no_history_found": "No history found",
+      "history_title": "Reference history",
+      "history_tooltip": "Show expired, rejected or invalidated references",
+      "history_show": "Show",
+      "history_hide": "Hide",
+      "history_search_placeholder": "Search type, reference, issuer, note...",
+      "no_reference": "No reference",
+      "issuer_missing": "Issuer not provided",
+      "no_configured_issuer": "No issuer configured for this reference.",
+      "proof_required_inline": "Supporting file required for verification and approval",
+      "drop_required_proof_title": "Upload the required supporting file before creating the reference",
+      "detail_title": "Compliance record",
       "fields": {
         "notes": "Notes",
         "status": "Status",
@@ -1590,7 +1620,8 @@
         "issuer": "Issuer",
         "owner_id": "Owner id",
         "owner_type": "Owner type",
-        "reference_number": "Reference number"
+        "reference_number": "Reference number",
+        "title": "Certificate title"
       },
       "owner_types": {
         "user": "User",
@@ -1600,6 +1631,8 @@
       },
       "placeholders": {
         "notes": "Notes",
+        "note_short": "Comment...",
+        "title": "Exact title returned by the issuer...",
         "type": "Type",
         "owner_id": "Owner id"
       },
@@ -1609,16 +1642,35 @@
         "owner": "Owner",
         "reference": "Reference"
       },
-      "attachment_required_hint": "Attachment required hint",
-      "attachment_upload_cta": "Attachment upload cta",
-      "attachments_help": "Attachments help",
-      "create_success": "Create success",
-      "detail_title": "Detail title",
       "errors": {
         "attachment_required": "Attachment required",
         "attachment_upload_failed": "Attachment upload failed",
         "missing_required": "Missing required"
       }
+    },
+    "types_panel": {
+      "tabs": {
+        "information": "Information",
+        "issuers": "Issuers",
+        "documents": "Documents"
+      },
+      "fields": {
+        "category": "Category",
+        "name": "Name",
+        "validity_days": "Validity (days)",
+        "mandatory": "Mandatory"
+      },
+      "permanent": "Permanent",
+      "validity_days_value": "{{count}} days",
+      "center_added": "Authorized center linked",
+      "centers_title": "Authorized centers",
+      "select_center_placeholder": "Select an authorized center tier...",
+      "center_notes_placeholder": "Condition, scope or note...",
+      "inactive": "Inactive",
+      "no_specific_condition": "No specific condition",
+      "reactivate": "Reactivate",
+      "remove": "Remove",
+      "no_centers": "No authorized center configured. The issuer field will remain limited to system issuers configured for this reference."
     },
     "rules": {
       "title": "Compliance rules",
@@ -1758,7 +1810,8 @@
       "non_compliant": "Non-compliant",
       "valid_count": "{{valid}}/{{total}} valid",
       "expired_count": "{{count}} expired",
-      "missing_count": "{{count}} missing"
+      "missing_count": "{{count}} missing",
+      "exempted_count": "{{count}} exempted"
     },
     "no_type": "No compliance type",
     "no_record": "No record",
@@ -1786,6 +1839,11 @@
       "verify_button": "Verify & Approve",
       "reject_button": "Reject",
       "reject_reason": "Rejection reason",
+      "not_found_or_processed": "Document not found or already processed.",
+      "unknown_owner": "Unknown",
+      "submitted_at": "Submitted on",
+      "reject_reason_placeholder": "Explain why this document is rejected...",
+      "confirm_reject": "Confirm rejection",
       "record_types": {
         "compliance_record": "Reference",
         "passport": "Passport",
@@ -3844,48 +3902,6 @@
       "add_compliance_record": "Add compliance record",
       "back_to_ads": "Back to ads",
       "open_full_profile": "Open full profile"
-    },
-    "records": {
-      "create": "New record",
-      "create_success": "Record created",
-      "external_verify_success": "Certificate verified",
-      "external_verify_error": "Verification unavailable",
-      "verify_external": "Verify certificate",
-      "detail_title": "Compliance record",
-      "sections": {
-        "general": "General",
-        "reference": "Reference",
-        "attachments": "Supporting files"
-      },
-      "fields": {
-        "type": "Compliance type",
-        "owner_type": "Owner type",
-        "owner_id": "Owner identifier",
-        "status": "Status",
-        "title": "Certificate title",
-        "issued_at": "Issue date",
-        "expires_at": "Expiry date",
-        "issuer": "Issuer",
-        "reference_number": "Reference",
-        "notes": "Notes"
-      },
-      "placeholders": {
-        "type": "Search a type...",
-        "title": "Exact title returned by the issuer...",
-        "owner_id": "UUID or business identifier of the owner",
-        "notes": "Additional information..."
-      },
-      "owner_types": {
-        "user": "User",
-        "tier_contact": "Tier contact",
-        "asset": "Asset",
-        "job_position": "Job position"
-      },
-      "errors": {
-        "missing_required": "Fill in the type, owner and owner identifier."
-      },
-      "create_attachment_hint": "After creation, the record stays open so the required supporting files can be uploaded immediately.",
-      "attachments_help": "Upload the proof for the declared reference here: certificate, attestation, signed copy, scan, or any other supporting evidence."
     },
     "incident_panel": {
       "create_title": "New incident",

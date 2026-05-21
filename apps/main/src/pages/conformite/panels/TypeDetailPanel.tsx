@@ -74,8 +74,8 @@ export function TypeDetailPanel({ id }: { id: string }) {
     })
     setSelectedCenterId('')
     setCenterNotes('')
-    toast({ title: 'Centre habilité associé', variant: 'success' })
-  }, [addAuthorizedCenter, centerNotes, id, selectedCenterId, toast])
+    toast({ title: t('conformite.types_panel.center_added'), variant: 'success' })
+  }, [addAuthorizedCenter, centerNotes, id, selectedCenterId, toast, t])
 
   const actionItems = useMemo<ActionItem[]>(() => [
     {
@@ -105,9 +105,9 @@ export function TypeDetailPanel({ id }: { id: string }) {
     >
       <TabBar
         items={[
-          { id: 'fiche', label: 'Informations', icon: Info },
-          { id: 'emetteurs', label: 'Émetteurs', icon: Building2, badge: authorizedCenters?.filter((c) => c.active).length || undefined },
-          { id: 'documents', label: 'Documents', icon: Paperclip },
+          { id: 'fiche', label: t('conformite.types_panel.tabs.information'), icon: Info },
+          { id: 'emetteurs', label: t('conformite.types_panel.tabs.issuers'), icon: Building2, badge: authorizedCenters?.filter((c) => c.active).length || undefined },
+          { id: 'documents', label: t('conformite.types_panel.tabs.documents'), icon: Paperclip },
         ]}
         activeId={detailTab}
         onTabChange={(id) => setDetailTab(id as typeof detailTab)}
@@ -116,26 +116,26 @@ export function TypeDetailPanel({ id }: { id: string }) {
         <PanelContentLayout>
           <FormSection title={t('common.information')}>
             <DetailFieldGrid>
-              <ReadOnlyRow label="Catégorie" value={<span className="chip chip-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
+              <ReadOnlyRow label={t('conformite.types_panel.fields.category')} value={<span className="chip chip-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
               <ReadOnlyRow label={t('common.code_field')} value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
-              <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
+              <InlineEditableRow label={t('conformite.types_panel.fields.name')} value={ct.name} onSave={(v) => handleSave('name', v)} />
               {/* SUP-0025 fix: Validité et Obligatoire étaient en lecture seule.
                   Ces champs sont métier-importants — un référentiel mal configuré
                   bloque toute la chaîne de conformité — donc rendre éditable
                   in-place via InlineEditableRow / InlineEditableSelect. */}
               <InlineEditableRow
-                label="Validité (jours)"
+                label={t('conformite.types_panel.fields.validity_days')}
                 value={ct.validity_days != null ? String(ct.validity_days) : ''}
-                displayValue={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'}
+                displayValue={ct.validity_days ? t('conformite.types_panel.validity_days_value', { count: ct.validity_days }) : t('conformite.types_panel.permanent')}
                 onSave={handleSaveValidity}
               />
               <InlineEditableSelect
-                label="Obligatoire"
+                label={t('conformite.types_panel.fields.mandatory')}
                 value={ct.is_mandatory ? 'true' : 'false'}
-                displayValue={ct.is_mandatory ? 'Oui' : 'Non'}
+                displayValue={ct.is_mandatory ? t('common.yes') : t('common.no')}
                 options={[
-                  { value: 'true', label: 'Oui' },
-                  { value: 'false', label: 'Non' },
+                  { value: 'true', label: t('common.yes') },
+                  { value: 'false', label: t('common.no') },
                 ]}
                 onSave={(v) => handleSaveBool('is_mandatory', v)}
               />
@@ -168,7 +168,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
       )}
       {detailTab === 'emetteurs' && (
         <PanelContentLayout>
-          <FormSection title="Centres habilités">
+          <FormSection title={t('conformite.types_panel.centers_title')}>
             <div className="@container space-y-3">
               <div className="grid grid-cols-1 gap-2 @[640px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                 <select
@@ -176,7 +176,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
                   onChange={(e) => setSelectedCenterId(e.target.value)}
                   className={panelInputClass}
                 >
-                  <option value="">Sélectionner un tiers centre d'habilitation...</option>
+                  <option value="">{t('conformite.types_panel.select_center_placeholder')}</option>
                   {(availableCenters?.items ?? []).map((center) => (
                     <option key={center.id} value={center.id}>
                       {center.name}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
@@ -187,7 +187,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
                   value={centerNotes}
                   onChange={(e) => setCenterNotes(e.target.value)}
                   className={panelInputClass}
-                  placeholder="Condition, portée ou remarque..."
+                  placeholder={t('conformite.types_panel.center_notes_placeholder')}
                 />
                 <button
                   type="button"
@@ -196,7 +196,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
                   className="btn btn-primary btn-sm"
                 >
                   {addAuthorizedCenter.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                  Ajouter
+                  {t('common.add')}
                 </button>
               </div>
 
@@ -208,14 +208,14 @@ export function TypeDetailPanel({ id }: { id: string }) {
                         <div className="flex items-center gap-2">
                           <Building2 size={12} className="text-muted-foreground shrink-0" />
                           <span className="truncate font-medium text-foreground">{center.tier_name}</span>
-                          {!center.active && <span className="chip text-[10px]">Inactif</span>}
+                          {!center.active && <span className="chip text-[10px]">{t('conformite.types_panel.inactive')}</span>}
                         </div>
                         <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                           {center.tier_code || '—'}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
                         </div>
                       </div>
                       <div className="min-w-0 text-[11px] text-muted-foreground">
-                        <div className="truncate">{center.notes || 'Aucune condition spécifique'}</div>
+                        <div className="truncate">{center.notes || t('conformite.types_panel.no_specific_condition')}</div>
                         {center.certificate_verification_url && (
                           <div className="truncate text-primary">{center.certificate_verification_url}</div>
                         )}
@@ -225,7 +225,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
                           <button
                             type="button"
                             className="p-1 rounded hover:bg-muted text-muted-foreground"
-                            title="Réactiver"
+                            title={t('conformite.types_panel.reactivate')}
                             onClick={() => updateAuthorizedCenter.mutate({ typeId: id, linkId: center.id, payload: { active: true } })}
                           >
                             <Plus size={12} />
@@ -234,7 +234,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
                         <button
                           type="button"
                           className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive"
-                          title="Retirer"
+                          title={t('conformite.types_panel.remove')}
                           onClick={() => removeAuthorizedCenter.mutate({ typeId: id, linkId: center.id })}
                         >
                           <X size={12} />
@@ -245,7 +245,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Aucun centre habilité configuré. Le champ émetteur restera en saisie libre pour ce référentiel.
+                  {t('conformite.types_panel.no_centers')}
                 </p>
               )}
             </div>

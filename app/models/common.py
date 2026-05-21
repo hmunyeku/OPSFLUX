@@ -1348,6 +1348,7 @@ class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     # moc_service.reconcile_inline_images) cassaient les PATCH MOC qui
     # touchaient un champ rich-text.
     category: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    file_hash_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     uploaded_by: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )

@@ -987,6 +987,7 @@ export interface FileAttachment {
   description: string | null
   /** Optional typed category (driven by per-module dictionary, e.g. `moc_attachment_type`). */
   category: string | null
+  file_hash_sha256?: string | null
   uploaded_by: string
   created_at: string
 }

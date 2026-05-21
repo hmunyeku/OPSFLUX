@@ -5,18 +5,19 @@ Upload via multipart/form-data, download via GET /:id/download.
 Storage backend (local/S3) is determined by STORAGE_BACKEND setting.
 """
 
+import hashlib
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from app.api.deps import get_current_entity, get_current_user, check_polymorphic_owner_access
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.storage_service import store_file, get_file_path, get_download_url, delete_stored_file
+from app.core.storage_service import store_file, get_file_path, get_file_bytes, get_download_url, delete_stored_file
 from app.models.common import Attachment, User
 from app.schemas.common import AttachmentRead
 from app.services.core.delete_service import delete_entity
@@ -47,6 +48,35 @@ _BLOCKED_EXTENSIONS = {
     # Misc
     "reg", "lnk", "url", "iso", "img", "vhd", "vhdx",
 }
+
+
+def _attachment_hash(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def _normalize_attachment_category(category: str | None) -> str | None:
+    return (category or "").strip() or None
+
+
+def _is_duplicate_attachment_candidate(
+    attachment,
+    *,
+    original_name: str,
+    file_hash_sha256: str,
+    category: str | None,
+) -> bool:
+    existing_category = _normalize_attachment_category(getattr(attachment, "category", None))
+    requested_category = _normalize_attachment_category(category)
+    if existing_category != requested_category:
+        return False
+
+    existing_name = (getattr(attachment, "original_name", "") or "").strip().lower()
+    requested_name = (original_name or "").strip().lower()
+    if existing_name and existing_name == requested_name:
+        return True
+
+    existing_hash = getattr(attachment, "file_hash_sha256", None)
+    return bool(existing_hash and file_hash_sha256 and existing_hash == file_hash_sha256)
 
 
 def _validate_extension(filename: str) -> None:
@@ -131,7 +161,9 @@ async def upload_attachment(
         raise HTTPException(status_code=413, detail=f"File too large. Maximum: {getattr(settings, 'STORAGE_MAX_FILE_SIZE_MB', 50)} MB")
 
     original_name = file.filename or "file"
-    normalized_category = (category or None) if category else None
+    file_hash_sha256 = _attachment_hash(content)
+    normalized_category = _normalize_attachment_category(category)
+    category_filter = Attachment.category.is_(None) if normalized_category is None else Attachment.category == normalized_category
     duplicate_result = await db.execute(
         select(Attachment)
         .where(
@@ -141,12 +173,24 @@ async def upload_attachment(
             Attachment.uploaded_by == current_user.id,
             Attachment.archived.is_(False),
             Attachment.deleted_at.is_(None),
-            func.lower(Attachment.original_name) == original_name.lower(),
-            Attachment.category.is_(None) if normalized_category is None else Attachment.category == normalized_category,
+            category_filter,
         )
         .order_by(Attachment.created_at.desc())
     )
-    duplicate = duplicate_result.scalars().first()
+    duplicate = None
+    for candidate in duplicate_result.scalars().all():
+        if not candidate.file_hash_sha256:
+            existing_content = await get_file_bytes(candidate.storage_path)
+            if existing_content:
+                candidate.file_hash_sha256 = _attachment_hash(existing_content)
+        if _is_duplicate_attachment_candidate(
+            candidate,
+            original_name=original_name,
+            file_hash_sha256=file_hash_sha256,
+            category=normalized_category,
+        ):
+            duplicate = candidate
+            break
     if duplicate and not overwrite_existing:
         raise StructuredHTTPException(
             status.HTTP_409_CONFLICT,
@@ -155,6 +199,7 @@ async def upload_attachment(
             params={
                 "attachment_id": str(duplicate.id),
                 "filename": duplicate.original_name,
+                "file_hash_sha256": duplicate.file_hash_sha256,
                 "owner_type": owner_type,
                 "owner_id": owner_id,
                 "category": duplicate.category,
@@ -184,6 +229,7 @@ async def upload_attachment(
         storage_path=storage_path,
         description=description,
         category=normalized_category,
+        file_hash_sha256=file_hash_sha256,
         uploaded_by=current_user.id,
         entity_id=entity_id,
     )

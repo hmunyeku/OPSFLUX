@@ -117,6 +117,7 @@ function EditableCell({ rowId, col, value, renderContent, onEdit }: {
 
 export function GanttCore(props: GanttCoreProps) {
   const { t } = useTranslation()
+  const scaleLabel = useCallback((scale: TimeScale) => t(`shared.gantt.scales.${scale}`), [t])
   const {
     rows, bars, dependencies = [], markers = [], columns: rawColumns = [],
     initialScale, initialStart, initialEnd, initialSettings,
@@ -1041,8 +1042,8 @@ export function GanttCore(props: GanttCoreProps) {
             <button
               onClick={togglePanelHidden}
               className="p-1 rounded hover:bg-muted"
-              title={panelHidden ? 'Afficher le panneau Tâches' : 'Masquer le panneau Tâches'}
-              aria-label={panelHidden ? 'Afficher le panneau Tâches' : 'Masquer le panneau Tâches'}
+              title={panelHidden ? t('shared.gantt.show_task_panel') : t('shared.gantt.hide_task_panel')}
+              aria-label={panelHidden ? t('shared.gantt.show_task_panel') : t('shared.gantt.hide_task_panel')}
             >
               {panelHidden ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </button>
@@ -1052,7 +1053,7 @@ export function GanttCore(props: GanttCoreProps) {
           <button onClick={() => shift(-1)} className="p-1 rounded hover:bg-muted" title={t('common.previous')}>
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <button onClick={() => shift(1)} className="p-1 rounded hover:bg-muted" title="Suivant">
+          <button onClick={() => shift(1)} className="p-1 rounded hover:bg-muted" title={t('common.next')}>
             <ChevronRight className="h-4 w-4" />
           </button>
 
@@ -1062,7 +1063,7 @@ export function GanttCore(props: GanttCoreProps) {
               <button onClick={onUndo} disabled={!onUndo} className="p-1 rounded hover:bg-muted disabled:opacity-30" title={t('common.undo')}>
                 <Undo2 className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
-              <button onClick={onRedo} disabled={!onRedo} className="btn btn-secondary" title="Refaire (Ctrl+Y)">
+              <button onClick={onRedo} disabled={!onRedo} className="btn btn-secondary" title={t('shared.gantt.redo')}>
                 <Redo2 className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </div>
@@ -1080,10 +1081,10 @@ export function GanttCore(props: GanttCoreProps) {
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
-                title={SCALE_META[s].label}
+                title={scaleLabel(s)}
               >
-                <span className="sm:hidden">{SCALE_META[s].label.charAt(0)}</span>
-                <span className="hidden sm:inline">{SCALE_META[s].label}</span>
+                <span className="sm:hidden">{scaleLabel(s).charAt(0)}</span>
+                <span className="hidden sm:inline">{scaleLabel(s)}</span>
               </button>
             ))}
           </div>
@@ -1093,16 +1094,16 @@ export function GanttCore(props: GanttCoreProps) {
             <div className="flex items-center gap-0.5 ml-2 border-l border-border/40 pl-2">
               {onAddTask && (
                 <button onClick={onAddTask} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title={t('projets.add_task')}>
-                  <Plus className="h-3 w-3" /> Tâche
+                  <Plus className="h-3 w-3" /> {t('shared.gantt.task')}
                 </button>
               )}
               {onAddMilestone && (
                 <button onClick={onAddMilestone} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title={t('projets.add_milestone')}>
-                  <Diamond className="h-3 w-3" /> Jalon
+                  <Diamond className="h-3 w-3" /> {t('shared.gantt.milestone')}
                 </button>
               )}
               {selectedRowId && onIndent && (
-                <button onClick={() => onIndent(selectedRowId)} className="p-1 rounded hover:bg-muted" title="Indenter">
+                <button onClick={() => onIndent(selectedRowId)} className="p-1 rounded hover:bg-muted" title={t('shared.gantt.indent')}>
                   <IndentIncrease className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               )}
@@ -1112,7 +1113,7 @@ export function GanttCore(props: GanttCoreProps) {
                 </button>
               )}
               {selectedRowId && onDeleteRow && (
-                <button onClick={() => onDeleteRow(selectedRowId)} className="p-1 rounded hover:bg-destructive/10" title="Supprimer">
+                <button onClick={() => onDeleteRow(selectedRowId)} className="p-1 rounded hover:bg-destructive/10" title={t('common.delete')}>
                   <Trash2 className="h-3.5 w-3.5 text-destructive/60" />
                 </button>
               )}
@@ -1162,19 +1163,19 @@ export function GanttCore(props: GanttCoreProps) {
                 />
                 <div className="absolute right-0 top-full mt-1 z-50 w-64 rounded-md border border-border bg-popover shadow-lg py-1 text-xs">
                   <div className="px-2 py-1 text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">
-                    Périodes rapides
+                    {t('shared.gantt.quick_periods')}
                   </div>
                   {[
-                    { key: 'today',          label: "Aujourd'hui" },
-                    { key: 'this_week',      label: 'Cette semaine' },
-                    { key: 'this_month',     label: 'Ce mois-ci' },
-                    { key: 'next_month',     label: 'Mois prochain' },
-                    { key: 'this_quarter',   label: 'Ce trimestre' },
-                    { key: 'this_semester',  label: 'Ce semestre' },
-                    { key: 'this_year',      label: 'Cette année' },
-                    { key: 'last_12_months', label: '12 derniers mois' },
-                    { key: 'next_12_months', label: '12 prochains mois' },
-                    { key: 'next_3_years',   label: '3 prochaines années' },
+                    { key: 'today',          label: t('shared.gantt.ranges.today') },
+                    { key: 'this_week',      label: t('shared.gantt.ranges.this_week') },
+                    { key: 'this_month',     label: t('shared.gantt.ranges.this_month') },
+                    { key: 'next_month',     label: t('shared.gantt.ranges.next_month') },
+                    { key: 'this_quarter',   label: t('shared.gantt.ranges.this_quarter') },
+                    { key: 'this_semester',  label: t('shared.gantt.ranges.this_semester') },
+                    { key: 'this_year',      label: t('shared.gantt.ranges.this_year') },
+                    { key: 'last_12_months', label: t('shared.gantt.ranges.last_12_months') },
+                    { key: 'next_12_months', label: t('shared.gantt.ranges.next_12_months') },
+                    { key: 'next_3_years',   label: t('shared.gantt.ranges.next_3_years') },
                   ].map((p) => (
                     <button
                       key={p.key}
@@ -1186,7 +1187,7 @@ export function GanttCore(props: GanttCoreProps) {
                     </button>
                   ))}
                   <div className="px-2 py-1 mt-1 text-[9px] uppercase tracking-wide text-muted-foreground font-semibold border-t border-border/50">
-                    Personnalisé
+                    {t('shared.gantt.custom_range')}
                   </div>
                   <div className="px-2 py-1.5 flex items-center gap-1.5">
                     <input
@@ -1222,7 +1223,7 @@ export function GanttCore(props: GanttCoreProps) {
                       }}
                       className="btn-sm bg-primary text-primary-foreground hover:bg-primary/90 h-6 px-2 text-[10px]"
                     >
-                      Appliquer
+                      {t('common.apply')}
                     </button>
                   </div>
                 </div>
@@ -1231,7 +1232,7 @@ export function GanttCore(props: GanttCoreProps) {
           </div>
 
           {/* Fit all */}
-          <button onClick={fitAll} className="p-1 rounded hover:bg-muted" title="Ajuster à l'écran">
+          <button onClick={fitAll} className="p-1 rounded hover:bg-muted" title={t('shared.gantt.fit_to_screen')}>
             <Maximize className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
 
@@ -1240,7 +1241,7 @@ export function GanttCore(props: GanttCoreProps) {
             <button
               onClick={() => setExportMenuOpen((v) => !v)}
               className="p-1 rounded hover:bg-muted flex items-center gap-0.5"
-              title="Exporter"
+              title={t('common.export')}
               disabled={exporting !== null}
             >
               {exporting ? (
@@ -1273,7 +1274,7 @@ export function GanttCore(props: GanttCoreProps) {
                       className="btn btn-secondary w-full flex text-left"
                     >
                       <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>PDF A3 paysage</span>
+                      <span>{t('shared.gantt.export_pdf_a3')}</span>
                     </button>
                   )}
                 </div>
@@ -1289,11 +1290,11 @@ export function GanttCore(props: GanttCoreProps) {
               setViewEnd(range.end)
             }}
             className="text-[10px] px-1.5 sm:px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 font-medium flex items-center gap-1"
-            title="Aujourd'hui"
-            aria-label="Aujourd'hui"
+            title={t('shared.gantt.today')}
+            aria-label={t('shared.gantt.today')}
           >
             <CalendarClock className="h-3 w-3 sm:hidden" />
-            <span className="hidden sm:inline">Aujourd'hui</span>
+            <span className="hidden sm:inline">{t('shared.gantt.today')}</span>
           </button>
 
           {/* Settings panel trigger */}
@@ -1324,7 +1325,7 @@ export function GanttCore(props: GanttCoreProps) {
                   className="relative px-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0"
                   style={{ width: taskColWidth }}
                 >
-                  Tâche
+                  {t('shared.gantt.task')}
                   {/* Resize handle for task column */}
                   <div
                     className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/30 active:bg-primary/50"
@@ -1524,10 +1525,10 @@ export function GanttCore(props: GanttCoreProps) {
                   className="absolute inset-0 z-10 flex flex-col items-center justify-start gap-2 px-4 pt-12 text-center text-sm text-muted-foreground pointer-events-none"
                 >
                   <span className="rounded-md border border-border/60 bg-background/90 px-3 py-2 text-xs font-medium text-foreground shadow-sm">
-                    {isEmpty ? emptyMessage : (timelineEmptyMessage ?? 'Aucun élément planifié sur cette période.')}
+                    {isEmpty ? emptyMessage : (timelineEmptyMessage ?? t('shared.gantt.empty_period'))}
                   </span>
                   <span className="max-w-[44ch] text-[10px] text-muted-foreground/70">
-                    Utilisez la barre d'outils pour changer la période, revenir à aujourd'hui ou créer une tâche datée.
+                    {t('shared.gantt.empty_period_hint')}
                   </span>
                 </div>
               )}

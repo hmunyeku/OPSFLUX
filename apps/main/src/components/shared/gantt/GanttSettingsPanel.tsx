@@ -47,7 +47,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
       <button
         onClick={() => setOpen(true)}
         className="p-1.5 rounded-md hover:bg-muted text-muted-foreground transition-colors"
-        title="Paramètres du Gantt"
+        title={t('shared.gantt.settings_button')}
       >
         <Settings2 className="h-4 w-4" />
       </button>
@@ -57,7 +57,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
   const actionItems: ActionItem[] = [
     {
       id: 'reset',
-      label: 'Réinitialiser',
+      label: t('common.reset'),
       icon: RotateCcw,
       onClick: () => onChange({ ...DEFAULT_SETTINGS, scale: settings.scale }),
     },
@@ -67,7 +67,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
     <DynamicPanelShell
       inline
       onClose={() => setOpen(false)}
-      title="Paramètres Gantt"
+      title={t('shared.gantt.settings_title')}
       icon={<Settings2 size={14} />}
       inlineWidth="min(360px, calc(100vw - 1rem))"
       actionItems={actionItems}
@@ -81,7 +81,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
             {/* Bar height slider */}
             <div>
               <label className="text-xs text-foreground flex items-center justify-between">
-                Hauteur des barres
+                {t('shared.gantt.bar_height')}
                 <span className="text-muted-foreground tabular-nums">{settings.barHeight}px</span>
               </label>
               <input
@@ -95,7 +95,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
             {/* Row height slider */}
             <div>
               <label className="text-xs text-foreground flex items-center justify-between">
-                Hauteur des lignes
+                {t('shared.gantt.row_height')}
                 <span className="text-muted-foreground tabular-nums">{settings.rowHeight}px</span>
               </label>
               <input
@@ -123,12 +123,12 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
             {/* Toggle switches */}
             <div className="grid grid-cols-2 gap-2">
               {[
-                { key: 'showLabels' as const, label: 'Texte des jalons & parents' },
-                { key: 'showProgress' as const, label: 'Progression' },
-                { key: 'showBaselines' as const, label: 'Baselines' },
-                { key: 'showDependencies' as const, label: 'Dépendances' },
-                { key: 'showToday' as const, label: "Aujourd'hui" },
-                { key: 'showWeekends' as const, label: 'Week-ends' },
+                { key: 'showLabels' as const, label: t('shared.gantt.show_labels') },
+                { key: 'showProgress' as const, label: t('shared.gantt.show_progress') },
+                { key: 'showBaselines' as const, label: t('shared.gantt.show_baselines') },
+                { key: 'showDependencies' as const, label: t('shared.gantt.show_dependencies') },
+                { key: 'showToday' as const, label: t('shared.gantt.show_today') },
+                { key: 'showWeekends' as const, label: t('shared.gantt.show_weekends') },
               ].map(({ key, label }) => (
                 <label key={key} className="flex items-center gap-2 text-xs cursor-pointer">
                   <input
@@ -152,7 +152,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
             {/* Status filter */}
             {statuses.length > 0 && (
               <div className="mb-2">
-                <span className="text-[10px] text-muted-foreground">Statuts visibles</span>
+                <span className="text-[10px] text-muted-foreground">{t('shared.gantt.visible_statuses')}</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {statuses.map(s => {
                     const hidden = settings.hiddenStatuses.includes(s.value)
@@ -184,7 +184,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
             {/* Priority filter */}
             {priorities.length > 0 && (
               <div className="mb-2">
-                <span className="text-[10px] text-muted-foreground">Priorités visibles</span>
+                <span className="text-[10px] text-muted-foreground">{t('shared.gantt.visible_priorities')}</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {priorities.map(p => {
                     const hidden = settings.hiddenPriorities.includes(p.value)
@@ -215,12 +215,12 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
 
             {/* Assignee filter */}
             <div>
-              <span className="text-[10px] text-muted-foreground">Assigné (recherche)</span>
+              <span className="text-[10px] text-muted-foreground">{t('shared.gantt.assignee_search')}</span>
               <input
                 type="text"
                 value={settings.filterAssignee || ''}
                 onChange={e => onChange({ filterAssignee: e.target.value || null })}
-                placeholder="Filtrer par nom..."
+                placeholder={t('shared.gantt.assignee_placeholder')}
                 className="w-full mt-1 h-7 px-2 text-xs border rounded bg-background"
               />
             </div>
@@ -288,12 +288,12 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
             </div>
             <button
               onClick={() => {
-                const name = prompt('Nom du préréglage :')
+                const name = prompt(t('shared.gantt.preset_name_prompt'))
                 if (name?.trim()) onSavePreset(name.trim())
               }}
               className="w-full text-[10px] px-2 py-1 rounded border border-border hover:bg-muted text-center"
             >
-              + Sauvegarder la vue actuelle
+              + {t('shared.gantt.save_current_view')}
             </button>
           </section>
         )}

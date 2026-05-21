@@ -1635,6 +1635,7 @@ class ComplianceRecordRead(OpsFluxSchema):
     owner_type: str
     owner_id: UUID
     status: str
+    title: str | None = None
     issued_at: datetime | None = None
     expires_at: datetime | None = None
     issuer: str | None = None
@@ -1642,6 +1643,10 @@ class ComplianceRecordRead(OpsFluxSchema):
     issuer_tier_name: str | None = None
     reference_number: str | None = None
     notes: str | None = None
+    external_verification_provider: str | None = None
+    external_verification_id: str | None = None
+    external_verification_checked_at: datetime | None = None
+    external_verification_payload: dict | None = None
     created_by: UUID
     active: bool
     created_at: datetime
@@ -1653,6 +1658,8 @@ class ComplianceRecordRead(OpsFluxSchema):
     # Enriched
     type_name: str | None = None
     type_category: str | None = None
+    type_compliance_source: str | None = None
+    type_external_provider: str | None = None
     attachment_count: int = 0
 
 
@@ -1660,6 +1667,7 @@ class ComplianceRecordCreate(BaseModel):
     compliance_type_id: UUID
     owner_type: str = Field(..., pattern=r'^(tier_contact|tier|asset|user)$')
     owner_id: UUID
+    title: str | None = None
     # status is NOT user-settable — always starts as "pending", promoted by verification
     issued_at: datetime | None = None
     expires_at: datetime | None = None
@@ -1672,6 +1680,7 @@ class ComplianceRecordCreate(BaseModel):
 
 class ComplianceRecordUpdate(BaseModel):
     # status is NOT user-settable — managed by verification workflow
+    title: str | None = None
     issued_at: datetime | None = None
     expires_at: datetime | None = None
     issuer: str | None = None

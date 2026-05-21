@@ -15,7 +15,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   ShieldCheck, ShieldAlert, Plus, Trash2, X,
   Loader2, AlertTriangle, Pencil, GraduationCap, Paperclip,
-  History, Search, Eye,
+  History, Search, Eye, RefreshCw,
 } from 'lucide-react'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { cn } from '@/lib/utils'
@@ -25,6 +25,7 @@ import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
   useComplianceRecords, useCreateComplianceRecord, useUpdateComplianceRecord,
   useDeleteComplianceRecord, useComplianceCheck, useComplianceTypes, useAuthorizationCenters,
+  useVerifyComplianceRecordExternally,
 } from '@/hooks/useConformite'
 import { useAttachments } from '@/hooks/useSettings'
 import type { ComplianceRecord } from '@/types/api'
@@ -70,6 +71,7 @@ const STATUS_LABELS: Record<string, string> = {
 type FormData = {
   compliance_type_id: string
   status: string
+  title: string
   issued_at: string
   expires_at: string
   issuer_tier_id: string
@@ -81,6 +83,7 @@ type FormData = {
 const EMPTY_FORM: FormData = {
   compliance_type_id: '',
   status: 'pending',
+  title: '',
   issued_at: '',
   expires_at: '',
   issuer_tier_id: '',
@@ -118,6 +121,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
   const { data: typesData } = useComplianceTypes({ page_size: 200 })
   const createRecord = useCreateComplianceRecord()
   const updateRecord = useUpdateComplianceRecord()
+  const verifyExternalRecord = useVerifyComplianceRecordExternally()
   const deleteRecord = useDeleteComplianceRecord()
 
   const [showForm, setShowForm] = useState(false)
@@ -221,6 +225,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
     setForm({
       compliance_type_id: rec.compliance_type_id,
       status: rec.status,
+      title: rec.title || '',
       issued_at: rec.issued_at?.slice(0, 10) || '',
       expires_at: rec.expires_at?.slice(0, 10) || '',
       issuer_tier_id: rec.issuer_tier_id || '',
@@ -258,6 +263,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           id: editingId,
           payload: {
             status: form.status,
+            title: form.title || null,
             issued_at: form.issued_at || null,
             expires_at: form.expires_at || null,
             issuer_tier_id: form.issuer_tier_id || null,
@@ -274,6 +280,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           owner_type: ownerType,
           owner_id: ownerId,
           status: form.status,
+          title: form.title || null,
           issued_at: form.issued_at || null,
           expires_at: form.expires_at || null,
           issuer_tier_id: form.issuer_tier_id || null,
@@ -302,6 +309,29 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
       toast({ title: t('common.deleted'), variant: 'success' })
     } catch {
       toast({ title: t('common.error'), variant: 'error' })
+    }
+  }
+
+  const canVerifyExternally = (rec: ComplianceRecord) => {
+    const source = rec.type_compliance_source || ''
+    return rec.type_external_provider === 'riseup' && ['external', 'both'].includes(source)
+  }
+
+  const handleExternalVerify = async (rec: ComplianceRecord) => {
+    try {
+      const updated = await verifyExternalRecord.mutateAsync(rec.id)
+      toast({
+        title: t('conformite.records.external_verify_success'),
+        description: updated.title || updated.type_name || undefined,
+        variant: 'success',
+      })
+    } catch (err) {
+      const typed = err as { response?: { data?: { detail?: string } } }
+      toast({
+        title: t('conformite.records.external_verify_error'),
+        description: typed?.response?.data?.detail || undefined,
+        variant: 'error',
+      })
     }
   }
 
@@ -397,7 +427,12 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                         <span className={cn('chip text-[9px] shrink-0', STATUS_STYLES[rec.status] || '')}>
                           {STATUS_LABELS[rec.status] || rec.status}
                         </span>
-                        <span className="flex-1 truncate font-medium">{rec.type_name || rec.compliance_type_id}</span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block truncate font-medium">{rec.title || rec.type_name || rec.compliance_type_id}</span>
+                          {rec.title && rec.type_name && rec.title !== rec.type_name && (
+                            <span className="block truncate text-[10px] text-muted-foreground">{rec.type_name}</span>
+                          )}
+                        </span>
                         {rec.issued_at && (
                           <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title={t('shared.date_emission')}>
                             {formatDate(rec.issued_at)}
@@ -420,7 +455,17 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                         >
                           <Paperclip size={10} />
                         </button>
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
+                          {canVerifyExternally(rec) && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleExternalVerify(rec) }}
+                              className="p-0.5 rounded hover:bg-muted text-muted-foreground"
+                              title={t('conformite.records.verify_external')}
+                              disabled={verifyExternalRecord.isPending}
+                            >
+                              {verifyExternalRecord.isPending ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                            </button>
+                          )}
                           <button onClick={(e) => { e.stopPropagation(); openEdit(rec) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground" title="Modifier">
                             <Pencil size={10} />
                           </button>
@@ -492,7 +537,10 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                       className="w-full grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(180px,1.5fr)_90px_110px_110px_110px_minmax(120px,1fr)_50px] gap-2 items-center px-2.5 py-2 text-xs text-left hover:bg-muted/30"
                     >
                       <span className="min-w-0">
-                        <span className="block font-medium truncate">{rec.type_name || rec.compliance_type_id}</span>
+                        <span className="block font-medium truncate">{rec.title || rec.type_name || rec.compliance_type_id}</span>
+                        {rec.title && rec.type_name && rec.title !== rec.type_name && (
+                          <span className="block text-[10px] text-muted-foreground truncate">{rec.type_name}</span>
+                        )}
                         <span className="md:hidden block text-[10px] text-muted-foreground truncate">
                           {rec.reference_number || 'Sans référence'} · {rec.issuer_tier_name || rec.issuer || 'Émetteur non renseigné'}
                         </span>
@@ -564,6 +612,16 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           )}
 
           <div className="grid grid-cols-2 gap-2">
+            <div className="col-span-2">
+              <label className="text-[9px] text-muted-foreground block mb-0.5">{t('conformite.records.fields.title')}</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
+                placeholder={t('conformite.records.placeholders.title')}
+              />
+            </div>
             <div>
               <label className="text-[9px] text-muted-foreground block mb-0.5">Statut</label>
               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background">
@@ -622,7 +680,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[9px] text-muted-foreground block mb-0.5">{t('conformite.records.reference_number')}</label>
+              <label className="text-[9px] text-muted-foreground block mb-0.5">{t('conformite.records.fields.reference_number')}</label>
               <input type="text" value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="REF-2024-001..." />
             </div>
             <div>

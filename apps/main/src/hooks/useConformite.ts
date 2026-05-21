@@ -236,6 +236,18 @@ export function useUpdateComplianceRecord() {
   })
 }
 
+export function useVerifyComplianceRecordExternally() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => conformiteService.verifyRecordExternally(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['compliance-records'] })
+      qc.invalidateQueries({ queryKey: ['compliance-check'] })
+      qc.invalidateQueries({ queryKey: ['pending-verifications'] })
+    },
+  })
+}
+
 export function useDeleteComplianceRecord() {
   const qc = useQueryClient()
   return useMutation({

@@ -3848,6 +3848,9 @@
     "records": {
       "create": "New record",
       "create_success": "Record created",
+      "external_verify_success": "Certificate verified",
+      "external_verify_error": "Verification unavailable",
+      "verify_external": "Verify certificate",
       "detail_title": "Compliance record",
       "sections": {
         "general": "General",
@@ -3859,6 +3862,7 @@
         "owner_type": "Owner type",
         "owner_id": "Owner identifier",
         "status": "Status",
+        "title": "Certificate title",
         "issued_at": "Issue date",
         "expires_at": "Expiry date",
         "issuer": "Issuer",
@@ -3867,6 +3871,7 @@
       },
       "placeholders": {
         "type": "Search a type...",
+        "title": "Exact title returned by the issuer...",
         "owner_id": "UUID or business identifier of the owner",
         "notes": "Additional information..."
       },

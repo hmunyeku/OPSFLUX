@@ -1152,6 +1152,7 @@ export interface ComplianceRecord {
   owner_type: string
   owner_id: string
   status: 'valid' | 'expired' | 'pending' | 'rejected'
+  title: string | null
   issued_at: string | null
   expires_at: string | null
   issuer: string | null
@@ -1159,12 +1160,18 @@ export interface ComplianceRecord {
   issuer_tier_name?: string | null
   reference_number: string | null
   notes: string | null
+  external_verification_provider: string | null
+  external_verification_id: string | null
+  external_verification_checked_at: string | null
+  external_verification_payload?: Record<string, unknown> | null
   verified_by: string | null
   created_by: string
   active: boolean
   created_at: string
   type_name?: string | null
   type_category?: string | null
+  type_compliance_source?: string | null
+  type_external_provider?: string | null
   attachment_count?: number
 }
 
@@ -1173,6 +1180,7 @@ export interface ComplianceRecordCreate {
   owner_type: string
   owner_id: string
   status?: string
+  title?: string | null
   issued_at?: string | null
   expires_at?: string | null
   issuer?: string | null
@@ -1184,6 +1192,7 @@ export interface ComplianceRecordCreate {
 
 export interface ComplianceRecordUpdate {
   status?: string
+  title?: string | null
   issued_at?: string | null
   expires_at?: string | null
   issuer?: string | null

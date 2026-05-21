@@ -63,6 +63,7 @@ function CreateComplianceRecordInner() {
     owner_type: prefillOwnerType,
     owner_id: prefillOwnerId,
     status: 'pending',
+    title: null,
     issued_at: null,
     expires_at: null,
     issuer: null,
@@ -258,6 +259,15 @@ function CreateComplianceRecordInner() {
 
         <SmartFormSection id="t_conformite_records_sections_reference" title={t('conformite.records.sections.reference')} level="essential" help={{ description: t('conformite.records.sections.reference') }}>
           <FormGrid>
+            <DynamicPanelField label={t('conformite.records.fields.title')} span="full">
+              <input
+                type="text"
+                value={form.title ?? ''}
+                onChange={(e) => setForm({ ...form, title: e.target.value || null })}
+                className={panelInputClass}
+                placeholder={t('conformite.records.placeholders.title')}
+              />
+            </DynamicPanelField>
             <DynamicPanelField label={t('conformite.records.fields.issued_at')}>
               <input type="date" value={form.issued_at ?? ''} onChange={(e) => setForm({ ...form, issued_at: e.target.value || null })} className={panelInputClass} />
             </DynamicPanelField>

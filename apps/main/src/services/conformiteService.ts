@@ -127,6 +127,11 @@ export const conformiteService = {
     return data
   },
 
+  verifyRecordExternally: async (id: string): Promise<ComplianceRecord> => {
+    const { data } = await api.post(`/api/v1/conformite/records/${id}/external-verify`)
+    return data
+  },
+
   deleteRecord: async (id: string): Promise<void> => {
     await api.delete(`/api/v1/conformite/records/${id}`)
   },

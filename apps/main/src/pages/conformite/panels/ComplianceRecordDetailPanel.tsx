@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileCheck, Trash2, Loader2, Info, Paperclip, CheckCircle2, XCircle } from 'lucide-react'
+import { FileCheck, Trash2, Loader2, Info, Paperclip, CheckCircle2, XCircle, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TabBar } from '@/components/ui/Tabs'
 import {
@@ -21,7 +21,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { normalizeNames } from '@/lib/normalize'
 import {
   useComplianceRecords, useUpdateComplianceRecord, useDeleteComplianceRecord,
-  useVerifyRecord, useComplianceTypes, useAuthorizationCenters,
+  useVerifyRecord, useComplianceTypes, useAuthorizationCenters, useVerifyComplianceRecordExternally,
 } from '@/hooks/useConformite'
 import type { ComplianceRecordUpdate } from '@/types/api'
 import { useConformiteDictionaryState } from '../shared'
@@ -39,6 +39,7 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
   const updateRecord = useUpdateComplianceRecord()
   const deleteRecord = useDeleteComplianceRecord()
   const verifyRecord = useVerifyRecord()
+  const verifyExternalRecord = useVerifyComplianceRecordExternally()
   const { toast } = useToast()
   const confirm = useConfirm()
   const { hasPermission } = usePermission()
@@ -105,6 +106,24 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
     }
   }, [verifyRecord, id, confirm, toast, t])
 
+  const handleExternalVerify = useCallback(async () => {
+    try {
+      const updated = await verifyExternalRecord.mutateAsync(id)
+      toast({
+        title: t('conformite.records.external_verify_success'),
+        description: updated.title || updated.type_name || undefined,
+        variant: 'success',
+      })
+    } catch (err) {
+      const detail = extractApiError(err)
+      toast({
+        title: t('conformite.records.external_verify_error'),
+        description: detail || undefined,
+        variant: 'error',
+      })
+    }
+  }, [verifyExternalRecord, id, toast, t])
+
   const handleSave = useCallback((payload: ComplianceRecordUpdate) => {
     updateRecord.mutate({ id, payload: normalizeNames(payload) })
   }, [id, updateRecord])
@@ -135,6 +154,17 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
         onClick: handleReject,
       })
     }
+    if (record?.type_external_provider === 'riseup' && ['external', 'both'].includes(record.type_compliance_source || '')) {
+      items.push({
+        id: 'external-verify',
+        label: t('conformite.records.verify_external'),
+        icon: RefreshCw,
+        variant: 'default',
+        priority: 12,
+        loading: verifyExternalRecord.isPending,
+        onClick: handleExternalVerify,
+      })
+    }
     items.push({
       id: 'delete',
       label: t('common.delete'),
@@ -144,7 +174,7 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
       onClick: handleDelete,
     })
     return items
-  }, [t, handleDelete, handleVerify, handleReject, record?.status, record?.attachment_count, canVerify, verifyRecord.isPending])
+  }, [t, handleDelete, handleVerify, handleReject, handleExternalVerify, record?.status, record?.attachment_count, record?.type_external_provider, record?.type_compliance_source, canVerify, verifyRecord.isPending, verifyExternalRecord.isPending])
 
   if (!record) {
     return (
@@ -165,7 +195,7 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
 
   return (
     <DynamicPanelShell
-      title={record.type_name || t('conformite.records.detail_title')}
+      title={record.title || record.type_name || t('conformite.records.detail_title')}
       subtitle={record.reference_number || record.owner_type}
       icon={<FileCheck size={14} className="text-primary" />}
       actionItems={actionItems}
@@ -186,6 +216,7 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
           <FormSection title={t('conformite.records.sections.general')}>
             <DetailFieldGrid>
               <ReadOnlyRow label={t('conformite.records.fields.type')} value={record.type_name || '—'} />
+              <InlineEditableRow label={t('conformite.records.fields.title')} value={record.title || ''} onSave={(value) => handleSave({ title: value || null })} />
               <ReadOnlyRow label={t('conformite.records.fields.status')} value={<span className={cn('chip', statusClass)}>{statusLabels[record.status] ?? record.status}</span>} />
               <ReadOnlyRow label={t('common.created_at')} value={record.created_at ? formatDate(record.created_at) : '—'} />
             </DetailFieldGrid>

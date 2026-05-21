@@ -3944,6 +3944,9 @@
     "records": {
       "create": "Nouvel enregistrement",
       "create_success": "Enregistrement créé",
+      "external_verify_success": "Certificat vérifié",
+      "external_verify_error": "Vérification impossible",
+      "verify_external": "Vérifier le certificat",
       "detail_title": "Enregistrement de conformité",
       "sections": {
         "general": "Général",
@@ -3955,6 +3958,7 @@
         "owner_type": "Type de propriétaire",
         "owner_id": "Identifiant du propriétaire",
         "status": "Statut",
+        "title": "Titre du certificat",
         "issued_at": "Date d'émission",
         "expires_at": "Date d'expiration",
         "issuer": "Émetteur",
@@ -3963,6 +3967,7 @@
       },
       "placeholders": {
         "type": "Rechercher un type...",
+        "title": "Titre exact retourné par l'émetteur...",
         "owner_id": "UUID ou identifiant métier du propriétaire",
         "notes": "Informations complémentaires..."
       },

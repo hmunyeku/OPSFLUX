@@ -213,7 +213,14 @@ export function ConformitePage() {
     // Reordered per UX feedback: propriétaire (nom + avatar) EN PREMIER pour
     // que le vérificateur identifie immédiatement à qui appartient la ligne.
     { accessorKey: 'owner_type', header: t('conformite.columns.owner'), size: 200, cell: ({ row }) => <ComplianceOwnerCell ownerType={row.original.owner_type} ownerId={row.original.owner_id} /> },
-    { accessorKey: 'type_name', header: t('conformite.columns.type'), size: 180, cell: ({ row }) => <span className="text-foreground font-medium">{row.original.type_name || '--'}</span> },
+    { accessorKey: 'type_name', header: t('conformite.columns.type'), size: 220, cell: ({ row }) => (
+      <span className="min-w-0">
+        <span className="block text-foreground font-medium truncate">{row.original.title || row.original.type_name || '--'}</span>
+        {row.original.title && row.original.type_name && row.original.title !== row.original.type_name && (
+          <span className="block text-[10px] text-muted-foreground truncate">{row.original.type_name}</span>
+        )}
+      </span>
+    ) },
     { accessorKey: 'type_category', header: t('conformite.columns.category'), size: 110, cell: ({ row }) => <span className="chip">{row.original.type_category || '--'}</span> },
     { accessorKey: 'status', header: t('conformite.columns.status'), size: 100, cell: ({ row }) => {
       const s = row.original.status

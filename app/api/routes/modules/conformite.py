@@ -14,11 +14,13 @@ from app.core.database import get_db
 from app.core.references import generate_reference
 from app.services.core.delete_service import delete_entity, get_delete_policy
 from app.services.modules import compliance_service
+from app.services.connectors.compliance_connector import create_connector
+from app.services.modules.compliance_external_verification import apply_external_certificate_result
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     ComplianceType, ComplianceTypeAuthorizedCenter, ComplianceRule, ComplianceRuleHistory, ComplianceRecord, ComplianceExemption,
-    Entity, JobPosition, TierContactTransfer, TierContact, Tier, Attachment,
+    Entity, JobPosition, TierContactTransfer, TierContact, Tier, Attachment, ContactEmail,
     User, UserEmail, Phone, Setting,
 )
 from app.schemas.common import (
@@ -539,6 +541,94 @@ async def _validate_riseup_issuer(
         )
 
 
+async def _resolve_external_record_owner_identity(
+    db: AsyncSession,
+    record: ComplianceRecord,
+) -> tuple[str, str | None]:
+    """Return the best email / RH id identity for an external compliance API."""
+    if record.owner_type == "user":
+        user = await db.get(User, record.owner_id)
+        if not user:
+            raise HTTPException(status_code=422, detail="Utilisateur introuvable pour la verification externe.")
+        return user.email, user.intranet_id
+
+    if record.owner_type == "tier_contact":
+        contact = await db.get(TierContact, record.owner_id)
+        if not contact:
+            raise HTTPException(status_code=422, detail="Contact introuvable pour la verification externe.")
+        linked_user = (
+            await db.execute(select(User).where(User.tier_contact_id == contact.id).limit(1))
+        ).scalar_one_or_none()
+        if linked_user:
+            return linked_user.email, linked_user.intranet_id
+        email = contact.email
+        if not email:
+            email = (
+                await db.execute(
+                    select(ContactEmail.email)
+                    .where(ContactEmail.owner_type == "tier_contact", ContactEmail.owner_id == contact.id)
+                    .order_by(ContactEmail.is_default.desc(), ContactEmail.created_at.asc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+        if email:
+            return email, None
+
+    raise HTTPException(
+        status_code=422,
+        detail="Aucune identite compatible avec le connecteur externe n'a ete trouvee pour ce certificat.",
+    )
+
+
+async def _fetch_external_certificate_record(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    compliance_type: ComplianceType,
+    record: ComplianceRecord,
+):
+    provider_id = compliance_type.external_provider
+    if not provider_id or compliance_type.compliance_source not in {"external", "both"}:
+        raise HTTPException(status_code=422, detail="Ce referentiel n'est pas raccorde a un connecteur externe.")
+
+    mapping = compliance_type.external_mapping or {}
+    external_type_id = mapping.get("certificate_id") or mapping.get("training_id")
+    if not external_type_id:
+        raise HTTPException(status_code=422, detail="Aucun identifiant externe n'est configure pour ce referentiel.")
+
+    cfg = await compliance_service._get_connector_settings(  # type: ignore[attr-defined]
+        db,
+        entity_id=entity_id,
+        prefix=f"integration.{provider_id}",
+    )
+    connector = await create_connector(provider_id, cfg)
+    if not connector:
+        raise HTTPException(status_code=422, detail="Connecteur externe indisponible ou mal configure.")
+
+    email, intranet_id = await _resolve_external_record_owner_identity(db, record)
+    match = await connector.match_user(email=email, intranet_id=intranet_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Aucun utilisateur correspondant trouve chez l'emetteur.")
+
+    if mapping.get("certificate_id"):
+        external = await connector.get_certificate_status(
+            external_user_id=match.external_user_id,
+            external_certificate_id=str(external_type_id),
+        )
+        if external:
+            return external
+
+    external_records = await connector.get_user_compliance(
+        external_user_id=match.external_user_id,
+        type_mapping={str(compliance_type.id): str(external_type_id)},
+    )
+    for external in external_records:
+        if external.type_external_id == str(external_type_id):
+            return external
+
+    raise HTTPException(status_code=404, detail="Certificat introuvable chez l'emetteur.")
+
+
 @router.get(
     "/authorization-centers",
     response_model=PaginatedResponse[TierRead],
@@ -923,6 +1013,8 @@ async def list_compliance_records(
             ComplianceRecord,
             ComplianceType.name.label("type_name"),
             ComplianceType.category.label("type_category"),
+            ComplianceType.compliance_source.label("type_compliance_source"),
+            ComplianceType.external_provider.label("type_external_provider"),
             IssuerTier.name.label("issuer_tier_name"),
             sqla_func.coalesce(attachment_sq.c.attachment_count, 0).label("attachment_count"),
         )
@@ -952,6 +1044,7 @@ async def list_compliance_records(
         like = f"%{search}%"
         query = query.where(
             ComplianceType.name.ilike(like)
+            | ComplianceRecord.title.ilike(like)
             | ComplianceRecord.reference_number.ilike(like)
             | ComplianceRecord.issuer.ilike(like)
             | IssuerTier.name.ilike(like)
@@ -989,8 +1082,10 @@ async def list_compliance_records(
             d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
             d["type_name"] = row[1] if hasattr(row, '__getitem__') else getattr(row, 'type_name', None)
             d["type_category"] = row[2] if hasattr(row, '__getitem__') else getattr(row, 'type_category', None)
-            d["issuer_tier_name"] = row[3] if hasattr(row, '__getitem__') else getattr(row, 'issuer_tier_name', None)
-            d["attachment_count"] = int((row[4] if hasattr(row, '__getitem__') else getattr(row, 'attachment_count', 0)) or 0)
+            d["type_compliance_source"] = row[3] if hasattr(row, '__getitem__') else getattr(row, 'type_compliance_source', None)
+            d["type_external_provider"] = row[4] if hasattr(row, '__getitem__') else getattr(row, 'type_external_provider', None)
+            d["issuer_tier_name"] = row[5] if hasattr(row, '__getitem__') else getattr(row, 'issuer_tier_name', None)
+            d["attachment_count"] = int((row[6] if hasattr(row, '__getitem__') else getattr(row, 'attachment_count', 0)) or 0)
             return d
         except (IndexError, AttributeError):
             # Fallback: return the record as-is if row format is unexpected
@@ -1109,6 +1204,8 @@ async def create_compliance_record(
     d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
     d["type_name"] = ct.name if ct else None
     d["type_category"] = ct.category if ct else None
+    d["type_compliance_source"] = ct.compliance_source if ct else None
+    d["type_external_provider"] = ct.external_provider if ct else None
     d["issuer_tier_name"] = issuer_tier.name if issuer_tier else None
     d["attachment_count"] = await _count_record_proof(db, record_type="compliance_record", record=rec)
     return d
@@ -1172,10 +1269,66 @@ async def update_compliance_record(
     d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
     d["type_name"] = ct.name if ct else None
     d["type_category"] = ct.category if ct else None
+    d["type_compliance_source"] = ct.compliance_source if ct else None
+    d["type_external_provider"] = ct.external_provider if ct else None
     if issuer_tier is None and rec.issuer_tier_id:
         issuer_tier = await db.get(Tier, rec.issuer_tier_id)
     d["issuer_tier_name"] = issuer_tier.name if issuer_tier else None
     d["attachment_count"] = 0
+    return d
+
+
+@router.post("/records/{record_id}/external-verify", response_model=ComplianceRecordRead)
+async def verify_compliance_record_with_external_issuer(
+    record_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.record.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ComplianceRecord).where(ComplianceRecord.id == record_id, ComplianceRecord.entity_id == entity_id)
+    )
+    rec = result.scalars().first()
+    if not rec:
+        raise StructuredHTTPException(
+            404,
+            code="RECORD_NOT_FOUND",
+            message="Record not found",
+        )
+    await _assert_external_owner_access(
+        db,
+        current_user,
+        entity_id,
+        owner_type=rec.owner_type,
+        owner_id=rec.owner_id,
+    )
+    ct = await db.get(ComplianceType, rec.compliance_type_id)
+    if not ct:
+        raise HTTPException(status_code=422, detail="Type de conformite introuvable.")
+    external = await _fetch_external_certificate_record(
+        db,
+        entity_id=entity_id,
+        compliance_type=ct,
+        record=rec,
+    )
+    apply_external_certificate_result(
+        rec,
+        external,
+        provider_id=ct.external_provider or "",
+        checked_by=current_user.id,
+        checked_at=datetime.now(timezone.utc),
+    )
+    await db.commit()
+    await db.refresh(rec)
+    issuer_tier = await db.get(Tier, rec.issuer_tier_id) if rec.issuer_tier_id else None
+    d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
+    d["type_name"] = ct.name
+    d["type_category"] = ct.category
+    d["type_compliance_source"] = ct.compliance_source
+    d["type_external_provider"] = ct.external_provider
+    d["issuer_tier_name"] = issuer_tier.name if issuer_tier else None
+    d["attachment_count"] = await _count_record_proof(db, record_type="compliance_record", record=rec)
     return d
 
 

@@ -1682,12 +1682,17 @@ class ComplianceRecord(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Bas
     owner_type: Mapped[str] = mapped_column(String(50), nullable=False)  # tier_contact, tier, asset, user
     owner_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="valid")  # valid, expired, pending, rejected
+    title: Mapped[str | None] = mapped_column(String(300))
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     issuer: Mapped[str | None] = mapped_column(String(200))  # organisme certificateur
     issuer_tier_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id", ondelete="SET NULL"))
     reference_number: Mapped[str | None] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text)
+    external_verification_provider: Mapped[str | None] = mapped_column(String(50))
+    external_verification_id: Mapped[str | None] = mapped_column(String(200))
+    external_verification_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    external_verification_payload: Mapped[dict | None] = mapped_column(JSONB)
     created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

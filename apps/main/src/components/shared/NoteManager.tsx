@@ -21,6 +21,7 @@ import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from '@/hooks/u
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/components/ui/Toast'
 import { RichTextDisplay, RichTextField } from '@/components/shared/RichTextField'
+import { cn } from '@/lib/utils'
 import type { Note } from '@/types/api'
 
 function formatDate(dateStr: string) {
@@ -163,7 +164,12 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
           <button
             onClick={handleCreate}
             disabled={isBlankRichText(content) || createNote.isPending}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className={cn(
+              'inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+              compact
+                ? 'h-7 w-7 border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+                : 'h-8 gap-1.5 bg-primary px-2.5 text-primary-foreground hover:bg-primary/90',
+            )}
             title={isBlankRichText(content) ? "Saisissez une note avant d'enregistrer" : 'Enregistrer la note'}
             type="button"
           >
@@ -172,7 +178,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
             ) : (
               <>
                 <Send size={12} />
-                <span>Enregistrer</span>
+                {!compact && <span>Enregistrer</span>}
               </>
             )}
           </button>

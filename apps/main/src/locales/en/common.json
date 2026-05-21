@@ -186,6 +186,7 @@
     "files": "Files",
     "select": "Select",
     "select_option": "Select...",
+    "choose_short": "Choose...",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "activate": "Activate",

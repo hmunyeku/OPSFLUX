@@ -196,7 +196,7 @@ export function ContactListSection({
       )}
 
       {/* Toolbar: search + add button */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 @[520px]:flex-row @[520px]:items-center">
         {contacts.length > 5 && (
           <div className="flex-1 relative">
             <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />

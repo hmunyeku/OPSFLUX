@@ -1094,8 +1094,8 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
           )}
 
           {showBlockForm && (
-            <div className="border border-border rounded-md p-3 mb-3 space-y-2 bg-muted/30">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="@container border border-border rounded-md p-3 mb-3 space-y-2 bg-muted/30">
+              <div className="grid grid-cols-1 gap-2 @[520px]:grid-cols-2">
                 <div>
                   <label className="text-[10px] font-medium text-muted-foreground">{t('tiers.ui.block_type')}</label>
                   <select value={blockType} onChange={(e) => setBlockType(e.target.value)} className={panelInputClass}>
@@ -1177,8 +1177,8 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                   <Plus size={11} /> {t('tiers.ui.add_external_ref')}
                 </button>
               ) : (
-                <div className="border border-border rounded-md p-3 space-y-2 bg-muted/30">
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="@container border border-border rounded-md p-3 space-y-2 bg-muted/30">
+                  <div className="grid grid-cols-1 gap-2 @[520px]:grid-cols-2">
                     <div>
                       <label className="text-[10px] font-medium text-muted-foreground">{t('tiers.ui.system')}</label>
                       <select value={refSystem} onChange={(e) => setRefSystem(e.target.value)} className={panelInputClass}>
@@ -1262,7 +1262,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
       <PanelContentLayout>
         <FormSection title={`${t('tiers.ui.related_projects')} (${relatedProjects?.total ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-projets">
           {projectList.length > 0 ? (
-            <div className="space-y-2">
+            <div className="@container space-y-2">
               <div className="grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground @[520px]:grid-cols-3 @[760px]:grid-cols-5">
                 {[
                   { label: 'Projets', value: relatedProjects?.total ?? projectList.length, icon: FolderKanban },
@@ -1307,7 +1307,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                   </div>
                   <div className="mt-1 text-lg font-semibold tabular-nums">{projectSummary.sensitive}</div>
                 </div>
-                <div className="col-span-2 rounded-md border border-border/60 bg-background px-3 py-2 xl:col-span-1">
+                <div className="col-span-2 rounded-md border border-border/60 bg-background px-3 py-2">
                   <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
                     <CircleDollarSign size={11} />
                     Budget
@@ -1318,7 +1318,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-md border border-border/60 bg-background">
+              <div className="@container min-w-0 overflow-hidden rounded-md border border-border/60 bg-background">
                 <div className="hidden grid-cols-[minmax(0,1.3fr)_130px_150px_110px] gap-3 border-b border-border/50 bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground @[720px]:grid">
                   <div>Projet</div>
                   <div>Planning</div>
@@ -1379,7 +1379,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
 
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                          <span className="lg:hidden">Progression</span>
+                          <span className="@[720px]:hidden">Progression</span>
                           <span className="font-semibold tabular-nums text-foreground">{project.progress ?? 0}%</span>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-muted">

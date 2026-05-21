@@ -767,8 +767,8 @@ function AddConnectorDialog({
   }, [activeConnectorIds])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm">
+      <div className="flex max-h-[min(760px,calc(100vh-1.5rem))] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
@@ -781,16 +781,16 @@ function AddConnectorDialog({
         </div>
 
         {/* Search + filter */}
-        <div className="px-4 py-3 border-b border-border/50 space-y-2 shrink-0">
+        <div className="shrink-0 space-y-2 border-b border-border/50 px-4 py-3">
           <input
             type="text"
-            className="gl-form-input text-sm w-full"
+            className="gl-form-input h-9 w-full text-sm"
             placeholder={t('settings.rechercher_un_service')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             autoFocus
           />
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
               onClick={() => setSelectedCategory(null)}
               className={!selectedCategory ? 'btn-sm btn-primary' : 'btn-sm btn-secondary'}
@@ -813,7 +813,7 @@ function AddConnectorDialog({
         </div>
 
         {/* Grid of available services */}
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {available.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-sm text-muted-foreground">
@@ -823,20 +823,22 @@ function AddConnectorDialog({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {available.map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => { onAdd(c.id); onClose() }}
-                  className="btn btn-secondary flex-col text-center group"
+                  className="group flex min-h-[72px] items-center gap-3 rounded-lg border border-border/70 bg-background/60 px-3 py-2.5 text-left transition-colors hover:border-primary/50 hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
                 >
-                  <span className="text-2xl">{c.icon}</span>
-                  <span className="text-xs font-semibold text-foreground">{c.name}</span>
-                  <span className="text-[10px] text-muted-foreground line-clamp-2 leading-snug">{c.description}</span>
-                  <span className="mt-auto pt-1">
-                    <Plus size={14} className="text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border/60 bg-accent/50 text-lg leading-none">
+                    <span className="block leading-none">{c.icon}</span>
                   </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-foreground">{c.name}</span>
+                    <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-muted-foreground">{c.description}</span>
+                  </span>
+                  <Plus size={15} className="shrink-0 text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
                 </button>
               ))}
             </div>

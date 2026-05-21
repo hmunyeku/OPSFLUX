@@ -756,7 +756,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
   // Tab navigation for TierDetailPanel — MUST be before early returns
   const [detailTab, setDetailTab] = useState<'fiche' | 'contacts' | 'conformite' | 'projets' | 'documents'>('fiche')
 
-  const handleInlineSave = useCallback((field: keyof TierCreate, value: string | number | null) => {
+  const handleInlineSave = useCallback((field: keyof TierCreate, value: string | number | boolean | null) => {
     updateTier.mutate({ id, payload: normalizeNames({ [field]: value } as Partial<TierCreate>) })
   }, [id, updateTier])
 
@@ -1046,6 +1046,34 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                 <SubSectionLabel icon={FileText} label={t('shared.identifiers.title')} count={identifiers?.length ?? 0} />
                 <LegalIdentifierManager ownerType="tier" ownerId={tier.id} compact />
               </div>
+            </FormSection>
+
+            <FormSection title="Centre d'habilitation" collapsible defaultExpanded={tier.is_authorization_center} storageKey="tier-detail-sections">
+              <DetailFieldGrid>
+                <InlineEditableSelect
+                  label="Centre habilité"
+                  value={tier.is_authorization_center ? 'true' : 'false'}
+                  displayValue={tier.is_authorization_center ? 'Oui' : 'Non'}
+                  options={[
+                    { value: 'true', label: 'Oui' },
+                    { value: 'false', label: 'Non' },
+                  ]}
+                  onSave={(v) => handleInlineSave('is_authorization_center', v === 'true')}
+                />
+                <InlineEditableRow
+                  label="Code centre"
+                  value={tier.authorization_center_code || ''}
+                  onSave={(v) => handleInlineSave('authorization_center_code', v)}
+                />
+                <InlineEditableRow
+                  label="URL de vérification certificat"
+                  value={tier.certificate_verification_url || ''}
+                  onSave={(v) => handleInlineSave('certificate_verification_url', v)}
+                />
+              </DetailFieldGrid>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Ces tiers peuvent ensuite être sélectionnés comme émetteurs autorisés dans les référentiels conformité.
+              </p>
             </FormSection>
           </div>
         </SectionColumns>

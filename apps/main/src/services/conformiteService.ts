@@ -4,13 +4,14 @@
 import api from '@/lib/api'
 import type {
   ComplianceType, ComplianceTypeCreate, ComplianceTypeUpdate,
+  ComplianceAuthorizedCenter, ComplianceAuthorizedCenterCreate, ComplianceAuthorizedCenterUpdate,
   ComplianceRule, ComplianceRuleCreate, ComplianceRuleUpdate, ComplianceRuleHistory,
   ComplianceRecord, ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceCheckResult,
   ComplianceExemption, ComplianceExemptionCreate, ComplianceExemptionUpdate,
   JobPosition, JobPositionCreate, JobPositionUpdate,
   TierContactTransfer, TierContactTransferCreate,
-  PaginatedResponse, PaginationParams,
+  PaginatedResponse, PaginationParams, Tier,
 } from '@/types/api'
 
 interface ComplianceTypeListParams extends PaginationParams {
@@ -26,6 +27,11 @@ interface ComplianceRecordListParams extends PaginationParams {
   category?: string
   search?: string
   history?: boolean
+}
+
+interface AuthorizationCenterListParams extends PaginationParams {
+  compliance_type_id?: string
+  search?: string
 }
 
 export const conformiteService = {
@@ -56,6 +62,30 @@ export const conformiteService = {
   },
 
   // ── Rules ──
+  listAuthorizationCenters: async (params: AuthorizationCenterListParams = {}): Promise<PaginatedResponse<Tier>> => {
+    const { data } = await api.get('/api/v1/conformite/authorization-centers', { params })
+    return data
+  },
+
+  listTypeAuthorizedCenters: async (typeId: string): Promise<ComplianceAuthorizedCenter[]> => {
+    const { data } = await api.get(`/api/v1/conformite/types/${typeId}/authorized-centers`)
+    return data
+  },
+
+  addTypeAuthorizedCenter: async (typeId: string, payload: ComplianceAuthorizedCenterCreate): Promise<ComplianceAuthorizedCenter> => {
+    const { data } = await api.post(`/api/v1/conformite/types/${typeId}/authorized-centers`, payload)
+    return data
+  },
+
+  updateTypeAuthorizedCenter: async (typeId: string, linkId: string, payload: ComplianceAuthorizedCenterUpdate): Promise<ComplianceAuthorizedCenter> => {
+    const { data } = await api.patch(`/api/v1/conformite/types/${typeId}/authorized-centers/${linkId}`, payload)
+    return data
+  },
+
+  removeTypeAuthorizedCenter: async (typeId: string, linkId: string): Promise<void> => {
+    await api.delete(`/api/v1/conformite/types/${typeId}/authorized-centers/${linkId}`)
+  },
+
   listRules: async (complianceTypeId?: string): Promise<ComplianceRule[]> => {
     const params = complianceTypeId ? { compliance_type_id: complianceTypeId } : {}
     const { data } = await api.get('/api/v1/conformite/rules', { params })

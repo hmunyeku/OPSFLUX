@@ -76,6 +76,7 @@ async def list_tiers(
     registration_number: str | None = None,
     city: str | None = None,
     is_blocked: bool | None = None,
+    is_authorization_center: bool | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -126,6 +127,8 @@ async def list_tiers(
         query = query.where(Tier.city.ilike(f"%{city}%"))
     if is_blocked is not None:
         query = query.where(Tier.is_blocked == is_blocked)
+    if is_authorization_center is not None:
+        query = query.where(Tier.is_authorization_center == is_authorization_center)
     if search:
         for word in search.split():
             like = f"%{word}%"

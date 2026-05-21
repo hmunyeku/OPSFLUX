@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, case, select, func as sqla_func, literal, any_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.database import get_db
@@ -16,19 +17,21 @@ from app.services.modules import compliance_service
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
-    ComplianceType, ComplianceRule, ComplianceRuleHistory, ComplianceRecord, ComplianceExemption,
+    ComplianceType, ComplianceTypeAuthorizedCenter, ComplianceRule, ComplianceRuleHistory, ComplianceRecord, ComplianceExemption,
     Entity, JobPosition, TierContactTransfer, TierContact, Tier, Attachment,
     User, UserEmail, Phone, Setting,
 )
 from app.schemas.common import (
     PaginatedResponse,
     ComplianceTypeCreate, ComplianceTypeRead, ComplianceTypeUpdate,
+    ComplianceAuthorizedCenterCreate, ComplianceAuthorizedCenterRead, ComplianceAuthorizedCenterUpdate,
     ComplianceRuleCreate, ComplianceRuleRead, ComplianceRuleUpdate, ComplianceRuleHistoryRead,
     ComplianceRecordCreate, ComplianceRecordRead, ComplianceRecordUpdate,
     ComplianceCheckResult,
     ComplianceExemptionCreate, ComplianceExemptionRead, ComplianceExemptionUpdate,
     JobPositionCreate, JobPositionRead, JobPositionUpdate,
     TierContactTransferCreate, TierContactTransferRead,
+    TierRead,
 )
 router = APIRouter(
     prefix="/api/v1/conformite",
@@ -423,6 +426,253 @@ async def delete_compliance_type(
 # ── Compliance Rules ──────────────────────────────────────────────────────
 
 
+def _authorized_center_payload(link: ComplianceTypeAuthorizedCenter, tier: Tier) -> dict:
+    return {
+        "id": link.id,
+        "entity_id": link.entity_id,
+        "compliance_type_id": link.compliance_type_id,
+        "tier_id": link.tier_id,
+        "tier_name": tier.name,
+        "tier_code": tier.code,
+        "authorization_center_code": tier.authorization_center_code,
+        "certificate_verification_url": tier.certificate_verification_url,
+        "active": link.active,
+        "notes": link.notes,
+        "created_at": link.created_at,
+    }
+
+
+async def _get_compliance_type_or_404(db: AsyncSession, type_id: UUID, entity_id: UUID) -> ComplianceType:
+    result = await db.execute(
+        select(ComplianceType).where(
+            ComplianceType.id == type_id,
+            ComplianceType.entity_id == entity_id,
+            ComplianceType.active == True,
+        )
+    )
+    ct = result.scalars().first()
+    if not ct or ct.entity_id != entity_id:
+        raise HTTPException(status_code=404, detail="Compliance type not found")
+    return ct
+
+
+async def _get_authorization_center_tier_or_422(db: AsyncSession, tier_id: UUID, entity_id: UUID) -> Tier:
+    result = await db.execute(
+        select(Tier).where(
+            Tier.id == tier_id,
+            Tier.entity_id == entity_id,
+            Tier.archived == False,
+            Tier.active == True,
+            Tier.is_authorization_center == True,
+        )
+    )
+    tier = result.scalars().first()
+    if not tier:
+        raise HTTPException(status_code=422, detail="Le tiers selectionne n'est pas un centre d'habilitation actif.")
+    return tier
+
+
+async def _validate_record_issuer(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    compliance_type_id: UUID,
+    issuer_tier_id: UUID | None,
+) -> Tier | None:
+    if issuer_tier_id is None:
+        return None
+    tier = await _get_authorization_center_tier_or_422(db, issuer_tier_id, entity_id)
+    configured_count = int(
+        await db.scalar(
+            select(sqla_func.count()).select_from(ComplianceTypeAuthorizedCenter).where(
+                ComplianceTypeAuthorizedCenter.entity_id == entity_id,
+                ComplianceTypeAuthorizedCenter.compliance_type_id == compliance_type_id,
+                ComplianceTypeAuthorizedCenter.active == True,
+            )
+        )
+        or 0
+    )
+    if configured_count > 0:
+        allowed = await db.scalar(
+            select(ComplianceTypeAuthorizedCenter.id).where(
+                ComplianceTypeAuthorizedCenter.entity_id == entity_id,
+                ComplianceTypeAuthorizedCenter.compliance_type_id == compliance_type_id,
+                ComplianceTypeAuthorizedCenter.tier_id == issuer_tier_id,
+                ComplianceTypeAuthorizedCenter.active == True,
+            )
+        )
+        if not allowed:
+            raise HTTPException(status_code=422, detail="Ce centre n'est pas habilite pour ce referentiel.")
+    return tier
+
+
+@router.get(
+    "/authorization-centers",
+    response_model=PaginatedResponse[TierRead],
+    dependencies=[require_permission("conformite.type.read")],
+)
+async def list_authorization_centers(
+    compliance_type_id: UUID | None = None,
+    search: str | None = None,
+    pagination: PaginationParams = Depends(),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(Tier).where(
+        Tier.entity_id == entity_id,
+        Tier.archived == False,
+        Tier.active == True,
+        Tier.is_authorization_center == True,
+    )
+    if compliance_type_id:
+        query = query.join(
+            ComplianceTypeAuthorizedCenter,
+            and_(
+                ComplianceTypeAuthorizedCenter.tier_id == Tier.id,
+                ComplianceTypeAuthorizedCenter.compliance_type_id == compliance_type_id,
+                ComplianceTypeAuthorizedCenter.entity_id == entity_id,
+                ComplianceTypeAuthorizedCenter.active == True,
+            ),
+        )
+    if search:
+        like = f"%{search}%"
+        query = query.where(
+            Tier.name.ilike(like)
+            | Tier.code.ilike(like)
+            | Tier.authorization_center_code.ilike(like)
+        )
+    query = query.order_by(Tier.name)
+
+    def _transform(row) -> dict:
+        tier = row[0] if hasattr(row, "__getitem__") else row
+        return {c.key: getattr(tier, c.key) for c in tier.__table__.columns} | {
+            "contact_count": 0,
+            "logo_attachment_id": None,
+        }
+
+    return await paginate(db, query, pagination, transform=_transform)
+
+
+@router.get(
+    "/types/{type_id}/authorized-centers",
+    response_model=list[ComplianceAuthorizedCenterRead],
+    dependencies=[require_permission("conformite.type.read")],
+)
+async def list_type_authorized_centers(
+    type_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_compliance_type_or_404(db, type_id, entity_id)
+    result = await db.execute(
+        select(ComplianceTypeAuthorizedCenter, Tier)
+        .join(Tier, ComplianceTypeAuthorizedCenter.tier_id == Tier.id)
+        .where(
+            ComplianceTypeAuthorizedCenter.entity_id == entity_id,
+            ComplianceTypeAuthorizedCenter.compliance_type_id == type_id,
+            Tier.archived == False,
+        )
+        .order_by(ComplianceTypeAuthorizedCenter.active.desc(), Tier.name)
+    )
+    return [_authorized_center_payload(link, tier) for link, tier in result.all()]
+
+
+@router.post(
+    "/types/{type_id}/authorized-centers",
+    response_model=ComplianceAuthorizedCenterRead,
+    status_code=201,
+    dependencies=[require_permission("conformite.type.update")],
+)
+async def add_type_authorized_center(
+    type_id: UUID,
+    body: ComplianceAuthorizedCenterCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_compliance_type_or_404(db, type_id, entity_id)
+    tier = await _get_authorization_center_tier_or_422(db, body.tier_id, entity_id)
+    result = await db.execute(
+        select(ComplianceTypeAuthorizedCenter).where(
+            ComplianceTypeAuthorizedCenter.entity_id == entity_id,
+            ComplianceTypeAuthorizedCenter.compliance_type_id == type_id,
+            ComplianceTypeAuthorizedCenter.tier_id == body.tier_id,
+        )
+    )
+    link = result.scalars().first()
+    if link:
+        link.active = True
+        link.notes = body.notes
+    else:
+        link = ComplianceTypeAuthorizedCenter(
+            entity_id=entity_id,
+            compliance_type_id=type_id,
+            tier_id=body.tier_id,
+            notes=body.notes,
+            active=True,
+        )
+        db.add(link)
+    await db.commit()
+    await db.refresh(link)
+    return _authorized_center_payload(link, tier)
+
+
+@router.patch(
+    "/types/{type_id}/authorized-centers/{link_id}",
+    response_model=ComplianceAuthorizedCenterRead,
+    dependencies=[require_permission("conformite.type.update")],
+)
+async def update_type_authorized_center(
+    type_id: UUID,
+    link_id: UUID,
+    body: ComplianceAuthorizedCenterUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ComplianceTypeAuthorizedCenter, Tier)
+        .join(Tier, ComplianceTypeAuthorizedCenter.tier_id == Tier.id)
+        .where(
+            ComplianceTypeAuthorizedCenter.id == link_id,
+            ComplianceTypeAuthorizedCenter.entity_id == entity_id,
+            ComplianceTypeAuthorizedCenter.compliance_type_id == type_id,
+        )
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Authorized center not found")
+    link, tier = row
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(link, field, value)
+    await db.commit()
+    await db.refresh(link)
+    return _authorized_center_payload(link, tier)
+
+
+@router.delete(
+    "/types/{type_id}/authorized-centers/{link_id}",
+    dependencies=[require_permission("conformite.type.update")],
+)
+async def remove_type_authorized_center(
+    type_id: UUID,
+    link_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ComplianceTypeAuthorizedCenter).where(
+            ComplianceTypeAuthorizedCenter.id == link_id,
+            ComplianceTypeAuthorizedCenter.entity_id == entity_id,
+            ComplianceTypeAuthorizedCenter.compliance_type_id == type_id,
+        )
+    )
+    link = result.scalars().first()
+    if not link:
+        raise HTTPException(status_code=404, detail="Authorized center not found")
+    link.active = False
+    await db.commit()
+    return {"detail": "Authorized center removed"}
+
+
 @router.get("/rules", response_model=list[ComplianceRuleRead], dependencies=[require_permission("conformite.rule.read")])
 async def list_compliance_rules(
     compliance_type_id: UUID | None = None,
@@ -622,6 +872,7 @@ async def list_compliance_records(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    IssuerTier = aliased(Tier)
     attachment_sq = (
         select(
             Attachment.owner_id.label("record_id"),
@@ -639,9 +890,11 @@ async def list_compliance_records(
             ComplianceRecord,
             ComplianceType.name.label("type_name"),
             ComplianceType.category.label("type_category"),
+            IssuerTier.name.label("issuer_tier_name"),
             sqla_func.coalesce(attachment_sq.c.attachment_count, 0).label("attachment_count"),
         )
         .join(ComplianceType, ComplianceRecord.compliance_type_id == ComplianceType.id)
+        .outerjoin(IssuerTier, ComplianceRecord.issuer_tier_id == IssuerTier.id)
         .outerjoin(attachment_sq, attachment_sq.c.record_id == ComplianceRecord.id)
         .where(ComplianceRecord.entity_id == entity_id)
     )
@@ -668,6 +921,7 @@ async def list_compliance_records(
             ComplianceType.name.ilike(like)
             | ComplianceRecord.reference_number.ilike(like)
             | ComplianceRecord.issuer.ilike(like)
+            | IssuerTier.name.ilike(like)
             | ComplianceRecord.notes.ilike(like)
         )
     query = query.order_by(ComplianceRecord.created_at.desc())
@@ -702,7 +956,8 @@ async def list_compliance_records(
             d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
             d["type_name"] = row[1] if hasattr(row, '__getitem__') else getattr(row, 'type_name', None)
             d["type_category"] = row[2] if hasattr(row, '__getitem__') else getattr(row, 'type_category', None)
-            d["attachment_count"] = int((row[3] if hasattr(row, '__getitem__') else getattr(row, 'attachment_count', 0)) or 0)
+            d["issuer_tier_name"] = row[3] if hasattr(row, '__getitem__') else getattr(row, 'issuer_tier_name', None)
+            d["attachment_count"] = int((row[4] if hasattr(row, '__getitem__') else getattr(row, 'attachment_count', 0)) or 0)
             return d
         except (IndexError, AttributeError):
             # Fallback: return the record as-is if row format is unexpected
@@ -739,6 +994,14 @@ async def create_compliance_record(
             code="TYPE_DE_CONFORMIT_INTROUVABLE",
             message="Type de conformité introuvable",
         )
+    issuer_tier = await _validate_record_issuer(
+        db,
+        entity_id=entity_id,
+        compliance_type_id=ct.id,
+        issuer_tier_id=data.get("issuer_tier_id"),
+    )
+    if issuer_tier and not data.get("issuer"):
+        data["issuer"] = issuer_tier.name
 
     now = datetime.now(timezone.utc)
     errors: list[str] = []
@@ -812,6 +1075,7 @@ async def create_compliance_record(
     d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
     d["type_name"] = ct.name if ct else None
     d["type_category"] = ct.category if ct else None
+    d["issuer_tier_name"] = issuer_tier.name if issuer_tier else None
     d["attachment_count"] = await _count_record_proof(db, record_type="compliance_record", record=rec)
     return d
 
@@ -845,6 +1109,16 @@ async def update_compliance_record(
     # Block updates on verified records unless user has conformite.verify permission
     await check_verified_lock(rec, current_user, entity_id=entity_id, db=db)
     updates = body.model_dump(exclude_unset=True)
+    issuer_tier = None
+    if "issuer_tier_id" in updates:
+        issuer_tier = await _validate_record_issuer(
+            db,
+            entity_id=entity_id,
+            compliance_type_id=rec.compliance_type_id,
+            issuer_tier_id=updates.get("issuer_tier_id"),
+        )
+        if issuer_tier and "issuer" not in updates:
+            updates["issuer"] = issuer_tier.name
     for field, value in updates.items():
         setattr(rec, field, value)
     # Auto-fix status when expiry date is corrected
@@ -860,6 +1134,9 @@ async def update_compliance_record(
     d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
     d["type_name"] = ct.name if ct else None
     d["type_category"] = ct.category if ct else None
+    if issuer_tier is None and rec.issuer_tier_id:
+        issuer_tier = await db.get(Tier, rec.issuer_tier_id)
+    d["issuer_tier_name"] = issuer_tier.name if issuer_tier else None
     d["attachment_count"] = 0
     return d
 

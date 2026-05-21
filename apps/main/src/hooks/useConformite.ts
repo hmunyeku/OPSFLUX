@@ -10,6 +10,7 @@ import type {
   ComplianceExemptionCreate, ComplianceExemptionUpdate,
   JobPositionCreate, JobPositionUpdate,
   TierContactTransferCreate,
+  ComplianceAuthorizedCenterCreate, ComplianceAuthorizedCenterUpdate,
 } from '@/types/api'
 
 // ── Dashboard KPIs ──
@@ -107,6 +108,59 @@ export function useDeleteComplianceType() {
 }
 
 // ── Rules ──
+
+export function useAuthorizationCenters(params: { page?: number; page_size?: number; compliance_type_id?: string; search?: string; enabled?: boolean } = {}) {
+  const { enabled = true, ...apiParams } = params
+  return useQuery({
+    queryKey: ['authorization-centers', apiParams],
+    queryFn: () => conformiteService.listAuthorizationCenters(apiParams),
+    enabled,
+  })
+}
+
+export function useTypeAuthorizedCenters(typeId?: string) {
+  return useQuery({
+    queryKey: ['compliance-type-authorized-centers', typeId],
+    queryFn: () => conformiteService.listTypeAuthorizedCenters(typeId!),
+    enabled: !!typeId,
+  })
+}
+
+export function useAddTypeAuthorizedCenter() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ typeId, payload }: { typeId: string; payload: ComplianceAuthorizedCenterCreate }) =>
+      conformiteService.addTypeAuthorizedCenter(typeId, payload),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['compliance-type-authorized-centers', variables.typeId] })
+      qc.invalidateQueries({ queryKey: ['authorization-centers'] })
+    },
+  })
+}
+
+export function useUpdateTypeAuthorizedCenter() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ typeId, linkId, payload }: { typeId: string; linkId: string; payload: ComplianceAuthorizedCenterUpdate }) =>
+      conformiteService.updateTypeAuthorizedCenter(typeId, linkId, payload),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['compliance-type-authorized-centers', variables.typeId] })
+      qc.invalidateQueries({ queryKey: ['authorization-centers'] })
+    },
+  })
+}
+
+export function useRemoveTypeAuthorizedCenter() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ typeId, linkId }: { typeId: string; linkId: string }) =>
+      conformiteService.removeTypeAuthorizedCenter(typeId, linkId),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['compliance-type-authorized-centers', variables.typeId] })
+      qc.invalidateQueries({ queryKey: ['authorization-centers'] })
+    },
+  })
+}
 
 export function useComplianceRules(complianceTypeId?: string) {
   return useQuery({

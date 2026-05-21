@@ -15,7 +15,7 @@ import {
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
-import { useComplianceTypes, useCreateComplianceRecord } from '@/hooks/useConformite'
+import { useComplianceTypes, useCreateComplianceRecord, useAuthorizationCenters } from '@/hooks/useConformite'
 import { attachmentsService } from '@/services/settingsService'
 import type { ComplianceRecordCreate } from '@/types/api'
 import { useConformiteDictionaryState } from '../shared'
@@ -63,8 +63,14 @@ function CreateComplianceRecordInner() {
     issued_at: null,
     expires_at: null,
     issuer: null,
+    issuer_tier_id: null,
     reference_number: null,
     notes: null,
+  })
+  const { data: authorizationCentersData } = useAuthorizationCenters({
+    compliance_type_id: form.compliance_type_id || undefined,
+    page_size: 100,
+    enabled: !!form.compliance_type_id,
   })
   // Attachment is required at creation — the verification rule enforces
   // 'no PJ = no validation', so we block the form before the backend can
@@ -82,6 +88,7 @@ function CreateComplianceRecordInner() {
       })),
     [typesData?.items],
   )
+  const authorizationCenters = authorizationCentersData?.items ?? []
 
   const ownerTypeOptions = useMemo(
     () => [
@@ -168,7 +175,7 @@ function CreateComplianceRecordInner() {
             <DynamicPanelField label={t('conformite.records.fields.type')} required span="full">
               <SearchableSelect
                 value={form.compliance_type_id}
-                onChange={(value) => setForm({ ...form, compliance_type_id: value })}
+                onChange={(value) => setForm({ ...form, compliance_type_id: value, issuer_tier_id: null, issuer: null })}
                 options={typeOptions}
                 placeholder={t('conformite.records.placeholders.type')}
               />
@@ -247,7 +254,25 @@ function CreateComplianceRecordInner() {
               <input type="date" value={form.expires_at ?? ''} onChange={(e) => setForm({ ...form, expires_at: e.target.value || null })} className={panelInputClass} />
             </DynamicPanelField>
             <DynamicPanelField label={t('conformite.records.fields.issuer')}>
-              <input type="text" value={form.issuer ?? ''} onChange={(e) => setForm({ ...form, issuer: e.target.value || null })} className={panelInputClass} />
+              {authorizationCenters.length > 0 ? (
+                <select
+                  value={form.issuer_tier_id ?? ''}
+                  onChange={(e) => {
+                    const center = authorizationCenters.find((item) => item.id === e.target.value)
+                    setForm({ ...form, issuer_tier_id: e.target.value || null, issuer: center?.name || null })
+                  }}
+                  className={panelInputClass}
+                >
+                  <option value="">Sélectionner un centre habilité...</option>
+                  {authorizationCenters.map((center) => (
+                    <option key={center.id} value={center.id}>
+                      {center.name}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input type="text" value={form.issuer ?? ''} onChange={(e) => setForm({ ...form, issuer: e.target.value || null, issuer_tier_id: null })} className={panelInputClass} />
+              )}
             </DynamicPanelField>
             <DynamicPanelField label={t('conformite.records.fields.reference_number')}>
               <input type="text" value={form.reference_number ?? ''} onChange={(e) => setForm({ ...form, reference_number: e.target.value || null })} className={panelInputClass} />

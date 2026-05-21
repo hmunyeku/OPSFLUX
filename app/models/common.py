@@ -759,6 +759,9 @@ class Tier(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     logo_url: Mapped[str | None] = mapped_column(String(500))
     type: Mapped[str | None] = mapped_column(String(50))  # client, supplier, subcontractor, partner
     website: Mapped[str | None] = mapped_column(String(500))
+    is_authorization_center: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    authorization_center_code: Mapped[str | None] = mapped_column(String(80))
+    certificate_verification_url: Mapped[str | None] = mapped_column(String(500))
     # Legacy convenience fields (kept for backwards compat; prefer polymorphic)
     phone: Mapped[str | None] = mapped_column(String(50))
     fax: Mapped[str | None] = mapped_column(String(50))
@@ -1578,6 +1581,34 @@ class ComplianceType(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     external_mapping: Mapped[dict | None] = mapped_column(JSONB)  # {"certificate_id": "42", ...}
 
     rules: Mapped[list["ComplianceRule"]] = relationship(back_populates="compliance_type", cascade="all, delete-orphan")
+    authorized_centers: Mapped[list["ComplianceTypeAuthorizedCenter"]] = relationship(
+        back_populates="compliance_type",
+        cascade="all, delete-orphan",
+    )
+
+
+class ComplianceTypeAuthorizedCenter(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Authorized issuing center for a compliance referential type."""
+    __tablename__ = "compliance_type_authorized_centers"
+    __table_args__ = (
+        UniqueConstraint("entity_id", "compliance_type_id", "tier_id", name="uq_compliance_type_authorized_centers"),
+        Index("idx_compliance_authorized_centers_entity", "entity_id"),
+        Index("idx_compliance_authorized_centers_type", "compliance_type_id"),
+        Index("idx_compliance_authorized_centers_tier", "tier_id"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    compliance_type_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("compliance_types.id", ondelete="CASCADE"), nullable=False
+    )
+    tier_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tiers.id", ondelete="CASCADE"), nullable=False
+    )
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    compliance_type: Mapped["ComplianceType"] = relationship(back_populates="authorized_centers")
+    tier: Mapped["Tier"] = relationship()
 
 
 class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
@@ -1654,12 +1685,14 @@ class ComplianceRecord(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Bas
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     issuer: Mapped[str | None] = mapped_column(String(200))  # organisme certificateur
+    issuer_tier_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id", ondelete="SET NULL"))
     reference_number: Mapped[str | None] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     compliance_type: Mapped["ComplianceType"] = relationship()
+    issuer_tier: Mapped["Tier | None"] = relationship(foreign_keys=[issuer_tier_id])
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
 
 

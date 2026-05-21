@@ -20,6 +20,7 @@ interface TierListParams extends PaginationParams {
   registration_number?: string
   city?: string
   is_blocked?: boolean
+  is_authorization_center?: boolean
 }
 
 export const tiersService = {

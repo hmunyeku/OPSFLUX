@@ -58,6 +58,9 @@ export interface Tier {
   logo_attachment_id: string | null
   type: string | null
   website: string | null
+  is_authorization_center: boolean
+  authorization_center_code: string | null
+  certificate_verification_url: string | null
   // Legacy convenience fields (prefer polymorphic phones/emails)
   phone: string | null
   fax: string | null
@@ -100,6 +103,9 @@ export interface TierCreate {
   logo_url?: string | null
   type?: string | null
   website?: string | null
+  is_authorization_center?: boolean
+  authorization_center_code?: string | null
+  certificate_verification_url?: string | null
   phone?: string | null
   fax?: string | null
   email?: string | null
@@ -1011,7 +1017,7 @@ export interface SearchResponse {
 export interface ComplianceType {
   id: string
   entity_id: string
-  category: 'formation' | 'certification' | 'habilitation' | 'audit' | 'medical'
+  category: 'formation' | 'certification' | 'habilitation' | 'audit' | 'medical' | 'epi'
   code: string
   name: string
   description: string | null
@@ -1022,6 +1028,30 @@ export interface ComplianceType {
   external_provider: string | null
   external_mapping: Record<string, string> | null
   created_at: string
+}
+
+export interface ComplianceAuthorizedCenter {
+  id: string
+  entity_id: string
+  compliance_type_id: string
+  tier_id: string
+  tier_name: string
+  tier_code: string | null
+  authorization_center_code: string | null
+  certificate_verification_url: string | null
+  active: boolean
+  notes: string | null
+  created_at: string
+}
+
+export interface ComplianceAuthorizedCenterCreate {
+  tier_id: string
+  notes?: string | null
+}
+
+export interface ComplianceAuthorizedCenterUpdate {
+  active?: boolean | null
+  notes?: string | null
 }
 
 export interface ComplianceTypeCreate {
@@ -1125,6 +1155,8 @@ export interface ComplianceRecord {
   issued_at: string | null
   expires_at: string | null
   issuer: string | null
+  issuer_tier_id: string | null
+  issuer_tier_name?: string | null
   reference_number: string | null
   notes: string | null
   verified_by: string | null
@@ -1144,6 +1176,7 @@ export interface ComplianceRecordCreate {
   issued_at?: string | null
   expires_at?: string | null
   issuer?: string | null
+  issuer_tier_id?: string | null
   reference_number?: string | null
   notes?: string | null
   staging_ref?: string | null
@@ -1154,6 +1187,7 @@ export interface ComplianceRecordUpdate {
   issued_at?: string | null
   expires_at?: string | null
   issuer?: string | null
+  issuer_tier_id?: string | null
   reference_number?: string | null
   notes?: string | null
 }

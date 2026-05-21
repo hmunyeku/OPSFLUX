@@ -24,7 +24,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
   useComplianceRecords, useCreateComplianceRecord, useUpdateComplianceRecord,
-  useDeleteComplianceRecord, useComplianceCheck, useComplianceTypes,
+  useDeleteComplianceRecord, useComplianceCheck, useComplianceTypes, useAuthorizationCenters,
 } from '@/hooks/useConformite'
 import { useAttachments } from '@/hooks/useSettings'
 import type { ComplianceRecord } from '@/types/api'
@@ -72,6 +72,7 @@ type FormData = {
   status: string
   issued_at: string
   expires_at: string
+  issuer_tier_id: string
   issuer: string
   reference_number: string
   notes: string
@@ -82,6 +83,7 @@ const EMPTY_FORM: FormData = {
   status: 'pending',
   issued_at: '',
   expires_at: '',
+  issuer_tier_id: '',
   issuer: '',
   reference_number: '',
   notes: '',
@@ -123,11 +125,18 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [stagingRef, setStagingRef] = useState(createStagingRef)
+  const { data: authorizationCentersData } = useAuthorizationCenters({
+    compliance_type_id: form.compliance_type_id || undefined,
+    page_size: 100,
+    enabled: showForm && !!form.compliance_type_id,
+  })
   const { data: stagedAttachments } = useAttachments(
     STAGING_OWNER_TYPE,
     showForm && !editingId ? stagingRef : undefined,
   )
   const stagedAttachmentCount = stagedAttachments?.length ?? 0
+  const authorizationCenters = authorizationCentersData?.items ?? []
+  const hasStructuredIssuers = authorizationCenters.length > 0
 
   // Group records by category
   const grouped = useMemo(() => {
@@ -204,6 +213,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
       status: rec.status,
       issued_at: rec.issued_at?.slice(0, 10) || '',
       expires_at: rec.expires_at?.slice(0, 10) || '',
+      issuer_tier_id: rec.issuer_tier_id || '',
       issuer: rec.issuer || '',
       reference_number: rec.reference_number || '',
       notes: rec.notes || '',
@@ -240,6 +250,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             status: form.status,
             issued_at: form.issued_at || null,
             expires_at: form.expires_at || null,
+            issuer_tier_id: form.issuer_tier_id || null,
             issuer: form.issuer || null,
             reference_number: form.reference_number || null,
             notes: form.notes || null,
@@ -255,6 +266,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           status: form.status,
           issued_at: form.issued_at || null,
           expires_at: form.expires_at || null,
+          issuer_tier_id: form.issuer_tier_id || null,
           issuer: form.issuer || null,
           reference_number: form.reference_number || null,
           notes: form.notes || null,
@@ -386,7 +398,11 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                             → {formatDate(rec.expires_at)}
                           </span>
                         )}
-                        {rec.issuer && <span className="text-[10px] text-muted-foreground truncate max-w-[80px]" title={rec.issuer}>{rec.issuer}</span>}
+                        {(rec.issuer_tier_name || rec.issuer) && (
+                          <span className="text-[10px] text-muted-foreground truncate max-w-[80px]" title={rec.issuer_tier_name || rec.issuer || undefined}>
+                            {rec.issuer_tier_name || rec.issuer}
+                          </span>
+                        )}
                         <button
                           onClick={(e) => { e.stopPropagation(); setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id) }}
                           className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0"
@@ -468,7 +484,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                       <span className="min-w-0">
                         <span className="block font-medium truncate">{rec.type_name || rec.compliance_type_id}</span>
                         <span className="md:hidden block text-[10px] text-muted-foreground truncate">
-                          {rec.reference_number || 'Sans référence'} · {rec.issuer || 'Émetteur non renseigné'}
+                          {rec.reference_number || 'Sans référence'} · {rec.issuer_tier_name || rec.issuer || 'Émetteur non renseigné'}
                         </span>
                       </span>
                       <span className={cn('chip text-[9px] shrink-0 justify-self-end md:justify-self-start', getRecordStatusStyle(rec))}>
@@ -477,7 +493,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                       <span className="hidden md:block text-muted-foreground truncate">{rec.reference_number || '—'}</span>
                       <span className="hidden md:block text-muted-foreground tabular-nums">{formatDate(rec.issued_at) || '—'}</span>
                       <span className="hidden md:block text-muted-foreground tabular-nums">{formatDate(rec.expires_at) || '—'}</span>
-                      <span className="hidden md:block text-muted-foreground truncate">{rec.issuer || '—'}</span>
+                      <span className="hidden md:block text-muted-foreground truncate">{rec.issuer_tier_name || rec.issuer || '—'}</span>
                       <span className="hidden md:flex items-center justify-end gap-1 text-muted-foreground">
                         <Paperclip size={11} />
                         {rec.attachment_count ?? 0}
@@ -487,7 +503,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                       <div className="px-3 py-2 bg-muted/20 border-t border-border/50 space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-muted-foreground">
                           <div><span className="font-medium text-foreground">Référence :</span> {rec.reference_number || '—'}</div>
-                          <div><span className="font-medium text-foreground">Émetteur :</span> {rec.issuer || '—'}</div>
+                          <div><span className="font-medium text-foreground">Émetteur :</span> {rec.issuer_tier_name || rec.issuer || '—'}</div>
                           <div><span className="font-medium text-foreground">Émission :</span> {formatDate(rec.issued_at) || '—'}</div>
                           <div><span className="font-medium text-foreground">Expiration :</span> {formatDate(rec.expires_at) || '—'}</div>
                           {rec.notes && <div className="sm:col-span-2"><span className="font-medium text-foreground">Notes :</span> {rec.notes}</div>}
@@ -525,7 +541,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           {!editingId && (
             <select
               value={form.compliance_type_id}
-              onChange={(e) => setForm({ ...form, compliance_type_id: e.target.value })}
+              onChange={(e) => setForm({ ...form, compliance_type_id: e.target.value, issuer_tier_id: '', issuer: '' })}
               className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
             >
               <option value="">{t('shared.selectionner_un_type')}</option>
@@ -548,7 +564,25 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             </div>
             <div>
               <label className="text-[9px] text-muted-foreground block mb-0.5">{t('conformite.columns.issuer')}</label>
-              <input type="text" value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="Organisme..." />
+              {hasStructuredIssuers ? (
+                <select
+                  value={form.issuer_tier_id}
+                  onChange={(e) => {
+                    const center = authorizationCenters.find((item) => item.id === e.target.value)
+                    setForm({ ...form, issuer_tier_id: e.target.value, issuer: center?.name || '' })
+                  }}
+                  className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
+                >
+                  <option value="">Sélectionner un centre...</option>
+                  {authorizationCenters.map((center) => (
+                    <option key={center.id} value={center.id}>
+                      {center.name}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input type="text" value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value, issuer_tier_id: '' })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="Organisme..." />
+              )}
             </div>
           </div>
 

@@ -445,6 +445,9 @@ class TierRead(OpsFluxSchema):
     logo_attachment_id: UUID | None = None
     type: str | None
     website: str | None = None
+    is_authorization_center: bool = False
+    authorization_center_code: str | None = None
+    certificate_verification_url: str | None = None
     # Legacy fields (prefer polymorphic phones/emails)
     phone: str | None = None
     fax: str | None = None
@@ -513,6 +516,9 @@ class TierCreate(BaseModel):
     logo_url: str | None = None
     type: str | None = None
     website: str | None = None
+    is_authorization_center: bool = False
+    authorization_center_code: str | None = Field(default=None, max_length=80)
+    certificate_verification_url: str | None = Field(default=None, max_length=500)
     phone: str | None = None
     fax: str | None = None
     email: str | None = None
@@ -584,6 +590,9 @@ class TierUpdate(BaseModel):
     logo_url: str | None = None
     type: str | None = None
     website: str | None = None
+    is_authorization_center: bool | None = None
+    authorization_center_code: str | None = Field(default=None, max_length=80)
+    certificate_verification_url: str | None = Field(default=None, max_length=500)
     phone: str | None = None
     fax: str | None = None
     email: str | None = None
@@ -1525,6 +1534,30 @@ class ComplianceTypeUpdate(BaseModel):
     external_mapping: dict | None = None
 
 
+class ComplianceAuthorizedCenterRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    compliance_type_id: UUID
+    tier_id: UUID
+    tier_name: str
+    tier_code: str | None = None
+    authorization_center_code: str | None = None
+    certificate_verification_url: str | None = None
+    active: bool
+    notes: str | None = None
+    created_at: datetime
+
+
+class ComplianceAuthorizedCenterCreate(BaseModel):
+    tier_id: UUID
+    notes: str | None = None
+
+
+class ComplianceAuthorizedCenterUpdate(BaseModel):
+    active: bool | None = None
+    notes: str | None = None
+
+
 class ComplianceRuleRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID
@@ -1605,6 +1638,8 @@ class ComplianceRecordRead(OpsFluxSchema):
     issued_at: datetime | None = None
     expires_at: datetime | None = None
     issuer: str | None = None
+    issuer_tier_id: UUID | None = None
+    issuer_tier_name: str | None = None
     reference_number: str | None = None
     notes: str | None = None
     created_by: UUID
@@ -1629,6 +1664,7 @@ class ComplianceRecordCreate(BaseModel):
     issued_at: datetime | None = None
     expires_at: datetime | None = None
     issuer: str | None = None
+    issuer_tier_id: UUID | None = None
     reference_number: str | None = None
     notes: str | None = None
     staging_ref: UUID | None = None
@@ -1639,6 +1675,7 @@ class ComplianceRecordUpdate(BaseModel):
     issued_at: datetime | None = None
     expires_at: datetime | None = None
     issuer: str | None = None
+    issuer_tier_id: UUID | None = None
     reference_number: str | None = None
     notes: str | None = None
 

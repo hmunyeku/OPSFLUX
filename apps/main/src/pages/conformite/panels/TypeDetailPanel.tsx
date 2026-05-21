@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ShieldCheck, Trash2, Loader2, Info, Paperclip } from 'lucide-react'
+import { ShieldCheck, Trash2, Loader2, Info, Paperclip, Building2, Plus, X } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import {
   DynamicPanelShell,
@@ -18,7 +18,11 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { normalizeNames } from '@/lib/normalize'
-import { useComplianceTypes, useUpdateComplianceType, useDeleteComplianceType } from '@/hooks/useConformite'
+import {
+  useComplianceTypes, useUpdateComplianceType, useDeleteComplianceType,
+  useAuthorizationCenters, useTypeAuthorizedCenters, useAddTypeAuthorizedCenter,
+  useUpdateTypeAuthorizedCenter, useRemoveTypeAuthorizedCenter,
+} from '@/hooks/useConformite'
 import { useConformiteDictionaryState } from '../shared'
 
 export function TypeDetailPanel({ id }: { id: string }) {
@@ -30,7 +34,14 @@ export function TypeDetailPanel({ id }: { id: string }) {
   const deleteType = useDeleteComplianceType()
   const { toast } = useToast()
   const { categoryLabels } = useConformiteDictionaryState()
-  const [detailTab, setDetailTab] = useState<'fiche' | 'documents'>('fiche')
+  const [detailTab, setDetailTab] = useState<'fiche' | 'emetteurs' | 'documents'>('fiche')
+  const [selectedCenterId, setSelectedCenterId] = useState('')
+  const [centerNotes, setCenterNotes] = useState('')
+  const { data: availableCenters } = useAuthorizationCenters({ page_size: 200 })
+  const { data: authorizedCenters } = useTypeAuthorizedCenters(id)
+  const addAuthorizedCenter = useAddTypeAuthorizedCenter()
+  const updateAuthorizedCenter = useUpdateTypeAuthorizedCenter()
+  const removeAuthorizedCenter = useRemoveTypeAuthorizedCenter()
 
   const handleSave = useCallback((field: string, value: string | boolean | number | null) => {
     updateType.mutate({ id, payload: normalizeNames({ [field]: value }) })
@@ -54,6 +65,17 @@ export function TypeDetailPanel({ id }: { id: string }) {
     closeDynamicPanel()
     toast({ title: t('conformite.toast.type_archived'), variant: 'success' })
   }, [id, deleteType, closeDynamicPanel, toast, t])
+
+  const handleAddCenter = useCallback(async () => {
+    if (!selectedCenterId) return
+    await addAuthorizedCenter.mutateAsync({
+      typeId: id,
+      payload: { tier_id: selectedCenterId, notes: centerNotes.trim() || null },
+    })
+    setSelectedCenterId('')
+    setCenterNotes('')
+    toast({ title: 'Centre habilité associé', variant: 'success' })
+  }, [addAuthorizedCenter, centerNotes, id, selectedCenterId, toast])
 
   const actionItems = useMemo<ActionItem[]>(() => [
     {
@@ -84,6 +106,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
       <TabBar
         items={[
           { id: 'fiche', label: 'Informations', icon: Info },
+          { id: 'emetteurs', label: 'Émetteurs', icon: Building2, badge: authorizedCenters?.filter((c) => c.active).length || undefined },
           { id: 'documents', label: 'Documents', icon: Paperclip },
         ]}
         activeId={detailTab}
@@ -140,6 +163,92 @@ export function TypeDetailPanel({ id }: { id: string }) {
         <PanelContentLayout>
           <FormSection title={t('common.attachments')}>
             <AttachmentManager ownerType="compliance_type" ownerId={ct.id} compact />
+          </FormSection>
+        </PanelContentLayout>
+      )}
+      {detailTab === 'emetteurs' && (
+        <PanelContentLayout>
+          <FormSection title="Centres habilités">
+            <div className="@container space-y-3">
+              <div className="grid grid-cols-1 gap-2 @[640px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                <select
+                  value={selectedCenterId}
+                  onChange={(e) => setSelectedCenterId(e.target.value)}
+                  className={panelInputClass}
+                >
+                  <option value="">Sélectionner un tiers centre d'habilitation...</option>
+                  {(availableCenters?.items ?? []).map((center) => (
+                    <option key={center.id} value={center.id}>
+                      {center.name}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={centerNotes}
+                  onChange={(e) => setCenterNotes(e.target.value)}
+                  className={panelInputClass}
+                  placeholder="Condition, portée ou remarque..."
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCenter}
+                  disabled={!selectedCenterId || addAuthorizedCenter.isPending}
+                  className="btn btn-primary btn-sm"
+                >
+                  {addAuthorizedCenter.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                  Ajouter
+                </button>
+              </div>
+
+              {authorizedCenters?.length ? (
+                <div className="divide-y divide-border overflow-hidden rounded-md border border-border bg-background">
+                  {authorizedCenters.map((center) => (
+                    <div key={center.id} className={cn('grid gap-2 px-3 py-2 text-xs @[640px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] @[640px]:items-center', !center.active && 'opacity-60')}>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Building2 size={12} className="text-muted-foreground shrink-0" />
+                          <span className="truncate font-medium text-foreground">{center.tier_name}</span>
+                          {!center.active && <span className="chip text-[10px]">Inactif</span>}
+                        </div>
+                        <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                          {center.tier_code || '—'}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
+                        </div>
+                      </div>
+                      <div className="min-w-0 text-[11px] text-muted-foreground">
+                        <div className="truncate">{center.notes || 'Aucune condition spécifique'}</div>
+                        {center.certificate_verification_url && (
+                          <div className="truncate text-primary">{center.certificate_verification_url}</div>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-end gap-1">
+                        {!center.active && (
+                          <button
+                            type="button"
+                            className="p-1 rounded hover:bg-muted text-muted-foreground"
+                            title="Réactiver"
+                            onClick={() => updateAuthorizedCenter.mutate({ typeId: id, linkId: center.id, payload: { active: true } })}
+                          >
+                            <Plus size={12} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive"
+                          title="Retirer"
+                          onClick={() => removeAuthorizedCenter.mutate({ typeId: id, linkId: center.id })}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Aucun centre habilité configuré. Le champ émetteur restera en saisie libre pour ce référentiel.
+                </p>
+              )}
+            </div>
           </FormSection>
         </PanelContentLayout>
       )}

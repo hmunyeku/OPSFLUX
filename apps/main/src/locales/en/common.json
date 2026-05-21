@@ -1175,7 +1175,8 @@
         "opening_hours": "Opening hours",
         "phones": "Phones",
         "socials": "Socials",
-        "tags": "Tags"
+        "tags": "Tags",
+        "authorization_center": "Authorization center"
       },
       "auto_generated": "Auto-generated on creation",
       "trade_name": "Primary trade name",
@@ -1201,6 +1202,10 @@
       "language": "Language",
       "timezone": "Timezone",
       "logo_url": "Logo URL",
+      "authorization_center_enabled": "Authorized center",
+      "authorization_center_code": "Center code",
+      "certificate_verification_url": "Certificate verification URL",
+      "authorization_center_hint": "These third parties can then be selected as authorized issuers in compliance references.",
       "social_networks": "Social networks",
       "opening_hours": "Opening hours",
       "civility": "Title",
@@ -1627,6 +1632,7 @@
       "no_reference": "No reference",
       "issuer_missing": "Issuer not provided",
       "no_configured_issuer": "No issuer configured for this reference.",
+      "legacy": "legacy",
       "proof_required_inline": "Supporting file required for verification and approval",
       "drop_required_proof_title": "Upload the required supporting file before creating the reference",
       "detail_title": "Compliance record",

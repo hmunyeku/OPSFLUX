@@ -1272,7 +1272,8 @@
         "opening_hours": "Opening hours",
         "phones": "Phones",
         "socials": "Socials",
-        "tags": "Étiquettes"
+        "tags": "Étiquettes",
+        "authorization_center": "Centre d'habilitation"
       },
       "auto_generated": "Auto-généré à la création",
       "trade_name": "Nom commercial principal",
@@ -1298,6 +1299,10 @@
       "language": "Langue",
       "timezone": "Fuseau horaire",
       "logo_url": "URL du logo",
+      "authorization_center_enabled": "Centre habilité",
+      "authorization_center_code": "Code centre",
+      "certificate_verification_url": "URL de vérification certificat",
+      "authorization_center_hint": "Ces tiers peuvent ensuite être sélectionnés comme émetteurs autorisés dans les référentiels conformité.",
       "social_networks": "Réseaux sociaux",
       "opening_hours": "Horaires d'ouverture",
       "civility": "Civilité",
@@ -1760,6 +1765,7 @@
       "no_reference": "Sans référence",
       "issuer_missing": "Émetteur non renseigné",
       "no_configured_issuer": "Aucun émetteur configuré pour ce référentiel.",
+      "legacy": "historique",
       "proof_required_inline": "Pièce justificative obligatoire pour vérification et validation",
       "drop_required_proof_title": "Déposez la PJ obligatoire avant de créer le référentiel",
       "detail_title": "Enregistrement de conformité",

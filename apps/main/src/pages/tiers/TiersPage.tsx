@@ -1048,31 +1048,31 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
               </div>
             </FormSection>
 
-            <FormSection title="Centre d'habilitation" collapsible defaultExpanded={tier.is_authorization_center} storageKey="tier-detail-sections">
+            <FormSection title={t('tiers.ui.sections.authorization_center')} collapsible defaultExpanded={tier.is_authorization_center} storageKey="tier-detail-sections">
               <DetailFieldGrid>
                 <InlineEditableSelect
-                  label="Centre habilité"
+                  label={t('tiers.ui.authorization_center_enabled')}
                   value={tier.is_authorization_center ? 'true' : 'false'}
-                  displayValue={tier.is_authorization_center ? 'Oui' : 'Non'}
+                  displayValue={tier.is_authorization_center ? t('common.yes', 'Oui') : t('common.no', 'Non')}
                   options={[
-                    { value: 'true', label: 'Oui' },
-                    { value: 'false', label: 'Non' },
+                    { value: 'true', label: t('common.yes', 'Oui') },
+                    { value: 'false', label: t('common.no', 'Non') },
                   ]}
                   onSave={(v) => handleInlineSave('is_authorization_center', v === 'true')}
                 />
                 <InlineEditableRow
-                  label="Code centre"
+                  label={t('tiers.ui.authorization_center_code')}
                   value={tier.authorization_center_code || ''}
                   onSave={(v) => handleInlineSave('authorization_center_code', v)}
                 />
                 <InlineEditableRow
-                  label="URL de vérification certificat"
+                  label={t('tiers.ui.certificate_verification_url')}
                   value={tier.certificate_verification_url || ''}
                   onSave={(v) => handleInlineSave('certificate_verification_url', v)}
                 />
               </DetailFieldGrid>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Ces tiers peuvent ensuite être sélectionnés comme émetteurs autorisés dans les référentiels conformité.
+                {t('tiers.ui.authorization_center_hint')}
               </p>
             </FormSection>
           </div>

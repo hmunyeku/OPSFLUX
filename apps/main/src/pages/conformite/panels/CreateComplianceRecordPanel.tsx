@@ -301,7 +301,7 @@ function CreateComplianceRecordInner() {
                   </option>
                 ))}
                 {form.issuer && form.issuer !== 'RiseUp' && !form.issuer_tier_id && (
-                  <option value={LEGACY_ISSUER_VALUE}>{form.issuer} (historique)</option>
+                  <option value={LEGACY_ISSUER_VALUE}>{form.issuer} ({t('conformite.records.legacy')})</option>
                 )}
               </select>
               {authorizationCenters.length === 0 && !canUseRiseUpIssuer && (

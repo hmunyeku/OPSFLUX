@@ -235,7 +235,7 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
                     label: `${center.name}${center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}`,
                   })),
                   ...(record.issuer && record.issuer !== 'RiseUp' && !record.issuer_tier_id
-                    ? [{ value: LEGACY_ISSUER_VALUE, label: `${record.issuer} (historique)` }]
+                    ? [{ value: LEGACY_ISSUER_VALUE, label: `${record.issuer} (${t('conformite.records.legacy')})` }]
                     : []),
                 ]}
                 onSave={(value) => {

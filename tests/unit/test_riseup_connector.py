@@ -56,3 +56,37 @@ def test_riseup_connection_follows_http_redirects(monkeypatch: pytest.MonkeyPatc
 
     assert status == "ok"
     assert "Rise Up Sandbox" in message
+
+
+class _PaginatedRiseUpClient(_RedirectAwareClient):
+    async def get(self, url, *args, **kwargs):
+        if url.endswith("/v3/users"):
+            return _FakeResponse(200, {
+                "data": [
+                    {
+                        "id": 110,
+                        "email": "john@example.com",
+                        "firstname": "John",
+                        "lastname": "Doe",
+                        "rhid": "X123DFE",
+                    }
+                ],
+                "meta": {"total": 1},
+            })
+        return await super().get(url, *args, **kwargs)
+
+
+def test_riseup_match_user_reads_data_meta_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(riseup_connector.httpx, "AsyncClient", _PaginatedRiseUpClient)
+    connector = RiseUpConnector({
+        "base_url": "http://mock-riseup.example",
+        "public_key": "public",
+        "secret_key": "secret",
+    })
+    connector._token = "token"
+
+    match = asyncio.run(connector.match_user(email="john@example.com"))
+
+    assert match is not None
+    assert match.external_user_id == "110"
+    assert match.matched_by == "email"

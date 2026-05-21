@@ -29,6 +29,17 @@ from app.services.connectors.compliance_connector import (
 logger = logging.getLogger(__name__)
 
 
+def _extract_collection_items(payload: object) -> list[dict]:
+    """Return Rise Up collection rows from either raw-list or {data, meta} payloads."""
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict):
+        data = payload.get("data")
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+    return []
+
+
 @register_compliance_connector("riseup")
 class RiseUpConnector(ComplianceConnector):
     """Rise Up LMS compliance connector."""
@@ -86,15 +97,11 @@ class RiseUpConnector(ComplianceConnector):
                 params = None  # Only use params on first request
 
                 if resp.status_code == 200:
-                    data = resp.json()
-                    if isinstance(data, list):
-                        results.extend(data)
+                    results.extend(_extract_collection_items(resp.json()))
                     return results
 
                 if resp.status_code == 206:
-                    data = resp.json()
-                    if isinstance(data, list):
-                        results.extend(data)
+                    results.extend(_extract_collection_items(resp.json()))
                     # Follow Link header for next page
                     link = resp.headers.get("Link", "")
                     if 'rel="next"' in link:

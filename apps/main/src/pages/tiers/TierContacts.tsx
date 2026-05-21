@@ -81,6 +81,42 @@ function SubSectionLabel({ icon: Icon, label, count }: { icon: React.ElementType
   )
 }
 
+function ContactMethodGroup({
+  icon: Icon,
+  label,
+  count,
+  children,
+}: {
+  icon: React.ElementType
+  label: string
+  count: number
+  children: React.ReactNode
+}) {
+  return (
+    <div className="grid gap-2 border-b border-border/40 py-3 first:pt-0 last:border-b-0 last:pb-0">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-primary/15">
+            <Icon size={13} />
+          </span>
+          <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {label}
+          </span>
+        </div>
+        <span className={cn(
+          'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums',
+          count > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+        )}>
+          {count}
+        </span>
+      </div>
+      <div className="min-w-0">
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // -- Contact List Section (inside TierDetailPanel) ----------------------------
 
 export const CONTACTS_PAGE_SIZE = 15
@@ -670,14 +706,17 @@ export function ContactDetailPanel({
           {/* ── Right column: Coordonnees ── */}
           <div className="@container space-y-5">
             <FormSection title={t('tiers.ui.sections.contact_details')} collapsible defaultExpanded storageKey="contact-detail-sections">
-              <SubSectionLabel icon={Phone} label={t('shared.phones.title')} count={contactPhones?.length ?? 0} />
-              <PhoneManager ownerType="tier_contact" ownerId={contact.id} compact />
+              <ContactMethodGroup icon={Phone} label={t('shared.phones.title')} count={contactPhones?.length ?? 0}>
+                <PhoneManager ownerType="tier_contact" ownerId={contact.id} compact />
+              </ContactMethodGroup>
 
-              <SubSectionLabel icon={Mail} label={t('shared.emails.title')} count={contactCEmails?.length ?? 0} />
-              <ContactEmailManager ownerType="tier_contact" ownerId={contact.id} compact />
+              <ContactMethodGroup icon={Mail} label={t('shared.emails.title')} count={contactCEmails?.length ?? 0}>
+                <ContactEmailManager ownerType="tier_contact" ownerId={contact.id} compact />
+              </ContactMethodGroup>
 
-              <SubSectionLabel icon={MapPin} label={t('shared.addresses.title')} count={contactAddresses?.length ?? 0} />
-              <AddressManager ownerType="tier_contact" ownerId={contact.id} compact />
+              <ContactMethodGroup icon={MapPin} label={t('shared.addresses.title')} count={contactAddresses?.length ?? 0}>
+                <AddressManager ownerType="tier_contact" ownerId={contact.id} compact />
+              </ContactMethodGroup>
             </FormSection>
           </div>
         </SectionColumns>

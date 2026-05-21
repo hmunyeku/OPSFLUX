@@ -22,7 +22,7 @@ import { useCreateMOCForContext, useInviteMOCValidator, useMOCsForContext, useMO
 import { usePermission } from '@/hooks/usePermission'
 import { useToast } from '@/components/ui/Toast'
 import type { MOCStatus, MOCValidationRole, MOCWithDetails, MOCWorkflowProfile } from '@/services/mocService'
-import type { ProjectTask, ProjectWBSNode } from '@/types/api'
+import type { ProjectTask, ProjectWBSNode, UserRead } from '@/types/api'
 import { cn } from '@/lib/utils'
 
 const VALIDATION_ROLE_LABELS: Record<MOCValidationRole, string> = {
@@ -63,6 +63,40 @@ function formatMoney(value: unknown, currency: string, locale: string) {
   return `${new Intl.NumberFormat(locale || 'fr-FR', { maximumFractionDigits: 0 }).format(amount)} ${currency}`
 }
 
+function userDisplayName(user: UserRead) {
+  return `${user.first_name} ${user.last_name}`.trim() || user.email
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function isBlankRichText(html: string) {
+  return !html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .trim()
+}
+
+function appendUserMention(html: string, user: UserRead) {
+  const label = `@${userDisplayName(user)}`
+  const mention = `<span data-user-mention-id="${escapeHtml(user.id)}" class="opsflux-user-mention">${escapeHtml(label)}</span>&nbsp;`
+  const current = html.trim()
+
+  if (!current) return `<p>${mention}</p>`
+  if (/<\/p>\s*$/i.test(current)) {
+    return current.replace(/<\/p>\s*$/i, ` ${mention}</p>`)
+  }
+  return `${current}<p>${mention}</p>`
+}
+
 function ChangeRow({
   moc,
   tasks,
@@ -92,6 +126,7 @@ function ChangeRow({
   const [inviteRole, setInviteRole] = useState<MOCValidationRole>('hse')
   const [inviteRequired, setInviteRequired] = useState(true)
   const [inviteComment, setInviteComment] = useState('')
+  const [mentionPickerUserId, setMentionPickerUserId] = useState<string | null>(null)
   const taskIds = payloadStringArray(moc, 'affected_task_ids')
   const wbsNodeIds = payloadStringArray(moc, 'affected_wbs_node_ids')
   const taskScope = String(contextPayloadValue(moc, 'affected_task_scope') || (taskIds.length > 0 ? 'selected' : 'all'))
@@ -136,7 +171,7 @@ function ChangeRow({
           user_id: inviteUserId,
           role: inviteRole,
           required: inviteRequired,
-          comments: inviteComment.trim() || null,
+          comments: isBlankRichText(inviteComment) ? null : inviteComment,
         },
       })
       toast({ title: t('shared.change_register.validation_request_sent'), variant: 'success' })
@@ -145,6 +180,7 @@ function ChangeRow({
       setInviteRole('hse')
       setInviteRequired(true)
       setInviteComment('')
+      setMentionPickerUserId(null)
     } catch {
       toast({ title: t('common.error'), description: t('shared.change_register.validation_request_failed'), variant: 'error' })
     }
@@ -277,15 +313,36 @@ function ChangeRow({
                 />
                 {t('shared.change_register.required')}
               </label>
-              <input
-                className="gl-form-input h-8 min-w-0 text-xs md:col-span-2"
-                value={inviteComment}
-                onChange={(event) => setInviteComment(event.target.value)}
-                placeholder={t('shared.change_register.validation_comment') as string}
-              />
+              <div className="grid min-w-0 gap-2 md:col-span-3 md:grid-cols-[minmax(0,1fr)_minmax(190px,240px)]">
+                <RichTextField
+                  value={inviteComment}
+                  onChange={setInviteComment}
+                  placeholder={t('shared.change_register.validation_comment') as string}
+                  rows={3}
+                  compact
+                  className="min-w-0 max-w-full"
+                />
+                <div className="flex min-w-0 flex-col gap-2">
+                  <UserPicker
+                    value={mentionPickerUserId}
+                    onChange={(uid, user) => {
+                      setMentionPickerUserId(null)
+                      if (uid && user) {
+                        setInviteComment((current) => appendUserMention(current, user))
+                      }
+                    }}
+                    placeholder={t('shared.change_register.mention_user') as string}
+                    className="min-w-0"
+                    clearable={false}
+                  />
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    {t('shared.change_register.mention_hint')}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                className="inline-flex h-8 min-w-0 items-center justify-center gap-1 rounded bg-primary px-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                className="inline-flex h-8 min-w-0 items-center justify-center gap-1 rounded bg-primary px-2 text-xs font-medium text-primary-foreground disabled:opacity-50 md:col-start-3"
                 disabled={!inviteUserId || inviteValidator.isPending}
                 onClick={requestValidation}
               >

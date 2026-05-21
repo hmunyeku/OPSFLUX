@@ -29,6 +29,7 @@ import {
   NodeViewWrapper,
   ReactNodeViewRenderer,
 } from '@tiptap/react'
+import { Mark, mergeAttributes } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
@@ -273,6 +274,35 @@ const ResizableImage = Image.extend({
   },
 })
 
+const UserMention = Mark.create({
+  name: 'userMention',
+  inclusive: false,
+
+  addAttributes() {
+    return {
+      userId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-user-mention-id'),
+        renderHTML: (attributes) => (
+          attributes.userId ? { 'data-user-mention-id': attributes.userId } : {}
+        ),
+      },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'span[data-user-mention-id]' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'span',
+      mergeAttributes(HTMLAttributes, { class: 'opsflux-user-mention' }),
+      0,
+    ]
+  },
+})
+
 function useHydratedAttachmentHtml(html: string | null | undefined): string {
   const [hydrated, setHydrated] = useState<string>(html ?? '')
   const blobsRef = useRef<string[]>([])
@@ -422,6 +452,7 @@ export function RichTextField({
     TableRow,
     TableHeader,
     TableCell,
+    UserMention,
     SlashCommands.configure({ suggestion: slashCommandsConfig }),
   ], [placeholder])
 
@@ -456,8 +487,9 @@ export function RichTextField({
         (url) => editorBlobsRef.current.push(url),
       )
       if (cancelled || !editor) return
-      // Apply only if the editor still shows the same canonical version.
-      if (canonicaliseAttachmentUrls(editor.getHTML()) === canonValue) {
+      // Apply external value changes that did not originate from this editor
+      // roundtrip: resets after save, prefilled content, mention insertions.
+      if (canonicaliseAttachmentUrls(editor.getHTML()) !== canonValue) {
         editor.commands.setContent(hydrated, { emitUpdate: false })
       }
     })()
@@ -812,6 +844,9 @@ export function RichTextField({
           '[&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left',
           '[&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0',
           '[&_.ProseMirror_a]:text-primary [&_.ProseMirror_a]:underline',
+          '[&_.ProseMirror_.opsflux-user-mention]:rounded [&_.ProseMirror_.opsflux-user-mention]:bg-primary/10',
+          '[&_.ProseMirror_.opsflux-user-mention]:px-1 [&_.ProseMirror_.opsflux-user-mention]:font-medium',
+          '[&_.ProseMirror_.opsflux-user-mention]:text-primary',
           '[&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:bg-muted',
           '[&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:text-xs',
           '[&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-border',
@@ -870,7 +905,7 @@ const PURIFY_CONFIG = {
   ],
   ALLOWED_ATTR: [
     'href', 'rel', 'target',
-    'src', 'alt', 'width', 'height', 'data-attachment-id', 'class', 'style',
+    'src', 'alt', 'width', 'height', 'data-attachment-id', 'data-user-mention-id', 'class', 'style',
     // Table attributes used by the Tiptap table extension
     'colspan', 'rowspan', 'colwidth',
   ],
@@ -991,6 +1026,9 @@ export function RichTextDisplay({ value, className, empty = '—' }: RichTextDis
         '[&_h1]:text-base [&_h1]:font-semibold',
         '[&_h2]:text-sm [&_h2]:font-semibold',
         '[&_a]:text-primary [&_a]:underline',
+        '[&_.opsflux-user-mention]:rounded [&_.opsflux-user-mention]:bg-primary/10',
+        '[&_.opsflux-user-mention]:px-1 [&_.opsflux-user-mention]:font-medium',
+        '[&_.opsflux-user-mention]:text-primary',
         '[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs',
         '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-2',
         '[&_blockquote]:text-muted-foreground',

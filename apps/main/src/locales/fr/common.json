@@ -7157,6 +7157,8 @@
       "request_validation": "Demander validation",
       "validation_user": "Utilisateur à solliciter",
       "validation_comment": "Commentaire pour le validateur",
+      "mention_user": "Mentionner quelqu'un",
+      "mention_hint": "Insère une mention dans le commentaire sans changer le validateur demandé.",
       "required": "Obligatoire",
       "send_validation_request": "Envoyer la demande",
       "validation_request_sent": "Demande de validation envoyée",

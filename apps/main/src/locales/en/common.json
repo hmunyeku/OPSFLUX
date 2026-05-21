@@ -6851,6 +6851,8 @@
       "request_validation": "Request validation",
       "validation_user": "User to request",
       "validation_comment": "Comment for the validator",
+      "mention_user": "Mention someone",
+      "mention_hint": "Inserts a mention in the comment without changing the requested validator.",
       "required": "Required",
       "send_validation_request": "Send request",
       "validation_request_sent": "Validation request sent",

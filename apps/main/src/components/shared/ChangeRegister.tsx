@@ -151,41 +151,41 @@ function ChangeRow({
   }
 
   return (
-    <article className="rounded-md border border-border bg-card/40">
+    <article className="min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-card/40">
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-start gap-3 px-3 py-2 text-left"
+        className="flex w-full min-w-0 items-start gap-3 px-3 py-2 text-left"
       >
         <ChevronDown
           size={14}
           className={cn('mt-1 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-180')}
         />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="font-mono">{moc.reference}</span>
-            <span className="rounded border border-border px-1.5 py-0.5">{statusLabel}</span>
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="max-w-full truncate font-mono">{moc.reference}</span>
+            <span className="max-w-full truncate rounded border border-border px-1.5 py-0.5">{statusLabel}</span>
             {workflowProfile !== 'project_change' && moc.priority && (
-              <span className="rounded border border-border px-1.5 py-0.5">P{moc.priority}</span>
+              <span className="shrink-0 rounded border border-border px-1.5 py-0.5">P{moc.priority}</span>
             )}
           </div>
           <div className="mt-1 truncate text-sm font-semibold text-foreground">
             {moc.title || moc.objectives || moc.reference}
           </div>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
-            <span>
+          <div className="mt-1 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
+            <span className="min-w-0 max-w-full truncate">
               {t('shared.change_register.planning_impact')}: <b className="text-foreground">{String(planningImpact)}j</b>
             </span>
-            <span>
+            <span className="min-w-0 max-w-full truncate">
               {t('shared.change_register.budget_impact')}: <b className="text-foreground">{formatMoney(budgetImpact, payloadCurrency, i18n.language)}</b>
             </span>
             {linkedTasks.length > 0 && (
-              <span>
+              <span className="min-w-0 max-w-full truncate">
                 {t('shared.change_register.linked_tasks')}: <b className="text-foreground">{linkedTasks.length}</b>
               </span>
             )}
             {workflowProfile === 'project_change' && (
-              <span>
+              <span className="min-w-0 max-w-full truncate">
                 {t('shared.change_register.budget_scope')}:{' '}
                 <b className="text-foreground">
                   {budgetScope === 'selected'
@@ -199,10 +199,10 @@ function ChangeRow({
       </button>
 
       {expanded && (
-        <div className="space-y-3 border-t border-border px-3 py-3">
+        <div className="min-w-0 max-w-full space-y-3 overflow-hidden border-t border-border px-3 py-3">
           {workflowProfile === 'project_change' && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-2 py-2">
-              <div className="text-[12px] text-muted-foreground">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-2 py-2">
+              <div className="min-w-0 text-[12px] text-muted-foreground">
                 {requiredValidations.length > 0 ? (
                   <>
                     {approvedRequiredValidations.length}/{requiredValidations.length}{' '}
@@ -212,15 +212,15 @@ function ChangeRow({
                   t('shared.change_register.no_validation_required')
                 )}
               </div>
-              <div className="flex flex-wrap gap-1">
+              <div className="flex min-w-0 flex-wrap gap-1">
                 {canRequestValidation && (
                   <button
                     type="button"
-                    className="inline-flex h-8 items-center gap-1 rounded border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-muted"
+                    className="inline-flex h-8 min-w-0 items-center gap-1 rounded border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-muted"
                     onClick={() => setInviteOpen((value) => !value)}
                   >
                     <Send size={13} />
-                    <span>
+                    <span className="truncate">
                       {inviteOpen ? t('common.cancel') : t('shared.change_register.request_validation')}
                     </span>
                   </button>
@@ -234,13 +234,13 @@ function ChangeRow({
                       <button
                         key={action.to}
                         type="button"
-                        className="inline-flex h-8 items-center gap-1 rounded border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
+                        className="inline-flex h-8 min-w-0 items-center gap-1 rounded border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
                         disabled={transitionPending || action.disabled}
                         title={action.disabled ? t('shared.change_register.approval_blocked') : label}
                         onClick={() => onTransition?.(moc, action.to)}
                       >
                         {transitionPending ? <Loader2 size={13} className="animate-spin" /> : <Icon size={13} />}
-                        <span>{label}</span>
+                        <span className="truncate">{label}</span>
                       </button>
                     )
                   })}
@@ -250,7 +250,7 @@ function ChangeRow({
             </div>
           )}
           {workflowProfile === 'project_change' && inviteOpen && (
-            <div className="grid gap-2 rounded-md border border-border bg-background/60 p-2 md:grid-cols-[minmax(0,1fr)_160px_auto]">
+            <div className="grid min-w-0 gap-2 rounded-md border border-border bg-background/60 p-2 md:grid-cols-[minmax(0,1fr)_160px_auto]">
               <UserPicker
                 value={inviteUserId}
                 onChange={(uid) => setInviteUserId(uid)}
@@ -258,7 +258,7 @@ function ChangeRow({
                 className="min-w-0"
               />
               <select
-                className="gl-form-input h-8 text-xs"
+                className="gl-form-input h-8 min-w-0 text-xs"
                 value={inviteRole}
                 onChange={(event) => setInviteRole(event.target.value as MOCValidationRole)}
               >
@@ -268,7 +268,7 @@ function ChangeRow({
                   </option>
                 ))}
               </select>
-              <label className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
+              <label className="inline-flex min-w-0 items-center gap-1 text-[12px] text-muted-foreground">
                 <input
                   type="checkbox"
                   className="h-3.5 w-3.5"
@@ -278,14 +278,14 @@ function ChangeRow({
                 {t('shared.change_register.required')}
               </label>
               <input
-                className="gl-form-input h-8 text-xs md:col-span-2"
+                className="gl-form-input h-8 min-w-0 text-xs md:col-span-2"
                 value={inviteComment}
                 onChange={(event) => setInviteComment(event.target.value)}
                 placeholder={t('shared.change_register.validation_comment') as string}
               />
               <button
                 type="button"
-                className="inline-flex h-8 items-center justify-center gap-1 rounded bg-primary px-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                className="inline-flex h-8 min-w-0 items-center justify-center gap-1 rounded bg-primary px-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
                 disabled={!inviteUserId || inviteValidator.isPending}
                 onClick={requestValidation}
               >
@@ -296,28 +296,28 @@ function ChangeRow({
           )}
           {moc.description && <RichTextDisplay value={moc.description} className="text-sm" />}
           {workflowProfile !== 'project_change' && linkedTasks.length > 0 && (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex min-w-0 flex-wrap gap-1">
               {linkedTasks.map((task) => (
-                <span key={task.id} className="rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px]">
+                <span key={task.id} className="max-w-full truncate rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px]">
                   {task.code ? `${task.code} · ` : ''}{task.title}
                 </span>
               ))}
             </div>
           )}
           {workflowProfile === 'project_change' && (
-            <div className="grid gap-2 md:grid-cols-2">
-              <div className="rounded-md border border-border/60 bg-muted/10 p-2">
+            <div className="grid min-w-0 gap-2 md:grid-cols-2">
+              <div className="min-w-0 overflow-hidden rounded-md border border-border/60 bg-muted/10 p-2">
                 <div className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground">
                   {t('shared.change_register.task_scope')}
                 </div>
                 {taskScope === 'all' ? (
-                  <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                  <span className="inline-flex max-w-full truncate rounded border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                     {t('shared.change_register.all_project')}
                   </span>
                 ) : linkedTasks.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex min-w-0 flex-wrap gap-1">
                     {linkedTasks.map((task) => (
-                      <span key={task.id} className="rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px]">
+                      <span key={task.id} className="max-w-full truncate rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px]">
                         {task.code ? `${task.code} · ` : ''}{task.title}
                       </span>
                     ))}
@@ -328,18 +328,18 @@ function ChangeRow({
                   </span>
                 )}
               </div>
-              <div className="rounded-md border border-border/60 bg-muted/10 p-2">
+              <div className="min-w-0 overflow-hidden rounded-md border border-border/60 bg-muted/10 p-2">
                 <div className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground">
                   {t('shared.change_register.budget_scope')}
                 </div>
                 {budgetScope === 'all' ? (
-                  <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                  <span className="inline-flex max-w-full truncate rounded border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                     {t('shared.change_register.all_wbs')}
                   </span>
                 ) : linkedWbsNodes.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex min-w-0 flex-wrap gap-1">
                     {linkedWbsNodes.map((node) => (
-                      <span key={node.id} className="rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px]">
+                      <span key={node.id} className="max-w-full truncate rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px]">
                         {node.code ? `${node.code} · ` : ''}{node.name}
                       </span>
                     ))}
@@ -352,8 +352,8 @@ function ChangeRow({
               </div>
             </div>
           )}
-          <div className="grid gap-3 lg:grid-cols-2">
-            <div>
+          <div className="grid min-w-0 gap-3 lg:grid-cols-2">
+            <div className="min-w-0 overflow-hidden">
               <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
                 {t('shared.change_register.attachments')}
               </div>
@@ -364,7 +364,7 @@ function ChangeRow({
                 categoryDictionary={effectiveAttachmentDictionary}
               />
             </div>
-            <div>
+            <div className="min-w-0 overflow-hidden">
               <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
                 {t('shared.change_register.notes')}
               </div>
@@ -448,30 +448,30 @@ export function ChangeRegister({
   }
 
   return (
-    <div className={cn('space-y-3', compact && 'text-sm')}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm text-muted-foreground">
+    <div className={cn('min-w-0 max-w-full space-y-3 overflow-hidden', compact && 'text-sm')}>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 text-sm text-muted-foreground">
           {mocs.length} {t('shared.change_register.details')}
         </div>
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="inline-flex items-center gap-1 text-sm font-medium text-primary"
+          className="inline-flex min-w-0 items-center gap-1 text-sm font-medium text-primary"
         >
           <Plus size={14} /> {t('shared.change_register.add')}
         </button>
       </div>
 
       {open && (
-        <div className="rounded-md border border-border bg-background/40 p-3">
-          <div className="grid gap-2 md:grid-cols-2">
+        <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-background/40 p-3">
+          <div className="grid min-w-0 gap-2 md:grid-cols-2">
             <input
-              className={panelInputClass}
+              className={cn(panelInputClass, 'min-w-0')}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder={t('shared.change_register.title_placeholder')}
             />
-            <select className={panelInputClass} value={mocTypeId} onChange={(event) => setMocTypeId(event.target.value)}>
+            <select className={cn(panelInputClass, 'min-w-0')} value={mocTypeId} onChange={(event) => setMocTypeId(event.target.value)}>
               <option value="">
                 {workflowProfile === 'project_change'
                   ? t('shared.change_register.project_change_type')
@@ -482,14 +482,14 @@ export function ChangeRegister({
               ))}
             </select>
             <input
-              className={panelInputClass}
+              className={cn(panelInputClass, 'min-w-0')}
               type="number"
               value={planningImpact}
               onChange={(event) => setPlanningImpact(event.target.value)}
               placeholder={t('shared.change_register.planning_impact')}
             />
             <input
-              className={panelInputClass}
+              className={cn(panelInputClass, 'min-w-0')}
               type="number"
               value={budgetImpact}
               onChange={(event) => setBudgetImpact(event.target.value)}
@@ -499,7 +499,7 @@ export function ChangeRegister({
 
           {workflowProfile !== 'project_change' && tasks.length > 0 && (
             <select
-              className={`${panelInputClass} mt-2`}
+              className={`${panelInputClass} mt-2 min-w-0`}
               value=""
               onChange={(event) => {
                 if (event.target.value && !taskIds.includes(event.target.value)) {
@@ -517,16 +517,16 @@ export function ChangeRegister({
           )}
 
           {workflowProfile === 'project_change' && (
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <div className="rounded-md border border-border bg-card/30 p-2">
+            <div className="mt-3 grid min-w-0 gap-3 md:grid-cols-2">
+              <div className="min-w-0 overflow-hidden rounded-md border border-border bg-card/30 p-2">
                 <div className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">
                   {t('shared.change_register.task_scope')}
                 </div>
-                <div className="grid grid-cols-2 gap-1">
+                <div className="grid min-w-0 grid-cols-2 gap-1">
                   <button
                     type="button"
                     className={cn(
-                      'h-8 rounded border px-2 text-xs font-medium',
+                      'h-8 min-w-0 truncate rounded border px-2 text-xs font-medium',
                       taskScope === 'all' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted',
                     )}
                     onClick={() => {
@@ -539,7 +539,7 @@ export function ChangeRegister({
                   <button
                     type="button"
                     className={cn(
-                      'h-8 rounded border px-2 text-xs font-medium',
+                      'h-8 min-w-0 truncate rounded border px-2 text-xs font-medium',
                       taskScope === 'selected' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted',
                     )}
                     onClick={() => setTaskScope('selected')}
@@ -550,7 +550,7 @@ export function ChangeRegister({
                 {taskScope === 'selected' && tasks.length > 0 && (
                   <>
                     <select
-                      className={`${panelInputClass} mt-2`}
+                      className={`${panelInputClass} mt-2 min-w-0`}
                       value=""
                       onChange={(event) => {
                         if (event.target.value && !taskIds.includes(event.target.value)) {
@@ -564,16 +564,16 @@ export function ChangeRegister({
                       ))}
                     </select>
                     {selectedTasks.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
+                      <div className="mt-2 flex min-w-0 flex-wrap gap-1">
                         {selectedTasks.map((task) => (
                           <button
                             key={task.id}
                             type="button"
-                            className="inline-flex items-center gap-1 rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-foreground hover:bg-muted"
+                            className="inline-flex max-w-full items-center gap-1 rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-foreground hover:bg-muted"
                             onClick={() => setTaskIds((ids) => ids.filter((id) => id !== task.id))}
                           >
-                            {task.code ? `${task.code} · ` : ''}{task.title}
-                            <X size={11} />
+                            <span className="min-w-0 truncate">{task.code ? `${task.code} · ` : ''}{task.title}</span>
+                            <X size={11} className="shrink-0" />
                           </button>
                         ))}
                       </div>
@@ -582,15 +582,15 @@ export function ChangeRegister({
                 )}
               </div>
 
-              <div className="rounded-md border border-border bg-card/30 p-2">
+              <div className="min-w-0 overflow-hidden rounded-md border border-border bg-card/30 p-2">
                 <div className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">
                   {t('shared.change_register.budget_scope')}
                 </div>
-                <div className="grid grid-cols-2 gap-1">
+                <div className="grid min-w-0 grid-cols-2 gap-1">
                   <button
                     type="button"
                     className={cn(
-                      'h-8 rounded border px-2 text-xs font-medium',
+                      'h-8 min-w-0 truncate rounded border px-2 text-xs font-medium',
                       wbsScope === 'all' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted',
                     )}
                     onClick={() => {
@@ -603,7 +603,7 @@ export function ChangeRegister({
                   <button
                     type="button"
                     className={cn(
-                      'h-8 rounded border px-2 text-xs font-medium',
+                      'h-8 min-w-0 truncate rounded border px-2 text-xs font-medium',
                       wbsScope === 'selected' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted',
                     )}
                     onClick={() => setWbsScope('selected')}
@@ -614,7 +614,7 @@ export function ChangeRegister({
                 {wbsScope === 'selected' && wbsNodes.length > 0 && (
                   <>
                     <select
-                      className={`${panelInputClass} mt-2`}
+                      className={`${panelInputClass} mt-2 min-w-0`}
                       value=""
                       onChange={(event) => {
                         if (event.target.value && !wbsNodeIds.includes(event.target.value)) {
@@ -628,16 +628,16 @@ export function ChangeRegister({
                       ))}
                     </select>
                     {selectedWbsNodes.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
+                      <div className="mt-2 flex min-w-0 flex-wrap gap-1">
                         {selectedWbsNodes.map((node) => (
                           <button
                             key={node.id}
                             type="button"
-                            className="inline-flex items-center gap-1 rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-foreground hover:bg-muted"
+                            className="inline-flex max-w-full items-center gap-1 rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-foreground hover:bg-muted"
                             onClick={() => setWbsNodeIds((ids) => ids.filter((id) => id !== node.id))}
                           >
-                            {node.code ? `${node.code} · ` : ''}{node.name}
-                            <X size={11} />
+                            <span className="min-w-0 truncate">{node.code ? `${node.code} · ` : ''}{node.name}</span>
+                            <X size={11} className="shrink-0" />
                           </button>
                         ))}
                       </div>
@@ -658,7 +658,7 @@ export function ChangeRegister({
             />
           </div>
 
-          <div className="mt-3 flex justify-end gap-2">
+          <div className="mt-3 flex min-w-0 flex-wrap justify-end gap-2">
             <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>
               {t('common.cancel')}
             </button>
@@ -679,7 +679,7 @@ export function ChangeRegister({
           description={t('shared.change_register.empty_description')}
         />
       ) : (
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           {mocs.map((moc) => (
             <ChangeRow
               key={moc.id}

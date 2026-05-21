@@ -309,36 +309,31 @@ export function CpmSection({ projectId }: { projectId: string }) {
       )}
       {cpm && cpm.tasks.length > 0 && (
         <div className="@container space-y-2">
-          {/* Stats row — 4 KPIs: durée projet, tâches critiques, total, marge moyenne.
-              Bug #122 (QA v3 round 6) : `sm:grid-cols-4` se base sur le viewport
-              global, donc meme dans un panel detail etroit (~500px) le layout
-              forcait 4 colonnes -> derniere carte "MARGE MOYENNE" debordait du
-              panel a droite. Solution : container query Tailwind (@container
-              parent + @[NNpx]:grid-cols-X enfant) pour adapter au container reel.
-              Seuils : 280px = 2 col, 560px = 4 col (sinon 1 col par defaut). */}
-          <div className="grid grid-cols-1 @[280px]:grid-cols-2 @[560px]:grid-cols-4 gap-2 text-[11px]">
-            <div className="border border-primary/30 bg-primary/5 rounded p-2">
-              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.advanced.cpm.total_duration', 'Durée totale')}</div>
-              <div className="text-lg font-semibold tabular-nums text-primary">{cpm.project_duration_days} j</div>
-            </div>
-            <div className="border border-red-500/30 bg-red-500/5 rounded p-2">
-              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.advanced.cpm.critical_tasks', 'Tâches critiques')}</div>
-              <div className="text-lg font-semibold tabular-nums text-red-600">{cpm.critical_path_task_ids.length}</div>
-            </div>
-            <div className="border border-border rounded p-2">
-              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.advanced.cpm.total_tasks', 'Tâches totales')}</div>
-              <div className="text-lg font-semibold tabular-nums">{cpm.tasks.length}</div>
-            </div>
-            {stats && (
-              <div className="border border-border rounded p-2">
-                <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t('projets.advanced.cpm.avg_slack', 'Marge moyenne')}</div>
-                <div className={cn(
-                  'text-lg font-semibold tabular-nums',
-                  stats.avgSlack === 0 ? 'text-red-600' :
-                    stats.avgSlack < 5 ? 'text-orange-600' : 'text-foreground',
-                )}>{stats.avgSlack} j</div>
+          <div className="rounded border border-border bg-muted/20 px-2.5 py-2 text-[11px]">
+            <div className="grid grid-cols-2 @[560px]:grid-cols-4 gap-x-3 gap-y-1.5">
+              <div className="min-w-0">
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground truncate">{t('projets.advanced.cpm.total_duration', 'Durée totale')}</div>
+                <div className="text-sm font-semibold tabular-nums text-primary">{cpm.project_duration_days} j</div>
               </div>
-            )}
+              <div className="min-w-0">
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground truncate">{t('projets.advanced.cpm.critical_tasks', 'Tâches critiques')}</div>
+                <div className="text-sm font-semibold tabular-nums text-red-600">{cpm.critical_path_task_ids.length}</div>
+              </div>
+              <div className="min-w-0">
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground truncate">{t('projets.advanced.cpm.total_tasks', 'Tâches totales')}</div>
+                <div className="text-sm font-semibold tabular-nums">{cpm.tasks.length}</div>
+              </div>
+              {stats && (
+                <div className="min-w-0">
+                  <div className="text-[9px] uppercase tracking-wide text-muted-foreground truncate">{t('projets.advanced.cpm.avg_slack', 'Marge moyenne')}</div>
+                  <div className={cn(
+                    'text-sm font-semibold tabular-nums',
+                    stats.avgSlack === 0 ? 'text-red-600' :
+                      stats.avgSlack < 5 ? 'text-orange-600' : 'text-foreground',
+                  )}>{stats.avgSlack} j</div>
+                </div>
+              )}
+            </div>
           </div>
 
           {cpm.has_cycles && (

@@ -527,12 +527,12 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
     <Dialog.Root open onOpenChange={(o) => { if (!o) onClose() }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[var(--z-modal)] bg-black/40 backdrop-blur-sm animate-in fade-in" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] flex h-[calc(100dvh-1rem)] max-h-[760px] w-[min(96vw,72rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4 md:h-[85vh]">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] flex h-[min(96dvh,760px)] w-[min(calc(100vw-1rem),72rem)] max-w-[calc(100vw-1rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4 lg:h-[85vh]">
           {/* Header */}
           <div className="flex items-center justify-between gap-3 px-3 py-2.5 border-b border-border shrink-0 sm:px-4 sm:py-3">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               <Download size={14} className="text-orange-500" />
-              <Dialog.Title className="min-w-0 text-sm font-semibold">Assistant d'import Gouti</Dialog.Title>
+              <Dialog.Title className="min-w-0 truncate text-sm font-semibold">Assistant d'import Gouti</Dialog.Title>
               <span className="shrink-0 text-[11px] text-muted-foreground">
                 {catalog ? `${catalog.filtered}/${catalog.total} projets` : '…'}
               </span>
@@ -546,9 +546,9 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
           </Dialog.Description>
 
           {/* Body: sidebar + list */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
             {/* ── Left sidebar: filters ───────────────────────── */}
-            <aside className="max-h-[34dvh] w-full shrink-0 overflow-y-auto border-b border-border bg-muted/20 p-3 space-y-3 md:max-h-none md:w-[240px] md:border-b-0 md:border-r lg:w-[260px]">
+            <aside className="max-h-[30dvh] w-full shrink-0 overflow-y-auto border-b border-border bg-muted/20 p-2.5 space-y-2.5 lg:max-h-none lg:w-[260px] lg:border-b-0 lg:border-r lg:p-3 lg:space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                   <Filter size={11} /> Filtres
@@ -751,7 +751,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                     ? `${includedCount} projet${includedCount > 1 ? 's' : ''} sélectionné${includedCount > 1 ? 's' : ''}`
                     : 'Tout sélectionner'}
                 </span>
-                <span className="text-[9px] text-muted-foreground sm:ml-auto">
+                <span className="hidden text-[9px] text-muted-foreground sm:ml-auto md:inline">
                   Cliquez sur ▸ pour choisir les tâches par projet
                 </span>
               </div>
@@ -783,28 +783,28 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Footer */}
-          <div className="flex flex-col gap-2 px-3 py-2.5 border-t border-border bg-muted/20 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <div className="flex flex-col gap-2 px-3 py-2.5 border-t border-border bg-muted/20 shrink-0 md:flex-row md:items-center md:justify-between md:px-4">
             <span className="min-w-0 text-[11px] text-muted-foreground">
               {includedCount > 0
                 ? `${includedCount} projet${includedCount > 1 ? 's' : ''} prêts à importer`
                 : 'Sélectionnez au moins un projet'}
             </span>
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex min-w-0 items-center justify-end gap-2">
               <button
                 onClick={onClose}
-                className="btn-sm btn-secondary shrink-0"
+                className="btn-sm btn-secondary min-w-0 flex-1 shrink md:flex-none"
               >
                 Annuler
               </button>
               <button
                 onClick={handleSaveAndSync}
                 disabled={includedCount === 0 || syncSelected.isPending || saveSelection.isPending}
-                className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded bg-orange-500 px-2.5 text-xs font-medium text-white hover:bg-orange-600 disabled:opacity-40"
+                className="inline-flex h-7 min-w-0 flex-1 shrink items-center justify-center gap-1.5 rounded bg-orange-500 px-2.5 text-xs font-medium text-white hover:bg-orange-600 disabled:opacity-40 md:flex-none"
               >
                 {(syncSelected.isPending || saveSelection.isPending)
                   ? <Loader2 size={11} className="animate-spin" />
                   : <Download size={11} />}
-                Importer {includedCount > 0 && `(${includedCount})`}
+                <span className="truncate">Importer {includedCount > 0 && `(${includedCount})`}</span>
               </button>
             </div>
           </div>

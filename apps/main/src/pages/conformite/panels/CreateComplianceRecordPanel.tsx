@@ -283,7 +283,7 @@ function CreateComplianceRecordInner() {
                 }}
                 className={panelInputClass}
               >
-                <option value="">Sélectionner un émetteur...</option>
+                <option value="">Choisir...</option>
                 {canUseRiseUpIssuer && <option value={RISEUP_ISSUER_VALUE}>RiseUp</option>}
                 {authorizationCenters.map((center) => (
                   <option key={center.id} value={center.id}>

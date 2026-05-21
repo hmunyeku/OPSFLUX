@@ -592,7 +592,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                 }}
                 className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
               >
-                <option value="">Sélectionner un émetteur...</option>
+                <option value="">Choisir...</option>
                 {canUseRiseUpIssuer && <option value={RISEUP_ISSUER_VALUE}>RiseUp</option>}
                 {authorizationCenters.map((center) => (
                   <option key={center.id} value={center.id}>

@@ -245,9 +245,9 @@ export function BudgetSection({ projectId }: { projectId: string }) {
 
   return (
     <FormSection title="Budget" collapsible defaultExpanded storageKey="project-detail-budget-overview">
-      <div className="space-y-3">
-        <div className="rounded-md border border-border/60 bg-background/40">
-          <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+      <div className="min-w-0 max-w-full space-y-3 overflow-hidden">
+        <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/60 bg-background/40">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border/60 px-3 py-2">
             <CircleDollarSign size={14} className="text-primary" />
             <div className="min-w-0 flex-1">
               <div className="text-xs font-semibold text-foreground">Registre budgétaire</div>
@@ -255,7 +255,7 @@ export function BudgetSection({ projectId }: { projectId: string }) {
                 Sources: projet, WBS, pointages validés, pertes.
               </div>
             </div>
-            <span className={cn('shrink-0 rounded-full px-2 py-1 text-[10px] font-medium', budgetStatusClass(tone))}>
+            <span className={cn('max-w-full truncate rounded-full px-2 py-1 text-[10px] font-medium sm:shrink-0', budgetStatusClass(tone))}>
               {statusLabel}
             </span>
           </div>
@@ -270,16 +270,16 @@ export function BudgetSection({ projectId }: { projectId: string }) {
             {budgetRows.map(row => (
               <div
                 key={row.label}
-                className="grid gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(150px,1.2fr)_minmax(120px,.8fr)_120px_70px_minmax(120px,1fr)] sm:items-center sm:gap-3"
+                className="grid min-w-0 gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(150px,1.2fr)_minmax(120px,.8fr)_120px_70px_minmax(120px,1fr)] sm:items-center sm:gap-3"
               >
-                <div className="font-medium text-foreground">{row.label}</div>
-                <div className="text-[11px] text-muted-foreground">{row.source}</div>
-                <div className={cn('font-semibold tabular-nums sm:text-right', row.amount < 0 && 'text-red-500')}>
+                <div className="min-w-0 truncate font-medium text-foreground">{row.label}</div>
+                <div className="min-w-0 truncate text-[11px] text-muted-foreground">{row.source}</div>
+                <div className={cn('min-w-0 truncate font-semibold tabular-nums sm:text-right', row.amount < 0 && 'text-red-500')}>
                   {row.label === 'Écart prévisionnel' && row.amount > 0 ? '+' : ''}{fmtMoney(row.amount, currency)}
                 </div>
-                <div className="text-[11px] tabular-nums text-muted-foreground sm:text-right">{pct(row.ratio)}</div>
-                <div>
-                  <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium', budgetStatusClass(row.tone))}>
+                <div className="min-w-0 truncate text-[11px] tabular-nums text-muted-foreground sm:text-right">{pct(row.ratio)}</div>
+                <div className="min-w-0">
+                  <span className={cn('inline-flex max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-medium', budgetStatusClass(row.tone))}>
                     {row.status}
                   </span>
                 </div>
@@ -288,26 +288,26 @@ export function BudgetSection({ projectId }: { projectId: string }) {
           </div>
         </div>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="rounded-md border border-border/60 bg-background/40">
-            <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+        <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/60 bg-background/40">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border/60 px-3 py-2">
               <ReceiptText size={13} className="text-primary" />
-              <div className="text-xs font-semibold">Ventilation WBS</div>
-              <div className="ml-auto text-[10px] text-muted-foreground">{wbsBudgetRows.length} ligne(s)</div>
+              <div className="min-w-0 flex-1 truncate text-xs font-semibold">Ventilation WBS</div>
+              <div className="text-[10px] text-muted-foreground sm:ml-auto">{wbsBudgetRows.length} ligne(s)</div>
             </div>
             {wbsBudgetRows.length > 0 ? (
               <div className="divide-y divide-border/50">
                 {wbsBudgetRows.map(node => (
-                  <div key={node.id} className="grid gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_120px_70px] sm:items-center">
+                  <div key={node.id} className="grid min-w-0 gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_120px_70px] sm:items-center">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[10px] text-muted-foreground">{node.code}</span>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{node.code}</span>
                         <span className="truncate font-medium">{node.name}</span>
                       </div>
                       {node.cost_center_name && <div className="truncate text-[10px] text-muted-foreground">{node.cost_center_name}</div>}
                     </div>
-                    <div className="font-medium tabular-nums sm:text-right">{fmtMoney(node.budget, currency)}</div>
-                    <div className="text-[10px] text-muted-foreground tabular-nums sm:text-right">
+                    <div className="min-w-0 truncate font-medium tabular-nums sm:text-right">{fmtMoney(node.budget, currency)}</div>
+                    <div className="min-w-0 truncate text-[10px] text-muted-foreground tabular-nums sm:text-right">
                       {budget > 0 ? pct((Number(node.budget ?? 0) / budget) * 100) : '--'}
                     </div>
                   </div>
@@ -320,32 +320,32 @@ export function BudgetSection({ projectId }: { projectId: string }) {
             )}
           </div>
 
-          <div className="rounded-md border border-border/60 bg-background/40">
-            <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+          <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/60 bg-background/40">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border/60 px-3 py-2">
               <ReceiptText size={13} className="text-primary" />
-              <div className="text-xs font-semibold">Réalisé par source</div>
-              <div className="ml-auto text-[10px] text-muted-foreground">{memberCostRows.length + lossRows.length} ligne(s)</div>
+              <div className="min-w-0 flex-1 truncate text-xs font-semibold">Réalisé par source</div>
+              <div className="text-[10px] text-muted-foreground sm:ml-auto">{memberCostRows.length + lossRows.length} ligne(s)</div>
             </div>
             {memberCostRows.length > 0 || lossRows.length > 0 ? (
               <div className="divide-y divide-border/50">
                 {memberCostRows.map(member => (
-                  <div key={member.member_id} className="grid gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_90px_110px] sm:items-center">
+                  <div key={member.member_id} className="grid min-w-0 gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_90px_110px] sm:items-center">
                     <div className="min-w-0">
                       <div className="truncate font-medium">{member.member_name || 'Ressource'}</div>
                       <div className="truncate text-[10px] text-muted-foreground">{member.specialty || 'Pointage validé'}</div>
                     </div>
-                    <div className="text-muted-foreground tabular-nums sm:text-right">{member.actual_hours.toLocaleString('fr-FR')} h</div>
-                    <div className="font-medium tabular-nums sm:text-right">{fmtMoney(member.cost, member.currency || currency)}</div>
+                    <div className="min-w-0 truncate text-muted-foreground tabular-nums sm:text-right">{member.actual_hours.toLocaleString('fr-FR')} h</div>
+                    <div className="min-w-0 truncate font-medium tabular-nums sm:text-right">{fmtMoney(member.cost, member.currency || currency)}</div>
                   </div>
                 ))}
                 {lossRows.map(loss => (
-                  <div key={loss.category} className="grid gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_90px_110px] sm:items-center">
+                  <div key={loss.category} className="grid min-w-0 gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_90px_110px] sm:items-center">
                     <div className="min-w-0">
                       <div className="truncate font-medium">{loss.category}</div>
                       <div className="truncate text-[10px] text-muted-foreground">Pertes déclarées · {loss.count} saisie(s)</div>
                     </div>
-                    <div className="text-muted-foreground tabular-nums sm:text-right">{loss.hours_lost.toLocaleString('fr-FR')} h</div>
-                    <div className="font-medium tabular-nums text-red-500 sm:text-right">{fmtMoney(loss.cost_amount, currency)}</div>
+                    <div className="min-w-0 truncate text-muted-foreground tabular-nums sm:text-right">{loss.hours_lost.toLocaleString('fr-FR')} h</div>
+                    <div className="min-w-0 truncate font-medium tabular-nums text-red-500 sm:text-right">{fmtMoney(loss.cost_amount, currency)}</div>
                   </div>
                 ))}
               </div>

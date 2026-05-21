@@ -20,6 +20,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from '@/hooks/useSettings'
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/components/ui/Toast'
+import { RichTextDisplay, RichTextField } from '@/components/shared/RichTextField'
 import type { Note } from '@/types/api'
 
 function formatDate(dateStr: string) {
@@ -35,6 +36,19 @@ function formatDate(dateStr: string) {
 
 const noteActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 const noteDangerActionClass = 'inline-flex h-6 w-6 items-center justify-center rounded text-destructive transition-colors hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
+function cleanRichText(html: string): string {
+  return html
+    .replace(/<p>\s*(<br\s*\/?>)?\s*<\/p>/gi, '')
+    .replace(/<br\s*\/?>/gi, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .trim()
+}
+
+function isBlankRichText(html: string): boolean {
+  return cleanRichText(html).length === 0
+}
 
 interface NoteManagerProps {
   /** Object type: 'user', 'tier', 'asset', 'entity' */
@@ -65,12 +79,12 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
   const notes: Note[] = data ?? []
 
   const handleCreate = useCallback(async () => {
-    if (!ownerId || !content.trim()) return
+    if (!ownerId || isBlankRichText(content)) return
     try {
       await createNote.mutateAsync({
         owner_type: ownerType,
         owner_id: ownerId,
-        content: content.trim(),
+        content,
         visibility,
       })
       setContent('')
@@ -81,9 +95,9 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
   }, [ownerId, ownerType, content, visibility, createNote, toast])
 
   const handleUpdate = useCallback(async (id: string) => {
-    if (!editContent.trim()) return
+    if (isBlankRichText(editContent)) return
     try {
-      await updateNote.mutateAsync({ id, payload: { content: editContent.trim() } })
+      await updateNote.mutateAsync({ id, payload: { content: editContent } })
       setEditingId(null)
       setEditContent('')
       toast({ title: 'Note modifiée', variant: 'success' })
@@ -116,17 +130,21 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
     <div className={compact ? 'space-y-2' : 'space-y-3'}>
       {/* New note form */}
       <div className="overflow-hidden rounded-md border border-border/60 bg-card">
-        <textarea
-          className="min-h-[72px] w-full resize-none border-0 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/60"
-          placeholder={t('shared.notes.add')}
-          rows={compact ? 2 : 3}
-          autoFocus={initialShowForm}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
+        <div
+          data-initial-focus={initialShowForm ? 'true' : undefined}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleCreate()
           }}
-        />
+        >
+          <RichTextField
+            value={content}
+            onChange={setContent}
+            placeholder={t('shared.notes.add')}
+            rows={compact ? 3 : 4}
+            compact
+            className="rounded-none border-0"
+          />
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 bg-accent/20 px-3 py-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <button
@@ -144,9 +162,9 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
           </div>
           <button
             onClick={handleCreate}
-            disabled={!content.trim() || createNote.isPending}
+            disabled={isBlankRichText(content) || createNote.isPending}
             className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-            title={!content.trim() ? "Saisissez une note avant d'enregistrer" : 'Enregistrer la note'}
+            title={isBlankRichText(content) ? "Saisissez une note avant d'enregistrer" : 'Enregistrer la note'}
             type="button"
           >
             {createNote.isPending ? (
@@ -176,13 +194,20 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
 
         if (isEditing) {
           return (
-            <div key={note.id} className="overflow-hidden rounded-md border border-primary/30 bg-card">
-              <textarea
-                className="w-full resize-none border-0 bg-transparent px-3 py-2.5 text-sm outline-none"
-                rows={3}
+            <div
+              key={note.id}
+              className="overflow-hidden rounded-md border border-primary/30 bg-card"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setEditingId(null)
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleUpdate(note.id)
+              }}
+            >
+              <RichTextField
                 value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                autoFocus
+                onChange={setEditContent}
+                rows={3}
+                compact
+                className="rounded-none border-0"
               />
               <div className="flex items-center justify-end gap-2 border-t border-border/40 px-3 py-2">
                 <button onClick={() => setEditingId(null)} className="btn-sm btn-secondary">
@@ -190,7 +215,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                 </button>
                 <button
                   onClick={() => handleUpdate(note.id)}
-                  disabled={!editContent.trim() || updateNote.isPending}
+                  disabled={isBlankRichText(editContent) || updateNote.isPending}
                   className="btn-sm btn-primary"
                 >
                   {updateNote.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
@@ -233,7 +258,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                     )}
                   </div>
                   {/* Content */}
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
+                  <RichTextDisplay value={note.content} className="text-foreground" empty="" />
                   {note.updated_at !== note.created_at && (
                     <span className="text-[10px] text-muted-foreground/60 mt-1 block">
                       modifié {formatDate(note.updated_at)}

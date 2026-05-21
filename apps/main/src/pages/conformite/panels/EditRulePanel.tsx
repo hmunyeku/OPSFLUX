@@ -101,12 +101,12 @@ export function EditRulePanel() {
 
   const actionItems = useMemo<ActionItem[]>(() => {
     const items: ActionItem[] = [
-      { id: 'cancel', label: 'Annuler', priority: 40, onClick: closeDynamicPanel },
+      { id: 'cancel', label: t('common.cancel'), priority: 40, onClick: closeDynamicPanel },
     ]
     if (canDelete) {
       items.unshift({
         id: 'delete',
-        label: 'Supprimer',
+        label: t('common.delete'),
         icon: Trash2,
         variant: 'danger',
         priority: 20,
@@ -116,7 +116,7 @@ export function EditRulePanel() {
     if (canUpdate) {
       items.push({
         id: 'save',
-        label: 'Enregistrer',
+        label: t('common.save'),
         variant: 'primary',
         priority: 100,
         loading: updateRule.isPending,
@@ -125,14 +125,14 @@ export function EditRulePanel() {
       })
     }
     return items
-  }, [canDelete, canUpdate, closeDynamicPanel, handleDelete, handleSave, updateRule.isPending, changeReason])
+  }, [canDelete, canUpdate, closeDynamicPanel, handleDelete, handleSave, updateRule.isPending, changeReason, t])
 
   // Early return APRES tous les hooks (cf bug #88)
   if (!rule) return null
 
   return (
     <DynamicPanelShell
-      title="Modifier la regle"
+      title={t('conformite.rules.edit_title', 'Modifier la règle')}
       subtitle={`v${rule.version ?? 1}`}
       icon={<Scale size={14} className="text-primary" />}
       actionItems={actionItems}
@@ -142,8 +142,8 @@ export function EditRulePanel() {
       {canUpdate && (
         <div className="px-4 pb-2">
           <FormSection title={t('common.modification')}>
-            <DynamicPanelField label="Raison de la modification" required>
-              <input type="text" value={changeReason} onChange={(e) => setChangeReason(e.target.value)} className={panelInputClass} placeholder="Ex: Mise à jour durée de validité..." />
+            <DynamicPanelField label={t('conformite.rules.change_reason', 'Raison de la modification')} required>
+              <input type="text" value={changeReason} onChange={(e) => setChangeReason(e.target.value)} className={panelInputClass} placeholder={t('conformite.rules.change_reason_placeholder', 'Ex: mise à jour de la durée de validité...')} />
             </DynamicPanelField>
           </FormSection>
         </div>

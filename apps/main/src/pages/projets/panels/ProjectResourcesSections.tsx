@@ -366,6 +366,7 @@ export function TimeTrackingSection({ projectId }: { projectId: string; members:
       collapsible
       defaultExpanded={false}
       storageKey="project-detail-timesheet"
+      className="px-3 py-3"
     >
       <WeeklyTimesheetGrid projectId={projectId} />
     </FormSection>
@@ -424,6 +425,7 @@ export function AllocationMatrixSection({ projectId }: { projectId: string }) {
       collapsible
       defaultExpanded={false}
       storageKey="project-detail-alloc-matrix"
+      className="px-3 py-3"
     >
       <div className="text-[10px] text-muted-foreground mb-2">
         Cliquez sur une cellule pour saisir les heures planifiées. Format : <span className="font-mono">planifié / réalisé</span>.

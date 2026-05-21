@@ -1131,24 +1131,26 @@ function MemberRow({
     : null
 
   return (
-    <div className="group grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border/50 bg-background/35 px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/20">
+    <div className="group grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border/50 bg-background/35 px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/20">
       <div className="flex min-w-0 items-center gap-2">
         <PaxAvatar
           fullName={name}
           avatarUrl={resolvedAvatarUrl}
-          size={24}
+          size={28}
           className="ring-1 ring-border/60"
         />
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="truncate font-medium text-foreground">{name}</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-[13px] font-semibold text-foreground">{name}</span>
             {!member.active && (
               <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">Inactif</span>
             )}
-            <span className="text-[10px] text-muted-foreground">{roleLbl}</span>
-            <span className="text-[10px] tabular-nums text-muted-foreground">{member.allocation_pct ?? 100}% allocation</span>
-            {member.specialty && <span className="truncate text-[10px] text-muted-foreground">{member.specialty}</span>}
-            {period && <span className="text-[10px] text-muted-foreground">{period}</span>}
+          </div>
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+            <span>{roleLbl}</span>
+            <span className="tabular-nums">{member.allocation_pct ?? 100}% allocation</span>
+            {member.specialty && <span className="truncate">{member.specialty}</span>}
+            {period && <span className="tabular-nums">{period}</span>}
           </div>
         </div>
       </div>
@@ -1194,7 +1196,7 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-md border border-dashed border-primary/35 px-2 text-xs font-medium text-primary hover:bg-primary/5"
+        className="mt-1.5 inline-flex h-7 items-center gap-1.5 rounded-md border border-dashed border-primary/35 px-2 text-xs font-medium text-primary hover:bg-primary/5"
       >
         <UserPlus size={12} /> Ajouter un membre
       </button>
@@ -1202,7 +1204,7 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 mt-1 p-2 rounded-md border border-border/40 bg-card/40">
+    <div className="mt-1 flex flex-wrap items-center gap-1.5 rounded-md border border-border/40 bg-card/40 p-2">
       <div className="flex-1 min-w-[200px]">
         <UserPicker
           value={selectedUserId}
@@ -1296,6 +1298,7 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
       collapsible
       defaultExpanded
       storageKey="project-detail-teams"
+      className="px-3 py-3"
       headerExtra={
         <button
           className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -1384,16 +1387,16 @@ function ProjectTeamsSection({ projectId }: { projectId: string }) {
           <Plus size={13} className="ml-auto shrink-0 text-primary" />
         </button>
       ) : (
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/50 bg-muted/15 px-2 py-1.5 text-[10px] text-muted-foreground">
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/50 bg-muted/15 px-2 py-1 text-[10px] text-muted-foreground">
             <span className="font-medium text-foreground">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
             <span>·</span>
             <span>{attachedMembersCount} membre{attachedMembersCount > 1 ? 's' : ''} couverts</span>
           </div>
           {teams.map((pt) => (
-            <div key={pt.id} className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border/50 bg-background/35 px-2.5 py-2 text-xs transition-colors hover:border-border hover:bg-muted/20">
+            <div key={pt.id} className="group grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border/50 bg-background/35 px-2 py-1.5 text-xs transition-colors hover:border-border hover:bg-muted/20">
               <div className="flex min-w-0 items-center gap-2.5">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-info/10 text-info ring-1 ring-info/15">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-info/10 text-info ring-1 ring-info/15">
                   <Users2 size={14} />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -4092,9 +4095,9 @@ export function ProjectDetailPanel({ id }: { id: string }) {
             )}
 
             {/* Equipe / Members — like Gouti "Gestion > Les collaborateurs" */}
-            <FormSection title={`Équipe (${members?.length ?? 0})`} collapsible defaultExpanded storageKey="project-detail-equipe">
+            <FormSection title={`Équipe (${members?.length ?? 0})`} collapsible defaultExpanded storageKey="project-detail-equipe" className="px-3 py-3">
               {members && members.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <div className="grid grid-cols-3 gap-1 rounded-md border border-border/50 bg-muted/15 p-1 text-[10px] text-muted-foreground">
                     <div className="rounded bg-background/45 px-1.5 py-0.5">
                       <div className="text-xs font-semibold tabular-nums text-foreground">{memberSummary.active}/{members.length}</div>

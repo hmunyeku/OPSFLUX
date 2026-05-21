@@ -253,8 +253,8 @@ export function WeeklyTimesheetGrid({
   return (
     <div className="space-y-2">
       {/* Header: week navigation + status + submit */}
-      <div className="grid gap-2 text-xs sm:flex sm:flex-wrap sm:items-center">
-        <div className="grid grid-cols-[28px_minmax(0,1fr)_28px] items-center gap-1.5 sm:flex">
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <div className="grid min-w-0 flex-1 grid-cols-[28px_minmax(0,1fr)_28px] items-center gap-1.5 sm:flex sm:flex-initial">
           <button
             onClick={() => setWeekStart((w) => addDays(w, -7))}
             className="inline-flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted"
@@ -262,7 +262,7 @@ export function WeeklyTimesheetGrid({
           >
             <ChevronLeft size={14} />
           </button>
-          <div className="inline-flex h-7 min-w-0 items-center justify-center gap-1.5 rounded border border-border bg-muted/30 px-2 font-medium">
+          <div className="inline-flex h-7 min-w-0 items-center justify-center gap-1.5 rounded border border-border bg-muted/30 px-2 font-medium sm:min-w-[150px]">
             <Calendar size={12} className="shrink-0 text-muted-foreground" />
             <span className="truncate">Année {year}</span>
             <span className="text-muted-foreground">·</span>
@@ -278,15 +278,15 @@ export function WeeklyTimesheetGrid({
         </div>
         <button
           onClick={() => setWeekStart(getMonday(new Date()))}
-          className="h-7 rounded border border-border px-2.5 text-xs hover:bg-muted sm:w-auto"
+          className="h-7 shrink-0 rounded border border-border px-2 text-xs hover:bg-muted"
         >
           Cette semaine
         </button>
 
-        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">
           <span
             className={cn(
-              'tabular-nums px-2 py-1 rounded font-medium',
+              'rounded px-2 py-1 font-medium tabular-nums',
               weekTotal >= weeklyTargetHours
                 ? 'bg-green-500/10 text-green-600'
                 : weekTotal === 0
@@ -308,7 +308,7 @@ export function WeeklyTimesheetGrid({
             <button
               onClick={submitWeek}
               disabled={drafts.length === 0 || submittingWeek}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 font-medium"
+              className="inline-flex h-7 items-center gap-1 rounded bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
             >
               {submittingWeek ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
               Soumettre ({drafts.length})
@@ -466,12 +466,12 @@ export function WeeklyTimesheetGrid({
         )}
       </div>
 
-      <div className="text-[10px] text-muted-foreground italic flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
         <span><span className="inline-block w-2 h-2 rounded-sm bg-muted align-middle mr-1" />{t('projets.timesheet.legend_draft', 'Brouillon')}</span>
         <span><span className="inline-block w-2 h-2 rounded-sm bg-blue-500/40 align-middle mr-1" />{t('projets.timesheet.legend_submitted', 'Soumis')}</span>
         <span><span className="inline-block w-2 h-2 rounded-sm bg-green-500/40 align-middle mr-1" />{t('projets.timesheet.legend_validated', 'Validé')}</span>
         <span><span className="inline-block w-2 h-2 rounded-sm bg-red-500/40 align-middle mr-1" />{t('projets.timesheet.legend_rejected', 'Rejeté')}</span>
-        <span className="basis-full sm:ml-auto sm:basis-auto">{t('projets.timesheet.shortcuts_hint', 'Tab pour cellule suivante · Entrée pour valider · 0 pour vider')}</span>
+        <span className="hidden sm:ml-auto sm:inline">{t('projets.timesheet.shortcuts_hint', 'Tab pour cellule suivante · Entrée pour valider · 0 pour vider')}</span>
       </div>
     </div>
   )

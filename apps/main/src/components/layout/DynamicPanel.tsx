@@ -804,10 +804,12 @@ export function FormSection({
         // sans casser le responsive (les container queries restent
         // valides quand la section entre en vue). `contain-intrinsic-size`
         // donne une estimation de taille pour eviter les scroll-jumps
-        // visuels au moment de la mesure. 400px = taille mediane d'une
-        // section a 1-2 colonnes ; le navigateur remplace par taille
-        // reelle une fois la section dans le viewport.
-        '[content-visibility:auto] [contain-intrinsic-size:auto_400px]',
+        // visuels au moment de la mesure. 180px colle mieux aux sections
+        // compactes frequentes (equipes, PJ, feuilles de temps repliees)
+        // et evite de fabriquer de grands vides hors viewport ; le
+        // navigateur remplace par la taille reelle une fois la section
+        // dans le viewport.
+        '[content-visibility:auto] [contain-intrinsic-size:auto_180px]',
         className,
       )}
     >

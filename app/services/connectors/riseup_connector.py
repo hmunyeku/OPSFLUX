@@ -50,10 +50,14 @@ class RiseUpConnector(ComplianceConnector):
 
         credentials = base64.b64encode(f"{self.public_key}:{self.secret_key}".encode()).decode()
 
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
             resp = await client.post(
                 f"{self.base_url}/oauth/token",
-                data="grant_type=client_credentials",
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": self.public_key,
+                    "client_secret": self.secret_key,
+                },
                 headers={
                     "Authorization": f"Basic {credentials}",
                     "Content-Type": "application/x-www-form-urlencoded",
@@ -76,7 +80,7 @@ class RiseUpConnector(ComplianceConnector):
         results: list[dict] = []
         url = f"{self.base_url}/v3{path}"
 
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             while url:
                 resp = await client.get(url, params=params, headers=self._headers())
                 params = None  # Only use params on first request
@@ -108,7 +112,7 @@ class RiseUpConnector(ComplianceConnector):
         """Test by fetching company info."""
         try:
             await self.authenticate()
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
                 resp = await client.get(
                     f"{self.base_url}/v3/company",
                     headers=self._headers(),

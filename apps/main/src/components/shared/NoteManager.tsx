@@ -113,11 +113,11 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
   if (!ownerId) return null
 
   return (
-    <div className="space-y-3">
+    <div className={compact ? 'space-y-2' : 'space-y-3'}>
       {/* New note form */}
-      <div className="border border-border/60 rounded-lg bg-card overflow-hidden">
+      <div className="overflow-hidden rounded-md border border-border/60 bg-card">
         <textarea
-          className="w-full px-3 py-2.5 text-sm bg-transparent border-0 outline-none resize-none placeholder:text-muted-foreground/60"
+          className="min-h-[72px] w-full resize-none border-0 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/60"
           placeholder={t('shared.notes.add')}
           rows={compact ? 2 : 3}
           autoFocus={initialShowForm}
@@ -127,25 +127,25 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleCreate()
           }}
         />
-        <div className="flex items-center justify-between px-3 py-2 border-t border-border/40 bg-accent/30">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 bg-accent/20 px-3 py-1.5">
+          <div className="flex min-w-0 items-center gap-2">
             <button
               onClick={() => setVisibility(visibility === 'public' ? 'private' : 'public')}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors bg-accent text-muted-foreground border border-border/50 hover:border-border"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/50 bg-background/60 px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
               title={visibility === 'public' ? 'Visible par tous' : 'Visible par vous seul'}
               type="button"
             >
               {visibility === 'public' ? <Globe size={10} /> : <Lock size={10} />}
               {visibility === 'public' ? 'Public' : 'Privé'}
             </button>
-            <span className="text-[10px] text-muted-foreground/60">
+            <span className="hidden text-[10px] text-muted-foreground/60 sm:inline">
               Ctrl+Enter pour enregistrer
             </span>
           </div>
           <button
             onClick={handleCreate}
             disabled={!content.trim() || createNote.isPending}
-            className="btn-sm btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             title={!content.trim() ? "Saisissez une note avant d'enregistrer" : 'Enregistrer la note'}
             type="button"
           >
@@ -154,7 +154,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
             ) : (
               <>
                 <Send size={12} />
-                Enregistrer
+                <span>Enregistrer</span>
               </>
             )}
           </button>
@@ -176,15 +176,15 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
 
         if (isEditing) {
           return (
-            <div key={note.id} className="border border-primary/30 rounded-lg bg-card overflow-hidden">
+            <div key={note.id} className="overflow-hidden rounded-md border border-primary/30 bg-card">
               <textarea
-                className="w-full px-3 py-2.5 text-sm bg-transparent border-0 outline-none resize-none"
+                className="w-full resize-none border-0 bg-transparent px-3 py-2.5 text-sm outline-none"
                 rows={3}
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
                 autoFocus
               />
-              <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-border/40">
+              <div className="flex items-center justify-end gap-2 border-t border-border/40 px-3 py-2">
                 <button onClick={() => setEditingId(null)} className="btn-sm btn-secondary">
                   Annuler
                 </button>
@@ -203,7 +203,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
         return (
           <div
             key={note.id}
-            className={`border rounded-lg bg-card px-4 py-3 ${
+            className={`rounded-md border bg-card px-3 py-2.5 ${
               note.pinned ? 'border-primary/30 bg-primary/[0.03]' : 'border-border/60'
             }`}
           >
@@ -304,7 +304,14 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
 
       {/* Empty state */}
       {!isLoading && notes.length === 0 && (
-        <EmptyState icon={MessageSquare} title="Aucune note" description={t('shared.notes.empty_description')} size="compact" />
+        compact ? (
+          <div className="flex items-center gap-2 rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+            <MessageSquare size={14} className="shrink-0" />
+            <span>{t('shared.notes.empty_description')}</span>
+          </div>
+        ) : (
+          <EmptyState icon={MessageSquare} title="Aucune note" description={t('shared.notes.empty_description')} size="compact" />
+        )
       )}
     </div>
   )

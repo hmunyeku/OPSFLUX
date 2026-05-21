@@ -1407,16 +1407,16 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
       {detailTab === 'documents' && (
       <PanelContentLayout>
         <FormSection title={t('tiers.ui.sections.notes_documents')} collapsible defaultExpanded storageKey="tier-detail-sections">
-          <DetailFieldGrid>
-            <div>
+          <div className="grid gap-4 @[760px]:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
+            <div className="min-w-0 space-y-2">
               <SubSectionLabel icon={MessageSquare} label={t('common.notes')} count={notes?.length ?? 0} />
               <NoteManager ownerType="tier" ownerId={tier.id} compact />
             </div>
-            <div>
+            <div className="min-w-0 space-y-2">
               <SubSectionLabel icon={Paperclip} label={t('common.files')} count={attachments?.length ?? 0} />
               <AttachmentManager ownerType="tier" ownerId={tier.id} compact />
             </div>
-          </DetailFieldGrid>
+          </div>
         </FormSection>
 
         <FormSection title={t('tiers.ui.sections.configuration')} collapsible defaultExpanded={false} storageKey="tier-detail-configuration">

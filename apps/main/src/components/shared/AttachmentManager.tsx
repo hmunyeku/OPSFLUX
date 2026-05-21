@@ -627,22 +627,27 @@ export function AttachmentManager({
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             className={cn(
-              'border-2 border-dashed rounded-lg px-4 py-3 text-center cursor-pointer transition-all',
+              'cursor-pointer rounded-md border border-dashed transition-all',
+              compact
+                ? 'flex min-h-10 items-center justify-center gap-2 px-3 py-2 text-left'
+                : 'px-4 py-3 text-center',
               isDragging ? 'border-primary bg-primary/5' : 'border-border/60 hover:border-border hover:bg-accent/30',
             )}
           >
             {uploadAttachment.isPending
-              ? <Loader2 size={18} className="mx-auto animate-spin text-muted-foreground mb-1" />
-              : <Plus size={18} className="mx-auto text-muted-foreground mb-1" />
+              ? <Loader2 size={compact ? 14 : 18} className={cn('animate-spin text-muted-foreground', !compact && 'mx-auto mb-1')} />
+              : <Plus size={compact ? 14 : 18} className={cn('text-muted-foreground', !compact && 'mx-auto mb-1')} />
             }
-            <p className="text-xs text-muted-foreground">
-              {compact ? t('attachments_manager.add_file') : t('attachments_manager.dropzone')}
-            </p>
-            {selectedCategoryLabel && (
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                {t('attachments_manager.selected_type', { type: selectedCategoryLabel })}
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-muted-foreground">
+                {compact ? t('attachments_manager.add_file') : t('attachments_manager.dropzone')}
               </p>
-            )}
+              {selectedCategoryLabel && (
+                <p className={cn('truncate text-[10px] text-muted-foreground', !compact && 'mt-1')}>
+                  {t('attachments_manager.selected_type', { type: selectedCategoryLabel })}
+                </p>
+              )}
+            </div>
           </div>
           {duplicatePrompt && (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
@@ -690,10 +695,10 @@ export function AttachmentManager({
           : null
 
         return (
-          <div key={att.id} className="border border-border/60 rounded-lg bg-card overflow-hidden">
+          <div key={att.id} className="overflow-hidden rounded-md border border-border/60 bg-card">
             {/* File info row */}
             <div className="flex items-center gap-2.5 px-3 py-2">
-              <FileIcon size={14} className="text-muted-foreground shrink-0" />
+              <FileIcon size={14} className="shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <p className="text-xs font-medium text-foreground truncate">{att.original_name}</p>
@@ -761,7 +766,14 @@ export function AttachmentManager({
 
       {/* Empty state */}
       {!isLoading && attachments.length === 0 && (
-        <EmptyState icon={Paperclip} title={t('attachments_manager.empty_title')} description={t('attachments_manager.empty_description')} size="compact" />
+        compact ? (
+          <div className="flex items-center gap-2 rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+            <Paperclip size={14} className="shrink-0" />
+            <span>{t('attachments_manager.empty_description')}</span>
+          </div>
+        ) : (
+          <EmptyState icon={Paperclip} title={t('attachments_manager.empty_title')} description={t('attachments_manager.empty_description')} size="compact" />
+        )
       )}
     </div>
   )

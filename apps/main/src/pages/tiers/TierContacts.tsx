@@ -697,16 +697,16 @@ export function ContactDetailPanel({
       <PanelContentLayout>
         {/* Full-width: Notes & Documents */}
         <FormSection title={t('tiers.ui.sections.notes_documents')} collapsible defaultExpanded storageKey="contact-detail-sections">
-          <DetailFieldGrid>
-            <div>
+          <div className="grid gap-4 @[760px]:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
+            <div className="min-w-0 space-y-2">
               <SubSectionLabel icon={MessageSquare} label={t('common.notes')} count={contactNotes?.length ?? 0} />
               <NoteManager ownerType="tier_contact" ownerId={contact.id} compact />
             </div>
-            <div>
+            <div className="min-w-0 space-y-2">
               <SubSectionLabel icon={Paperclip} label={t('common.files')} count={contactAttachments?.length ?? 0} />
               <AttachmentManager ownerType="tier_contact" ownerId={contact.id} compact />
             </div>
-          </DetailFieldGrid>
+          </div>
         </FormSection>
       </PanelContentLayout>
       )}

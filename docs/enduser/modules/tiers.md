@@ -119,6 +119,16 @@ Les logos peuvent venir d'une URL ou d'une pièce jointe image. Les listes
 affichent le drapeau du pays pour gagner de l'espace, tandis que la fiche
 détaillée affiche le drapeau et le nom du pays.
 
+Les documents et preuves sont portés par les composants polymorphes. Quand
+un référentiel de conformité exige une pièce justificative, la pièce doit
+être attachée au bon owner (`tier` ou `tier_contact`) et typée clairement.
+Le type de pièce doit être visible sous forme de tag afin d'éviter une
+saisie ambiguë ou une liste déroulante redondante.
+
+La prévisualisation des pièces jointes permet de contrôler rapidement PDF,
+images, documents Office et fichiers techniques lorsqu'un viewer est
+disponible. Le fichier original reste la référence d'audit.
+
 ### Champs Tier importants
 
 [`app/models/common.py:637-696`](https://github.com/hmunyeku/OPSFLUX/blob/main/app/models/common.py#L637) :

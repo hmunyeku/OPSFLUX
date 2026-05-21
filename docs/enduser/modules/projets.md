@@ -174,6 +174,16 @@ Selon la configuration projet, certains types peuvent être obligatoires.
 Dans ce cas, l'onglet Documents doit permettre de voir ce qui est attendu,
 ce qui est présent et ce qui reste manquant.
 
+La prévisualisation doit être utilisée comme contrôle rapide, mais elle ne
+remplace pas le fichier source. Pour un PDF ou une image, la lecture doit
+être immédiate. Pour Office, Visio, DWF/Navisworks ou plans techniques,
+OpsFlux doit conserver le fichier original et, lorsque nécessaire, une
+version exportée lisible par le navigateur ou par un viewer spécialisé.
+
+Règle pratique : si une pièce justifie une validation, un changement ou un
+livrable client, elle doit être attachée au bon contexte métier et typée de
+façon explicite. Éviter les fichiers non classés en vrac.
+
 ---
 
 ## Révisions et simulations planning
@@ -211,4 +221,3 @@ Avant de livrer un projet, vérifier :
 - les membres sans rôle clair ;
 - les pertes de temps non justifiées ;
 - les vues mobile qui introduisent un scroll horizontal inutile.
-

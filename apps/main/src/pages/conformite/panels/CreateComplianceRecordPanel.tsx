@@ -32,6 +32,9 @@ import { AssetPicker } from '@/components/shared/AssetPicker'
 // CreateTransferPanel.tsx:49).
 import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 
+const RISEUP_ISSUER_VALUE = '__provider:riseup'
+const LEGACY_ISSUER_VALUE = '__legacy'
+
 export function CreateComplianceRecordPanel() {
   return (
     <SmartFormProvider panelId="create-compliance-record" defaultMode="simple">
@@ -89,6 +92,14 @@ function CreateComplianceRecordInner() {
     [typesData?.items],
   )
   const authorizationCenters = authorizationCentersData?.items ?? []
+  const selectedComplianceType = useMemo(
+    () => (typesData?.items ?? []).find((item) => item.id === form.compliance_type_id),
+    [form.compliance_type_id, typesData?.items],
+  )
+  const canUseRiseUpIssuer = selectedComplianceType?.external_provider === 'riseup'
+    && ['external', 'both'].includes(selectedComplianceType.compliance_source)
+  const issuerSelectValue = form.issuer_tier_id
+    || (form.issuer === 'RiseUp' ? RISEUP_ISSUER_VALUE : form.issuer ? LEGACY_ISSUER_VALUE : '')
 
   const ownerTypeOptions = useMemo(
     () => [
@@ -254,24 +265,39 @@ function CreateComplianceRecordInner() {
               <input type="date" value={form.expires_at ?? ''} onChange={(e) => setForm({ ...form, expires_at: e.target.value || null })} className={panelInputClass} />
             </DynamicPanelField>
             <DynamicPanelField label={t('conformite.records.fields.issuer')}>
-              {authorizationCenters.length > 0 ? (
-                <select
-                  value={form.issuer_tier_id ?? ''}
-                  onChange={(e) => {
-                    const center = authorizationCenters.find((item) => item.id === e.target.value)
-                    setForm({ ...form, issuer_tier_id: e.target.value || null, issuer: center?.name || null })
-                  }}
-                  className={panelInputClass}
-                >
-                  <option value="">Sélectionner un centre habilité...</option>
-                  {authorizationCenters.map((center) => (
-                    <option key={center.id} value={center.id}>
-                      {center.name}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input type="text" value={form.issuer ?? ''} onChange={(e) => setForm({ ...form, issuer: e.target.value || null, issuer_tier_id: null })} className={panelInputClass} />
+              <select
+                value={issuerSelectValue}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (!value) {
+                    setForm({ ...form, issuer_tier_id: null, issuer: null })
+                    return
+                  }
+                  if (value === RISEUP_ISSUER_VALUE) {
+                    setForm({ ...form, issuer_tier_id: null, issuer: 'RiseUp' })
+                    return
+                  }
+                  if (value === LEGACY_ISSUER_VALUE) return
+                  const center = authorizationCenters.find((item) => item.id === value)
+                  setForm({ ...form, issuer_tier_id: value, issuer: center?.name || null })
+                }}
+                className={panelInputClass}
+              >
+                <option value="">Sélectionner un émetteur...</option>
+                {canUseRiseUpIssuer && <option value={RISEUP_ISSUER_VALUE}>RiseUp</option>}
+                {authorizationCenters.map((center) => (
+                  <option key={center.id} value={center.id}>
+                    {center.name}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
+                  </option>
+                ))}
+                {form.issuer && form.issuer !== 'RiseUp' && !form.issuer_tier_id && (
+                  <option value={LEGACY_ISSUER_VALUE}>{form.issuer} (historique)</option>
+                )}
+              </select>
+              {authorizationCenters.length === 0 && !canUseRiseUpIssuer && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Aucun émetteur configuré pour ce référentiel.
+                </p>
               )}
             </DynamicPanelField>
             <DynamicPanelField label={t('conformite.records.fields.reference_number')}>

@@ -506,6 +506,39 @@ async def _validate_record_issuer(
     return tier
 
 
+async def _validate_riseup_issuer(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    compliance_type: ComplianceType,
+    issuer: str | None,
+) -> None:
+    if (issuer or "").strip().lower().replace(" ", "") != "riseup":
+        return
+    if compliance_type.external_provider != "riseup" or compliance_type.compliance_source not in {"external", "both"}:
+        raise HTTPException(
+            status_code=422,
+            detail="RiseUp ne peut etre choisi que pour un referentiel raccorde au provider RiseUp.",
+        )
+    result = await db.execute(
+        select(Setting).where(
+            Setting.key.in_(["integration.riseup.public_key", "integration.riseup.secret_key"]),
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
+        )
+    )
+    values = []
+    for setting in result.scalars().all():
+        raw = setting.value.get("v", "") if isinstance(setting.value, dict) else setting.value
+        if raw:
+            values.append(str(raw))
+    if not values:
+        raise HTTPException(
+            status_code=422,
+            detail="Le connecteur RiseUp doit etre configure avant de choisir RiseUp comme emetteur.",
+        )
+
+
 @router.get(
     "/authorization-centers",
     response_model=PaginatedResponse[TierRead],
@@ -1002,6 +1035,7 @@ async def create_compliance_record(
     )
     if issuer_tier and not data.get("issuer"):
         data["issuer"] = issuer_tier.name
+    await _validate_riseup_issuer(db, entity_id=entity_id, compliance_type=ct, issuer=data.get("issuer"))
 
     now = datetime.now(timezone.utc)
     errors: list[str] = []
@@ -1119,6 +1153,10 @@ async def update_compliance_record(
         )
         if issuer_tier and "issuer" not in updates:
             updates["issuer"] = issuer_tier.name
+    if "issuer" in updates:
+        ct = await db.get(ComplianceType, rec.compliance_type_id)
+        if ct:
+            await _validate_riseup_issuer(db, entity_id=entity_id, compliance_type=ct, issuer=updates.get("issuer"))
     for field, value in updates.items():
         setattr(rec, field, value)
     # Auto-fix status when expiry date is corrected

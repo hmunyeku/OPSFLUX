@@ -7,6 +7,7 @@ import {
   DynamicPanelShell,
   FormSection,
   InlineEditableRow,
+  InlineEditableSelect,
   ReadOnlyRow,
   PanelContentLayout,
   DetailFieldGrid,
@@ -18,16 +19,23 @@ import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { usePermission } from '@/hooks/usePermission'
 import { normalizeNames } from '@/lib/normalize'
-import { useComplianceRecords, useUpdateComplianceRecord, useDeleteComplianceRecord, useVerifyRecord } from '@/hooks/useConformite'
+import {
+  useComplianceRecords, useUpdateComplianceRecord, useDeleteComplianceRecord,
+  useVerifyRecord, useComplianceTypes, useAuthorizationCenters,
+} from '@/hooks/useConformite'
 import type { ComplianceRecordUpdate } from '@/types/api'
 import { useConformiteDictionaryState } from '../shared'
 import { ComplianceOwnerCard } from '../components'
 import { formatDate } from '@/lib/i18n'
 
+const RISEUP_ISSUER_VALUE = '__provider:riseup'
+const LEGACY_ISSUER_VALUE = '__legacy'
+
 export function ComplianceRecordDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data } = useComplianceRecords({ page: 1, page_size: 200 })
+  const { data: typesData } = useComplianceTypes({ page: 1, page_size: 200 })
   const updateRecord = useUpdateComplianceRecord()
   const deleteRecord = useDeleteComplianceRecord()
   const verifyRecord = useVerifyRecord()
@@ -38,6 +46,17 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
   const canVerify = hasPermission('conformite.record.verify')
   const { statusLabels } = useConformiteDictionaryState()
   const record = data?.items.find((item) => item.id === id)
+  const selectedComplianceType = typesData?.items.find((item) => item.id === record?.compliance_type_id)
+  const { data: authorizationCentersData } = useAuthorizationCenters({
+    compliance_type_id: record?.compliance_type_id,
+    page_size: 100,
+    enabled: !!record?.compliance_type_id,
+  })
+  const authorizationCenters = authorizationCentersData?.items ?? []
+  const canUseRiseUpIssuer = selectedComplianceType?.external_provider === 'riseup'
+    && ['external', 'both'].includes(selectedComplianceType.compliance_source)
+  const issuerSelectValue = record?.issuer_tier_id
+    || (record?.issuer === 'RiseUp' ? RISEUP_ISSUER_VALUE : record?.issuer ? LEGACY_ISSUER_VALUE : '')
   const [detailTab, setDetailTab] = useState<'informations' | 'documents'>('informations')
 
   const handleDelete = useCallback(async () => {
@@ -173,7 +192,35 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
           </FormSection>
           <FormSection title={t('conformite.records.sections.reference')}>
             <DetailFieldGrid>
-              <InlineEditableRow label={t('conformite.records.fields.issuer')} value={record.issuer || ''} onSave={(value) => handleSave({ issuer: value || null })} />
+              <InlineEditableSelect
+                label={t('conformite.records.fields.issuer')}
+                value={issuerSelectValue}
+                displayValue={record.issuer_tier_name || record.issuer || '—'}
+                options={[
+                  { value: '', label: '—' },
+                  ...(canUseRiseUpIssuer ? [{ value: RISEUP_ISSUER_VALUE, label: 'RiseUp' }] : []),
+                  ...authorizationCenters.map((center) => ({
+                    value: center.id,
+                    label: `${center.name}${center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}`,
+                  })),
+                  ...(record.issuer && record.issuer !== 'RiseUp' && !record.issuer_tier_id
+                    ? [{ value: LEGACY_ISSUER_VALUE, label: `${record.issuer} (historique)` }]
+                    : []),
+                ]}
+                onSave={(value) => {
+                  if (!value) {
+                    handleSave({ issuer: null, issuer_tier_id: null })
+                    return
+                  }
+                  if (value === RISEUP_ISSUER_VALUE) {
+                    handleSave({ issuer: 'RiseUp', issuer_tier_id: null })
+                    return
+                  }
+                  if (value === LEGACY_ISSUER_VALUE) return
+                  const center = authorizationCenters.find((item) => item.id === value)
+                  handleSave({ issuer_tier_id: value, issuer: center?.name || null })
+                }}
+              />
               <InlineEditableRow label={t('conformite.records.fields.reference_number')} value={record.reference_number || ''} onSave={(value) => handleSave({ reference_number: value || null })} />
               <ReadOnlyRow label={t('conformite.records.fields.issued_at')} value={record.issued_at ? formatDate(record.issued_at) : '—'} />
               <ReadOnlyRow label={t('conformite.records.fields.expires_at')} value={record.expires_at ? formatDate(record.expires_at) : '—'} />

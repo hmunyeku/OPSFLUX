@@ -90,6 +90,8 @@ const EMPTY_FORM: FormData = {
 }
 
 const STAGING_OWNER_TYPE = 'compliance_record_staging'
+const RISEUP_ISSUER_VALUE = '__provider:riseup'
+const LEGACY_ISSUER_VALUE = '__legacy'
 
 const createStagingRef = () => globalThis.crypto?.randomUUID?.() ?? ''
 
@@ -179,6 +181,14 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
     if (category) return items.filter(t => t.category === category)
     return items
   }, [typesData, activeCategory, category])
+  const selectedComplianceType = useMemo(
+    () => (typesData?.items ?? []).find((item) => item.id === form.compliance_type_id),
+    [form.compliance_type_id, typesData?.items],
+  )
+  const canUseRiseUpIssuer = selectedComplianceType?.external_provider === 'riseup'
+    && ['external', 'both'].includes(selectedComplianceType.compliance_source)
+  const issuerSelectValue = form.issuer_tier_id
+    || (form.issuer === 'RiseUp' ? RISEUP_ISSUER_VALUE : form.issuer ? LEGACY_ISSUER_VALUE : '')
 
   const formatDate = (d: string | null | undefined) => {
     if (!d) return null
@@ -564,24 +574,39 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             </div>
             <div>
               <label className="text-[9px] text-muted-foreground block mb-0.5">{t('conformite.columns.issuer')}</label>
-              {hasStructuredIssuers ? (
-                <select
-                  value={form.issuer_tier_id}
-                  onChange={(e) => {
-                    const center = authorizationCenters.find((item) => item.id === e.target.value)
-                    setForm({ ...form, issuer_tier_id: e.target.value, issuer: center?.name || '' })
-                  }}
-                  className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
-                >
-                  <option value="">Sélectionner un centre...</option>
-                  {authorizationCenters.map((center) => (
-                    <option key={center.id} value={center.id}>
-                      {center.name}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input type="text" value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value, issuer_tier_id: '' })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="Organisme..." />
+              <select
+                value={issuerSelectValue}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (!value) {
+                    setForm({ ...form, issuer_tier_id: '', issuer: '' })
+                    return
+                  }
+                  if (value === RISEUP_ISSUER_VALUE) {
+                    setForm({ ...form, issuer_tier_id: '', issuer: 'RiseUp' })
+                    return
+                  }
+                  if (value === LEGACY_ISSUER_VALUE) return
+                  const center = authorizationCenters.find((item) => item.id === value)
+                  setForm({ ...form, issuer_tier_id: value, issuer: center?.name || '' })
+                }}
+                className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
+              >
+                <option value="">Sélectionner un émetteur...</option>
+                {canUseRiseUpIssuer && <option value={RISEUP_ISSUER_VALUE}>RiseUp</option>}
+                {authorizationCenters.map((center) => (
+                  <option key={center.id} value={center.id}>
+                    {center.name}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
+                  </option>
+                ))}
+                {form.issuer && form.issuer !== 'RiseUp' && !form.issuer_tier_id && (
+                  <option value={LEGACY_ISSUER_VALUE}>{form.issuer} (historique)</option>
+                )}
+              </select>
+              {!hasStructuredIssuers && !canUseRiseUpIssuer && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Aucun émetteur configuré pour ce référentiel.
+                </p>
               )}
             </div>
           </div>

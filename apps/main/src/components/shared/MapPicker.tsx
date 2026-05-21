@@ -12,6 +12,7 @@
  *   <MapPickerModal open={show} onClose={...} latitude={3.848} longitude={9.687} onSelect={...} />
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import L from 'leaflet'
 import { X, MapPin, Search, Loader2, Crosshair } from 'lucide-react'
@@ -147,6 +148,23 @@ function useLeafletMap(opts: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // init once
 
+  useEffect(() => {
+    const container = opts.containerRef.current
+    if (!container) return
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        try {
+          mapRef.current?.invalidateSize()
+        } catch {
+          // Leaflet may already be unmounted while a resize event is pending.
+        }
+      })
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [opts.containerRef])
+
   // Swap tile layer when provider/style changes
   useEffect(() => {
     const map = mapRef.current
@@ -188,7 +206,7 @@ interface MapPickerProps {
   /** Callback when user selects a point on the map */
   onSelect: (lat: number, lng: number) => void
   /** Height of the map container */
-  height?: number
+  height?: number | string
   /** Whether to show the search bar */
   showSearch?: boolean
 }
@@ -288,8 +306,8 @@ export function MapPicker({
       {/* Search bar */}
       {showSearch && (
         <div ref={searchRef} className="relative">
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center">
+            <div className="relative min-w-0 flex-1">
               <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
@@ -309,7 +327,7 @@ export function MapPicker({
               type="button"
               onClick={handleSearch}
               disabled={searching || !searchQuery.trim()}
-              className="btn-sm btn-primary shrink-0"
+              className="btn-sm btn-primary w-full shrink-0 sm:w-auto"
             >
               {searching ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
               Chercher
@@ -391,41 +409,41 @@ export function MapPickerModal({
 
   if (!open) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-2xl mx-4">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4">
+      <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-3 py-2.5 sm:px-4 sm:py-3">
+          <div className="flex min-w-0 items-center gap-2">
             <MapPin size={16} className="text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">{t('shared.choisir_sur_la_carte')}</h3>
+            <h3 className="truncate text-sm font-semibold text-foreground">{t('shared.choisir_sur_la_carte')}</h3>
           </div>
-          <button onClick={onClose} className="btn btn-secondary">
+          <button onClick={onClose} className="btn-sm btn-secondary shrink-0" aria-label={t('common.close')}>
             <X size={16} />
           </button>
         </div>
 
         {/* Map */}
-        <div className="p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
           <MapPicker
             latitude={tempPos?.lat}
             longitude={tempPos?.lng}
-            height={400}
+            height="clamp(240px, 48dvh, 400px)"
             onSelect={(lat, lng) => setTempPos({ lat, lng })}
           />
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-          <div className="text-xs text-muted-foreground">
+        <div className="flex shrink-0 flex-col gap-2 border-t border-border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3">
+          <div className="min-w-0 text-xs text-muted-foreground">
             {tempPos ? (
               <span className="font-mono">{tempPos.lat.toFixed(6)}, {tempPos.lng.toFixed(6)}</span>
             ) : (
               'Cliquez sur la carte pour sélectionner un point.'
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} className="btn-sm btn-secondary">
+          <div className="flex items-center justify-end gap-2">
+            <button onClick={onClose} className="btn-sm btn-secondary min-w-20">
               Annuler
             </button>
             <button
@@ -436,13 +454,14 @@ export function MapPickerModal({
                 }
               }}
               disabled={!tempPos}
-              className="btn-sm btn-primary"
+              className="btn-sm btn-primary min-w-20"
             >
               Valider
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

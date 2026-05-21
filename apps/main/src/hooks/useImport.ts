@@ -59,6 +59,14 @@ export function useExecuteImport() {
       }
       const key = moduleKeys[vars.target_object]
       if (key) qc.invalidateQueries({ queryKey: [key] })
+      if (vars.target_object === 'contact' || vars.target_object === 'pax_profile') {
+        qc.invalidateQueries({ queryKey: ['tier-contacts'] })
+        qc.invalidateQueries({ queryKey: ['all-tier-contacts'] })
+        qc.invalidateQueries({ queryKey: ['compliance-check'] })
+        qc.invalidateQueries({ queryKey: ['compliance-records'] })
+        qc.invalidateQueries({ queryKey: ['compliance-matrix'] })
+        qc.invalidateQueries({ queryKey: ['compliance-kpis'] })
+      }
     },
   })
 }

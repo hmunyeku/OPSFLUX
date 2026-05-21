@@ -2,6 +2,7 @@
  * React Query hooks for tiers (companies) + contacts + identifiers + blocks + refs.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import { tiersService } from '@/services/tiersService'
 import type {
   TierCreate, TierContactCreate, TierContactUpdate,
@@ -71,6 +72,22 @@ export function useArchiveTier() {
 
 // ── Contacts ──
 
+function invalidateTierContactCompliance(qc: QueryClient, contactId: string) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: ['compliance-check', 'tier_contact', contactId] }),
+    qc.invalidateQueries({ queryKey: ['compliance-records'] }),
+    qc.invalidateQueries({ queryKey: ['compliance-matrix'] }),
+    qc.invalidateQueries({ queryKey: ['compliance-kpis'] }),
+  ])
+}
+
+function refetchActiveTierContactCompliance(qc: QueryClient, contactId: string) {
+  return Promise.all([
+    qc.refetchQueries({ queryKey: ['compliance-check', 'tier_contact', contactId], type: 'active' }),
+    qc.refetchQueries({ queryKey: ['compliance-records'], type: 'active' }),
+  ])
+}
+
 export function useTierContact(tierId: string | undefined, contactId: string | undefined) {
   return useQuery({
     queryKey: ['tier-contacts', tierId, contactId],
@@ -108,8 +125,14 @@ export function useCreateTierContact() {
   return useMutation({
     mutationFn: ({ tierId, payload }: { tierId: string; payload: TierContactCreate }) =>
       tiersService.createContact(tierId, payload),
-    onSuccess: (_, { tierId }) => {
-      qc.invalidateQueries({ queryKey: ['tier-contacts', tierId] })
+    onSuccess: async (contact, { tierId }) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['tier-contacts', tierId] }),
+        qc.invalidateQueries({ queryKey: ['all-tier-contacts'] }),
+      ])
+      if (contact.job_position_id) {
+        await invalidateTierContactCompliance(qc, contact.id)
+      }
     },
   })
 }
@@ -119,8 +142,21 @@ export function useUpdateTierContact() {
   return useMutation({
     mutationFn: ({ tierId, contactId, payload }: { tierId: string; contactId: string; payload: TierContactUpdate }) =>
       tiersService.updateContact(tierId, contactId, payload),
-    onSuccess: (_, { tierId }) => {
-      qc.invalidateQueries({ queryKey: ['tier-contacts', tierId] })
+    onSuccess: async (contact, { tierId, contactId, payload }) => {
+      qc.setQueryData(['tier-contacts', tierId, contactId], contact)
+      qc.setQueryData(['global-tier-contact', contactId], (current: unknown) => {
+        if (!current || typeof current !== 'object') return current
+        return { ...current, ...contact }
+      })
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['tier-contacts', tierId] }),
+        qc.invalidateQueries({ queryKey: ['tier-contacts', tierId, contactId] }),
+        qc.invalidateQueries({ queryKey: ['all-tier-contacts'] }),
+      ])
+      if ('job_position_id' in payload) {
+        await invalidateTierContactCompliance(qc, contactId)
+        await refetchActiveTierContactCompliance(qc, contactId)
+      }
     },
   })
 }

@@ -39,6 +39,7 @@ from app.models.common import (
     ImputationOtpTemplate,
     ImputationAssignment,
     ImputationReference,
+    JobPosition,
     Project,
     Tier,
     TierContact,
@@ -125,6 +126,50 @@ def _safe_bool(val: Any) -> bool | None:
 
 # ── Field synonym dictionary (FR/EN) ──────────────────────────────────────
 
+async def _resolve_job_position_id(value: Any, entity_id: UUID, db: AsyncSession) -> UUID | None:
+    raw = _safe_str(value)
+    if not raw:
+        return None
+    try:
+        jp_id = UUID(raw)
+        res = await db.execute(
+            select(JobPosition.id).where(
+                JobPosition.entity_id == entity_id,
+                JobPosition.id == jp_id,
+                JobPosition.active == True,  # noqa: E712
+            )
+        )
+        return res.scalar_one_or_none()
+    except (TypeError, ValueError):
+        pass
+
+    res = await db.execute(
+        select(JobPosition.id).where(
+            JobPosition.entity_id == entity_id,
+            JobPosition.active == True,  # noqa: E712
+            (
+                (func.lower(JobPosition.code) == raw.lower())
+                | (func.lower(JobPosition.name) == raw.lower())
+            ),
+        )
+    )
+    found = res.scalar_one_or_none()
+    if found:
+        return found
+
+    normalized = _normalize(raw)
+    res = await db.execute(
+        select(JobPosition.id, JobPosition.code, JobPosition.name).where(
+            JobPosition.entity_id == entity_id,
+            JobPosition.active == True,  # noqa: E712
+        )
+    )
+    for jp_id, code, name in res.all():
+        if normalized in {_normalize(code or ""), _normalize(name or "")}:
+            return jp_id
+    return None
+
+
 FIELD_SYNONYMS: dict[str, list[str]] = {
     # Common
     "code": ["reference", "ref", "identifiant", "id_code", "code_ref", "numero"],
@@ -140,6 +185,7 @@ FIELD_SYNONYMS: dict[str, list[str]] = {
     "email": ["courriel", "e_mail", "mail", "adresse_email", "email_address"],
     "phone": ["telephone", "tel", "phone_number", "numero_tel", "mobile"],
     "position": ["poste", "job_title", "fonction", "job", "titre_poste"],
+    "job_position": ["profil_poste", "profile_poste", "fiche_poste", "fiche_de_poste", "poste_conformite", "profil_conformite", "job_position", "job_profile", "position_profile"],
     "department": ["service", "departement", "direction", "dept"],
     # Company
     "alias": ["nom_commercial", "trade_name", "dba", "enseigne"],
@@ -575,6 +621,7 @@ class ContactHandler(TargetObjectHandler):
             TargetFieldDef(key="email", label="Email", type="string"),
             TargetFieldDef(key="phone", label="Téléphone", type="string"),
             TargetFieldDef(key="position", label="Poste / Fonction", type="string"),
+            TargetFieldDef(key="job_position", label="Profil du poste", type="lookup", lookup_target="job_position.code_or_name", example="SUP_PROJET"),
             TargetFieldDef(key="department", label="Service", type="string"),
             TargetFieldDef(key="active", label="Actif", type="boolean", example="oui"),
         ]
@@ -593,6 +640,8 @@ class ContactHandler(TargetObjectHandler):
             res = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(tier_code).strip()))
             if not res.scalar_one_or_none():
                 errors.append(RowValidationError(row_index=idx, field="tier_code", message=f"Tiers inconnu: {tier_code}"))
+        if row.get("job_position") and not await _resolve_job_position_id(row.get("job_position"), entity_id, db):
+            errors.append(RowValidationError(row_index=idx, field="job_position", message=f"Profil du poste inconnu: {row['job_position']}"))
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
@@ -618,6 +667,7 @@ class ContactHandler(TargetObjectHandler):
         tier_code = str(row.get("tier_code", "")).strip()
         res = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == tier_code))
         tier_id = res.scalar_one()
+        job_position_id = await _resolve_job_position_id(row.get("job_position"), entity_id, db)
         obj = TierContact(
             tier_id=tier_id,
             first_name=str(row.get("first_name", "")).strip(),
@@ -626,6 +676,7 @@ class ContactHandler(TargetObjectHandler):
             email=str(row.get("email", "")).strip() or None,
             phone=str(row.get("phone", "")).strip() or None,
             position=str(row.get("position", "")).strip() or None,
+            job_position_id=job_position_id,
             department=str(row.get("department", "")).strip() or None,
             active=_safe_bool(row.get("active")) if row.get("active") is not None else True,
         )
@@ -640,6 +691,9 @@ class ContactHandler(TargetObjectHandler):
             val = row.get(field)
             if val is not None:
                 setattr(obj, field, str(val).strip() or None)
+        if "job_position" in row:
+            tier_entity = await db.execute(select(Tier.entity_id).where(Tier.id == obj.tier_id))
+            obj.job_position_id = await _resolve_job_position_id(row.get("job_position"), tier_entity.scalar_one(), db)
         if row.get("active") is not None:
             val = _safe_bool(row["active"])
             if val is not None:
@@ -665,6 +719,8 @@ class PaxProfileHandler(TargetObjectHandler):
             TargetFieldDef(key="birth_date", label="Date de naissance", type="date", example="1985-03-15"),
             TargetFieldDef(key="nationality", label="Nationalité", type="string", example="Camerounaise"),
             TargetFieldDef(key="company_code", label="Code société", type="lookup", lookup_target="tier.code"),
+            TargetFieldDef(key="position", label="Poste / Fonction", type="string"),
+            TargetFieldDef(key="job_position", label="Profil du poste", type="lookup", lookup_target="job_position.code_or_name", example="SUP_PROJET"),
             TargetFieldDef(key="badge_number", label="Numéro badge", type="string"),
         ]
 
@@ -682,6 +738,8 @@ class PaxProfileHandler(TargetObjectHandler):
             res = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(row["company_code"]).strip()))
             if not res.scalar_one_or_none():
                 errors.append(RowValidationError(row_index=idx, field="company_code", message=f"Société inconnue: {row['company_code']}", severity="warning"))
+        if pax_type == "external" and row.get("job_position") and not await _resolve_job_position_id(row.get("job_position"), entity_id, db):
+            errors.append(RowValidationError(row_index=idx, field="job_position", message=f"Profil du poste inconnu: {row['job_position']}"))
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
@@ -720,6 +778,10 @@ class PaxProfileHandler(TargetObjectHandler):
             res = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(row["company_code"]).strip()))
             company_id = res.scalar_one_or_none()
 
+        job_position_id = None
+        if pax_type == "external":
+            job_position_id = await _resolve_job_position_id(row.get("job_position"), entity_id, db)
+
         if pax_type == "internal":
             # Create a User (no login — import only sets PAX fields)
             obj = User(
@@ -740,6 +802,8 @@ class PaxProfileHandler(TargetObjectHandler):
                 birth_date=_safe_date(row.get("birth_date")),
                 nationality=str(row.get("nationality", "")).strip() or None,
                 badge_number=str(row.get("badge_number", "")).strip() or None,
+                position=str(row.get("position", "")).strip() or None,
+                job_position_id=job_position_id,
                 active=True,
             )
         db.add(obj)
@@ -763,6 +827,16 @@ class PaxProfileHandler(TargetObjectHandler):
             obj.birth_date = _safe_date(row["birth_date"])
         if row.get("badge_number") is not None:
             obj.badge_number = str(row["badge_number"]).strip() or None
+        if pax_type == "external":
+            if row.get("position") is not None:
+                obj.position = str(row["position"]).strip() or None
+            if "job_position" in row:
+                contact_entity_id = obj.entity_id
+                if not contact_entity_id and getattr(obj, "tier_id", None):
+                    tier_entity = await db.execute(select(Tier.entity_id).where(Tier.id == obj.tier_id))
+                    contact_entity_id = tier_entity.scalar_one_or_none()
+                if contact_entity_id:
+                    obj.job_position_id = await _resolve_job_position_id(row.get("job_position"), contact_entity_id, db)
 
 
 class ProjectHandler(TargetObjectHandler):

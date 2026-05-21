@@ -396,6 +396,7 @@ async def list_all_contacts(
         .options(selectinload(TierContact.promoted_user), selectinload(TierContact.job_position))
         .join(Tier, TierContact.tier_id == Tier.id)
         .outerjoin(JobPosition, TierContact.job_position_id == JobPosition.id)
+        .outerjoin(User, User.tier_contact_id == TierContact.id)
         .where(Tier.entity_id == entity_id, Tier.archived == False, TierContact.active == True)
     )
     if linked_tier_ids is not None:
@@ -415,7 +416,7 @@ async def list_all_contacts(
     if email:
         query = query.where(or_(
             TierContact.email.ilike(f"%{email}%"),
-            TierContact.linked_user_email.ilike(f"%{email}%"),
+            User.email.ilike(f"%{email}%"),
         ))
     if phone:
         query = query.where(TierContact.phone.ilike(f"%{phone}%"))
@@ -435,7 +436,7 @@ async def list_all_contacts(
                 JobPosition.name.ilike(like),
                 JobPosition.code.ilike(like),
                 TierContact.department.ilike(like),
-                TierContact.linked_user_email.ilike(like),
+                User.email.ilike(like),
                 Tier.name.ilike(like),
                 Tier.code.ilike(like),
             ))
@@ -588,8 +589,7 @@ async def create_tier_contact(
     contact = TierContact(tier_id=tier.id, **body.model_dump())
     db.add(contact)
     await db.commit()
-    await db.refresh(contact)
-    return contact
+    return await _get_contact_or_404(db, contact.id, tier.id, include_promoted_user=True)
 
 
 @router.patch("/{tier_id}/contacts/{contact_id}", response_model=TierContactRead)
@@ -610,8 +610,7 @@ async def update_tier_contact(
     for field, value in update_data.items():
         setattr(contact, field, value)
     await db.commit()
-    await db.refresh(contact)
-    return contact
+    return await _get_contact_or_404(db, contact.id, tier_id, include_promoted_user=True)
 
 
 @router.delete("/{tier_id}/contacts/{contact_id}")

@@ -1879,6 +1879,9 @@
     "title": "Projects",
     "subtitle": "Project management, tasks and planning",
     "create": "New project",
+    "search": {
+      "visual_placeholder": "Free search: project, task, reference, status, priority, owner..."
+    },
     "tabs": {
       "projets": "Projects",
       "tableur": "Spreadsheet",

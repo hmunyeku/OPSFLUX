@@ -2409,7 +2409,7 @@ function TaskSection({ projectId, tasks, dependencies }: { projectId: string; ta
               <DataTableToolbar
                 searchValue={search}
                 onSearchChange={setSearch}
-                searchPlaceholder="Recherche libre : tâche, réf., statut, priorité, responsable..."
+                searchPlaceholder={t('projets.search.visual_placeholder') as string}
                 filters={taskSearchFilters}
                 activeFilters={taskActiveFilters}
                 onFilterChange={handleTaskVisualFilterChange}

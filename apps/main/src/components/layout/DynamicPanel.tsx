@@ -274,7 +274,7 @@ export function DynamicPanelShell({
           {icon && <span className="shrink-0">{icon}</span>}
           <div className="flex-1 min-w-0">
             <h2 className="text-sm font-semibold text-foreground truncate leading-tight">{title}</h2>
-            {subtitle && <p className="text-xs text-muted-foreground truncate leading-tight">{subtitle}</p>}
+            {subtitle && <p className="hidden text-xs text-muted-foreground truncate leading-tight sm:block">{subtitle}</p>}
           </div>
           {/* Inline actions in header (same pattern as docked mode) */}
           {actionsNode && (
@@ -362,7 +362,7 @@ export function DynamicPanelShell({
               labelled buttons. min-w-0 still lets it truncate. */}
           <div className="flex-1 min-w-0 max-w-[50%]">
             <h2 className="text-sm font-semibold text-foreground truncate leading-tight">{title}</h2>
-            {subtitle && <p className="text-[11px] text-muted-foreground truncate leading-tight">{subtitle}</p>}
+            {subtitle && <p className="hidden text-[11px] text-muted-foreground truncate leading-tight sm:block">{subtitle}</p>}
           </div>
 
           {/* Inline actions — desktop only (mobile uses sticky bottom bar).
@@ -479,7 +479,7 @@ export function DynamicPanelShell({
           <div className="flex-1 min-w-0">
             <h2 className="text-sm font-semibold text-foreground truncate leading-tight">{title}</h2>
             {subtitle && (
-              <p className="text-xs text-muted-foreground truncate leading-tight">{subtitle}</p>
+              <p className="hidden text-xs text-muted-foreground truncate leading-tight sm:block">{subtitle}</p>
             )}
           </div>
 

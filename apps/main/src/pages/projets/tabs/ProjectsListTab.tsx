@@ -174,7 +174,7 @@ export function ProjectsListView() {
       onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
       searchValue={search}
       onSearchChange={setSearch}
-      searchPlaceholder="Rechercher par code ou nom..."
+      searchPlaceholder={t('projets.search.visual_placeholder') as string}
       filters={filters}
       activeFilters={activeFilters}
       onFilterChange={handleFilterChange}

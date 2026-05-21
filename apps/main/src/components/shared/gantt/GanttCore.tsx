@@ -225,6 +225,10 @@ export function GanttCore(props: GanttCoreProps) {
       })),
     [rawColumns, settings.hiddenColumns, settings.columnWidths],
   )
+  const [compactLayout, setCompactLayout] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 900,
+  )
+  const panelColumns = compactLayout ? [] : columns
 
   // Column resize handler (drag on header separator)
   const onColumnResize = useCallback((colId: string, e: React.MouseEvent) => {
@@ -293,25 +297,29 @@ export function GanttCore(props: GanttCoreProps) {
   // the range to reset.
   const recenterOnNextRenderRef = useRef(false)
   const panelBodyRef = useRef<HTMLDivElement>(null)
-  // Panel width: task name (200px min) + all visible column widths
-  const columnsWidth = columns.reduce((sum, c) => sum + c.width, 0)
+  // Panel width: task name (200px min) + visible column widths. On compact
+  // screens the Gantt must be timeline-first, so secondary grid columns are
+  // hidden and unique codes/sublabels stay out of the critical viewport.
+  const columnsWidth = panelColumns.reduce((sum, c) => sum + c.width, 0)
   const [taskColWidth, setTaskColWidth] = useState(250) // task name column width
   const minPanelWidth = columnsWidth + taskColWidth
   const [panelWidth, setPanelWidth] = useState(() => minPanelWidth)
   const resizingPanel = useRef(false)
-  // Mobile: panel takes too much room. Auto-collapse below ~720px;
+  // Mobile/tablet: panel takes too much room. Auto-collapse below ~900px;
   // user can still toggle with the panel button in the toolbar.
   // Persisted DB-first via useUserPref so the choice follows the user
   // across devices.
   const defaultPanelHidden =
-    typeof window !== 'undefined' && window.innerWidth < 720
+    typeof window !== 'undefined' && window.innerWidth < 900
   const [panelHidden, setPanelHidden] = useUserPref<boolean>(
     'gantt.panelHidden',
     defaultPanelHidden,
   )
+  const effectivePanelHidden = compactLayout || panelHidden
   const togglePanelHidden = useCallback(() => {
+    if (compactLayout) return
     setPanelHidden((prev) => !prev)
-  }, [setPanelHidden])
+  }, [compactLayout, setPanelHidden])
   // Auto-collapse on narrow containers — only on first observe so we
   // don't override the user's manual toggle when they widen the window.
   const autoCollapsedRef = useRef(false)
@@ -321,7 +329,8 @@ export function GanttCore(props: GanttCoreProps) {
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) {
         const w = e.contentRect.width
-        if (w < 720 && !autoCollapsedRef.current && !panelHidden) {
+        setCompactLayout(w < 900)
+        if (w < 900 && !autoCollapsedRef.current && !panelHidden) {
           autoCollapsedRef.current = true
           setPanelHidden(true)
         }
@@ -331,6 +340,11 @@ export function GanttCore(props: GanttCoreProps) {
     return () => ro.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  useEffect(() => {
+    if (!compactLayout || panelHidden || autoCollapsedRef.current) return
+    autoCollapsedRef.current = true
+    setPanelHidden(true)
+  }, [compactLayout, panelHidden, setPanelHidden])
   // Keep panel in sync with column widths
   useEffect(() => {
     setPanelWidth(columnsWidth + taskColWidth)
@@ -1041,11 +1055,12 @@ export function GanttCore(props: GanttCoreProps) {
           {showGrid && (
             <button
               onClick={togglePanelHidden}
-              className="p-1 rounded hover:bg-muted"
-              title={panelHidden ? t('shared.gantt.show_task_panel') : t('shared.gantt.hide_task_panel')}
-              aria-label={panelHidden ? t('shared.gantt.show_task_panel') : t('shared.gantt.hide_task_panel')}
+              className="p-1 rounded hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+              title={effectivePanelHidden ? t('shared.gantt.show_task_panel') : t('shared.gantt.hide_task_panel')}
+              aria-label={effectivePanelHidden ? t('shared.gantt.show_task_panel') : t('shared.gantt.hide_task_panel')}
+              disabled={compactLayout}
             >
-              {panelHidden ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              {effectivePanelHidden ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </button>
           )}
 
@@ -1093,13 +1108,15 @@ export function GanttCore(props: GanttCoreProps) {
           {showActions && (
             <div className="flex items-center gap-0.5 ml-2 border-l border-border/40 pl-2">
               {onAddTask && (
-                <button onClick={onAddTask} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title={t('projets.add_task')}>
-                  <Plus className="h-3 w-3" /> {t('shared.gantt.task')}
+                <button onClick={onAddTask} className="h-6 px-1.5 sm:px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title={t('projets.add_task')}>
+                  <Plus className="h-3 w-3" />
+                  <span className="hidden sm:inline">{t('shared.gantt.task')}</span>
                 </button>
               )}
               {onAddMilestone && (
-                <button onClick={onAddMilestone} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title={t('projets.add_milestone')}>
-                  <Diamond className="h-3 w-3" /> {t('shared.gantt.milestone')}
+                <button onClick={onAddMilestone} className="h-6 px-1.5 sm:px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title={t('projets.add_milestone')}>
+                  <Diamond className="h-3 w-3" />
+                  <span className="hidden sm:inline">{t('shared.gantt.milestone')}</span>
                 </button>
               )}
               {selectedRowId && onIndent && (
@@ -1313,7 +1330,7 @@ export function GanttCore(props: GanttCoreProps) {
       <div data-gantt-panel-grid className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* ── Left panel ───────────────────────────────────── */}
-        {showGrid && !panelHidden && (
+        {showGrid && !effectivePanelHidden && (
           <>
             <div className="flex flex-col shrink-0 border-r" style={{ width: panelWidth }}>
               {/* Panel header — with custom column headers */}
@@ -1346,7 +1363,7 @@ export function GanttCore(props: GanttCoreProps) {
                     }}
                   />
                 </div>
-                {columns.map(col => (
+                {panelColumns.map(col => (
                   <div
                     key={col.id}
                     className="relative text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 shrink-0 text-center border-l border-border/30 select-none"
@@ -1428,13 +1445,13 @@ export function GanttCore(props: GanttCoreProps) {
                           {row.labelSuffix}
                         </span>
                       )}
-                      {row.sublabel && (
+                      {!compactLayout && row.sublabel && (
                         <span className="ml-1.5 text-[10px] text-muted-foreground">{row.sublabel}</span>
                       )}
                     </div>
 
                     {/* Custom column values — editable on double-click */}
-                    {columns.map(col => (
+                    {panelColumns.map(col => (
                       <EditableCell
                         key={col.id}
                         rowId={row.id}
@@ -1466,7 +1483,7 @@ export function GanttCore(props: GanttCoreProps) {
                         {footerRow.labelSuffix}
                       </span>
                     )}
-                    {footerRow.sublabel && (
+                    {!compactLayout && footerRow.sublabel && (
                       <div className="text-[10px] text-muted-foreground">{footerRow.sublabel}</div>
                     )}
                   </div>

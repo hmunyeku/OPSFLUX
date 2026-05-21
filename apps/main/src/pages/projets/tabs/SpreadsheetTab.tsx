@@ -672,7 +672,7 @@ export function SpreadsheetView() {
           }
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Recherche libre : tâche, réf., projet, statut, priorité, responsable..."
+          searchPlaceholder={t('projets.search.visual_placeholder') as string}
           filters={taskFilters}
           activeFilters={activeFilters}
           onFilterChange={handleFilterChange}

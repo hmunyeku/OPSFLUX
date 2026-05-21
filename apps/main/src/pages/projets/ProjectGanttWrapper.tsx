@@ -1043,7 +1043,7 @@ export function ProjectGanttWrapper() {
       >
         {projectSelection.mode === 'all' ? 'Sélection' : `${projectSelection.projectIds.length} projet(s)`}
       </button>
-      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+      <span className="hidden text-[11px] text-muted-foreground whitespace-nowrap sm:inline">
         {projects.length} projets · {rows.length - projects.length} tâches
       </span>
     </>

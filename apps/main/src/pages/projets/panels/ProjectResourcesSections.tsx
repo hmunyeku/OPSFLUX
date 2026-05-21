@@ -15,6 +15,7 @@
  *   /projects/{pid}/{time-summary,allocation-matrix}
  */
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
   CircleDollarSign,
@@ -360,9 +361,10 @@ export function BudgetSection({ projectId }: { projectId: string }) {
   )
 }
 export function TimeTrackingSection({ projectId }: { projectId: string; members: ProjectMemberType[] }) {
+  const { t } = useTranslation()
   return (
     <FormSection
-      title="Feuille de temps"
+      title={t('projets.timesheet.section_title', 'Feuille de temps')}
       collapsible
       defaultExpanded={false}
       storageKey="project-detail-timesheet"
@@ -378,6 +380,7 @@ export function TimeTrackingSection({ projectId }: { projectId: string; members:
 // ════════════════════════════════════════════════════════════════════════════
 
 export function AllocationMatrixSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: matrix } = useProjectAllocationMatrix(projectId)
   const createAlloc = useCreateProjectAllocation()
   const updateAlloc = useUpdateProjectAllocation()
@@ -387,10 +390,19 @@ export function AllocationMatrixSection({ projectId }: { projectId: string }) {
 
   if (!matrix) return null
   if (matrix.tasks.length === 0 || matrix.members.length === 0) {
+    const missingLabel = matrix.tasks.length === 0
+      ? t('projets.allocation_matrix.no_tasks_short', 'Aucune tâche')
+      : t('projets.allocation_matrix.no_members_short', 'Aucun membre')
+    const missingObject = matrix.tasks.length === 0
+      ? t('projets.allocation_matrix.tasks_object', 'des tâches')
+      : t('projets.allocation_matrix.members_object', 'des membres')
     return (
-      <FormSection title="Matrice d'affectation" collapsible defaultExpanded={false} storageKey="project-detail-alloc-matrix">
+      <FormSection title={t('projets.allocation_matrix.section_title', 'Matrice d’affectation')} collapsible defaultExpanded={false} storageKey="project-detail-alloc-matrix">
         <div className="text-[11px] text-muted-foreground text-center py-2">
-          {matrix.tasks.length === 0 ? 'Aucune tâche' : 'Aucun membre'} — créez d'abord {matrix.tasks.length === 0 ? 'des tâches' : 'des membres'} pour planifier les affectations.
+          {t('projets.allocation_matrix.empty_message', '{{missing}} — créez d’abord {{object}} pour planifier les affectations.', {
+            missing: missingLabel,
+            object: missingObject,
+          })}
         </div>
       </FormSection>
     )
@@ -421,20 +433,23 @@ export function AllocationMatrixSection({ projectId }: { projectId: string }) {
 
   return (
     <FormSection
-      title={`Matrice d'affectation (${matrix.tasks.length} t. × ${matrix.members.length} m.)`}
+      title={t('projets.allocation_matrix.section_title_with_counts', 'Matrice d’affectation ({{tasks}} t. × {{members}} m.)', {
+        tasks: matrix.tasks.length,
+        members: matrix.members.length,
+      })}
       collapsible
       defaultExpanded={false}
       storageKey="project-detail-alloc-matrix"
       className="px-3 py-3"
     >
       <div className="text-[10px] text-muted-foreground mb-2">
-        Cliquez sur une cellule pour saisir les heures planifiées. Format : <span className="font-mono">planifié / réalisé</span>.
+        {t('projets.allocation_matrix.help_prefix', 'Cliquez sur une cellule pour saisir les heures planifiées. Format :')} <span className="font-mono">{t('projets.allocation_matrix.plan_actual_format', 'planifié / réalisé')}</span>.
       </div>
       <div className="overflow-x-auto border border-border rounded-md max-h-[400px]">
         <table className="text-[11px] w-full">
           <thead className="bg-muted/40 sticky top-0 z-10">
             <tr>
-              <th className="text-left px-2 py-1.5 font-medium text-muted-foreground sticky left-0 bg-muted/40 z-20 min-w-[180px] max-w-[260px]">Tâche</th>
+              <th className="text-left px-2 py-1.5 font-medium text-muted-foreground sticky left-0 bg-muted/40 z-20 min-w-[180px] max-w-[260px]">{t('projets.allocation_matrix.task', 'Tâche')}</th>
               {matrix.members.map(m => (
                 <th key={m.member_id} className="text-center px-2 py-1.5 font-medium text-muted-foreground min-w-[80px]" title={m.specialty || ''}>
                   <div className="truncate max-w-[120px]">{m.member_name}</div>
@@ -449,7 +464,7 @@ export function AllocationMatrixSection({ projectId }: { projectId: string }) {
               <tr key={task.task_id} className="border-t border-border/40 hover:bg-muted/20">
                 <td className="px-2 py-1 sticky left-0 bg-background z-10 truncate max-w-[260px]" title={task.task_title}>
                   <div className="truncate">{task.task_title}</div>
-                  {task.estimated_hours && <div className="text-[9px] text-muted-foreground">est. {task.estimated_hours}h</div>}
+                  {task.estimated_hours && <div className="text-[9px] text-muted-foreground">{t('projets.allocation_matrix.estimated_hours_short', 'est. {{hours}}h', { hours: task.estimated_hours })}</div>}
                 </td>
                 {task.cells.map(cell => {
                   const isEditing = editing?.taskId === task.task_id && editing?.memberId === cell.member_id
@@ -481,7 +496,11 @@ export function AllocationMatrixSection({ projectId }: { projectId: string }) {
                             has && Math.abs(cell.variance_hours) < 0.01 && cell.planned_hours > 0 && 'bg-green-500/10 text-green-600',
                             has && cell.variance_hours > 0.01 && 'text-foreground',
                           )}
-                          title={`Planifié: ${cell.planned_hours}h\nRéalisé: ${cell.actual_hours}h\nÉcart: ${cell.variance_hours.toFixed(1)}h`}
+                          title={t('projets.allocation_matrix.cell_tooltip', 'Planifié : {{planned}}h\nRéalisé : {{actual}}h\nÉcart : {{variance}}h', {
+                            planned: cell.planned_hours,
+                            actual: cell.actual_hours,
+                            variance: cell.variance_hours.toFixed(1),
+                          })}
                         >
                           {has ? `${cell.planned_hours} / ${cell.actual_hours}` : '–'}
                         </button>

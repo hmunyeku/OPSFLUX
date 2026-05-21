@@ -237,8 +237,8 @@ export function WeeklyTimesheetGrid({
           <Calendar size={13} />
         </span>
         <div className="min-w-0">
-          <div className="font-medium text-foreground">Feuille de temps indisponible</div>
-          <div className="text-[11px]">Vous devez être membre du projet pour pointer des heures.</div>
+          <div className="font-medium text-foreground">{t('projets.timesheet.unavailable_title', 'Feuille de temps indisponible')}</div>
+          <div className="text-[11px]">{t('projets.timesheet.unavailable_description', 'Vous devez être membre du projet pour pointer des heures.')}</div>
         </div>
       </div>
     )
@@ -264,9 +264,9 @@ export function WeeklyTimesheetGrid({
           </button>
           <div className="inline-flex h-7 min-w-0 items-center justify-center gap-1.5 rounded border border-border bg-muted/30 px-2 font-medium sm:min-w-[150px]">
             <Calendar size={12} className="shrink-0 text-muted-foreground" />
-            <span className="truncate">Année {year}</span>
+            <span className="truncate">{t('projets.timesheet.year', 'Année')} {year}</span>
             <span className="text-muted-foreground">·</span>
-            <span className="truncate">Semaine {week}</span>
+            <span className="truncate">{t('projets.timesheet.week', 'Semaine')} {week}</span>
           </div>
           <button
             onClick={() => setWeekStart((w) => addDays(w, 7))}
@@ -280,7 +280,7 @@ export function WeeklyTimesheetGrid({
           onClick={() => setWeekStart(getMonday(new Date()))}
           className="h-7 shrink-0 rounded border border-border px-2 text-xs hover:bg-muted"
         >
-          Cette semaine
+          {t('projets.timesheet.this_week', 'Cette semaine')}
         </button>
 
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">
@@ -298,11 +298,11 @@ export function WeeklyTimesheetGrid({
           </span>
           {allValidated ? (
             <span className="px-2 py-1 rounded bg-green-500/10 text-green-700 dark:text-green-500 font-medium">
-              Validée
+              {t('projets.timesheet.validated_week', 'Validée')}
             </span>
           ) : submittedCount > 0 ? (
             <span className="px-2 py-1 rounded bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium">
-              {submittedCount} soumis · attente validation
+              {t('projets.timesheet.submitted_waiting', '{{count}} soumis · attente validation', { count: submittedCount })}
             </span>
           ) : (
             <button
@@ -311,7 +311,7 @@ export function WeeklyTimesheetGrid({
               className="inline-flex h-7 items-center gap-1 rounded bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
             >
               {submittingWeek ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
-              Soumettre ({drafts.length})
+              {t('projets.timesheet.submit_drafts', 'Soumettre ({{count}})', { count: drafts.length })}
             </button>
           )}
         </div>
@@ -323,7 +323,7 @@ export function WeeklyTimesheetGrid({
           <thead>
             <tr className="bg-muted/40">
               <th className="text-left px-2 py-1.5 font-medium text-muted-foreground sticky left-0 bg-muted/40 z-10 min-w-[200px] max-w-[300px] border-r border-border/40">
-                Tâche
+                {t('projets.timesheet.task', 'Tâche')}
               </th>
               {days.map((d, i) => {
                 const h = fmtDayHeader(d)
@@ -341,13 +341,13 @@ export function WeeklyTimesheetGrid({
                 )
               })}
               <th className="text-right px-2 py-1.5 font-medium text-muted-foreground border-l border-border/40 min-w-[60px]">
-                Total
+                {t('projets.timesheet.total', 'Total')}
               </th>
             </tr>
             {/* Day-totals row */}
             <tr className="border-t border-border/40 bg-background">
               <td className="px-2 py-1 sticky left-0 bg-background z-10 text-[11px] font-semibold border-r border-border/40">
-                TOTAL
+                {t('projets.timesheet.total', 'Total')}
               </td>
               {dayTotals.map((t, i) => (
                 <td
@@ -373,7 +373,7 @@ export function WeeklyTimesheetGrid({
                   colSpan={9}
                   className="text-center text-[11px] text-muted-foreground py-3"
                 >
-                  Aucune tâche à pointer sur ce projet.
+                  {t('projets.timesheet.no_tasks', 'Aucune tâche à pointer sur ce projet.')}
                 </td>
               </tr>
             ) : (
@@ -432,7 +432,7 @@ export function WeeklyTimesheetGrid({
 
         {visibleTasks.length === 0 ? (
           <div className="rounded-md border border-border/40 px-3 py-4 text-center text-[11px] text-muted-foreground">
-            Aucune tâche à pointer sur ce projet.
+            {t('projets.timesheet.no_tasks', 'Aucune tâche à pointer sur ce projet.')}
           </div>
         ) : (
           visibleTasks.map((task) => (
@@ -488,6 +488,7 @@ function TimesheetCell({
   weekend: boolean
   onChange: (raw: string) => void | Promise<void>
 }) {
+  const { t } = useTranslation()
   const [draft, setDraft] = useState<string>(cell ? String(cell.hours) : '')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -515,12 +516,14 @@ function TimesheetCell({
   })()
 
   const tooltip = (() => {
-    if (!cell) return weekend ? 'Week-end' : 'Saisir des heures'
+    if (!cell) return weekend ? t('projets.timesheet.weekend', 'Week-end') : t('projets.timesheet.enter_hours', 'Saisir des heures')
     const statusLabel = {
-      draft: 'Brouillon',
-      submitted: 'Soumis pour validation',
-      validated: 'Validé · verrouillé',
-      rejected: cell.rejected_reason ? `Rejeté : ${cell.rejected_reason}` : 'Rejeté · à corriger',
+      draft: t('projets.timesheet.status_draft', 'Brouillon'),
+      submitted: t('projets.timesheet.status_submitted', 'Soumis pour validation'),
+      validated: t('projets.timesheet.status_validated_locked', 'Validé · verrouillé'),
+      rejected: cell.rejected_reason
+        ? t('projets.timesheet.status_rejected_reason', 'Rejeté : {{reason}}', { reason: cell.rejected_reason })
+        : t('projets.timesheet.status_rejected_fix', 'Rejeté · à corriger'),
     }[cell.status]
     return `${cell.hours}h — ${statusLabel}`
   })()
@@ -574,6 +577,7 @@ function MobileTimesheetCell({
   weekend: boolean
   onChange: (raw: string) => void | Promise<void>
 }) {
+  const { t } = useTranslation()
   const [draft, setDraft] = useState<string>(cell ? String(cell.hours) : '')
   const day = fmtDayHeader(date)
 
@@ -600,12 +604,14 @@ function MobileTimesheetCell({
   })()
 
   const tooltip = (() => {
-    if (!cell) return weekend ? 'Week-end' : 'Saisir des heures'
+    if (!cell) return weekend ? t('projets.timesheet.weekend', 'Week-end') : t('projets.timesheet.enter_hours', 'Saisir des heures')
     const statusLabel = {
-      draft: 'Brouillon',
-      submitted: 'Soumis pour validation',
-      validated: 'Validé · verrouillé',
-      rejected: cell.rejected_reason ? `Rejeté : ${cell.rejected_reason}` : 'Rejeté · à corriger',
+      draft: t('projets.timesheet.status_draft', 'Brouillon'),
+      submitted: t('projets.timesheet.status_submitted', 'Soumis pour validation'),
+      validated: t('projets.timesheet.status_validated_locked', 'Validé · verrouillé'),
+      rejected: cell.rejected_reason
+        ? t('projets.timesheet.status_rejected_reason', 'Rejeté : {{reason}}', { reason: cell.rejected_reason })
+        : t('projets.timesheet.status_rejected_fix', 'Rejeté · à corriger'),
     }[cell.status]
     return `${cell.hours}h — ${statusLabel}`
   })()

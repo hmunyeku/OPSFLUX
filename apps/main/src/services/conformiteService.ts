@@ -25,6 +25,7 @@ interface ComplianceRecordListParams extends PaginationParams {
   status?: string
   category?: string
   search?: string
+  history?: boolean
 }
 
 export const conformiteService = {

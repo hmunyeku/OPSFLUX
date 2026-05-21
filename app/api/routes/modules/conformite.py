@@ -616,6 +616,7 @@ async def list_compliance_records(
     status: str | None = None,
     category: str | None = None,
     search: str | None = None,
+    history: bool = False,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -642,13 +643,16 @@ async def list_compliance_records(
         )
         .join(ComplianceType, ComplianceRecord.compliance_type_id == ComplianceType.id)
         .outerjoin(attachment_sq, attachment_sq.c.record_id == ComplianceRecord.id)
-        .where(ComplianceRecord.entity_id == entity_id, ComplianceRecord.active == True)
+        .where(ComplianceRecord.entity_id == entity_id)
     )
+    if not history:
+        query = query.where(ComplianceRecord.active == True)
     query = _apply_external_record_scope(query, current_user, entity_id)
-    # Exclude rejected records by default (unless explicitly filtered)
+    # The default list is the operational view. The history view is read-only and
+    # intentionally includes rejected/archived records for auditability.
     if status:
         query = query.where(ComplianceRecord.status == status)
-    else:
+    elif not history:
         query = query.where(ComplianceRecord.status != "rejected")
     if owner_type:
         query = query.where(ComplianceRecord.owner_type == owner_type)
@@ -660,7 +664,12 @@ async def list_compliance_records(
         query = query.where(ComplianceType.category == category)
     if search:
         like = f"%{search}%"
-        query = query.where(ComplianceType.name.ilike(like) | ComplianceRecord.reference_number.ilike(like))
+        query = query.where(
+            ComplianceType.name.ilike(like)
+            | ComplianceRecord.reference_number.ilike(like)
+            | ComplianceRecord.issuer.ilike(like)
+            | ComplianceRecord.notes.ilike(like)
+        )
     query = query.order_by(ComplianceRecord.created_at.desc())
 
     # Auto-expire records that are past their expiry date

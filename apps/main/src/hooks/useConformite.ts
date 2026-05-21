@@ -155,10 +155,13 @@ export function useComplianceRecords(params: {
   page?: number; page_size?: number;
   owner_type?: string; owner_id?: string;
   compliance_type_id?: string; status?: string; category?: string; search?: string;
+  history?: boolean; enabled?: boolean;
 } = {}) {
+  const { enabled = true, ...apiParams } = params
   return useQuery({
-    queryKey: ['compliance-records', params],
-    queryFn: () => conformiteService.listRecords(params),
+    queryKey: ['compliance-records', apiParams],
+    queryFn: () => conformiteService.listRecords(apiParams),
+    enabled,
   })
 }
 

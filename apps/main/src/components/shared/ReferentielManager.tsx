@@ -15,6 +15,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   ShieldCheck, ShieldAlert, Plus, Trash2, X,
   Loader2, AlertTriangle, Pencil, GraduationCap, Paperclip,
+  History, Search, Eye,
 } from 'lucide-react'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { cn } from '@/lib/utils'
@@ -97,6 +98,18 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
   const { data: records, isLoading: recordsLoading } = useComplianceRecords({
     owner_type: ownerType, owner_id: ownerId, page_size: 200, category,
   })
+  const [showHistory, setShowHistory] = useState(false)
+  const [historySearch, setHistorySearch] = useState('')
+  const historyQuery = historySearch.trim()
+  const { data: historyRecords, isLoading: historyLoading } = useComplianceRecords({
+    owner_type: ownerType,
+    owner_id: ownerId,
+    page_size: 200,
+    category,
+    history: true,
+    search: historyQuery || undefined,
+    enabled: showHistory,
+  })
   const { data: checkResult, isLoading: checkLoading } = useComplianceCheck(ownerType, ownerId)
   const { data: typesData } = useComplianceTypes({ page_size: 200 })
   const createRecord = useCreateComplianceRecord()
@@ -106,6 +119,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null)
+  const [historyExpandedRecordId, setHistoryExpandedRecordId] = useState<string | null>(null)
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [stagingRef, setStagingRef] = useState(createStagingRef)
@@ -160,6 +174,16 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
   const formatDate = (d: string | null | undefined) => {
     if (!d) return null
     return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+  }
+
+  const getRecordStatusLabel = (rec: ComplianceRecord) => {
+    if (!rec.active) return 'Invalidé'
+    return STATUS_LABELS[rec.status] || rec.status
+  }
+
+  const getRecordStatusStyle = (rec: ComplianceRecord) => {
+    if (!rec.active) return 'bg-muted/40 text-muted-foreground border-border'
+    return STATUS_STYLES[rec.status] || ''
   }
 
   const resetCreateSession = () => {
@@ -262,6 +286,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
   if (!ownerId) return null
 
   const totalRecords = records?.items?.length ?? 0
+  const historyItems = historyRecords?.items ?? []
 
   return (
     <div className={cn('space-y-2', compact && 'text-xs')}>
@@ -393,6 +418,96 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
       ) : !missingTypes.length ? (
         <EmptyState icon={GraduationCap} title={t('shared.aucun_referentiel_enregistre')} variant="search" size="compact" />
       ) : null}
+
+      <div className="border border-border rounded-md overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowHistory((value) => !value)}
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs hover:bg-muted/30 text-left"
+          title="Afficher les référentiels expirés, rejetés ou invalidés"
+        >
+          <History size={12} className="text-muted-foreground shrink-0" />
+          <span className="font-medium flex-1">Historique des référentiels</span>
+          <span className="text-[10px] text-muted-foreground">{showHistory ? 'Masquer' : 'Afficher'}</span>
+        </button>
+
+        {showHistory && (
+          <div className="border-t border-border bg-muted/10 p-2 space-y-2">
+            <div className="relative">
+              <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                className="w-full h-8 pl-7 pr-2 rounded border border-border bg-background text-xs"
+                placeholder="Rechercher type, référence, émetteur, note..."
+              />
+            </div>
+
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 size={14} className="animate-spin text-muted-foreground" />
+              </div>
+            ) : historyItems.length > 0 ? (
+              <div className="border border-border rounded-md overflow-hidden bg-background">
+                <div className="hidden md:grid grid-cols-[minmax(180px,1.5fr)_90px_110px_110px_110px_minmax(120px,1fr)_50px] gap-2 px-2.5 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground border-b border-border">
+                  <span>Référentiel</span>
+                  <span>Statut</span>
+                  <span>Référence</span>
+                  <span>Émission</span>
+                  <span>Expiration</span>
+                  <span>Émetteur</span>
+                  <span className="text-right">PJ</span>
+                </div>
+                {historyItems.map((rec) => (
+                  <div key={rec.id} className="border-b border-border/50 last:border-0">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryExpandedRecordId(historyExpandedRecordId === rec.id ? null : rec.id)}
+                      className="w-full grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(180px,1.5fr)_90px_110px_110px_110px_minmax(120px,1fr)_50px] gap-2 items-center px-2.5 py-2 text-xs text-left hover:bg-muted/30"
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-medium truncate">{rec.type_name || rec.compliance_type_id}</span>
+                        <span className="md:hidden block text-[10px] text-muted-foreground truncate">
+                          {rec.reference_number || 'Sans référence'} · {rec.issuer || 'Émetteur non renseigné'}
+                        </span>
+                      </span>
+                      <span className={cn('chip text-[9px] shrink-0 justify-self-end md:justify-self-start', getRecordStatusStyle(rec))}>
+                        {getRecordStatusLabel(rec)}
+                      </span>
+                      <span className="hidden md:block text-muted-foreground truncate">{rec.reference_number || '—'}</span>
+                      <span className="hidden md:block text-muted-foreground tabular-nums">{formatDate(rec.issued_at) || '—'}</span>
+                      <span className="hidden md:block text-muted-foreground tabular-nums">{formatDate(rec.expires_at) || '—'}</span>
+                      <span className="hidden md:block text-muted-foreground truncate">{rec.issuer || '—'}</span>
+                      <span className="hidden md:flex items-center justify-end gap-1 text-muted-foreground">
+                        <Paperclip size={11} />
+                        {rec.attachment_count ?? 0}
+                      </span>
+                    </button>
+                    {historyExpandedRecordId === rec.id && (
+                      <div className="px-3 py-2 bg-muted/20 border-t border-border/50 space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                          <div><span className="font-medium text-foreground">Référence :</span> {rec.reference_number || '—'}</div>
+                          <div><span className="font-medium text-foreground">Émetteur :</span> {rec.issuer || '—'}</div>
+                          <div><span className="font-medium text-foreground">Émission :</span> {formatDate(rec.issued_at) || '—'}</div>
+                          <div><span className="font-medium text-foreground">Expiration :</span> {formatDate(rec.expires_at) || '—'}</div>
+                          {rec.notes && <div className="sm:col-span-2"><span className="font-medium text-foreground">Notes :</span> {rec.notes}</div>}
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Eye size={11} />
+                          Lecture seule
+                        </div>
+                        <AttachmentManager ownerType="compliance_record" ownerId={rec.id} compact />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon={History} title="Aucun historique trouvé" variant="search" size="compact" />
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Create / Edit form */}
       {showForm ? (

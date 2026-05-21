@@ -522,6 +522,7 @@ async def check_owner_compliance(
 
     valid_type_ids = set()
     exempted_type_ids = set()
+    unverified_type_ids = set()
     expired_count = 0
     unverified_count = 0
 
@@ -533,6 +534,7 @@ async def check_owner_compliance(
         if is_exempted:
             exempted_type_ids.add(record.compliance_type_id)
         elif not is_record_verified:
+            unverified_type_ids.add(record.compliance_type_id)
             unverified_count += 1
         elif is_expired:
             expired_count += 1
@@ -624,7 +626,7 @@ async def check_owner_compliance(
         )
         has_unverified = any(
             getattr(record, "verification_status", "verified") != "verified"
-            and record.status == "valid"
+            and record.status in {"pending", "valid"}
             for record in matching
         )
 
@@ -668,7 +670,7 @@ async def check_owner_compliance(
         details.append(detail)
 
     compliant_type_ids = (valid_type_ids | external_valid_type_ids | exempted_type_ids) & required_type_ids
-    missing_type_ids = required_type_ids - valid_type_ids - external_valid_type_ids - exempted_type_ids
+    missing_type_ids = required_type_ids - valid_type_ids - external_valid_type_ids - exempted_type_ids - unverified_type_ids
     await db.commit()
 
     return {

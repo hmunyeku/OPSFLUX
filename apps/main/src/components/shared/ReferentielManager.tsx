@@ -51,6 +51,7 @@ const STATUS_STYLES: Record<string, string> = {
   valid: 'chip-success',
   expired: 'chip-danger',
   pending: 'chip-warn',
+  unverified: 'chip-warn',
   rejected: 'chip-danger',
   missing: '',
   exempted: 'chip-info',
@@ -60,6 +61,7 @@ const STATUS_LABELS: Record<string, string> = {
   valid: 'Valide',
   expired: 'Expiré',
   pending: 'En attente',
+  unverified: 'À vérifier',
   rejected: 'Rejeté',
   exempted: 'Exempté',
 }

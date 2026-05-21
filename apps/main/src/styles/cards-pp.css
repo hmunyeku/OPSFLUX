@@ -271,6 +271,28 @@
   .kpi-pp-grid[data-cols] { grid-template-columns: 1fr; }
 }
 
+/* Tiers revamp handoff: denser KPI strips inside the Tiers module. */
+.tiers-pp .kpi-pp {
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-lg, 8px);
+}
+.tiers-pp .kpi-pp__label {
+  font-size: 9.5px;
+  letter-spacing: 0.052em;
+}
+.tiers-pp .kpi-pp__value {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+.tiers-pp .kpi-pp__caption {
+  margin-top: 0;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
 /* ── Dark mode ─────────────────────────────────────────────────────────── */
 .dark .card-pp {
   background: hsl(220 13% 13%);

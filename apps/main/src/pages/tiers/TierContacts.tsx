@@ -175,10 +175,10 @@ export function ContactListSection({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="@container space-y-2">
       {contacts.length > 0 && (
         <>
-        <div className="grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground @[520px]:grid-cols-4">
           {[
             { label: 'Contacts', value: contacts.length, icon: Users },
             { label: 'Référents', value: contactStats.primary, icon: Star },
@@ -191,36 +191,6 @@ export function ContactListSection({
               <span className="shrink-0 font-semibold tabular-nums text-foreground">{value}</span>
             </div>
           ))}
-        </div>
-        <div className="hidden">
-          <div className="rounded-md border border-border/60 bg-background px-3 py-2">
-            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-              <Users size={11} />
-              Contacts
-            </div>
-            <div className="mt-1 text-lg font-semibold tabular-nums">{contacts.length}</div>
-          </div>
-          <div className="rounded-md border border-border/60 bg-background px-3 py-2">
-            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-              <Star size={11} />
-              Référents
-            </div>
-            <div className="mt-1 text-lg font-semibold tabular-nums">{contactStats.primary}</div>
-          </div>
-          <div className="rounded-md border border-border/60 bg-background px-3 py-2">
-            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-              <User size={11} />
-              Liés
-            </div>
-            <div className="mt-1 text-lg font-semibold tabular-nums">{contactStats.linked}</div>
-          </div>
-          <div className="rounded-md border border-border/60 bg-background px-3 py-2">
-            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-              <Building2 size={11} />
-              Départements
-            </div>
-            <div className="mt-1 text-lg font-semibold tabular-nums">{contactStats.departments}</div>
-          </div>
         </div>
         </>
       )}

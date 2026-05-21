@@ -626,7 +626,7 @@ export function SectionColumns({
 }) {
   if (sidebar === 'right-320') {
     return (
-      <div className={cn('grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]', className)}>
+      <div className={cn('grid gap-4 @[900px]:grid-cols-[minmax(0,1fr)_320px]', className)}>
         {children}
       </div>
     )

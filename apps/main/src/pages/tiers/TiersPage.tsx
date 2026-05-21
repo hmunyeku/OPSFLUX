@@ -886,7 +886,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
         {/* KPI strip — Pajamas++ design pattern (top-of-detail metrics).
             Sources counts from already-fetched queries; hooks into the
             .kpi-pp class loaded by Phase 2C (cards-pp.css). */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="@container grid grid-cols-2 gap-2 mb-3 @[560px]:grid-cols-4">
           <div className="kpi-pp">
             <span className="kpi-pp__label">Projets actifs</span>
             <span className="kpi-pp__value">{relatedProjects?.items?.length ?? 0}</span>
@@ -1934,7 +1934,7 @@ export function TiersPage() {
     const parts = [
       `${tier.name} (${tier.code})`,
       `Type: ${tier.type ? tierTypeLabels[tier.type] ?? tier.type : '--'}`,
-      `Pays: ${tier.country || '--'}`,
+      `Pays: ${tier.country ? countryLabels[tier.country] ?? tier.country : '--'}`,
       `Ville: ${tier.city || '--'}`,
       `Secteur: ${tier.industry || '--'}`,
       `SIRET: ${tier.registration_number || '--'}`,
@@ -1942,12 +1942,12 @@ export function TiersPage() {
       `Statut: ${tier.active ? t('common.active') : t('common.archived')}${tier.is_blocked ? ' - bloque' : ''}`,
     ]
     return parts.join('\n')
-  }, [t, tierTypeLabels])
+  }, [t, tierTypeLabels, countryLabels])
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'tiers'
 
   return (
-    <div className="flex h-full">
+    <div className="tiers-pp flex h-full">
       {/* -- Static Panel (list) -- hidden when dynamic panel is in full mode -- */}
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <PanelHeader
@@ -1996,7 +1996,7 @@ export function TiersPage() {
               }}
               searchValue={search}
               onSearchChange={setSearch}
-              searchPlaceholder="Recherche libre: code, nom, alias, SIRET..."
+              searchPlaceholder="Recherche libre : code, nom, alias, SIRET..."
               filters={tierFilters}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
@@ -2026,7 +2026,7 @@ export function TiersPage() {
               }}
               searchValue={search}
               onSearchChange={setSearch}
-              searchPlaceholder="Recherche libre: nom, prénom, société, email, téléphone, poste..."
+              searchPlaceholder="Recherche libre : nom, prénom, société, email, téléphone, poste..."
               filters={contactFilters}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}

@@ -2467,6 +2467,27 @@
       "estimated_hours_short": "est. {{hours}}h",
       "cell_tooltip": "Planifié : {{planned}}h\nRéalisé : {{actual}}h\nÉcart : {{variance}}h"
     },
+    "losses": {
+      "section_title": "Pertes",
+      "section_title_with_count": "Pertes ({{count}})",
+      "total": "Total",
+      "delete": "Supprimer la perte",
+      "empty": "Aucune perte enregistrée",
+      "declare": "Déclarer une perte",
+      "task_optional": "— Tâche (optionnel) —",
+      "hours_lost_placeholder": "Heures perdues",
+      "cost_placeholder": "Surcoût",
+      "description_placeholder": "Description (obligatoire)",
+      "categories": {
+        "weather": "Intempéries",
+        "material": "Matériau",
+        "equipment": "Équipement",
+        "manpower": "Main d’œuvre",
+        "contractual": "Contractuel",
+        "accident": "Accident",
+        "other": "Autre"
+      }
+    },
     "dep_ff": "Dep ff",
     "dep_fs": "Dep fs",
     "dep_sf": "Dep sf",

@@ -542,17 +542,18 @@ export function AllocationMatrixSection({ projectId }: { projectId: string }) {
 // Losses (pertes)
 // ════════════════════════════════════════════════════════════════════════════
 
-const LOSS_CATEGORIES: { value: string; label: string }[] = [
-  { value: 'weather', label: 'Intempéries' },
-  { value: 'material', label: 'Matériau' },
-  { value: 'equipment', label: 'Équipement' },
-  { value: 'manpower', label: 'Main d\'œuvre' },
-  { value: 'contractual', label: 'Contractuel' },
-  { value: 'accident', label: 'Accident' },
-  { value: 'other', label: 'Autre' },
+const LOSS_CATEGORIES: { value: string; labelKey: string; fallback: string }[] = [
+  { value: 'weather', labelKey: 'projets.losses.categories.weather', fallback: 'Intempéries' },
+  { value: 'material', labelKey: 'projets.losses.categories.material', fallback: 'Matériau' },
+  { value: 'equipment', labelKey: 'projets.losses.categories.equipment', fallback: 'Équipement' },
+  { value: 'manpower', labelKey: 'projets.losses.categories.manpower', fallback: 'Main d’œuvre' },
+  { value: 'contractual', labelKey: 'projets.losses.categories.contractual', fallback: 'Contractuel' },
+  { value: 'accident', labelKey: 'projets.losses.categories.accident', fallback: 'Accident' },
+  { value: 'other', labelKey: 'projets.losses.categories.other', fallback: 'Autre' },
 ]
 
 export function LossesSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: losses } = useProjectLosses(projectId)
   const { data: tasks } = useProjectTasks(projectId)
   const createLoss = useCreateProjectLoss()
@@ -599,14 +600,16 @@ export function LossesSection({ projectId }: { projectId: string }) {
 
   return (
     <FormSection
-      title={`Pertes${losses && losses.length ? ` (${losses.length})` : ''}`}
+      title={losses && losses.length
+        ? t('projets.losses.section_title_with_count', 'Pertes ({{count}})', { count: losses.length })
+        : t('projets.losses.section_title', 'Pertes')}
       collapsible
       defaultExpanded={false}
       storageKey="project-detail-losses"
     >
       {losses && losses.length > 0 && (
         <div className="flex items-center gap-3 text-[11px] mb-2 px-2 py-1.5 rounded bg-red-500/5 border border-red-500/10">
-          <span className="text-muted-foreground">Total :</span>
+          <span className="text-muted-foreground">{t('projets.losses.total', 'Total')} :</span>
           {totals.hours > 0 && <span className="font-medium text-red-600">{totals.hours.toFixed(1)} h</span>}
           {totals.cost > 0 && (
             <>
@@ -620,7 +623,8 @@ export function LossesSection({ projectId }: { projectId: string }) {
       {losses && losses.length > 0 ? (
         <div className="space-y-1 mb-2">
           {losses.map((l) => {
-            const catLabel = LOSS_CATEGORIES.find(c => c.value === l.category)?.label ?? l.category
+            const categoryDef = LOSS_CATEGORIES.find(c => c.value === l.category)
+            const catLabel = categoryDef ? t(categoryDef.labelKey, categoryDef.fallback) : l.category
             return (
               <div key={l.id} className="group flex items-center gap-2 text-xs py-1 border-b border-border/40 last:border-0">
                 <AlertTriangle size={11} className="text-red-500 shrink-0" />
@@ -635,6 +639,7 @@ export function LossesSection({ projectId }: { projectId: string }) {
                 <button
                   onClick={() => deleteLoss.mutate({ projectId, lossId: l.id })}
                   className="p-0.5 rounded hover:bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title={t('projets.losses.delete', 'Supprimer la perte')}
                 >
                   <Trash2 size={10} />
                 </button>
@@ -643,32 +648,32 @@ export function LossesSection({ projectId }: { projectId: string }) {
           })}
         </div>
       ) : (
-        <div className="text-[11px] text-muted-foreground text-center py-2">Aucune perte enregistrée</div>
+        <div className="text-[11px] text-muted-foreground text-center py-2">{t('projets.losses.empty', 'Aucune perte enregistrée')}</div>
       )}
 
       {!showAdd ? (
         <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1">
-          <Plus size={12} /> Déclarer une perte
+          <Plus size={12} /> {t('projets.losses.declare', 'Déclarer une perte')}
         </button>
       ) : (
         <div className="flex flex-col gap-1.5 p-2 border border-border rounded-md bg-muted/30">
           <div className="grid grid-cols-2 gap-1.5">
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${panelInputClass} text-xs`} />
             <select value={category} onChange={(e) => setCategory(e.target.value)} className={`${panelInputClass} text-xs`}>
-              {LOSS_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {LOSS_CATEGORIES.map(c => <option key={c.value} value={c.value}>{t(c.labelKey, c.fallback)}</option>)}
             </select>
             <select value={taskId} onChange={(e) => setTaskId(e.target.value)} className={`${panelInputClass} text-xs col-span-2`}>
-              <option value="">— Tâche (optionnel) —</option>
+              <option value="">{t('projets.losses.task_optional', '— Tâche (optionnel) —')}</option>
               {tasks?.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
             </select>
-            <input type="number" min={0} step={0.25} value={hoursLost} onChange={(e) => setHoursLost(e.target.value)} placeholder="Heures perdues" className={`${panelInputClass} text-xs`} />
-            <input type="number" min={0} step={0.01} value={costAmount} onChange={(e) => setCostAmount(e.target.value)} placeholder="Surcoût" className={`${panelInputClass} text-xs`} />
-            <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (obligatoire)" className={`${panelInputClass} text-xs col-span-2`} />
+            <input type="number" min={0} step={0.25} value={hoursLost} onChange={(e) => setHoursLost(e.target.value)} placeholder={t('projets.losses.hours_lost_placeholder', 'Heures perdues')} className={`${panelInputClass} text-xs`} />
+            <input type="number" min={0} step={0.01} value={costAmount} onChange={(e) => setCostAmount(e.target.value)} placeholder={t('projets.losses.cost_placeholder', 'Surcoût')} className={`${panelInputClass} text-xs`} />
+            <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('projets.losses.description_placeholder', 'Description (obligatoire)')} className={`${panelInputClass} text-xs col-span-2`} />
           </div>
           <div className="flex justify-end gap-1">
-            <button onClick={reset} className="px-2 py-0.5 text-[10px] rounded hover:bg-muted text-muted-foreground">Annuler</button>
+            <button onClick={reset} className="px-2 py-0.5 text-[10px] rounded hover:bg-muted text-muted-foreground">{t('common.cancel', 'Annuler')}</button>
             <button onClick={handleSubmit} disabled={createLoss.isPending || !description.trim() || (!hoursLost && !costAmount)} className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40">
-              {createLoss.isPending ? <Loader2 size={10} className="animate-spin" /> : 'Enregistrer'}
+              {createLoss.isPending ? <Loader2 size={10} className="animate-spin" /> : t('common.save', 'Enregistrer')}
             </button>
           </div>
         </div>

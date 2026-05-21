@@ -2297,6 +2297,27 @@
       "estimated_hours_short": "est. {{hours}}h",
       "cell_tooltip": "Planned: {{planned}}h\nActual: {{actual}}h\nVariance: {{variance}}h"
     },
+    "losses": {
+      "section_title": "Losses",
+      "section_title_with_count": "Losses ({{count}})",
+      "total": "Total",
+      "delete": "Delete loss",
+      "empty": "No loss recorded",
+      "declare": "Declare a loss",
+      "task_optional": "— Task (optional) —",
+      "hours_lost_placeholder": "Lost hours",
+      "cost_placeholder": "Extra cost",
+      "description_placeholder": "Description (required)",
+      "categories": {
+        "weather": "Weather",
+        "material": "Material",
+        "equipment": "Equipment",
+        "manpower": "Manpower",
+        "contractual": "Contractual",
+        "accident": "Accident",
+        "other": "Other"
+      }
+    },
     "columns": {
       "code": "Code",
       "name": "Name",

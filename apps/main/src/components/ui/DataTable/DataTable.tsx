@@ -177,6 +177,31 @@ function SortIcon({ sorted }: { sorted: false | 'asc' | 'desc' }) {
 }
 
 // ── Export helpers ──────────────────────────────────────────
+
+/**
+ * Mitige les CSV / formula injection : si une cell commence par un
+ * caractere que Excel/LibreOffice/Numbers interpretent comme debut de
+ * formule (`=`, `+`, `-`, `@`, tab, CR), on prefixe avec une apostrophe
+ * — Excel mange l'apostrophe initiale et affiche le texte litteral, sans
+ * evaluer. Pattern OWASP standard.
+ *
+ * Sans cette protection, un user qui cree un tier avec
+ * name="=cmd|'/c calc'!A0" provoque l'execution de code chez quiconque
+ * ouvre l'export CSV dans Excel — escalade post-exfiltration triviale.
+ *
+ * Applique aux exports CSV + XLSX. PDF n'est pas concerne (rendu visuel,
+ * jamais evalue).
+ */
+function sanitizeFormula(value: unknown): string {
+  const s = String(value ?? '')
+  if (!s) return s
+  const first = s.charAt(0)
+  if (first === '=' || first === '+' || first === '-' || first === '@' || first === '\t' || first === '\r') {
+    return "'" + s
+  }
+  return s
+}
+
 async function doExport(
   format: ExportFormat,
   headers: string[],
@@ -184,14 +209,14 @@ async function doExport(
   rows: Record<string, unknown>[],
   filename: string,
 ) {
-  const labels = headers.map((h) => headerLabels[h] || h)
+  const labels = headers.map((h) => sanitizeFormula(headerLabels[h] || h))
 
   if (format === 'csv') {
     const Papa = await import('papaparse')
     const { saveAs } = await import('file-saver')
     const csv = Papa.unparse({
       fields: labels,
-      data: rows.map((r) => headers.map((h) => String(r[h] ?? ''))),
+      data: rows.map((r) => headers.map((h) => sanitizeFormula(r[h]))),
     })
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     saveAs(blob, `${filename}.csv`)
@@ -199,7 +224,7 @@ async function doExport(
 
   if (format === 'xlsx') {
     const XLSX = await import('xlsx')
-    const wsData = [labels, ...rows.map((r) => headers.map((h) => r[h] ?? ''))]
+    const wsData = [labels, ...rows.map((r) => headers.map((h) => sanitizeFormula(r[h])))]
     const ws = XLSX.utils.aoa_to_sheet(wsData)
     // Auto-width columns
     ws['!cols'] = headers.map((_, i) => ({
@@ -619,12 +644,16 @@ export function DataTable<TData>({
 
     const rows: string[][] = []
     if (tpl.includeExamples !== false) {
-      rows.push(tpl.columns.map((c) => c.example ?? ''))
+      // Defense en profondeur : meme un template d'import passe par
+      // sanitizeFormula. Les `tpl.example` sont hardcodes par les
+      // developpeurs aujourd'hui, mais le pattern reste sain si un
+      // example commence un jour par un caractere reserve par Excel.
+      rows.push(tpl.columns.map((c) => sanitizeFormula(c.example ?? '')))
     }
 
     const Papa = await import('papaparse')
     const { saveAs } = await import('file-saver')
-    const csv = Papa.unparse({ fields: headers, data: rows })
+    const csv = Papa.unparse({ fields: headers.map(sanitizeFormula), data: rows })
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     const fname = tpl.filename ?? `${importExport?.filenamePrefix ?? 'import'}_modele`
     saveAs(blob, `${fname}.csv`)

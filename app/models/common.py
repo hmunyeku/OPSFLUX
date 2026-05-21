@@ -889,6 +889,15 @@ class TierContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         user = self.__dict__.get("promoted_user")
         return user.active if user else None
 
+    @property
+    def job_position_name(self) -> str | None:
+        from sqlalchemy.orm import InstanceState
+        state: InstanceState = self.__dict__.get("_sa_instance_state")  # type: ignore[assignment]
+        if state and "job_position" not in state.dict:
+            return None
+        jp = self.__dict__.get("job_position")
+        return jp.name if jp else None
+
 
 class LegalIdentifier(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Legal / fiscal identifier — polymorphic (entity, tier, user, etc.).

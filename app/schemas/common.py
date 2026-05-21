@@ -499,6 +499,7 @@ class TierContactCreate(BaseModel):
     phone: str | None = Field(None, max_length=50)
     position: str | None = None
     department: str | None = None
+    job_position_id: UUID | None = None
     photo_url: str | None = Field(None, max_length=1000)
     is_primary: bool = False
 
@@ -627,6 +628,7 @@ class TierContactRead(OpsFluxSchema):
     position: str | None
     department: str | None = None
     job_position_id: UUID | None = None
+    job_position_name: str | None = None
     photo_url: str | None = None
     is_primary: bool
     active: bool
@@ -655,6 +657,7 @@ class TierContactUpdate(BaseModel):
     phone: str | None = Field(None, max_length=50)
     position: str | None = None
     department: str | None = None
+    job_position_id: UUID | None = None
     photo_url: str | None = Field(None, max_length=1000)
     is_primary: bool | None = None
     active: bool | None = None

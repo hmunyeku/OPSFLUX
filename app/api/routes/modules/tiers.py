@@ -21,6 +21,7 @@ from app.services.core.audit_service import add_event as add_audit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     Address, Attachment, Entity, ExternalReference, Tag, Tier, TierBlock, TierContact, User, UserTierLink,
+    JobPosition,
 )
 from app.schemas.common import (
     PaginatedResponse,
@@ -235,6 +236,8 @@ async def create_tier(
     # Initial contacts — rare but common enough to deserve first-class
     # support in Create: when a new supplier/client is added, we usually
     # already know a few contacts. FK-linked so created in same tx.
+    for c in initial_contacts:
+        await _validate_job_position_scope(db, c.get("job_position_id"), entity_id)
     seen_primary = False
     for c in initial_contacts:
         # Tolerate at most one is_primary=True; the rest get forced to
@@ -254,6 +257,7 @@ async def create_tier(
             phone=c.get("phone"),
             position=c.get("position"),
             department=c.get("department"),
+            job_position_id=c.get("job_position_id"),
             photo_url=c.get("photo_url"),
             is_primary=is_primary,
         )
@@ -374,6 +378,7 @@ async def list_all_contacts(
     tier: str | None = None,
     department: str | None = None,
     position: str | None = None,
+    job_position: str | None = None,
     email: str | None = None,
     phone: str | None = None,
     is_primary: bool | None = None,
@@ -388,8 +393,9 @@ async def list_all_contacts(
     linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
     query = (
         select(TierContact, Tier.name.label("tier_name"), Tier.code.label("tier_code"))
-        .options(selectinload(TierContact.promoted_user))
+        .options(selectinload(TierContact.promoted_user), selectinload(TierContact.job_position))
         .join(Tier, TierContact.tier_id == Tier.id)
+        .outerjoin(JobPosition, TierContact.job_position_id == JobPosition.id)
         .where(Tier.entity_id == entity_id, Tier.archived == False, TierContact.active == True)
     )
     if linked_tier_ids is not None:
@@ -403,6 +409,9 @@ async def list_all_contacts(
         query = query.where(TierContact.department.ilike(f"%{department}%"))
     if position:
         query = query.where(TierContact.position.ilike(f"%{position}%"))
+    if job_position:
+        like = f"%{job_position}%"
+        query = query.where(or_(JobPosition.name.ilike(like), JobPosition.code.ilike(like)))
     if email:
         query = query.where(or_(
             TierContact.email.ilike(f"%{email}%"),
@@ -423,6 +432,8 @@ async def list_all_contacts(
                 TierContact.email.ilike(like),
                 TierContact.phone.ilike(like),
                 TierContact.position.ilike(like),
+                JobPosition.name.ilike(like),
+                JobPosition.code.ilike(like),
                 TierContact.department.ilike(like),
                 TierContact.linked_user_email.ilike(like),
                 Tier.name.ilike(like),
@@ -445,7 +456,7 @@ async def get_global_contact(
     linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
     query = (
         select(TierContact, Tier.name.label("tier_name"), Tier.code.label("tier_code"))
-        .options(selectinload(TierContact.promoted_user))
+        .options(selectinload(TierContact.promoted_user), selectinload(TierContact.job_position))
         .join(Tier, TierContact.tier_id == Tier.id)
         .where(
             TierContact.id == contact_id,
@@ -474,6 +485,7 @@ def _contact_with_tier(row) -> dict:
     d = {c.key: getattr(contact, c.key) for c in contact.__table__.columns}
     d["tier_name"] = tier_name
     d["tier_code"] = tier_code
+    d["job_position_name"] = contact.job_position_name
     return d
 
 
@@ -490,7 +502,7 @@ async def list_tier_contacts(
     await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     result = await db.execute(
         select(TierContact)
-        .options(selectinload(TierContact.promoted_user))
+        .options(selectinload(TierContact.promoted_user), selectinload(TierContact.job_position))
         .where(TierContact.tier_id == tier_id, TierContact.active == True)
         .order_by(TierContact.is_primary.desc(), TierContact.last_name)
     )
@@ -572,6 +584,7 @@ async def create_tier_contact(
 
     if body.is_primary:
         await _unset_primary_contacts(db, tier.id)
+    await _validate_job_position_scope(db, body.job_position_id, entity_id)
     contact = TierContact(tier_id=tier.id, **body.model_dump())
     db.add(contact)
     await db.commit()
@@ -592,6 +605,8 @@ async def update_tier_contact(
     update_data = body.model_dump(exclude_unset=True)
     if update_data.get("is_primary"):
         await _unset_primary_contacts(db, tier_id)
+    if "job_position_id" in update_data:
+        await _validate_job_position_scope(db, update_data["job_position_id"], entity_id)
     for field, value in update_data.items():
         setattr(contact, field, value)
     await db.commit()
@@ -989,6 +1004,7 @@ async def _get_contact_or_404(
     )
     if include_promoted_user:
         stmt = stmt.options(selectinload(TierContact.promoted_user))
+    stmt = stmt.options(selectinload(TierContact.job_position))
     result = await db.execute(stmt)
     contact = result.scalar_one_or_none()
     if not contact:
@@ -998,6 +1014,28 @@ async def _get_contact_or_404(
             message="Contact not found",
         )
     return contact
+
+
+async def _validate_job_position_scope(
+    db: AsyncSession,
+    job_position_id: UUID | None,
+    entity_id: UUID,
+) -> None:
+    if not job_position_id:
+        return
+    result = await db.execute(
+        select(JobPosition.id).where(
+            JobPosition.id == job_position_id,
+            JobPosition.entity_id == entity_id,
+            JobPosition.active == True,  # noqa: E712
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise StructuredHTTPException(
+            404,
+            code="JOB_POSITION_NOT_FOUND",
+            message="Job position not found",
+        )
 
 
 async def _send_promoted_user_invitation(

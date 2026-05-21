@@ -25,6 +25,7 @@ from app.schemas.common import (
     LegalIdentifierCreate,
     TierBlockCreate,
     TierContactCreate,
+    TierContactUpdate,
     TierCreate,
     TierUpdate,
 )
@@ -134,6 +135,28 @@ def test_tier_contact_create_accepts_valid_email():
         {"first_name": "Jean", "last_name": "Dupont", "email": "jean@example.com"}
     )
     assert payload.email == "jean@example.com"
+
+
+def test_tier_contact_create_accepts_job_position_profile():
+    # Le champ libre `position` reste une fonction/titre local, tandis que
+    # `job_position_id` porte le lien metier vers la fiche de poste Conformite.
+    job_position_id = uuid4()
+    payload = TierContactCreate.model_validate(
+        {
+            "first_name": "Jean",
+            "last_name": "Dupont",
+            "position": "Superviseur chantier",
+            "job_position_id": str(job_position_id),
+        }
+    )
+    assert payload.position == "Superviseur chantier"
+    assert payload.job_position_id == job_position_id
+
+
+def test_tier_contact_update_accepts_job_position_profile():
+    job_position_id = uuid4()
+    payload = TierContactUpdate.model_validate({"job_position_id": str(job_position_id)})
+    assert payload.job_position_id == job_position_id
 
 
 # ─── TierBlockCreate ─────────────────────────────────────────────────────

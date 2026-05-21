@@ -63,6 +63,7 @@ import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
 import { LegalIdentifierManager } from '@/components/shared/LegalIdentifierManager'
 import { ReferentielManager } from '@/components/shared/ReferentielManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 import { SocialNetworkManager } from '@/components/shared/SocialNetworkManager'
 import { OpeningHoursManager } from '@/components/shared/OpeningHoursManager'
 import { useUIStore } from '@/stores/uiStore'
@@ -94,6 +95,7 @@ const EMPTY_CONTACT_FORM: TierContactCreate = {
   last_name: '',
   position: null,
   department: null,
+  job_position_id: null,
   is_primary: false,
 }
 
@@ -558,6 +560,13 @@ function CreateTierPanel() {
                     value={contactDraft.department ?? ''}
                     onChange={(e) => setContactDraft({ ...contactDraft, department: e.target.value || null })}
                     className={panelInputClass}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('tiers.ui.job_position_profile', 'Profil du poste')}>
+                  <JobPositionPicker
+                    value={contactDraft.job_position_id ?? null}
+                    onChange={(id) => setContactDraft({ ...contactDraft, job_position_id: id })}
+                    placeholder={t('tiers.ui.job_position_profile_placeholder', 'Lier une fiche de poste conformité...') as string}
                   />
                 </DynamicPanelField>
               </FormGrid>
@@ -1533,6 +1542,7 @@ export function TiersPage() {
   const contactTier = getTextFilterValue(activeFilters.tier)
   const contactDepartment = getTextFilterValue(activeFilters.department)
   const contactPosition = getTextFilterValue(activeFilters.position)
+  const contactJobPosition = getTextFilterValue(activeFilters.job_position)
   const contactEmail = getTextFilterValue(activeFilters.email)
   const contactPhone = getTextFilterValue(activeFilters.phone)
   const contactIsPrimary = activeFilters.is_primary === 'true' ? true : activeFilters.is_primary === 'false' ? false : undefined
@@ -1545,6 +1555,7 @@ export function TiersPage() {
     tier: activeTab === 'contacts' ? contactTier : undefined,
     department: activeTab === 'contacts' ? contactDepartment : undefined,
     position: activeTab === 'contacts' ? contactPosition : undefined,
+    job_position: activeTab === 'contacts' ? contactJobPosition : undefined,
     email: activeTab === 'contacts' ? contactEmail : undefined,
     phone: activeTab === 'contacts' ? contactPhone : undefined,
     is_primary: activeTab === 'contacts' ? contactIsPrimary : undefined,
@@ -1640,7 +1651,13 @@ export function TiersPage() {
     },
     {
       id: 'position',
-      label: t('tiers.ui.position'),
+      label: t('tiers.ui.function_free_text'),
+      type: 'text',
+      operators: ['contains'],
+    },
+    {
+      id: 'job_position',
+      label: t('tiers.ui.job_position_profile'),
       type: 'text',
       operators: ['contains'],
     },

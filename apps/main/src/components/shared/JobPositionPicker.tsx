@@ -9,7 +9,7 @@
  * tenants avec milliers de fiches de poste.
  */
 import { Briefcase } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useJobPositions } from '@/hooks/useConformite'
 import type { JobPosition } from '@/types/api'
@@ -18,6 +18,7 @@ import { EntityPickerBase } from '@/components/shared/EntityPickerBase'
 interface JobPositionPickerProps {
   value?: string | null
   onChange: (id: string | null, item?: JobPosition) => void
+  selectedLabel?: string | null
   placeholder?: string
   disabled?: boolean
   className?: string
@@ -30,6 +31,7 @@ const PAGE_SIZE = 100
 export function JobPositionPicker({
   value,
   onChange,
+  selectedLabel,
   placeholder,
   disabled,
   className,
@@ -44,6 +46,22 @@ export function JobPositionPicker({
     search: search.trim() || undefined,
   })
   const items = data?.items ?? []
+  const pickerItems = useMemo(() => {
+    if (!value || items.some((item) => item.id === value)) return items
+    return [
+      {
+        id: value,
+        entity_id: '',
+        code: '',
+        name: selectedLabel || value,
+        description: null,
+        department: null,
+        active: true,
+        created_at: '',
+      } satisfies JobPosition,
+      ...items,
+    ]
+  }, [items, selectedLabel, value])
   const total = data?.total ?? items.length
   const truncated = !search.trim() && total > PAGE_SIZE
 
@@ -51,7 +69,7 @@ export function JobPositionPicker({
     <EntityPickerBase
       value={value}
       onChange={onChange}
-      items={items}
+      items={pickerItems}
       isLoading={isLoading}
       disabled={disabled}
       className={className}
@@ -64,7 +82,7 @@ export function JobPositionPicker({
       truncated={truncated}
       toItem={(item) => ({
         id: item.id,
-        label: `${item.code} — ${item.name}`,
+        label: item.code ? `${item.code} — ${item.name}` : item.name,
         secondary: item.department || null,
         keywords: [item.code, item.name, item.department ?? ''],
       })}

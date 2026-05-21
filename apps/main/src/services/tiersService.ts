@@ -99,6 +99,7 @@ export const tiersService = {
     tier?: string
     department?: string
     position?: string
+    job_position?: string
     email?: string
     phone?: string
     is_primary?: boolean

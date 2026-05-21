@@ -8,7 +8,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search, Plus, Trash2, Phone, Mail, MapPin, MessageSquare, Paperclip, Building2, Loader2,
-  Users, User, Star, ChevronDown, ArrowLeft, Shield,
+  Users, User, Star, ChevronDown, ArrowLeft, Shield, Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -37,6 +37,7 @@ import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 import {
   useTierContacts,
   useCreateTierContact,
@@ -58,6 +59,7 @@ const EMPTY_CONTACT_FORM: TierContactCreate = {
   last_name: '',
   position: null,
   department: null,
+  job_position_id: null,
   is_primary: false,
 }
 
@@ -106,13 +108,14 @@ export function ContactListSection({
   const [contactSearch, setContactSearch] = useState('')
   const [visibleCount, setVisibleCount] = useState(CONTACTS_PAGE_SIZE)
 
-  // Filter contacts by search (name, position, department)
+  // Filter contacts by search (name, free-text function, compliance profile, department)
   const filtered = useMemo(() => {
     if (!contactSearch.trim()) return contacts
     const q = contactSearch.toLowerCase()
     return contacts.filter((c) =>
       `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
       (c.position && c.position.toLowerCase().includes(q)) ||
+      (c.job_position_name && c.job_position_name.toLowerCase().includes(q)) ||
       (c.department && c.department.toLowerCase().includes(q))
     )
   }, [contacts, contactSearch])
@@ -126,12 +129,14 @@ export function ContactListSection({
     let linked = 0
     let withEmail = 0
     let withPhone = 0
+    let profiled = 0
 
     for (const contact of contacts) {
       if (contact.is_primary) primary += 1
       if (contact.linked_user_id) linked += 1
       if (contact.email || contact.linked_user_email) withEmail += 1
       if (contact.phone) withPhone += 1
+      if (contact.job_position_id) profiled += 1
       if (contact.department) departments.add(contact.department)
     }
 
@@ -140,6 +145,7 @@ export function ContactListSection({
       linked,
       withEmail,
       withPhone,
+      profiled,
       departments: departments.size,
     }
   }, [contacts])
@@ -183,7 +189,7 @@ export function ContactListSection({
             { label: t('tiers.contacts'), value: contacts.length, icon: Users },
             { label: t('tiers.ui.primary_contacts'), value: contactStats.primary, icon: Star },
             { label: t('tiers.ui.linked_contacts'), value: contactStats.linked, icon: User },
-            { label: t('tiers.ui.departments'), value: contactStats.departments, icon: Building2 },
+            { label: t('tiers.ui.job_position_profiles'), value: contactStats.profiled, icon: Briefcase },
           ].map(({ label, value, icon: Icon }) => (
             <div key={label} className="flex h-7 min-w-0 items-center gap-1.5 rounded border border-border/60 bg-background px-1.5">
               <Icon size={10} className="text-muted-foreground" />
@@ -247,6 +253,13 @@ export function ContactListSection({
             </DynamicPanelField>
             <DynamicPanelField label={t('tiers.ui.department')}>
               <input type="text" value={form.department ?? ''} onChange={(e) => setForm({ ...form, department: e.target.value || null })} className={panelInputClass} />
+            </DynamicPanelField>
+            <DynamicPanelField label={t('tiers.ui.job_position_profile')}>
+              <JobPositionPicker
+                value={form.job_position_id ?? null}
+                onChange={(id) => setForm({ ...form, job_position_id: id })}
+                placeholder={t('tiers.ui.job_position_profile_placeholder') as string}
+              />
             </DynamicPanelField>
           </FormGrid>
           <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
@@ -348,6 +361,10 @@ export function ContactListSection({
 
               <div className="min-w-0 text-xs">
                 <div className="truncate font-medium text-foreground">{contact.position || '—'}</div>
+                <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-primary">
+                  <Briefcase size={11} className="shrink-0" />
+                  <span className="truncate">{contact.job_position_name || t('tiers.ui.no_job_position_profile')}</span>
+                </div>
                 <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
                   <Building2 size={11} className="shrink-0" />
                   <span className="truncate">{contact.department || 'Non renseigné'}</span>
@@ -518,7 +535,7 @@ export function ContactDetailPanel({
   return (
     <DynamicPanelShell
       title={fullName}
-      subtitle={contact.position || tierName}
+      subtitle={[contact.position, contact.job_position_name || tierName].filter(Boolean).join(' · ')}
       icon={<Users size={14} className="text-primary" />}
       actionItems={contactActionItems}
       onActionConfirm={confirmContact}
@@ -593,6 +610,18 @@ export function ContactDetailPanel({
                   onSave={(newValue) => { void saveContactPatch({ department: newValue.trim() || null }) }}
                   disabled={!canEdit}
                 />
+                <DynamicPanelField label={t('tiers.ui.job_position_profile')}>
+                  <JobPositionPicker
+                    value={contact.job_position_id ?? null}
+                    selectedLabel={contact.job_position_name}
+                    onChange={(id) => { void saveContactPatch({ job_position_id: id }) }}
+                    placeholder={t('tiers.ui.job_position_profile_placeholder') as string}
+                    disabled={!canEdit}
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {t('tiers.ui.job_position_profile_help')}
+                  </p>
+                </DynamicPanelField>
               </DetailFieldGrid>
             </FormSection>
 
@@ -736,9 +765,14 @@ export function useContactColumns() {
     },
     {
       accessorKey: 'position',
-      header: t('tiers.ui.position'),
+      header: t('tiers.ui.function_and_profile'),
       size: 140,
-      cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.position || '--'}</span>,
+      cell: ({ row }) => (
+        <div className="min-w-0">
+          <div className="truncate text-xs text-foreground">{row.original.position || '--'}</div>
+          <div className="truncate text-[10px] text-primary">{row.original.job_position_name || t('tiers.ui.no_job_position_profile')}</div>
+        </div>
+      ),
     },
     {
       accessorKey: 'department',

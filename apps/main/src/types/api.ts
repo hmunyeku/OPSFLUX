@@ -139,6 +139,7 @@ export interface TierContact {
   position: string | null
   department: string | null
   job_position_id: string | null
+  job_position_name: string | null
   photo_url: string | null
   is_primary: boolean
   active: boolean
@@ -162,6 +163,7 @@ export interface TierContactCreate {
   phone?: string | null
   position?: string | null
   department?: string | null
+  job_position_id?: string | null
   photo_url?: string | null
   is_primary?: boolean
 }
@@ -174,6 +176,7 @@ export interface TierContactUpdate {
   phone?: string | null
   position?: string | null
   department?: string | null
+  job_position_id?: string | null
   photo_url?: string | null
   is_primary?: boolean
   active?: boolean

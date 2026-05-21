@@ -1,7 +1,10 @@
 import asyncio
+import sys
 
 import pytest
+import httpx
 
+from app.services.connectors import compliance_connector
 from app.services.connectors import riseup_connector
 from app.services.connectors.riseup_connector import RiseUpConnector
 
@@ -90,3 +93,18 @@ def test_riseup_match_user_reads_data_meta_payload(monkeypatch: pytest.MonkeyPat
     assert match is not None
     assert match.external_user_id == "110"
     assert match.matched_by == "email"
+
+
+def test_create_connector_lazy_loads_riseup(monkeypatch: pytest.MonkeyPatch) -> None:
+    compliance_connector._CONNECTORS.pop("riseup", None)
+    sys.modules.pop("app.services.connectors.riseup_connector", None)
+    monkeypatch.setattr(httpx, "AsyncClient", _RedirectAwareClient)
+
+    connector = asyncio.run(compliance_connector.create_connector("riseup", {
+        "base_url": "http://mock-riseup.example",
+        "public_key": "public",
+        "secret_key": "secret",
+    }))
+
+    assert connector is not None
+    assert connector.provider_id == "riseup"

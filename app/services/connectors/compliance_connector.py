@@ -17,6 +17,7 @@ check_compliance uses this to decide whether to check local DB, external API, or
 """
 
 import logging
+from importlib import import_module
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -103,6 +104,9 @@ class ComplianceConnector(ABC):
 # ── Connector registry ──────────────────────────────────────────────
 
 _CONNECTORS: dict[str, type[ComplianceConnector]] = {}
+_CONNECTOR_MODULES: dict[str, str] = {
+    "riseup": "app.services.connectors.riseup_connector",
+}
 
 
 def register_compliance_connector(provider_id: str):
@@ -116,6 +120,12 @@ def register_compliance_connector(provider_id: str):
 
 def get_connector_class(provider_id: str) -> type[ComplianceConnector] | None:
     """Get a registered connector class by provider ID."""
+    cls = _CONNECTORS.get(provider_id)
+    if cls:
+        return cls
+    module = _CONNECTOR_MODULES.get(provider_id)
+    if module:
+        import_module(module)
     return _CONNECTORS.get(provider_id)
 
 

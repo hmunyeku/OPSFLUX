@@ -792,7 +792,7 @@ export function FormSection({
         // Solution: full-opacity border + ring shadow at low opacity
         // (the ring reads as a 1px outline rather than a drop shadow,
         // so 5+ sections stack cleanly).
-        'border border-border rounded-lg bg-card shadow-[0_1px_3px_rgba(20,30,55,0.06)] transition-colors px-5 py-4',
+        'min-w-0 w-full max-w-full [min-inline-size:0] border border-border rounded-lg bg-card shadow-[0_1px_3px_rgba(20,30,55,0.06)] transition-colors px-3 py-3 sm:px-5 sm:py-4',
         // Slightly more bottom padding when content is shown.
         collapsible && expanded && 'pb-4 space-y-2',
         !collapsible && 'pb-4 space-y-2',
@@ -815,7 +815,7 @@ export function FormSection({
     >
       {(title || headerExtra) && (
         collapsible ? (
-          <div className="flex items-center gap-2 w-full">
+          <div className="flex min-w-0 items-center gap-2 w-full">
             <button
               type="button"
               onClick={toggle}
@@ -835,8 +835,8 @@ export function FormSection({
             {headerExtra && <span className="ml-auto shrink-0">{headerExtra}</span>}
           </div>
         ) : (
-          <div className="flex items-center gap-2 pb-1">
-            <legend className="text-sm font-display font-semibold text-foreground flex-1 tracking-tight">
+          <div className="flex min-w-0 items-center gap-2 pb-1">
+            <legend className="min-w-0 flex-1 truncate text-sm font-display font-semibold text-foreground tracking-tight">
               {title}
             </legend>
             {headerExtra && <span className="ml-auto">{headerExtra}</span>}

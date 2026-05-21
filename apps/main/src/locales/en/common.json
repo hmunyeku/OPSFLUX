@@ -184,6 +184,7 @@
     "tags": "Tags",
     "attachments": "Attachments",
     "files": "Files",
+    "download": "Download",
     "select": "Select",
     "select_option": "Select...",
     "choose_short": "Choose...",
@@ -458,6 +459,24 @@
     "duration_days": "Duration (days)",
     "parent_task": "Parent task",
     "team_singular": "Team"
+  },
+  "attachments_manager": {
+    "add_file": "Add a file",
+    "dropzone": "Click or drag and drop files",
+    "selected_type": "Type: {{type}}",
+    "upload_success": "{{name}} added",
+    "upload_error": "Unable to add {{name}}.",
+    "delete_success": "File deleted",
+    "delete_error": "Unable to delete the file.",
+    "empty_title": "No file",
+    "empty_description": "No attached file.",
+    "preview": "Preview",
+    "hide_preview": "Hide preview",
+    "duplicate_title": "Document already attached",
+    "duplicate_description": "{{name}} already exists on this object for your account. Do you want to replace the existing version?",
+    "existing_file_meta": "Current version: {{size}} · {{date}}",
+    "replace": "Replace",
+    "replace_success": "{{name}} replaced"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",

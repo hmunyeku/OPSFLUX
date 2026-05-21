@@ -791,9 +791,9 @@ export function useAttachments(
 export function useUploadAttachment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ ownerType, ownerId, file, description, category }: {
-      ownerType: string; ownerId: string; file: File; description?: string; category?: string
-    }) => attachmentsService.upload(ownerType, ownerId, file, description, category),
+    mutationFn: ({ ownerType, ownerId, file, description, category, overwriteExisting }: {
+      ownerType: string; ownerId: string; file: File; description?: string; category?: string; overwriteExisting?: boolean
+    }) => attachmentsService.upload(ownerType, ownerId, file, description, category, overwriteExisting),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['attachments', variables.ownerType, variables.ownerId] })
     },

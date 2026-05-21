@@ -9,7 +9,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
@@ -111,6 +111,7 @@ async def upload_attachment(
     owner_id: str = Form(...),
     description: str | None = Form(None),
     category: str | None = Form(None),
+    overwrite_existing: bool = Form(False),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -129,25 +130,60 @@ async def upload_attachment(
     if len(content) > max_size:
         raise HTTPException(status_code=413, detail=f"File too large. Maximum: {getattr(settings, 'STORAGE_MAX_FILE_SIZE_MB', 50)} MB")
 
+    original_name = file.filename or "file"
+    normalized_category = (category or None) if category else None
+    duplicate_result = await db.execute(
+        select(Attachment)
+        .where(
+            Attachment.owner_type == owner_type,
+            Attachment.owner_id == parsed_owner_id,
+            Attachment.entity_id == entity_id,
+            Attachment.uploaded_by == current_user.id,
+            Attachment.archived.is_(False),
+            Attachment.deleted_at.is_(None),
+            func.lower(Attachment.original_name) == original_name.lower(),
+            Attachment.category.is_(None) if normalized_category is None else Attachment.category == normalized_category,
+        )
+        .order_by(Attachment.created_at.desc())
+    )
+    duplicate = duplicate_result.scalars().first()
+    if duplicate and not overwrite_existing:
+        raise StructuredHTTPException(
+            status.HTTP_409_CONFLICT,
+            code="ATTACHMENT_DUPLICATE",
+            message="A file with the same name is already attached to this object.",
+            params={
+                "attachment_id": str(duplicate.id),
+                "filename": duplicate.original_name,
+                "owner_type": owner_type,
+                "owner_id": owner_id,
+                "category": duplicate.category,
+            },
+        )
+
     # Store via abstracted storage service (local or S3)
     storage_path, unique_name = await store_file(
         content=content,
         owner_type=owner_type,
         owner_id=owner_id,
-        original_filename=file.filename or "file",
+        original_filename=original_name,
         content_type=file.content_type or "application/octet-stream",
     )
+
+    if duplicate and overwrite_existing:
+        await delete_stored_file(duplicate.storage_path)
+        await delete_entity(duplicate, db, "attachment", entity_id=duplicate.id, user_id=current_user.id)
 
     attachment = Attachment(
         owner_type=owner_type,
         owner_id=parsed_owner_id,
         filename=unique_name,
-        original_name=file.filename or "file",
+        original_name=original_name,
         content_type=file.content_type or "application/octet-stream",
         size_bytes=len(content),
         storage_path=storage_path,
         description=description,
-        category=(category or None) if category else None,
+        category=normalized_category,
         uploaded_by=current_user.id,
         entity_id=entity_id,
     )

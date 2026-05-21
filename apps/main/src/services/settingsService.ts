@@ -393,6 +393,7 @@ export const attachmentsService = {
     file: File,
     description?: string,
     category?: string,
+    overwriteExisting?: boolean,
   ): Promise<FileAttachment> => {
     const formData = new FormData()
     formData.append('file', file)
@@ -400,6 +401,7 @@ export const attachmentsService = {
     formData.append('owner_id', ownerId)
     if (description) formData.append('description', description)
     if (category) formData.append('category', category)
+    if (overwriteExisting) formData.append('overwrite_existing', 'true')
     const { data } = await api.post('/api/v1/attachments', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })

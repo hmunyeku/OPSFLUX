@@ -281,6 +281,7 @@
     "tags": "Tags",
     "attachments": "Pièces jointes",
     "files": "Fichiers",
+    "download": "Télécharger",
     "select": "Sélectionner",
     "select_option": "Sélectionner...",
     "choose_short": "Choisir...",
@@ -554,6 +555,24 @@
     "duration_days": "Durée (jours)",
     "parent_task": "Tâche parente",
     "team_singular": "Équipe"
+  },
+  "attachments_manager": {
+    "add_file": "Ajouter un fichier",
+    "dropzone": "Cliquez ou glissez-déposez des fichiers",
+    "selected_type": "Type : {{type}}",
+    "upload_success": "{{name}} ajouté",
+    "upload_error": "Impossible d'ajouter {{name}}.",
+    "delete_success": "Fichier supprimé",
+    "delete_error": "Impossible de supprimer le fichier.",
+    "empty_title": "Aucun fichier",
+    "empty_description": "Aucun fichier joint.",
+    "preview": "Aperçu",
+    "hide_preview": "Masquer l'aperçu",
+    "duplicate_title": "Document déjà joint",
+    "duplicate_description": "{{name}} existe déjà sur cet objet pour votre compte. Voulez-vous remplacer la version existante ?",
+    "existing_file_meta": "Version actuelle : {{size}} · {{date}}",
+    "replace": "Remplacer",
+    "replace_success": "{{name}} remplacé"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",

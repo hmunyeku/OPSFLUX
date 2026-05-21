@@ -472,6 +472,7 @@ export function AttachmentManager({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [expandedPreviews, setExpandedPreviews] = useState<Set<string>>(new Set())
+  const [duplicatePrompt, setDuplicatePrompt] = useState<{ file: File; existing?: FileAttachment } | null>(null)
 
   useEffect(() => {
     if (initialShowForm) {
@@ -486,32 +487,76 @@ export function AttachmentManager({
     ? categoryOptions.find((o) => o.value === categoryFilter)?.label
     : null
 
+  const findDuplicate = useCallback((file: File) => {
+    const normalizedName = file.name.trim().toLowerCase()
+    const uploadCategory = categoryFilter || ''
+    return attachments.find((att) =>
+      att.original_name.trim().toLowerCase() === normalizedName &&
+      (att.category ?? '') === uploadCategory,
+    )
+  }, [attachments, categoryFilter])
+
+  const uploadOne = useCallback(async (file: File, overwriteExisting = false) => {
+    try {
+      await uploadAttachment.mutateAsync({
+        ownerType,
+        ownerId: ownerId!,
+        file,
+        category: categoryFilter || undefined,
+        overwriteExisting,
+      })
+      toast({
+        title: t(overwriteExisting ? 'attachments_manager.replace_success' : 'attachments_manager.upload_success', { name: file.name }),
+        variant: 'success',
+      })
+      setDuplicatePrompt(null)
+    } catch (error) {
+      const typed = error as { response?: { status?: number; data?: { code?: string; details?: { filename?: string }; detail?: { code?: string; params?: { filename?: string } } } } }
+      const errorCode = typed.response?.data?.code ?? typed.response?.data?.detail?.code
+      const duplicateFilename = typed.response?.data?.details?.filename ?? typed.response?.data?.detail?.params?.filename
+      if (typed.response?.status === 409 && errorCode === 'ATTACHMENT_DUPLICATE') {
+        setDuplicatePrompt({ file })
+        toast({
+          title: t('attachments_manager.duplicate_title'),
+          description: t('attachments_manager.duplicate_description', { name: duplicateFilename || file.name }),
+          variant: 'warning',
+        })
+        return
+      }
+      toast({
+        title: t('common.error'),
+        description: t('attachments_manager.upload_error', { name: file.name }),
+        variant: 'error',
+      })
+    }
+  }, [categoryFilter, ownerId, ownerType, t, toast, uploadAttachment])
+
   const handleUpload = useCallback(async (files: FileList | null) => {
     if (!files || !ownerId) return
     for (const file of Array.from(files)) {
-      try {
-        await uploadAttachment.mutateAsync({
-          ownerType,
-          ownerId,
-          file,
-          category: categoryFilter || undefined,
+      const duplicate = findDuplicate(file)
+      if (duplicate) {
+        setDuplicatePrompt({ file, existing: duplicate })
+        toast({
+          title: t('attachments_manager.duplicate_title'),
+          description: t('attachments_manager.duplicate_description', { name: file.name }),
+          variant: 'warning',
         })
-        toast({ title: `${file.name} ajouté`, variant: 'success' })
-      } catch {
-        toast({ title: t('common.error'), description: `Impossible d'ajouter ${file.name}.`, variant: 'error' })
+        return
       }
+      await uploadOne(file)
     }
-  }, [categoryFilter, ownerId, ownerType, uploadAttachment, toast])
+  }, [findDuplicate, ownerId, t, toast, uploadOne])
 
   const handleDelete = useCallback(async (id: string) => {
     try {
       await deleteAttachment.mutateAsync(id)
       setConfirmDeleteId(null)
-      toast({ title: 'Fichier supprimé', variant: 'success' })
+      toast({ title: t('attachments_manager.delete_success'), variant: 'success' })
     } catch {
-      toast({ title: t('common.error'), description: 'Impossible de supprimer le fichier.', variant: 'error' })
+      toast({ title: t('common.error'), description: t('attachments_manager.delete_error'), variant: 'error' })
     }
-  }, [deleteAttachment, toast])
+  }, [deleteAttachment, t, toast])
 
   const togglePreview = useCallback((id: string) => {
     setExpandedPreviews(prev => {
@@ -566,7 +611,16 @@ export function AttachmentManager({
       {/* Upload zone */}
       {!readOnly && (
         <>
-          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              handleUpload(e.target.files)
+              e.currentTarget.value = ''
+            }}
+          />
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -582,14 +636,41 @@ export function AttachmentManager({
               : <Plus size={18} className="mx-auto text-muted-foreground mb-1" />
             }
             <p className="text-xs text-muted-foreground">
-              {compact ? 'Ajouter un fichier' : 'Cliquez ou glissez-déposez des fichiers'}
+              {compact ? t('attachments_manager.add_file') : t('attachments_manager.dropzone')}
             </p>
             {selectedCategoryLabel && (
               <p className="mt-1 text-[10px] text-muted-foreground">
-                Type : {selectedCategoryLabel}
+                {t('attachments_manager.selected_type', { type: selectedCategoryLabel })}
               </p>
             )}
           </div>
+          {duplicatePrompt && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+              <div className="font-medium text-foreground">
+                {t('attachments_manager.duplicate_title')}
+              </div>
+              <div className="mt-0.5 text-muted-foreground">
+                {t('attachments_manager.duplicate_description', { name: duplicatePrompt.file.name })}
+              </div>
+              {duplicatePrompt.existing && (
+                <div className="mt-1 text-[10px] text-muted-foreground">
+                  {t('attachments_manager.existing_file_meta', {
+                    size: formatSize(duplicatePrompt.existing.size_bytes),
+                    date: formatDate(duplicatePrompt.existing.created_at),
+                  })}
+                </div>
+              )}
+              <div className="mt-2 flex justify-end gap-1.5">
+                <button type="button" className="btn-sm btn-secondary" onClick={() => setDuplicatePrompt(null)}>
+                  {t('common.cancel')}
+                </button>
+                <button type="button" className="btn-sm btn-primary" onClick={() => uploadOne(duplicatePrompt.file, true)} disabled={uploadAttachment.isPending}>
+                  {uploadAttachment.isPending ? <Loader2 size={11} className="animate-spin" /> : null}
+                  {t('attachments_manager.replace')}
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -631,9 +712,9 @@ export function AttachmentManager({
                   <button
                     type="button"
                     onClick={() => togglePreview(att.id)}
-                    aria-label={isExpanded ? 'Masquer l aperçu' : 'Aperçu'}
+                    aria-label={isExpanded ? t('attachments_manager.hide_preview') : t('attachments_manager.preview')}
                     className={isExpanded ? attachmentActiveActionClass : attachmentActionClass}
-                    title={isExpanded ? 'Masquer l\'aperçu' : 'Aperçu'}
+                    title={isExpanded ? t('attachments_manager.hide_preview') : t('attachments_manager.preview')}
                   >
                     {isExpanded ? <EyeOff size={13} /> : <Eye size={13} />}
                   </button>
@@ -641,19 +722,19 @@ export function AttachmentManager({
                 <button
                   type="button"
                   onClick={() => downloadFile(att.id, att.original_name)}
-                  aria-label="Télécharger"
+                  aria-label={t('common.download')}
                   className={attachmentActionClass}
-                  title="Télécharger"
+                  title={t('common.download')}
                 >
                   <Download size={13} />
                 </button>
                 {!readOnly && (isConfirming ? (
                   <div className="flex items-center gap-0.5">
-                    <button type="button" className={attachmentDangerActionClass} onClick={() => handleDelete(att.id)} disabled={deleteAttachment.isPending} title="Confirmer la suppression" aria-label="Confirmer la suppression"><Check size={13} /></button>
-                    <button type="button" className={attachmentActionClass} onClick={() => setConfirmDeleteId(null)} title="Annuler" aria-label="Annuler"><X size={13} /></button>
+                    <button type="button" className={attachmentDangerActionClass} onClick={() => handleDelete(att.id)} disabled={deleteAttachment.isPending} title={t('common.confirm_delete')} aria-label={t('common.confirm_delete')}><Check size={13} /></button>
+                    <button type="button" className={attachmentActionClass} onClick={() => setConfirmDeleteId(null)} title={t('common.cancel')} aria-label={t('common.cancel')}><X size={13} /></button>
                   </div>
                 ) : (
-                  <button type="button" className={attachmentDangerActionClass} onClick={() => setConfirmDeleteId(att.id)} title="Supprimer" aria-label="Supprimer">
+                  <button type="button" className={attachmentDangerActionClass} onClick={() => setConfirmDeleteId(att.id)} title={t('common.delete')} aria-label={t('common.delete')}>
                     <Trash2 size={13} />
                   </button>
                 ))}
@@ -680,7 +761,7 @@ export function AttachmentManager({
 
       {/* Empty state */}
       {!isLoading && attachments.length === 0 && (
-        <EmptyState icon={Paperclip} title="Aucun fichier" description="Aucun fichier joint." size="compact" />
+        <EmptyState icon={Paperclip} title={t('attachments_manager.empty_title')} description={t('attachments_manager.empty_description')} size="compact" />
       )}
     </div>
   )

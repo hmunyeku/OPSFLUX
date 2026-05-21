@@ -873,11 +873,11 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
         activeId={detailTab}
         onTabChange={(id) => setDetailTab(id as typeof detailTab)}
         items={[
-          { id: 'fiche', label: 'Fiche', icon: Building2 },
-          { id: 'contacts', label: 'Contacts', icon: Users, badge: contactList.length || undefined },
-          { id: 'conformite', label: 'Conformite', icon: Shield },
-          { id: 'projets', label: 'Projets', icon: FolderKanban, badge: relatedProjects?.items?.length || undefined },
-          { id: 'documents', label: 'Documents', icon: Paperclip, badge: attachments?.length || undefined },
+          { id: 'fiche', label: t('tiers.ui.tab_fiche'), icon: Building2 },
+          { id: 'contacts', label: t('tiers.contacts'), icon: Users, badge: contactList.length || undefined },
+          { id: 'conformite', label: t('nav.conformite'), icon: Shield },
+          { id: 'projets', label: t('nav.projets'), icon: FolderKanban, badge: relatedProjects?.items?.length || undefined },
+          { id: 'documents', label: t('common.documents'), icon: Paperclip, badge: attachments?.length || undefined },
         ]}
       />
 
@@ -888,24 +888,24 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             .kpi-pp class loaded by Phase 2C (cards-pp.css). */}
         <div className="@container grid grid-cols-2 gap-2 mb-3 @[560px]:grid-cols-4">
           <div className="kpi-pp">
-            <span className="kpi-pp__label">Projets actifs</span>
-            <span className="kpi-pp__value">{relatedProjects?.items?.length ?? 0}</span>
-            <span className="kpi-pp__caption">avec ce tiers</span>
+            <span className="kpi-pp__label">{t('tiers.ui.active_projects')}</span>
+            <span className="kpi-pp__value">{projectSummary.active}</span>
+            <span className="kpi-pp__caption">{t('tiers.ui.with_this_tier')}</span>
           </div>
           <div className="kpi-pp">
-            <span className="kpi-pp__label">Contacts</span>
+            <span className="kpi-pp__label">{t('tiers.contacts')}</span>
             <span className="kpi-pp__value">{contactList.length}</span>
-            <span className="kpi-pp__caption">employés actifs</span>
+            <span className="kpi-pp__caption">{t('tiers.ui.active_employees')}</span>
           </div>
           <div className="kpi-pp">
-            <span className="kpi-pp__label">Identifiants</span>
+            <span className="kpi-pp__label">{t('tiers.ui.identifiers')}</span>
             <span className="kpi-pp__value">{identifiers?.length ?? 0}</span>
-            <span className="kpi-pp__caption">SIRET, NIU, RCCM…</span>
+            <span className="kpi-pp__caption">{t('tiers.ui.legal_id_examples')}</span>
           </div>
           <div className="kpi-pp">
-            <span className="kpi-pp__label">Documents</span>
+            <span className="kpi-pp__label">{t('common.documents')}</span>
             <span className="kpi-pp__value">{attachments?.length ?? 0}</span>
-            <span className="kpi-pp__caption">fichiers attachés</span>
+            <span className="kpi-pp__caption">{t('tiers.ui.attached_files')}</span>
           </div>
         </div>
 
@@ -1265,11 +1265,11 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             <div className="@container space-y-2">
               <div className="grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground @[520px]:grid-cols-3 @[760px]:grid-cols-5">
                 {[
-                  { label: 'Projets', value: relatedProjects?.total ?? projectList.length, icon: FolderKanban },
-                  { label: 'Actifs', value: projectSummary.active, icon: Activity },
-                  { label: 'Terminés', value: projectSummary.completed, icon: ShieldCheck },
-                  { label: 'Sensibles', value: projectSummary.sensitive, icon: AlertTriangle },
-                  { label: 'Budget', value: formatMoney(projectSummary.budget, projectSummary.currency), icon: CircleDollarSign },
+                  { label: t('tiers.ui.projects'), value: relatedProjects?.total ?? projectList.length, icon: FolderKanban },
+                  { label: t('tiers.ui.active'), value: projectSummary.active, icon: Activity },
+                  { label: t('tiers.ui.completed'), value: projectSummary.completed, icon: ShieldCheck },
+                  { label: t('tiers.ui.sensitive'), value: projectSummary.sensitive, icon: AlertTriangle },
+                  { label: t('tiers.ui.budget'), value: formatMoney(projectSummary.budget, projectSummary.currency), icon: CircleDollarSign },
                 ].map(({ label, value, icon: Icon }) => (
                   <div key={label} className="flex h-7 min-w-0 items-center gap-1.5 rounded border border-border/60 bg-background px-1.5">
                     <Icon size={10} className="text-muted-foreground" />
@@ -1278,52 +1278,12 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                   </div>
                 ))}
               </div>
-              <div className="hidden">
-                <div className="rounded-md border border-border/60 bg-background px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-                    <FolderKanban size={11} />
-                    Projets
-                  </div>
-                  <div className="mt-1 text-lg font-semibold tabular-nums">{relatedProjects?.total ?? projectList.length}</div>
-                </div>
-                <div className="rounded-md border border-border/60 bg-background px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-                    <Activity size={11} />
-                    Actifs
-                  </div>
-                  <div className="mt-1 text-lg font-semibold tabular-nums">{projectSummary.active}</div>
-                </div>
-                <div className="rounded-md border border-border/60 bg-background px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-                    <ShieldCheck size={11} />
-                    Terminés
-                  </div>
-                  <div className="mt-1 text-lg font-semibold tabular-nums">{projectSummary.completed}</div>
-                </div>
-                <div className="rounded-md border border-border/60 bg-background px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-                    <AlertTriangle size={11} />
-                    Sensibles
-                  </div>
-                  <div className="mt-1 text-lg font-semibold tabular-nums">{projectSummary.sensitive}</div>
-                </div>
-                <div className="col-span-2 rounded-md border border-border/60 bg-background px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-                    <CircleDollarSign size={11} />
-                    Budget
-                  </div>
-                  <div className="mt-1 text-sm font-semibold tabular-nums">
-                    {formatMoney(projectSummary.budget, projectSummary.currency)}
-                  </div>
-                </div>
-              </div>
-
               <div className="@container min-w-0 overflow-hidden rounded-md border border-border/60 bg-background">
                 <div className="hidden grid-cols-[minmax(0,1.3fr)_130px_150px_110px] gap-3 border-b border-border/50 bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground @[720px]:grid">
-                  <div>Projet</div>
-                  <div>Planning</div>
-                  <div>Budget & équipe</div>
-                  <div className="text-right">Progression</div>
+                  <div>{t('tiers.ui.project')}</div>
+                  <div>{t('tiers.ui.planning')}</div>
+                  <div>{t('tiers.ui.budget_team')}</div>
+                  <div className="text-right">{t('common.progress')}</div>
                 </div>
                 <div className="divide-y divide-border/50">
                   {projectList.map((project) => (
@@ -1341,20 +1301,20 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                             className="min-w-0 text-xs font-medium"
                           />
                           <span className={cn('rounded border px-1.5 py-0.5 text-[10px] font-medium', PROJECT_STATUS_CLASS[project.status] ?? PROJECT_STATUS_CLASS.draft)}>
-                            {PROJECT_STATUS_LABELS[project.status] ?? project.status}
+                            {t(`projets.status.${project.status}`, PROJECT_STATUS_LABELS[project.status] ?? project.status)}
                           </span>
                           <span className={cn('rounded border px-1.5 py-0.5 text-[10px] font-medium', PROJECT_PRIORITY_BADGE_CLASS[project.priority] ?? PROJECT_PRIORITY_BADGE_CLASS.low)}>
-                            Priorité {PROJECT_PRIORITY_LABELS[project.priority] ?? project.priority}
+                            {t('common.priority')} {t(`projets.priority.${project.priority}`, PROJECT_PRIORITY_LABELS[project.priority] ?? project.priority)}
                           </span>
                         </div>
                         {project.description && (
                           <p className="line-clamp-2 text-xs text-muted-foreground">{project.description}</p>
                         )}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                          {project.project_type && <span>Type: {project.project_type}</span>}
-                          {project.manager_name && <span>Chef: {project.manager_name}</span>}
-                          {project.parent_name && <span>Parent: {project.parent_name}</span>}
-                          {project.asset_name && <span>Asset: {project.asset_name}</span>}
+                          {project.project_type && <span>{t('common.type')}: {project.project_type}</span>}
+                          {project.manager_name && <span>{t('tiers.ui.manager')}: {project.manager_name}</span>}
+                          {project.parent_name && <span>{t('tiers.ui.parent')}: {project.parent_name}</span>}
+                          {project.asset_name && <span>{t('tiers.ui.asset')}: {project.asset_name}</span>}
                         </div>
                       </div>
 
@@ -1373,13 +1333,13 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Users size={12} />
-                          <span>{project.member_count ?? 0} membres - {project.task_count ?? 0} tâches</span>
+                          <span>{t('tiers.ui.project_people_tasks', { members: project.member_count ?? 0, tasks: project.task_count ?? 0 })}</span>
                         </div>
                       </div>
 
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                          <span className="@[720px]:hidden">Progression</span>
+                          <span className="@[720px]:hidden">{t('common.progress')}</span>
                           <span className="font-semibold tabular-nums text-foreground">{project.progress ?? 0}%</span>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-muted">
@@ -1396,12 +1356,12 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
 
               {(relatedProjects?.total ?? 0) > projectList.length && (
                 <p className="text-xs text-muted-foreground">
-                  {projectList.length} projets affichés sur {relatedProjects?.total}. Ouvrez le module Projets pour la liste complète.
+                  {t('tiers.ui.related_projects_more', { shown: projectList.length, total: relatedProjects?.total })}
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground/60 italic">{t('tiers.ui.no_related_projects', 'Aucun projet associe.')}</p>
+            <p className="text-xs text-muted-foreground/60 italic">{t('tiers.ui.no_related_projects')}</p>
           )}
         </FormSection>
       </PanelContentLayout>
@@ -1692,7 +1652,7 @@ export function TiersPage() {
     },
     {
       id: 'phone',
-      label: t('common.phone', 'Telephone'),
+      label: t('common.phone'),
       type: 'text',
       operators: ['contains'],
     },
@@ -1815,7 +1775,7 @@ export function TiersPage() {
               setPage(1)
             }}
             className="inline-flex h-5 items-center gap-1 rounded border border-primary/20 bg-primary/5 px-1.5 text-[10px] font-semibold text-primary hover:bg-primary/10"
-            title={`Voir les employes de ${row.original.name}`}
+            title={t('tiers.ui.view_company_employees', { name: row.original.name })}
           >
             <Users size={11} />
             {count}
@@ -1859,7 +1819,7 @@ export function TiersPage() {
         </span>
       ),
     },
-  ], [t, tierTypeLabels, legalFormLabels])
+  ], [t, tierTypeLabels, countryLabels, legalFormLabels])
 
   const contactColumns = useContactColumns()
 
@@ -1899,23 +1859,23 @@ export function TiersPage() {
     return [
       {
         id: 'archive',
-        label: 'Archiver la selection',
+        label: t('tiers.ui.archive_selected'),
         icon: Trash2,
         variant: 'danger',
         confirm: false,
         onAction: async (rows) => {
           const ok = await confirm({
-            title: 'Archiver les tiers selectionnes ?',
-            message: `${rows.length} tiers seront archives. Cette action les retire de la liste active.`,
-            confirmLabel: 'Archiver',
+            title: t('tiers.ui.archive_selected_confirm_title'),
+            message: t('tiers.ui.archive_selected_confirm_message', { count: rows.length }),
+            confirmLabel: t('common.archive'),
             variant: 'danger',
           })
           if (!ok) return
           try {
             await Promise.all(rows.map((row) => archiveSelectedTier.mutateAsync(row.id)))
             toast({
-              title: 'Selection archivee',
-              description: `${rows.length} tiers archive(s).`,
+              title: t('tiers.ui.archive_selected_success_title'),
+              description: t('tiers.ui.archive_selected_success_description', { count: rows.length }),
               variant: 'success',
             })
           } catch (err) {
@@ -1933,13 +1893,13 @@ export function TiersPage() {
   const getTierRowTooltip = useCallback((tier: Tier): string => {
     const parts = [
       `${tier.name} (${tier.code})`,
-      `Type: ${tier.type ? tierTypeLabels[tier.type] ?? tier.type : '--'}`,
-      `Pays: ${tier.country ? countryLabels[tier.country] ?? tier.country : '--'}`,
-      `Ville: ${tier.city || '--'}`,
-      `Secteur: ${tier.industry || '--'}`,
+      `${t('common.type')}: ${tier.type ? tierTypeLabels[tier.type] ?? tier.type : '--'}`,
+      `${t('common.country')}: ${tier.country ? countryLabels[tier.country] ?? tier.country : '--'}`,
+      `${t('common.city')}: ${tier.city || '--'}`,
+      `${t('tiers.ui.industry')}: ${tier.industry || '--'}`,
       `SIRET: ${tier.registration_number || '--'}`,
-      `Employes: ${tier.contact_count ?? 0}`,
-      `Statut: ${tier.active ? t('common.active') : t('common.archived')}${tier.is_blocked ? ' - bloque' : ''}`,
+      `${t('tiers.tab_contacts')}: ${tier.contact_count ?? 0}`,
+      `${t('common.status')}: ${tier.active ? t('common.active') : t('common.archived')}${tier.is_blocked ? ` - ${t('tiers.ui.blocked')}` : ''}`,
     ]
     return parts.join('\n')
   }, [t, tierTypeLabels, countryLabels])
@@ -1996,7 +1956,7 @@ export function TiersPage() {
               }}
               searchValue={search}
               onSearchChange={setSearch}
-              searchPlaceholder="Recherche libre : code, nom, alias, SIRET..."
+              searchPlaceholder={t('tiers.ui.company_search_placeholder')}
               filters={tierFilters}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
@@ -2026,7 +1986,7 @@ export function TiersPage() {
               }}
               searchValue={search}
               onSearchChange={setSearch}
-              searchPlaceholder="Recherche libre : nom, prénom, société, email, téléphone, poste..."
+              searchPlaceholder={t('tiers.ui.contact_search_placeholder')}
               filters={contactFilters}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}

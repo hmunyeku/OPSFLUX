@@ -180,10 +180,10 @@ export function ContactListSection({
         <>
         <div className="grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground @[520px]:grid-cols-4">
           {[
-            { label: 'Contacts', value: contacts.length, icon: Users },
-            { label: 'Référents', value: contactStats.primary, icon: Star },
-            { label: 'Liés', value: contactStats.linked, icon: User },
-            { label: 'Départements', value: contactStats.departments, icon: Building2 },
+            { label: t('tiers.contacts'), value: contacts.length, icon: Users },
+            { label: t('tiers.ui.primary_contacts'), value: contactStats.primary, icon: Star },
+            { label: t('tiers.ui.linked_contacts'), value: contactStats.linked, icon: User },
+            { label: t('tiers.ui.departments'), value: contactStats.departments, icon: Building2 },
           ].map(({ label, value, icon: Icon }) => (
             <div key={label} className="flex h-7 min-w-0 items-center gap-1.5 rounded border border-border/60 bg-background px-1.5">
               <Icon size={10} className="text-muted-foreground" />
@@ -527,9 +527,9 @@ export function ContactDetailPanel({
         activeId={contactTab}
         onTabChange={(id) => setContactTab(id as typeof contactTab)}
         items={[
-          { id: 'fiche', label: 'Fiche', icon: User },
+          { id: 'fiche', label: t('tiers.ui.tab_fiche'), icon: User },
           { id: 'conformite', label: t('nav.conformite', 'Conformité'), icon: Shield },
-          { id: 'documents', label: 'Documents', icon: Paperclip },
+          { id: 'documents', label: t('common.documents'), icon: Paperclip },
         ]}
       />
 
@@ -758,7 +758,7 @@ export function useContactColumns() {
     },
     {
       accessorKey: 'phone',
-      header: t('common.phone', 'Telephone'),
+      header: t('common.phone'),
       size: 120,
       cell: ({ row }) => (
         <span className="font-mono text-[10px] text-muted-foreground">

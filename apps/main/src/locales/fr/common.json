@@ -7173,9 +7173,22 @@
       "add": "Ajouter une note ou un commentaire...",
       "empty": "Aucune note",
       "empty_description": "Aucune note pour le moment.",
+      "added": "Note ajoutée",
+      "updated": "Note modifiée",
+      "deleted": "Note supprimée",
       "error_add": "Impossible d'ajouter la note.",
       "error_edit": "Impossible de modifier la note.",
-      "error_delete": "Impossible de supprimer la note."
+      "error_delete": "Impossible de supprimer la note.",
+      "private": "Privé",
+      "visible_public": "Visible par tous",
+      "visible_private": "Visible par vous seul",
+      "save": "Enregistrer la note",
+      "save_disabled": "Saisissez une note avant d'enregistrer",
+      "save_shortcut": "Ctrl+Entrée pour enregistrer",
+      "pinned": "Épinglé",
+      "pin": "Épingler",
+      "unpin": "Désépingler",
+      "modified_at": "modifié {{date}}"
     },
     "tags": {
       "title": "Tags",

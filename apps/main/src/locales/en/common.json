@@ -6867,9 +6867,22 @@
       "add": "Add a note or comment...",
       "empty": "No notes",
       "empty_description": "No notes yet.",
+      "added": "Note added",
+      "updated": "Note updated",
+      "deleted": "Note deleted",
       "error_add": "Could not add the note.",
       "error_edit": "Could not edit the note.",
-      "error_delete": "Could not delete the note."
+      "error_delete": "Could not delete the note.",
+      "private": "Private",
+      "visible_public": "Visible to everyone",
+      "visible_private": "Visible only to you",
+      "save": "Save note",
+      "save_disabled": "Enter a note before saving",
+      "save_shortcut": "Ctrl+Enter to save",
+      "pinned": "Pinned",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "modified_at": "edited {{date}}"
     },
     "tags": {
       "title": "Tags",

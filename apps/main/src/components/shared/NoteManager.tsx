@@ -24,9 +24,9 @@ import { RichTextDisplay, RichTextField } from '@/components/shared/RichTextFiel
 import { cn } from '@/lib/utils'
 import type { Note } from '@/types/api'
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string, locale: string) {
   const d = new Date(dateStr)
-  return d.toLocaleDateString('fr-FR', {
+  return d.toLocaleDateString(locale || undefined, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -63,7 +63,7 @@ interface NoteManagerProps {
 }
 
 export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: NoteManagerProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { toast } = useToast()
   const userId = useAuthStore((s) => s.user?.id)
   const { data, isLoading } = useNotes(ownerType, ownerId)
@@ -89,11 +89,11 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
         visibility,
       })
       setContent('')
-      toast({ title: 'Note ajoutée', variant: 'success' })
+      toast({ title: t('shared.notes.added'), variant: 'success' })
     } catch {
-      toast({ title: t('common.error'), description: 'Impossible d\'ajouter la note.', variant: 'error' })
+      toast({ title: t('common.error'), description: t('shared.notes.error_add'), variant: 'error' })
     }
-  }, [ownerId, ownerType, content, visibility, createNote, toast])
+  }, [ownerId, ownerType, content, visibility, createNote, toast, t])
 
   const handleUpdate = useCallback(async (id: string) => {
     if (isBlankRichText(editContent)) return
@@ -101,11 +101,11 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
       await updateNote.mutateAsync({ id, payload: { content: editContent } })
       setEditingId(null)
       setEditContent('')
-      toast({ title: 'Note modifiée', variant: 'success' })
+      toast({ title: t('shared.notes.updated'), variant: 'success' })
     } catch {
-      toast({ title: t('common.error'), description: 'Impossible de modifier la note.', variant: 'error' })
+      toast({ title: t('common.error'), description: t('shared.notes.error_edit'), variant: 'error' })
     }
-  }, [editContent, updateNote, toast])
+  }, [editContent, updateNote, toast, t])
 
   const handleTogglePin = useCallback(async (note: Note) => {
     try {
@@ -119,11 +119,11 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
     try {
       await deleteNote.mutateAsync(id)
       setConfirmDeleteId(null)
-      toast({ title: 'Note supprimée', variant: 'success' })
+      toast({ title: t('shared.notes.deleted'), variant: 'success' })
     } catch {
-      toast({ title: t('common.error'), description: 'Impossible de supprimer la note.', variant: 'error' })
+      toast({ title: t('common.error'), description: t('shared.notes.error_delete'), variant: 'error' })
     }
-  }, [deleteNote, toast])
+  }, [deleteNote, toast, t])
 
   if (!ownerId) return null
 
@@ -151,14 +151,14 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
             <button
               onClick={() => setVisibility(visibility === 'public' ? 'private' : 'public')}
               className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/50 bg-background/60 px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
-              title={visibility === 'public' ? 'Visible par tous' : 'Visible par vous seul'}
+              title={visibility === 'public' ? t('shared.notes.visible_public') : t('shared.notes.visible_private')}
               type="button"
             >
               {visibility === 'public' ? <Globe size={10} /> : <Lock size={10} />}
-              {visibility === 'public' ? 'Public' : 'Privé'}
+              {visibility === 'public' ? t('common.public') : t('shared.notes.private')}
             </button>
             <span className="hidden text-[10px] text-muted-foreground/60 sm:inline">
-              Ctrl+Enter pour enregistrer
+              {t('shared.notes.save_shortcut')}
             </span>
           </div>
           <button
@@ -170,7 +170,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                 ? 'h-7 w-7 border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
                 : 'h-8 gap-1.5 bg-primary px-2.5 text-primary-foreground hover:bg-primary/90',
             )}
-            title={isBlankRichText(content) ? "Saisissez une note avant d'enregistrer" : 'Enregistrer la note'}
+            title={isBlankRichText(content) ? t('shared.notes.save_disabled') : t('shared.notes.save')}
             type="button"
           >
             {createNote.isPending ? (
@@ -178,7 +178,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
             ) : (
               <>
                 <Send size={12} />
-                {!compact && <span>Enregistrer</span>}
+                {!compact && <span>{t('common.save')}</span>}
               </>
             )}
           </button>
@@ -217,14 +217,14 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
               />
               <div className="flex items-center justify-end gap-2 border-t border-border/40 px-3 py-2">
                 <button onClick={() => setEditingId(null)} className="btn-sm btn-secondary">
-                  Annuler
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={() => handleUpdate(note.id)}
                   disabled={isBlankRichText(editContent) || updateNote.isPending}
                   className="btn-sm btn-primary"
                 >
-                  {updateNote.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
+                  {updateNote.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.save')}
                 </button>
               </div>
             </div>
@@ -245,21 +245,21 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                   {/* Header: author + time + badges */}
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-semibold text-foreground">
-                      {note.author_name || 'Utilisateur'}
+                      {note.author_name || t('common.user')}
                     </span>
                     <span className="text-[10px] text-muted-foreground">
-                      {formatDate(note.created_at)}
+                      {formatDate(note.created_at, i18n.language)}
                     </span>
                     {note.visibility === 'private' && (
                       <span className="chip flex items-center gap-0.5">
                         <Lock size={8} />
-                        Privé
+                        {t('shared.notes.private')}
                       </span>
                     )}
                     {note.pinned && (
                       <span className="chip chip-info flex items-center gap-0.5">
                         <Pin size={8} />
-                        Épinglé
+                        {t('shared.notes.pinned')}
                       </span>
                     )}
                   </div>
@@ -267,7 +267,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                   <RichTextDisplay value={note.content} className="text-foreground" empty="" />
                   {note.updated_at !== note.created_at && (
                     <span className="text-[10px] text-muted-foreground/60 mt-1 block">
-                      modifié {formatDate(note.updated_at)}
+                      {t('shared.notes.modified_at', { date: formatDate(note.updated_at, i18n.language) })}
                     </span>
                   )}
                 </div>
@@ -280,8 +280,8 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                     type="button"
                     className={noteActionClass}
                     onClick={() => handleTogglePin(note)}
-                    aria-label={note.pinned ? 'Désépingler' : 'Épingler'}
-                    title={note.pinned ? 'Désépingler' : 'Épingler'}
+                    aria-label={note.pinned ? t('shared.notes.unpin') : t('shared.notes.pin')}
+                    title={note.pinned ? t('shared.notes.unpin') : t('shared.notes.pin')}
                   >
                     <Pin size={13} className={note.pinned ? 'text-primary' : ''} />
                   </button>
@@ -289,8 +289,8 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                     type="button"
                     className={noteActionClass}
                     onClick={() => { setEditingId(note.id); setEditContent(note.content) }}
-                    aria-label="Modifier"
-                    title="Modifier"
+                    aria-label={t('common.edit')}
+                    title={t('common.edit')}
                   >
                     <Pencil size={13} />
                   </button>
@@ -300,8 +300,8 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                         type="button"
                         className={noteDangerActionClass}
                         onClick={() => handleDelete(note.id)}
-                        title="Confirmer la suppression"
-                        aria-label="Confirmer la suppression"
+                        title={t('common.confirm_delete')}
+                        aria-label={t('common.confirm_delete')}
                       >
                         <Check size={13} />
                       </button>
@@ -309,8 +309,8 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                         type="button"
                         className={noteActionClass}
                         onClick={() => setConfirmDeleteId(null)}
-                        title="Annuler"
-                        aria-label="Annuler"
+                        title={t('common.cancel')}
+                        aria-label={t('common.cancel')}
                       >
                         <X size={13} />
                       </button>
@@ -320,8 +320,8 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
                       type="button"
                       className={noteDangerActionClass}
                       onClick={() => setConfirmDeleteId(note.id)}
-                      aria-label="Supprimer"
-                      title="Supprimer"
+                      aria-label={t('common.delete')}
+                      title={t('common.delete')}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -341,7 +341,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
             <span>{t('shared.notes.empty_description')}</span>
           </div>
         ) : (
-          <EmptyState icon={MessageSquare} title="Aucune note" description={t('shared.notes.empty_description')} size="compact" />
+          <EmptyState icon={MessageSquare} title={t('shared.notes.empty')} description={t('shared.notes.empty_description')} size="compact" />
         )
       )}
     </div>

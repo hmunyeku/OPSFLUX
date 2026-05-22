@@ -39,7 +39,7 @@ type DraftTemplate = {
   themes: DraftTheme[]
 }
 
-const inputClass = 'h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/40'
+const inputClass = 'h-8 w-full rounded-md border border-border bg-background px-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/40'
 const smallInputClass = 'h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/40'
 
 function createQuestion(): DraftQuestion {
@@ -240,7 +240,7 @@ export function AuditTemplatesTab() {
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
+              className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
             >
               <Plus size={14} />
               {t('conformite.audit_templates.create')}
@@ -303,7 +303,7 @@ export function AuditTemplatesTab() {
       <Dialog.Root open={open} onOpenChange={(next) => { if (!next) resetAndClose(); else setOpen(true) }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[var(--z-modal)] bg-black/50 backdrop-blur-sm" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] flex max-h-[90vh] w-[min(96vw,58rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] flex max-h-[90vh] w-[min(96vw,64rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl">
             <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
               <div className="min-w-0">
                 <Dialog.Title className="truncate text-sm font-semibold text-foreground">
@@ -320,97 +320,112 @@ export function AuditTemplatesTab() {
               </Dialog.Close>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-auto p-4">
-              <div className="grid gap-3 md:grid-cols-4">
-                <Field label={t('conformite.audit_templates.fields.code')}>
+            <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
+              <div className="grid gap-2 sm:grid-cols-6">
+                <Field label={t('conformite.audit_templates.fields.code')} className="sm:col-span-2 lg:col-span-1">
                   <input value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} className={inputClass} placeholder="AUD-HSE" />
                 </Field>
-                <Field label={t('conformite.audit_templates.fields.name')} className="md:col-span-2">
+                <Field label={t('conformite.audit_templates.fields.name')} className="sm:col-span-4 lg:col-span-2">
                   <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className={inputClass} placeholder={t('conformite.audit_templates.placeholders.name')} />
                 </Field>
-                <Field label={t('conformite.audit_templates.fields.audit_type')}>
+                <Field label={t('conformite.audit_templates.fields.audit_type')} className="sm:col-span-2 lg:col-span-1">
                   <select value={draft.audit_type} onChange={(e) => setDraft({ ...draft, audit_type: e.target.value })} className={inputClass}>
                     <option value="Administratif">{t('conformite.audit_templates.types.administrative')}</option>
                     <option value="HSE">{t('conformite.audit_templates.types.hse')}</option>
                     <option value="Metier">{t('conformite.audit_templates.types.business')}</option>
                   </select>
                 </Field>
-                <Field label={t('conformite.audit_templates.fields.passing_score')}>
+                <Field label={t('conformite.audit_templates.fields.passing_score')} className="sm:col-span-2 lg:col-span-1">
                   <input type="number" min={0} max={100} value={draft.passing_score} onChange={(e) => setDraft({ ...draft, passing_score: Number(e.target.value) })} className={inputClass} />
                 </Field>
-                <Field label={t('conformite.audit_templates.fields.validity_days')}>
+                <Field label={t('conformite.audit_templates.fields.validity_days')} className="sm:col-span-2 lg:col-span-1">
                   <input type="number" min={1} value={draft.validity_days} onChange={(e) => setDraft({ ...draft, validity_days: e.target.value })} className={inputClass} placeholder="365" />
                 </Field>
-                <Field label={t('conformite.audit_templates.fields.description')} className="md:col-span-2">
+                <Field label={t('conformite.audit_templates.fields.description')} className="sm:col-span-6">
                   <input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} className={inputClass} placeholder={t('conformite.audit_templates.placeholders.description')} />
                 </Field>
               </div>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-3 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-xs font-semibold uppercase text-muted-foreground">{t('conformite.audit_templates.themes')}</h3>
-                  <button type="button" onClick={addTheme} className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs text-primary hover:bg-primary/10">
+                  <button type="button" onClick={addTheme} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 text-xs text-primary hover:bg-primary/10">
                     <Plus size={12} />
                     {t('conformite.audit_templates.add_theme')}
                   </button>
                 </div>
 
                 {draft.themes.map((theme, themeIndex) => (
-                  <div key={themeIndex} className="rounded-lg border border-border bg-background/40 p-3">
-                    <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_7rem_2rem]">
-                      <input
-                        value={theme.title}
-                        onChange={(e) => updateTheme(themeIndex, { title: e.target.value })}
-                        className={smallInputClass}
-                        placeholder={t('conformite.audit_templates.placeholders.theme')}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        value={theme.weight}
-                        onChange={(e) => updateTheme(themeIndex, { weight: Number(e.target.value) })}
-                        className={smallInputClass}
-                        title={t('conformite.audit_templates.fields.weight')}
-                      />
+                  <div key={themeIndex} className="rounded-lg border border-border bg-background/40">
+                    <div className="grid gap-2 border-b border-border/70 p-2 sm:grid-cols-[minmax(0,1fr)_6rem_2rem] sm:items-end">
+                      <Field label={t('conformite.audit_templates.theme_label', { count: themeIndex + 1 })}>
+                        <input
+                          value={theme.title}
+                          onChange={(e) => updateTheme(themeIndex, { title: e.target.value })}
+                          className={smallInputClass}
+                          placeholder={t('conformite.audit_templates.placeholders.theme')}
+                        />
+                      </Field>
+                      <Field label={t('conformite.audit_templates.fields.weight')}>
+                        <input
+                          type="number"
+                          min={0}
+                          value={theme.weight}
+                          onChange={(e) => updateTheme(themeIndex, { weight: Number(e.target.value) })}
+                          className={smallInputClass}
+                        />
+                      </Field>
                       <button type="button" onClick={() => removeTheme(themeIndex)} className="inline-flex h-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                         <Trash2 size={13} />
                       </button>
                     </div>
-                    <input
-                      value={theme.description}
-                      onChange={(e) => updateTheme(themeIndex, { description: e.target.value })}
-                      className={cn(smallInputClass, 'mt-2')}
-                      placeholder={t('conformite.audit_templates.placeholders.theme_description')}
-                    />
+                    <div className="p-2 pt-2">
+                      <input
+                        value={theme.description}
+                        onChange={(e) => updateTheme(themeIndex, { description: e.target.value })}
+                        className={smallInputClass}
+                        placeholder={t('conformite.audit_templates.placeholders.theme_description')}
+                      />
+                    </div>
 
-                    <div className="mt-3 space-y-2">
+                    <div className="space-y-2 p-2 pt-0">
                       {theme.questions.map((question, questionIndex) => (
-                        <div key={questionIndex} className="grid gap-2 rounded-md border border-border/70 p-2 md:grid-cols-[5rem_minmax(0,1fr)_8rem_5rem_7rem_7rem_2rem] md:items-center">
-                          <input value={question.code} onChange={(e) => updateQuestion(themeIndex, questionIndex, { code: e.target.value })} className={smallInputClass} placeholder={t('conformite.audit_templates.fields.code')} />
-                          <input value={question.text} onChange={(e) => updateQuestion(themeIndex, questionIndex, { text: e.target.value })} className={smallInputClass} placeholder={t('conformite.audit_templates.placeholders.question')} />
-                          <select value={question.response_type} onChange={(e) => updateQuestion(themeIndex, questionIndex, { response_type: e.target.value as DraftQuestion['response_type'] })} className={smallInputClass}>
-                            <option value="score">{t('conformite.audit_templates.response_types.score')}</option>
-                            <option value="yes_no">{t('conformite.audit_templates.response_types.yes_no')}</option>
-                            <option value="choice">{t('conformite.audit_templates.response_types.choice')}</option>
-                            <option value="text">{t('conformite.audit_templates.response_types.text')}</option>
-                          </select>
-                          <input type="number" min={0} value={question.weight} onChange={(e) => updateQuestion(themeIndex, questionIndex, { weight: Number(e.target.value) })} className={smallInputClass} title={t('conformite.audit_templates.fields.weight')} />
-                          <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <input type="checkbox" checked={question.required} onChange={(e) => updateQuestion(themeIndex, questionIndex, { required: e.target.checked })} />
-                            {t('conformite.audit_templates.fields.required')}
-                          </label>
-                          <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <input type="checkbox" checked={question.attachment_required} onChange={(e) => updateQuestion(themeIndex, questionIndex, { attachment_required: e.target.checked })} />
-                            {t('conformite.audit_templates.fields.evidence')}
-                          </label>
-                          <button type="button" onClick={() => removeQuestion(themeIndex, questionIndex)} className="inline-flex h-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                            <Trash2 size={13} />
-                          </button>
+                        <div key={questionIndex} className="rounded-md border border-border/70 bg-card/50 p-2">
+                          <div className="grid gap-2 sm:grid-cols-[4.5rem_minmax(0,1fr)_2rem] sm:items-end">
+                            <Field label={t('conformite.audit_templates.fields.code')}>
+                              <input value={question.code} onChange={(e) => updateQuestion(themeIndex, questionIndex, { code: e.target.value })} className={smallInputClass} placeholder="Q1" />
+                            </Field>
+                            <Field label={t('conformite.audit_templates.question_label', { count: questionIndex + 1 })}>
+                              <input value={question.text} onChange={(e) => updateQuestion(themeIndex, questionIndex, { text: e.target.value })} className={smallInputClass} placeholder={t('conformite.audit_templates.placeholders.question')} />
+                            </Field>
+                            <button type="button" onClick={() => removeQuestion(themeIndex, questionIndex)} className="inline-flex h-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-[8rem_5rem_1fr] sm:items-center">
+                            <select value={question.response_type} onChange={(e) => updateQuestion(themeIndex, questionIndex, { response_type: e.target.value as DraftQuestion['response_type'] })} className={smallInputClass}>
+                              <option value="score">{t('conformite.audit_templates.response_types.score')}</option>
+                              <option value="yes_no">{t('conformite.audit_templates.response_types.yes_no')}</option>
+                              <option value="choice">{t('conformite.audit_templates.response_types.choice')}</option>
+                              <option value="text">{t('conformite.audit_templates.response_types.text')}</option>
+                            </select>
+                            <input type="number" min={0} value={question.weight} onChange={(e) => updateQuestion(themeIndex, questionIndex, { weight: Number(e.target.value) })} className={smallInputClass} title={t('conformite.audit_templates.fields.weight')} />
+                            <div className="flex flex-wrap items-center gap-3">
+                              <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <input type="checkbox" checked={question.required} onChange={(e) => updateQuestion(themeIndex, questionIndex, { required: e.target.checked })} />
+                                {t('conformite.audit_templates.fields.required')}
+                              </label>
+                              <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <input type="checkbox" checked={question.attachment_required} onChange={(e) => updateQuestion(themeIndex, questionIndex, { attachment_required: e.target.checked })} />
+                                {t('conformite.audit_templates.fields.evidence')}
+                              </label>
+                            </div>
+                          </div>
                           {question.response_type === 'choice' && (
                             <input
                               value={question.options}
                               onChange={(e) => updateQuestion(themeIndex, questionIndex, { options: e.target.value })}
-                              className={cn(smallInputClass, 'md:col-span-7')}
+                              className={cn(smallInputClass, 'mt-2')}
                               placeholder={t('conformite.audit_templates.placeholders.options')}
                             />
                           )}

@@ -196,7 +196,7 @@ export function ContactListSection({
     if (Object.keys(errors).length > 0) {
       const firstError = Object.values(errors)[0]
       toast({
-        title: 'Formulaire incomplet',
+        title: t('tiers.ui.incomplete_form'),
         description: firstError,
         variant: 'error',
       })
@@ -348,11 +348,11 @@ export function ContactListSection({
       {visible.length > 0 && (
         <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/60 bg-background">
           <div className="hidden grid-cols-[minmax(160px,1.05fr)_minmax(135px,0.9fr)_minmax(170px,1fr)_minmax(120px,0.7fr)_84px] gap-2 border-b border-border/50 bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground @5xl:grid">
-            <div>Contact</div>
-            <div>Fonction</div>
-            <div>Email</div>
-            <div>Téléphone</div>
-            <div className="text-right">Statut</div>
+            <div>{t('common.contact')}</div>
+            <div>{t('tiers.ui.contact_function')}</div>
+            <div>{t('common.email')}</div>
+            <div>{t('common.phone')}</div>
+            <div className="text-right">{t('common.status')}</div>
           </div>
           <div className="divide-y divide-border/50">
           {visible.map((contact) => (
@@ -389,8 +389,8 @@ export function ContactListSection({
                     {contact.is_primary && <Star size={10} className="shrink-0 fill-primary text-primary" />}
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-1">
-                    {contact.is_primary && <span className="rounded border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">Référent</span>}
-                    {!contact.active && <span className="rounded border border-border/60 bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Inactif</span>}
+                    {contact.is_primary && <span className="rounded border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">{t('tiers.ui.reference_contact')}</span>}
+                    {!contact.active && <span className="rounded border border-border/60 bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{t('common.inactive')}</span>}
                   </div>
                 </div>
               </div>
@@ -403,18 +403,18 @@ export function ContactListSection({
                 </div>
                 <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
                   <Building2 size={11} className="shrink-0" />
-                  <span className="truncate">{contact.department || 'Non renseigné'}</span>
+                  <span className="truncate">{contact.department || t('tiers.ui.not_provided')}</span>
                 </div>
               </div>
 
               <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
                 <Mail size={11} className="shrink-0" />
-                <span className="truncate">{contact.email || contact.linked_user_email || 'Email absent'}</span>
+                <span className="truncate">{contact.email || contact.linked_user_email || t('tiers.ui.email_missing')}</span>
               </div>
 
               <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
                 <Phone size={11} className="shrink-0" />
-                <span className="truncate">{contact.phone || 'Téléphone absent'}</span>
+                <span className="truncate">{contact.phone || t('tiers.ui.phone_missing')}</span>
               </div>
 
               <div className="flex min-w-0 items-center justify-between gap-2 @5xl:justify-end">
@@ -424,7 +424,7 @@ export function ContactListSection({
                     ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
                     : 'border-border/60 bg-muted text-muted-foreground',
                 )}>
-                  {contact.linked_user_id ? 'Utilisateur' : 'Contact'}
+                  {contact.linked_user_id ? t('common.user') : t('common.contact')}
                 </span>
                 <ChevronDown size={12} className="-rotate-90 shrink-0 text-muted-foreground/40" />
               </div>

@@ -1323,7 +1323,9 @@
       "promote_to_external_user": "Promouvoir en utilisateur externe",
       "promote_hint": "Ce contact peut recevoir un compte externe limité à son entreprise.",
       "promote_missing_email": "Ajoutez d'abord un email principal au contact pour pouvoir le promouvoir.",
+      "incomplete_form": "Formulaire incomplet",
       "primary_contact": "Responsable",
+      "reference_contact": "Référent",
       "primary_contact_set": "Responsable défini",
       "set_primary_contact": "Définir comme responsable",
       "contact_updated": "Employé mis à jour",
@@ -1341,6 +1343,10 @@
       "no_contacts_description": "Ajoutez les employés de cette entreprise",
       "no_contact_results": "Aucun résultat pour \"{{search}}\"",
       "show_more_contacts": "Afficher plus ({{count}} restant)",
+      "contact_function": "Fonction",
+      "not_provided": "Non renseigné",
+      "email_missing": "Email absent",
+      "phone_missing": "Téléphone absent",
       "block_type": "Type de blocage",
       "block_purchasing": "Achats",
       "block_payment": "Paiements",
@@ -1402,8 +1408,8 @@
         "description": "Description libre..."
       },
       "blocking_section": "Blocage",
-      "contact_department": "Contact department",
-      "contact_position": "Contact position",
+      "contact_department": "Département du contact",
+      "contact_position": "Poste du contact",
       "no_related_projects": "Aucun projet lié"
     },
     "contact_form": {

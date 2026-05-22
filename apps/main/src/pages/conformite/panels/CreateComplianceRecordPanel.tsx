@@ -304,7 +304,11 @@ function CreateComplianceRecordInner() {
                   <option value={LEGACY_ISSUER_VALUE}>{form.issuer} ({t('conformite.records.legacy')})</option>
                 )}
               </select>
-              {authorizationCenters.length === 0 && !canUseRiseUpIssuer && (
+              {authorizationCenters.length === 0 && selectedComplianceType && !canUseRiseUpIssuer ? (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  {t('conformite.records.riseup_type_not_linked')}
+                </p>
+              ) : authorizationCenters.length === 0 && !canUseRiseUpIssuer && (
                 <p className="mt-1 text-[10px] text-muted-foreground">
                   {t('conformite.records.no_configured_issuer')}
                 </p>

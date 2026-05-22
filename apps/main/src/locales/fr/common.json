@@ -1786,6 +1786,7 @@
       "no_reference": "Sans référence",
       "issuer_missing": "Émetteur non renseigné",
       "no_configured_issuer": "Aucun émetteur configuré pour ce référentiel.",
+      "riseup_type_not_linked": "Ce type de référentiel n'est pas raccordé à RiseUp. Dans Conformité > Types, définissez la source sur Externe ou Mixte et le provider externe sur RiseUp.",
       "legacy": "historique",
       "proof_required_inline": "Pièce justificative obligatoire pour vérification et validation",
       "drop_required_proof_title": "Déposez la PJ obligatoire avant de créer le référentiel",

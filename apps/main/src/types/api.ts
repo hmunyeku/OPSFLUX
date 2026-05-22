@@ -1215,17 +1215,32 @@ export interface ComplianceAudit {
   created_at: string
   updated_at: string
   template?: ComplianceAuditTemplate | null
-  answers?: Array<{
-    id: string
-    audit_id: string
-    question_id: string
-    response_value: Record<string, unknown> | null
-    score: number | null
-    notes: string | null
-    answered_by: string | null
-    answered_at: string | null
-  }>
+  answers?: ComplianceAuditAnswer[]
   target_name?: string | null
+}
+
+export interface ComplianceAuditAnswer {
+  id: string
+  audit_id: string
+  question_id: string
+  response_value: Record<string, unknown> | null
+  score: number | null
+  notes: string | null
+  answered_by: string | null
+  answered_at: string | null
+  attachment_count?: number
+}
+
+export interface ComplianceAuditAnswerUpsert {
+  question_id: string
+  response_value?: Record<string, unknown> | null
+  score?: number | null
+  notes?: string | null
+}
+
+export interface ComplianceAuditSubmit {
+  validator_user_ids: string[]
+  comment?: string | null
 }
 
 export interface ComplianceAuditCreate {

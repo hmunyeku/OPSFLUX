@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
-import { ClipboardCheck, Plus, ShieldCheck } from 'lucide-react'
+import { ClipboardCheck, Eye, Plus, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useComplianceAudits, useComplianceAuditTemplates, useCreateComplianceAudit } from '@/hooks/useConformite'
 import { usePermission } from '@/hooks/usePermission'
 import { SearchableSelect } from '@/pages/conformite/components'
+import { ComplianceAuditDetailModal } from '@/components/shared/ComplianceAuditDetailModal'
 
 interface SupplierAuditManagerProps {
   tierId: string
@@ -17,6 +18,7 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
   const { data: templates = [] } = useComplianceAuditTemplates()
   const createAudit = useCreateComplianceAudit()
   const [templateId, setTemplateId] = useState('')
+  const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null)
 
   const templateOptions = useMemo(() => templates.map(template => ({
     value: template.id,
@@ -26,6 +28,7 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
 
   const canCreate = hasPermission('conformite.audit.create')
   const selectedTemplate = templates.find(template => template.id === templateId)
+  const selectedAudit = audits.find(audit => audit.id === selectedAuditId) ?? null
 
   const handleCreate = async () => {
     if (!templateId || createAudit.isPending) return
@@ -76,31 +79,50 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
 
       <div className="grid gap-2">
         {isLoading ? (
-          <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">{t('common.loading')}</div>
+          <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">{t('conformite.rules.audits.loading')}</div>
         ) : audits.length === 0 ? (
           <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
             {t('conformite.rules.audits.empty', 'Aucun audit tiers enregistré.')}
           </div>
-        ) : audits.map(audit => (
+        ) : audits.map(audit => {
+          const totalQuestions = audit.template?.themes?.reduce((sum, theme) => sum + (theme.questions?.length ?? 0), 0) ?? 0
+          const answered = audit.answers?.filter(answer => answer.score !== null || answer.response_value !== null).length ?? 0
+          return (
           <article key={audit.id} className="rounded-md border border-border bg-card/40 p-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold text-foreground">{audit.title}</div>
                 <div className="text-[11px] text-muted-foreground">{audit.reference} · {audit.template?.audit_type ?? audit.status}</div>
               </div>
-              <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-                <ShieldCheck size={12} />
-                {audit.score_percent ?? '—'}%
-              </span>
+              <div className="flex shrink-0 items-center gap-1">
+                <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                  <ShieldCheck size={12} />
+                  {audit.score_percent ?? '—'}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAuditId(audit.id)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                  title={t('conformite.rules.audits.details')}
+                >
+                  <Eye size={14} />
+                </button>
+              </div>
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-              <span>{t('common.status')}: <strong className="text-foreground">{audit.status}</strong></span>
+              <span>{t('conformite.rules.audits.status')}: <strong className="text-foreground">{audit.status}</strong></span>
+              <span>{answered}/{totalQuestions} {t('conformite.rules.audits.questions')}</span>
               {audit.valid_until && <span>{t('conformite.rules.audits.valid_until', 'Valide jusqu’au')}: {audit.valid_until}</span>}
               {audit.validation_moc_id && <span>{t('conformite.rules.audits.workflow', 'Workflow validation lié')}</span>}
             </div>
           </article>
-        ))}
+        )})}
       </div>
+      <ComplianceAuditDetailModal
+        audit={selectedAudit}
+        open={!!selectedAudit}
+        onClose={() => setSelectedAuditId(null)}
+      />
     </section>
   )
 }

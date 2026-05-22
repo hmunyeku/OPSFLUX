@@ -388,6 +388,12 @@ def _resolve_owner_model(owner_type: str):
     if owner_type == "moc":
         from app.models.moc import MOC
         return (MOC, True)
+    if owner_type == "compliance_audit":
+        from app.models.common import ComplianceAudit
+        return (ComplianceAudit, True)
+    if owner_type == "compliance_audit_answer":
+        from app.models.common import ComplianceAuditAnswer
+        return (ComplianceAuditAnswer, False)
     if owner_type == "delegation":
         from app.models.common import UserDelegation
         return (UserDelegation, True)
@@ -404,6 +410,23 @@ async def _assert_owner_row_exists(
     db: AsyncSession,
 ) -> None:
     """404 if the polymorphic owner row doesn't exist."""
+    if owner_type == "compliance_audit_answer":
+        from app.models.common import ComplianceAudit, ComplianceAuditAnswer
+
+        query = (
+            select(ComplianceAuditAnswer.id)
+            .join(ComplianceAudit, ComplianceAudit.id == ComplianceAuditAnswer.audit_id)
+            .where(ComplianceAuditAnswer.id == owner_id)
+        )
+        if entity_id is not None:
+            query = query.where(ComplianceAudit.entity_id == entity_id)
+        result = await db.execute(query.limit(1))
+        if result.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"{owner_type} not found",
+            )
+        return
     Model, entity_scoped = _resolve_owner_model(owner_type)
     if Model is None:
         return  # unmapped types: rely on permission check alone
@@ -428,6 +451,8 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     "compliance_type": ("conformite.type.read", "conformite.type.update"),
     "compliance_record": ("conformite.record.read", "conformite.record.update"),
     "compliance_exemption": ("conformite.exemption.read", "conformite.exemption.approve"),
+    "compliance_audit": ("conformite.audit.read", "conformite.audit.update"),
+    "compliance_audit_answer": ("conformite.audit.read", "conformite.audit.update"),
     "job_position": ("conformite.jobposition.read", "conformite.jobposition.update"),
     # User sub-models (medical, passports, etc.) — accessed via user permissions
     "medical_check": ("core.users.read", "core.users.manage"),

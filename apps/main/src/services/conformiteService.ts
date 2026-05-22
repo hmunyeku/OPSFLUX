@@ -9,7 +9,7 @@ import type {
   ComplianceRecord, ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceCheckResult,
   ComplianceExemption, ComplianceExemptionCreate, ComplianceExemptionUpdate,
-  ComplianceAudit, ComplianceAuditCreate, ComplianceAuditTemplate,
+  ComplianceAudit, ComplianceAuditAnswerUpsert, ComplianceAuditCreate, ComplianceAuditSubmit, ComplianceAuditTemplate,
   JobPosition, JobPositionCreate, JobPositionUpdate,
   TierContactTransfer, TierContactTransferCreate,
   PaginatedResponse, PaginationParams, Tier,
@@ -125,6 +125,16 @@ export const conformiteService = {
 
   createAudit: async (payload: ComplianceAuditCreate): Promise<ComplianceAudit> => {
     const { data } = await api.post('/api/v1/conformite/audits', payload)
+    return data
+  },
+
+  updateAuditAnswers: async (id: string, payload: ComplianceAuditAnswerUpsert[]): Promise<ComplianceAudit> => {
+    const { data } = await api.put(`/api/v1/conformite/audits/${id}/answers`, payload)
+    return data
+  },
+
+  submitAudit: async (id: string, payload: ComplianceAuditSubmit): Promise<ComplianceAudit> => {
+    const { data } = await api.post(`/api/v1/conformite/audits/${id}/submit`, payload)
     return data
   },
 

@@ -1889,6 +1889,7 @@ class ComplianceAuditAnswerRead(OpsFluxSchema):
     notes: str | None = None
     answered_by: UUID | None = None
     answered_at: datetime | None = None
+    attachment_count: int = 0
 
 
 class ComplianceAuditRead(OpsFluxSchema):

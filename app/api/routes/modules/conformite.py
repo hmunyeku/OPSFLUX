@@ -73,6 +73,36 @@ async def _enrich_audit_target(db: AsyncSession, audit: ComplianceAudit) -> Comp
     return audit
 
 
+async def _enrich_audit_answer_attachment_counts(
+    db: AsyncSession,
+    audits: list[ComplianceAudit],
+) -> None:
+    answer_ids = [
+        answer.id
+        for audit in audits
+        for answer in (audit.answers or [])
+        if answer.id is not None
+    ]
+    if not answer_ids:
+        return
+    rows = await db.execute(
+        select(
+            Attachment.owner_id,
+            sqla_func.count(Attachment.id).label("attachment_count"),
+        )
+        .where(
+            Attachment.owner_type == "compliance_audit_answer",
+            Attachment.owner_id.in_(answer_ids),
+            Attachment.archived == False,  # noqa: E712
+        )
+        .group_by(Attachment.owner_id)
+    )
+    counts = {owner_id: int(count) for owner_id, count in rows.all()}
+    for audit in audits:
+        for answer in (audit.answers or []):
+            setattr(answer, "attachment_count", counts.get(answer.id, 0))
+
+
 def _audit_read_options():
     return (
         selectinload(ComplianceAudit.template)
@@ -90,6 +120,7 @@ async def _load_audit_for_read(db: AsyncSession, audit_id: UUID, entity_id: UUID
     )
     audit = result.scalars().unique().one()
     await _enrich_audit_target(db, audit)
+    await _enrich_audit_answer_attachment_counts(db, [audit])
     return audit
 
 
@@ -1842,6 +1873,7 @@ async def list_compliance_audits(
     audits = list((await db.execute(query)).scalars().unique().all())
     for audit in audits:
         await _enrich_audit_target(db, audit)
+    await _enrich_audit_answer_attachment_counts(db, audits)
     return audits
 
 
@@ -1993,6 +2025,17 @@ async def submit_compliance_audit(
     missing = required_question_ids - answered_question_ids
     if missing:
         raise HTTPException(422, f"Audit has {len(missing)} required unanswered question(s)")
+    await _enrich_audit_answer_attachment_counts(db, [audit])
+    answer_by_question = {answer.question_id: answer for answer in audit.answers}
+    missing_proof = [
+        question.id
+        for theme in (audit.template.themes if audit.template else [])
+        for question in theme.questions
+        if question.attachment_required
+        and (answer_by_question.get(question.id) is None or getattr(answer_by_question[question.id], "attachment_count", 0) <= 0)
+    ]
+    if missing_proof:
+        raise HTTPException(422, f"Audit has {len(missing_proof)} required proof attachment(s) missing")
     validator_ids = await _resolve_audit_validator_ids(
         db,
         entity_id=entity_id,

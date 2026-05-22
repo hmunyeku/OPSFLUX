@@ -8,7 +8,7 @@ import type {
   ComplianceRuleCreate, ComplianceRuleUpdate,
   ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceExemptionCreate, ComplianceExemptionUpdate,
-  ComplianceAuditCreate,
+  ComplianceAuditAnswerUpsert, ComplianceAuditCreate, ComplianceAuditSubmit,
   JobPositionCreate, JobPositionUpdate,
   TierContactTransferCreate,
   ComplianceAuthorizedCenterCreate, ComplianceAuthorizedCenterUpdate,
@@ -225,6 +225,27 @@ export function useCreateComplianceAudit() {
   return useMutation({
     mutationFn: (payload: ComplianceAuditCreate) => conformiteService.createAudit(payload),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-audits'] }) },
+  })
+}
+
+export function useUpdateComplianceAuditAnswers() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ComplianceAuditAnswerUpsert[] }) =>
+      conformiteService.updateAuditAnswers(id, payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-audits'] }) },
+  })
+}
+
+export function useSubmitComplianceAudit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ComplianceAuditSubmit }) =>
+      conformiteService.submitAudit(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['compliance-audits'] })
+      qc.invalidateQueries({ queryKey: ['mocs'] })
+    },
   })
 }
 

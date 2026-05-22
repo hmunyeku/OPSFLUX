@@ -1606,6 +1606,8 @@ class ComplianceTypeAuthorizedCenter(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("tiers.id", ondelete="CASCADE"), nullable=False
     )
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    accreditation_starts_at: Mapped[date | None] = mapped_column(Date)
+    accreditation_ends_at: Mapped[date | None] = mapped_column(Date)
     notes: Mapped[str | None] = mapped_column(Text)
 
     compliance_type: Mapped["ComplianceType"] = relationship(back_populates="authorized_centers")

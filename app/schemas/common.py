@@ -1545,18 +1545,36 @@ class ComplianceAuthorizedCenterRead(OpsFluxSchema):
     authorization_center_code: str | None = None
     certificate_verification_url: str | None = None
     active: bool
+    accreditation_starts_at: date | None = None
+    accreditation_ends_at: date | None = None
     notes: str | None = None
     created_at: datetime
 
 
 class ComplianceAuthorizedCenterCreate(BaseModel):
     tier_id: UUID
+    accreditation_starts_at: date | None = None
+    accreditation_ends_at: date | None = None
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_period(self):
+        if self.accreditation_starts_at and self.accreditation_ends_at and self.accreditation_starts_at > self.accreditation_ends_at:
+            raise ValueError("La date de debut d'accreditation doit etre avant la date de fin.")
+        return self
 
 
 class ComplianceAuthorizedCenterUpdate(BaseModel):
     active: bool | None = None
+    accreditation_starts_at: date | None = None
+    accreditation_ends_at: date | None = None
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_period(self):
+        if self.accreditation_starts_at and self.accreditation_ends_at and self.accreditation_starts_at > self.accreditation_ends_at:
+            raise ValueError("La date de debut d'accreditation doit etre avant la date de fin.")
+        return self
 
 
 class ComplianceRuleRead(OpsFluxSchema):

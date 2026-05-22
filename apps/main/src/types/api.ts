@@ -1041,17 +1041,23 @@ export interface ComplianceAuthorizedCenter {
   authorization_center_code: string | null
   certificate_verification_url: string | null
   active: boolean
+  accreditation_starts_at: string | null
+  accreditation_ends_at: string | null
   notes: string | null
   created_at: string
 }
 
 export interface ComplianceAuthorizedCenterCreate {
   tier_id: string
+  accreditation_starts_at?: string | null
+  accreditation_ends_at?: string | null
   notes?: string | null
 }
 
 export interface ComplianceAuthorizedCenterUpdate {
   active?: boolean | null
+  accreditation_starts_at?: string | null
+  accreditation_ends_at?: string | null
   notes?: string | null
 }
 

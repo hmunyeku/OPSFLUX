@@ -1,6 +1,6 @@
 """Conformite (compliance) module routes — types, rules, records."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -439,9 +439,25 @@ def _authorized_center_payload(link: ComplianceTypeAuthorizedCenter, tier: Tier)
         "authorization_center_code": tier.authorization_center_code,
         "certificate_verification_url": tier.certificate_verification_url,
         "active": link.active,
+        "accreditation_starts_at": link.accreditation_starts_at,
+        "accreditation_ends_at": link.accreditation_ends_at,
         "notes": link.notes,
         "created_at": link.created_at,
     }
+
+
+def _authorized_center_validity_filters(reference_date: date):
+    return (
+        ComplianceTypeAuthorizedCenter.active == True,
+        or_(
+            ComplianceTypeAuthorizedCenter.accreditation_starts_at == None,  # noqa: E711
+            ComplianceTypeAuthorizedCenter.accreditation_starts_at <= reference_date,
+        ),
+        or_(
+            ComplianceTypeAuthorizedCenter.accreditation_ends_at == None,  # noqa: E711
+            ComplianceTypeAuthorizedCenter.accreditation_ends_at >= reference_date,
+        ),
+    )
 
 
 async def _get_compliance_type_or_404(db: AsyncSession, type_id: UUID, entity_id: UUID) -> ComplianceType:
@@ -500,11 +516,11 @@ async def _validate_record_issuer(
                 ComplianceTypeAuthorizedCenter.entity_id == entity_id,
                 ComplianceTypeAuthorizedCenter.compliance_type_id == compliance_type_id,
                 ComplianceTypeAuthorizedCenter.tier_id == issuer_tier_id,
-                ComplianceTypeAuthorizedCenter.active == True,
+                *_authorized_center_validity_filters(datetime.now(timezone.utc).date()),
             )
         )
         if not allowed:
-            raise HTTPException(status_code=422, detail="Ce centre n'est pas habilite pour ce referentiel.")
+            raise HTTPException(status_code=422, detail="Ce centre n'est pas habilite ou son accreditation n'est pas valide pour ce referentiel.")
     return tier
 
 
@@ -654,7 +670,7 @@ async def list_authorization_centers(
                 ComplianceTypeAuthorizedCenter.tier_id == Tier.id,
                 ComplianceTypeAuthorizedCenter.compliance_type_id == compliance_type_id,
                 ComplianceTypeAuthorizedCenter.entity_id == entity_id,
-                ComplianceTypeAuthorizedCenter.active == True,
+                *_authorized_center_validity_filters(datetime.now(timezone.utc).date()),
             ),
         )
     if search:
@@ -725,12 +741,16 @@ async def add_type_authorized_center(
     if link:
         link.active = True
         link.notes = body.notes
+        link.accreditation_starts_at = body.accreditation_starts_at
+        link.accreditation_ends_at = body.accreditation_ends_at
     else:
         link = ComplianceTypeAuthorizedCenter(
             entity_id=entity_id,
             compliance_type_id=type_id,
             tier_id=body.tier_id,
             notes=body.notes,
+            accreditation_starts_at=body.accreditation_starts_at,
+            accreditation_ends_at=body.accreditation_ends_at,
             active=True,
         )
         db.add(link)
@@ -764,7 +784,12 @@ async def update_type_authorized_center(
     if not row:
         raise HTTPException(status_code=404, detail="Authorized center not found")
     link, tier = row
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    next_start = updates.get("accreditation_starts_at", link.accreditation_starts_at)
+    next_end = updates.get("accreditation_ends_at", link.accreditation_ends_at)
+    if next_start and next_end and next_start > next_end:
+        raise HTTPException(status_code=422, detail="La date de debut d'accreditation doit etre avant la date de fin.")
+    for field, value in updates.items():
         setattr(link, field, value)
     await db.commit()
     await db.refresh(link)

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ShieldCheck, Trash2, Loader2, Info, Paperclip, Building2, Plus, X } from 'lucide-react'
+import { ShieldCheck, Trash2, Loader2, Info, Paperclip, Building2, Plus, X, CalendarDays } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import {
   DynamicPanelShell,
@@ -37,6 +37,9 @@ export function TypeDetailPanel({ id }: { id: string }) {
   const [detailTab, setDetailTab] = useState<'fiche' | 'emetteurs' | 'documents'>('fiche')
   const [selectedCenterId, setSelectedCenterId] = useState('')
   const [centerNotes, setCenterNotes] = useState('')
+  const [centerStart, setCenterStart] = useState('')
+  const [centerEnd, setCenterEnd] = useState('')
+  const [expandedCenterId, setExpandedCenterId] = useState<string | null>(null)
   const { data: availableCenters } = useAuthorizationCenters({ page_size: 200 })
   const { data: authorizedCenters } = useTypeAuthorizedCenters(id)
   const addAuthorizedCenter = useAddTypeAuthorizedCenter()
@@ -70,12 +73,31 @@ export function TypeDetailPanel({ id }: { id: string }) {
     if (!selectedCenterId) return
     await addAuthorizedCenter.mutateAsync({
       typeId: id,
-      payload: { tier_id: selectedCenterId, notes: centerNotes.trim() || null },
+      payload: {
+        tier_id: selectedCenterId,
+        accreditation_starts_at: centerStart || null,
+        accreditation_ends_at: centerEnd || null,
+        notes: centerNotes.trim() || null,
+      },
     })
     setSelectedCenterId('')
     setCenterNotes('')
+    setCenterStart('')
+    setCenterEnd('')
     toast({ title: t('conformite.types_panel.center_added'), variant: 'success' })
-  }, [addAuthorizedCenter, centerNotes, id, selectedCenterId, toast, t])
+  }, [addAuthorizedCenter, centerEnd, centerNotes, centerStart, id, selectedCenterId, toast, t])
+
+  const formatAccreditationPeriod = useCallback((start?: string | null, end?: string | null) => {
+    if (!start && !end) return t('conformite.types_panel.accreditation_period_missing')
+    if (start && end) return t('conformite.types_panel.accreditation_period_range', { start, end })
+    if (start) return t('conformite.types_panel.accreditation_period_from', { start })
+    return t('conformite.types_panel.accreditation_period_until', { end })
+  }, [t])
+
+  const isCenterAccreditationCurrent = useCallback((start?: string | null, end?: string | null) => {
+    const today = new Date().toISOString().slice(0, 10)
+    return (!start || start <= today) && (!end || end >= today)
+  }, [])
 
   const actionItems = useMemo<ActionItem[]>(() => [
     {
@@ -170,7 +192,7 @@ export function TypeDetailPanel({ id }: { id: string }) {
         <PanelContentLayout>
           <FormSection title={t('conformite.types_panel.centers_title')}>
             <div className="@container space-y-3">
-              <div className="grid grid-cols-1 gap-2 @[640px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <div className="grid grid-cols-1 gap-2 @[760px]:grid-cols-[minmax(0,1.2fr)_minmax(120px,.6fr)_minmax(120px,.6fr)_minmax(0,1fr)_auto]">
                 <select
                   value={selectedCenterId}
                   onChange={(e) => setSelectedCenterId(e.target.value)}
@@ -183,6 +205,20 @@ export function TypeDetailPanel({ id }: { id: string }) {
                     </option>
                   ))}
                 </select>
+                <input
+                  type="date"
+                  value={centerStart}
+                  onChange={(e) => setCenterStart(e.target.value)}
+                  className={panelInputClass}
+                  aria-label={t('conformite.types_panel.accreditation_starts_at')}
+                />
+                <input
+                  type="date"
+                  value={centerEnd}
+                  onChange={(e) => setCenterEnd(e.target.value)}
+                  className={panelInputClass}
+                  aria-label={t('conformite.types_panel.accreditation_ends_at')}
+                />
                 <input
                   value={centerNotes}
                   onChange={(e) => setCenterNotes(e.target.value)}
@@ -203,24 +239,59 @@ export function TypeDetailPanel({ id }: { id: string }) {
               {authorizedCenters?.length ? (
                 <div className="divide-y divide-border overflow-hidden rounded-md border border-border bg-background">
                   {authorizedCenters.map((center) => (
-                    <div key={center.id} className={cn('grid gap-2 px-3 py-2 text-xs @[640px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] @[640px]:items-center', !center.active && 'opacity-60')}>
+                    <div key={center.id} className={cn('space-y-2 px-3 py-2 text-xs', !center.active && 'opacity-60')}>
+                      <div className="grid gap-2 @[760px]:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] @[760px]:items-center">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <Building2 size={12} className="text-muted-foreground shrink-0" />
                           <span className="truncate font-medium text-foreground">{center.tier_name}</span>
                           {!center.active && <span className="chip text-[10px]">{t('conformite.types_panel.inactive')}</span>}
+                          {center.active && !isCenterAccreditationCurrent(center.accreditation_starts_at, center.accreditation_ends_at) && (
+                              <span className="chip chip-danger text-[10px]">{t('conformite.types_panel.accreditation_not_current')}</span>
+                          )}
                         </div>
                         <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                           {center.tier_code || '—'}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
                         </div>
                       </div>
+                      <div className="min-w-0">
+                        <div className="mb-1 flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
+                          <CalendarDays size={11} />
+                          {t('conformite.types_panel.accreditation_period')}
+                        </div>
+                        <div className="grid grid-cols-2 gap-1">
+                          <input
+                            type="date"
+                            value={center.accreditation_starts_at || ''}
+                            onChange={(e) => updateAuthorizedCenter.mutate({ typeId: id, linkId: center.id, payload: { accreditation_starts_at: e.target.value || null } })}
+                            className={cn(panelInputClass, 'h-8 text-[11px]')}
+                            aria-label={t('conformite.types_panel.accreditation_starts_at')}
+                          />
+                          <input
+                            type="date"
+                            value={center.accreditation_ends_at || ''}
+                            onChange={(e) => updateAuthorizedCenter.mutate({ typeId: id, linkId: center.id, payload: { accreditation_ends_at: e.target.value || null } })}
+                            className={cn(panelInputClass, 'h-8 text-[11px]')}
+                            aria-label={t('conformite.types_panel.accreditation_ends_at')}
+                          />
+                        </div>
+                      </div>
                       <div className="min-w-0 text-[11px] text-muted-foreground">
                         <div className="truncate">{center.notes || t('conformite.types_panel.no_specific_condition')}</div>
+                        <div className="truncate">{formatAccreditationPeriod(center.accreditation_starts_at, center.accreditation_ends_at)}</div>
                         {center.certificate_verification_url && (
                           <div className="truncate text-primary">{center.certificate_verification_url}</div>
                         )}
                       </div>
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          className={cn('p-1 rounded hover:bg-muted text-muted-foreground', expandedCenterId === center.id && 'text-primary bg-primary/10')}
+                          title={t('conformite.types_panel.accreditation_proofs')}
+                          onClick={() => setExpandedCenterId(expandedCenterId === center.id ? null : center.id)}
+                        >
+                          <Paperclip size={12} />
+                        </button>
                         {!center.active && (
                           <button
                             type="button"
@@ -240,6 +311,12 @@ export function TypeDetailPanel({ id }: { id: string }) {
                           <X size={12} />
                         </button>
                       </div>
+                      </div>
+                      {expandedCenterId === center.id && (
+                        <div className="rounded-md border border-dashed border-border bg-muted/20 p-2">
+                          <AttachmentManager ownerType="compliance_authorized_center" ownerId={center.id} compact />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

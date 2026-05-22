@@ -20,9 +20,9 @@ import { useDictionaryOptions } from '@/hooks/useDictionary'
 import type { ContactEmail } from '@/types/api'
 
 const FALLBACK_EMAIL_LABELS = [
-  { value: 'professional', label: 'Professionnel' },
-  { value: 'personal', label: 'Personnel' },
-  { value: 'other', label: 'Autre' },
+  { value: 'professional', labelKey: 'shared.emails.labels.professional' },
+  { value: 'personal', labelKey: 'shared.emails.labels.personal' },
+  { value: 'other', labelKey: 'shared.emails.labels.other' },
 ]
 
 interface ContactEmailManagerProps {
@@ -40,7 +40,9 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
   const deleteEmail = useDeleteContactEmail()
   const sendVerification = useSendEmailVerification()
   const dictEmailLabels = useDictionaryOptions('email_label')
-  const EMAIL_LABELS = dictEmailLabels.length > 0 ? dictEmailLabels : FALLBACK_EMAIL_LABELS
+  const EMAIL_LABELS = dictEmailLabels.length > 0
+    ? dictEmailLabels
+    : FALLBACK_EMAIL_LABELS.map((item) => ({ value: item.value, label: t(item.labelKey) }))
 
   const [showForm, setShowForm] = useState(false)
   const [email, setEmail] = useState('')
@@ -62,30 +64,30 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
       })
       setEmail('')
       setShowForm(false)
-      toast({ title: 'Email ajouté', variant: 'success' })
+      toast({ title: t('shared.emails.added'), variant: 'success' })
     } catch {
       toast({ title: t('common.error'), variant: 'error' })
     }
-  }, [ownerId, ownerType, email, label, emails.length, createEmail, toast])
+  }, [ownerId, ownerType, email, label, emails.length, createEmail, toast, t])
 
   const handleDelete = useCallback(async (id: string) => {
     try {
       await deleteEmail.mutateAsync(id)
       setConfirmDeleteId(null)
-      toast({ title: 'Email supprimé', variant: 'success' })
+      toast({ title: t('shared.emails.deleted'), variant: 'success' })
     } catch {
       toast({ title: t('common.error'), variant: 'error' })
     }
-  }, [deleteEmail, toast])
+  }, [deleteEmail, toast, t])
 
   const handleSetDefault = useCallback(async (id: string) => {
     try {
       await updateEmail.mutateAsync({ id, payload: { is_default: true } })
-      toast({ title: 'Email par défaut défini', variant: 'success' })
+      toast({ title: t('shared.emails.default_set'), variant: 'success' })
     } catch {
       toast({ title: t('common.error'), variant: 'error' })
     }
-  }, [updateEmail, toast])
+  }, [updateEmail, toast, t])
 
   if (!ownerId) return null
 
@@ -115,7 +117,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                     try {
                       await updateEmail.mutateAsync({ id: ce.id, payload: updates })
                       setEditingId(null)
-                      toast({ title: 'Email modifié', variant: 'success' })
+                      toast({ title: t('shared.emails.updated'), variant: 'success' })
                     } catch {
                       toast({ title: t('common.error'), variant: 'error' })
                     }
@@ -161,7 +163,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                   </span>
                 ) : (
                   <button
-                    onClick={(e) => { e.stopPropagation(); sendVerification.mutate(ce.id, { onSuccess: () => toast({ title: 'Email de vérification envoyé', variant: 'success' }), onError: () => toast({ title: 'Erreur d\'envoi', variant: 'error' }) }) }}
+                    onClick={(e) => { e.stopPropagation(); sendVerification.mutate(ce.id, { onSuccess: () => toast({ title: t('shared.emails.verification_sent'), variant: 'success' }), onError: () => toast({ title: t('shared.emails.send_error'), variant: 'error' }) }) }}
                     className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 shrink-0"
                     title={t('shared.envoyer_un_email_de_verification')}
                     disabled={sendVerification.isPending}
@@ -184,14 +186,14 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                     <button
                       onClick={() => setConfirmDeleteId(ce.id)}
                       className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-destructive"
-                      title="Supprimer"
+                      title={t('common.delete')}
                     >
                       <X size={10} />
                     </button>
                   ) : (
                     <span className="flex items-center gap-0.5 text-[10px]">
-                      <button onClick={() => handleDelete(ce.id)} className="px-1 rounded bg-destructive/10 text-destructive hover:bg-destructive/20">Oui</button>
-                      <button onClick={() => setConfirmDeleteId(null)} className="px-1 rounded bg-accent text-muted-foreground hover:bg-accent/80">Non</button>
+                      <button onClick={() => handleDelete(ce.id)} className="px-1 rounded bg-destructive/10 text-destructive hover:bg-destructive/20">{t('common.yes')}</button>
+                      <button onClick={() => setConfirmDeleteId(null)} className="px-1 rounded bg-accent text-muted-foreground hover:bg-accent/80">{t('common.no')}</button>
                     </span>
                   )}
                 </div>
@@ -210,7 +212,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
           onClick={() => setShowForm(true)}
           className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
         >
-          <Plus size={12} /> Ajouter un email
+          <Plus size={12} /> {t('shared.emails.add')}
         </button>
       )}
 
@@ -229,9 +231,9 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
             {EMAIL_LABELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
           </select>
           <div className="flex items-center justify-end gap-2">
-            <button onClick={() => { setShowForm(false); setEmail('') }} className="btn-sm btn-secondary">Annuler</button>
+            <button onClick={() => { setShowForm(false); setEmail('') }} className="btn-sm btn-secondary">{t('common.cancel')}</button>
             <button onClick={handleCreate} disabled={!email.trim() || createEmail.isPending} className="btn-sm btn-primary">
-              {createEmail.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
+              {createEmail.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.add')}
             </button>
           </div>
         </div>

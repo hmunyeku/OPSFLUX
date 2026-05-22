@@ -7206,7 +7206,18 @@
       "title": "Emails",
       "add": "Ajouter un email",
       "empty": "Aucun email",
-      "empty_description": "Aucun email de contact."
+      "empty_description": "Aucun email de contact.",
+      "added": "Email ajouté",
+      "updated": "Email modifié",
+      "deleted": "Email supprimé",
+      "default_set": "Email par défaut défini",
+      "verification_sent": "Email de vérification envoyé",
+      "send_error": "Erreur d'envoi",
+      "labels": {
+        "professional": "Professionnel",
+        "personal": "Personnel",
+        "other": "Autre"
+      }
     },
     "addresses": {
       "title": "Adresses",

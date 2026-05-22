@@ -6900,7 +6900,18 @@
       "title": "Emails",
       "add": "Add email",
       "empty": "No email",
-      "empty_description": "No contact email."
+      "empty_description": "No contact email.",
+      "added": "Email added",
+      "updated": "Email updated",
+      "deleted": "Email deleted",
+      "default_set": "Default email set",
+      "verification_sent": "Verification email sent",
+      "send_error": "Send error",
+      "labels": {
+        "professional": "Professional",
+        "personal": "Personal",
+        "other": "Other"
+      }
     },
     "addresses": {
       "title": "Addresses",

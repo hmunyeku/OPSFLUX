@@ -2014,19 +2014,20 @@ async def check_compliance(
     dependencies=[require_permission("conformite.audit.template.read")],
 )
 async def list_audit_templates(
+    include_inactive: bool = False,
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
+    conditions = [ComplianceAuditTemplate.entity_id == entity_id]
+    if not include_inactive:
+        conditions.append(ComplianceAuditTemplate.active == True)  # noqa: E712
     result = await db.execute(
         select(ComplianceAuditTemplate)
         .options(
             selectinload(ComplianceAuditTemplate.themes)
             .selectinload(ComplianceAuditTheme.questions)
         )
-        .where(
-            ComplianceAuditTemplate.entity_id == entity_id,
-            ComplianceAuditTemplate.active == True,  # noqa: E712
-        )
+        .where(*conditions)
         .order_by(ComplianceAuditTemplate.audit_type, ComplianceAuditTemplate.code)
     )
     return result.scalars().unique().all()

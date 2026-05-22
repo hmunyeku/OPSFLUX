@@ -67,6 +67,7 @@ import { TransferDetailPanel } from './panels/TransferDetailPanel'
 import { VerificationsTab } from './tabs/VerificationsTab'
 import { RulesMatrixView } from './tabs/RulesTab'
 import { MatrixTab } from './tabs/MatrixTab'
+import { AuditTemplatesTab } from './tabs/AuditTemplatesTab'
 import { formatDate } from '@/lib/i18n'
 
 import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
@@ -311,6 +312,8 @@ export function ConformitePage() {
             storageKey="conformite-types"
           />
         )
+      case 'audit-templates':
+        return <AuditTemplatesTab />
       case 'enregistrements':
         return (
           <DataTable<ComplianceRecord>
@@ -431,6 +434,7 @@ export function ConformitePage() {
             if (tab.id === 'verifications') return canVerify
             if (tab.id === 'exemptions') return canCreateExemption || canApproveExemption || hasPermission('conformite.exemption.read')
             if (tab.id === 'referentiel') return hasPermission('conformite.type.read')
+            if (tab.id === 'audit-templates') return hasPermission('conformite.audit.template.read')
             if (tab.id === 'enregistrements') return hasPermission('conformite.record.read')
             if (tab.id === 'fiches') return hasPermission('conformite.job_position.read')
             if (tab.id === 'regles') return hasPermission('conformite.rule.read')

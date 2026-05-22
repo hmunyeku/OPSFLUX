@@ -1194,6 +1194,45 @@ export interface ComplianceAuditTemplate {
   themes: ComplianceAuditTheme[]
 }
 
+export interface ComplianceAuditQuestionCreate {
+  code?: string | null
+  text: string
+  response_type?: 'score' | 'yes_no' | 'choice' | 'text'
+  weight?: number
+  required?: boolean
+  attachment_required?: boolean
+  options_json?: Record<string, unknown> | null
+  position?: number
+}
+
+export interface ComplianceAuditThemeCreate {
+  title: string
+  description?: string | null
+  weight?: number
+  position?: number
+  questions?: ComplianceAuditQuestionCreate[]
+}
+
+export interface ComplianceAuditTemplateCreate {
+  code: string
+  name: string
+  audit_type: string
+  target_scope?: 'company'
+  description?: string | null
+  passing_score?: number
+  validity_days?: number | null
+  themes?: ComplianceAuditThemeCreate[]
+}
+
+export interface ComplianceAuditTemplateUpdate {
+  name?: string
+  audit_type?: string
+  description?: string | null
+  passing_score?: number
+  validity_days?: number | null
+  active?: boolean
+}
+
 export interface ComplianceAudit {
   id: string
   entity_id: string

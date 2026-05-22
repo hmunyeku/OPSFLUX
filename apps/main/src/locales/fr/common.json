@@ -1688,6 +1688,7 @@
     "tabs": {
       "dashboard": "Tableau de bord",
       "referentiel": "Référentiel",
+      "audit_templates": "Modèles d'audit",
       "enregistrements": "Enregistrements",
       "verifications": "Vérifications",
       "exemptions": "Exemptions",
@@ -1826,6 +1827,66 @@
         "general": "Général",
         "owner": "Propriétaire",
         "reference": "Référence"
+      }
+    },
+    "audit_templates": {
+      "title": "Modèles d'audit fournisseur",
+      "subtitle": "Configurez les grilles d'audit applicables aux entreprises: thèmes, pondérations, questions, preuves et seuil de validation.",
+      "create": "Nouveau modèle",
+      "create_title": "Configurer un modèle d'audit",
+      "save": "Enregistrer le modèle",
+      "created": "Modèle d'audit créé",
+      "create_error": "Impossible de créer le modèle d'audit",
+      "validation_error": "Renseignez au moins le code, le nom, le type, un thème et une question.",
+      "enabled": "Modèle activé",
+      "disabled": "Modèle désactivé",
+      "enable": "Activer",
+      "disable": "Désactiver",
+      "inactive": "Inactif",
+      "empty_title": "Aucun modèle d'audit configuré",
+      "empty_description": "Créez une grille d'audit avant de lancer des audits fournisseurs depuis les fiches entreprises.",
+      "theme_count": "thème(s)",
+      "question_count": "question(s)",
+      "passing_score_short": "Seuil {{score}}%",
+      "validity_days": "{{count}} j",
+      "validity_permanent": "Validité permanente",
+      "themes": "Thèmes et questions",
+      "add_theme": "Ajouter un thème",
+      "add_question": "Ajouter une question",
+      "metrics": {
+        "templates": "Modèles",
+        "themes": "Thèmes",
+        "questions": "Questions"
+      },
+      "fields": {
+        "audit_type": "Type d'audit",
+        "code": "Code",
+        "description": "Description",
+        "evidence": "Preuve",
+        "name": "Nom",
+        "passing_score": "Seuil (%)",
+        "required": "Requis",
+        "validity_days": "Validité (jours)",
+        "weight": "Poids"
+      },
+      "types": {
+        "administrative": "Administratif",
+        "business": "Métier",
+        "hse": "HSE"
+      },
+      "response_types": {
+        "choice": "Choix",
+        "score": "Score",
+        "text": "Texte",
+        "yes_no": "Oui / Non"
+      },
+      "placeholders": {
+        "description": "Objectif, périmètre ou règle de validité...",
+        "name": "Audit fournisseur HSE annuel",
+        "options": "Options séparées par des virgules",
+        "question": "Question ou point de contrôle...",
+        "theme": "Thème audité",
+        "theme_description": "Description du thème..."
       }
     },
     "types_panel": {

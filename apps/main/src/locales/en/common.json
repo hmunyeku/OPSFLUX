@@ -1592,6 +1592,7 @@
     "tabs": {
       "dashboard": "Dashboard",
       "referentiel": "Reference",
+      "audit_templates": "Audit templates",
       "enregistrements": "Records",
       "verifications": "Verifications",
       "exemptions": "Exemptions",
@@ -1693,6 +1694,66 @@
         "attachment_required": "Attachment required",
         "attachment_upload_failed": "Attachment upload failed",
         "missing_required": "Missing required"
+      }
+    },
+    "audit_templates": {
+      "title": "Supplier audit templates",
+      "subtitle": "Configure audit grids for companies: themes, weights, questions, evidence and approval threshold.",
+      "create": "New template",
+      "create_title": "Configure an audit template",
+      "save": "Save template",
+      "created": "Audit template created",
+      "create_error": "Unable to create audit template",
+      "validation_error": "Fill at least the code, name, type, one theme and one question.",
+      "enabled": "Template enabled",
+      "disabled": "Template disabled",
+      "enable": "Enable",
+      "disable": "Disable",
+      "inactive": "Inactive",
+      "empty_title": "No audit template configured",
+      "empty_description": "Create an audit grid before launching supplier audits from company records.",
+      "theme_count": "theme(s)",
+      "question_count": "question(s)",
+      "passing_score_short": "Threshold {{score}}%",
+      "validity_days": "{{count}} d",
+      "validity_permanent": "Permanent validity",
+      "themes": "Themes and questions",
+      "add_theme": "Add theme",
+      "add_question": "Add question",
+      "metrics": {
+        "templates": "Templates",
+        "themes": "Themes",
+        "questions": "Questions"
+      },
+      "fields": {
+        "audit_type": "Audit type",
+        "code": "Code",
+        "description": "Description",
+        "evidence": "Evidence",
+        "name": "Name",
+        "passing_score": "Threshold (%)",
+        "required": "Required",
+        "validity_days": "Validity (days)",
+        "weight": "Weight"
+      },
+      "types": {
+        "administrative": "Administrative",
+        "business": "Business",
+        "hse": "HSE"
+      },
+      "response_types": {
+        "choice": "Choice",
+        "score": "Score",
+        "text": "Text",
+        "yes_no": "Yes / No"
+      },
+      "placeholders": {
+        "description": "Objective, scope or validity rule...",
+        "name": "Annual HSE supplier audit",
+        "options": "Comma-separated options",
+        "question": "Question or control point...",
+        "theme": "Audited theme",
+        "theme_description": "Theme description..."
       }
     },
     "types_panel": {

@@ -9,6 +9,7 @@ import type {
   ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceExemptionCreate, ComplianceExemptionUpdate,
   ComplianceAuditAnswerUpsert, ComplianceAuditCreate, ComplianceAuditSubmit,
+  ComplianceAuditTemplateCreate, ComplianceAuditTemplateUpdate,
   JobPositionCreate, JobPositionUpdate,
   TierContactTransferCreate,
   ComplianceAuthorizedCenterCreate, ComplianceAuthorizedCenterUpdate,
@@ -206,10 +207,27 @@ export function useRuleHistory(ruleId?: string) {
 
 // ── Records ──
 
-export function useComplianceAuditTemplates() {
+export function useComplianceAuditTemplates(params: { include_inactive?: boolean } = {}) {
   return useQuery({
-    queryKey: ['compliance-audit-templates'],
-    queryFn: () => conformiteService.listAuditTemplates(),
+    queryKey: ['compliance-audit-templates', params],
+    queryFn: () => conformiteService.listAuditTemplates(params),
+  })
+}
+
+export function useCreateComplianceAuditTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ComplianceAuditTemplateCreate) => conformiteService.createAuditTemplate(payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-audit-templates'] }) },
+  })
+}
+
+export function useUpdateComplianceAuditTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ComplianceAuditTemplateUpdate }) =>
+      conformiteService.updateAuditTemplate(id, payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-audit-templates'] }) },
   })
 }
 
